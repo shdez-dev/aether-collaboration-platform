@@ -14,5 +14,6 @@
     "**/.next": true,
     "**/dist": true,
     "**/coverage": true
-  }
+  },
+  "prisma.pinToPrisma6": true
 }
