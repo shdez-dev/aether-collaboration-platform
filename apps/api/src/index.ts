@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import authRoutes from './routes/auth'; // ← Agrega esta línea
 
 dotenv.config();
 
@@ -18,10 +19,12 @@ const io = new Server(httpServer, {
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -32,12 +35,15 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.get('/api', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'AETHER API',
     version: '0.1.0',
-    docs: '/api/docs'
+    docs: '/api/docs',
   });
 });
+
+// Auth routes ← Agrega estas líneas
+app.use('/api/auth', authRoutes);
 
 // WebSocket connection handler
 io.on('connection', (socket) => {

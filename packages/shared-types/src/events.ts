@@ -1,6 +1,6 @@
 /**
  * Core Event System Types
- * 
+ *
  * Every operation in AETHER is modeled as an immutable event.
  * Events are the single source of truth for state changes.
  */
@@ -89,20 +89,12 @@ export type WorkspaceEventType =
 /**
  * Board Events
  */
-export type BoardEventType =
-  | 'board.created'
-  | 'board.updated'
-  | 'board.deleted'
-  | 'board.archived';
+export type BoardEventType = 'board.created' | 'board.updated' | 'board.deleted' | 'board.archived';
 
 /**
  * List Events
  */
-export type ListEventType =
-  | 'list.created'
-  | 'list.updated'
-  | 'list.deleted'
-  | 'list.reordered';
+export type ListEventType = 'list.created' | 'list.updated' | 'list.deleted' | 'list.reordered';
 
 /**
  * Card Events
@@ -254,6 +246,40 @@ export interface UserOnlinePayload {
 export type UserOnlineEvent = BaseEvent<'presence.user.online', UserOnlinePayload>;
 
 // ============================================================================
+// AUTH EVENT PAYLOADS
+// ============================================================================
+
+/**
+ * User Registered Event
+ */
+export interface UserRegisteredPayload {
+  userId: UserId;
+  email: string;
+  name: string;
+}
+
+export type UserRegisteredEvent = BaseEvent<'auth.user.registered', UserRegisteredPayload>;
+
+/**
+ * User Logged In Event
+ */
+export interface UserLoggedInPayload {
+  userId: UserId;
+  email: string;
+}
+
+export type UserLoggedInEvent = BaseEvent<'auth.user.loggedIn', UserLoggedInPayload>;
+
+/**
+ * User Logged Out Event
+ */
+export interface UserLoggedOutPayload {
+  userId: UserId;
+}
+
+export type UserLoggedOutEvent = BaseEvent<'auth.user.loggedOut', UserLoggedOutPayload>;
+
+// ============================================================================
 // EVENT UNION TYPES
 // ============================================================================
 
@@ -268,7 +294,9 @@ export type Event =
   | BoardCreatedEvent
   | ListCreatedEvent
   | UserOnlineEvent
-  // Add more as we build them
+  | UserRegisteredEvent
+  | UserLoggedInEvent
+  | UserLoggedOutEvent
   | BaseEvent<EventType, unknown>;
 
 // ============================================================================
