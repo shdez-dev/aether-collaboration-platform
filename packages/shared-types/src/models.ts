@@ -1,6 +1,6 @@
 /**
  * Domain Models
- * 
+ *
  * These are the read models (projections) built from events.
  * The database stores these, but events are the source of truth.
  */
@@ -18,7 +18,7 @@ import type {
 } from './events';
 
 // ============================================================================
-// ENUMS
+// ENUMS & TYPES
 // ============================================================================
 
 export enum UserRole {
@@ -27,6 +27,11 @@ export enum UserRole {
   MEMBER = 'MEMBER',
   VIEWER = 'VIEWER',
 }
+
+/**
+ * Workspace Role Type (para usar en lugar del enum cuando sea necesario)
+ */
+export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
 
 export enum CardPriority {
   LOW = 'LOW',
@@ -74,11 +79,22 @@ export interface Workspace {
   updatedAt: Date;
 }
 
+/**
+ * Workspace Membership
+ * Relaciona un usuario con un workspace y su rol
+ */
 export interface WorkspaceMembership {
+  id: string;
   workspaceId: WorkspaceId;
   userId: UserId;
-  role: UserRole;
+  role: WorkspaceRole;
   joinedAt: Date;
+  user?: {
+    id: UserId;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
 }
 
 export interface WorkspaceWithMembers extends Workspace {

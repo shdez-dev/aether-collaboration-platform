@@ -1,3 +1,5 @@
+// apps/api/src/controllers/AuthController.ts
+
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
@@ -220,10 +222,8 @@ export class AuthController {
    */
   async logout(req: Request, res: Response) {
     try {
-      // En implementación simple, solo emitimos evento
-      // En producción, invalidarías refresh token en DB o Redis
-
-      const userId = (req as any).user?.userId; // Viene del middleware
+      // Cambio: user?.id en lugar de user?.userId
+      const userId = (req as any).user?.id;
 
       if (userId) {
         await eventStore.emit('auth.user.loggedOut', { userId }, userId);
@@ -254,7 +254,8 @@ export class AuthController {
   async me(req: Request, res: Response) {
     const client = await pool.connect();
     try {
-      const userId = (req as any).user?.userId;
+      // Cambio: user?.id en lugar de user?.userId
+      const userId = (req as any).user?.id;
 
       if (!userId) {
         return res.status(401).json({

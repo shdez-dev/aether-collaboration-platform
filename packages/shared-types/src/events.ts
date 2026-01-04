@@ -152,7 +152,164 @@ export type EventType =
   | PresenceEventType;
 
 // ============================================================================
-// SPECIFIC EVENT PAYLOADS
+// AUTH EVENT PAYLOADS
+// ============================================================================
+
+/**
+ * User Registered Event
+ */
+export interface UserRegisteredPayload {
+  userId: UserId;
+  email: string;
+  name: string;
+}
+
+export type UserRegisteredEvent = BaseEvent<'auth.user.registered', UserRegisteredPayload>;
+
+/**
+ * User Logged In Event
+ */
+export interface UserLoggedInPayload {
+  userId: UserId;
+  email: string;
+}
+
+export type UserLoggedInEvent = BaseEvent<'auth.user.loggedIn', UserLoggedInPayload>;
+
+/**
+ * User Logged Out Event
+ */
+export interface UserLoggedOutPayload {
+  userId: UserId;
+}
+
+export type UserLoggedOutEvent = BaseEvent<'auth.user.loggedOut', UserLoggedOutPayload>;
+
+// ============================================================================
+// WORKSPACE EVENT PAYLOADS
+// ============================================================================
+
+/**
+ * Workspace Created Event
+ */
+export interface WorkspaceCreatedPayload {
+  workspaceId: WorkspaceId;
+  name: string;
+  description?: string;
+  ownerId: UserId;
+  icon?: string;
+  color?: string;
+}
+
+export type WorkspaceCreatedEvent = BaseEvent<'workspace.created', WorkspaceCreatedPayload>;
+
+/**
+ * Workspace Updated Event
+ */
+export interface WorkspaceUpdatedPayload {
+  workspaceId: WorkspaceId;
+  changes: {
+    name?: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+  };
+  updatedBy: UserId;
+}
+
+export type WorkspaceUpdatedEvent = BaseEvent<'workspace.updated', WorkspaceUpdatedPayload>;
+
+/**
+ * Workspace Deleted Event
+ */
+export interface WorkspaceDeletedPayload {
+  workspaceId: WorkspaceId;
+  deletedBy: UserId;
+}
+
+export type WorkspaceDeletedEvent = BaseEvent<'workspace.deleted', WorkspaceDeletedPayload>;
+
+/**
+ * Workspace Member Invited Event
+ */
+export interface WorkspaceMemberInvitedPayload {
+  workspaceId: WorkspaceId;
+  inviterId: UserId;
+  inviteeId: UserId;
+  inviteeEmail: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+}
+
+export type WorkspaceMemberInvitedEvent = BaseEvent<
+  'workspace.member.invited',
+  WorkspaceMemberInvitedPayload
+>;
+
+/**
+ * Workspace Member Role Changed Event
+ */
+export interface WorkspaceMemberRoleChangedPayload {
+  workspaceId: WorkspaceId;
+  userId: UserId;
+  oldRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+  newRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+  changedBy: UserId;
+}
+
+export type WorkspaceMemberRoleChangedEvent = BaseEvent<
+  'workspace.member.roleChanged',
+  WorkspaceMemberRoleChangedPayload
+>;
+
+/**
+ * Workspace Member Removed Event
+ */
+export interface WorkspaceMemberRemovedPayload {
+  workspaceId: WorkspaceId;
+  userId: UserId;
+  removedBy: UserId;
+}
+
+export type WorkspaceMemberRemovedEvent = BaseEvent<
+  'workspace.member.removed',
+  WorkspaceMemberRemovedPayload
+>;
+
+// ============================================================================
+// BOARD EVENT PAYLOADS
+// ============================================================================
+
+/**
+ * Board Created Event
+ */
+export interface BoardCreatedPayload {
+  boardId: BoardId;
+  workspaceId: WorkspaceId;
+  name: string;
+  description?: string;
+  createdBy: UserId;
+}
+
+export type BoardCreatedEvent = BaseEvent<'board.created', BoardCreatedPayload>;
+
+// ============================================================================
+// LIST EVENT PAYLOADS
+// ============================================================================
+
+/**
+ * List Created Event
+ */
+export interface ListCreatedPayload {
+  listId: ListId;
+  boardId: BoardId;
+  name: string;
+  position: number;
+}
+
+export type ListCreatedEvent = BaseEvent<'list.created', ListCreatedPayload>;
+
+// ============================================================================
+// CARD EVENT PAYLOADS
 // ============================================================================
 
 /**
@@ -197,42 +354,9 @@ export interface CardUpdatedPayload {
 
 export type CardUpdatedEvent = BaseEvent<'card.updated', CardUpdatedPayload>;
 
-/**
- * Workspace Created Event
- */
-export interface WorkspaceCreatedPayload {
-  workspaceId: WorkspaceId;
-  name: string;
-  description?: string;
-  ownerId: UserId;
-}
-
-export type WorkspaceCreatedEvent = BaseEvent<'workspace.created', WorkspaceCreatedPayload>;
-
-/**
- * Board Created Event
- */
-export interface BoardCreatedPayload {
-  boardId: BoardId;
-  workspaceId: WorkspaceId;
-  name: string;
-  description?: string;
-  createdBy: UserId;
-}
-
-export type BoardCreatedEvent = BaseEvent<'board.created', BoardCreatedPayload>;
-
-/**
- * List Created Event
- */
-export interface ListCreatedPayload {
-  listId: ListId;
-  boardId: BoardId;
-  name: string;
-  position: number;
-}
-
-export type ListCreatedEvent = BaseEvent<'list.created', ListCreatedPayload>;
+// ============================================================================
+// PRESENCE EVENT PAYLOADS
+// ============================================================================
 
 /**
  * User Online Event
@@ -246,40 +370,6 @@ export interface UserOnlinePayload {
 export type UserOnlineEvent = BaseEvent<'presence.user.online', UserOnlinePayload>;
 
 // ============================================================================
-// AUTH EVENT PAYLOADS
-// ============================================================================
-
-/**
- * User Registered Event
- */
-export interface UserRegisteredPayload {
-  userId: UserId;
-  email: string;
-  name: string;
-}
-
-export type UserRegisteredEvent = BaseEvent<'auth.user.registered', UserRegisteredPayload>;
-
-/**
- * User Logged In Event
- */
-export interface UserLoggedInPayload {
-  userId: UserId;
-  email: string;
-}
-
-export type UserLoggedInEvent = BaseEvent<'auth.user.loggedIn', UserLoggedInPayload>;
-
-/**
- * User Logged Out Event
- */
-export interface UserLoggedOutPayload {
-  userId: UserId;
-}
-
-export type UserLoggedOutEvent = BaseEvent<'auth.user.loggedOut', UserLoggedOutPayload>;
-
-// ============================================================================
 // EVENT UNION TYPES
 // ============================================================================
 
@@ -287,16 +377,21 @@ export type UserLoggedOutEvent = BaseEvent<'auth.user.loggedOut', UserLoggedOutP
  * All possible events in the system
  */
 export type Event =
-  | CardCreatedEvent
-  | CardMovedEvent
-  | CardUpdatedEvent
-  | WorkspaceCreatedEvent
-  | BoardCreatedEvent
-  | ListCreatedEvent
-  | UserOnlineEvent
   | UserRegisteredEvent
   | UserLoggedInEvent
   | UserLoggedOutEvent
+  | WorkspaceCreatedEvent
+  | WorkspaceUpdatedEvent
+  | WorkspaceDeletedEvent
+  | WorkspaceMemberInvitedEvent
+  | WorkspaceMemberRoleChangedEvent
+  | WorkspaceMemberRemovedEvent
+  | BoardCreatedEvent
+  | ListCreatedEvent
+  | CardCreatedEvent
+  | CardMovedEvent
+  | CardUpdatedEvent
+  | UserOnlineEvent
   | BaseEvent<EventType, unknown>;
 
 // ============================================================================

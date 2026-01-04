@@ -2,20 +2,249 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Import JetBrains Mono from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-text-primary font-mono;
+    font-feature-settings:
+      'liga' 1,
+      'calt' 1;
+  }
+
+  /* Smooth transitions */
+  * {
+    @apply transition-colors duration-200;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-light rounded-terminal;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-muted;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Terminal-style section headers */
+  .section-header {
+    @apply text-text-secondary text-sm font-normal mb-4;
+  }
+
+  .section-header::before {
+    content: '-- ';
+    @apply text-text-muted;
+  }
+
+  /* Terminal-style card */
+  .card-terminal {
+    @apply bg-card border border-border rounded-terminal p-6;
+    @apply shadow-terminal hover:shadow-terminal-hover;
+    @apply hover:border-border-light;
+  }
+
+  /* Input terminal style */
+  .input-terminal {
+    @apply w-full bg-surface border border-border rounded-terminal;
+    @apply px-4 py-3 text-text-primary placeholder:text-text-muted;
+    @apply focus:border-accent focus:outline-none;
+    @apply hover:border-border-light;
+  }
+
+  /* Button terminal style */
+  .btn-terminal {
+    @apply px-6 py-3 rounded-terminal font-mono;
+    @apply border border-border;
+    @apply hover:border-border-light;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn-terminal bg-accent text-white border-accent;
+    @apply hover:bg-accent-hover hover:border-accent-hover;
+  }
+
+  .btn-secondary {
+    @apply btn-terminal bg-transparent text-text-primary;
+  }
+
+  /* Link terminal style */
+  .link-terminal {
+    @apply text-text-secondary hover:text-accent;
+    @apply underline decoration-border hover:decoration-accent;
+    @apply underline-offset-4;
+  }
+
+  /* Status indicator */
+  .status-online {
+    @apply inline-flex items-center gap-2 text-success text-sm;
+  }
+
+  .status-online::before {
+    content: '';
+    @apply w-2 h-2 rounded-full bg-success;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Loading animation */
+  .loading {
+    @apply inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full;
+    animation: spin 1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ==================== LOADING ANIMATIONS ==================== */
+
+.loading {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spinner 0.6s linear infinite;
+}
+
+.loading-lg {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(var(--accent-rgb), 0.2);
+  border-top-color: rgb(var(--accent-rgb));
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==================== PULSE ANIMATION ==================== */
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ==================== FADE IN ANIMATION ==================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ==================== SCROLLBAR STYLING ==================== */
+
+/* For Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--bg-primary-rgb));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.5);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--accent-rgb), 0.3) rgb(var(--bg-primary-rgb));
+}
+
+/* ==================== MODAL ANIMATIONS ==================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.25s ease-out;
+}
+
+/* Prevenir scroll cuando modal está abierto (opcional) */
+body:has(.fixed.z-40) {
+  overflow: hidden;
 }

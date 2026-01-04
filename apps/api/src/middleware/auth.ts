@@ -1,3 +1,5 @@
+// apps/api/src/middleware/auth.ts
+
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
 
@@ -39,8 +41,11 @@ export function authenticateJWT(req: Request, res: Response, next: NextFunction)
     // Verificar token
     const decoded = verifyAccessToken(token);
 
-    // Adjuntar usuario al request para que esté disponible en controllers
-    (req as any).user = decoded;
+    // Mapear userId a id para consistencia con los controllers
+    (req as any).user = {
+      id: decoded.userId, // ← CAMBIO CRÍTICO AQUÍ
+      email: decoded.email,
+    };
 
     next();
   } catch (error) {
@@ -67,7 +72,12 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction) {
       if (parts.length === 2 && parts[0] === 'Bearer') {
         const token = parts[1];
         const decoded = verifyAccessToken(token);
-        (req as any).user = decoded;
+
+        // Mapear userId a id para consistencia
+        (req as any).user = {
+          id: decoded.userId, // ← CAMBIO CRÍTICO AQUÍ TAMBIÉN
+          email: decoded.email,
+        };
       }
     }
 

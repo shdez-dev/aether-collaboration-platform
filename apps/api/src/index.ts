@@ -1,10 +1,14 @@
+// apps/api/src/index.ts
+
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import authRoutes from './routes/auth'; // ← Agrega esta línea
+import authRoutes from './routes/auth';
+import workspaceRoutes from './routes/workspace';
+import userRoutes from './routes/user';
 
 dotenv.config();
 
@@ -17,7 +21,7 @@ const io = new Server(httpServer, {
   },
 });
 
-// Middleware
+// ==================== MIDDLEWARE ====================
 app.use(helmet());
 app.use(
   cors({
@@ -28,12 +32,12 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
+// ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// API routes
+// ==================== API ROUTES ====================
 app.get('/api', (req, res) => {
   res.json({
     message: 'AETHER API',
@@ -42,10 +46,16 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Auth routes ← Agrega estas líneas
+// Auth routes
 app.use('/api/auth', authRoutes);
 
-// WebSocket connection handler
+// Workspace routes
+app.use('/api/workspaces', workspaceRoutes);
+
+// User routes ← NUEVO
+app.use('/api/users', userRoutes);
+
+// ==================== WEBSOCKET ====================
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
 
@@ -58,6 +68,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// ==================== SERVER START ====================
 const PORT = process.env.API_PORT || 4000;
 
 httpServer.listen(PORT, () => {
@@ -69,6 +80,20 @@ httpServer.listen(PORT, () => {
 ║   HTTP:      http://localhost:${PORT}                    ║
 ║   WebSocket: ws://localhost:${PORT}                      ║
 ║   Health:    http://localhost:${PORT}/health            ║
+║                                                       ║
+║   Endpoints:                                          ║
+║   - POST   /api/auth/register                         ║
+║   - POST   /api/auth/login                            ║
+║   - POST   /api/auth/logout                           ║
+║   - GET    /api/auth/me                               ║
+║   - POST   /api/workspaces                            ║
+║   - GET    /api/workspaces                            ║
+║   - GET    /api/workspaces/:id                        ║
+║   - PUT    /api/workspaces/:id                        ║
+║   - DELETE /api/workspaces/:id                        ║
+║   - POST   /api/workspaces/:id/invite                 ║
+║   - GET    /api/workspaces/:id/members                ║
+║   - GET    /api/users/search                          ║
 ║                                                       ║
 ╚═══════════════════════════════════════════════════════╝
   `);
