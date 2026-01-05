@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import workspaceRoutes from './routes/workspace';
 import userRoutes from './routes/user';
+import boardRoutes from './routes/board';
 
 dotenv.config();
 
@@ -52,8 +53,11 @@ app.use('/api/auth', authRoutes);
 // Workspace routes
 app.use('/api/workspaces', workspaceRoutes);
 
-// User routes ← NUEVO
+// User routes
 app.use('/api/users', userRoutes);
+
+// Board & List routes ← NUEVO
+app.use('/api', boardRoutes);
 
 // ==================== WEBSOCKET ====================
 io.on('connection', (socket) => {
@@ -82,10 +86,14 @@ httpServer.listen(PORT, () => {
 ║   Health:    http://localhost:${PORT}/health            ║
 ║                                                       ║
 ║   Endpoints:                                          ║
+║                                                       ║
+║   AUTH:                                               ║
 ║   - POST   /api/auth/register                         ║
 ║   - POST   /api/auth/login                            ║
 ║   - POST   /api/auth/logout                           ║
 ║   - GET    /api/auth/me                               ║
+║                                                       ║
+║   WORKSPACES:                                         ║
 ║   - POST   /api/workspaces                            ║
 ║   - GET    /api/workspaces                            ║
 ║   - GET    /api/workspaces/:id                        ║
@@ -93,6 +101,23 @@ httpServer.listen(PORT, () => {
 ║   - DELETE /api/workspaces/:id                        ║
 ║   - POST   /api/workspaces/:id/invite                 ║
 ║   - GET    /api/workspaces/:id/members                ║
+║                                                       ║
+║   BOARDS:                                             ║
+║   - POST   /api/workspaces/:wId/boards                ║
+║   - GET    /api/workspaces/:wId/boards                ║
+║   - GET    /api/boards/:id                            ║
+║   - PUT    /api/boards/:id                            ║
+║   - POST   /api/boards/:id/archive                    ║
+║   - DELETE /api/boards/:id                            ║
+║                                                       ║
+║   LISTS:                                              ║
+║   - POST   /api/boards/:bId/lists                     ║
+║   - GET    /api/boards/:bId/lists                     ║
+║   - PUT    /api/lists/:id                             ║
+║   - PUT    /api/lists/:id/reorder                     ║
+║   - DELETE /api/lists/:id                             ║
+║                                                       ║
+║   USERS:                                              ║
 ║   - GET    /api/users/search                          ║
 ║                                                       ║
 ╚═══════════════════════════════════════════════════════╝

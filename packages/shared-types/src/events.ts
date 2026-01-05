@@ -288,9 +288,44 @@ export interface BoardCreatedPayload {
   name: string;
   description?: string;
   createdBy: UserId;
+  position: number;
 }
 
 export type BoardCreatedEvent = BaseEvent<'board.created', BoardCreatedPayload>;
+
+/**
+ * Board Updated Event
+ */
+export interface BoardUpdatedPayload {
+  boardId: BoardId;
+  changes: {
+    name?: string;
+    description?: string;
+  };
+  updatedBy: UserId;
+}
+
+export type BoardUpdatedEvent = BaseEvent<'board.updated', BoardUpdatedPayload>;
+
+/**
+ * Board Archived Event
+ */
+export interface BoardArchivedPayload {
+  boardId: BoardId;
+  archivedBy: UserId;
+}
+
+export type BoardArchivedEvent = BaseEvent<'board.archived', BoardArchivedPayload>;
+
+/**
+ * Board Deleted Event
+ */
+export interface BoardDeletedPayload {
+  boardId: BoardId;
+  deletedBy: UserId;
+}
+
+export type BoardDeletedEvent = BaseEvent<'board.deleted', BoardDeletedPayload>;
 
 // ============================================================================
 // LIST EVENT PAYLOADS
@@ -304,12 +339,50 @@ export interface ListCreatedPayload {
   boardId: BoardId;
   name: string;
   position: number;
+  createdBy: UserId;
 }
 
 export type ListCreatedEvent = BaseEvent<'list.created', ListCreatedPayload>;
 
+/**
+ * List Updated Event
+ */
+export interface ListUpdatedPayload {
+  listId: ListId;
+  changes: {
+    name?: string;
+  };
+  updatedBy: UserId;
+}
+
+export type ListUpdatedEvent = BaseEvent<'list.updated', ListUpdatedPayload>;
+
+/**
+ * List Reordered Event
+ */
+export interface ListReorderedPayload {
+  listId: ListId;
+  boardId: BoardId;
+  oldPosition: number;
+  newPosition: number;
+  reorderedBy: UserId;
+}
+
+export type ListReorderedEvent = BaseEvent<'list.reordered', ListReorderedPayload>;
+
+/**
+ * List Deleted Event
+ */
+export interface ListDeletedPayload {
+  listId: ListId;
+  boardId: BoardId;
+  deletedBy: UserId;
+}
+
+export type ListDeletedEvent = BaseEvent<'list.deleted', ListDeletedPayload>;
+
 // ============================================================================
-// CARD EVENT PAYLOADS
+// CARD EVENT PAYLOADS - MILESTONE 4
 // ============================================================================
 
 /**
@@ -327,19 +400,6 @@ export interface CardCreatedPayload {
 export type CardCreatedEvent = BaseEvent<'card.created', CardCreatedPayload>;
 
 /**
- * Card Moved Event
- */
-export interface CardMovedPayload {
-  cardId: CardId;
-  fromListId: ListId;
-  toListId: ListId;
-  fromPosition: number;
-  toPosition: number;
-}
-
-export type CardMovedEvent = BaseEvent<'card.moved', CardMovedPayload>;
-
-/**
  * Card Updated Event
  */
 export interface CardUpdatedPayload {
@@ -348,11 +408,84 @@ export interface CardUpdatedPayload {
     title?: string;
     description?: string;
     dueDate?: string | null;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
   };
+  updatedBy: UserId;
 }
 
 export type CardUpdatedEvent = BaseEvent<'card.updated', CardUpdatedPayload>;
+
+/**
+ * Card Moved Event
+ */
+export interface CardMovedPayload {
+  cardId: CardId;
+  fromListId: ListId;
+  toListId: ListId;
+  fromPosition: number;
+  toPosition: number;
+  movedBy: UserId;
+}
+
+export type CardMovedEvent = BaseEvent<'card.moved', CardMovedPayload>;
+
+/**
+ * Card Deleted Event
+ */
+export interface CardDeletedPayload {
+  cardId: CardId;
+  listId: ListId;
+  deletedBy: UserId;
+}
+
+export type CardDeletedEvent = BaseEvent<'card.deleted', CardDeletedPayload>;
+
+/**
+ * Card Member Assigned Event
+ */
+export interface CardMemberAssignedPayload {
+  cardId: CardId;
+  userId: UserId;
+  assignedBy: UserId;
+}
+
+export type CardMemberAssignedEvent = BaseEvent<'card.member.assigned', CardMemberAssignedPayload>;
+
+/**
+ * Card Member Unassigned Event
+ */
+export interface CardMemberUnassignedPayload {
+  cardId: CardId;
+  userId: UserId;
+  unassignedBy: UserId;
+}
+
+export type CardMemberUnassignedEvent = BaseEvent<
+  'card.member.unassigned',
+  CardMemberUnassignedPayload
+>;
+
+/**
+ * Card Label Added Event
+ */
+export interface CardLabelAddedPayload {
+  cardId: CardId;
+  labelId: LabelId;
+  addedBy: UserId;
+}
+
+export type CardLabelAddedEvent = BaseEvent<'card.label.added', CardLabelAddedPayload>;
+
+/**
+ * Card Label Removed Event
+ */
+export interface CardLabelRemovedPayload {
+  cardId: CardId;
+  labelId: LabelId;
+  removedBy: UserId;
+}
+
+export type CardLabelRemovedEvent = BaseEvent<'card.label.removed', CardLabelRemovedPayload>;
 
 // ============================================================================
 // PRESENCE EVENT PAYLOADS
@@ -387,10 +520,21 @@ export type Event =
   | WorkspaceMemberRoleChangedEvent
   | WorkspaceMemberRemovedEvent
   | BoardCreatedEvent
+  | BoardUpdatedEvent
+  | BoardArchivedEvent
+  | BoardDeletedEvent
   | ListCreatedEvent
+  | ListUpdatedEvent
+  | ListReorderedEvent
+  | ListDeletedEvent
   | CardCreatedEvent
-  | CardMovedEvent
   | CardUpdatedEvent
+  | CardMovedEvent
+  | CardDeletedEvent
+  | CardMemberAssignedEvent
+  | CardMemberUnassignedEvent
+  | CardLabelAddedEvent
+  | CardLabelRemovedEvent
   | UserOnlineEvent
   | BaseEvent<EventType, unknown>;
 

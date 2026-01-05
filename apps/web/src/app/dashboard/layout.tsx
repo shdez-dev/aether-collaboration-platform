@@ -31,12 +31,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       active: pathname?.startsWith('/dashboard/workspaces'),
     },
     {
-      name: 'Boards',
-      href: '/dashboard/boards',
-      icon: '▦',
-      active: pathname?.startsWith('/dashboard/boards'),
-    },
-    {
       name: 'Documents',
       href: '/dashboard/documents',
       icon: '▤',

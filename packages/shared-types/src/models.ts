@@ -5,18 +5,6 @@
  * The database stores these, but events are the source of truth.
  */
 
-import type {
-  UserId,
-  WorkspaceId,
-  BoardId,
-  ListId,
-  CardId,
-  DocumentId,
-  CommentId,
-  LabelId,
-  NotificationId,
-} from './events';
-
 // ============================================================================
 // ENUMS & TYPES
 // ============================================================================
@@ -52,12 +40,12 @@ export enum NotificationType {
 // ============================================================================
 
 export interface User {
-  id: UserId;
+  id: string;
   email: string;
   name: string;
   avatar?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserProfile extends User {
@@ -69,14 +57,18 @@ export interface UserProfile extends User {
 // ============================================================================
 
 export interface Workspace {
-  id: WorkspaceId;
+  id: string;
   name: string;
   description?: string;
-  ownerId: UserId;
+  ownerId: string;
   icon?: string;
   color?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
+  // Propiedades opcionales calculadas
+  userRole?: WorkspaceRole;
+  boardCount?: number;
+  memberCount?: number;
 }
 
 /**
@@ -85,16 +77,12 @@ export interface Workspace {
  */
 export interface WorkspaceMembership {
   id: string;
-  workspaceId: WorkspaceId;
-  userId: UserId;
+  workspaceId: string;
+  userId: string;
   role: WorkspaceRole;
-  joinedAt: Date;
-  user?: {
-    id: UserId;
-    name: string;
-    email: string;
-    avatar?: string;
-  };
+  joinedAt: string;
+  // Usuario puede ser parcial (solo datos básicos) o completo
+  user?: Partial<User> & { id: string; name: string; email: string };
 }
 
 export interface WorkspaceWithMembers extends Workspace {
@@ -106,15 +94,19 @@ export interface WorkspaceWithMembers extends Workspace {
 // ============================================================================
 
 export interface Board {
-  id: BoardId;
-  workspaceId: WorkspaceId;
+  id: string;
+  workspaceId: string;
   name: string;
   description?: string;
   position: number;
   archived: boolean;
-  createdBy: UserId;
-  createdAt: Date;
-  updatedAt: Date;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  // Propiedades opcionales calculadas/cargadas
+  listCount?: number;
+  cardCount?: number;
+  lists?: List[]; // Para cuando se carga el board completo
 }
 
 export interface BoardWithLists extends Board {
@@ -126,12 +118,15 @@ export interface BoardWithLists extends Board {
 // ============================================================================
 
 export interface List {
-  id: ListId;
-  boardId: BoardId;
+  id: string;
+  boardId: string;
   name: string;
   position: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
+  // Propiedades opcionales calculadas/cargadas
+  cardCount?: number;
+  cards?: Card[]; // Para cuando se carga la lista completa
 }
 
 export interface ListWithCards extends List {
@@ -139,34 +134,51 @@ export interface ListWithCards extends List {
 }
 
 // ============================================================================
-// CARD
+// CARD - MILESTONE 4
 // ============================================================================
 
 export interface Card {
-  id: CardId;
-  listId: ListId;
+  id: string;
+  listId: string;
   title: string;
   description?: string;
   position: number;
-  dueDate?: Date;
-  priority?: CardPriority;
-  createdBy: UserId;
-  createdAt: Date;
-  updatedAt: Date;
+  dueDate?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  // Relaciones opcionales (cuando se incluyen con queries)
+  members?: User[];
+  labels?: Label[];
+  assignedUsers?: User[]; // Alias para members
 }
 
 export interface CardMember {
-  cardId: CardId;
-  userId: UserId;
-  assignedAt: Date;
+  cardId: string;
+  userId: string;
+  assignedAt: string;
 }
 
 export interface CardLabel {
-  cardId: CardId;
-  labelId: LabelId;
+  cardId: string;
+  labelId: string;
 }
 
-export interface CardWithDetails extends Card {
+// ✅ CardWithDetails NO extiende Card para evitar conflictos de tipos
+export interface CardWithDetails {
+  // Propiedades base de Card
+  id: string;
+  listId: string;
+  title: string;
+  description?: string;
+  position: number;
+  dueDate?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  // Relaciones detalladas (con objetos completos)
   assignedMembers: (CardMember & { user: User })[];
   labels: (CardLabel & { label: Label })[];
   comments: Comment[];
@@ -174,15 +186,16 @@ export interface CardWithDetails extends Card {
 }
 
 // ============================================================================
-// LABEL
+// LABEL - MILESTONE 4
 // ============================================================================
 
 export interface Label {
-  id: LabelId;
-  workspaceId: WorkspaceId;
+  id: string;
+  workspaceId: string;
   name: string;
   color: string;
-  createdAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================================
@@ -190,14 +203,14 @@ export interface Label {
 // ============================================================================
 
 export interface Comment {
-  id: CommentId;
-  userId: UserId;
-  cardId?: CardId;
-  documentId?: DocumentId;
+  id: string;
+  userId: string;
+  cardId?: string;
+  documentId?: string;
   content: string;
-  parentId?: CommentId; // For threading
-  createdAt: Date;
-  updatedAt: Date;
+  parentId?: string; // For threading
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CommentWithUser extends Comment {
@@ -210,14 +223,14 @@ export interface CommentWithUser extends Comment {
 // ============================================================================
 
 export interface Document {
-  id: DocumentId;
-  workspaceId: WorkspaceId;
+  id: string;
+  workspaceId: string;
   title: string;
   content: Record<string, unknown>; // JSON structure for blocks
   version: number;
-  createdBy: UserId;
-  createdAt: Date;
-  updatedAt: Date;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================================
@@ -225,12 +238,12 @@ export interface Document {
 // ============================================================================
 
 export interface Notification {
-  id: NotificationId;
-  userId: UserId;
+  id: string;
+  userId: string;
   type: NotificationType;
   content: Record<string, unknown>; // JSON content specific to type
   read: boolean;
-  createdAt: Date;
+  createdAt: string;
 }
 
 // ============================================================================
@@ -239,14 +252,14 @@ export interface Notification {
 
 export interface Attachment {
   id: string;
-  cardId?: CardId;
-  documentId?: DocumentId;
-  userId: UserId;
+  cardId?: string;
+  documentId?: string;
+  userId: string;
   fileName: string;
   fileUrl: string;
   fileSize: number;
   mimeType: string;
-  uploadedAt: Date;
+  uploadedAt: string;
 }
 
 // ============================================================================
@@ -254,17 +267,17 @@ export interface Attachment {
 // ============================================================================
 
 export interface UserPresence {
-  userId: UserId;
-  workspaceId?: WorkspaceId;
-  boardId?: BoardId;
-  documentId?: DocumentId;
+  userId: string;
+  workspaceId?: string;
+  boardId?: string;
+  documentId?: string;
   status: 'online' | 'offline' | 'away';
-  lastSeen: Date;
+  lastSeen: string;
 }
 
 export interface CursorPosition {
-  userId: UserId;
-  documentId: DocumentId;
+  userId: string;
+  documentId: string;
   position: {
     line: number;
     column: number;

@@ -218,43 +218,6 @@ export default function WorkspaceSettingsPage() {
         </div>
       </div>
 
-      {/* Members */}
-      <div className="card-terminal">
-        <h2 className="section-header">MEMBERS ({currentMembers.length})</h2>
-
-        <div className="space-y-3">
-          {currentMembers.map((member) => (
-            <div
-              key={member.id}
-              className="flex items-center justify-between p-3 bg-background rounded-terminal border border-border"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-terminal bg-accent/20 flex items-center justify-center">
-                  <span className="text-accent font-bold">
-                    {member.user?.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-text-primary">{member.user?.name}</p>
-                  <p className="text-xs text-text-muted">{member.user?.email}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 rounded-terminal border border-border bg-card">
-                  {member.role}
-                </span>
-                {isOwner && member.role !== 'OWNER' && (
-                  <button className="text-error hover:text-error/80 text-xs">Remove</button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          <button className="btn-secondary w-full">+ Invite Member</button>
-        </div>
-      </div>
-
       {/* Danger Zone */}
       {isOwner && (
         <div className="card-terminal border-error/50 bg-error/5">
