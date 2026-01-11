@@ -3,8 +3,13 @@
 
 import { useState } from 'react';
 import { useBoardStore } from '@/stores/boardStore';
+import { useCardStore } from '@/stores/cardStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSortable } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { Card } from './Card';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 interface List {
   id: string;
@@ -23,14 +28,33 @@ interface BoardListProps {
 
 export default function BoardList({ list }: BoardListProps) {
   const { updateList, deleteList } = useBoardStore();
+  const { cards, addCard } = useCardStore();
+  const setSelectedCard = useCardStore((state) => state.setSelectedCard);
+  const { accessToken } = useAuthStore();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(list.name);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Configurar sortable
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  // Estado para añadir card
+  const [isAddingCard, setIsAddingCard] = useState(false);
+  const [cardTitle, setCardTitle] = useState('');
+  const [isCreatingCard, setIsCreatingCard] = useState(false);
+
+  // Configurar sortable para la lista
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: list.id,
+    data: {
+      type: 'list',
+      list,
+    },
   });
 
   const style = {
@@ -38,6 +62,15 @@ export default function BoardList({ list }: BoardListProps) {
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  // Configurar droppable para el área de cards
+  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
+    id: `list-droppable-${list.id}`,
+    data: {
+      type: 'list',
+      listId: list.id,
+    },
+  });
 
   // Guardar cambios del nombre
   const handleSave = async () => {
@@ -64,17 +97,67 @@ export default function BoardList({ list }: BoardListProps) {
 
   // Eliminar lista
   const handleDelete = async () => {
-    if (list.cardCount && list.cardCount > 0) {
+    const listCards = cards[list.id] || [];
+    if (listCards.length > 0) {
       alert('Cannot delete list with cards. Please move or delete cards first.');
       return;
     }
     await deleteList(list.id);
   };
 
+  // Crear card
+  const handleCreateCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!cardTitle.trim()) return;
+
+    setIsCreatingCard(true);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/lists/${list.id}/cards`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ title: cardTitle.trim() }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to create card');
+      }
+
+      const { data } = await response.json();
+      addCard(list.id, data.card);
+      setSelectedCard(data.card);
+
+      // Reset
+      setCardTitle('');
+      setIsAddingCard(false);
+    } catch (error: any) {
+      console.error('Error creating card:', error);
+      alert(`Failed to create card: ${error.message}`);
+    } finally {
+      setIsCreatingCard(false);
+    }
+  };
+
+  const handleCancelAddCard = () => {
+    setCardTitle('');
+    setIsAddingCard(false);
+  };
+
+  const listCards = cards[list.id] || [];
+  const cardIds = listCards.map((card) => card.id);
+
   return (
     <>
-      <div ref={setNodeRef} style={style} className="w-80 flex-shrink-0">
-        <div className="card-terminal h-full flex flex-col">
+      <div ref={setSortableNodeRef} style={style} className="w-80 flex-shrink-0">
+        <div className={`card-terminal h-full flex flex-col ${isOver ? 'ring-2 ring-accent' : ''}`}>
           {/* Header */}
           <div
             className="flex items-center justify-between mb-4 pb-3 border-b border-border cursor-grab active:cursor-grabbing"
@@ -94,11 +177,11 @@ export default function BoardList({ list }: BoardListProps) {
                 className="input-terminal flex-1 mr-2 text-base"
                 autoFocus
                 maxLength={255}
-                onClick={(e) => e.stopPropagation()} // Evitar que active el drag
+                onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <h3
-                className="font-normal flex-1 cursor-pointer hover:text-primary transition-colors"
+                className="font-normal flex-1 cursor-pointer hover:text-accent transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditing(true);
@@ -112,7 +195,7 @@ export default function BoardList({ list }: BoardListProps) {
             <div className="relative group">
               <button
                 className="text-text-muted hover:text-text-primary transition-colors px-2"
-                onClick={(e) => e.stopPropagation()} // Evitar que active el drag
+                onClick={(e) => e.stopPropagation()}
               >
                 ⋮
               </button>
@@ -124,7 +207,7 @@ export default function BoardList({ list }: BoardListProps) {
                     e.stopPropagation();
                     setIsEditing(true);
                   }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-border transition-colors"
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors"
                 >
                   ✎ Edit Name
                 </button>
@@ -133,7 +216,7 @@ export default function BoardList({ list }: BoardListProps) {
                     e.stopPropagation();
                     setShowDeleteConfirm(true);
                   }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-border transition-colors text-error"
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors text-error"
                 >
                   ✕ Delete
                 </button>
@@ -141,30 +224,63 @@ export default function BoardList({ list }: BoardListProps) {
             </div>
           </div>
 
-          {/* Cards Area */}
-          <div className="flex-1 overflow-y-auto space-y-2 min-h-[100px]">
-            {list.cards && list.cards.length > 0 ? (
-              list.cards.map((card) => (
-                <div
-                  key={card.id}
-                  className="p-3 bg-background border border-border rounded hover:border-primary/50 transition-colors cursor-pointer"
-                >
-                  <p className="text-sm">{card.title}</p>
-                </div>
-              ))
-            ) : (
-              <div className="text-center text-text-muted text-sm py-8">No cards yet</div>
-            )}
+          {/* Cards Area - DROPPABLE */}
+          <div ref={setDroppableNodeRef} className="flex-1 overflow-y-auto min-h-[100px]">
+            <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {listCards.length > 0 ? (
+                  listCards.map((card) => <Card key={card.id} card={card} />)
+                ) : (
+                  <div className="text-center text-text-muted text-sm py-8">
+                    {isOver ? 'Drop card here' : 'No cards yet'}
+                  </div>
+                )}
+              </div>
+            </SortableContext>
           </div>
 
-          {/* Add Card Button - Placeholder */}
-          <button className="w-full mt-3 py-2 text-text-muted hover:text-text-primary text-sm transition-colors border border-dashed border-border hover:border-primary rounded">
-            + Add Card
-          </button>
+          {/* Add Card Section */}
+          {isAddingCard ? (
+            <form onSubmit={handleCreateCard} className="mt-3 space-y-2">
+              <textarea
+                value={cardTitle}
+                onChange={(e) => setCardTitle(e.target.value)}
+                placeholder="Enter card title..."
+                autoFocus
+                rows={3}
+                disabled={isCreatingCard}
+                className="input-terminal w-full text-sm resize-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={!cardTitle.trim() || isCreatingCard}
+                  className="btn-primary flex-1 py-2 text-sm"
+                >
+                  {isCreatingCard ? 'Adding...' : 'Add Card'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelAddCard}
+                  disabled={isCreatingCard}
+                  className="btn-secondary py-2 px-4 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              onClick={() => setIsAddingCard(true)}
+              className="w-full mt-3 py-2 text-text-muted hover:text-text-primary text-sm transition-colors border border-dashed border-border hover:border-accent rounded-terminal"
+            >
+              + Add Card
+            </button>
+          )}
 
           {/* Card Count */}
-          <div className="mt-3 pt-3 border-t border-border text-text-muted text-xs">
-            {list.cardCount || 0} {list.cardCount === 1 ? 'card' : 'cards'}
+          <div className="mt-3 pt-3 border-t border-border text-text-muted text-xs font-mono">
+            {listCards.length} {listCards.length === 1 ? 'card' : 'cards'}
           </div>
         </div>
       </div>
@@ -182,10 +298,10 @@ export default function BoardList({ list }: BoardListProps) {
               <p className="text-text-secondary mb-2">
                 Are you sure you want to delete <strong>{list.name}</strong>?
               </p>
-              {list.cardCount && list.cardCount > 0 ? (
+              {listCards.length > 0 ? (
                 <p className="text-error text-sm mb-6">
-                  ⚠ This list has {list.cardCount} {list.cardCount === 1 ? 'card' : 'cards'}. Please
-                  move or delete them first.
+                  ⚠ This list has {listCards.length} {listCards.length === 1 ? 'card' : 'cards'}.
+                  Please move or delete them first.
                 </p>
               ) : (
                 <p className="text-text-muted text-sm mb-6">This action cannot be undone.</p>
@@ -199,7 +315,7 @@ export default function BoardList({ list }: BoardListProps) {
                 </button>
                 <button
                   onClick={handleDelete}
-                  disabled={Boolean(list.cardCount && list.cardCount > 0)}
+                  disabled={listCards.length > 0}
                   className="btn-primary bg-error hover:bg-error/80 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Delete

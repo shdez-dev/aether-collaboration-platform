@@ -13,7 +13,7 @@ const eventStore = new EventStoreService();
 
 export class BoardService {
   /**
-   * Crear un nuevo board en un workspace
+   * Crear un nuevo board en un workspace con lista "Backlog" por defecto
    * @param workspaceId - ID del workspace donde se crea el board
    * @param userId - ID del usuario que crea el board
    * @param data - Datos del board (name, description)
@@ -52,7 +52,14 @@ export class BoardService {
 
       const board = boardResult.rows[0];
 
-      // 3. Emitir evento
+      // 3. Crear lista "Backlog" automáticamente
+      await client.query(
+        `INSERT INTO lists (board_id, name, position, created_by)
+         VALUES ($1, $2, $3, $4)`,
+        [board.id, 'Backlog', 1, userId]
+      );
+
+      // 4. Emitir evento
       const payload: BoardCreatedPayload = {
         boardId: board.id as any,
         workspaceId: workspaceId as any,

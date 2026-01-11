@@ -263,18 +263,60 @@ export interface Attachment {
 }
 
 // ============================================================================
-// PRESENCE
+// PRESENCE - MILESTONE 5
 // ============================================================================
 
+/**
+ * User Presence State
+ * Representa el estado de presencia de un usuario en tiempo real
+ */
 export interface UserPresence {
   userId: string;
   workspaceId?: string;
   boardId?: string;
   documentId?: string;
   status: 'online' | 'offline' | 'away';
-  lastSeen: string;
+  lastSeen: string; // ISO timestamp
+  socketId?: string;
 }
 
+/**
+ * Active Users in Board
+ * Lista de usuarios activos viendo un board específico
+ */
+export interface BoardPresence {
+  boardId: string;
+  users: ActiveUser[];
+  updatedAt: string;
+}
+
+/**
+ * Active User Info
+ * Información básica de usuario activo
+ */
+export interface ActiveUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  joinedAt: string; // ISO timestamp cuando se unió al board
+  lastActivity: string; // ISO timestamp de última actividad
+}
+
+/**
+ * Typing Indicator State
+ * Estado de quien está escribiendo en una card
+ */
+export interface TypingIndicator {
+  cardId: string;
+  userId: string;
+  userName: string;
+  startedAt: number; // Unix timestamp
+}
+
+/**
+ * Cursor Position (para editors colaborativos - futuro)
+ */
 export interface CursorPosition {
   userId: string;
   documentId: string;
@@ -286,4 +328,29 @@ export interface CursorPosition {
     start: { line: number; column: number };
     end: { line: number; column: number };
   };
+  color: string; // Color del cursor del usuario
+}
+
+/**
+ * WebSocket Connection Info
+ * Información de conexión WebSocket de un usuario
+ */
+export interface SocketConnection {
+  socketId: string;
+  userId: string;
+  boardId?: string;
+  connectedAt: string;
+  lastPing: string;
+}
+
+/**
+ * Realtime Stats
+ * Estadísticas de actividad en tiempo real
+ */
+export interface RealtimeStats {
+  boardId: string;
+  activeUsers: number;
+  totalConnections: number;
+  eventsLastMinute: number;
+  lastActivity: string;
 }

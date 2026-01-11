@@ -21,6 +21,7 @@ export type CommentId = Brand<string, 'CommentId'>;
 export type LabelId = Brand<string, 'LabelId'>;
 export type NotificationId = Brand<string, 'NotificationId'>;
 export type EventId = Brand<string, 'EventId'>;
+export type SocketId = Brand<string, 'SocketId'>;
 
 // ============================================================================
 // VECTOR CLOCK - Causal ordering
@@ -48,6 +49,7 @@ export interface EventMeta {
   version: number; // Event schema version
   vectorClock: VectorClock;
   correlationId?: string; // For tracking related events
+  socketId?: SocketId; // Para identificar el socket que originó el evento
 }
 
 /**
@@ -131,12 +133,16 @@ export type NotificationEventType =
   | 'notification.deleted';
 
 /**
- * Presence Events
+ * Presence Events - MILESTONE 5
  */
 export type PresenceEventType =
+  | 'presence.user.joined'
+  | 'presence.user.left'
   | 'presence.user.online'
   | 'presence.user.offline'
-  | 'presence.user.typing';
+  | 'presence.user.typing'
+  | 'presence.user.typing.stopped'
+  | 'presence.cursor.moved';
 
 /**
  * All possible event types
@@ -488,8 +494,34 @@ export interface CardLabelRemovedPayload {
 export type CardLabelRemovedEvent = BaseEvent<'card.label.removed', CardLabelRemovedPayload>;
 
 // ============================================================================
-// PRESENCE EVENT PAYLOADS
+// PRESENCE EVENT PAYLOADS - MILESTONE 5
 // ============================================================================
+
+/**
+ * User Joined Board Event (WebSocket)
+ */
+export interface UserJoinedBoardPayload {
+  userId: UserId;
+  boardId: BoardId;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+}
+
+export type UserJoinedBoardEvent = BaseEvent<'presence.user.joined', UserJoinedBoardPayload>;
+
+/**
+ * User Left Board Event (WebSocket)
+ */
+export interface UserLeftBoardPayload {
+  userId: UserId;
+  boardId: BoardId;
+}
+
+export type UserLeftBoardEvent = BaseEvent<'presence.user.left', UserLeftBoardPayload>;
 
 /**
  * User Online Event
@@ -501,6 +533,58 @@ export interface UserOnlinePayload {
 }
 
 export type UserOnlineEvent = BaseEvent<'presence.user.online', UserOnlinePayload>;
+
+/**
+ * User Offline Event
+ */
+export interface UserOfflinePayload {
+  userId: UserId;
+  lastSeen: number;
+}
+
+export type UserOfflineEvent = BaseEvent<'presence.user.offline', UserOfflinePayload>;
+
+/**
+ * User Typing Event (Ephemeral - No persiste en DB)
+ */
+export interface UserTypingPayload {
+  userId: UserId;
+  cardId: CardId;
+  user: {
+    id: string;
+    name: string;
+  };
+}
+
+export type UserTypingEvent = BaseEvent<'presence.user.typing', UserTypingPayload>;
+
+/**
+ * User Stopped Typing Event (Ephemeral)
+ */
+export interface UserTypingStoppedPayload {
+  userId: UserId;
+  cardId: CardId;
+}
+
+export type UserTypingStoppedEvent = BaseEvent<
+  'presence.user.typing.stopped',
+  UserTypingStoppedPayload
+>;
+
+/**
+ * Cursor Moved Event (Ephemeral)
+ */
+export interface CursorMovedPayload {
+  userId: UserId;
+  documentId: DocumentId;
+  position: {
+    x: number;
+    y: number;
+  };
+  color: string;
+}
+
+export type CursorMovedEvent = BaseEvent<'presence.cursor.moved', CursorMovedPayload>;
 
 // ============================================================================
 // EVENT UNION TYPES
@@ -535,7 +619,13 @@ export type Event =
   | CardMemberUnassignedEvent
   | CardLabelAddedEvent
   | CardLabelRemovedEvent
+  | UserJoinedBoardEvent
+  | UserLeftBoardEvent
   | UserOnlineEvent
+  | UserOfflineEvent
+  | UserTypingEvent
+  | UserTypingStoppedEvent
+  | CursorMovedEvent
   | BaseEvent<EventType, unknown>;
 
 // ============================================================================
@@ -556,3 +646,68 @@ export function isEventType<T extends EventType>(
  * Extract payload type from event type
  */
 export type PayloadOf<T extends EventType> = Extract<Event, { type: T }>['payload'];
+
+/**
+ * Helper para identificar eventos efímeros (no se persisten en DB)
+ */
+export const EPHEMERAL_EVENTS = new Set<EventType>([
+  'presence.user.typing',
+  'presence.user.typing.stopped',
+  'presence.cursor.moved',
+]);
+
+export function isEphemeralEvent(eventType: EventType): boolean {
+  return EPHEMERAL_EVENTS.has(eventType);
+}
+
+// ============================================================================
+// WEBSOCKET MESSAGE TYPES - MILESTONE 5
+// ============================================================================
+
+/**
+ * WebSocket message structure for client-server communication
+ */
+export interface WebSocketMessage<T = unknown> {
+  type: 'event' | 'command' | 'query' | 'error' | 'ack';
+  payload: T;
+  messageId?: string;
+  timestamp?: number;
+}
+
+/**
+ * Command types for WebSocket operations
+ */
+export type WebSocketCommand =
+  | 'join.board'
+  | 'leave.board'
+  | 'typing.start'
+  | 'typing.stop'
+  | 'cursor.move';
+
+/**
+ * Join Board Command
+ */
+export interface JoinBoardCommand {
+  boardId: BoardId;
+}
+
+/**
+ * Leave Board Command
+ */
+export interface LeaveBoardCommand {
+  boardId: BoardId;
+}
+
+/**
+ * Typing Start Command
+ */
+export interface TypingStartCommand {
+  cardId: CardId;
+}
+
+/**
+ * Typing Stop Command
+ */
+export interface TypingStopCommand {
+  cardId: CardId;
+}

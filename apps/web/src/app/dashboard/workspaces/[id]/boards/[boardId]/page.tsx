@@ -1,121 +1,290 @@
-// apps/web/src/app/dashboard/workspaces/[id]/boards/page.tsx
+// apps/web/src/app/dashboard/workspaces/[id]/boards/[boardId]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useBoardStore } from '@/stores/boardStore';
+import { useCardStore } from '@/stores/cardStore';
+import { useAuthStore } from '@/stores/authStore';
 import BoardList from '@/components/BoardList';
 import AddListButton from '@/components/AddListButton';
+import { CardDetailModal } from '@/components/CardDetailModal';
 import {
   DndContext,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragOverEvent,
   PointerSensor,
   useSensor,
   useSensors,
+  closestCorners,
 } from '@dnd-kit/core';
-import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 
 export default function BoardPage() {
   const params = useParams();
   const router = useRouter();
 
-  // Extraer correctamente los parámetros
-  const workspaceId = params.id as string; // [id] del workspace
-  const boardId = params.boardId as string; // [boardId] del board
+  const workspaceId = params.id as string;
+  const boardId = params.boardId as string;
 
   const { currentBoard, lists, fetchBoardById, archiveBoard, reorderList, isLoading } =
     useBoardStore();
+  const { cards, setCards, moveCard, setCurrentWorkspaceId, clearAllCards } = useCardStore();
+  const { accessToken } = useAuthStore();
 
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
-  const [activeListId, setActiveListId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeType, setActiveType] = useState<'list' | 'card' | null>(null);
 
-  // Configurar sensores para drag & drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // 8px de movimiento antes de activar drag
+        distance: 8, // 8px antes de activar drag
       },
     })
   );
 
-  // Cargar board al montar
+  // Cargar board y listas
   useEffect(() => {
-    if (boardId) {
-      fetchBoardById(boardId);
-    }
-  }, [boardId, fetchBoardById]);
+    if (!boardId || !workspaceId) return;
+
+    // Limpiar cards del board anterior
+    clearAllCards();
+
+    // Establecer workspaceId en el cardStore para acceso global
+    setCurrentWorkspaceId(workspaceId);
+
+    // Cargar información del board y listas
+    fetchBoardById(boardId);
+  }, [boardId, workspaceId, fetchBoardById, setCurrentWorkspaceId, clearAllCards]);
+
+  // Cargar cards cuando las listas estén disponibles
+  useEffect(() => {
+    if (lists.length === 0 || !accessToken) return;
+
+    const loadCards = async () => {
+      console.log(
+        'Loading cards for lists:',
+        lists.map((l) => l.id)
+      );
+
+      const cardPromises = lists.map(async (list) => {
+        try {
+          const cardsRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/lists/${list.id}/cards`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+
+          if (cardsRes.ok) {
+            const { data: cardsData } = await cardsRes.json();
+            console.log(`Loaded ${cardsData.cards?.length || 0} cards for list ${list.id}`);
+            return { listId: list.id, cards: cardsData.cards || [] };
+          }
+          console.log(`No cards found for list ${list.id}`);
+          return { listId: list.id, cards: [] };
+        } catch (error) {
+          console.error(`Error loading cards for list ${list.id}:`, error);
+          return { listId: list.id, cards: [] };
+        }
+      });
+
+      const cardsResults = await Promise.all(cardPromises);
+
+      cardsResults.forEach(({ listId, cards }) => {
+        setCards(listId, cards);
+      });
+
+      console.log('All cards loaded:', cardsResults);
+    };
+
+    loadCards();
+  }, [lists, accessToken, setCards]);
 
   const handleArchive = async () => {
     if (!currentBoard) return;
     await archiveBoard(currentBoard.id);
-    router.push(`/dashboard/workspaces/${workspaceId}/boards`);
+    router.push(`/dashboard/workspaces/${workspaceId}`);
   };
 
   const handleBack = () => {
     router.push(`/dashboard/workspaces/${workspaceId}`);
   };
 
-  // Handler para cuando empieza el drag
+  // === DRAG & DROP HANDLERS ===
+
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveListId(event.active.id as string);
+    const { active } = event;
+    setActiveId(active.id as string);
+
+    const type = active.data.current?.type;
+    setActiveType(type);
+
+    console.log('Drag started:', { id: active.id, type });
   };
 
-  // Handler para cuando termina el drag
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Solo manejar cards moviéndose entre listas
+    if (active.data.current?.type === 'card') {
+      const activeCard = active.data.current?.card;
+      const activeListId = activeCard?.listId;
+
+      // Extraer listId del over (puede ser un droppable area o otra card)
+      let overListId = over.data.current?.listId;
+
+      // Si over es un droppable area
+      if (overId.startsWith('list-droppable-')) {
+        overListId = overId.replace('list-droppable-', '');
+      }
+
+      // Si over es otra card, obtener su listId
+      if (over.data.current?.type === 'card') {
+        overListId = over.data.current?.card?.listId;
+      }
+
+      // Si se mueve a otra lista
+      if (activeListId && overListId && activeListId !== overListId) {
+        console.log('Moving card between lists:', { from: activeListId, to: overListId });
+
+        // Optimistic UI update - Obtener posición para el card
+        const targetList = cards[overListId] || [];
+        const newPosition =
+          targetList.length > 0 ? targetList[targetList.length - 1].position + 1 : 1;
+
+        moveCard(activeId, activeListId, overListId, newPosition);
+      }
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (!over || active.id === over.id) {
-      setActiveListId(null);
-      return;
+    setActiveId(null);
+    setActiveType(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // === REORDENAR LISTAS ===
+    if (active.data.current?.type === 'list' && over.data.current?.type === 'list') {
+      if (activeId !== overId) {
+        const sortedLists = [...lists].sort((a, b) => a.position - b.position);
+        const oldIndex = sortedLists.findIndex((list) => list.id === activeId);
+        const newIndex = sortedLists.findIndex((list) => list.id === overId);
+
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        let newPosition: number;
+
+        if (newIndex === 0) {
+          newPosition = sortedLists[0].position - 1;
+        } else if (newIndex === sortedLists.length - 1) {
+          newPosition = sortedLists[sortedLists.length - 1].position + 1;
+        } else if (newIndex > oldIndex) {
+          newPosition = (sortedLists[newIndex].position + sortedLists[newIndex + 1].position) / 2;
+        } else {
+          newPosition = (sortedLists[newIndex - 1].position + sortedLists[newIndex].position) / 2;
+        }
+
+        console.log('Reordering list:', { from: oldIndex, to: newIndex, newPosition });
+
+        try {
+          await reorderList(activeId, newPosition);
+        } catch (error) {
+          console.error('Failed to reorder list:', error);
+          // Recargar para revertir cambios
+          fetchBoardById(boardId);
+        }
+      }
     }
 
-    // Encontrar las posiciones de las listas
-    const sortedLists = [...lists].sort((a, b) => a.position - b.position);
-    const oldIndex = sortedLists.findIndex((list) => list.id === active.id);
-    const newIndex = sortedLists.findIndex((list) => list.id === over.id);
+    // === MOVER CARDS ===
+    if (active.data.current?.type === 'card') {
+      const card = active.data.current.card;
+      const fromListId = card.listId;
 
-    if (oldIndex === -1 || newIndex === -1) {
-      setActiveListId(null);
-      return;
+      // Determinar lista de destino
+      let toListId = over.data.current?.listId;
+
+      if (overId.startsWith('list-droppable-')) {
+        toListId = overId.replace('list-droppable-', '');
+      }
+
+      if (over.data.current?.type === 'card') {
+        toListId = over.data.current?.card?.listId;
+      }
+
+      if (!toListId || fromListId === toListId) return;
+
+      console.log('Card moved to new list, syncing with backend...', {
+        cardId: card.id,
+        from: fromListId,
+        to: toListId,
+      });
+
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cards/${card.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ listId: toListId }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to move card');
+        }
+
+        console.log('Card move synced successfully');
+      } catch (error) {
+        console.error('Failed to sync card move:', error);
+        // Revertir cambio optimista
+        const targetList = cards[fromListId] || [];
+        const revertPosition =
+          targetList.length > 0 ? targetList[targetList.length - 1].position + 1 : 1;
+        moveCard(card.id, toListId, fromListId, revertPosition);
+        alert('Failed to move card. Please try again.');
+      }
     }
-
-    // Calcular nueva posición
-    let newPosition: number;
-
-    if (newIndex === 0) {
-      // Mover al inicio
-      newPosition = sortedLists[0].position - 1;
-    } else if (newIndex === sortedLists.length - 1) {
-      // Mover al final
-      newPosition = sortedLists[sortedLists.length - 1].position + 1;
-    } else if (newIndex > oldIndex) {
-      // Mover hacia la derecha
-      newPosition = (sortedLists[newIndex].position + sortedLists[newIndex + 1].position) / 2;
-    } else {
-      // Mover hacia la izquierda
-      newPosition = (sortedLists[newIndex - 1].position + sortedLists[newIndex].position) / 2;
-    }
-
-    // Actualizar posición en el backend
-    await reorderList(active.id as string, newPosition);
-    setActiveListId(null);
   };
 
-  // Handler para cancelar drag
   const handleDragCancel = () => {
-    setActiveListId(null);
+    setActiveId(null);
+    setActiveType(null);
   };
 
-  // Obtener la lista activa para el DragOverlay
-  const activeList = activeListId ? lists.find((list) => list.id === activeListId) : null;
+  // Encontrar elemento activo para DragOverlay
+  const activeList =
+    activeId && activeType === 'list' ? lists.find((list) => list.id === activeId) : null;
+
+  const activeCard =
+    activeId && activeType === 'card'
+      ? Object.values(cards)
+          .flat()
+          .find((card) => card.id === activeId)
+      : null;
+
+  const totalCards = Object.values(cards).reduce((total, listCards) => total + listCards.length, 0);
 
   if (isLoading || !currentBoard) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+          <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
           <p className="text-text-secondary">Loading board...</p>
         </div>
       </div>
@@ -142,19 +311,17 @@ export default function BoardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Stats */}
           <div className="flex items-center gap-4 text-text-muted text-sm mr-4">
             <div className="flex items-center gap-1">
-              <span className="text-primary">█</span>
+              <span className="text-accent">█</span>
               <span>{lists.length} lists</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="text-success">▣</span>
-              <span>{currentBoard.cardCount || 0} cards</span>
+              <span>{totalCards} cards</span>
             </div>
           </div>
 
-          {/* Archive Button */}
           <button
             onClick={() => setShowArchiveConfirm(true)}
             className="btn-secondary text-warning hover:border-warning"
@@ -164,21 +331,23 @@ export default function BoardPage() {
         </div>
       </header>
 
-      {/* Board Content - Horizontal Scroll con Drag & Drop */}
+      {/* Board Content with DND */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="h-full p-6">
           <DndContext
             sensors={sensors}
+            collisionDetection={closestCorners}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
+            modifiers={[restrictToWindowEdges]}
           >
             <div className="flex gap-6 min-w-min h-full">
               <SortableContext
                 items={lists.map((list) => list.id)}
                 strategy={horizontalListSortingStrategy}
               >
-                {/* Lists */}
                 {lists
                   .sort((a, b) => a.position - b.position)
                   .map((list) => (
@@ -186,15 +355,25 @@ export default function BoardPage() {
                   ))}
               </SortableContext>
 
-              {/* Add List Button */}
               <AddListButton boardId={boardId} />
             </div>
 
-            {/* Drag Overlay - Muestra una copia semi-transparente mientras arrastras */}
+            {/* Drag Overlay - Elemento fantasma mientras se arrastra */}
             <DragOverlay>
               {activeList ? (
-                <div className="w-80 opacity-50">
-                  <BoardList list={activeList} />
+                <div className="w-80 opacity-60 rotate-2">
+                  <div className="card-terminal p-4">
+                    <div className="text-center text-text-primary font-mono">
+                      Moving "{activeList.name}"...
+                    </div>
+                  </div>
+                </div>
+              ) : activeCard ? (
+                <div className="w-80 opacity-80 rotate-3">
+                  <div className="bg-card border-2 border-accent rounded-terminal p-3 shadow-xl">
+                    <div className="text-sm text-text-primary font-mono">{activeCard.title}</div>
+                    <div className="text-xs text-text-muted mt-1">Moving card...</div>
+                  </div>
                 </div>
               ) : null}
             </DragOverlay>
@@ -202,7 +381,7 @@ export default function BoardPage() {
         </div>
       </div>
 
-      {/* Archive Confirmation Modal */}
+      {/* Modal de confirmación para archivar el board */}
       {showArchiveConfirm && (
         <>
           <div
@@ -234,6 +413,9 @@ export default function BoardPage() {
           </div>
         </>
       )}
+
+      {/* Card Detail Modal */}
+      <CardDetailModal />
     </div>
   );
 }

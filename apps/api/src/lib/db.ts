@@ -1,4 +1,6 @@
-import { Pool } from 'pg';
+// apps/api/src/lib/db.ts
+
+import { Pool, QueryResult, QueryResultRow } from 'pg';
 
 export const pool = new Pool({
   host: process.env.DB_HOST,
@@ -26,3 +28,35 @@ process.on('SIGINT', async () => {
   console.log('[DB] Pool has ended');
   process.exit(0);
 });
+
+/**
+ * Execute a query with parameterized values
+ */
+export async function query<T extends QueryResultRow = any>(
+  text: string,
+  params?: any[]
+): Promise<QueryResult<T>> {
+  const start = Date.now();
+  try {
+    const result = await pool.query<T>(text, params);
+    const duration = Date.now() - start;
+
+    if (duration > 1000) {
+      console.warn(`[DB] Slow query (${duration}ms):`, text);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('[DB] Query error:', error);
+    console.error('[DB] Query:', text);
+    console.error('[DB] Params:', params);
+    throw error;
+  }
+}
+
+/**
+ * Get a client from the pool for transactions
+ */
+export async function getClient() {
+  return await pool.connect();
+}

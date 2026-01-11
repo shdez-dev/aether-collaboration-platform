@@ -10,6 +10,8 @@ import authRoutes from './routes/auth';
 import workspaceRoutes from './routes/workspace';
 import userRoutes from './routes/user';
 import boardRoutes from './routes/board';
+import cardRoutes from './routes/cards';
+import labelRoutes from './routes/labels';
 
 dotenv.config();
 
@@ -47,17 +49,23 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Auth routes
+// Rutas de autenticación
 app.use('/api/auth', authRoutes);
 
-// Workspace routes
+// Rutas de workspaces
 app.use('/api/workspaces', workspaceRoutes);
 
-// User routes
+// Rutas de usuarios
 app.use('/api/users', userRoutes);
 
-// Board & List routes ← NUEVO
+// Rutas de boards y listas
 app.use('/api', boardRoutes);
+
+// Rutas de cards
+app.use('/api', cardRoutes);
+
+// Rutas de labels
+app.use('/api', labelRoutes);
 
 // ==================== WEBSOCKET ====================
 io.on('connection', (socket) => {
@@ -116,6 +124,24 @@ httpServer.listen(PORT, () => {
 ║   - PUT    /api/lists/:id                             ║
 ║   - PUT    /api/lists/:id/reorder                     ║
 ║   - DELETE /api/lists/:id                             ║
+║                                                       ║
+║   CARDS:                                              ║
+║   - POST   /api/lists/:listId/cards                   ║
+║   - GET    /api/cards/:id                             ║
+║   - PUT    /api/cards/:id                             ║
+║   - PUT    /api/cards/:id/move                        ║
+║   - DELETE /api/cards/:id                             ║
+║   - POST   /api/cards/:id/members                     ║
+║   - DELETE /api/cards/:id/members/:userId             ║
+║   - POST   /api/cards/:id/labels                      ║
+║   - DELETE /api/cards/:id/labels/:labelId             ║
+║                                                       ║
+║   LABELS:                                             ║
+║   - POST   /api/workspaces/:wId/labels                ║
+║   - GET    /api/workspaces/:wId/labels                ║
+║   - GET    /api/labels/:id                            ║
+║   - PUT    /api/labels/:id                            ║
+║   - DELETE /api/labels/:id                            ║
 ║                                                       ║
 ║   USERS:                                              ║
 ║   - GET    /api/users/search                          ║

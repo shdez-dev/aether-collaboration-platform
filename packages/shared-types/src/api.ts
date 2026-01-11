@@ -1,6 +1,6 @@
 /**
  * API Request/Response Types
- * 
+ *
  * Standard types for REST API communication
  */
 
@@ -143,12 +143,6 @@ export interface MoveCardRequest {
 // ============================================================================
 // WEBSOCKET MESSAGES
 // ============================================================================
-
-export interface WebSocketMessage<T = unknown> {
-  type: string;
-  payload: T;
-  timestamp: number;
-}
 
 export interface WebSocketAck {
   messageId: string;
