@@ -2,7 +2,7 @@
 
 import { Router } from 'express';
 import { LabelController } from '../controllers/LabelController';
-import { authenticateJWT } from '../middleware/auth'; // ✅ Cambio aquí
+import { authenticateJWT } from '../middleware/auth';
 
 const router = Router();
 

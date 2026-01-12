@@ -1,30 +1,34 @@
 // apps/api/src/index.ts
 
 import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
+import { createServer } from 'http';
 import dotenv from 'dotenv';
+
+// Import routes
 import authRoutes from './routes/auth';
 import workspaceRoutes from './routes/workspace';
-import userRoutes from './routes/user';
 import boardRoutes from './routes/board';
 import cardRoutes from './routes/cards';
 import labelRoutes from './routes/labels';
+import userRoutes from './routes/user';
+import presenceRoutes from './routes/presence';
 
+// Import WebSocket and Redis
+import { initializeRedis, closeRedisConnections } from './lib/redis';
+import { initializeRealtimeGateway } from './websocket/RealtimeGateway';
+
+// Load environment variables
 dotenv.config();
 
 const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
-    credentials: true,
-  },
-});
+const PORT = process.env.API_PORT || 4000;
 
-// ==================== MIDDLEWARE ====================
+// ============================================================================
+// MIDDLEWARE
+// ============================================================================
+
 app.use(helmet());
 app.use(
   cors({
@@ -32,15 +36,29 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ==================== HEALTH CHECK ====================
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Request logging
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
 });
 
-// ==================== API ROUTES ====================
+// ============================================================================
+// ROUTES
+// ============================================================================
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'aether-api',
+    version: '0.1.0',
+  });
+});
+
 app.get('/api', (req, res) => {
   res.json({
     message: 'AETHER API',
@@ -49,105 +67,174 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Rutas de autenticación
+// API Routes
 app.use('/api/auth', authRoutes);
-
-// Rutas de workspaces
 app.use('/api/workspaces', workspaceRoutes);
-
-// Rutas de usuarios
 app.use('/api/users', userRoutes);
-
-// Rutas de boards y listas
 app.use('/api', boardRoutes);
-
-// Rutas de cards
 app.use('/api', cardRoutes);
-
-// Rutas de labels
 app.use('/api', labelRoutes);
+app.use('/api/presence', presenceRoutes);
 
-// ==================== WEBSOCKET ====================
-io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`);
-
-  socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
-  });
-
-  socket.on('ping', () => {
-    socket.emit('pong', { timestamp: Date.now() });
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      code: 'NOT_FOUND',
+      message: `Route ${req.method} ${req.path} not found`,
+    },
   });
 });
 
-// ==================== SERVER START ====================
-const PORT = process.env.API_PORT || 4000;
-
-httpServer.listen(PORT, () => {
-  console.log(`
-╔═══════════════════════════════════════════════════════╗
-║                                                       ║
-║   AETHER API Server                                   ║
-║                                                       ║
-║   HTTP:      http://localhost:${PORT}                    ║
-║   WebSocket: ws://localhost:${PORT}                      ║
-║   Health:    http://localhost:${PORT}/health            ║
-║                                                       ║
-║   Endpoints:                                          ║
-║                                                       ║
-║   AUTH:                                               ║
-║   - POST   /api/auth/register                         ║
-║   - POST   /api/auth/login                            ║
-║   - POST   /api/auth/logout                           ║
-║   - GET    /api/auth/me                               ║
-║                                                       ║
-║   WORKSPACES:                                         ║
-║   - POST   /api/workspaces                            ║
-║   - GET    /api/workspaces                            ║
-║   - GET    /api/workspaces/:id                        ║
-║   - PUT    /api/workspaces/:id                        ║
-║   - DELETE /api/workspaces/:id                        ║
-║   - POST   /api/workspaces/:id/invite                 ║
-║   - GET    /api/workspaces/:id/members                ║
-║                                                       ║
-║   BOARDS:                                             ║
-║   - POST   /api/workspaces/:wId/boards                ║
-║   - GET    /api/workspaces/:wId/boards                ║
-║   - GET    /api/boards/:id                            ║
-║   - PUT    /api/boards/:id                            ║
-║   - POST   /api/boards/:id/archive                    ║
-║   - DELETE /api/boards/:id                            ║
-║                                                       ║
-║   LISTS:                                              ║
-║   - POST   /api/boards/:bId/lists                     ║
-║   - GET    /api/boards/:bId/lists                     ║
-║   - PUT    /api/lists/:id                             ║
-║   - PUT    /api/lists/:id/reorder                     ║
-║   - DELETE /api/lists/:id                             ║
-║                                                       ║
-║   CARDS:                                              ║
-║   - POST   /api/lists/:listId/cards                   ║
-║   - GET    /api/cards/:id                             ║
-║   - PUT    /api/cards/:id                             ║
-║   - PUT    /api/cards/:id/move                        ║
-║   - DELETE /api/cards/:id                             ║
-║   - POST   /api/cards/:id/members                     ║
-║   - DELETE /api/cards/:id/members/:userId             ║
-║   - POST   /api/cards/:id/labels                      ║
-║   - DELETE /api/cards/:id/labels/:labelId             ║
-║                                                       ║
-║   LABELS:                                             ║
-║   - POST   /api/workspaces/:wId/labels                ║
-║   - GET    /api/workspaces/:wId/labels                ║
-║   - GET    /api/labels/:id                            ║
-║   - PUT    /api/labels/:id                            ║
-║   - DELETE /api/labels/:id                            ║
-║                                                       ║
-║   USERS:                                              ║
-║   - GET    /api/users/search                          ║
-║                                                       ║
-╚═══════════════════════════════════════════════════════╝
-  `);
+// Error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[Server] Error:', err);
+  res.status(500).json({
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: err.message || 'Internal server error',
+    },
+  });
 });
 
-export { app, io, httpServer };
+// ============================================================================
+// CREATE HTTP SERVER & INITIALIZE SERVICES
+// ============================================================================
+
+const httpServer = createServer(app);
+
+async function startServer() {
+  try {
+    console.log('[Server] Initializing services...');
+
+    // 1. Initialize Redis
+    await initializeRedis();
+    console.log('[Server] ✅ Redis initialized');
+
+    // 2. Initialize WebSocket Gateway
+    const realtimeGateway = initializeRealtimeGateway(httpServer);
+    console.log('[Server] ✅ WebSocket Gateway initialized');
+
+    // 3. Start HTTP server
+    httpServer.listen(PORT, () => {
+      console.log('');
+      console.log('╔═══════════════════════════════════════════════════════╗');
+      console.log('║                                                       ║');
+      console.log('║   🚀 AETHER API Server                                ║');
+      console.log('║                                                       ║');
+      console.log('╚═══════════════════════════════════════════════════════╝');
+      console.log('');
+      console.log(`📡 HTTP Server:     http://localhost:${PORT}`);
+      console.log(`🔌 WebSocket:       ws://localhost:${PORT}`);
+      console.log(`🗄️  PostgreSQL:     Connected`);
+      console.log(`🔴 Redis:           Connected`);
+      console.log(`📝 Health Check:    http://localhost:${PORT}/health`);
+      console.log('');
+      console.log('━━━━━━━━━━━━━━━━━ API ENDPOINTS ━━━━━━━━━━━━━━━━━');
+      console.log('');
+      console.log('AUTH:');
+      console.log('  POST   /api/auth/register');
+      console.log('  POST   /api/auth/login');
+      console.log('  POST   /api/auth/logout');
+      console.log('  GET    /api/auth/me');
+      console.log('');
+      console.log('WORKSPACES:');
+      console.log('  POST   /api/workspaces');
+      console.log('  GET    /api/workspaces');
+      console.log('  GET    /api/workspaces/:id');
+      console.log('  PUT    /api/workspaces/:id');
+      console.log('  DELETE /api/workspaces/:id');
+      console.log('  POST   /api/workspaces/:id/invite');
+      console.log('  GET    /api/workspaces/:id/members');
+      console.log('');
+      console.log('BOARDS:');
+      console.log('  POST   /api/workspaces/:wId/boards');
+      console.log('  GET    /api/workspaces/:wId/boards');
+      console.log('  GET    /api/boards/:id');
+      console.log('  PUT    /api/boards/:id');
+      console.log('  POST   /api/boards/:id/archive');
+      console.log('  DELETE /api/boards/:id');
+      console.log('');
+      console.log('LISTS:');
+      console.log('  POST   /api/boards/:bId/lists');
+      console.log('  GET    /api/boards/:bId/lists');
+      console.log('  PUT    /api/lists/:id');
+      console.log('  PUT    /api/lists/:id/reorder');
+      console.log('  DELETE /api/lists/:id');
+      console.log('');
+      console.log('CARDS:');
+      console.log('  POST   /api/lists/:listId/cards');
+      console.log('  GET    /api/cards/:id');
+      console.log('  PUT    /api/cards/:id');
+      console.log('  PUT    /api/cards/:id/move');
+      console.log('  DELETE /api/cards/:id');
+      console.log('  POST   /api/cards/:id/members');
+      console.log('  DELETE /api/cards/:id/members/:userId');
+      console.log('  POST   /api/cards/:id/labels');
+      console.log('  DELETE /api/cards/:id/labels/:labelId');
+      console.log('');
+      console.log('LABELS:');
+      console.log('  POST   /api/workspaces/:wId/labels');
+      console.log('  GET    /api/workspaces/:wId/labels');
+      console.log('  GET    /api/labels/:id');
+      console.log('  PUT    /api/labels/:id');
+      console.log('  DELETE /api/labels/:id');
+      console.log('');
+      console.log('PRESENCE:');
+      console.log('  GET    /api/presence/boards/:boardId/active-users');
+      console.log('  GET    /api/presence/cards/:cardId/typing');
+      console.log('  GET    /api/presence/boards/:boardId/events');
+      console.log('  GET    /api/presence/cards/:cardId/activity');
+      console.log('  GET    /api/presence/boards/:boardId/stats');
+      console.log('');
+      console.log('USERS:');
+      console.log('  GET    /api/users/search');
+      console.log('');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('');
+    });
+  } catch (error) {
+    console.error('[Server] ❌ Failed to start:', error);
+    process.exit(1);
+  }
+}
+
+// ============================================================================
+// GRACEFUL SHUTDOWN
+// ============================================================================
+
+const shutdown = async (signal: string) => {
+  console.log(`\n[Server] ${signal} received, closing server gracefully...`);
+
+  httpServer.close(async () => {
+    console.log('[Server] HTTP server closed');
+
+    try {
+      await closeRedisConnections();
+      console.log('[Server] All connections closed');
+      process.exit(0);
+    } catch (error) {
+      console.error('[Server] Error during shutdown:', error);
+      process.exit(1);
+    }
+  });
+
+  // Force close after 10 seconds
+  setTimeout(() => {
+    console.error('[Server] Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// ============================================================================
+// START
+// ============================================================================
+
+startServer();
+
+export { httpServer };

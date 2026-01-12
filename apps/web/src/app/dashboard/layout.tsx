@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { Toaster } from '@/components/ui/toaster';
+import { RealtimeNotificationProvider } from '@/components/realtime/RealtimeNotificationProvider';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -159,6 +161,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <main className="flex-1 p-6 overflow-auto">{children}</main>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <Toaster />
+
+      {/* Realtime Event Listener */}
+      <RealtimeNotificationProvider />
     </ProtectedRoute>
   );
 }

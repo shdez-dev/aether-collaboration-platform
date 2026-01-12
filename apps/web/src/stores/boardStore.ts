@@ -1,45 +1,18 @@
-// apps/web/src/stores/boardStore.ts
+// ==================== TYPES ====================// apps/web/src/stores/boardStore.ts
 
 import { create } from 'zustand';
+import { socketService } from '@/services/socketService';
+import { useCardStore } from './cardStore';
+import { useAuthStore } from './authStore';
+import type { Event, Board, List, Card } from '@aether/types';
 
-// ==================== TYPES ====================
-
-interface Board {
+interface ActiveUser {
   id: string;
-  workspaceId: string;
   name: string;
-  description?: string;
-  position: number;
-  archived: boolean;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  listCount?: number;
-  cardCount?: number;
-  lists?: List[];
-}
-
-interface List {
-  id: string;
-  boardId: string;
-  name: string;
-  position: number;
-  createdAt: string;
-  updatedAt: string;
-  cardCount?: number;
-  cards?: Card[];
-}
-
-interface Card {
-  id: string;
-  listId: string;
-  title: string;
-  description?: string;
-  position: number;
-  dueDate?: string;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
-  createdAt: string;
-  updatedAt: string;
+  email: string;
+  avatar?: string;
+  joinedAt: string;
+  lastActivity: string;
 }
 
 interface BoardState {
@@ -49,6 +22,10 @@ interface BoardState {
   lists: List[];
   isLoading: boolean;
   error: string | null;
+
+  // Estado de WebSocket
+  isSocketConnected: boolean;
+  activeUsers: ActiveUser[];
 
   // Acciones - Boards
   fetchBoards: (workspaceId: string) => Promise<void>;
@@ -63,6 +40,14 @@ interface BoardState {
   updateList: (listId: string, name: string) => Promise<void>;
   reorderList: (listId: string, newPosition: number) => Promise<void>;
   deleteList: (listId: string) => Promise<void>;
+
+  // Acciones - WebSocket
+  connectSocket: () => void;
+  disconnectSocket: () => void;
+  joinBoard: (boardId: string) => void;
+  leaveBoard: (boardId: string) => void;
+  handleEvent: (event: Event) => void;
+  setActiveUsers: (users: ActiveUser[]) => void;
 
   // Helpers
   clearError: () => void;
@@ -102,11 +87,15 @@ async function apiRequest<T>(
       }
     }
 
+    // Agregar x-socket-id header para evitar echo
+    const socketId = socketService.getSocketId();
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
+        ...(socketId && { 'x-socket-id': socketId }),
         ...options.headers,
       },
     });
@@ -137,6 +126,206 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   lists: [],
   isLoading: false,
   error: null,
+  isSocketConnected: false,
+  activeUsers: [],
+
+  // ==================== WEBSOCKET - CONNECT ====================
+  connectSocket: () => {
+    const { accessToken } = useAuthStore.getState();
+
+    if (!accessToken) {
+      console.warn('[BoardStore] No access token available for WebSocket');
+      return;
+    }
+
+    if (socketService.isConnected()) {
+      console.log('[BoardStore] Socket already connected');
+      return;
+    }
+
+    console.log('[BoardStore] Connecting to WebSocket...');
+    socketService.connect(accessToken);
+
+    // Configurar event listeners
+    socketService.on('connect', () => {
+      console.log('[BoardStore] Socket connected');
+      set({ isSocketConnected: true });
+
+      // Re-unirse al board actual si existe
+      const currentBoard = get().currentBoard;
+      if (currentBoard) {
+        socketService.joinBoard(currentBoard.id);
+      }
+    });
+
+    socketService.on('disconnect', () => {
+      console.log('[BoardStore] Socket disconnected');
+      set({ isSocketConnected: false, activeUsers: [] });
+    });
+
+    // Escuchar eventos del sistema
+    socketService.onEvent((event: Event) => {
+      get().handleEvent(event);
+    });
+
+    // Escuchar actualizaciones de usuarios activos
+    socketService.onPresenceUsers((data) => {
+      set({ activeUsers: data.users });
+    });
+
+    // Cuando te unes exitosamente a un board
+    socketService.onJoinedBoard((data) => {
+      console.log('[BoardStore] Joined board:', data.boardId);
+      set({ activeUsers: data.users });
+    });
+  },
+
+  // ==================== WEBSOCKET - DISCONNECT ====================
+  disconnectSocket: () => {
+    console.log('[BoardStore] Disconnecting socket...');
+    socketService.removeAllListeners();
+    socketService.disconnect();
+    set({ isSocketConnected: false, activeUsers: [] });
+  },
+
+  // ==================== WEBSOCKET - JOIN BOARD ====================
+  joinBoard: (boardId: string) => {
+    console.log('[BoardStore] Joining board:', boardId);
+    socketService.joinBoard(boardId);
+  },
+
+  // ==================== WEBSOCKET - LEAVE BOARD ====================
+  leaveBoard: (boardId: string) => {
+    console.log('[BoardStore] Leaving board:', boardId);
+    socketService.leaveBoard(boardId);
+    set({ activeUsers: [] });
+  },
+
+  // ==================== WEBSOCKET - HANDLE EVENT ====================
+  handleEvent: (event: Event) => {
+    console.log('[BoardStore] Event received:', event.type, event.payload);
+    const cardStore = useCardStore.getState();
+
+    switch (event.type) {
+      // ========== CARD EVENTS ==========
+      case 'card.created': {
+        const { card } = event.payload as any;
+        if (card) {
+          cardStore.addCard(card.listId, card);
+        }
+        break;
+      }
+
+      case 'card.updated': {
+        const { cardId, changes } = event.payload as any;
+        if (cardId && changes) {
+          cardStore.updateCard(cardId, changes);
+        }
+        break;
+      }
+
+      case 'card.moved': {
+        const { cardId, fromListId, toListId, toPosition } = event.payload as any;
+        if (cardId && fromListId && toListId !== undefined && toPosition !== undefined) {
+          cardStore.moveCard(cardId, fromListId, toListId, toPosition);
+        }
+        break;
+      }
+
+      case 'card.deleted': {
+        const { cardId, listId } = event.payload as any;
+        if (cardId && listId) {
+          cardStore.removeCard(cardId, listId);
+        }
+        break;
+      }
+
+      case 'card.member.assigned':
+      case 'card.member.unassigned': {
+        const { cardId } = event.payload as any;
+        if (cardId) {
+          // Recargar card para obtener lista actualizada de miembros
+          // Esto se puede optimizar más adelante
+          console.log('[BoardStore] Member assignment changed for card:', cardId);
+        }
+        break;
+      }
+
+      case 'card.label.added':
+      case 'card.label.removed': {
+        const { cardId } = event.payload as any;
+        if (cardId) {
+          // Recargar card para obtener lista actualizada de labels
+          console.log('[BoardStore] Label changed for card:', cardId);
+        }
+        break;
+      }
+
+      // ========== LIST EVENTS ==========
+      case 'list.created': {
+        const { list } = event.payload as any;
+        if (list) {
+          set((state) => ({
+            lists: [...state.lists, list],
+          }));
+        }
+        break;
+      }
+
+      case 'list.updated': {
+        const { listId, changes } = event.payload as any;
+        if (listId && changes) {
+          set((state) => ({
+            lists: state.lists.map((l) => (l.id === listId ? { ...l, ...changes } : l)),
+          }));
+        }
+        break;
+      }
+
+      case 'list.deleted': {
+        const { listId } = event.payload as any;
+        if (listId) {
+          set((state) => ({
+            lists: state.lists.filter((l) => l.id !== listId),
+          }));
+          cardStore.clearAllCards();
+        }
+        break;
+      }
+
+      case 'list.reordered': {
+        const { boardId } = event.payload as any;
+        if (boardId === get().currentBoard?.id) {
+          // Recargar board para obtener orden actualizado
+          get().fetchBoardById(boardId);
+        }
+        break;
+      }
+
+      // ========== BOARD EVENTS ==========
+      case 'board.updated': {
+        const { boardId, changes } = event.payload as any;
+        if (boardId && changes) {
+          set((state) => ({
+            currentBoard:
+              state.currentBoard?.id === boardId
+                ? { ...state.currentBoard, ...changes }
+                : state.currentBoard,
+            boards: state.boards.map((b) => (b.id === boardId ? { ...b, ...changes } : b)),
+          }));
+        }
+        break;
+      }
+
+      default:
+        console.log('[BoardStore] Unhandled event type:', event.type);
+    }
+  },
+
+  // ==================== WEBSOCKET - SET ACTIVE USERS ====================
+  setActiveUsers: (users: ActiveUser[]) => {
+    set({ activeUsers: users });
+  },
 
   // ==================== FETCH BOARDS ====================
   fetchBoards: async (workspaceId: string) => {
@@ -189,6 +378,20 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         lists: board.lists || [],
         isLoading: false,
       });
+
+      // Cargar cards de cada lista en el cardStore
+      const cardStore = useCardStore.getState();
+      if (board.lists) {
+        board.lists.forEach((list) => {
+          if (list.cards) {
+            cardStore.setCards(list.id, list.cards);
+          }
+        });
+      }
+
+      // Conectar socket y unirse al board
+      get().connectSocket();
+      get().joinBoard(boardId);
     } catch (error) {
       set({
         error: 'Error al cargar board',
@@ -215,7 +418,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         throw new Error(response.error?.message);
       }
 
-      // Agregar a la lista local
       set((state) => ({
         boards: [...state.boards, response.data!.board],
         isLoading: false,
@@ -246,7 +448,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return;
       }
 
-      // Actualizar en la lista local
       set((state) => ({
         boards: state.boards.map((b) => (b.id === boardId ? response.data!.board : b)),
         currentBoard:
@@ -280,7 +481,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return;
       }
 
-      // Remover de la lista (boards archivados no se muestran)
       set((state) => ({
         boards: state.boards.filter((b) => b.id !== boardId),
         isLoading: false,
@@ -310,7 +510,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return;
       }
 
-      // Remover de la lista local
       set((state) => ({
         boards: state.boards.filter((b) => b.id !== boardId),
         currentBoard: state.currentBoard?.id === boardId ? null : state.currentBoard,
@@ -342,7 +541,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return;
       }
 
-      // Agregar a las listas locales
       set((state) => ({
         lists: [...state.lists, response.data!.list],
         isLoading: false,
@@ -373,7 +571,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return;
       }
 
-      // Actualizar en la lista local
       set((state) => ({
         lists: state.lists.map((l) => (l.id === listId ? response.data!.list : l)),
         isLoading: false,
@@ -404,7 +601,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return;
       }
 
-      // Recargar el board completo para obtener el orden actualizado
       const currentBoard = get().currentBoard;
       if (currentBoard) {
         await get().fetchBoardById(currentBoard.id);
@@ -436,7 +632,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return;
       }
 
-      // Remover de la lista local
       set((state) => ({
         lists: state.lists.filter((l) => l.id !== listId),
         isLoading: false,
@@ -451,7 +646,19 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
   // ==================== SELECT BOARD ====================
   selectBoard: (board: Board | null) => {
+    const currentBoard = get().currentBoard;
+
+    // Salir del board anterior
+    if (currentBoard && currentBoard.id !== board?.id) {
+      get().leaveBoard(currentBoard.id);
+    }
+
     set({ currentBoard: board, lists: board?.lists || [] });
+
+    // Unirse al nuevo board
+    if (board) {
+      get().joinBoard(board.id);
+    }
   },
 
   // ==================== CLEAR ERROR ====================

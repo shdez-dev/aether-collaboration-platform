@@ -122,40 +122,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Getting Started */}
-      <div className="card-terminal bg-accent/5 border-accent/50">
-        <h2 className="section-header text-accent">GETTING STARTED</h2>
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <span className="text-accent text-xl">1.</span>
-            <div>
-              <h3 className="text-text-primary font-medium mb-1">Create your first workspace</h3>
-              <p className="text-text-secondary text-sm">
-                Workspaces help you organize projects and collaborate with your team.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="text-accent text-xl">2.</span>
-            <div>
-              <h3 className="text-text-primary font-medium mb-1">Set up your first board</h3>
-              <p className="text-text-secondary text-sm">
-                Boards use a Kanban-style layout to help you track tasks and progress.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="text-accent text-xl">3.</span>
-            <div>
-              <h3 className="text-text-primary font-medium mb-1">Invite team members</h3>
-              <p className="text-text-secondary text-sm">
-                Collaborate in real-time with your team members across all your projects.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* System Info */}
       <div className="card-terminal bg-card">
         <div className="flex items-center justify-between text-xs text-text-muted">

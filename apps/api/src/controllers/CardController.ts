@@ -48,6 +48,15 @@ const labelSchema = z.object({
   labelId: z.string().uuid(),
 });
 
+// ==================== HELPERS ====================
+
+/**
+ * Extrae el socketId del header x-socket-id
+ */
+function getSocketId(req: Request): string | undefined {
+  return req.headers['x-socket-id'] as string | undefined;
+}
+
 // ==================== CONTROLLER ====================
 
 export class CardController {
@@ -83,6 +92,7 @@ export class CardController {
     try {
       const { listId } = req.params;
       const userId = req.user?.id;
+      const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -104,7 +114,7 @@ export class CardController {
         });
       }
 
-      const card = await CardService.createCard(listId, userId, validationResult.data);
+      const card = await CardService.createCard(listId, userId, validationResult.data, socketId);
 
       return res.status(201).json({
         success: true,
@@ -157,6 +167,7 @@ export class CardController {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -178,7 +189,7 @@ export class CardController {
         });
       }
 
-      const card = await CardService.updateCard(id, userId, validationResult.data);
+      const card = await CardService.updateCard(id, userId, validationResult.data, socketId);
 
       return res.status(200).json({
         success: true,
@@ -201,6 +212,7 @@ export class CardController {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -222,7 +234,7 @@ export class CardController {
         });
       }
 
-      const card = await CardService.moveCard(id, userId, validationResult.data);
+      const card = await CardService.moveCard(id, userId, validationResult.data, socketId);
 
       return res.status(200).json({
         success: true,
@@ -245,6 +257,7 @@ export class CardController {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -253,7 +266,7 @@ export class CardController {
         });
       }
 
-      await CardService.deleteCard(id, userId);
+      await CardService.deleteCard(id, userId, socketId);
 
       return res.status(200).json({
         success: true,
@@ -276,6 +289,7 @@ export class CardController {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -297,7 +311,7 @@ export class CardController {
         });
       }
 
-      await CardService.assignMember(id, validationResult.data.userId, userId);
+      await CardService.assignMember(id, validationResult.data.userId, userId, socketId);
 
       return res.status(200).json({
         success: true,
@@ -328,6 +342,7 @@ export class CardController {
     try {
       const { id, userId: memberId } = req.params;
       const userId = req.user?.id;
+      const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -336,7 +351,7 @@ export class CardController {
         });
       }
 
-      await CardService.unassignMember(id, memberId, userId);
+      await CardService.unassignMember(id, memberId, userId, socketId);
 
       return res.status(200).json({
         success: true,
@@ -359,6 +374,7 @@ export class CardController {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -380,7 +396,7 @@ export class CardController {
         });
       }
 
-      await CardService.addLabel(id, validationResult.data.labelId, userId);
+      await CardService.addLabel(id, validationResult.data.labelId, userId, socketId);
 
       return res.status(200).json({
         success: true,
@@ -411,6 +427,7 @@ export class CardController {
     try {
       const { id, labelId } = req.params;
       const userId = req.user?.id;
+      const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
@@ -419,7 +436,7 @@ export class CardController {
         });
       }
 
-      await CardService.removeLabel(id, labelId, userId);
+      await CardService.removeLabel(id, labelId, userId, socketId);
 
       return res.status(200).json({
         success: true,

@@ -6,6 +6,39 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
 
 @layer base {
+  :root {
+    /* AETHER Theme - Negro Puro con Acentos Azules */
+    --background: 0 0% 7%;
+    --foreground: 210 40% 98%;
+
+    --card: 0 0% 7%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 91.2% 59.8%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 12%;
+    --ring: 217.2 91.2% 59.8%;
+
+    --radius: 0.25rem;
+  }
+
   * {
     @apply border-border;
   }
@@ -17,12 +50,10 @@
       'calt' 1;
   }
 
-  /* Smooth transitions */
   * {
     @apply transition-colors duration-200;
   }
 
-  /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -42,7 +73,6 @@
 }
 
 @layer components {
-  /* Terminal-style section headers */
   .section-header {
     @apply text-text-secondary text-sm font-normal mb-4;
   }
@@ -52,14 +82,12 @@
     @apply text-text-muted;
   }
 
-  /* Terminal-style card */
   .card-terminal {
     @apply bg-card border border-border rounded-terminal p-6;
     @apply shadow-terminal hover:shadow-terminal-hover;
     @apply hover:border-border-light;
   }
 
-  /* Input terminal style */
   .input-terminal {
     @apply w-full bg-surface border border-border rounded-terminal;
     @apply px-4 py-3 text-text-primary placeholder:text-text-muted;
@@ -67,7 +95,6 @@
     @apply hover:border-border-light;
   }
 
-  /* Button terminal style */
   .btn-terminal {
     @apply px-6 py-3 rounded-terminal font-mono;
     @apply border border-border;
@@ -84,14 +111,12 @@
     @apply btn-terminal bg-transparent text-text-primary;
   }
 
-  /* Link terminal style */
   .link-terminal {
     @apply text-text-secondary hover:text-accent;
     @apply underline decoration-border hover:decoration-accent;
     @apply underline-offset-4;
   }
 
-  /* Status indicator */
   .status-online {
     @apply inline-flex items-center gap-2 text-success text-sm;
   }
@@ -102,7 +127,6 @@
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
-  /* Loading animation */
   .loading {
     @apply inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full;
     animation: spin 1s linear infinite;
@@ -125,24 +149,12 @@
   }
 }
 
-/* ==================== LOADING ANIMATIONS ==================== */
-
-.loading {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 2px solid transparent;
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: spinner 0.6s linear infinite;
-}
-
 .loading-lg {
   display: inline-block;
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(var(--accent-rgb), 0.2);
-  border-top-color: rgb(var(--accent-rgb));
+  border: 3px solid rgba(59, 130, 246, 0.2);
+  border-top-color: rgb(59, 130, 246);
   border-radius: 50%;
   animation: spinner 0.8s linear infinite;
 }
@@ -153,23 +165,9 @@
   }
 }
 
-/* ==================== PULSE ANIMATION ==================== */
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-
-/* ==================== FADE IN ANIMATION ==================== */
 
 @keyframes fadeIn {
   from {
@@ -186,45 +184,6 @@
   animation: fadeIn 0.3s ease-out;
 }
 
-/* ==================== SCROLLBAR STYLING ==================== */
-
-/* For Webkit browsers (Chrome, Safari, Edge) */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgb(var(--bg-primary-rgb));
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(var(--accent-rgb), 0.3);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--accent-rgb), 0.5);
-}
-
-/* For Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--accent-rgb), 0.3) rgb(var(--bg-primary-rgb));
-}
-
-/* ==================== MODAL ANIMATIONS ==================== */
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @keyframes scaleIn {
   from {
     opacity: 0;
@@ -236,15 +195,10 @@
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
-}
-
 .animate-scale-in {
   animation: scaleIn 0.25s ease-out;
 }
 
-/* Prevenir scroll cuando modal está abierto (opcional) */
 body:has(.fixed.z-40) {
   overflow: hidden;
 }

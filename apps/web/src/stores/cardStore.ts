@@ -16,7 +16,7 @@ interface CardState {
   moveCard: (cardId: string, fromListId: string, toListId: string, position: number) => void;
   setSelectedCard: (card: Card | null) => void;
   setCurrentWorkspaceId: (workspaceId: string | null) => void;
-  clearAllCards: () => void; // NUEVO
+  clearAllCards: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -106,7 +106,6 @@ export const useCardStore = create<CardState>((set, get) => ({
 
   setCurrentWorkspaceId: (workspaceId) => set({ currentWorkspaceId: workspaceId }),
 
-  // Limpiar todas las cards
   clearAllCards: () => set({ cards: {} }),
 
   setLoading: (loading) => set({ isLoading: loading }),

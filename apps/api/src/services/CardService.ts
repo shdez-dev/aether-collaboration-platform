@@ -8,6 +8,27 @@ const eventStore = new EventStoreService();
 
 export class CardService {
   /**
+   * Helper: Obtener boardId desde listId
+   */
+  private static async getBoardIdFromList(listId: string): Promise<string | null> {
+    const result = await pool.query('SELECT board_id FROM lists WHERE id = $1', [listId]);
+    return result.rows[0]?.board_id || null;
+  }
+
+  /**
+   * Helper: Obtener boardId desde cardId
+   */
+  private static async getBoardIdFromCard(cardId: string): Promise<string | null> {
+    const result = await pool.query(
+      `SELECT l.board_id FROM cards c
+       INNER JOIN lists l ON c.list_id = l.id
+       WHERE c.id = $1`,
+      [cardId]
+    );
+    return result.rows[0]?.board_id || null;
+  }
+
+  /**
    * Obtener todas las cards de una lista
    * Incluye relaciones con miembros y labels
    * Ordena por posición ascendente
@@ -51,7 +72,8 @@ export class CardService {
       description?: string;
       dueDate?: string;
       priority?: 'LOW' | 'MEDIUM' | 'HIGH';
-    }
+    },
+    socketId?: string
   ): Promise<Card> {
     const client = await pool.connect();
 
@@ -84,6 +106,9 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
+      // Obtener boardId para WebSocket broadcast
+      const boardId = await this.getBoardIdFromList(listId);
+
       // Registrar evento de creación en el event store
       await eventStore.emit(
         'card.created',
@@ -95,7 +120,9 @@ export class CardService {
           position: card.position,
           createdBy: userId as any,
         },
-        userId as any
+        userId as any,
+        boardId || undefined,
+        socketId
       );
 
       await client.query('COMMIT');
@@ -153,7 +180,8 @@ export class CardService {
       description?: string | null;
       dueDate?: string | null;
       priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
-    }
+    },
+    socketId?: string
   ): Promise<Card> {
     const client = await pool.connect();
 
@@ -196,6 +224,9 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
+      // Obtener boardId para WebSocket broadcast
+      const boardId = await this.getBoardIdFromCard(cardId);
+
       // Registrar evento solo con los campos que cambiaron
       const changes: any = {};
       if (data.title !== undefined) changes.title = data.title;
@@ -210,7 +241,9 @@ export class CardService {
           changes,
           updatedBy: userId as any,
         },
-        userId as any
+        userId as any,
+        boardId || undefined,
+        socketId
       );
 
       await client.query('COMMIT');
@@ -234,7 +267,8 @@ export class CardService {
     data: {
       toListId: string;
       position: number;
-    }
+    },
+    socketId?: string
   ): Promise<Card> {
     const client = await pool.connect();
 
@@ -277,6 +311,9 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
+      // Obtener boardId para WebSocket broadcast
+      const boardId = await this.getBoardIdFromList(data.toListId);
+
       // Registrar evento de movimiento
       await eventStore.emit(
         'card.moved',
@@ -288,7 +325,9 @@ export class CardService {
           toPosition: data.position,
           movedBy: userId as any,
         },
-        userId as any
+        userId as any,
+        boardId || undefined,
+        socketId
       );
 
       await client.query('COMMIT');
@@ -306,7 +345,7 @@ export class CardService {
    * Eliminar card
    * Ajusta automáticamente las posiciones de las cards restantes
    */
-  static async deleteCard(cardId: string, userId: string): Promise<void> {
+  static async deleteCard(cardId: string, userId: string, socketId?: string): Promise<void> {
     const client = await pool.connect();
 
     try {
@@ -319,6 +358,9 @@ export class CardService {
       if (!card) {
         throw new Error('Card not found');
       }
+
+      // Obtener boardId antes de eliminar
+      const boardId = await this.getBoardIdFromList(card.list_id);
 
       // Eliminar card (cascade eliminará relaciones con members y labels)
       await client.query('DELETE FROM cards WHERE id = $1', [cardId]);
@@ -337,7 +379,9 @@ export class CardService {
           listId: card.list_id as any,
           deletedBy: userId as any,
         },
-        userId as any
+        userId as any,
+        boardId || undefined,
+        socketId
       );
 
       await client.query('COMMIT');
@@ -352,7 +396,12 @@ export class CardService {
   /**
    * Asignar miembro a card
    */
-  static async assignMember(cardId: string, memberId: string, userId: string): Promise<void> {
+  static async assignMember(
+    cardId: string,
+    memberId: string,
+    userId: string,
+    socketId?: string
+  ): Promise<void> {
     const client = await pool.connect();
 
     try {
@@ -374,6 +423,9 @@ export class CardService {
         memberId,
       ]);
 
+      // Obtener boardId para WebSocket broadcast
+      const boardId = await this.getBoardIdFromCard(cardId);
+
       // Registrar evento de asignación
       await eventStore.emit(
         'card.member.assigned',
@@ -382,7 +434,9 @@ export class CardService {
           userId: memberId as any,
           assignedBy: userId as any,
         },
-        userId as any
+        userId as any,
+        boardId || undefined,
+        socketId
       );
 
       await client.query('COMMIT');
@@ -397,7 +451,12 @@ export class CardService {
   /**
    * Desasignar miembro de card
    */
-  static async unassignMember(cardId: string, memberId: string, userId: string): Promise<void> {
+  static async unassignMember(
+    cardId: string,
+    memberId: string,
+    userId: string,
+    socketId?: string
+  ): Promise<void> {
     const client = await pool.connect();
 
     try {
@@ -408,6 +467,9 @@ export class CardService {
         memberId,
       ]);
 
+      // Obtener boardId para WebSocket broadcast
+      const boardId = await this.getBoardIdFromCard(cardId);
+
       // Registrar evento de desasignación
       await eventStore.emit(
         'card.member.unassigned',
@@ -416,7 +478,9 @@ export class CardService {
           userId: memberId as any,
           unassignedBy: userId as any,
         },
-        userId as any
+        userId as any,
+        boardId || undefined,
+        socketId
       );
 
       await client.query('COMMIT');
@@ -431,7 +495,12 @@ export class CardService {
   /**
    * Agregar label a card
    */
-  static async addLabel(cardId: string, labelId: string, userId: string): Promise<void> {
+  static async addLabel(
+    cardId: string,
+    labelId: string,
+    userId: string,
+    socketId?: string
+  ): Promise<void> {
     const client = await pool.connect();
 
     try {
@@ -452,6 +521,9 @@ export class CardService {
         labelId,
       ]);
 
+      // Obtener boardId para WebSocket broadcast
+      const boardId = await this.getBoardIdFromCard(cardId);
+
       // Registrar evento de agregación de label
       await eventStore.emit(
         'card.label.added',
@@ -460,7 +532,9 @@ export class CardService {
           labelId: labelId as any,
           addedBy: userId as any,
         },
-        userId as any
+        userId as any,
+        boardId || undefined,
+        socketId
       );
 
       await client.query('COMMIT');
@@ -475,7 +549,12 @@ export class CardService {
   /**
    * Remover label de card
    */
-  static async removeLabel(cardId: string, labelId: string, userId: string): Promise<void> {
+  static async removeLabel(
+    cardId: string,
+    labelId: string,
+    userId: string,
+    socketId?: string
+  ): Promise<void> {
     const client = await pool.connect();
 
     try {
@@ -486,6 +565,9 @@ export class CardService {
         labelId,
       ]);
 
+      // Obtener boardId para WebSocket broadcast
+      const boardId = await this.getBoardIdFromCard(cardId);
+
       // Registrar evento de remoción de label
       await eventStore.emit(
         'card.label.removed',
@@ -494,7 +576,9 @@ export class CardService {
           labelId: labelId as any,
           removedBy: userId as any,
         },
-        userId as any
+        userId as any,
+        boardId || undefined,
+        socketId
       );
 
       await client.query('COMMIT');

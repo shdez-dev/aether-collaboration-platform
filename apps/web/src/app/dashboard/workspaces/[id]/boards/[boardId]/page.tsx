@@ -6,9 +6,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useRealtimeBoard } from '@/hooks/useRealTimeBoard';
+import { useRealtimeToast } from '@/hooks/useRealtimeToast';
 import BoardList from '@/components/BoardList';
+import type { List } from '@aether/types';
 import AddListButton from '@/components/AddListButton';
 import { CardDetailModal } from '@/components/CardDetailModal';
+import { ActiveUsers } from '@/components/realtime/ActiveUsers';
 import {
   DndContext,
   DragEndEvent,
@@ -20,7 +24,7 @@ import {
   useSensors,
   closestCorners,
 } from '@dnd-kit/core';
-import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 
 export default function BoardPage() {
@@ -30,8 +34,26 @@ export default function BoardPage() {
   const workspaceId = params.id as string;
   const boardId = params.boardId as string;
 
-  const { currentBoard, lists, fetchBoardById, archiveBoard, reorderList, isLoading } =
-    useBoardStore();
+  // ==================== REALTIME INTEGRATION ====================
+  const {
+    board: currentBoard,
+    lists,
+    isLoading,
+    isConnected,
+    activeUsers,
+  } = useRealtimeBoard(boardId, {
+    onConnect: () => {
+      console.log('[BoardPage] Connected to realtime');
+    },
+    onDisconnect: () => {
+      console.log('[BoardPage] Disconnected from realtime');
+    },
+  });
+
+  const toast = useRealtimeToast();
+
+  // ==================== EXISTING STORES ====================
+  const { archiveBoard, reorderList } = useBoardStore();
   const { cards, setCards, moveCard, setCurrentWorkspaceId, clearAllCards } = useCardStore();
   const { accessToken } = useAuthStore();
 
@@ -42,24 +64,18 @@ export default function BoardPage() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // 8px antes de activar drag
+        distance: 8,
       },
     })
   );
 
-  // Cargar board y listas
+  // Establecer workspaceId y limpiar cards anteriores
   useEffect(() => {
-    if (!boardId || !workspaceId) return;
+    if (!workspaceId) return;
 
-    // Limpiar cards del board anterior
     clearAllCards();
-
-    // Establecer workspaceId en el cardStore para acceso global
     setCurrentWorkspaceId(workspaceId);
-
-    // Cargar información del board y listas
-    fetchBoardById(boardId);
-  }, [boardId, workspaceId, fetchBoardById, setCurrentWorkspaceId, clearAllCards]);
+  }, [workspaceId, setCurrentWorkspaceId, clearAllCards]);
 
   // Cargar cards cuando las listas estén disponibles
   useEffect(() => {
@@ -95,7 +111,7 @@ export default function BoardPage() {
 
       const cardsResults = await Promise.all(cardPromises);
 
-      cardsResults.forEach(({ listId, cards }) => {
+      cardsResults.forEach(({ listId, cards }: { listId: string; cards: any[] }) => {
         setCards(listId, cards);
       });
 
@@ -107,8 +123,14 @@ export default function BoardPage() {
 
   const handleArchive = async () => {
     if (!currentBoard) return;
-    await archiveBoard(currentBoard.id);
-    router.push(`/dashboard/workspaces/${workspaceId}`);
+
+    try {
+      await archiveBoard(currentBoard.id);
+      toast.success('Board archived successfully');
+      router.push(`/dashboard/workspaces/${workspaceId}`);
+    } catch (error) {
+      toast.error('Failed to archive board');
+    }
   };
 
   const handleBack = () => {
@@ -135,29 +157,23 @@ export default function BoardPage() {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Solo manejar cards moviéndose entre listas
     if (active.data.current?.type === 'card') {
       const activeCard = active.data.current?.card;
       const activeListId = activeCard?.listId;
 
-      // Extraer listId del over (puede ser un droppable area o otra card)
       let overListId = over.data.current?.listId;
 
-      // Si over es un droppable area
       if (overId.startsWith('list-droppable-')) {
         overListId = overId.replace('list-droppable-', '');
       }
 
-      // Si over es otra card, obtener su listId
       if (over.data.current?.type === 'card') {
         overListId = over.data.current?.card?.listId;
       }
 
-      // Si se mueve a otra lista
       if (activeListId && overListId && activeListId !== overListId) {
         console.log('Moving card between lists:', { from: activeListId, to: overListId });
 
-        // Optimistic UI update - Obtener posición para el card
         const targetList = cards[overListId] || [];
         const newPosition =
           targetList.length > 0 ? targetList[targetList.length - 1].position + 1 : 1;
@@ -181,9 +197,9 @@ export default function BoardPage() {
     // === REORDENAR LISTAS ===
     if (active.data.current?.type === 'list' && over.data.current?.type === 'list') {
       if (activeId !== overId) {
-        const sortedLists = [...lists].sort((a, b) => a.position - b.position);
-        const oldIndex = sortedLists.findIndex((list) => list.id === activeId);
-        const newIndex = sortedLists.findIndex((list) => list.id === overId);
+        const sortedLists = [...lists].sort((a: List, b: List) => a.position - b.position);
+        const oldIndex = sortedLists.findIndex((list: List) => list.id === activeId);
+        const newIndex = sortedLists.findIndex((list: List) => list.id === overId);
 
         if (oldIndex === -1 || newIndex === -1) return;
 
@@ -203,10 +219,10 @@ export default function BoardPage() {
 
         try {
           await reorderList(activeId, newPosition);
+          toast.success('List reordered');
         } catch (error) {
           console.error('Failed to reorder list:', error);
-          // Recargar para revertir cambios
-          fetchBoardById(boardId);
+          toast.error('Failed to reorder list');
         }
       }
     }
@@ -216,7 +232,6 @@ export default function BoardPage() {
       const card = active.data.current.card;
       const fromListId = card.listId;
 
-      // Determinar lista de destino
       let toListId = over.data.current?.listId;
 
       if (overId.startsWith('list-droppable-')) {
@@ -250,14 +265,17 @@ export default function BoardPage() {
         }
 
         console.log('Card move synced successfully');
+        toast.moved('Card', card.title);
       } catch (error) {
         console.error('Failed to sync card move:', error);
+
         // Revertir cambio optimista
         const targetList = cards[fromListId] || [];
         const revertPosition =
           targetList.length > 0 ? targetList[targetList.length - 1].position + 1 : 1;
         moveCard(card.id, toListId, fromListId, revertPosition);
-        alert('Failed to move card. Please try again.');
+
+        toast.error('Failed to move card');
       }
     }
   };
@@ -269,7 +287,7 @@ export default function BoardPage() {
 
   // Encontrar elemento activo para DragOverlay
   const activeList =
-    activeId && activeType === 'list' ? lists.find((list) => list.id === activeId) : null;
+    activeId && activeType === 'list' ? lists.find((list: List) => list.id === activeId) : null;
 
   const activeCard =
     activeId && activeType === 'card'
@@ -310,8 +328,9 @@ export default function BoardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-4 text-text-muted text-sm mr-4">
+        <div className="flex items-center gap-6">
+          {/* Stats */}
+          <div className="flex items-center gap-4 text-text-muted text-sm">
             <div className="flex items-center gap-1">
               <span className="text-accent">█</span>
               <span>{lists.length} lists</span>
@@ -322,6 +341,22 @@ export default function BoardPage() {
             </div>
           </div>
 
+          {/* Active Users */}
+          <ActiveUsers users={activeUsers} maxVisible={5} showCount={true} size="md" />
+
+          {/* Connection Status */}
+          <div className="flex items-center gap-2">
+            <div
+              className={`w-2 h-2 rounded-full ${
+                isConnected ? 'bg-success animate-pulse' : 'bg-error'
+              }`}
+            />
+            <span className="text-xs text-text-muted">
+              {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+            </span>
+          </div>
+
+          {/* Archive Button */}
           <button
             onClick={() => setShowArchiveConfirm(true)}
             className="btn-secondary text-warning hover:border-warning"
@@ -345,12 +380,12 @@ export default function BoardPage() {
           >
             <div className="flex gap-6 min-w-min h-full">
               <SortableContext
-                items={lists.map((list) => list.id)}
+                items={lists.map((list: List) => list.id)}
                 strategy={horizontalListSortingStrategy}
               >
                 {lists
-                  .sort((a, b) => a.position - b.position)
-                  .map((list) => (
+                  .sort((a: List, b: List) => a.position - b.position)
+                  .map((list: List) => (
                     <BoardList key={list.id} list={list} />
                   ))}
               </SortableContext>
@@ -358,7 +393,7 @@ export default function BoardPage() {
               <AddListButton boardId={boardId} />
             </div>
 
-            {/* Drag Overlay - Elemento fantasma mientras se arrastra */}
+            {/* Drag Overlay */}
             <DragOverlay>
               {activeList ? (
                 <div className="w-80 opacity-60 rotate-2">
@@ -381,7 +416,7 @@ export default function BoardPage() {
         </div>
       </div>
 
-      {/* Modal de confirmación para archivar el board */}
+      {/* Modal de confirmación para archivar */}
       {showArchiveConfirm && (
         <>
           <div

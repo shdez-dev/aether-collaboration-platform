@@ -4,6 +4,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCardStore } from '@/stores/cardStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useTypingIndicator, useTypingListeners } from '@/hooks/useTypingIndicator';
+import { TypingIndicator } from './realtime/TypingIndicator';
 import { MemberPicker } from './MemberPicker';
 import { LabelPicker } from './LabelPicker';
 import '../styles/card-detail-modal.css';
@@ -210,6 +212,20 @@ export function CardDetailModal() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
 
+  // ==================== TYPING INDICATOR ====================
+  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
+
+  // Detectar cuando YO estoy escribiendo
+  useTypingIndicator({
+    cardId: selectedCard?.id || '',
+    isTyping: isDescriptionFocused && isEditing,
+    debounceMs: 500,
+    disabled: !selectedCard,
+  });
+
+  // Escuchar cuando OTROS están escribiendo
+  const typingUsers = useTypingListeners(selectedCard?.id || '');
+
   const calendarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -252,6 +268,7 @@ export function CardDetailModal() {
     setIsEditing(false);
     setShowDeleteConfirm(false);
     setShowCalendar(false);
+    setIsDescriptionFocused(false);
   };
 
   const handleUpdate = async () => {
@@ -298,6 +315,7 @@ export function CardDetailModal() {
       updateCard(selectedCard.id, data.card);
       setSelectedCard(data.card);
       setIsEditing(false);
+      setIsDescriptionFocused(false);
     } catch (error: any) {
       console.error('Error updating card:', error);
       alert(`Failed to update card: ${error.message}`);
@@ -410,11 +428,21 @@ export function CardDetailModal() {
           <div className="modal-body">
             {/* Description */}
             <div className="modal-section">
-              <h3 className="modal-section-title">DESCRIPTION</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="modal-section-title">DESCRIPTION</h3>
+
+                {/* Typing Indicator */}
+                {typingUsers.length > 0 && (
+                  <TypingIndicator typingUsers={typingUsers} position="inline" size="sm" />
+                )}
+              </div>
+
               {isEditing ? (
                 <textarea
                   value={editedDescription}
                   onChange={(e) => setEditedDescription(e.target.value)}
+                  onFocus={() => setIsDescriptionFocused(true)}
+                  onBlur={() => setIsDescriptionFocused(false)}
                   placeholder="Add a description..."
                   rows={4}
                   className="input-terminal w-full text-sm resize-none"
@@ -550,6 +578,7 @@ export function CardDetailModal() {
                   <button
                     onClick={() => {
                       setIsEditing(false);
+                      setIsDescriptionFocused(false);
                       setEditedTitle(selectedCard.title);
                       setEditedDescription(selectedCard.description || '');
                       setEditedPriority(selectedCard.priority || null);
@@ -578,7 +607,7 @@ export function CardDetailModal() {
           </div>
         </div>
 
-        {/* Right Sidebar Container - NUEVO WRAPPER */}
+        {/* Right Sidebar Container */}
         <div className="modal-sidebars-container">
           {/* Labels Sidebar */}
           <div className="modal-sidebar modal-sidebar-labels">
