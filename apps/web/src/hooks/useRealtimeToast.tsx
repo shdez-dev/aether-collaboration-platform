@@ -16,22 +16,6 @@ import {
 /**
  * Hook personalizado para mostrar notificaciones toast
  * Wrapper sobre el hook de shadcn/ui con variantes pre-configuradas
- *
- * @example
- * ```tsx
- * function MyComponent() {
- *   const toast = useRealtimeToast();
- *
- *   const handleCreate = async () => {
- *     try {
- *       await createCard();
- *       toast.success('Card creada exitosamente');
- *     } catch (error) {
- *       toast.error('No se pudo crear la card');
- *     }
- *   };
- * }
- * ```
  */
 export function useRealtimeToast() {
   const { toast: baseToast } = useToast();

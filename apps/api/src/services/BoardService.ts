@@ -1,7 +1,7 @@
 // apps/api/src/services/BoardService.ts
 
 import { pool } from '../lib/db';
-import { EventStoreService } from './EventStoreService';
+import { eventStore } from './EventStoreService'; // ✅ CAMBIO 1: Usar instancia compartida
 import type {
   Board,
   BoardCreatedPayload,
@@ -9,15 +9,11 @@ import type {
   BoardArchivedPayload,
 } from '@aether/types';
 
-const eventStore = new EventStoreService();
+// ❌ ELIMINAR: const eventStore = new EventStoreService();
 
 export class BoardService {
   /**
    * Crear un nuevo board en un workspace con lista "Backlog" por defecto
-   * @param workspaceId - ID del workspace donde se crea el board
-   * @param userId - ID del usuario que crea el board
-   * @param data - Datos del board (name, description)
-   * @returns Board creado
    */
   async createBoard(
     workspaceId: string,
@@ -59,7 +55,9 @@ export class BoardService {
         [board.id, 'Backlog', 1, userId]
       );
 
-      // 4. Emitir evento
+      await client.query('COMMIT'); // ✅ CAMBIO 2: COMMIT PRIMERO
+
+      // ✅ CAMBIO 3: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: BoardCreatedPayload = {
         boardId: board.id as any,
         workspaceId: workspaceId as any,
@@ -69,9 +67,7 @@ export class BoardService {
         position: board.position,
       };
 
-      await eventStore.emit('board.created', payload, userId as any);
-
-      await client.query('COMMIT');
+      await eventStore.emit('board.created', payload, userId as any, board.id);
 
       return this.formatBoard(board);
     } catch (error) {
@@ -84,8 +80,6 @@ export class BoardService {
 
   /**
    * Obtener todos los boards de un workspace (no archivados)
-   * @param workspaceId - ID del workspace
-   * @returns Lista de boards ordenados por posición
    */
   async getWorkspaceBoards(workspaceId: string): Promise<Board[]> {
     const result = await pool.query(
@@ -111,14 +105,11 @@ export class BoardService {
 
   /**
    * Obtener un board por ID con todas sus listas y cards
-   * @param boardId - ID del board
-   * @returns Board completo con listas anidadas
    */
   async getBoardById(boardId: string): Promise<Board | null> {
     const client = await pool.connect();
 
     try {
-      // 1. Obtener el board
       const boardResult = await client.query(`SELECT * FROM boards WHERE id = $1`, [boardId]);
 
       if (boardResult.rows.length === 0) {
@@ -127,13 +118,11 @@ export class BoardService {
 
       const board = this.formatBoard(boardResult.rows[0]);
 
-      // 2. Obtener todas las listas del board ordenadas por posición
       const listsResult = await client.query(
         `SELECT * FROM lists WHERE board_id = $1 ORDER BY position ASC`,
         [boardId]
       );
 
-      // 3. Obtener todas las cards de las listas ordenadas por posición
       const cardsResult = await client.query(
         `SELECT c.*, l.id as list_id
          FROM cards c
@@ -143,7 +132,6 @@ export class BoardService {
         [boardId]
       );
 
-      // 4. Agrupar cards por lista
       const cardsByList: Record<string, any[]> = {};
       cardsResult.rows.forEach((card) => {
         if (!cardsByList[card.list_id]) {
@@ -162,7 +150,6 @@ export class BoardService {
         });
       });
 
-      // 5. Construir listas con sus cards
       const lists = listsResult.rows.map((list) => ({
         id: list.id,
         boardId: list.board_id,
@@ -173,7 +160,6 @@ export class BoardService {
         cards: cardsByList[list.id] || [],
       }));
 
-      // 6. Devolver board completo
       return {
         ...board,
         lists,
@@ -185,10 +171,6 @@ export class BoardService {
 
   /**
    * Actualizar un board
-   * @param boardId - ID del board
-   * @param userId - ID del usuario que actualiza
-   * @param data - Datos a actualizar
-   * @returns Board actualizado
    */
   async updateBoard(
     boardId: string,
@@ -203,7 +185,6 @@ export class BoardService {
     try {
       await client.query('BEGIN');
 
-      // Construir query dinámicamente
       const updates: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
@@ -230,16 +211,16 @@ export class BoardService {
 
       const board = result.rows[0];
 
-      // Emitir evento
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: BoardUpdatedPayload = {
         boardId: board.id as any,
         changes: data,
         updatedBy: userId as any,
       };
 
-      await eventStore.emit('board.updated', payload, userId as any);
-
-      await client.query('COMMIT');
+      await eventStore.emit('board.updated', payload, userId as any, boardId);
 
       return this.formatBoard(board);
     } catch (error) {
@@ -252,8 +233,6 @@ export class BoardService {
 
   /**
    * Archivar un board (soft delete)
-   * @param boardId - ID del board
-   * @param userId - ID del usuario que archiva
    */
   async archiveBoard(boardId: string, userId: string): Promise<void> {
     const client = await pool.connect();
@@ -261,21 +240,20 @@ export class BoardService {
     try {
       await client.query('BEGIN');
 
-      // Marcar como archivado
       await client.query(
         `UPDATE boards SET archived = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
         [boardId]
       );
 
-      // Emitir evento
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: BoardArchivedPayload = {
         boardId: boardId as any,
         archivedBy: userId as any,
       };
 
-      await eventStore.emit('board.archived', payload, userId as any);
-
-      await client.query('COMMIT');
+      await eventStore.emit('board.archived', payload, userId as any, boardId);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -286,9 +264,6 @@ export class BoardService {
 
   /**
    * Eliminar un board permanentemente
-   * Solo se puede eliminar si está archivado y no tiene listas
-   * @param boardId - ID del board
-   * @param userId - ID del usuario que elimina
    */
   async deleteBoard(boardId: string, userId: string): Promise<void> {
     const client = await pool.connect();
@@ -296,7 +271,6 @@ export class BoardService {
     try {
       await client.query('BEGIN');
 
-      // Verificar que el board esté archivado
       const boardResult = await client.query(`SELECT archived FROM boards WHERE id = $1`, [
         boardId,
       ]);
@@ -309,7 +283,6 @@ export class BoardService {
         throw new Error('Board must be archived before deleting');
       }
 
-      // Verificar que no tenga listas
       const listsResult = await client.query(
         `SELECT COUNT(*) as count FROM lists WHERE board_id = $1`,
         [boardId]
@@ -319,17 +292,16 @@ export class BoardService {
         throw new Error('Cannot delete board with lists. Delete lists first.');
       }
 
-      // Eliminar board
       await client.query(`DELETE FROM boards WHERE id = $1`, [boardId]);
 
-      // Emitir evento
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       await eventStore.emit(
         'board.deleted',
         { boardId: boardId as any, deletedBy: userId as any },
         userId as any
       );
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -340,10 +312,6 @@ export class BoardService {
 
   /**
    * Verificar si un usuario tiene acceso a un board
-   * (debe ser miembro del workspace)
-   * @param boardId - ID del board
-   * @param userId - ID del usuario
-   * @returns workspace_id si tiene acceso, null si no
    */
   async checkBoardAccess(boardId: string, userId: string): Promise<string | null> {
     const result = await pool.query(

@@ -16,4 +16,18 @@ router.use(authenticateJWT);
  */
 router.get('/search', (req, res) => userController.searchByEmail(req, res));
 
+/**
+ * GET /api/users/me/stats
+ * Obtener estadísticas del dashboard
+ * Permisos: Usuario autenticado
+ */
+router.get('/me/stats', (req, res) => userController.getUserStats(req, res));
+
+/**
+ * GET /api/users/me/activity
+ * Obtener actividad reciente del usuario
+ * Permisos: Usuario autenticado
+ */
+router.get('/me/activity', (req, res) => userController.getUserActivity(req, res));
+
 export default router;

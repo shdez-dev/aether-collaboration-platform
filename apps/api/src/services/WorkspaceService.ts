@@ -1,7 +1,7 @@
 // apps/api/src/services/WorkspaceService.ts
 
 import { pool } from '../lib/db';
-import { EventStoreService } from './EventStoreService';
+import { eventStore } from './EventStoreService'; // ✅ Ya está correcto
 import type {
   Workspace,
   WorkspaceMembership,
@@ -13,14 +13,9 @@ import type {
   WorkspaceMemberRemovedPayload,
 } from '@aether/types';
 
-const eventStore = new EventStoreService();
-
 export class WorkspaceService {
   /**
    * Crear un nuevo workspace
-   * @param userId - ID del usuario que crea el workspace (será Owner)
-   * @param data - Datos del workspace (name, description, icon, color)
-   * @returns Workspace creado
    */
   async createWorkspace(
     userId: string,
@@ -53,7 +48,9 @@ export class WorkspaceService {
         [workspace.id, userId, 'OWNER']
       );
 
-      // 3. Emitir evento
+      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+
+      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceCreatedPayload = {
         workspaceId: workspace.id as any,
         name: workspace.name,
@@ -65,11 +62,9 @@ export class WorkspaceService {
 
       await eventStore.emit('workspace.created', payload, userId as any);
 
-      await client.query('COMMIT');
-
       return {
         ...this.formatWorkspace(workspace),
-        userRole: 'OWNER', // El creador siempre es OWNER
+        userRole: 'OWNER',
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -81,8 +76,6 @@ export class WorkspaceService {
 
   /**
    * Obtener todos los workspaces donde el usuario es miembro
-   * @param userId - ID del usuario
-   * @returns Lista de workspaces con el rol del usuario
    */
   async getUserWorkspaces(
     userId: string
@@ -115,9 +108,6 @@ export class WorkspaceService {
 
   /**
    * Obtener un workspace específico con detalles
-   * @param workspaceId - ID del workspace
-   * @param userId - ID del usuario (para verificar membership)
-   * @returns Workspace con detalles o null si no existe/no tiene acceso
    */
   async getWorkspaceById(
     workspaceId: string,
@@ -155,10 +145,6 @@ export class WorkspaceService {
 
   /**
    * Actualizar un workspace
-   * @param workspaceId - ID del workspace
-   * @param userId - ID del usuario que actualiza
-   * @param data - Datos a actualizar
-   * @returns Workspace actualizado CON userRole
    */
   async updateWorkspace(
     workspaceId: string,
@@ -175,7 +161,6 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
 
-      // Construir query dinámicamente solo con campos presentes
       const updates: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
@@ -210,7 +195,6 @@ export class WorkspaceService {
 
       const workspace = result.rows[0];
 
-      // 🔧 FIX: Obtener el rol del usuario después de actualizar
       const membershipResult = await client.query(
         `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
         [workspaceId, userId]
@@ -218,7 +202,9 @@ export class WorkspaceService {
 
       const userRole = membershipResult.rows[0]?.role as WorkspaceRole;
 
-      // Emitir evento
+      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+
+      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceUpdatedPayload = {
         workspaceId: workspace.id as any,
         changes: data,
@@ -227,9 +213,6 @@ export class WorkspaceService {
 
       await eventStore.emit('workspace.updated', payload, userId as any);
 
-      await client.query('COMMIT');
-
-      // ✅ Devolver workspace CON userRole
       return {
         ...this.formatWorkspace(workspace),
         userRole,
@@ -241,10 +224,9 @@ export class WorkspaceService {
       client.release();
     }
   }
+
   /**
    * Eliminar un workspace (solo Owner)
-   * @param workspaceId - ID del workspace
-   * @param userId - ID del usuario
    */
   async deleteWorkspace(workspaceId: string, userId: string): Promise<void> {
     const client = await pool.connect();
@@ -252,7 +234,6 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
 
-      // Verificar que sea el owner
       const memberResult = await client.query(
         `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
         [workspaceId, userId]
@@ -262,17 +243,16 @@ export class WorkspaceService {
         throw new Error('Only workspace owner can delete workspace');
       }
 
-      // Eliminar workspace (cascade eliminará members, boards, etc.)
       await client.query(`DELETE FROM workspaces WHERE id = $1`, [workspaceId]);
 
-      // Emitir evento
+      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+
+      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       await eventStore.emit(
         'workspace.deleted',
         { workspaceId: workspaceId as any, deletedBy: userId as any },
         userId as any
       );
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -283,10 +263,6 @@ export class WorkspaceService {
 
   /**
    * Invitar un usuario al workspace
-   * @param workspaceId - ID del workspace
-   * @param inviterId - ID del usuario que invita
-   * @param inviteeEmail - Email del usuario a invitar
-   * @param role - Rol a asignar
    */
   async inviteMember(
     workspaceId: string,
@@ -299,7 +275,6 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
 
-      // 1. Buscar usuario por email
       const userResult = await client.query(`SELECT id FROM users WHERE email = $1`, [
         inviteeEmail,
       ]);
@@ -310,7 +285,6 @@ export class WorkspaceService {
 
       const inviteeId = userResult.rows[0].id;
 
-      // 2. Verificar que no sea ya miembro
       const existingMember = await client.query(
         `SELECT id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
         [workspaceId, inviteeId]
@@ -320,14 +294,15 @@ export class WorkspaceService {
         throw new Error('User is already a member');
       }
 
-      // 3. Agregar miembro
       await client.query(
         `INSERT INTO workspace_members (workspace_id, user_id, role)
          VALUES ($1, $2, $3)`,
         [workspaceId, inviteeId, role]
       );
 
-      // 4. Emitir evento
+      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+
+      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceMemberInvitedPayload = {
         workspaceId: workspaceId as any,
         inviterId: inviterId as any,
@@ -337,8 +312,6 @@ export class WorkspaceService {
       };
 
       await eventStore.emit('workspace.member.invited', payload, inviterId as any);
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -349,8 +322,6 @@ export class WorkspaceService {
 
   /**
    * Obtener miembros de un workspace
-   * @param workspaceId - ID del workspace
-   * @returns Lista de miembros con información del usuario
    */
   async getMembers(workspaceId: string): Promise<WorkspaceMembership[]> {
     const result = await pool.query(
@@ -394,10 +365,6 @@ export class WorkspaceService {
 
   /**
    * Cambiar rol de un miembro
-   * @param workspaceId - ID del workspace
-   * @param targetUserId - ID del usuario cuyo rol se cambiará
-   * @param newRole - Nuevo rol
-   * @param changerId - ID del usuario que hace el cambio
    */
   async changeMemberRole(
     workspaceId: string,
@@ -410,7 +377,6 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
 
-      // Actualizar rol
       await client.query(
         `UPDATE workspace_members 
          SET role = $1
@@ -418,18 +384,18 @@ export class WorkspaceService {
         [newRole, workspaceId, targetUserId]
       );
 
-      // Emitir evento
+      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+
+      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceMemberRoleChangedPayload = {
         workspaceId: workspaceId as any,
         userId: targetUserId as any,
-        oldRole: 'MEMBER', // TODO: obtener rol anterior
+        oldRole: 'MEMBER',
         newRole,
         changedBy: changerId as any,
       };
 
       await eventStore.emit('workspace.member.roleChanged', payload, changerId as any);
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -440,9 +406,6 @@ export class WorkspaceService {
 
   /**
    * Remover un miembro del workspace
-   * @param workspaceId - ID del workspace
-   * @param targetUserId - ID del usuario a remover
-   * @param removerId - ID del usuario que remueve
    */
   async removeMember(workspaceId: string, targetUserId: string, removerId: string): Promise<void> {
     const client = await pool.connect();
@@ -450,14 +413,15 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
 
-      // Eliminar miembro
       await client.query(
         `DELETE FROM workspace_members 
          WHERE workspace_id = $1 AND user_id = $2`,
         [workspaceId, targetUserId]
       );
 
-      // Emitir evento
+      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+
+      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceMemberRemovedPayload = {
         workspaceId: workspaceId as any,
         userId: targetUserId as any,
@@ -465,8 +429,6 @@ export class WorkspaceService {
       };
 
       await eventStore.emit('workspace.member.removed', payload, removerId as any);
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -477,9 +439,6 @@ export class WorkspaceService {
 
   /**
    * Verificar si un usuario es miembro de un workspace
-   * @param workspaceId - ID del workspace
-   * @param userId - ID del usuario
-   * @returns Membership o null
    */
   async getMembership(
     workspaceId: string,

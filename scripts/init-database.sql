@@ -203,8 +203,65 @@ CREATE TRIGGER trigger_update_session_ping
   FOR EACH ROW
   EXECUTE FUNCTION update_session_ping();
 
--- Success message
-SELECT 'Milestone 5: Presence tables created successfully!' as message;
+  -- MILESTONE 6: Sistema de Comentarios
+
+-- Comments table
+CREATE TABLE IF NOT EXISTS comments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  card_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  content TEXT NOT NULL,
+  mentions UUID[], -- Array de user IDs mencionados
+  edited BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_comments_card FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+  CONSTRAINT fk_comments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Indexes para performance
+CREATE INDEX IF NOT EXISTS idx_comments_card ON comments(card_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_comments_created ON comments(created_at);
+
+-- Function para auto-actualizar updated_at
+CREATE OR REPLACE FUNCTION update_comment_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  NEW.edited = TRUE;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para auto-actualizar updated_at en updates
+CREATE TRIGGER trigger_update_comment_timestamp
+  BEFORE UPDATE ON comments
+  FOR EACH ROW
+  WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION update_comment_updated_at();
+
+  -- MILESTONE 6: Sistema de Notificaciones para Menciones
+
+-- Notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL,
+  type VARCHAR(50) NOT NULL, -- 'COMMENT_MENTION', 'CARD_ASSIGNED', 'CARD_DUE_SOON'
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  data JSONB NOT NULL, -- { cardId, commentId, authorName, etc. }
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Indexes para performance
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read) WHERE read = FALSE;
+
 
 -- Success message
 SELECT 'Database schema created successfully!' as message;

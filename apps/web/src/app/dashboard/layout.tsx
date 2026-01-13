@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Toaster } from '@/components/ui/toaster';
 import { RealtimeNotificationProvider } from '@/components/realtime/RealtimeNotificationProvider';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -38,12 +39,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       href: '/dashboard/documents',
       icon: '▤',
       active: pathname?.startsWith('/dashboard/documents'),
-    },
-    {
-      name: 'Notifications',
-      href: '/dashboard/notifications',
-      icon: '◉',
-      active: pathname?.startsWith('/dashboard/notifications'),
     },
   ];
 
@@ -139,15 +134,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
 
+            {/* ============ SECCIÓN DERECHA ============ */}
             <div className="flex items-center gap-4">
-              {/* Search */}
-              <div className="relative">
-                <input
-                  type="search"
-                  placeholder="Search..."
-                  className="input-terminal w-64 text-sm"
-                />
-              </div>
+              {/* Notification Bell */}
+              <NotificationBell />
 
               {/* Status indicator */}
               <div className="flex items-center gap-2">

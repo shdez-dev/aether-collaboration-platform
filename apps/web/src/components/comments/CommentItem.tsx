@@ -1,0 +1,204 @@
+// apps/web/src/components/comments/CommentItem.tsx
+
+'use client';
+
+import { useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Edit2, Trash2, MoreVertical, Check } from 'lucide-react';
+import { CommentForm } from './CommentForm';
+import { useCommentEdit } from '@/hooks/useComment';
+import { useAuthStore } from '@/stores/authStore';
+import type { CommentWithUser } from '@aether/types';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+interface CommentItemProps {
+  /**
+   * Comentario a mostrar
+   */
+  comment: CommentWithUser;
+
+  /**
+   * Callback para actualizar comentario
+   */
+  onUpdate?: (commentId: string, content: string, mentions?: string[]) => Promise<void>;
+
+  /**
+   * Callback para eliminar comentario
+   */
+  onDelete?: (commentId: string) => Promise<void>;
+
+  /**
+   * Mostrar acciones de edición/eliminación
+   */
+  showActions?: boolean;
+}
+
+export function CommentItem({ comment, onUpdate, onDelete, showActions = true }: CommentItemProps) {
+  const { user: currentUser } = useAuthStore();
+  const { isEditing, isUpdating, startEdit, cancelEdit } = useCommentEdit(comment.id);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Verificar si el usuario actual es el autor
+  const isAuthor = currentUser?.id === comment.userId;
+
+  /**
+   * Manejar actualización
+   */
+  const handleUpdate = async (content: string, mentions?: string[]) => {
+    if (!onUpdate) return;
+
+    await onUpdate(comment.id, content, mentions);
+    cancelEdit();
+  };
+
+  /**
+   * Manejar eliminación
+   */
+  const handleDelete = async () => {
+    if (!onDelete) return;
+
+    const confirmed = window.confirm('¿Estás seguro de eliminar este comentario?');
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(comment.id);
+    } catch (error) {
+      console.error('[CommentItem] Error deleting:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  /**
+   * Formatear fecha relativa
+   */
+  const getRelativeTime = (date: string) => {
+    try {
+      return formatDistanceToNow(new Date(date), {
+        addSuffix: true,
+        locale: es,
+      });
+    } catch (error) {
+      return date;
+    }
+  };
+
+  /**
+   * Renderizar contenido del comentario con menciones resaltadas
+   */
+  const renderContent = (content: string) => {
+    const parts = content.split(/(@[a-zA-Z0-9_-]+)/g);
+
+    return parts.map((part, index) => {
+      if (part.startsWith('@')) {
+        return (
+          <span key={index} className="font-medium text-primary">
+            {part}
+          </span>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
+  // Si está en modo edición, mostrar el formulario
+  if (isEditing) {
+    return (
+      <div className="rounded-lg border bg-muted/50 p-3">
+        <CommentForm
+          onSubmit={handleUpdate}
+          initialValue={comment.content}
+          isEditing={true}
+          onCancel={cancelEdit}
+          isLoading={isUpdating}
+          autoFocus={true}
+          submitText="Guardar"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="group relative flex gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50">
+      {/* Avatar */}
+      <Avatar className="h-8 w-8 shrink-0">
+        <AvatarImage src={comment.user.avatar || undefined} alt={comment.user.name} />
+        <AvatarFallback className="text-xs">
+          {comment.user.name
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2)}
+        </AvatarFallback>
+      </Avatar>
+
+      {/* Content */}
+      <div className="flex-1 space-y-1">
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{comment.user.name}</span>
+          <span className="text-xs text-muted-foreground">
+            {getRelativeTime(comment.createdAt)}
+          </span>
+          {comment.edited && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Check className="h-3 w-3" />
+              Editado
+            </span>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
+          {renderContent(comment.content)}
+        </div>
+      </div>
+
+      {/* Actions */}
+      {showActions && isAuthor && !isDeleting && (
+        <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={startEdit} disabled={isUpdating}>
+                <Edit2 className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      {/* Loading overlay cuando se está eliminando */}
+      {isDeleting && (
+        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/80">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      )}
+    </div>
+  );
+}

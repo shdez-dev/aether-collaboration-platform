@@ -1,3 +1,5 @@
+// packages/shared-types/src/models.ts
+
 /**
  * Domain Models
  *
@@ -25,14 +27,6 @@ export enum CardPriority {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
   HIGH = 'HIGH',
-}
-
-export enum NotificationType {
-  CARD_ASSIGNED = 'CARD_ASSIGNED',
-  MENTIONED = 'MENTIONED',
-  COMMENT_REPLY = 'COMMENT_REPLY',
-  DUE_DATE_REMINDER = 'DUE_DATE_REMINDER',
-  WORKSPACE_INVITE = 'WORKSPACE_INVITE',
 }
 
 // ============================================================================
@@ -165,7 +159,10 @@ export interface CardLabel {
   labelId: string;
 }
 
-// ✅ CardWithDetails NO extiende Card para evitar conflictos de tipos
+/**
+ * Card with all related details
+ * NO extiende Card para evitar conflictos de tipos
+ */
 export interface CardWithDetails {
   // Propiedades base de Card
   id: string;
@@ -199,22 +196,34 @@ export interface Label {
 }
 
 // ============================================================================
-// COMMENT
+// COMMENT - MILESTONE 6
 // ============================================================================
 
+/**
+ * Base Comment model
+ */
 export interface Comment {
   id: string;
+  cardId: string;
   userId: string;
-  cardId?: string;
-  documentId?: string;
   content: string;
-  parentId?: string; // For threading
+  mentions: string[]; // Array de user IDs mencionados
+  edited: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
+/**
+ * Comment with user information
+ */
 export interface CommentWithUser extends Comment {
   user: User;
+}
+
+/**
+ * Comment with user and replies (para threading futuro)
+ */
+export interface CommentWithReplies extends CommentWithUser {
   replies?: CommentWithUser[];
 }
 
@@ -231,19 +240,6 @@ export interface Document {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-}
-
-// ============================================================================
-// NOTIFICATION
-// ============================================================================
-
-export interface Notification {
-  id: string;
-  userId: string;
-  type: NotificationType;
-  content: Record<string, unknown>; // JSON content specific to type
-  read: boolean;
-  createdAt: string;
 }
 
 // ============================================================================
@@ -353,4 +349,100 @@ export interface RealtimeStats {
   totalConnections: number;
   eventsLastMinute: number;
   lastActivity: string;
+}
+
+// ==================== NOTIFICATION TYPES ====================
+
+/**
+ * Tipos de notificaciones
+ */
+export type NotificationType =
+  | 'COMMENT_MENTION'
+  | 'CARD_ASSIGNED'
+  | 'CARD_DUE_SOON'
+  | 'BOARD_INVITE'
+  | 'WORKSPACE_INVITE';
+
+/**
+ * Notification
+ * Notificación del sistema para un usuario
+ */
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  data: NotificationData;
+  read: boolean;
+  createdAt: string;
+}
+
+/**
+ * Datos adicionales de la notificación (flexibles según el tipo)
+ */
+export interface NotificationData {
+  // Para COMMENT_MENTION
+  cardId?: string;
+  cardTitle?: string;
+  commentId?: string;
+  commentPreview?: string;
+  authorId?: string;
+  authorName?: string;
+
+  // Para CARD_ASSIGNED
+  assignedBy?: string;
+  assignedByName?: string;
+
+  // Para CARD_DUE_SOON
+  dueDate?: string;
+  hoursUntilDue?: number;
+
+  // Para BOARD_INVITE / WORKSPACE_INVITE
+  boardId?: string;
+  boardName?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+  invitedBy?: string;
+  invitedByName?: string;
+
+  // Otros datos genéricos
+  [key: string]: any;
+}
+
+/**
+ * NotificationWithUser
+ * Notificación con información del usuario destinatario
+ */
+export interface NotificationWithUser extends Notification {
+  user: User;
+}
+
+/**
+ * DTOs para crear notificaciones
+ */
+export interface CreateNotificationDto {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  data: NotificationData;
+}
+
+/**
+ * Respuesta del contador de notificaciones
+ */
+export interface NotificationCountResponse {
+  count: number;
+  hasUnread: boolean;
+}
+
+/**
+ * Filtros para query de notificaciones
+ */
+export interface NotificationFilters {
+  read?: boolean;
+  type?: NotificationType;
+  limit?: number;
+  offset?: number;
 }

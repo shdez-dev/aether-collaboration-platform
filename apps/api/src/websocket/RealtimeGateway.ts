@@ -287,6 +287,34 @@ export class RealtimeGateway {
     }
   }
 
+  /**
+   * Broadcast de comentario a un board específico
+   * Obtiene el boardId desde el cardId y hace broadcast
+   */
+  public async broadcastCommentEvent(
+    cardId: string,
+    event: Event,
+    excludeSocketId?: string
+  ): Promise<void> {
+    try {
+      const boardId = await this.getBoardIdFromCard(cardId);
+      if (boardId) {
+        this.broadcastToBoardExcept(boardId, event, excludeSocketId);
+      }
+    } catch (error) {
+      console.error('Error broadcasting comment event:', error);
+    }
+  }
+
+  /**
+   * Notificar a usuarios mencionados en un comentario
+   */
+  public notifyMentionedUsers(mentionedUserIds: string[], event: Event): void {
+    mentionedUserIds.forEach((userId) => {
+      this.sendToUser(userId, event);
+    });
+  }
+
   // ============================================================================
   // HELPERS
   // ============================================================================

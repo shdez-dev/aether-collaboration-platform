@@ -1,3 +1,5 @@
+// packages/shared-types/src/events.ts
+
 /**
  * Core Event System Types
  *
@@ -115,6 +117,15 @@ export type CardEventType =
   | 'card.comment.deleted';
 
 /**
+ * Comment Events - MILESTONE 6
+ */
+export type CommentEventType =
+  | 'comment.created'
+  | 'comment.updated'
+  | 'comment.deleted'
+  | 'comment.mentioned';
+
+/**
  * Document Events
  */
 export type DocumentEventType =
@@ -153,6 +164,7 @@ export type EventType =
   | BoardEventType
   | ListEventType
   | CardEventType
+  | CommentEventType
   | DocumentEventType
   | NotificationEventType
   | PresenceEventType;
@@ -494,6 +506,64 @@ export interface CardLabelRemovedPayload {
 export type CardLabelRemovedEvent = BaseEvent<'card.label.removed', CardLabelRemovedPayload>;
 
 // ============================================================================
+// COMMENT EVENT PAYLOADS - MILESTONE 6
+// ============================================================================
+
+/**
+ * Comment Created Event
+ */
+export interface CommentCreatedPayload {
+  commentId: CommentId;
+  cardId: CardId;
+  userId: UserId;
+  content: string;
+  mentions: UserId[];
+  createdBy: UserId;
+}
+
+export type CommentCreatedEvent = BaseEvent<'comment.created', CommentCreatedPayload>;
+
+/**
+ * Comment Updated Event
+ */
+export interface CommentUpdatedPayload {
+  commentId: CommentId;
+  cardId: CardId;
+  changes: {
+    content?: string;
+    mentions?: UserId[];
+  };
+  updatedBy: UserId;
+}
+
+export type CommentUpdatedEvent = BaseEvent<'comment.updated', CommentUpdatedPayload>;
+
+/**
+ * Comment Deleted Event
+ */
+export interface CommentDeletedPayload {
+  commentId: CommentId;
+  cardId: CardId;
+  deletedBy: UserId;
+}
+
+export type CommentDeletedEvent = BaseEvent<'comment.deleted', CommentDeletedPayload>;
+
+/**
+ * Comment Mentioned Event
+ * Se dispara cuando un usuario es mencionado en un comentario
+ */
+export interface CommentMentionedPayload {
+  commentId: CommentId;
+  cardId: CardId;
+  mentionedUserId: UserId;
+  mentionedByUserId: UserId;
+  content: string;
+}
+
+export type CommentMentionedEvent = BaseEvent<'comment.mentioned', CommentMentionedPayload>;
+
+// ============================================================================
 // PRESENCE EVENT PAYLOADS - MILESTONE 5
 // ============================================================================
 
@@ -587,6 +657,73 @@ export interface CursorMovedPayload {
 export type CursorMovedEvent = BaseEvent<'presence.cursor.moved', CursorMovedPayload>;
 
 // ============================================================================
+// NOTIFICATION EVENT PAYLOADS - MILESTONE 6
+// ============================================================================
+
+/**
+ * Notification Created Event
+ */
+export interface NotificationCreatedPayload {
+  notificationId: NotificationId;
+  userId: UserId;
+  type: 'COMMENT_MENTION' | 'CARD_ASSIGNED' | 'CARD_DUE_SOON';
+  title: string;
+  message: string;
+  data: {
+    cardId?: CardId;
+    cardTitle?: string;
+    commentId?: CommentId;
+    commentPreview?: string;
+    authorId?: UserId;
+    authorName?: string;
+    [key: string]: any;
+  };
+}
+
+export type NotificationCreatedEvent = BaseEvent<
+  'notification.created',
+  NotificationCreatedPayload
+>;
+
+/**
+ * Notification Read Event
+ */
+export interface NotificationReadPayload {
+  notificationId: NotificationId;
+  userId: UserId;
+  unreadCount: number;
+}
+
+export type NotificationReadEvent = BaseEvent<'notification.read', NotificationReadPayload>;
+
+/**
+ * Notification Read All Event
+ */
+export interface NotificationReadAllPayload {
+  userId: UserId;
+  unreadCount: number;
+}
+
+export type NotificationReadAllEvent = BaseEvent<
+  'notification.read_all',
+  NotificationReadAllPayload
+>;
+
+/**
+ * Notification Deleted Event
+ */
+export interface NotificationDeletedPayload {
+  notificationId: NotificationId;
+  userId: UserId;
+  unreadCount: number;
+}
+
+export type NotificationDeletedEvent = BaseEvent<
+  'notification.deleted',
+  NotificationDeletedPayload
+>;
+
+// ============================================================================
 // EVENT UNION TYPES
 // ============================================================================
 
@@ -619,6 +756,14 @@ export type Event =
   | CardMemberUnassignedEvent
   | CardLabelAddedEvent
   | CardLabelRemovedEvent
+  | CommentCreatedEvent
+  | CommentUpdatedEvent
+  | CommentDeletedEvent
+  | CommentMentionedEvent
+  | NotificationCreatedEvent
+  | NotificationReadEvent
+  | NotificationReadAllEvent
+  | NotificationDeletedEvent
   | UserJoinedBoardEvent
   | UserLeftBoardEvent
   | UserOnlineEvent

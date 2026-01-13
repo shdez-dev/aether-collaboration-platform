@@ -14,6 +14,8 @@ import cardRoutes from './routes/cards';
 import labelRoutes from './routes/labels';
 import userRoutes from './routes/user';
 import presenceRoutes from './routes/presence';
+import commentRoutes from './routes/comments';
+import notificationRoutes from './routes/notifications';
 
 // Import WebSocket and Redis
 import { initializeRedis, closeRedisConnections } from './lib/redis';
@@ -74,6 +76,8 @@ app.use('/api/users', userRoutes);
 app.use('/api', boardRoutes);
 app.use('/api', cardRoutes);
 app.use('/api', labelRoutes);
+app.use('/api', commentRoutes);
+app.use('/api', notificationRoutes);
 app.use('/api/presence', presenceRoutes);
 
 // 404 handler
@@ -174,6 +178,22 @@ async function startServer() {
       console.log('  DELETE /api/cards/:id/members/:userId');
       console.log('  POST   /api/cards/:id/labels');
       console.log('  DELETE /api/cards/:id/labels/:labelId');
+      console.log('');
+      console.log('COMMENTS:');
+      console.log('  GET    /api/cards/:cardId/comments/count');
+      console.log('  GET    /api/cards/:cardId/comments');
+      console.log('  POST   /api/cards/:cardId/comments');
+      console.log('  GET    /api/boards/:boardId/comments/recent');
+      console.log('  GET    /api/comments/:commentId');
+      console.log('  PATCH  /api/comments/:commentId');
+      console.log('  DELETE /api/comments/:commentId');
+      console.log('');
+      console.log('NOTIFICATIONS:'); // ← NUEVO
+      console.log('  GET    /api/notifications');
+      console.log('  GET    /api/notifications/unread-count');
+      console.log('  PATCH  /api/notifications/:id/read');
+      console.log('  POST   /api/notifications/mark-all-read');
+      console.log('  DELETE /api/notifications/:id');
       console.log('');
       console.log('LABELS:');
       console.log('  POST   /api/workspaces/:wId/labels');

@@ -4,6 +4,7 @@ import { pool } from '../lib/db';
 import { redisPubClient } from '../lib/redis';
 import type { Event, EventType, UserId, EventId } from '@aether/types';
 import { v7 as uuidv7 } from 'uuid';
+import { userActivityService } from './UserActivityService';
 
 /**
  * Event Store Service
@@ -61,6 +62,16 @@ export class EventStoreService {
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
         [eventId, type, JSON.stringify(payload), userId, timestamp, 1, JSON.stringify(vectorClock)]
       );
+
+      // ========================================
+      // Registrar actividad del usuario
+      // ========================================
+      try {
+        await userActivityService.processEvent(type, payload, userId);
+      } catch (error) {
+        console.warn('[EventStore] Failed to log user activity:', error);
+        // No fallar el evento principal si falla el log
+      }
     }
 
     // Publicar evento a Redis pub/sub

@@ -8,6 +8,7 @@ import { useTypingIndicator, useTypingListeners } from '@/hooks/useTypingIndicat
 import { TypingIndicator } from './realtime/TypingIndicator';
 import { MemberPicker } from './MemberPicker';
 import { LabelPicker } from './LabelPicker';
+import { CommentList } from './comments/CommentList';
 import '../styles/card-detail-modal.css';
 
 const priorityOptions = [
@@ -211,6 +212,9 @@ export function CardDetailModal() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+
+  // Estado para el contador de comentarios
+  const [commentCount, setCommentCount] = useState(0);
 
   // ==================== TYPING INDICATOR ====================
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
@@ -417,6 +421,7 @@ export function CardDetailModal() {
                 Created {formatDate(selectedCard.createdAt)}
                 {selectedCard.updatedAt !== selectedCard.createdAt &&
                   ` • Updated ${formatDate(selectedCard.updatedAt)}`}
+                {commentCount > 0 && ` • ${commentCount} comment${commentCount !== 1 ? 's' : ''}`}
               </p>
             </div>
             <button onClick={handleClose} className="modal-close" aria-label="Close">
@@ -557,12 +562,18 @@ export function CardDetailModal() {
               </div>
             </div>
 
-            {/* Comments */}
+            {/* ============================================================
+                Comments - CON workspaceId PARA MENCIONES
+                ============================================================ */}
             <div className="modal-section">
-              <h3 className="modal-section-title">COMMENTS</h3>
-              <div className="p-3 bg-surface rounded-terminal border border-border text-center">
-                <p className="text-xs text-text-muted font-mono">Comments coming in Milestone 6</p>
-              </div>
+              <CommentList
+                cardId={selectedCard.id}
+                maxHeight="500px"
+                showForm={true}
+                showCount={true}
+                onCountChange={setCommentCount}
+                workspaceId={currentWorkspaceId || undefined} // ← Convertir null a undefined
+              />
             </div>
           </div>
 

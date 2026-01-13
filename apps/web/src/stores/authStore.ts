@@ -1,3 +1,5 @@
+// apps/web/src/stores/authStore.ts
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
@@ -8,6 +10,7 @@ interface User {
   id: string;
   email: string;
   name: string;
+  avatar?: string; // ← AGREGAR ESTA LÍNEA
   createdAt: string;
 }
 

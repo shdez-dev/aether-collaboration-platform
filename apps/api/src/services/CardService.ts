@@ -1,10 +1,10 @@
 // apps/api/src/services/CardService.ts
 
 import { pool } from '../lib/db';
-import { EventStoreService } from './EventStoreService';
+import { eventStore } from './EventStoreService'; // ✅ CAMBIO 1: Usar instancia compartida
 import type { Card } from '@aether/types';
 
-const eventStore = new EventStoreService();
+// ❌ ELIMINAR: const eventStore = new EventStoreService();
 
 export class CardService {
   /**
@@ -30,8 +30,6 @@ export class CardService {
 
   /**
    * Obtener todas las cards de una lista
-   * Incluye relaciones con miembros y labels
-   * Ordena por posición ascendente
    */
   static async getCardsByListId(listId: string): Promise<Card[]> {
     const result = await pool.query(
@@ -80,7 +78,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Obtener la posición máxima en la lista para colocar la nueva card al final
       const maxPosResult = await client.query(
         'SELECT COALESCE(MAX(position), 0) as max_pos FROM cards WHERE list_id = $1',
         [listId]
@@ -88,7 +85,6 @@ export class CardService {
 
       const newPosition = maxPosResult.rows[0].max_pos + 1;
 
-      // Crear la card con la nueva posición
       const result = await client.query(
         `INSERT INTO cards (list_id, title, description, position, due_date, priority, created_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -106,10 +102,11 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
-      // Obtener boardId para WebSocket broadcast
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromList(listId);
 
-      // Registrar evento de creación en el event store
       await eventStore.emit(
         'card.created',
         {
@@ -124,8 +121,6 @@ export class CardService {
         boardId || undefined,
         socketId
       );
-
-      await client.query('COMMIT');
 
       return card;
     } catch (error) {
@@ -170,7 +165,6 @@ export class CardService {
 
   /**
    * Actualizar card
-   * Solo actualiza los campos que se envían en data
    */
   static async updateCard(
     cardId: string,
@@ -188,7 +182,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Construir query dinámica solo con campos que cambiaron
       const updates: string[] = [];
       const values: any[] = [];
       let paramCount = 1;
@@ -213,7 +206,6 @@ export class CardService {
         values.push(data.priority);
       }
 
-      // Siempre actualizar updated_at
       updates.push(`updated_at = NOW()`);
       values.push(cardId);
 
@@ -224,10 +216,11 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
-      // Obtener boardId para WebSocket broadcast
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
-      // Registrar evento solo con los campos que cambiaron
       const changes: any = {};
       if (data.title !== undefined) changes.title = data.title;
       if (data.description !== undefined) changes.description = data.description;
@@ -246,8 +239,6 @@ export class CardService {
         socketId
       );
 
-      await client.query('COMMIT');
-
       return card;
     } catch (error) {
       await client.query('ROLLBACK');
@@ -259,7 +250,6 @@ export class CardService {
 
   /**
    * Mover card (cambiar de lista o reordenar)
-   * Maneja el reordenamiento automático de posiciones
    */
   static async moveCard(
     cardId: string,
@@ -275,7 +265,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Obtener card actual
       const currentResult = await client.query('SELECT * FROM cards WHERE id = $1', [cardId]);
       const currentCard = currentResult.rows[0];
 
@@ -286,7 +275,6 @@ export class CardService {
       const fromListId = currentCard.list_id;
       const fromPosition = currentCard.position;
 
-      // Si cambió de lista, ajustar posiciones en lista origen
       if (fromListId !== data.toListId) {
         await client.query(
           'UPDATE cards SET position = position - 1 WHERE list_id = $1 AND position > $2',
@@ -294,13 +282,11 @@ export class CardService {
         );
       }
 
-      // Ajustar posiciones en lista destino para hacer espacio
       await client.query(
         'UPDATE cards SET position = position + 1 WHERE list_id = $1 AND position >= $2',
         [data.toListId, data.position]
       );
 
-      // Actualizar la card con nueva lista y posición
       const result = await client.query(
         `UPDATE cards 
          SET list_id = $1, position = $2, updated_at = NOW()
@@ -311,10 +297,11 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
-      // Obtener boardId para WebSocket broadcast
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromList(data.toListId);
 
-      // Registrar evento de movimiento
       await eventStore.emit(
         'card.moved',
         {
@@ -330,8 +317,6 @@ export class CardService {
         socketId
       );
 
-      await client.query('COMMIT');
-
       return card;
     } catch (error) {
       await client.query('ROLLBACK');
@@ -343,7 +328,6 @@ export class CardService {
 
   /**
    * Eliminar card
-   * Ajusta automáticamente las posiciones de las cards restantes
    */
   static async deleteCard(cardId: string, userId: string, socketId?: string): Promise<void> {
     const client = await pool.connect();
@@ -351,7 +335,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Obtener card antes de eliminar para el evento
       const cardResult = await client.query('SELECT * FROM cards WHERE id = $1', [cardId]);
       const card = cardResult.rows[0];
 
@@ -359,19 +342,18 @@ export class CardService {
         throw new Error('Card not found');
       }
 
-      // Obtener boardId antes de eliminar
       const boardId = await this.getBoardIdFromList(card.list_id);
 
-      // Eliminar card (cascade eliminará relaciones con members y labels)
       await client.query('DELETE FROM cards WHERE id = $1', [cardId]);
 
-      // Ajustar posiciones de cards restantes en la lista
       await client.query(
         'UPDATE cards SET position = position - 1 WHERE list_id = $1 AND position > $2',
         [card.list_id, card.position]
       );
 
-      // Registrar evento de eliminación
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       await eventStore.emit(
         'card.deleted',
         {
@@ -383,8 +365,6 @@ export class CardService {
         boardId || undefined,
         socketId
       );
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -407,7 +387,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Verificar que no esté ya asignado
       const existingResult = await client.query(
         'SELECT * FROM card_members WHERE card_id = $1 AND user_id = $2',
         [cardId, memberId]
@@ -417,16 +396,16 @@ export class CardService {
         throw new Error('Member already assigned');
       }
 
-      // Asignar miembro a la card
       await client.query('INSERT INTO card_members (card_id, user_id) VALUES ($1, $2)', [
         cardId,
         memberId,
       ]);
 
-      // Obtener boardId para WebSocket broadcast
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
-      // Registrar evento de asignación
       await eventStore.emit(
         'card.member.assigned',
         {
@@ -438,8 +417,6 @@ export class CardService {
         boardId || undefined,
         socketId
       );
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -467,10 +444,11 @@ export class CardService {
         memberId,
       ]);
 
-      // Obtener boardId para WebSocket broadcast
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
-      // Registrar evento de desasignación
       await eventStore.emit(
         'card.member.unassigned',
         {
@@ -482,8 +460,6 @@ export class CardService {
         boardId || undefined,
         socketId
       );
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -506,7 +482,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Verificar que no esté ya agregada
       const existingResult = await client.query(
         'SELECT * FROM card_labels WHERE card_id = $1 AND label_id = $2',
         [cardId, labelId]
@@ -521,10 +496,11 @@ export class CardService {
         labelId,
       ]);
 
-      // Obtener boardId para WebSocket broadcast
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
-      // Registrar evento de agregación de label
       await eventStore.emit(
         'card.label.added',
         {
@@ -536,8 +512,6 @@ export class CardService {
         boardId || undefined,
         socketId
       );
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -565,10 +539,11 @@ export class CardService {
         labelId,
       ]);
 
-      // Obtener boardId para WebSocket broadcast
+      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+
+      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
-      // Registrar evento de remoción de label
       await eventStore.emit(
         'card.label.removed',
         {
@@ -580,8 +555,6 @@ export class CardService {
         boardId || undefined,
         socketId
       );
-
-      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -592,7 +565,6 @@ export class CardService {
 
   /**
    * Mapear card de base de datos a modelo
-   * Convierte snake_case a camelCase y formatea relaciones
    */
   private static mapCard(row: any): Card {
     return {
