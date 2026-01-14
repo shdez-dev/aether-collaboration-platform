@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { boardService } from '../services/BoardService';
+import { WorkspaceRequest } from '../middleware/workspace';
 
 /**
  * Schemas de validación con Zod
@@ -21,11 +22,13 @@ class BoardController {
   /**
    * POST /api/workspaces/:workspaceId/boards
    * Crear un nuevo board en un workspace
+   * REQUIERE: ADMIN o OWNER
    */
-  async create(req: Request, res: Response) {
+  async create(req: WorkspaceRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const { workspaceId } = req.params;
+      const userRole = req.workspace?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -33,6 +36,17 @@ class BoardController {
           error: {
             code: 'UNAUTHORIZED',
             message: 'Autenticación requerida',
+          },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden crear boards',
           },
         });
       }
@@ -72,6 +86,7 @@ class BoardController {
   /**
    * GET /api/workspaces/:workspaceId/boards
    * Obtener todos los boards de un workspace
+   * PERMITE: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
    */
   async list(req: Request, res: Response) {
     try {
@@ -109,6 +124,7 @@ class BoardController {
   /**
    * GET /api/boards/:id
    * Obtener un board específico con todas sus listas y cards
+   * PERMITE: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
    */
   async getById(req: Request, res: Response) {
     try {
@@ -168,11 +184,13 @@ class BoardController {
   /**
    * PUT /api/boards/:id
    * Actualizar un board
+   * REQUIERE: ADMIN o OWNER
    */
-  async update(req: Request, res: Response) {
+  async update(req: WorkspaceRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const { id } = req.params;
+      const userRole = req.workspace?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -184,7 +202,7 @@ class BoardController {
         });
       }
 
-      // Verificar acceso
+      // Verificar acceso al board
       const hasAccess = await boardService.checkBoardAccess(id, userId);
       if (!hasAccess) {
         return res.status(403).json({
@@ -192,6 +210,17 @@ class BoardController {
           error: {
             code: 'ACCESS_DENIED',
             message: 'No tienes acceso a este board',
+          },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden editar boards',
           },
         });
       }
@@ -230,11 +259,13 @@ class BoardController {
   /**
    * POST /api/boards/:id/archive
    * Archivar un board
+   * REQUIERE: ADMIN o OWNER
    */
-  async archive(req: Request, res: Response) {
+  async archive(req: WorkspaceRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const { id } = req.params;
+      const userRole = req.workspace?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -254,6 +285,17 @@ class BoardController {
           error: {
             code: 'ACCESS_DENIED',
             message: 'No tienes acceso a este board',
+          },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden archivar boards',
           },
         });
       }
@@ -279,11 +321,13 @@ class BoardController {
   /**
    * DELETE /api/boards/:id
    * Eliminar un board permanentemente
+   * REQUIERE: ADMIN o OWNER
    */
-  async delete(req: Request, res: Response) {
+  async delete(req: WorkspaceRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const { id } = req.params;
+      const userRole = req.workspace?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -303,6 +347,17 @@ class BoardController {
           error: {
             code: 'ACCESS_DENIED',
             message: 'No tienes acceso a este board',
+          },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden eliminar boards',
           },
         });
       }

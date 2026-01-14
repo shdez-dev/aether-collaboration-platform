@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { listService } from '../services/ListService';
+import { WorkspaceRequest } from '../middleware/workspace';
 
 /**
  * Schemas de validación con Zod
@@ -23,11 +24,13 @@ class ListController {
   /**
    * POST /api/boards/:boardId/lists
    * Crear una nueva lista en un board
+   * REQUIERE: ADMIN o OWNER
    */
-  async create(req: Request, res: Response) {
+  async create(req: WorkspaceRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const { boardId } = req.params;
+      const userRole = req.workspace?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -35,6 +38,17 @@ class ListController {
           error: {
             code: 'UNAUTHORIZED',
             message: 'Autenticación requerida',
+          },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden crear listas',
           },
         });
       }
@@ -74,6 +88,7 @@ class ListController {
   /**
    * GET /api/boards/:boardId/lists
    * Obtener todas las listas de un board
+   * PERMITE: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
    */
   async list(req: Request, res: Response) {
     try {
@@ -111,11 +126,13 @@ class ListController {
   /**
    * PUT /api/lists/:id
    * Actualizar una lista
+   * REQUIERE: ADMIN o OWNER
    */
-  async update(req: Request, res: Response) {
+  async update(req: WorkspaceRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const { id } = req.params;
+      const userRole = req.workspace?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -135,6 +152,17 @@ class ListController {
           error: {
             code: 'ACCESS_DENIED',
             message: 'No tienes acceso a esta lista',
+          },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden editar listas',
           },
         });
       }
@@ -173,11 +201,13 @@ class ListController {
   /**
    * PUT /api/lists/:id/reorder
    * Reordenar una lista (cambiar su posición)
+   * REQUIERE: ADMIN o OWNER
    */
-  async reorder(req: Request, res: Response) {
+  async reorder(req: WorkspaceRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const { id } = req.params;
+      const userRole = req.workspace?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -197,6 +227,17 @@ class ListController {
           error: {
             code: 'ACCESS_DENIED',
             message: 'No tienes acceso a esta lista',
+          },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden reordenar listas',
           },
         });
       }
@@ -235,11 +276,13 @@ class ListController {
   /**
    * DELETE /api/lists/:id
    * Eliminar una lista
+   * REQUIERE: ADMIN o OWNER
    */
-  async delete(req: Request, res: Response) {
+  async delete(req: WorkspaceRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const { id } = req.params;
+      const userRole = req.workspace?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -259,6 +302,17 @@ class ListController {
           error: {
             code: 'ACCESS_DENIED',
             message: 'No tienes acceso a esta lista',
+          },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden eliminar listas',
           },
         });
       }

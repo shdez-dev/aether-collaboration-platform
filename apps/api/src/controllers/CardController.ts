@@ -3,12 +3,10 @@
 import { Request, Response } from 'express';
 import { CardService } from '../services/CardService';
 import { z } from 'zod';
+import { WorkspaceRequest } from '../middleware/workspace';
 
 // ==================== SCHEMAS DE VALIDACIÓN ====================
 
-/**
- * Schema para crear una card
- */
 const createCardSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
@@ -16,9 +14,6 @@ const createCardSchema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
 });
 
-/**
- * Schema para actualizar una card
- */
 const updateCardSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().max(5000).optional().or(z.null()),
@@ -26,33 +21,21 @@ const updateCardSchema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional().or(z.null()),
 });
 
-/**
- * Schema para mover una card
- */
 const moveCardSchema = z.object({
   toListId: z.string().uuid(),
   position: z.number().int().min(1),
 });
 
-/**
- * Schema para asignar/desasignar miembro
- */
 const memberSchema = z.object({
   userId: z.string().uuid(),
 });
 
-/**
- * Schema para agregar/remover label
- */
 const labelSchema = z.object({
   labelId: z.string().uuid(),
 });
 
 // ==================== HELPERS ====================
 
-/**
- * Extrae el socketId del header x-socket-id
- */
 function getSocketId(req: Request): string | undefined {
   return req.headers['x-socket-id'] as string | undefined;
 }
@@ -63,12 +46,12 @@ export class CardController {
   /**
    * GET /api/lists/:listId/cards
    * Obtener todas las cards de una lista ordenadas por posición
+   * PERMITE: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
    */
   static async getListCards(req: Request, res: Response) {
     try {
       const { listId } = req.params;
 
-      // Obtener todas las cards de la lista con sus relaciones
       const cards = await CardService.getCardsByListId(listId);
 
       return res.status(200).json({
@@ -87,11 +70,13 @@ export class CardController {
   /**
    * POST /api/lists/:listId/cards
    * Crear una card en una lista
+   * REQUIERE: ADMIN o OWNER
    */
-  static async createCard(req: Request, res: Response) {
+  static async createCard(req: WorkspaceRequest, res: Response) {
     try {
       const { listId } = req.params;
       const userId = req.user?.id;
+      const userRole = req.workspace?.role;
       const socketId = getSocketId(req);
 
       if (!userId) {
@@ -101,7 +86,17 @@ export class CardController {
         });
       }
 
-      // Validar body
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden crear cards',
+          },
+        });
+      }
+
       const validationResult = createCardSchema.safeParse(req.body);
       if (!validationResult.success) {
         return res.status(400).json({
@@ -132,6 +127,7 @@ export class CardController {
   /**
    * GET /api/cards/:id
    * Obtener una card por ID con relaciones (members, labels)
+   * PERMITE: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
    */
   static async getCard(req: Request, res: Response) {
     try {
@@ -162,11 +158,13 @@ export class CardController {
   /**
    * PUT /api/cards/:id
    * Actualizar una card
+   * REQUIERE: ADMIN o OWNER
    */
-  static async updateCard(req: Request, res: Response) {
+  static async updateCard(req: WorkspaceRequest, res: Response) {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const userRole = req.workspace?.role;
       const socketId = getSocketId(req);
 
       if (!userId) {
@@ -176,7 +174,17 @@ export class CardController {
         });
       }
 
-      // Validar body
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden editar cards',
+          },
+        });
+      }
+
       const validationResult = updateCardSchema.safeParse(req.body);
       if (!validationResult.success) {
         return res.status(400).json({
@@ -207,11 +215,13 @@ export class CardController {
   /**
    * PUT /api/cards/:id/move
    * Mover una card (cambiar de lista o reordenar)
+   * REQUIERE: ADMIN o OWNER
    */
-  static async moveCard(req: Request, res: Response) {
+  static async moveCard(req: WorkspaceRequest, res: Response) {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const userRole = req.workspace?.role;
       const socketId = getSocketId(req);
 
       if (!userId) {
@@ -221,7 +231,17 @@ export class CardController {
         });
       }
 
-      // Validar body
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden mover cards',
+          },
+        });
+      }
+
       const validationResult = moveCardSchema.safeParse(req.body);
       if (!validationResult.success) {
         return res.status(400).json({
@@ -252,17 +272,30 @@ export class CardController {
   /**
    * DELETE /api/cards/:id
    * Eliminar una card
+   * REQUIERE: ADMIN o OWNER
    */
-  static async deleteCard(req: Request, res: Response) {
+  static async deleteCard(req: WorkspaceRequest, res: Response) {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const userRole = req.workspace?.role;
       const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
           success: false,
           error: { code: 'UNAUTHORIZED', message: 'User not authenticated' },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden eliminar cards',
+          },
         });
       }
 
@@ -284,11 +317,13 @@ export class CardController {
   /**
    * POST /api/cards/:id/members
    * Asignar un miembro a una card
+   * REQUIERE: ADMIN o OWNER
    */
-  static async assignMember(req: Request, res: Response) {
+  static async assignMember(req: WorkspaceRequest, res: Response) {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+      const userRole = req.workspace?.role;
       const socketId = getSocketId(req);
 
       if (!userId) {
@@ -298,7 +333,17 @@ export class CardController {
         });
       }
 
-      // Validar body
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden asignar miembros',
+          },
+        });
+      }
+
       const validationResult = memberSchema.safeParse(req.body);
       if (!validationResult.success) {
         return res.status(400).json({
@@ -337,17 +382,30 @@ export class CardController {
   /**
    * DELETE /api/cards/:id/members/:userId
    * Desasignar un miembro de una card
+   * REQUIERE: ADMIN o OWNER
    */
-  static async unassignMember(req: Request, res: Response) {
+  static async unassignMember(req: WorkspaceRequest, res: Response) {
     try {
       const { id, userId: memberId } = req.params;
       const userId = req.user?.id;
+      const userRole = req.workspace?.role;
       const socketId = getSocketId(req);
 
       if (!userId) {
         return res.status(401).json({
           success: false,
           error: { code: 'UNAUTHORIZED', message: 'User not authenticated' },
+        });
+      }
+
+      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN o OWNER pueden desasignar miembros',
+          },
         });
       }
 
@@ -369,6 +427,7 @@ export class CardController {
   /**
    * POST /api/cards/:id/labels
    * Agregar un label a una card
+   * PERMITE: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
    */
   static async addLabel(req: Request, res: Response) {
     try {
@@ -383,7 +442,6 @@ export class CardController {
         });
       }
 
-      // Validar body
       const validationResult = labelSchema.safeParse(req.body);
       if (!validationResult.success) {
         return res.status(400).json({
@@ -422,6 +480,7 @@ export class CardController {
   /**
    * DELETE /api/cards/:id/labels/:labelId
    * Remover un label de una card
+   * PERMITE: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
    */
   static async removeLabel(req: Request, res: Response) {
     try {

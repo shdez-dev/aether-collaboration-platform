@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSortable } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
@@ -32,6 +33,10 @@ export default function BoardList({ list }: BoardListProps) {
   const setSelectedCard = useCardStore((state) => state.setSelectedCard);
   const { accessToken } = useAuthStore();
 
+  // ✅ OBTENER ROL DEL USUARIO EN EL WORKSPACE
+  const { currentWorkspace } = useWorkspaceStore();
+  const userRole = currentWorkspace?.userRole;
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(list.name);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -41,7 +46,11 @@ export default function BoardList({ list }: BoardListProps) {
   const [cardTitle, setCardTitle] = useState('');
   const [isCreatingCard, setIsCreatingCard] = useState(false);
 
-  // Configurar sortable para la lista
+  // ✅ PERMISOS: Determinar qué puede hacer el usuario
+  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
+  const canView = userRole === 'MEMBER' || userRole === 'VIEWER';
+
+  // Configurar sortable para la lista (SOLO si puede editar)
   const {
     attributes,
     listeners,
@@ -55,6 +64,7 @@ export default function BoardList({ list }: BoardListProps) {
       type: 'list',
       list,
     },
+    disabled: !canEdit, // ✅ Deshabilitar drag si no puede editar
   });
 
   const style = {
@@ -70,10 +80,13 @@ export default function BoardList({ list }: BoardListProps) {
       type: 'list',
       listId: list.id,
     },
+    disabled: !canEdit, // ✅ Deshabilitar drop si no puede editar
   });
 
   // Guardar cambios del nombre
   const handleSave = async () => {
+    if (!canEdit) return; // ✅ Prevenir edición
+
     if (editedName.trim() === list.name) {
       setIsEditing(false);
       return;
@@ -97,6 +110,8 @@ export default function BoardList({ list }: BoardListProps) {
 
   // Eliminar lista
   const handleDelete = async () => {
+    if (!canEdit) return; // ✅ Prevenir eliminación
+
     const listCards = cards[list.id] || [];
     if (listCards.length > 0) {
       alert('Cannot delete list with cards. Please move or delete cards first.');
@@ -108,6 +123,8 @@ export default function BoardList({ list }: BoardListProps) {
   // Crear card
   const handleCreateCard = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!canEdit) return; // ✅ Prevenir creación
 
     if (!cardTitle.trim()) return;
 
@@ -160,11 +177,13 @@ export default function BoardList({ list }: BoardListProps) {
         <div className={`card-terminal h-full flex flex-col ${isOver ? 'ring-2 ring-accent' : ''}`}>
           {/* Header */}
           <div
-            className="flex items-center justify-between mb-4 pb-3 border-b border-border cursor-grab active:cursor-grabbing"
-            {...attributes}
-            {...listeners}
+            className={`flex items-center justify-between mb-4 pb-3 border-b border-border ${
+              canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+            }`}
+            {...(canEdit ? attributes : {})}
+            {...(canEdit ? listeners : {})}
           >
-            {isEditing ? (
+            {isEditing && canEdit ? (
               <input
                 type="text"
                 value={editedName}
@@ -181,47 +200,53 @@ export default function BoardList({ list }: BoardListProps) {
               />
             ) : (
               <h3
-                className="font-normal flex-1 cursor-pointer hover:text-accent transition-colors"
+                className={`font-normal flex-1 ${
+                  canEdit ? 'cursor-pointer hover:text-accent transition-colors' : ''
+                }`}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditing(true);
+                  if (canEdit) {
+                    e.stopPropagation();
+                    setIsEditing(true);
+                  }
                 }}
               >
                 {list.name}
               </h3>
             )}
 
-            {/* Menu */}
-            <div className="relative group">
-              <button
-                className="text-text-muted hover:text-text-primary transition-colors px-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                ⋮
-              </button>
+            {/* Menu - SOLO PARA ADMIN/OWNER */}
+            {canEdit && (
+              <div className="relative group">
+                <button
+                  className="text-text-muted hover:text-text-primary transition-colors px-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  ⋮
+                </button>
 
-              {/* Dropdown */}
-              <div className="absolute right-0 top-full mt-1 w-40 card-terminal opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsEditing(true);
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors"
-                >
-                  ✎ Edit Name
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowDeleteConfirm(true);
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors text-error"
-                >
-                  ✕ Delete
-                </button>
+                {/* Dropdown */}
+                <div className="absolute right-0 top-full mt-1 w-40 card-terminal opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditing(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors"
+                  >
+                    ✎ Edit Name
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors text-error"
+                  >
+                    ✕ Delete
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Cards Area - DROPPABLE */}
@@ -239,43 +264,47 @@ export default function BoardList({ list }: BoardListProps) {
             </SortableContext>
           </div>
 
-          {/* Add Card Section */}
-          {isAddingCard ? (
-            <form onSubmit={handleCreateCard} className="mt-3 space-y-2">
-              <textarea
-                value={cardTitle}
-                onChange={(e) => setCardTitle(e.target.value)}
-                placeholder="Enter card title..."
-                autoFocus
-                rows={3}
-                disabled={isCreatingCard}
-                className="input-terminal w-full text-sm resize-none"
-              />
-              <div className="flex gap-2">
+          {/* Add Card Section - SOLO PARA ADMIN/OWNER */}
+          {canEdit && (
+            <>
+              {isAddingCard ? (
+                <form onSubmit={handleCreateCard} className="mt-3 space-y-2">
+                  <textarea
+                    value={cardTitle}
+                    onChange={(e) => setCardTitle(e.target.value)}
+                    placeholder="Enter card title..."
+                    autoFocus
+                    rows={3}
+                    disabled={isCreatingCard}
+                    className="input-terminal w-full text-sm resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={!cardTitle.trim() || isCreatingCard}
+                      className="btn-primary flex-1 py-2 text-sm"
+                    >
+                      {isCreatingCard ? 'Adding...' : 'Add Card'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelAddCard}
+                      disabled={isCreatingCard}
+                      className="btn-secondary py-2 px-4 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
                 <button
-                  type="submit"
-                  disabled={!cardTitle.trim() || isCreatingCard}
-                  className="btn-primary flex-1 py-2 text-sm"
+                  onClick={() => setIsAddingCard(true)}
+                  className="w-full mt-3 py-2 text-text-muted hover:text-text-primary text-sm transition-colors border border-dashed border-border hover:border-accent rounded-terminal"
                 >
-                  {isCreatingCard ? 'Adding...' : 'Add Card'}
+                  + Add Card
                 </button>
-                <button
-                  type="button"
-                  onClick={handleCancelAddCard}
-                  disabled={isCreatingCard}
-                  className="btn-secondary py-2 px-4 text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <button
-              onClick={() => setIsAddingCard(true)}
-              className="w-full mt-3 py-2 text-text-muted hover:text-text-primary text-sm transition-colors border border-dashed border-border hover:border-accent rounded-terminal"
-            >
-              + Add Card
-            </button>
+              )}
+            </>
           )}
 
           {/* Card Count */}
@@ -285,8 +314,8 @@ export default function BoardList({ list }: BoardListProps) {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
+      {/* Delete Confirmation Modal - SOLO SI PUEDE EDITAR */}
+      {showDeleteConfirm && canEdit && (
         <>
           <div
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-fade-in"

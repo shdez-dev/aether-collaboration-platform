@@ -27,7 +27,6 @@ export default function WorkspaceDetailPage() {
     changeMemberRole,
   } = useWorkspaceStore();
 
-  // Importar también el boardStore para cargar boards
   const { boards, fetchBoards } = useBoardStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('boards');
@@ -44,7 +43,7 @@ export default function WorkspaceDetailPage() {
     if (workspaceId) {
       fetchWorkspaceById(workspaceId);
       fetchMembers(workspaceId);
-      fetchBoards(workspaceId); // Cargar boards del workspace
+      fetchBoards(workspaceId);
     }
   }, [workspaceId, fetchWorkspaceById, fetchMembers, fetchBoards]);
 
@@ -70,12 +69,10 @@ export default function WorkspaceDetailPage() {
   const isOwnerOrAdmin = ['OWNER', 'ADMIN'].includes(currentWorkspace.userRole || '');
   const isOwner = currentWorkspace.userRole === 'OWNER';
 
-  // Handler para abrir modal de confirmación
   const handleRemoveClick = (userId: string, memberName: string) => {
     setMemberToRemove({ userId, name: memberName });
   };
 
-  // Handler para confirmar remoción
   const handleConfirmRemove = async () => {
     if (!memberToRemove) return;
 
@@ -91,7 +88,6 @@ export default function WorkspaceDetailPage() {
     }
   };
 
-  // Handler para cambiar rol
   const handleChangeRole = async (userId: string, newRole: string, memberName: string) => {
     setChangingRoleMemberId(userId);
     try {
@@ -104,12 +100,10 @@ export default function WorkspaceDetailPage() {
     }
   };
 
-  // Handler para ir a un board específico
   const handleGoToBoard = (boardId: string) => {
     router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
   };
 
-  // Handler para cuando se crea un board
   const handleBoardCreated = (boardId: string) => {
     setShowCreateBoardModal(false);
     router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
@@ -122,7 +116,6 @@ export default function WorkspaceDetailPage() {
         <div className="card-terminal">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-start gap-4">
-              {/* Icon */}
               <div
                 className="w-16 h-16 rounded-terminal flex items-center justify-center text-3xl flex-shrink-0 border-2"
                 style={{
@@ -134,21 +127,18 @@ export default function WorkspaceDetailPage() {
                 {currentWorkspace.icon || '▣'}
               </div>
 
-              {/* Info */}
               <div>
                 <h1 className="text-2xl font-normal mb-1">{currentWorkspace.name}</h1>
                 <p className="text-text-secondary text-sm mb-3">
                   {currentWorkspace.description || 'No description provided'}
                 </p>
 
-                {/* Role Badge */}
                 <span className="text-xs px-2 py-1 rounded-terminal border border-accent/50 bg-accent/10 text-accent">
                   {currentWorkspace.userRole || 'MEMBER'}
                 </span>
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-2">
               {isOwnerOrAdmin && (
                 <Link
@@ -244,15 +234,17 @@ export default function WorkspaceDetailPage() {
           {/* Tab Content */}
           {activeTab === 'boards' && (
             <div>
-              {/* Header con botón de crear */}
+              {/* Header con botón de crear - SOLO ADMIN/OWNER */}
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-sm text-text-secondary uppercase">Boards ({boards.length})</h3>
-                <button
-                  className="btn-primary text-sm"
-                  onClick={() => setShowCreateBoardModal(true)}
-                >
-                  + Create Board
-                </button>
+                {isOwnerOrAdmin && (
+                  <button
+                    className="btn-primary text-sm"
+                    onClick={() => setShowCreateBoardModal(true)}
+                  >
+                    + Create Board
+                  </button>
+                )}
               </div>
 
               {/* Empty State */}
@@ -261,11 +253,15 @@ export default function WorkspaceDetailPage() {
                   <div className="text-6xl mb-4 opacity-50">▦</div>
                   <h3 className="text-xl mb-2 text-text-primary">No boards yet</h3>
                   <p className="text-text-secondary text-sm mb-6">
-                    Create your first board to start organizing tasks and tracking progress
+                    {isOwnerOrAdmin
+                      ? 'Create your first board to start organizing tasks and tracking progress'
+                      : 'No boards have been created in this workspace yet'}
                   </p>
-                  <button className="btn-primary" onClick={() => setShowCreateBoardModal(true)}>
-                    + Create Board
-                  </button>
+                  {isOwnerOrAdmin && (
+                    <button className="btn-primary" onClick={() => setShowCreateBoardModal(true)}>
+                      + Create Board
+                    </button>
+                  )}
                 </div>
               ) : (
                 /* Grid de Boards */
@@ -276,19 +272,16 @@ export default function WorkspaceDetailPage() {
                       onClick={() => handleGoToBoard(board.id)}
                       className="card-terminal text-left hover:border-primary/50 transition-all group p-4"
                     >
-                      {/* Board Name */}
                       <h4 className="text-lg font-normal mb-2 group-hover:text-primary transition-colors">
                         {board.name}
                       </h4>
 
-                      {/* Description */}
                       {board.description && (
                         <p className="text-text-secondary text-sm mb-4 line-clamp-2">
                           {board.description}
                         </p>
                       )}
 
-                      {/* Stats */}
                       <div className="flex items-center gap-4 text-text-muted text-sm">
                         <div className="flex items-center gap-1">
                           <span className="text-primary">█</span>
@@ -300,7 +293,6 @@ export default function WorkspaceDetailPage() {
                         </div>
                       </div>
 
-                      {/* Archived Badge */}
                       {board.archived && (
                         <div className="mt-3 pt-3 border-t border-border">
                           <span className="text-warning text-xs">⚠ ARCHIVED</span>
@@ -352,7 +344,6 @@ export default function WorkspaceDetailPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {/* Role Selector */}
                         {isOwner && member.role !== 'OWNER' ? (
                           <select
                             value={member.role}
@@ -388,7 +379,6 @@ export default function WorkspaceDetailPage() {
                           </span>
                         )}
 
-                        {/* Remove Button */}
                         {isOwnerOrAdmin && member.role !== 'OWNER' && (
                           <button
                             onClick={() =>
@@ -419,14 +409,12 @@ export default function WorkspaceDetailPage() {
         </div>
       </div>
 
-      {/* Modal de Invitación */}
       <InviteMemberModal
         workspaceId={workspaceId}
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
       />
 
-      {/* Modal de Confirmación de Remoción */}
       <ConfirmRemoveMemberModal
         isOpen={!!memberToRemove}
         memberName={memberToRemove?.name || ''}
@@ -435,7 +423,6 @@ export default function WorkspaceDetailPage() {
         isRemoving={removingMember}
       />
 
-      {/* Modal de Creación de Board */}
       <CreateBoardModal
         workspaceId={workspaceId}
         isOpen={showCreateBoardModal}

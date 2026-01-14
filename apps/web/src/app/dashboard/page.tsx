@@ -291,15 +291,6 @@ export default function DashboardPage() {
                 <span>Create Workspace</span>
               </span>
             </button>
-            <button
-              className="btn-secondary w-full"
-              onClick={() => router.push('/dashboard/workspaces')}
-            >
-              <span className="flex items-center justify-center gap-2">
-                <span>+</span>
-                <span>Create Board</span>
-              </span>
-            </button>
             <button className="btn-secondary w-full">
               <span className="flex items-center justify-center gap-2">
                 <span>+</span>

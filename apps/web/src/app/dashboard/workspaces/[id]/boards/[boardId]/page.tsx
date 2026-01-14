@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useRealtimeBoard } from '@/hooks/useRealTimeBoard';
 import { useRealtimeToast } from '@/hooks/useRealtimeToast';
 import BoardList from '@/components/BoardList';
@@ -34,7 +35,12 @@ export default function BoardPage() {
   const workspaceId = params.id as string;
   const boardId = params.boardId as string;
 
-  // ==================== REALTIME INTEGRATION ====================
+  // ✅ OBTENER ROL DEL USUARIO
+  const { currentWorkspace } = useWorkspaceStore();
+  const userRole = currentWorkspace?.userRole;
+  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
+
+  // REALTIME
   const {
     board: currentBoard,
     lists,
@@ -42,17 +48,13 @@ export default function BoardPage() {
     isConnected,
     activeUsers,
   } = useRealtimeBoard(boardId, {
-    onConnect: () => {
-      console.log('[BoardPage] Connected to realtime');
-    },
-    onDisconnect: () => {
-      console.log('[BoardPage] Disconnected from realtime');
-    },
+    onConnect: () => console.log('[BoardPage] Connected to realtime'),
+    onDisconnect: () => console.log('[BoardPage] Disconnected from realtime'),
   });
 
   const toast = useRealtimeToast();
 
-  // ==================== EXISTING STORES ====================
+  // STORES
   const { archiveBoard, reorderList } = useBoardStore();
   const { cards, setCards, moveCard, setCurrentWorkspaceId, clearAllCards } = useCardStore();
   const { accessToken } = useAuthStore();
@@ -69,24 +71,16 @@ export default function BoardPage() {
     })
   );
 
-  // Establecer workspaceId y limpiar cards anteriores
   useEffect(() => {
     if (!workspaceId) return;
-
     clearAllCards();
     setCurrentWorkspaceId(workspaceId);
   }, [workspaceId, setCurrentWorkspaceId, clearAllCards]);
 
-  // Cargar cards cuando las listas estén disponibles
   useEffect(() => {
     if (lists.length === 0 || !accessToken) return;
 
     const loadCards = async () => {
-      console.log(
-        'Loading cards for lists:',
-        lists.map((l) => l.id)
-      );
-
       const cardPromises = lists.map(async (list) => {
         try {
           const cardsRes = await fetch(
@@ -98,10 +92,8 @@ export default function BoardPage() {
 
           if (cardsRes.ok) {
             const { data: cardsData } = await cardsRes.json();
-            console.log(`Loaded ${cardsData.cards?.length || 0} cards for list ${list.id}`);
             return { listId: list.id, cards: cardsData.cards || [] };
           }
-          console.log(`No cards found for list ${list.id}`);
           return { listId: list.id, cards: [] };
         } catch (error) {
           console.error(`Error loading cards for list ${list.id}:`, error);
@@ -110,19 +102,16 @@ export default function BoardPage() {
       });
 
       const cardsResults = await Promise.all(cardPromises);
-
       cardsResults.forEach(({ listId, cards }: { listId: string; cards: any[] }) => {
         setCards(listId, cards);
       });
-
-      console.log('All cards loaded:', cardsResults);
     };
 
     loadCards();
   }, [lists, accessToken, setCards]);
 
   const handleArchive = async () => {
-    if (!currentBoard) return;
+    if (!currentBoard || !canEdit) return;
 
     try {
       await archiveBoard(currentBoard.id);
@@ -137,21 +126,18 @@ export default function BoardPage() {
     router.push(`/dashboard/workspaces/${workspaceId}`);
   };
 
-  // === DRAG & DROP HANDLERS ===
-
   const handleDragStart = (event: DragStartEvent) => {
+    if (!canEdit) return;
+
     const { active } = event;
     setActiveId(active.id as string);
-
-    const type = active.data.current?.type;
-    setActiveType(type);
-
-    console.log('Drag started:', { id: active.id, type });
+    setActiveType(active.data.current?.type);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
+    if (!canEdit) return;
 
+    const { active, over } = event;
     if (!over) return;
 
     const activeId = active.id as string;
@@ -172,8 +158,6 @@ export default function BoardPage() {
       }
 
       if (activeListId && overListId && activeListId !== overListId) {
-        console.log('Moving card between lists:', { from: activeListId, to: overListId });
-
         const targetList = cards[overListId] || [];
         const newPosition =
           targetList.length > 0 ? targetList[targetList.length - 1].position + 1 : 1;
@@ -184,6 +168,8 @@ export default function BoardPage() {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    if (!canEdit) return;
+
     const { active, over } = event;
 
     setActiveId(null);
@@ -194,7 +180,7 @@ export default function BoardPage() {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // === REORDENAR LISTAS ===
+    // Reordenar listas
     if (active.data.current?.type === 'list' && over.data.current?.type === 'list') {
       if (activeId !== overId) {
         const sortedLists = [...lists].sort((a: List, b: List) => a.position - b.position);
@@ -215,8 +201,6 @@ export default function BoardPage() {
           newPosition = (sortedLists[newIndex - 1].position + sortedLists[newIndex].position) / 2;
         }
 
-        console.log('Reordering list:', { from: oldIndex, to: newIndex, newPosition });
-
         try {
           await reorderList(activeId, newPosition);
           toast.success('List reordered');
@@ -227,7 +211,7 @@ export default function BoardPage() {
       }
     }
 
-    // === MOVER CARDS ===
+    // Mover cards
     if (active.data.current?.type === 'card') {
       const card = active.data.current.card;
       const fromListId = card.listId;
@@ -244,12 +228,6 @@ export default function BoardPage() {
 
       if (!toListId || fromListId === toListId) return;
 
-      console.log('Card moved to new list, syncing with backend...', {
-        cardId: card.id,
-        from: fromListId,
-        to: toListId,
-      });
-
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cards/${card.id}`, {
           method: 'PUT',
@@ -264,12 +242,10 @@ export default function BoardPage() {
           throw new Error('Failed to move card');
         }
 
-        console.log('Card move synced successfully');
         toast.moved('Card', card.title);
       } catch (error) {
         console.error('Failed to sync card move:', error);
 
-        // Revertir cambio optimista
         const targetList = cards[fromListId] || [];
         const revertPosition =
           targetList.length > 0 ? targetList[targetList.length - 1].position + 1 : 1;
@@ -285,7 +261,6 @@ export default function BoardPage() {
     setActiveType(null);
   };
 
-  // Encontrar elemento activo para DragOverlay
   const activeList =
     activeId && activeType === 'list' ? lists.find((list: List) => list.id === activeId) : null;
 
@@ -311,7 +286,6 @@ export default function BoardPage() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
       <header className="border-b border-border px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
@@ -329,7 +303,6 @@ export default function BoardPage() {
         </div>
 
         <div className="flex items-center gap-6">
-          {/* Stats */}
           <div className="flex items-center gap-4 text-text-muted text-sm">
             <div className="flex items-center gap-1">
               <span className="text-accent">█</span>
@@ -341,10 +314,8 @@ export default function BoardPage() {
             </div>
           </div>
 
-          {/* Active Users */}
           <ActiveUsers users={activeUsers} maxVisible={5} showCount={true} size="md" />
 
-          {/* Connection Status */}
           <div className="flex items-center gap-2">
             <div
               className={`w-2 h-2 rounded-full ${
@@ -356,17 +327,18 @@ export default function BoardPage() {
             </span>
           </div>
 
-          {/* Archive Button */}
-          <button
-            onClick={() => setShowArchiveConfirm(true)}
-            className="btn-secondary text-warning hover:border-warning"
-          >
-            Archive Board
-          </button>
+          {/* Archive Button - SOLO ADMIN/OWNER */}
+          {canEdit && (
+            <button
+              onClick={() => setShowArchiveConfirm(true)}
+              className="btn-secondary text-warning hover:border-warning"
+            >
+              Archive Board
+            </button>
+          )}
         </div>
       </header>
 
-      {/* Board Content with DND */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="h-full p-6">
           <DndContext
@@ -390,10 +362,10 @@ export default function BoardPage() {
                   ))}
               </SortableContext>
 
-              <AddListButton boardId={boardId} />
+              {/* Add List Button - SOLO ADMIN/OWNER */}
+              {canEdit && <AddListButton boardId={boardId} />}
             </div>
 
-            {/* Drag Overlay */}
             <DragOverlay>
               {activeList ? (
                 <div className="w-80 opacity-60 rotate-2">
@@ -416,8 +388,8 @@ export default function BoardPage() {
         </div>
       </div>
 
-      {/* Modal de confirmación para archivar */}
-      {showArchiveConfirm && (
+      {/* Archive Confirmation - SOLO SI PUEDE EDITAR */}
+      {showArchiveConfirm && canEdit && (
         <>
           <div
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-fade-in"
@@ -449,7 +421,6 @@ export default function BoardPage() {
         </>
       )}
 
-      {/* Card Detail Modal */}
       <CardDetailModal />
     </div>
   );

@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCardStore } from '@/stores/cardStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTypingIndicator, useTypingListeners } from '@/hooks/useTypingIndicator';
 import { TypingIndicator } from './realtime/TypingIndicator';
 import { MemberPicker } from './MemberPicker';
@@ -203,6 +204,10 @@ export function CardDetailModal() {
     useCardStore();
   const { accessToken } = useAuthStore();
 
+  // ✅ OBTENER ROL DEL USUARIO EN EL WORKSPACE
+  const { currentWorkspace } = useWorkspaceStore();
+  const userRole = currentWorkspace?.userRole;
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
@@ -213,13 +218,15 @@ export function CardDetailModal() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
 
-  // Estado para el contador de comentarios
   const [commentCount, setCommentCount] = useState(0);
+
+  // ✅ PERMISOS: Determinar qué puede hacer el usuario
+  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
+  const canViewOnly = userRole === 'MEMBER' || userRole === 'VIEWER';
 
   // ==================== TYPING INDICATOR ====================
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
 
-  // Detectar cuando YO estoy escribiendo
   useTypingIndicator({
     cardId: selectedCard?.id || '',
     isTyping: isDescriptionFocused && isEditing,
@@ -227,7 +234,6 @@ export function CardDetailModal() {
     disabled: !selectedCard,
   });
 
-  // Escuchar cuando OTROS están escribiendo
   const typingUsers = useTypingListeners(selectedCard?.id || '');
 
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -276,6 +282,8 @@ export function CardDetailModal() {
   };
 
   const handleUpdate = async () => {
+    if (!canEdit) return; // ✅ Prevenir edición
+
     if (!editedTitle.trim()) {
       alert('Title cannot be empty');
       return;
@@ -329,6 +337,8 @@ export function CardDetailModal() {
   };
 
   const handleDelete = async () => {
+    if (!canEdit) return; // ✅ Prevenir eliminación
+
     setIsDeleting(true);
 
     try {
@@ -405,7 +415,7 @@ export function CardDetailModal() {
           {/* Header */}
           <div className="modal-header">
             <div className="modal-title-section">
-              {isEditing ? (
+              {isEditing && canEdit ? (
                 <input
                   type="text"
                   value={editedTitle}
@@ -436,13 +446,12 @@ export function CardDetailModal() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="modal-section-title">DESCRIPTION</h3>
 
-                {/* Typing Indicator */}
                 {typingUsers.length > 0 && (
                   <TypingIndicator typingUsers={typingUsers} position="inline" size="sm" />
                 )}
               </div>
 
-              {isEditing ? (
+              {isEditing && canEdit ? (
                 <textarea
                   value={editedDescription}
                   onChange={(e) => setEditedDescription(e.target.value)}
@@ -453,11 +462,16 @@ export function CardDetailModal() {
                   className="input-terminal w-full text-sm resize-none"
                 />
               ) : (
-                <div onClick={() => setIsEditing(true)} className="description-box">
+                <div
+                  onClick={() => canEdit && setIsEditing(true)}
+                  className={`description-box ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
+                >
                   {selectedCard.description ? (
                     <p className="description-text">{selectedCard.description}</p>
                   ) : (
-                    <p className="description-placeholder">Click to add a description...</p>
+                    <p className="description-placeholder">
+                      {canEdit ? 'Click to add a description...' : 'No description'}
+                    </p>
                   )}
                 </div>
               )}
@@ -469,7 +483,7 @@ export function CardDetailModal() {
                 {/* Priority */}
                 <div>
                   <h3 className="modal-section-title">PRIORITY</h3>
-                  {isEditing ? (
+                  {isEditing && canEdit ? (
                     <select
                       value={editedPriority || ''}
                       onChange={(e) =>
@@ -488,7 +502,8 @@ export function CardDetailModal() {
                     </select>
                   ) : (
                     <button
-                      onClick={() => setIsEditing(true)}
+                      onClick={() => canEdit && setIsEditing(true)}
+                      disabled={!canEdit}
                       className="info-button w-full justify-center"
                     >
                       {currentPriority?.symbol && (
@@ -504,7 +519,7 @@ export function CardDetailModal() {
                 {/* Due Date */}
                 <div>
                   <h3 className="modal-section-title">DUE DATE</h3>
-                  {isEditing ? (
+                  {isEditing && canEdit ? (
                     <div className="relative" ref={calendarRef}>
                       <button
                         type="button"
@@ -537,7 +552,8 @@ export function CardDetailModal() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => setIsEditing(true)}
+                      onClick={() => canEdit && setIsEditing(true)}
+                      disabled={!canEdit}
                       className="info-button w-full justify-center"
                     >
                       <svg
@@ -562,9 +578,7 @@ export function CardDetailModal() {
               </div>
             </div>
 
-            {/* ============================================================
-                Comments - CON workspaceId PARA MENCIONES
-                ============================================================ */}
+            {/* Comments */}
             <div className="modal-section">
               <CommentList
                 cardId={selectedCard.id}
@@ -572,19 +586,21 @@ export function CardDetailModal() {
                 showForm={true}
                 showCount={true}
                 onCountChange={setCommentCount}
-                workspaceId={currentWorkspaceId || undefined} // ← Convertir null a undefined
+                workspaceId={currentWorkspaceId || undefined}
               />
             </div>
           </div>
 
-          {/* Footer */}
+          {/* Footer - SOLO MOSTRAR BOTONES SI PUEDE EDITAR */}
           <div className="modal-footer">
-            <button onClick={() => setShowDeleteConfirm(true)} className="btn-delete">
-              Delete Card
-            </button>
+            {canEdit && (
+              <button onClick={() => setShowDeleteConfirm(true)} className="btn-delete">
+                Delete Card
+              </button>
+            )}
 
             <div className="flex gap-2">
-              {isEditing ? (
+              {isEditing && canEdit ? (
                 <>
                   <button
                     onClick={() => {
@@ -610,9 +626,11 @@ export function CardDetailModal() {
                   </button>
                 </>
               ) : (
-                <button onClick={() => setIsEditing(true)} className="btn-edit">
-                  Edit Card
-                </button>
+                canEdit && (
+                  <button onClick={() => setIsEditing(true)} className="btn-edit">
+                    Edit Card
+                  </button>
+                )
               )}
             </div>
           </div>
@@ -620,7 +638,7 @@ export function CardDetailModal() {
 
         {/* Right Sidebar Container */}
         <div className="modal-sidebars-container">
-          {/* Labels Sidebar */}
+          {/* Labels Sidebar - TODOS PUEDEN VER Y AGREGAR LABELS */}
           <div className="modal-sidebar modal-sidebar-labels">
             <h3 className="sidebar-section-title">LABELS</h3>
             {currentWorkspaceId ? (
@@ -636,17 +654,43 @@ export function CardDetailModal() {
             )}
           </div>
 
-          {/* Members Sidebar */}
+          {/* Members Sidebar - SOLO ADMIN/OWNER PUEDEN ASIGNAR */}
           <div className="modal-sidebar modal-sidebar-members">
             <h3 className="sidebar-section-title">MEMBERS</h3>
             {currentWorkspaceId ? (
-              <MemberPicker
-                workspaceId={currentWorkspaceId}
-                cardId={selectedCard.id}
-                assignedMembers={selectedCard.members || []}
-                onMemberAssigned={handleMemberAssigned}
-                onMemberRemoved={handleMemberRemoved}
-              />
+              canEdit ? (
+                <MemberPicker
+                  workspaceId={currentWorkspaceId}
+                  cardId={selectedCard.id}
+                  assignedMembers={selectedCard.members || []}
+                  onMemberAssigned={handleMemberAssigned}
+                  onMemberRemoved={handleMemberRemoved}
+                />
+              ) : (
+                /* MEMBER/VIEWER solo pueden VER miembros asignados */
+                <div className="space-y-2">
+                  {selectedCard.members && selectedCard.members.length > 0 ? (
+                    selectedCard.members.map((member: any) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center gap-2 p-2 bg-surface rounded-terminal border border-border"
+                      >
+                        <div className="w-8 h-8 rounded-terminal bg-accent/20 flex items-center justify-center border border-accent/30">
+                          <span className="text-accent text-xs font-bold">
+                            {member.user?.name?.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{member.user?.name}</p>
+                          <p className="text-xs text-text-muted truncate">{member.user?.email}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-text-muted font-mono">No members assigned</p>
+                  )}
+                </div>
+              )
             ) : (
               <p className="text-xs text-text-muted font-mono">Loading...</p>
             )}
@@ -654,8 +698,8 @@ export function CardDetailModal() {
         </div>
       </div>
 
-      {/* Delete Confirmation */}
-      {showDeleteConfirm && (
+      {/* Delete Confirmation - SOLO SI PUEDE EDITAR */}
+      {showDeleteConfirm && canEdit && (
         <>
           <div className="modal-backdrop-dark" onClick={() => setShowDeleteConfirm(false)} />
           <div className="delete-modal-container">

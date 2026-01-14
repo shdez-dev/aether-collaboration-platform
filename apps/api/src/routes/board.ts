@@ -16,7 +16,8 @@ router.use(authenticateJWT);
 /**
  * POST /api/workspaces/:workspaceId/boards
  * Crear un board en un workspace
- * Permisos: Miembro del workspace
+ * Middleware: checkWorkspaceMembership (valida membership)
+ * Controller: Valida rol ADMIN/OWNER
  */
 router.post('/workspaces/:workspaceId/boards', checkWorkspaceMembership, (req, res) =>
   boardController.create(req, res)
@@ -25,7 +26,8 @@ router.post('/workspaces/:workspaceId/boards', checkWorkspaceMembership, (req, r
 /**
  * GET /api/workspaces/:workspaceId/boards
  * Listar todos los boards de un workspace
- * Permisos: Miembro del workspace
+ * Middleware: checkWorkspaceMembership (valida membership)
+ * Permite: Todos los roles
  */
 router.get('/workspaces/:workspaceId/boards', checkWorkspaceMembership, (req, res) =>
   boardController.list(req, res)
@@ -34,68 +36,91 @@ router.get('/workspaces/:workspaceId/boards', checkWorkspaceMembership, (req, re
 /**
  * GET /api/boards/:id
  * Obtener un board específico con todas sus listas y cards
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
+ * Permite: Todos los roles
  */
-router.get('/boards/:id', (req, res) => boardController.getById(req, res));
+router.get('/boards/:id', checkWorkspaceMembership, (req, res) =>
+  boardController.getById(req, res)
+);
 
 /**
  * PUT /api/boards/:id
  * Actualizar un board
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
+ * Controller: Valida rol ADMIN/OWNER
  */
-router.put('/boards/:id', (req, res) => boardController.update(req, res));
+router.put('/boards/:id', checkWorkspaceMembership, (req, res) => boardController.update(req, res));
 
 /**
  * POST /api/boards/:id/archive
  * Archivar un board
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
+ * Controller: Valida rol ADMIN/OWNER
  */
-router.post('/boards/:id/archive', (req, res) => boardController.archive(req, res));
+router.post('/boards/:id/archive', checkWorkspaceMembership, (req, res) =>
+  boardController.archive(req, res)
+);
 
 /**
  * DELETE /api/boards/:id
  * Eliminar un board permanentemente
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
+ * Controller: Valida rol ADMIN/OWNER
  * Requisitos: Board debe estar archivado y no tener listas
  */
-router.delete('/boards/:id', (req, res) => boardController.delete(req, res));
+router.delete('/boards/:id', checkWorkspaceMembership, (req, res) =>
+  boardController.delete(req, res)
+);
 
 // ==================== LIST ROUTES ====================
 
 /**
  * POST /api/boards/:boardId/lists
  * Crear una lista en un board
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
+ * Controller: Valida rol ADMIN/OWNER
  */
-router.post('/boards/:boardId/lists', (req, res) => listController.create(req, res));
+router.post('/boards/:boardId/lists', checkWorkspaceMembership, (req, res) =>
+  listController.create(req, res)
+);
 
 /**
  * GET /api/boards/:boardId/lists
  * Listar todas las listas de un board
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
+ * Permite: Todos los roles
  */
-router.get('/boards/:boardId/lists', (req, res) => listController.list(req, res));
+router.get('/boards/:boardId/lists', checkWorkspaceMembership, (req, res) =>
+  listController.list(req, res)
+);
 
 /**
  * PUT /api/lists/:id
  * Actualizar una lista
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde listId)
+ * Controller: Valida rol ADMIN/OWNER
  */
-router.put('/lists/:id', (req, res) => listController.update(req, res));
+router.put('/lists/:id', checkWorkspaceMembership, (req, res) => listController.update(req, res));
 
 /**
  * PUT /api/lists/:id/reorder
  * Reordenar una lista (cambiar su posición)
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde listId)
+ * Controller: Valida rol ADMIN/OWNER
  */
-router.put('/lists/:id/reorder', (req, res) => listController.reorder(req, res));
+router.put('/lists/:id/reorder', checkWorkspaceMembership, (req, res) =>
+  listController.reorder(req, res)
+);
 
 /**
  * DELETE /api/lists/:id
  * Eliminar una lista
- * Permisos: Miembro del workspace del board
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde listId)
+ * Controller: Valida rol ADMIN/OWNER
  * Requisitos: Lista no debe tener cards
  */
-router.delete('/lists/:id', (req, res) => listController.delete(req, res));
+router.delete('/lists/:id', checkWorkspaceMembership, (req, res) =>
+  listController.delete(req, res)
+);
 
 export default router;

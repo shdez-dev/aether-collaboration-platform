@@ -20,6 +20,10 @@ export class UserActivityService {
     workspaceId?: string
   ): Promise<void> {
     try {
+      // No registrar foreign keys en eventos de eliminación
+      // porque los recursos ya no existen en la base de datos
+      const isDeletionEvent = activityType.includes('.deleted');
+
       await pool.query(
         `INSERT INTO user_activity_log (user_id, activity_type, metadata, board_id, workspace_id, created_at)
          VALUES ($1, $2, $3, $4, $5, NOW())`,
@@ -27,15 +31,15 @@ export class UserActivityService {
           userId,
           activityType,
           metadata ? JSON.stringify(metadata) : null,
-          boardId || null,
-          workspaceId || null,
+          isDeletionEvent ? null : boardId || null,
+          isDeletionEvent ? null : workspaceId || null,
         ]
       );
 
       console.log(`[UserActivity] ✅ Logged: ${activityType} for user ${userId}`);
     } catch (error) {
       console.error('[UserActivity] ❌ Error logging activity:', error);
-      // No lanzar error, solo logear - no queremos que falle el evento principal
+      // No lanzar error, solo logear
     }
   }
 
@@ -113,15 +117,42 @@ export class UserActivityService {
         metadata.name = payload.name;
         break;
 
+      case 'workspace.deleted':
+        // Para eventos de eliminación, solo guardamos el ID en metadata
+        metadata.workspaceId = payload.workspaceId;
+        metadata.deletedBy = payload.deletedBy;
+        break;
+
       case 'board.created':
       case 'board.updated':
         metadata.title = payload.title || payload.name;
+        break;
+
+      case 'board.deleted':
+        metadata.boardId = payload.boardId;
+        metadata.deletedBy = payload.deletedBy;
+        break;
+
+      case 'list.created':
+      case 'list.updated':
+        metadata.name = payload.name;
+        break;
+
+      case 'list.deleted':
+        metadata.listId = payload.listId;
+        metadata.deletedBy = payload.deletedBy;
         break;
 
       case 'card.created':
       case 'card.updated':
         metadata.title = payload.title;
         metadata.listId = payload.listId;
+        break;
+
+      case 'card.deleted':
+        metadata.cardId = payload.cardId;
+        metadata.listId = payload.listId;
+        metadata.deletedBy = payload.deletedBy;
         break;
 
       case 'card.moved':
@@ -134,6 +165,12 @@ export class UserActivityService {
         metadata.cardId = payload.cardId;
         metadata.commentId = payload.commentId;
         metadata.contentPreview = payload.content?.substring(0, 100);
+        break;
+
+      case 'comment.deleted':
+        metadata.commentId = payload.commentId;
+        metadata.cardId = payload.cardId;
+        metadata.deletedBy = payload.deletedBy;
         break;
 
       case 'card.member.assigned':
