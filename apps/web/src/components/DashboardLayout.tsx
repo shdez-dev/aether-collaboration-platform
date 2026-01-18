@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navigation = [
     {
-      name: 'Dashboard',
+      name: 'Panel',
       href: '/dashboard',
       icon: '◆',
       active: pathname === '/dashboard',
@@ -56,13 +56,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       active: pathname?.startsWith('/dashboard/boards'),
     },
     {
-      name: 'Documents',
+      name: 'Documentos',
       href: '/dashboard/documents',
       icon: '▤',
       active: pathname?.startsWith('/dashboard/documents'),
     },
     {
-      name: 'Notifications',
+      name: 'Notificaciones',
       href: '/dashboard/notifications',
       icon: '◉',
       active: pathname?.startsWith('/dashboard/notifications'),
@@ -75,9 +75,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="card-terminal max-w-md">
           <div className="flex flex-col items-center gap-4 py-8">
-            <div className="loading-lg" />
-            <p className="text-text-secondary text-sm">VERIFYING AUTHENTICATION...</p>
-            <div className="text-accent text-xs font-mono">[ ▓▓▓▓▓▓▓░░░ ] 70%</div>
+            <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+            <p className="text-text-secondary text-sm">Verificando autenticación...</p>
           </div>
         </div>
       </div>
@@ -145,14 +144,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className="flex items-center gap-3 px-3 py-2 rounded-terminal text-text-secondary hover:bg-card hover:text-text-primary transition-colors text-sm"
               >
                 <span>⚙</span>
-                <span>Settings</span>
+                <span>Configuración</span>
               </Link>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-terminal text-error hover:bg-error/10 transition-colors text-sm"
               >
                 <span>⏻</span>
-                <span>Logout</span>
+                <span>Cerrar Sesión</span>
               </button>
             </div>
           </>
@@ -167,13 +166,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="text-text-secondary hover:text-text-primary transition-colors"
-              aria-label="Toggle sidebar"
+              aria-label="Alternar barra lateral"
             >
               <span className="text-xl">{isSidebarOpen ? '◀' : '▶'}</span>
             </button>
             <div>
               <h2 className="text-lg text-text-primary font-normal">
-                {navigation.find((item) => item.active)?.name || 'Dashboard'}
+                {navigation.find((item) => item.active)?.name || 'Panel'}
               </h2>
               <p className="text-xs text-text-muted">~/ {pathname}</p>
             </div>
@@ -184,7 +183,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="relative">
               <input
                 type="search"
-                placeholder="Search..."
+                placeholder="Buscar..."
                 className="input-terminal w-64 text-sm"
               />
             </div>
@@ -192,7 +191,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Status indicator */}
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-              <span className="text-xs text-text-muted">CONNECTED</span>
+              <span className="text-xs text-text-muted">CONECTADO</span>
             </div>
           </div>
         </header>

@@ -25,11 +25,6 @@ interface ActiveUsersProps {
   className?: string;
 }
 
-/**
- * Componente ActiveUsers
- * Muestra avatares de usuarios activos en el board
- * Con tooltips y contador de usuarios
- */
 export function ActiveUsers({
   users,
   maxVisible = 5,
@@ -39,11 +34,9 @@ export function ActiveUsers({
 }: ActiveUsersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Usuarios visibles
   const visibleUsers = isExpanded ? users : users.slice(0, maxVisible);
   const hiddenCount = users.length - maxVisible;
 
-  // Tamaños de avatar según prop size
   const avatarSizes = {
     sm: 'h-7 w-7',
     md: 'h-9 w-9',
@@ -52,14 +45,12 @@ export function ActiveUsers({
 
   const avatarSize = avatarSizes[size];
 
-  // Si no hay usuarios, no mostrar nada
   if (users.length === 0) {
     return null;
   }
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      {/* Avatares de usuarios */}
       <div className="flex items-center -space-x-2">
         {visibleUsers.map((user, index) => (
           <UserAvatar
@@ -70,7 +61,6 @@ export function ActiveUsers({
           />
         ))}
 
-        {/* Botón de "más usuarios" */}
         {hiddenCount > 0 && !isExpanded && (
           <TooltipProvider>
             <Tooltip>
@@ -86,7 +76,7 @@ export function ActiveUsers({
                   <span className="text-xs font-medium text-muted-foreground">+{hiddenCount}</span>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>
+              <TooltipContent className="bg-[#1a1a1a] border-[#2a2a2a]">
                 <p className="text-sm">Ver todos los usuarios activos</p>
               </TooltipContent>
             </Tooltip>
@@ -94,7 +84,6 @@ export function ActiveUsers({
         )}
       </div>
 
-      {/* Contador de usuarios (opcional) */}
       {showCount && (
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Users className="h-4 w-4" />
@@ -105,7 +94,6 @@ export function ActiveUsers({
         </div>
       )}
 
-      {/* Botón para colapsar (si está expandido) */}
       {isExpanded && hiddenCount > 0 && (
         <button
           onClick={() => setIsExpanded(false)}
@@ -118,11 +106,7 @@ export function ActiveUsers({
   );
 }
 
-/**
- * Componente individual de avatar de usuario
- */
 function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zIndex: number }) {
-  // Generar iniciales del nombre
   const initials = user.name
     .split(' ')
     .map((n) => n[0])
@@ -130,10 +114,7 @@ function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zI
     .toUpperCase()
     .slice(0, 2);
 
-  // Tiempo desde que se unió
   const timeActive = getTimeActive(user.joinedAt);
-
-  // Color de fondo basado en el ID del usuario (consistente)
   const bgColor = getUserColor(user.id);
 
   return (
@@ -154,7 +135,6 @@ function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zI
               )}
             </Avatar>
 
-            {/* Indicador de actividad (punto verde) */}
             <span
               className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background"
               aria-label="Usuario activo"
@@ -162,11 +142,15 @@ function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zI
           </div>
         </TooltipTrigger>
 
-        <TooltipContent side="bottom" className="max-w-xs">
+        {/* ✅ Tooltip con colores oscuros personalizados */}
+        <TooltipContent
+          side="bottom"
+          className="max-w-xs bg-[#1a1a1a] border-[#2a2a2a] text-[#e0e0e0]"
+        >
           <div className="space-y-1">
-            <p className="font-semibold">{user.name}</p>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
-            <p className="text-xs text-muted-foreground">Activo hace {timeActive}</p>
+            <p className="font-semibold text-white">{user.name}</p>
+            <p className="text-xs text-gray-400">{user.email}</p>
+            <p className="text-xs text-gray-500">Activo hace {timeActive}</p>
           </div>
         </TooltipContent>
       </Tooltip>
@@ -174,9 +158,6 @@ function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zI
   );
 }
 
-/**
- * Generar color consistente basado en el ID del usuario
- */
 function getUserColor(userId: string): string {
   const colors = [
     'bg-blue-500',
@@ -191,7 +172,6 @@ function getUserColor(userId: string): string {
     'bg-emerald-500',
   ];
 
-  // Generar índice basado en el hash del userId
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
     hash = userId.charCodeAt(i) + ((hash << 5) - hash);
@@ -201,9 +181,6 @@ function getUserColor(userId: string): string {
   return colors[index];
 }
 
-/**
- * Calcular tiempo desde que el usuario se unió
- */
 function getTimeActive(joinedAt: string): string {
   const now = new Date();
   const joined = new Date(joinedAt);
@@ -220,9 +197,6 @@ function getTimeActive(joinedAt: string): string {
   return `${diffDays} día${diffDays > 1 ? 's' : ''}`;
 }
 
-/**
- * Variante compacta del componente (solo avatares, sin contador)
- */
 export function ActiveUsersCompact({
   users,
   maxVisible = 3,
@@ -233,9 +207,6 @@ export function ActiveUsersCompact({
   return <ActiveUsers users={users} maxVisible={maxVisible} showCount={false} size="sm" />;
 }
 
-/**
- * Variante con lista expandible (muestra lista completa en popover)
- */
 export function ActiveUsersExpandable({
   users,
   className,
@@ -281,16 +252,14 @@ export function ActiveUsersExpandable({
         </span>
       </button>
 
-      {/* Lista expandida */}
       {isOpen && (
         <>
-          {/* Backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 
-          {/* Popover */}
-          <div className="absolute top-full right-0 mt-2 w-64 bg-popover border rounded-lg shadow-lg z-50 p-3">
+          {/* ✅ Popover con tema oscuro */}
+          <div className="absolute top-full right-0 mt-2 w-64 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg z-50 p-3">
             <div className="space-y-2">
-              <h4 className="font-semibold text-sm mb-3">Usuarios activos</h4>
+              <h4 className="font-semibold text-sm mb-3 text-white">Usuarios activos</h4>
 
               {users.map((user) => {
                 const initials = user.name
@@ -313,8 +282,8 @@ export function ActiveUsersExpandable({
                     </Avatar>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{user.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      <p className="text-sm font-medium truncate text-white">{user.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{user.email}</p>
                     </div>
 
                     <div className="h-2 w-2 rounded-full bg-green-500" />

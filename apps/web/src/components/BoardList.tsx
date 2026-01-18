@@ -33,7 +33,7 @@ export default function BoardList({ list }: BoardListProps) {
   const setSelectedCard = useCardStore((state) => state.setSelectedCard);
   const { accessToken } = useAuthStore();
 
-  // ✅ OBTENER ROL DEL USUARIO EN EL WORKSPACE
+  // Obtener rol del usuario
   const { currentWorkspace } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
 
@@ -46,11 +46,13 @@ export default function BoardList({ list }: BoardListProps) {
   const [cardTitle, setCardTitle] = useState('');
   const [isCreatingCard, setIsCreatingCard] = useState(false);
 
-  // ✅ PERMISOS: Determinar qué puede hacer el usuario
+  // Permisos: OWNER y ADMIN pueden editar/crear/eliminar
   const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
-  const canView = userRole === 'MEMBER' || userRole === 'VIEWER';
 
-  // Configurar sortable para la lista (SOLO si puede editar)
+  // OWNER, ADMIN y MEMBER pueden arrastrar (solo VIEWER no puede)
+  const canDrag = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
+
+  // Configurar sortable para la lista - Solo OWNER y ADMIN pueden mover listas
   const {
     attributes,
     listeners,
@@ -64,7 +66,7 @@ export default function BoardList({ list }: BoardListProps) {
       type: 'list',
       list,
     },
-    disabled: !canEdit, // ✅ Deshabilitar drag si no puede editar
+    disabled: !canEdit,
   });
 
   const style = {
@@ -73,19 +75,19 @@ export default function BoardList({ list }: BoardListProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  // Configurar droppable para el área de cards
+  // Configurar droppable para el área de cards - OWNER, ADMIN y MEMBER pueden soltar
   const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
     id: `list-droppable-${list.id}`,
     data: {
       type: 'list',
       listId: list.id,
     },
-    disabled: !canEdit, // ✅ Deshabilitar drop si no puede editar
+    disabled: !canDrag,
   });
 
   // Guardar cambios del nombre
   const handleSave = async () => {
-    if (!canEdit) return; // ✅ Prevenir edición
+    if (!canEdit) return;
 
     if (editedName.trim() === list.name) {
       setIsEditing(false);
@@ -110,11 +112,13 @@ export default function BoardList({ list }: BoardListProps) {
 
   // Eliminar lista
   const handleDelete = async () => {
-    if (!canEdit) return; // ✅ Prevenir eliminación
+    if (!canEdit) return;
 
     const listCards = cards[list.id] || [];
     if (listCards.length > 0) {
-      alert('Cannot delete list with cards. Please move or delete cards first.');
+      alert(
+        'No se puede eliminar una lista con tarjetas. Por favor, mueve o elimina las tarjetas primero.'
+      );
       return;
     }
     await deleteList(list.id);
@@ -124,7 +128,7 @@ export default function BoardList({ list }: BoardListProps) {
   const handleCreateCard = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!canEdit) return; // ✅ Prevenir creación
+    if (!canEdit) return;
 
     if (!cardTitle.trim()) return;
 
@@ -145,7 +149,7 @@ export default function BoardList({ list }: BoardListProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to create card');
+        throw new Error(errorData.error?.message || 'Error al crear la tarjeta');
       }
 
       const { data } = await response.json();
@@ -156,8 +160,8 @@ export default function BoardList({ list }: BoardListProps) {
       setCardTitle('');
       setIsAddingCard(false);
     } catch (error: any) {
-      console.error('Error creating card:', error);
-      alert(`Failed to create card: ${error.message}`);
+      console.error('Error al crear tarjeta:', error);
+      alert(`Error al crear la tarjeta: ${error.message}`);
     } finally {
       setIsCreatingCard(false);
     }
@@ -174,10 +178,12 @@ export default function BoardList({ list }: BoardListProps) {
   return (
     <>
       <div ref={setSortableNodeRef} style={style} className="w-80 flex-shrink-0">
-        <div className={`card-terminal h-full flex flex-col ${isOver ? 'ring-2 ring-accent' : ''}`}>
+        <div
+          className={`bg-card border border-border rounded-terminal p-6 shadow-terminal hover:shadow-terminal-hover hover:border-border-light flex flex-col ${isOver ? 'ring-2 ring-accent' : ''}`}
+        >
           {/* Header */}
           <div
-            className={`flex items-center justify-between mb-4 pb-3 border-b border-border ${
+            className={`flex items-center justify-between mb-4 pb-3 border-b border-border flex-shrink-0 ${
               canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
             }`}
             {...(canEdit ? attributes : {})}
@@ -214,7 +220,7 @@ export default function BoardList({ list }: BoardListProps) {
               </h3>
             )}
 
-            {/* Menu - SOLO PARA ADMIN/OWNER */}
+            {/* Menu - Solo OWNER y ADMIN */}
             {canEdit && (
               <div className="relative group">
                 <button
@@ -233,7 +239,7 @@ export default function BoardList({ list }: BoardListProps) {
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors"
                   >
-                    ✎ Edit Name
+                    ✎ Editar Nombre
                   </button>
                   <button
                     onClick={(e) => {
@@ -242,37 +248,40 @@ export default function BoardList({ list }: BoardListProps) {
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors text-error"
                   >
-                    ✕ Delete
+                    ✕ Eliminar
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Cards Area - DROPPABLE */}
-          <div ref={setDroppableNodeRef} className="flex-1 overflow-y-auto min-h-[100px]">
+          {/* Cards Area - Droppable con Scrollbar Personalizada */}
+          <div
+            ref={setDroppableNodeRef}
+            className="overflow-y-auto overflow-x-hidden min-h-[150px] max-h-[500px] cards-scrollbar pr-2"
+          >
             <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
                 {listCards.length > 0 ? (
                   listCards.map((card) => <Card key={card.id} card={card} />)
                 ) : (
                   <div className="text-center text-text-muted text-sm py-8">
-                    {isOver ? 'Drop card here' : 'No cards yet'}
+                    {isOver ? 'Suelta la tarjeta aquí' : 'Sin tarjetas aún'}
                   </div>
                 )}
               </div>
             </SortableContext>
           </div>
 
-          {/* Add Card Section - SOLO PARA ADMIN/OWNER */}
+          {/* Add Card Section - Solo OWNER y ADMIN */}
           {canEdit && (
-            <>
+            <div className="flex-shrink-0">
               {isAddingCard ? (
                 <form onSubmit={handleCreateCard} className="mt-3 space-y-2">
                   <textarea
                     value={cardTitle}
                     onChange={(e) => setCardTitle(e.target.value)}
-                    placeholder="Enter card title..."
+                    placeholder="Ingresa el título de la tarjeta..."
                     autoFocus
                     rows={3}
                     disabled={isCreatingCard}
@@ -282,17 +291,17 @@ export default function BoardList({ list }: BoardListProps) {
                     <button
                       type="submit"
                       disabled={!cardTitle.trim() || isCreatingCard}
-                      className="btn-primary flex-1 py-2 text-sm"
+                      className="btn-primary flex-1 py-1.5 text-xs"
                     >
-                      {isCreatingCard ? 'Adding...' : 'Add Card'}
+                      {isCreatingCard ? 'Agregando...' : 'Agregar'}
                     </button>
                     <button
                       type="button"
                       onClick={handleCancelAddCard}
                       disabled={isCreatingCard}
-                      className="btn-secondary py-2 px-4 text-sm"
+                      className="btn-secondary py-1.5 px-3 text-xs"
                     >
-                      Cancel
+                      Cancelar
                     </button>
                   </div>
                 </form>
@@ -301,20 +310,20 @@ export default function BoardList({ list }: BoardListProps) {
                   onClick={() => setIsAddingCard(true)}
                   className="w-full mt-3 py-2 text-text-muted hover:text-text-primary text-sm transition-colors border border-dashed border-border hover:border-accent rounded-terminal"
                 >
-                  + Add Card
+                  + Agregar Tarjeta
                 </button>
               )}
-            </>
+            </div>
           )}
 
           {/* Card Count */}
-          <div className="mt-3 pt-3 border-t border-border text-text-muted text-xs font-mono">
-            {listCards.length} {listCards.length === 1 ? 'card' : 'cards'}
+          <div className="mt-3 pt-3 border-t border-border text-text-muted text-xs font-mono flex-shrink-0">
+            {listCards.length} {listCards.length === 1 ? 'tarjeta' : 'tarjetas'}
           </div>
         </div>
       </div>
 
-      {/* Delete Confirmation Modal - SOLO SI PUEDE EDITAR */}
+      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && canEdit && (
         <>
           <div
@@ -323,31 +332,32 @@ export default function BoardList({ list }: BoardListProps) {
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <div className="card-terminal max-w-md pointer-events-auto animate-scale-in">
-              <h3 className="text-xl mb-2">Delete List?</h3>
+              <h3 className="text-xl mb-2">¿Eliminar Lista?</h3>
               <p className="text-text-secondary mb-2">
-                Are you sure you want to delete <strong>{list.name}</strong>?
+                ¿Estás seguro de que deseas eliminar <strong>{list.name}</strong>?
               </p>
               {listCards.length > 0 ? (
                 <p className="text-error text-sm mb-6">
-                  ⚠ This list has {listCards.length} {listCards.length === 1 ? 'card' : 'cards'}.
-                  Please move or delete them first.
+                  ⚠ Esta lista tiene {listCards.length}{' '}
+                  {listCards.length === 1 ? 'tarjeta' : 'tarjetas'}. Por favor, muévelas o
+                  elimínalas primero.
                 </p>
               ) : (
-                <p className="text-text-muted text-sm mb-6">This action cannot be undone.</p>
+                <p className="text-text-muted text-sm mb-6">Esta acción no se puede deshacer.</p>
               )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
                   className="btn-secondary flex-1"
                 >
-                  Cancel
+                  Cancelar
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={listCards.length > 0}
                   className="btn-primary bg-error hover:bg-error/80 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Delete
+                  Eliminar
                 </button>
               </div>
             </div>

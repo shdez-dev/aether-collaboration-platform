@@ -108,6 +108,8 @@ export type CardEventType =
   | 'card.updated'
   | 'card.deleted'
   | 'card.moved'
+  | 'card.completed' // ✅ NUEVO
+  | 'card.uncompleted' // ✅ NUEVO
   | 'card.member.assigned'
   | 'card.member.unassigned'
   | 'card.label.added'
@@ -427,6 +429,8 @@ export interface CardUpdatedPayload {
     description?: string;
     dueDate?: string | null;
     priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+    completed?: boolean; // ✅ NUEVO
+    completedAt?: string | null; // ✅ NUEVO
   };
   updatedBy: UserId;
 }
@@ -457,6 +461,31 @@ export interface CardDeletedPayload {
 }
 
 export type CardDeletedEvent = BaseEvent<'card.deleted', CardDeletedPayload>;
+
+/**
+ * Card Completed Event
+ * ✅ NUEVO: Evento específico cuando una card se marca como completada
+ */
+export interface CardCompletedPayload {
+  cardId: CardId;
+  listId: ListId;
+  completedBy: UserId;
+  completedAt: string;
+}
+
+export type CardCompletedEvent = BaseEvent<'card.completed', CardCompletedPayload>;
+
+/**
+ * Card Uncompleted Event
+ * ✅ NUEVO: Evento específico cuando una card se desmarca como completada
+ */
+export interface CardUncompletedPayload {
+  cardId: CardId;
+  listId: ListId;
+  uncompletedBy: UserId;
+}
+
+export type CardUncompletedEvent = BaseEvent<'card.uncompleted', CardUncompletedPayload>;
 
 /**
  * Card Member Assigned Event
@@ -752,6 +781,8 @@ export type Event =
   | CardUpdatedEvent
   | CardMovedEvent
   | CardDeletedEvent
+  | CardCompletedEvent // ✅ NUEVO
+  | CardUncompletedEvent // ✅ NUEVO
   | CardMemberAssignedEvent
   | CardMemberUnassignedEvent
   | CardLabelAddedEvent

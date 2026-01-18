@@ -52,29 +52,29 @@ export default function ConfirmRemoveMemberModal({
               <span className="text-error text-2xl">⚠</span>
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-normal text-error mb-2">Remove Member</h2>
-              <p className="text-text-secondary text-sm">This action cannot be undone</p>
+              <h2 className="text-xl font-normal text-error mb-2">Remover Miembro</h2>
+              <p className="text-text-secondary text-sm">Esta acción no se puede deshacer</p>
             </div>
           </div>
 
           {/* Content */}
           <div className="mb-6 p-4 bg-background rounded-terminal border border-border">
             <p className="text-text-primary mb-3">
-              Are you sure you want to remove{' '}
-              <span className="text-accent font-medium">{memberName}</span> from this workspace?
+              ¿Estás seguro de que deseas remover a{' '}
+              <span className="text-accent font-medium">{memberName}</span> de este workspace?
             </p>
             <div className="space-y-2 text-sm text-text-secondary">
               <p className="flex items-start gap-2">
                 <span className="text-error mt-0.5">•</span>
-                They will immediately lose access to all boards and content
+                Perderá inmediatamente el acceso a todos los boards y contenido
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-error mt-0.5">•</span>
-                All their pending tasks and assignments will remain
+                Todas sus tareas pendientes y asignaciones permanecerán
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-error mt-0.5">•</span>
-                You can invite them back later if needed
+                Puedes invitarlo de nuevo más tarde si es necesario
               </p>
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function ConfirmRemoveMemberModal({
               disabled={isRemoving}
               className="btn-secondary flex-1"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="button"
@@ -98,10 +98,10 @@ export default function ConfirmRemoveMemberModal({
               {isRemoving ? (
                 <>
                   <span className="inline-block animate-spin mr-2">◌</span>
-                  Removing...
+                  Removiendo...
                 </>
               ) : (
-                'Yes, Remove Member'
+                'Sí, Remover Miembro'
               )}
             </button>
           </div>

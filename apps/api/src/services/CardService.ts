@@ -1,10 +1,8 @@
 // apps/api/src/services/CardService.ts
 
 import { pool } from '../lib/db';
-import { eventStore } from './EventStoreService'; // ✅ CAMBIO 1: Usar instancia compartida
+import { eventStore } from './EventStoreService';
 import type { Card } from '@aether/types';
-
-// ❌ ELIMINAR: const eventStore = new EventStoreService();
 
 export class CardService {
   /**
@@ -102,9 +100,8 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromList(listId);
 
       await eventStore.emit(
@@ -164,7 +161,7 @@ export class CardService {
   }
 
   /**
-   * Actualizar card
+   * Actualizar card (incluyendo movimiento entre listas)
    */
   static async updateCard(
     cardId: string,
@@ -174,6 +171,9 @@ export class CardService {
       description?: string | null;
       dueDate?: string | null;
       priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+      completed?: boolean;
+      completedAt?: string | null;
+      listId?: string; // NUEVO: Permite mover la card a otra lista
     },
     socketId?: string
   ): Promise<Card> {
@@ -181,6 +181,16 @@ export class CardService {
 
     try {
       await client.query('BEGIN');
+
+      // Obtener card actual para detectar cambios
+      const currentCardResult = await client.query('SELECT * FROM cards WHERE id = $1', [cardId]);
+
+      if (currentCardResult.rows.length === 0) {
+        throw new Error('Card not found');
+      }
+
+      const currentCard = currentCardResult.rows[0];
+      const originalListId = currentCard.list_id;
 
       const updates: string[] = [];
       const values: any[] = [];
@@ -206,6 +216,50 @@ export class CardService {
         values.push(data.priority);
       }
 
+      // Manejar campo completed
+      if (data.completed !== undefined) {
+        updates.push(`completed = $${paramCount++}`);
+        values.push(data.completed);
+
+        // Si se marca como completada sin especificar fecha, usar NOW()
+        if (data.completed && data.completedAt === undefined) {
+          updates.push(`completed_at = NOW()`);
+        } else if (!data.completed) {
+          // Si se desmarca, limpiar fecha de completado
+          updates.push(`completed_at = NULL`);
+        }
+      }
+
+      // Manejar completedAt si se especifica explícitamente
+      if (data.completedAt !== undefined && data.completed === undefined) {
+        updates.push(`completed_at = $${paramCount++}`);
+        values.push(data.completedAt);
+      }
+
+      // NUEVO: Manejar cambio de lista
+      if (data.listId !== undefined && data.listId !== originalListId) {
+        // Verificar que la nueva lista existe
+        const listExists = await client.query('SELECT id FROM lists WHERE id = $1', [data.listId]);
+
+        if (listExists.rows.length === 0) {
+          throw new Error('Target list not found');
+        }
+
+        // Calcular nueva posición automáticamente (al final de la lista destino)
+        const maxPosResult = await client.query(
+          'SELECT COALESCE(MAX(position), 0) as max_pos FROM cards WHERE list_id = $1',
+          [data.listId]
+        );
+
+        const newPosition = maxPosResult.rows[0].max_pos + 1;
+
+        updates.push(`list_id = $${paramCount++}`);
+        values.push(data.listId);
+
+        updates.push(`position = $${paramCount++}`);
+        values.push(newPosition);
+      }
+
       updates.push(`updated_at = NOW()`);
       values.push(cardId);
 
@@ -216,28 +270,49 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
-      const changes: any = {};
-      if (data.title !== undefined) changes.title = data.title;
-      if (data.description !== undefined) changes.description = data.description;
-      if (data.dueDate !== undefined) changes.dueDate = data.dueDate;
-      if (data.priority !== undefined) changes.priority = data.priority;
+      // Emitir evento apropiado según el tipo de cambio
+      if (data.listId && data.listId !== originalListId) {
+        // Emitir evento de movimiento entre listas
+        await eventStore.emit(
+          'card.moved',
+          {
+            cardId: card.id as any,
+            fromListId: originalListId as any,
+            toListId: data.listId as any,
+            fromPosition: currentCard.position,
+            toPosition: card.position,
+            movedBy: userId as any,
+          },
+          userId as any,
+          boardId || undefined,
+          socketId
+        );
+      } else {
+        // Emitir evento de actualización de contenido
+        const changes: any = {};
+        if (data.title !== undefined) changes.title = data.title;
+        if (data.description !== undefined) changes.description = data.description;
+        if (data.dueDate !== undefined) changes.dueDate = data.dueDate;
+        if (data.priority !== undefined) changes.priority = data.priority;
+        if (data.completed !== undefined) changes.completed = data.completed;
+        if (data.completedAt !== undefined) changes.completedAt = data.completedAt;
 
-      await eventStore.emit(
-        'card.updated',
-        {
-          cardId: card.id as any,
-          changes,
-          updatedBy: userId as any,
-        },
-        userId as any,
-        boardId || undefined,
-        socketId
-      );
+        await eventStore.emit(
+          'card.updated',
+          {
+            cardId: card.id as any,
+            changes,
+            updatedBy: userId as any,
+          },
+          userId as any,
+          boardId || undefined,
+          socketId
+        );
+      }
 
       return card;
     } catch (error) {
@@ -249,7 +324,7 @@ export class CardService {
   }
 
   /**
-   * Mover card (cambiar de lista o reordenar)
+   * Mover card con control preciso de posición
    */
   static async moveCard(
     cardId: string,
@@ -275,6 +350,7 @@ export class CardService {
       const fromListId = currentCard.list_id;
       const fromPosition = currentCard.position;
 
+      // Si cambia de lista, ajustar posiciones en lista origen
       if (fromListId !== data.toListId) {
         await client.query(
           'UPDATE cards SET position = position - 1 WHERE list_id = $1 AND position > $2',
@@ -282,11 +358,13 @@ export class CardService {
         );
       }
 
+      // Ajustar posiciones en lista destino
       await client.query(
         'UPDATE cards SET position = position + 1 WHERE list_id = $1 AND position >= $2',
         [data.toListId, data.position]
       );
 
+      // Actualizar la card
       const result = await client.query(
         `UPDATE cards 
          SET list_id = $1, position = $2, updated_at = NOW()
@@ -297,9 +375,8 @@ export class CardService {
 
       const card = this.mapCard(result.rows[0]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromList(data.toListId);
 
       await eventStore.emit(
@@ -346,14 +423,14 @@ export class CardService {
 
       await client.query('DELETE FROM cards WHERE id = $1', [cardId]);
 
+      // Ajustar posiciones de cards restantes
       await client.query(
         'UPDATE cards SET position = position - 1 WHERE list_id = $1 AND position > $2',
         [card.list_id, card.position]
       );
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       await eventStore.emit(
         'card.deleted',
         {
@@ -387,6 +464,7 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
+      // Verificar si ya está asignado
       const existingResult = await client.query(
         'SELECT * FROM card_members WHERE card_id = $1 AND user_id = $2',
         [cardId, memberId]
@@ -401,9 +479,8 @@ export class CardService {
         memberId,
       ]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
       await eventStore.emit(
@@ -444,9 +521,8 @@ export class CardService {
         memberId,
       ]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
       await eventStore.emit(
@@ -482,6 +558,7 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
+      // Verificar si el label ya está agregado
       const existingResult = await client.query(
         'SELECT * FROM card_labels WHERE card_id = $1 AND label_id = $2',
         [cardId, labelId]
@@ -496,9 +573,8 @@ export class CardService {
         labelId,
       ]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
       await eventStore.emit(
@@ -539,9 +615,8 @@ export class CardService {
         labelId,
       ]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const boardId = await this.getBoardIdFromCard(cardId);
 
       await eventStore.emit(
@@ -575,6 +650,8 @@ export class CardService {
       position: row.position,
       dueDate: row.due_date,
       priority: row.priority,
+      completed: row.completed || false,
+      completedAt: row.completed_at || null,
       createdBy: row.created_by,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

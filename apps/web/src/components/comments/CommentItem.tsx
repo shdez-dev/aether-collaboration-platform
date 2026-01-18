@@ -21,24 +21,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface CommentItemProps {
-  /**
-   * Comentario a mostrar
-   */
   comment: CommentWithUser;
-
-  /**
-   * Callback para actualizar comentario
-   */
   onUpdate?: (commentId: string, content: string, mentions?: string[]) => Promise<void>;
-
-  /**
-   * Callback para eliminar comentario
-   */
   onDelete?: (commentId: string) => Promise<void>;
-
-  /**
-   * Mostrar acciones de edición/eliminación
-   */
   showActions?: boolean;
 }
 
@@ -47,12 +32,8 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
   const { isEditing, isUpdating, startEdit, cancelEdit } = useCommentEdit(comment.id);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Verificar si el usuario actual es el autor
   const isAuthor = currentUser?.id === comment.userId;
 
-  /**
-   * Manejar actualización
-   */
   const handleUpdate = async (content: string, mentions?: string[]) => {
     if (!onUpdate) return;
 
@@ -61,13 +42,10 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
   };
 
   /**
-   * Manejar eliminación
+   * ELIMINACIÓN DIRECTA SIN CONFIRMACIÓN
    */
   const handleDelete = async () => {
     if (!onDelete) return;
-
-    const confirmed = window.confirm('¿Estás seguro de eliminar este comentario?');
-    if (!confirmed) return;
 
     setIsDeleting(true);
     try {
@@ -79,9 +57,6 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
     }
   };
 
-  /**
-   * Formatear fecha relativa
-   */
   const getRelativeTime = (date: string) => {
     try {
       return formatDistanceToNow(new Date(date), {
@@ -93,9 +68,6 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
     }
   };
 
-  /**
-   * Renderizar contenido del comentario con menciones resaltadas
-   */
   const renderContent = (content: string) => {
     const parts = content.split(/(@[a-zA-Z0-9_-]+)/g);
 
@@ -111,7 +83,6 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
     });
   };
 
-  // Si está en modo edición, mostrar el formulario
   if (isEditing) {
     return (
       <div className="rounded-lg border bg-muted/50 p-3">
@@ -130,7 +101,6 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
 
   return (
     <div className="group relative flex gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50">
-      {/* Avatar */}
       <Avatar className="h-8 w-8 shrink-0">
         <AvatarImage src={comment.user.avatar || undefined} alt={comment.user.name} />
         <AvatarFallback className="text-xs">
@@ -143,9 +113,7 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
         </AvatarFallback>
       </Avatar>
 
-      {/* Content */}
       <div className="flex-1 space-y-1">
-        {/* Header */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{comment.user.name}</span>
           <span className="text-xs text-muted-foreground">
@@ -159,13 +127,11 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
           )}
         </div>
 
-        {/* Body */}
         <div className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
           {renderContent(comment.content)}
         </div>
       </div>
 
-      {/* Actions */}
       {showActions && isAuthor && !isDeleting && (
         <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
           <DropdownMenu>
@@ -193,7 +159,6 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
         </div>
       )}
 
-      {/* Loading overlay cuando se está eliminando */}
       {isDeleting && (
         <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/80">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />

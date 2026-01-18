@@ -1,57 +1,49 @@
+// packages/shared-types/src/api.ts
+
 /**
- * API Request/Response Types
- *
- * Standard types for REST API communication
+ * API Response Types
+ * Estructuras de respuesta estandarizadas para la API REST
  */
 
 // ============================================================================
-// STANDARD API RESPONSES
+// BASE API RESPONSE
 // ============================================================================
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: ApiError;
-  meta?: ResponseMeta;
+  meta?: ApiMeta;
 }
 
 export interface ApiError {
   code: string;
   message: string;
-  details?: Record<string, unknown>;
+  details?: unknown;
 }
 
-export interface ResponseMeta {
-  timestamp: number;
-  requestId: string;
+export interface ApiMeta {
+  timestamp: string;
+  requestId?: string;
   pagination?: PaginationMeta;
 }
 
 export interface PaginationMeta {
   page: number;
-  pageSize: number;
+  limit: number;
+  total: number;
   totalPages: number;
-  totalItems: number;
+  hasNext: boolean;
+  hasPrev: boolean;
 }
 
 // ============================================================================
-// AUTHENTICATION
+// AUTH API TYPES
 // ============================================================================
 
 export interface LoginRequest {
   email: string;
   password: string;
-}
-
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    avatar?: string;
-  };
 }
 
 export interface RegisterRequest {
@@ -60,12 +52,19 @@ export interface RegisterRequest {
   name: string;
 }
 
-export interface RefreshTokenRequest {
-  refreshToken: string;
+export interface AuthResponse {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    avatar?: string;
+  };
+  accessToken: string;
+  refreshToken?: string;
 }
 
 // ============================================================================
-// WORKSPACE
+// WORKSPACE API TYPES
 // ============================================================================
 
 export interface CreateWorkspaceRequest {
@@ -84,11 +83,11 @@ export interface UpdateWorkspaceRequest {
 
 export interface InviteMemberRequest {
   email: string;
-  role: 'ADMIN' | 'MEMBER' | 'VIEWER';
+  role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
 }
 
 // ============================================================================
-// BOARD
+// BOARD API TYPES
 // ============================================================================
 
 export interface CreateBoardRequest {
@@ -102,12 +101,11 @@ export interface UpdateBoardRequest {
 }
 
 // ============================================================================
-// LIST
+// LIST API TYPES
 // ============================================================================
 
 export interface CreateListRequest {
   name: string;
-  position: number;
 }
 
 export interface UpdateListRequest {
@@ -119,20 +117,23 @@ export interface ReorderListRequest {
 }
 
 // ============================================================================
-// CARD
+// CARD API TYPES
 // ============================================================================
 
 export interface CreateCardRequest {
   title: string;
   description?: string;
-  position: number;
+  dueDate?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
 }
 
 export interface UpdateCardRequest {
   title?: string;
-  description?: string;
+  description?: string | null;
   dueDate?: string | null;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+  completed?: boolean;
+  completedAt?: string | null;
 }
 
 export interface MoveCardRequest {
@@ -140,42 +141,76 @@ export interface MoveCardRequest {
   position: number;
 }
 
-// ============================================================================
-// WEBSOCKET MESSAGES
-// ============================================================================
+export interface AssignMemberRequest {
+  userId: string;
+}
 
-export interface WebSocketAck {
-  messageId: string;
-  status: 'success' | 'error';
-  error?: string;
+export interface AddLabelRequest {
+  labelId: string;
 }
 
 // ============================================================================
-// SEARCH & FILTERS
+// COMMENT API TYPES
 // ============================================================================
 
-export interface SearchQuery {
-  q: string;
-  type?: 'cards' | 'documents' | 'comments' | 'all';
-  filters?: SearchFilters;
+export interface CreateCommentRequest {
+  content: string;
+  mentions?: string[];
+}
+
+export interface UpdateCommentRequest {
+  content: string;
+  mentions?: string[];
+}
+
+// ============================================================================
+// LABEL API TYPES
+// ============================================================================
+
+export interface CreateLabelRequest {
+  name: string;
+  color: string;
+}
+
+export interface UpdateLabelRequest {
+  name?: string;
+  color?: string;
+}
+
+// ============================================================================
+// NOTIFICATION API TYPES
+// ============================================================================
+
+export interface NotificationPreferences {
+  email: boolean;
+  push: boolean;
+  inApp: boolean;
+}
+
+// ============================================================================
+// SEARCH & FILTER TYPES
+// ============================================================================
+
+export interface SearchRequest {
+  query: string;
+  filters?: {
+    workspaceId?: string;
+    boardId?: string;
+    type?: string[];
+  };
   pagination?: {
     page: number;
-    pageSize: number;
+    limit: number;
   };
 }
 
-export interface SearchFilters {
-  assignedTo?: string[];
+export interface FilterOptions {
+  assignees?: string[];
   labels?: string[];
-  dueDateFrom?: string;
-  dueDateTo?: string;
   priority?: ('LOW' | 'MEDIUM' | 'HIGH')[];
-}
-
-export interface SearchResult<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
+  completed?: boolean;
+  dueDate?: {
+    from?: string;
+    to?: string;
+  };
 }

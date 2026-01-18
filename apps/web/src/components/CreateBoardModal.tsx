@@ -87,8 +87,8 @@ export default function CreateBoardModal({
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-normal">Create Board</h2>
-              <p className="text-text-secondary text-sm">Start organizing your work</p>
+              <h2 className="text-xl font-normal">Crear Board</h2>
+              <p className="text-text-secondary text-sm">Comienza a organizar tu trabajo</p>
             </div>
             <button
               onClick={onClose}
@@ -103,7 +103,7 @@ export default function CreateBoardModal({
             {/* Name */}
             <div>
               <label htmlFor="name" className="block text-sm text-text-secondary mb-2">
-                NAME:
+                NOMBRE:
               </label>
               <input
                 id="name"
@@ -114,7 +114,7 @@ export default function CreateBoardModal({
                   setError('');
                 }}
                 className={`input-terminal ${error ? 'border-error' : ''}`}
-                placeholder="e.g., Product Roadmap"
+                placeholder="ej., Hoja de Ruta del Producto"
                 maxLength={255}
                 disabled={isLoading}
                 autoFocus
@@ -129,14 +129,14 @@ export default function CreateBoardModal({
             {/* Description */}
             <div>
               <label htmlFor="description" className="block text-sm text-text-secondary mb-2">
-                DESCRIPTION (OPTIONAL):
+                DESCRIPCIÓN (OPCIONAL):
               </label>
               <textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="input-terminal min-h-[80px] resize-none"
-                placeholder="What is this board for?"
+                placeholder="¿Para qué es este board?"
                 maxLength={1000}
                 disabled={isLoading}
               />
@@ -151,14 +151,14 @@ export default function CreateBoardModal({
                 disabled={isLoading}
                 className="btn-secondary flex-1"
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isLoading || !name.trim()}
                 className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Creating...' : 'Create Board'}
+                {isLoading ? 'Creando...' : 'Crear Board'}
               </button>
             </div>
           </form>

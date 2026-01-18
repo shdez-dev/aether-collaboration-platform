@@ -73,7 +73,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="card-terminal max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="section-header">CREATE WORKSPACE</h2>
+          <h2 className="section-header">CREAR WORKSPACE</h2>
           <button
             onClick={handleClose}
             disabled={isLoading}
@@ -87,7 +87,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
           {/* Name */}
           <div>
             <label htmlFor="name" className="block text-sm text-text-secondary mb-2">
-              NAME: <span className="text-error">*</span>
+              NOMBRE: <span className="text-error">*</span>
             </label>
             <input
               id="name"
@@ -105,7 +105,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
           {/* Description */}
           <div>
             <label htmlFor="description" className="block text-sm text-text-secondary mb-2">
-              DESCRIPTION:
+              DESCRIPCIÓN:
             </label>
             <textarea
               id="description"
@@ -120,7 +120,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
           {/* Icon Selector */}
           <div>
-            <label className="block text-sm text-text-secondary mb-2">ICON:</label>
+            <label className="block text-sm text-text-secondary mb-2">ICONO:</label>
             <div className="grid grid-cols-8 gap-2">
               {ICONS.map((icon) => (
                 <button
@@ -161,7 +161,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
           {/* Preview */}
           <div className="p-4 bg-background rounded-terminal border border-border">
-            <p className="text-xs text-text-muted mb-2">PREVIEW:</p>
+            <p className="text-xs text-text-muted mb-2">VISTA PREVIA:</p>
             <div className="flex items-center gap-3">
               <div
                 className="w-12 h-12 rounded-terminal flex items-center justify-center text-2xl"
@@ -170,8 +170,8 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                 {selectedIcon}
               </div>
               <div>
-                <p className="text-text-primary font-medium">{name || 'Workspace Name'}</p>
-                <p className="text-xs text-text-muted">{description || 'No description'}</p>
+                <p className="text-text-primary font-medium">{name || 'Nombre del Workspace'}</p>
+                <p className="text-xs text-text-muted">{description || 'Sin descripción'}</p>
               </div>
             </div>
           </div>
@@ -191,16 +191,16 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               disabled={isLoading}
               className="btn-secondary flex-1"
             >
-              CANCEL
+              CANCELAR
             </button>
             <button type="submit" disabled={isLoading} className="btn-primary flex-1">
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="loading" />
-                  CREATING...
+                  CREANDO...
                 </span>
               ) : (
-                'CREATE WORKSPACE'
+                'CREAR WORKSPACE'
               )}
             </button>
           </div>

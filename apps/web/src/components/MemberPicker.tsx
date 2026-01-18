@@ -1,7 +1,7 @@
 // apps/web/src/components/MemberPicker.tsx
 'use client';
 
-import { useState, useEffect, memo, useCallback } from 'react';
+import { useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import '../styles/member-picker.css';
 
@@ -64,7 +64,7 @@ const AssignedMember = memo(function AssignedMember({
       <button
         onClick={onRemove}
         className="assigned-member-remove"
-        title="Remove member"
+        title="Remover miembro"
         type="button"
       >
         ✕
@@ -85,9 +85,10 @@ export function MemberPicker({
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const assignedMemberIds = useCallback(() => {
+  // ✅ FIX: Usar useMemo en lugar de useCallback mal usado
+  const assignedMemberIds = useMemo(() => {
     return new Set(assignedMembers.map((m) => m.id));
-  }, [assignedMembers])();
+  }, [assignedMembers]);
 
   useEffect(() => {
     if (workspaceMembers.length === 0) {
@@ -108,7 +109,7 @@ export function MemberPicker({
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch workspace members');
+        throw new Error('Error al obtener miembros del workspace');
       }
 
       const { data } = await response.json();
@@ -130,7 +131,7 @@ export function MemberPicker({
 
       setWorkspaceMembers(transformedMembers);
     } catch (error) {
-      console.error('Error fetching workspace members:', error);
+      console.error('Error al obtener miembros del workspace:', error);
       setWorkspaceMembers([]);
     } finally {
       setIsLoading(false);
@@ -139,6 +140,12 @@ export function MemberPicker({
 
   const handleAssignMember = useCallback(
     async (member: Member) => {
+      // ✅ VALIDACIÓN: No permitir asignar si ya está asignado
+      if (assignedMemberIds.has(member.id)) {
+        console.log('Miembro ya asignado:', member.name);
+        return;
+      }
+
       try {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${cardId}/members`,
@@ -153,15 +160,17 @@ export function MemberPicker({
         );
 
         if (!response.ok) {
-          throw new Error('Failed to assign member');
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'Error al asignar miembro');
         }
 
         onMemberAssigned(member);
       } catch (error: any) {
-        alert(`Failed to assign member: ${error.message}`);
+        console.error('Error al asignar miembro:', error);
+        alert(`Error al asignar miembro: ${error.message}`);
       }
     },
-    [cardId, accessToken, onMemberAssigned]
+    [cardId, accessToken, onMemberAssigned, assignedMemberIds]
   );
 
   const handleRemoveMember = useCallback(
@@ -178,18 +187,21 @@ export function MemberPicker({
         );
 
         if (!response.ok) {
-          throw new Error('Failed to remove member');
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'Error al remover miembro');
         }
 
         onMemberRemoved(memberId);
       } catch (error: any) {
-        alert(`Failed to remove member: ${error.message}`);
+        console.error('Error al remover miembro:', error);
+        alert(`Error al remover miembro: ${error.message}`);
       }
     },
     [cardId, accessToken, onMemberRemoved]
   );
 
-  const { unassignedMembers, assignedFilteredMembers } = useCallback(() => {
+  // FIX: Usar useMemo para filtrado
+  const { unassignedMembers, assignedFilteredMembers } = useMemo(() => {
     const filtered = workspaceMembers.filter((member) => {
       if (!searchQuery.trim()) return true;
       const query = searchQuery.toLowerCase();
@@ -202,7 +214,7 @@ export function MemberPicker({
       unassignedMembers: filtered.filter((m) => !assignedMemberIds.has(m.id)),
       assignedFilteredMembers: filtered.filter((m) => assignedMemberIds.has(m.id)),
     };
-  }, [workspaceMembers, searchQuery, assignedMemberIds])();
+  }, [workspaceMembers, searchQuery, assignedMemberIds]);
 
   return (
     <div className="member-picker-permanent">
@@ -224,7 +236,7 @@ export function MemberPicker({
       {/* Search */}
       <input
         type="text"
-        placeholder="Search members..."
+        placeholder="Buscar miembros..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         className="member-search-input"
@@ -235,15 +247,15 @@ export function MemberPicker({
         {isLoading ? (
           <div className="member-loading">
             <div className="loading-spinner"></div>
-            <p>Loading members...</p>
+            <p>Cargando miembros...</p>
           </div>
         ) : workspaceMembers.length === 0 ? (
           <div className="member-empty">
-            <p>No members in workspace</p>
+            <p>Sin miembros en el workspace</p>
           </div>
         ) : unassignedMembers.length === 0 && assignedFilteredMembers.length === 0 ? (
           <div className="member-empty">
-            <p>No members found</p>
+            <p>No se encontraron miembros</p>
           </div>
         ) : (
           <>
@@ -251,7 +263,7 @@ export function MemberPicker({
             {unassignedMembers.length > 0 && (
               <div>
                 {assignedFilteredMembers.length > 0 && (
-                  <div className="member-section-label">Available</div>
+                  <div className="member-section-label">Disponibles</div>
                 )}
                 {unassignedMembers.map((member) => (
                   <MemberItem
@@ -269,7 +281,7 @@ export function MemberPicker({
             {assignedFilteredMembers.length > 0 && (
               <div>
                 {unassignedMembers.length > 0 && (
-                  <div className="member-section-label">Already Assigned</div>
+                  <div className="member-section-label">Ya Asignados</div>
                 )}
                 {assignedFilteredMembers.map((member) => (
                   <MemberItem
@@ -289,7 +301,7 @@ export function MemberPicker({
       {/* Footer */}
       {workspaceMembers.length > 0 && (
         <div className="member-footer">
-          {assignedMembers.length} of {workspaceMembers.length} assigned
+          {assignedMembers.length} de {workspaceMembers.length} asignados
         </div>
       )}
     </div>

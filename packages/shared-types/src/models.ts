@@ -139,6 +139,8 @@ export interface Card {
   position: number;
   dueDate?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  completed: boolean;
+  completedAt?: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -172,6 +174,8 @@ export interface CardWithDetails {
   position: number;
   dueDate?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  completed: boolean;
+  completedAt?: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

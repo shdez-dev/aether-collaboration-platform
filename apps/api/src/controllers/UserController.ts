@@ -34,7 +34,6 @@ class UserController {
         });
       }
 
-      // Buscar usuario por email exacto
       const result = await pool.query(
         `SELECT id, name, email, avatar 
          FROM users 
@@ -54,7 +53,6 @@ class UserController {
 
       const user = result.rows[0];
 
-      // No devolver información sensible
       return res.json({
         success: true,
         data: {
@@ -96,13 +94,11 @@ class UserController {
         });
       }
 
-      // Contar workspaces del usuario
       const workspaceCount = await pool.query(
         `SELECT COUNT(*) as count FROM workspace_members WHERE user_id = $1`,
         [userId]
       );
 
-      // Contar boards activos
       const boardCount = await pool.query(
         `SELECT COUNT(DISTINCT b.id) as count
          FROM boards b
@@ -111,7 +107,6 @@ class UserController {
         [userId]
       );
 
-      // Contar cards totales
       const cardCount = await pool.query(
         `SELECT COUNT(DISTINCT c.id) as count
          FROM cards c
@@ -122,7 +117,6 @@ class UserController {
         [userId]
       );
 
-      // Contar miembros totales en todos los workspaces del usuario
       const memberCount = await pool.query(
         `SELECT COUNT(DISTINCT wm2.user_id) as count
          FROM workspace_members wm1
@@ -170,10 +164,8 @@ class UserController {
         });
       }
 
-      // Obtener actividad desde user_activity_log
       const activities = await userActivityService.getUserActivity(userId as any, 20);
 
-      // Transformar a formato esperado por el frontend
       const events = activities.map((activity) => ({
         id: activity.id,
         type: activity.activity_type,
@@ -195,6 +187,126 @@ class UserController {
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Failed to get user activity',
+        },
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/me/cards
+   * Obtener todas las cards asignadas al usuario actual
+   *
+   * ✅ CLASIFICACIÓN BASADA EN EL CAMPO `completed`:
+   * - Completed: cards con completed = true
+   * - Overdue: cards con completed = false y due_date < now
+   * - Pending: cards con completed = false y (due_date >= now O sin due_date)
+   */
+  async getUserCards(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      // Query para obtener todas las cards donde el usuario está asignado
+      const result = await pool.query(
+        `SELECT 
+          c.id,
+          c.title,
+          c.description,
+          c.due_date as "dueDate",
+          c.priority,
+          c.position,
+          c.completed,
+          c.completed_at as "completedAt",
+          c.created_at as "createdAt",
+          c.updated_at as "updatedAt",
+          l.id as "listId",
+          l.name as "listName",
+          b.id as "boardId",
+          b.name as "boardName",
+          w.id as "workspaceId",
+          w.name as "workspaceName"
+        FROM cards c
+        INNER JOIN card_members cm ON cm.card_id = c.id
+        INNER JOIN lists l ON l.id = c.list_id
+        INNER JOIN boards b ON b.id = l.board_id
+        INNER JOIN workspaces w ON w.id = b.workspace_id
+        WHERE cm.user_id = $1
+          AND b.archived = false
+        ORDER BY 
+          c.completed ASC,
+          CASE 
+            WHEN c.due_date IS NULL THEN 1
+            ELSE 0
+          END,
+          c.due_date ASC,
+          c.created_at DESC`,
+        [userId]
+      );
+
+      // ✅ CLASIFICAR USANDO EL CAMPO `completed` COMO FUENTE DE VERDAD
+      const now = new Date();
+      const pending: any[] = [];
+      const overdue: any[] = [];
+      const completed: any[] = [];
+
+      result.rows.forEach((row) => {
+        const card = {
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          dueDate: row.dueDate,
+          priority: row.priority,
+          position: row.position,
+          completed: row.completed,
+          completedAt: row.completedAt,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          listId: row.listId,
+          listName: row.listName,
+          boardId: row.boardId,
+          boardName: row.boardName,
+          workspaceId: row.workspaceId,
+          workspaceName: row.workspaceName,
+        };
+
+        // Si está completada, va a "Finalizadas"
+        if (card.completed) {
+          completed.push(card);
+        }
+        // Si no está completada y tiene due_date vencida, va a "Con retraso"
+        else if (card.dueDate && new Date(card.dueDate) < now) {
+          overdue.push(card);
+        }
+        // Si no está completada y no está vencida (o no tiene due_date), va a "Próximas"
+        else {
+          pending.push(card);
+        }
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          pending,
+          overdue,
+          completed,
+        },
+      });
+    } catch (error) {
+      console.error('[UserController] GetUserCards error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to get user cards',
         },
       });
     }

@@ -45,23 +45,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background flex">
-        {/* Sidebar */}
+        {/* Sidebar - FIXED POSITION */}
         <aside
           className={`bg-surface border-r border-border transition-all duration-300 ${
             isSidebarOpen ? 'w-64' : 'w-0'
-          } flex flex-col overflow-hidden`}
+          } flex flex-col overflow-hidden fixed left-0 top-0 bottom-0 z-30`}
         >
           {isSidebarOpen && (
             <>
               {/* Header */}
-              <div className="p-6 border-b border-border">
+              <div className="p-6 border-b border-border flex-shrink-0">
                 <h1 className="text-xl font-normal mb-1">[ AETHER ]</h1>
                 <p className="text-text-muted text-xs">Event-sourced platform</p>
                 <div className="status-online mt-3">OPERATIONAL</div>
               </div>
 
               {/* User Info */}
-              <div className="p-4 border-b border-border">
+              <div className="p-4 border-b border-border flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-terminal bg-accent/20 flex items-center justify-center">
                     <span className="text-accent font-bold">
@@ -75,8 +75,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
 
-              {/* Navigation */}
-              <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+              {/* Navigation - SCROLLABLE SECTION */}
+              <nav className="flex-1 p-4 space-y-1 overflow-y-auto min-h-0">
                 {navigation.map((item) => (
                   <Link
                     key={item.href}
@@ -93,8 +93,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 ))}
               </nav>
 
-              {/* Footer */}
-              <div className="p-4 border-t border-border space-y-2">
+              {/* Footer - ALWAYS VISIBLE */}
+              <div className="p-4 border-t border-border space-y-2 flex-shrink-0">
                 <Link
                   href="/dashboard/settings"
                   className="flex items-center gap-3 px-3 py-2 rounded-terminal text-text-secondary hover:bg-card hover:text-text-primary transition-colors text-sm"
@@ -114,8 +114,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </aside>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0">
+        {/* Main Content - WITH MARGIN TO AVOID SIDEBAR OVERLAP */}
+        <div
+          className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+            isSidebarOpen ? 'ml-64' : 'ml-0'
+          }`}
+        >
           {/* Top Bar */}
           <header className="bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -134,12 +138,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
 
-            {/* ============ SECCIÓN DERECHA ============ */}
             <div className="flex items-center gap-4">
-              {/* Notification Bell */}
               <NotificationBell />
 
-              {/* Status indicator */}
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
                 <span className="text-xs text-text-muted">CONNECTED</span>
@@ -148,14 +149,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </header>
 
           {/* Page Content */}
-          <main className="flex-1 p-6 overflow-auto">{children}</main>
+          <main className="flex-1 p-4 overflow-auto">{children}</main>
         </div>
       </div>
 
-      {/* Toast Notifications */}
       <Toaster />
-
-      {/* Realtime Event Listener */}
       <RealtimeNotificationProvider />
     </ProtectedRoute>
   );

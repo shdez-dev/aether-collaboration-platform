@@ -30,4 +30,11 @@ router.get('/me/stats', (req, res) => userController.getUserStats(req, res));
  */
 router.get('/me/activity', (req, res) => userController.getUserActivity(req, res));
 
+/**
+ * GET /api/users/me/cards
+ * Obtener todas las cards asignadas al usuario
+ * Permisos: Usuario autenticado
+ */
+router.get('/me/cards', (req, res) => userController.getUserCards(req, res));
+
 export default router;

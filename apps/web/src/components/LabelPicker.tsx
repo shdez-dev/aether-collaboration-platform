@@ -14,17 +14,42 @@ interface LabelPickerProps {
   onLabelRemoved: (labelId: string) => void;
 }
 
-// Colores predefinidos
+// Colores estilo Asana - tonos medios/claros con buena saturación
 const PRESET_COLORS = [
-  { name: 'Frost Blue', hex: '#5e81ac' },
-  { name: 'Aurora Green', hex: '#a3be8c' },
-  { name: 'Aurora Yellow', hex: '#ebcb8b' },
-  { name: 'Aurora Orange', hex: '#d08770' },
-  { name: 'Aurora Red', hex: '#bf616a' },
-  { name: 'Aurora Purple', hex: '#b48ead' },
-  { name: 'Snow Storm', hex: '#d8dee9' },
-  { name: 'Polar Night', hex: '#4c566a' },
+  { name: 'Rosa', hex: '#f06292' },
+  { name: 'Verde', hex: '#66bb6a' },
+  { name: 'Azul', hex: '#42a5f5' },
+  { name: 'Rojo', hex: '#ef5350' },
+  { name: 'Naranja', hex: '#ff9800' },
+  { name: 'Púrpura', hex: '#ab47bc' },
+  { name: 'Turquesa', hex: '#26c6da' },
+  { name: 'Marrón', hex: '#8d6e63' },
+  { name: 'Amarillo', hex: '#ffca28' },
+  { name: 'Lima', hex: '#9ccc65' },
+  { name: 'Coral', hex: '#ff7043' },
+  { name: 'Índigo', hex: '#5c6bc0' },
 ];
+
+// Función para obtener color de texto - SIEMPRE tonos oscuros/medios
+function getTextColor(hexColor: string): string {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  // Usar tonos oscuros/medios según luminosidad
+  if (luminance > 0.7) {
+    return 'rgba(0, 0, 0, 0.85)'; // Negro casi sólido para muy claros
+  } else if (luminance > 0.5) {
+    return 'rgba(0, 0, 0, 0.75)'; // Negro medio para claros
+  } else if (luminance > 0.3) {
+    return 'rgba(255, 255, 255, 0.95)'; // Blanco para medios
+  } else {
+    return 'rgba(255, 255, 255, 1)'; // Blanco sólido para oscuros
+  }
+}
 
 const LabelItem = memo(function LabelItem({
   label,
@@ -37,7 +62,15 @@ const LabelItem = memo(function LabelItem({
 }) {
   return (
     <button onClick={onToggle} className="label-item" type="button">
-      <div className="label-color-preview" style={{ backgroundColor: label.color }} />
+      <div
+        className="label-color-preview-badge"
+        style={{
+          backgroundColor: label.color,
+          color: getTextColor(label.color),
+        }}
+      >
+        {label.name.substring(0, 3).toUpperCase()}
+      </div>
       <span className="label-item-name">{label.name}</span>
       <div className={`label-checkbox ${isAssigned ? 'label-checkbox-checked' : ''}`}>
         {isAssigned && <span>✓</span>}
@@ -64,6 +97,12 @@ export function LabelPicker({
   const workspaceLabels = getWorkspaceLabels(workspaceId);
   const assignedLabelIds = new Set(assignedLabels.map((l) => l.id));
 
+  // ✅ DEBUG: Ver labels asignadas
+  useEffect(() => {
+    console.log('📋 Labels asignadas:', assignedLabels);
+    console.log('🆔 IDs asignados:', Array.from(assignedLabelIds));
+  }, [assignedLabels]);
+
   useEffect(() => {
     if (workspaceLabels.length === 0) {
       fetchLabels(workspaceId);
@@ -72,6 +111,12 @@ export function LabelPicker({
 
   const handleAssignLabel = useCallback(
     async (label: Label) => {
+      // ✅ VALIDACIÓN 1: Verificar si ya está asignada localmente
+      if (assignedLabelIds.has(label.id)) {
+        console.log('⚠️ Label ya asignada (validación local):', label.name);
+        return;
+      }
+
       try {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${cardId}/labels`,
@@ -85,13 +130,29 @@ export function LabelPicker({
           }
         );
 
-        if (!response.ok) throw new Error('Failed to assign label');
+        // ✅ VALIDACIÓN 2: Manejar 409 Conflict (ya existe en BD)
+        if (response.status === 409) {
+          console.log('⚠️ Label ya asignada (409 del servidor):', label.name);
+          // Simplemente ignorar, la label ya está asignada
+          // Opcionalmente, actualizar el estado local si no está sincronizado
+          if (!assignedLabelIds.has(label.id)) {
+            onLabelAssigned(label);
+          }
+          return;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'Error al asignar etiqueta');
+        }
+
         onLabelAssigned(label);
       } catch (error: any) {
-        alert(`Failed to assign label: ${error.message}`);
+        console.error('❌ Error al asignar etiqueta:', error);
+        alert(`Error al asignar etiqueta: ${error.message}`);
       }
     },
-    [cardId, accessToken, onLabelAssigned]
+    [cardId, accessToken, onLabelAssigned, assignedLabelIds]
   );
 
   const handleRemoveLabel = useCallback(
@@ -107,10 +168,10 @@ export function LabelPicker({
           }
         );
 
-        if (!response.ok) throw new Error('Failed to remove label');
+        if (!response.ok) throw new Error('Error al remover etiqueta');
         onLabelRemoved(labelId);
       } catch (error: any) {
-        alert(`Failed to remove label: ${error.message}`);
+        alert(`Error al remover etiqueta: ${error.message}`);
       }
     },
     [cardId, accessToken, onLabelRemoved]
@@ -140,7 +201,7 @@ export function LabelPicker({
       setSelectedColor(PRESET_COLORS[0].hex);
       setIsCreating(false);
     } catch (error: any) {
-      alert(`Failed to create label: ${error.message}`);
+      alert(`Error al crear etiqueta: ${error.message}`);
     }
   };
 
@@ -150,21 +211,26 @@ export function LabelPicker({
 
   return (
     <div className="label-picker-permanent">
-      {/* Assigned Labels */}
+      {/* Assigned Labels - Estilo Badges */}
       {assignedLabels.length > 0 && (
         <div className="assigned-labels-section">
           <div className="assigned-labels-display">
             {assignedLabels.map((label) => (
               <div
                 key={label.id}
-                className="assigned-label-chip"
-                style={{ backgroundColor: label.color }}
+                className="assigned-label-badge"
+                style={{
+                  backgroundColor: label.color,
+                  color: getTextColor(label.color),
+                }}
               >
-                <span>{label.name}</span>
+                <span className="badge-text">{label.name}</span>
                 <button
                   onClick={() => handleRemoveLabel(label.id)}
-                  className="assigned-label-remove"
+                  className="badge-remove"
+                  style={{ color: getTextColor(label.color) }}
                   type="button"
+                  aria-label="Remover etiqueta"
                 >
                   ✕
                 </button>
@@ -178,7 +244,7 @@ export function LabelPicker({
       {!isCreating && (
         <input
           type="text"
-          placeholder="Search labels..."
+          placeholder="Buscar etiquetas..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="label-search-input"
@@ -190,12 +256,12 @@ export function LabelPicker({
         {isCreating ? (
           <form onSubmit={handleCreateLabel} className="create-label-form">
             <div className="form-group">
-              <label>Label name</label>
+              <label>Nombre de la etiqueta</label>
               <input
                 type="text"
                 value={newLabelName}
                 onChange={(e) => setNewLabelName(e.target.value)}
-                placeholder="e.g. Bug, Feature..."
+                placeholder="ej. Error, Feature..."
                 className="label-name-input"
                 autoFocus
                 maxLength={50}
@@ -203,18 +269,21 @@ export function LabelPicker({
             </div>
 
             <div className="form-group">
-              <label>Color</label>
-              <div className="color-picker-grid">
+              <label>Mi color:</label>
+              <div className="color-picker-grid-badges">
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color.hex}
                     type="button"
                     onClick={() => setSelectedColor(color.hex)}
-                    className={`color-option ${selectedColor === color.hex ? 'color-option-selected' : ''}`}
-                    style={{ backgroundColor: color.hex }}
+                    className={`color-badge-option ${selectedColor === color.hex ? 'color-badge-selected' : ''}`}
+                    style={{
+                      backgroundColor: color.hex,
+                      color: getTextColor(color.hex),
+                    }}
                     title={color.name}
                   >
-                    {selectedColor === color.hex && <span>✓</span>}
+                    {selectedColor === color.hex && <span className="badge-check">✓</span>}
                   </button>
                 ))}
               </div>
@@ -230,10 +299,10 @@ export function LabelPicker({
                 }}
                 className="btn-cancel-create"
               >
-                Cancel
+                Cancelar
               </button>
               <button type="submit" disabled={!newLabelName.trim()} className="btn-create-label">
-                Create
+                Crear
               </button>
             </div>
           </form>
@@ -241,7 +310,7 @@ export function LabelPicker({
           <>
             {filteredLabels.length === 0 ? (
               <div className="empty-state">
-                <p>No labels yet</p>
+                <p>Sin etiquetas aún</p>
               </div>
             ) : (
               <div className="labels-list">
@@ -258,7 +327,7 @@ export function LabelPicker({
 
             <button onClick={() => setIsCreating(true)} className="btn-new-label" type="button">
               <span>+</span>
-              Create new label
+              Crear nueva etiqueta
             </button>
           </>
         )}

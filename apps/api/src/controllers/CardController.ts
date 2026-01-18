@@ -19,6 +19,9 @@ const updateCardSchema = z.object({
   description: z.string().max(5000).optional().or(z.null()),
   dueDate: z.string().datetime().optional().or(z.null()),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional().or(z.null()),
+  completed: z.boolean().optional(),
+  completedAt: z.string().datetime().optional().or(z.null()),
+  listId: z.string().uuid().optional(), // NUEVO: Permite mover cards entre listas
 });
 
 const moveCardSchema = z.object({
@@ -86,7 +89,7 @@ export class CardController {
         });
       }
 
-      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      // Verificar permisos: Solo ADMIN o OWNER
       if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
         return res.status(403).json({
           success: false,
@@ -157,7 +160,7 @@ export class CardController {
 
   /**
    * PUT /api/cards/:id
-   * Actualizar una card
+   * Actualizar una card (incluyendo moverla entre listas)
    * REQUIERE: ADMIN o OWNER
    */
   static async updateCard(req: WorkspaceRequest, res: Response) {
@@ -174,7 +177,7 @@ export class CardController {
         });
       }
 
-      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      // Verificar permisos: Solo ADMIN o OWNER
       if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
         return res.status(403).json({
           success: false,
@@ -205,6 +208,15 @@ export class CardController {
       });
     } catch (error: any) {
       console.error('Error updating card:', error);
+
+      // Manejar error de lista no encontrada
+      if (error.message === 'Target list not found') {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'LIST_NOT_FOUND', message: error.message },
+        });
+      }
+
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -214,7 +226,7 @@ export class CardController {
 
   /**
    * PUT /api/cards/:id/move
-   * Mover una card (cambiar de lista o reordenar)
+   * Mover una card con control preciso de posición
    * REQUIERE: ADMIN o OWNER
    */
   static async moveCard(req: WorkspaceRequest, res: Response) {
@@ -231,7 +243,7 @@ export class CardController {
         });
       }
 
-      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      // Verificar permisos: Solo ADMIN o OWNER
       if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
         return res.status(403).json({
           success: false,
@@ -288,7 +300,7 @@ export class CardController {
         });
       }
 
-      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      // Verificar permisos: Solo ADMIN o OWNER
       if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
         return res.status(403).json({
           success: false,
@@ -333,7 +345,7 @@ export class CardController {
         });
       }
 
-      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      // Verificar permisos: Solo ADMIN o OWNER
       if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
         return res.status(403).json({
           success: false,
@@ -398,7 +410,7 @@ export class CardController {
         });
       }
 
-      // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
+      // Verificar permisos: Solo ADMIN o OWNER
       if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
         return res.status(403).json({
           success: false,

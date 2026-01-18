@@ -71,7 +71,7 @@ export default function InviteMemberModal({
             const parsed = JSON.parse(authData);
             token = parsed.state?.accessToken || parsed.accessToken;
           } catch (e) {
-            console.error('Error parsing auth data:', e);
+            console.error('Error al analizar datos de autenticación:', e);
           }
         }
 
@@ -98,7 +98,7 @@ export default function InviteMemberModal({
           setUserNotFound(true);
         }
       } catch (err) {
-        console.error('Error searching user:', err);
+        console.error('Error al buscar usuario:', err);
         setUserPreview(null);
       } finally {
         setSearchingUser(false);
@@ -138,17 +138,17 @@ export default function InviteMemberModal({
 
     // Validación básica
     if (!email.trim()) {
-      setError('Email is required');
+      setError('El email es obligatorio');
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Invalid email format');
+      setError('Formato de email inválido');
       return;
     }
 
     if (!userPreview) {
-      setError('User not found. Make sure they have an account.');
+      setError('Usuario no encontrado. Asegúrate de que tenga una cuenta.');
       return;
     }
 
@@ -161,25 +161,25 @@ export default function InviteMemberModal({
         onClose();
       }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Failed to invite member. User may already be a member.');
+      setError(err.message || 'Error al invitar miembro. El usuario puede que ya sea miembro.');
     }
   };
 
   const roles: { value: Role; label: string; description: string }[] = [
     {
       value: 'VIEWER',
-      label: 'Viewer',
-      description: 'Can view boards and cards but cannot edit',
+      label: 'Visualizador',
+      description: 'Puede ver boards y tarjetas pero no puede editar',
     },
     {
       value: 'MEMBER',
-      label: 'Member',
-      description: 'Can create and edit boards and cards',
+      label: 'Miembro',
+      description: 'Puede crear y editar boards y tarjetas',
     },
     {
       value: 'ADMIN',
-      label: 'Admin',
-      description: 'Can manage workspace settings and members',
+      label: 'Administrador',
+      description: 'Puede gestionar configuración del workspace y miembros',
     },
   ];
 
@@ -200,8 +200,8 @@ export default function InviteMemberModal({
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-normal">Invite Member</h2>
-              <p className="text-text-secondary text-sm">Add a new member to your workspace</p>
+              <h2 className="text-xl font-normal">Invitar Miembro</h2>
+              <p className="text-text-secondary text-sm">Añade un nuevo miembro a tu workspace</p>
             </div>
             <button
               onClick={onClose}
@@ -217,8 +217,10 @@ export default function InviteMemberModal({
               <div className="flex items-center gap-3">
                 <span className="text-accent text-xl">✓</span>
                 <div>
-                  <p className="text-accent font-medium">Member invited successfully!</p>
-                  <p className="text-text-secondary text-sm">They can now access this workspace</p>
+                  <p className="text-accent font-medium">¡Miembro invitado exitosamente!</p>
+                  <p className="text-text-secondary text-sm">
+                    Ahora puede acceder a este workspace
+                  </p>
                 </div>
               </div>
             </div>
@@ -229,7 +231,7 @@ export default function InviteMemberModal({
             {/* Email Input */}
             <div>
               <label htmlFor="email" className="block text-sm text-text-secondary mb-2">
-                EMAIL ADDRESS:
+                DIRECCIÓN DE EMAIL:
               </label>
               <input
                 id="email"
@@ -240,7 +242,7 @@ export default function InviteMemberModal({
                   setError('');
                 }}
                 className={`input-terminal ${error ? 'border-error' : ''}`}
-                placeholder="member@example.com"
+                placeholder="miembro@ejemplo.com"
                 disabled={isLoading || success}
                 autoFocus
               />
@@ -283,7 +285,9 @@ export default function InviteMemberModal({
                 <div className="mt-3 p-3 bg-error/5 border border-error/30 rounded-terminal animate-scale-in">
                   <div className="flex items-center gap-2 text-error">
                     <span>⚠</span>
-                    <p className="text-sm">User not found. Make sure they have an account.</p>
+                    <p className="text-sm">
+                      Usuario no encontrado. Asegúrate de que tenga una cuenta.
+                    </p>
                   </div>
                 </div>
               )}
@@ -299,7 +303,7 @@ export default function InviteMemberModal({
             {/* Role Selector - Solo visible si hay usuario encontrado */}
             {userPreview && (
               <div className="animate-fade-in">
-                <label className="block text-sm text-text-secondary mb-3">SELECT ROLE:</label>
+                <label className="block text-sm text-text-secondary mb-3">SELECCIONAR ROL:</label>
                 <div className="space-y-2">
                   {roles.map((role) => (
                     <button
@@ -338,14 +342,14 @@ export default function InviteMemberModal({
                 disabled={isLoading}
                 className="btn-secondary flex-1"
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isLoading || success || !userPreview}
                 className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Inviting...' : success ? 'Invited!' : 'Send Invitation'}
+                {isLoading ? 'Invitando...' : success ? '¡Invitado!' : 'Enviar Invitación'}
               </button>
             </div>
           </form>

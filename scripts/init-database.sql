@@ -81,7 +81,6 @@ CREATE TABLE IF NOT EXISTS lists (
   CONSTRAINT fk_lists_board FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
 );
 
--- Cards
 CREATE TABLE IF NOT EXISTS cards (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   list_id UUID NOT NULL,
@@ -90,11 +89,18 @@ CREATE TABLE IF NOT EXISTS cards (
   position INTEGER NOT NULL,
   due_date TIMESTAMP WITH TIME ZONE,
   priority VARCHAR(20),
+  completed BOOLEAN DEFAULT FALSE NOT NULL,
+  completed_at TIMESTAMP WITH TIME ZONE,
   created_by UUID NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_cards_list FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
+  CONSTRAINT fk_cards_list FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cards_creator FOREIGN KEY (created_by) REFERENCES users(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_cards_list ON cards(list_id);
+CREATE INDEX IF NOT EXISTS idx_cards_completed ON cards(completed);
+CREATE INDEX IF NOT EXISTS idx_cards_completed_list ON cards(list_id, completed);
 
 -- Labels
 CREATE TABLE IF NOT EXISTS labels (

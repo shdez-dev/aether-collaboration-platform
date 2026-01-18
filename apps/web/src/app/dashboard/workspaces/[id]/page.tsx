@@ -1,4 +1,3 @@
-// apps/web/src/app/dashboard/workspaces/[id]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,8 +8,23 @@ import { useBoardStore } from '@/stores/boardStore';
 import InviteMemberModal from '@/components/InviteMemberModal';
 import ConfirmRemoveMemberModal from '@/components/ConfirmRemoveMemberModal';
 import CreateBoardModal from '@/components/CreateBoardModal';
-
-type Tab = 'boards' | 'members' | 'activity';
+import {
+  Settings,
+  ArrowLeft,
+  Users,
+  Activity,
+  LayoutGrid,
+  Plus,
+  Calendar,
+  Archive,
+  Crown,
+  Shield,
+  Eye,
+  UserCircle,
+  Sparkles,
+  UserMinus,
+  ChevronRight,
+} from 'lucide-react';
 
 export default function WorkspaceDetailPage() {
   const params = useParams();
@@ -29,7 +43,6 @@ export default function WorkspaceDetailPage() {
 
   const { boards, fetchBoards } = useBoardStore();
 
-  const [activeTab, setActiveTab] = useState<Tab>('boards');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{
@@ -49,25 +62,41 @@ export default function WorkspaceDetailPage() {
 
   if (isLoading && !currentWorkspace) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="loading-lg" />
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="loading-lg" />
+          <p className="text-sm text-text-muted">Cargando workspace...</p>
+        </div>
       </div>
     );
   }
 
   if (!currentWorkspace) {
     return (
-      <div className="card-terminal text-center py-12">
-        <p className="text-text-secondary mb-4">Workspace not found or you don't have access</p>
-        <Link href="/dashboard/workspaces" className="btn-secondary">
-          ← Back to Workspaces
-        </Link>
+      <div className="max-w-2xl mx-auto mt-20">
+        <div className="bg-card border border-border p-16 text-center">
+          <div className="w-20 h-20 mx-auto mb-6 bg-error/10 border border-error flex items-center justify-center">
+            <span className="text-4xl">⚠</span>
+          </div>
+          <h3 className="text-2xl font-medium mb-2">Workspace no encontrado</h3>
+          <p className="text-text-secondary mb-8">
+            Este workspace no existe o no tienes acceso a él
+          </p>
+          <Link
+            href="/dashboard/workspaces"
+            className="btn-secondary inline-flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver a Workspaces</span>
+          </Link>
+        </div>
       </div>
     );
   }
 
   const isOwnerOrAdmin = ['OWNER', 'ADMIN'].includes(currentWorkspace.userRole || '');
   const isOwner = currentWorkspace.userRole === 'OWNER';
+  const activeBoards = boards.filter((b) => !b.archived).length;
 
   const handleRemoveClick = (userId: string, memberName: string) => {
     setMemberToRemove({ userId, name: memberName });
@@ -75,26 +104,25 @@ export default function WorkspaceDetailPage() {
 
   const handleConfirmRemove = async () => {
     if (!memberToRemove) return;
-
     setRemovingMember(true);
     try {
       await removeMember(workspaceId, memberToRemove.userId);
       setMemberToRemove(null);
     } catch (error) {
       console.error('Error removing member:', error);
-      alert('Failed to remove member. Please try again.');
+      alert('Error al eliminar miembro. Intenta de nuevo.');
     } finally {
       setRemovingMember(false);
     }
   };
 
-  const handleChangeRole = async (userId: string, newRole: string, memberName: string) => {
+  const handleChangeRole = async (userId: string, newRole: string) => {
     setChangingRoleMemberId(userId);
     try {
       await changeMemberRole(workspaceId, userId, newRole);
     } catch (error) {
       console.error('Error changing role:', error);
-      alert('Failed to change role. Please try again.');
+      alert('Error al cambiar rol. Intenta de nuevo.');
     } finally {
       setChangingRoleMemberId(null);
     }
@@ -109,306 +137,336 @@ export default function WorkspaceDetailPage() {
     router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
   };
 
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'OWNER':
+        return <Crown className="w-3 h-3" />;
+      case 'ADMIN':
+        return <Shield className="w-3 h-3" />;
+      case 'MEMBER':
+        return <UserCircle className="w-3 h-3" />;
+      case 'VIEWER':
+        return <Eye className="w-3 h-3" />;
+      default:
+        return null;
+    }
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'OWNER':
+        return 'bg-accent/20 border-accent/50 text-accent';
+      case 'ADMIN':
+        return 'bg-success/20 border-success/50 text-success';
+      case 'MEMBER':
+        return 'bg-surface border-border text-text-secondary';
+      case 'VIEWER':
+        return 'bg-text-muted/10 border-text-muted/30 text-text-muted';
+      default:
+        return 'bg-surface border-border text-text-secondary';
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      OWNER: 'Propietario',
+      ADMIN: 'Admin',
+      MEMBER: 'Miembro',
+      VIEWER: 'Viewer',
+    };
+    return labels[role] || role;
+  };
+
   return (
     <>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="card-terminal">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-start gap-4">
-              <div
-                className="w-16 h-16 rounded-terminal flex items-center justify-center text-3xl flex-shrink-0 border-2"
-                style={{
-                  backgroundColor: `${currentWorkspace.color}20`,
-                  color: currentWorkspace.color,
-                  borderColor: `${currentWorkspace.color}40`,
-                }}
-              >
-                {currentWorkspace.icon || '▣'}
-              </div>
+        {/* Header Navigation */}
+        <div className="flex items-center justify-between">
+          <Link
+            href="/dashboard/workspaces"
+            className="flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver a Workspaces</span>
+          </Link>
 
-              <div>
-                <h1 className="text-2xl font-normal mb-1">{currentWorkspace.name}</h1>
-                <p className="text-text-secondary text-sm mb-3">
-                  {currentWorkspace.description || 'No description provided'}
-                </p>
+          {isOwnerOrAdmin && (
+            <Link
+              href={`/dashboard/workspaces/${workspaceId}/settings`}
+              className="px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Configuración</span>
+            </Link>
+          )}
+        </div>
 
-                <span className="text-xs px-2 py-1 rounded-terminal border border-accent/50 bg-accent/10 text-accent">
-                  {currentWorkspace.userRole || 'MEMBER'}
-                </span>
-              </div>
+        {/* Workspace Info Header */}
+        <div className="bg-card border border-border p-6">
+          <div className="flex items-start gap-6">
+            <div
+              className="w-20 h-20 flex items-center justify-center text-4xl flex-shrink-0 border"
+              style={{
+                backgroundColor: `${currentWorkspace.color}15`,
+                color: currentWorkspace.color,
+                borderColor: `${currentWorkspace.color}40`,
+              }}
+            >
+              {currentWorkspace.icon || '▣'}
             </div>
 
-            <div className="flex items-center gap-2">
-              {isOwnerOrAdmin && (
-                <Link
-                  href={`/dashboard/workspaces/${workspaceId}/settings`}
-                  className="btn-secondary"
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-2xl font-medium text-text-primary">{currentWorkspace.name}</h1>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium border ${getRoleColor(
+                    currentWorkspace.userRole || 'MEMBER'
+                  )}`}
                 >
-                  ⚙ Settings
-                </Link>
-              )}
-              <Link href="/dashboard/workspaces" className="btn-secondary">
-                ← Back
-              </Link>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
-            <div className="flex flex-col gap-1">
-              <span className="text-text-muted text-xs uppercase">Boards</span>
-              <div className="flex items-center gap-2">
-                <span className="text-accent text-xl">▦</span>
-                <span className="text-text-primary text-lg font-medium">
-                  {currentWorkspace.boardCount || 0}
+                  {getRoleIcon(currentWorkspace.userRole || 'MEMBER')}
+                  <span>{getRoleLabel(currentWorkspace.userRole || 'MEMBER')}</span>
                 </span>
               </div>
-            </div>
 
-            <div className="flex flex-col gap-1">
-              <span className="text-text-muted text-xs uppercase">Members</span>
-              <div className="flex items-center gap-2">
-                <span className="text-accent text-xl">◉</span>
-                <span className="text-text-primary text-lg font-medium">
-                  {currentWorkspace.memberCount || 0}
-                </span>
-              </div>
-            </div>
+              <p className="text-text-secondary text-sm mb-4">
+                {currentWorkspace.description || 'Sin descripción'}
+              </p>
 
-            <div className="flex flex-col gap-1">
-              <span className="text-text-muted text-xs uppercase">Cards</span>
-              <div className="flex items-center gap-2">
-                <span className="text-accent text-xl">◈</span>
-                <span className="text-text-primary text-lg font-medium">0</span>
-              </div>
-            </div>
+              <div className="flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <LayoutGrid className="w-4 h-4 text-accent" />
+                  <span className="text-text-primary font-medium">{activeBoards}</span>
+                  <span className="text-text-muted">boards</span>
+                </div>
 
-            <div className="flex flex-col gap-1">
-              <span className="text-text-muted text-xs uppercase">Created</span>
-              <div className="flex items-center gap-2">
-                <span className="text-accent text-xl">◷</span>
-                <span className="text-text-primary text-sm">
-                  {new Date(currentWorkspace.createdAt).toLocaleDateString()}
-                </span>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-success" />
+                  <span className="text-text-primary font-medium">
+                    {currentWorkspace.memberCount || 0}
+                  </span>
+                  <span className="text-text-muted">miembros</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-warning" />
+                  <span className="text-text-primary font-medium">
+                    {boards.reduce((sum, b) => sum + (b.cardCount || 0), 0)}
+                  </span>
+                  <span className="text-text-muted">tareas</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-text-muted" />
+                  <span className="text-text-muted text-xs">
+                    {new Date(currentWorkspace.createdAt).toLocaleDateString('es-ES', {
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="card-terminal">
-          <div className="flex items-center gap-2 border-b border-border pb-4 mb-6">
-            <button
-              onClick={() => setActiveTab('boards')}
-              className={`px-4 py-2 rounded-terminal transition-colors ${
-                activeTab === 'boards'
-                  ? 'bg-accent/20 text-accent border border-accent/50'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-card'
-              }`}
-            >
-              Boards
-            </button>
-            <button
-              onClick={() => setActiveTab('members')}
-              className={`px-4 py-2 rounded-terminal transition-colors ${
-                activeTab === 'members'
-                  ? 'bg-accent/20 text-accent border border-accent/50'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-card'
-              }`}
-            >
-              Members ({currentMembers.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('activity')}
-              className={`px-4 py-2 rounded-terminal transition-colors ${
-                activeTab === 'activity'
-                  ? 'bg-accent/20 text-accent border border-accent/50'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-card'
-              }`}
-            >
-              Activity
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          {activeTab === 'boards' && (
-            <div>
-              {/* Header con botón de crear - SOLO ADMIN/OWNER */}
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm text-text-secondary uppercase">Boards ({boards.length})</h3>
-                {isOwnerOrAdmin && (
-                  <button
-                    className="btn-primary text-sm"
-                    onClick={() => setShowCreateBoardModal(true)}
-                  >
-                    + Create Board
-                  </button>
-                )}
+        {/* Grid de 3 columnas */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* BOARDS - 2 columnas */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-accent/10 border border-accent/30">
+                  <LayoutGrid className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-medium text-text-primary">Boards</h2>
+                  <p className="text-sm text-text-muted">
+                    {activeBoards} activos • {boards.length - activeBoards} archivados
+                  </p>
+                </div>
               </div>
+              {isOwnerOrAdmin && (
+                <button
+                  className="px-4 py-2 bg-accent text-white hover:bg-accent/90 transition-colors text-sm font-medium flex items-center gap-2"
+                  onClick={() => setShowCreateBoardModal(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Nuevo</span>
+                </button>
+              )}
+            </div>
 
-              {/* Empty State */}
+            <div className="bg-card border border-border">
               {boards.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4 opacity-50">▦</div>
-                  <h3 className="text-xl mb-2 text-text-primary">No boards yet</h3>
+                <div className="text-center py-16">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-accent/10 border border-accent flex items-center justify-center">
+                    <LayoutGrid className="w-8 h-8 text-accent" />
+                  </div>
+                  <h3 className="text-base font-medium mb-2">No hay boards aún</h3>
                   <p className="text-text-secondary text-sm mb-6">
                     {isOwnerOrAdmin
-                      ? 'Create your first board to start organizing tasks and tracking progress'
-                      : 'No boards have been created in this workspace yet'}
+                      ? 'Crea tu primer board para comenzar a organizar'
+                      : 'No hay boards creados todavía'}
                   </p>
                   {isOwnerOrAdmin && (
-                    <button className="btn-primary" onClick={() => setShowCreateBoardModal(true)}>
-                      + Create Board
+                    <button
+                      className="px-4 py-2 bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-2"
+                      onClick={() => setShowCreateBoardModal(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Crear Board</span>
                     </button>
                   )}
                 </div>
               ) : (
-                /* Grid de Boards */
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="p-4 space-y-2">
                   {boards.map((board) => (
                     <button
                       key={board.id}
                       onClick={() => handleGoToBoard(board.id)}
-                      className="card-terminal text-left hover:border-primary/50 transition-all group p-4"
+                      className="group w-full text-left p-4 border border-border bg-surface hover:bg-card hover:border-accent transition-all flex items-center justify-between"
                     >
-                      <h4 className="text-lg font-normal mb-2 group-hover:text-primary transition-colors">
-                        {board.name}
-                      </h4>
-
-                      {board.description && (
-                        <p className="text-text-secondary text-sm mb-4 line-clamp-2">
-                          {board.description}
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-4 text-text-muted text-sm">
-                        <div className="flex items-center gap-1">
-                          <span className="text-primary">█</span>
-                          <span>{board.listCount || 0} lists</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="text-xl font-medium group-hover:text-accent transition-colors truncate">
+                            {board.name}
+                          </h4>
+                          {board.archived && (
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-warning/10 border border-warning text-xs flex-shrink-0">
+                              <Archive className="w-3 h-3 text-warning" />
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-success">▣</span>
-                          <span>{board.cardCount || 0} cards</span>
+
+                        {board.description && (
+                          <p className="text-text-secondary text-xs mb-2 line-clamp-1">
+                            {board.description}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-4 text-xs text-text-muted">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1 h-4 bg-accent" />
+                            <span className="font-medium">{board.listCount || 0}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span className="font-medium">{board.cardCount || 0}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {board.archived && (
-                        <div className="mt-3 pt-3 border-t border-border">
-                          <span className="text-warning text-xs">⚠ ARCHIVED</span>
-                        </div>
-                      )}
+                      <ChevronRight className="w-5 h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0 ml-2" />
                     </button>
                   ))}
                 </div>
               )}
             </div>
-          )}
+          </div>
 
-          {activeTab === 'members' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm text-text-secondary uppercase">
-                  Workspace Members ({currentMembers.length})
-                </h3>
+          {/* SIDEBAR - 1 columna con Members y Activity */}
+          <div className="space-y-6">
+            {/* MEMBERS - MÁS COMPACTO */}
+            <div className="bg-card border border-border">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-success/10 border border-success/30">
+                    <Users className="w-4 h-4 text-success" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-text-primary">Miembros</h3>
+                    <p className="text-xs text-text-muted">{currentMembers.length} total</p>
+                  </div>
+                </div>
                 {isOwnerOrAdmin && (
-                  <button className="btn-primary" onClick={() => setShowInviteModal(true)}>
-                    + Invite Member
+                  <button
+                    onClick={() => setShowInviteModal(true)}
+                    className="p-1.5 border border-border hover:border-accent hover:bg-accent/10 transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
                   </button>
                 )}
               </div>
 
-              {currentMembers.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-text-secondary">No members found</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {currentMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between p-3 bg-background rounded-terminal border border-border hover:border-accent/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-terminal bg-accent/20 flex items-center justify-center border border-accent/30">
-                          <span className="text-accent font-bold">
-                            {member.user?.name.charAt(0).toUpperCase()}
-                          </span>
+              <div className="p-3">
+                {currentMembers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="w-10 h-10 mx-auto mb-2 text-text-muted opacity-50" />
+                    <p className="text-xs text-text-secondary">Sin miembros</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-3 max-h-[300px] overflow-y-auto">
+                    {currentMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className="group relative flex items-center gap-2 px-3 py-2 bg-surface border border-border hover:border-accent transition-all"
+                      >
+                        <div
+                          className="w-9 h-9 flex items-center justify-center text-sm font-bold border flex-shrink-0"
+                          style={{
+                            backgroundColor: `${currentWorkspace.color}15`,
+                            color: currentWorkspace.color,
+                            borderColor: `${currentWorkspace.color}40`,
+                          }}
+                        >
+                          {member.user?.name.charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                          <p className="text-sm text-text-primary font-medium">
+
+                        <div className="flex flex-col min-w-0">
+                          <p className="text-xs font-medium text-text-primary truncate max-w-[110px]">
                             {member.user?.name}
                           </p>
-                          <p className="text-xs text-text-muted">{member.user?.email}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {isOwner && member.role !== 'OWNER' ? (
-                          <select
-                            value={member.role}
-                            onChange={(e) =>
-                              handleChangeRole(
-                                member.userId,
-                                e.target.value,
-                                member.user?.name || ''
-                              )
-                            }
-                            disabled={changingRoleMemberId === member.userId}
-                            className={`text-xs px-2 py-1 rounded-terminal border bg-card text-text-primary cursor-pointer hover:border-accent/50 transition-colors ${
-                              member.role === 'ADMIN'
-                                ? 'border-blue-500/50 bg-blue-500/10 text-blue-400'
-                                : 'border-border'
-                            }`}
-                          >
-                            <option value="VIEWER">Viewer</option>
-                            <option value="MEMBER">Member</option>
-                            <option value="ADMIN">Admin</option>
-                          </select>
-                        ) : (
                           <span
-                            className={`text-xs px-2 py-1 rounded-terminal border ${
-                              member.role === 'OWNER'
-                                ? 'border-accent bg-accent/20 text-accent'
-                                : member.role === 'ADMIN'
-                                  ? 'border-blue-500/50 bg-blue-500/10 text-blue-400'
-                                  : 'border-border bg-card text-text-secondary'
-                            }`}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border ${getRoleColor(
+                              member.role
+                            )}`}
                           >
-                            {member.role}
+                            {getRoleIcon(member.role)}
+                            <span>{getRoleLabel(member.role)}</span>
                           </span>
-                        )}
+                        </div>
 
                         {isOwnerOrAdmin && member.role !== 'OWNER' && (
                           <button
                             onClick={() =>
                               handleRemoveClick(member.userId, member.user?.name || '')
                             }
-                            className="text-error hover:text-error/80 text-xs px-2 py-1 rounded border border-error/30 hover:bg-error/10 transition-colors"
+                            className="absolute -top-1 -right-1 p-0.5 bg-error text-white hover:bg-error/80 border border-error transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
                           >
-                            Remove
+                            <UserMinus className="w-3 h-3" />
                           </button>
                         )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
 
-          {activeTab === 'activity' && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4 opacity-50">◉</div>
-              <h3 className="text-xl mb-2 text-text-primary">No recent activity</h3>
-              <p className="text-text-secondary text-sm">
-                Recent workspace activity will appear here
-              </p>
+            {/* ACTIVITY */}
+            <div className="bg-card border border-border">
+              <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                <div className="p-1.5 bg-warning/10 border border-warning/30">
+                  <Activity className="w-4 h-4 text-warning" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-text-primary">Actividad</h3>
+                  <p className="text-xs text-text-muted">Últimos 7 días</p>
+                </div>
+              </div>
+
+              <div className="p-4">
+                <div className="text-center py-12">
+                  <Activity className="w-10 h-10 mx-auto mb-2 text-text-muted opacity-50" />
+                  <p className="text-xs text-text-secondary">Sin actividad reciente</p>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
+      {/* Modals */}
       <InviteMemberModal
         workspaceId={workspaceId}
         isOpen={showInviteModal}
