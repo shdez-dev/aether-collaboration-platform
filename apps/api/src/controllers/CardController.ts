@@ -1,4 +1,5 @@
 // apps/api/src/controllers/CardController.ts
+// ✅ VERSIÓN CORREGIDA CON PERMISOS PARA MEMBER
 
 import { Request, Response } from 'express';
 import { CardService } from '../services/CardService';
@@ -21,7 +22,7 @@ const updateCardSchema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional().or(z.null()),
   completed: z.boolean().optional(),
   completedAt: z.string().datetime().optional().or(z.null()),
-  listId: z.string().uuid().optional(), // NUEVO: Permite mover cards entre listas
+  listId: z.string().uuid().optional(),
 });
 
 const moveCardSchema = z.object({
@@ -209,7 +210,6 @@ export class CardController {
     } catch (error: any) {
       console.error('Error updating card:', error);
 
-      // Manejar error de lista no encontrada
       if (error.message === 'Target list not found') {
         return res.status(404).json({
           success: false,
@@ -227,7 +227,7 @@ export class CardController {
   /**
    * PUT /api/cards/:id/move
    * Mover una card con control preciso de posición
-   * REQUIERE: ADMIN o OWNER
+   * ✅ PERMITE: OWNER, ADMIN y MEMBER (cambio principal)
    */
   static async moveCard(req: WorkspaceRequest, res: Response) {
     try {
@@ -243,13 +243,13 @@ export class CardController {
         });
       }
 
-      // Verificar permisos: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      // ✅ CAMBIO CRÍTICO: MEMBER también puede mover cards
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER' && userRole !== 'MEMBER') {
         return res.status(403).json({
           success: false,
           error: {
             code: 'INSUFFICIENT_PERMISSIONS',
-            message: 'Solo ADMIN o OWNER pueden mover cards',
+            message: 'Solo ADMIN, OWNER o MEMBER pueden mover cards',
           },
         });
       }
@@ -265,6 +265,13 @@ export class CardController {
           },
         });
       }
+
+      console.log('[CardController] Moving card:', {
+        cardId: id,
+        toListId: validationResult.data.toListId,
+        position: validationResult.data.position,
+        userRole,
+      });
 
       const card = await CardService.moveCard(id, userId, validationResult.data, socketId);
 

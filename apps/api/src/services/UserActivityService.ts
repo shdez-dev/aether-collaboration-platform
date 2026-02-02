@@ -3,11 +3,6 @@
 import { pool } from '../lib/db';
 import type { EventType, UserId } from '@aether/types';
 
-/**
- * User Activity Service
- * Registra actividad relevante del usuario en user_activity_log
- * para mostrar en el dashboard y analytics
- */
 export class UserActivityService {
   /**
    * Registrar actividad del usuario
@@ -20,8 +15,6 @@ export class UserActivityService {
     workspaceId?: string
   ): Promise<void> {
     try {
-      // No registrar foreign keys en eventos de eliminación
-      // porque los recursos ya no existen en la base de datos
       const isDeletionEvent = activityType.includes('.deleted');
 
       await pool.query(
@@ -36,10 +29,9 @@ export class UserActivityService {
         ]
       );
 
-      console.log(`[UserActivity] ✅ Logged: ${activityType} for user ${userId}`);
+      console.log(`[UserActivity] Logged: ${activityType} for user ${userId}`);
     } catch (error) {
-      console.error('[UserActivity] ❌ Error logging activity:', error);
-      // No lanzar error, solo logear
+      console.error('[UserActivity] Error logging activity:', error);
     }
   }
 
@@ -48,43 +40,56 @@ export class UserActivityService {
    */
   shouldLogActivity(eventType: string): boolean {
     const relevantEvents = [
-      // Workspaces
       'workspace.created',
       'workspace.updated',
       'workspace.deleted',
-
-      // Boards
       'board.created',
       'board.updated',
       'board.archived',
       'board.deleted',
-
-      // Lists
       'list.created',
       'list.updated',
+      'list.reordered',
       'list.deleted',
-
-      // Cards
       'card.created',
       'card.updated',
       'card.moved',
       'card.deleted',
-
-      // Comments
       'comment.created',
       'comment.updated',
       'comment.deleted',
-
-      // Card Members
       'card.member.assigned',
-      'card.member.removed',
-
-      // Card Labels
-      'card.label.assigned',
+      'card.member.unassigned',
+      'card.label.added',
       'card.label.removed',
     ];
 
     return relevantEvents.includes(eventType);
+  }
+
+  /**
+   * Obtener nombres de listas para eventos de movimiento
+   */
+  private async getListNames(
+    fromListId?: string,
+    toListId?: string
+  ): Promise<{ fromList?: string; toList?: string }> {
+    try {
+      const listIds = [fromListId, toListId].filter(Boolean);
+      if (listIds.length === 0) return {};
+
+      const result = await pool.query(`SELECT id, name FROM lists WHERE id = ANY($1)`, [listIds]);
+
+      const listMap = new Map(result.rows.map((row) => [row.id, row.name]));
+
+      return {
+        fromList: fromListId ? listMap.get(fromListId) : undefined,
+        toList: toListId ? listMap.get(toListId) : undefined,
+      };
+    } catch (error) {
+      console.error('[UserActivity] Error getting list names:', error);
+      return {};
+    }
   }
 
   /**
@@ -98,8 +103,7 @@ export class UserActivityService {
     const boardId = payload.boardId || null;
     const workspaceId = payload.workspaceId || null;
 
-    // Extraer metadata relevante según el tipo de evento
-    const metadata = this.extractRelevantMetadata(eventType, payload);
+    const metadata = await this.extractRelevantMetadata(eventType, payload);
 
     await this.logActivity(userId, eventType, metadata, boardId, workspaceId);
   }
@@ -107,10 +111,12 @@ export class UserActivityService {
   /**
    * Extraer metadata relevante del payload según el tipo de evento
    */
-  private extractRelevantMetadata(eventType: string, payload: any): Record<string, any> {
+  private async extractRelevantMetadata(
+    eventType: string,
+    payload: any
+  ): Promise<Record<string, any>> {
     const metadata: Record<string, any> = {};
 
-    // Según el tipo de evento, extraer datos relevantes
     switch (eventType) {
       case 'workspace.created':
       case 'workspace.updated':
@@ -118,7 +124,6 @@ export class UserActivityService {
         break;
 
       case 'workspace.deleted':
-        // Para eventos de eliminación, solo guardamos el ID en metadata
         metadata.workspaceId = payload.workspaceId;
         metadata.deletedBy = payload.deletedBy;
         break;
@@ -126,6 +131,7 @@ export class UserActivityService {
       case 'board.created':
       case 'board.updated':
         metadata.title = payload.title || payload.name;
+        metadata.name = payload.title || payload.name;
         break;
 
       case 'board.deleted':
@@ -133,9 +139,20 @@ export class UserActivityService {
         metadata.deletedBy = payload.deletedBy;
         break;
 
+      case 'board.archived':
+        metadata.boardId = payload.boardId;
+        metadata.archivedBy = payload.archivedBy;
+        break;
+
       case 'list.created':
       case 'list.updated':
         metadata.name = payload.name;
+        break;
+
+      case 'list.reordered':
+        metadata.listId = payload.listId;
+        metadata.oldPosition = payload.oldPosition;
+        metadata.newPosition = payload.newPosition;
         break;
 
       case 'list.deleted':
@@ -152,6 +169,7 @@ export class UserActivityService {
       case 'card.deleted':
         metadata.cardId = payload.cardId;
         metadata.listId = payload.listId;
+        metadata.title = payload.title;
         metadata.deletedBy = payload.deletedBy;
         break;
 
@@ -159,6 +177,12 @@ export class UserActivityService {
         metadata.title = payload.title;
         metadata.fromListId = payload.fromListId;
         metadata.toListId = payload.toListId;
+        metadata.fromPosition = payload.fromPosition;
+        metadata.toPosition = payload.toPosition;
+
+        const listNames = await this.getListNames(payload.fromListId, payload.toListId);
+        if (listNames.fromList) metadata.fromListName = listNames.fromList;
+        if (listNames.toList) metadata.toListName = listNames.toList;
         break;
 
       case 'comment.created':
@@ -174,19 +198,18 @@ export class UserActivityService {
         break;
 
       case 'card.member.assigned':
-      case 'card.member.removed':
+      case 'card.member.unassigned':
         metadata.cardId = payload.cardId;
         metadata.memberId = payload.userId;
         break;
 
-      case 'card.label.assigned':
+      case 'card.label.added':
       case 'card.label.removed':
         metadata.cardId = payload.cardId;
         metadata.labelId = payload.labelId;
         break;
 
       default:
-        // Para otros eventos, guardar todo el payload
         return payload;
     }
 

@@ -1,7 +1,8 @@
 // apps/api/src/services/ListService.ts
 
 import { pool } from '../lib/db';
-import { eventStore } from './EventStoreService'; // ✅ CAMBIO 1: Usar instancia compartida
+import { eventStore } from './EventStoreService';
+import { userActivityService } from './UserActivityService';
 import type {
   List,
   ListCreatedPayload,
@@ -10,9 +11,15 @@ import type {
   ListDeletedPayload,
 } from '@aether/types';
 
-// ❌ ELIMINAR: const eventStore = new EventStoreService();
-
 export class ListService {
+  /**
+   * Helper: Obtener workspaceId desde boardId
+   */
+  private async getWorkspaceIdFromBoard(boardId: string): Promise<string | null> {
+    const result = await pool.query('SELECT workspace_id FROM boards WHERE id = $1', [boardId]);
+    return result.rows[0]?.workspace_id || null;
+  }
+
   /**
    * Crear una nueva lista en un board
    */
@@ -46,15 +53,17 @@ export class ListService {
 
       const list = listResult.rows[0];
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId);
+
       const payload: ListCreatedPayload = {
         listId: list.id as any,
         boardId: boardId as any,
         name: list.name,
         position: list.position,
         createdBy: userId as any,
+        workspaceId,
       };
 
       await eventStore.emit('list.created', payload, userId as any, boardId);
@@ -128,13 +137,17 @@ export class ListService {
 
       const list = result.rows[0];
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
+      const workspaceId = await this.getWorkspaceIdFromBoard(list.board_id);
+
       const payload: ListUpdatedPayload = {
         listId: list.id as any,
         changes: data,
         updatedBy: userId as any,
+        name: list.name,
+        boardId: list.board_id,
+        workspaceId,
       };
 
       await eventStore.emit('list.updated', payload, userId as any, list.board_id);
@@ -195,15 +208,17 @@ export class ListService {
         [newPosition, listId]
       );
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId);
+
       const payload: ListReorderedPayload = {
         listId: listId as any,
         boardId: boardId as any,
         oldPosition,
         newPosition,
         reorderedBy: userId as any,
+        workspaceId,
       };
 
       await eventStore.emit('list.reordered', payload, userId as any, boardId);
@@ -243,13 +258,15 @@ export class ListService {
 
       await client.query(`DELETE FROM lists WHERE id = $1`, [listId]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId);
+
       const payload: ListDeletedPayload = {
         listId: listId as any,
         boardId: boardId as any,
         deletedBy: userId as any,
+        workspaceId,
       };
 
       await eventStore.emit('list.deleted', payload, userId as any, boardId);

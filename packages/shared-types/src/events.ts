@@ -108,8 +108,8 @@ export type CardEventType =
   | 'card.updated'
   | 'card.deleted'
   | 'card.moved'
-  | 'card.completed' // ✅ NUEVO
-  | 'card.uncompleted' // ✅ NUEVO
+  | 'card.completed'
+  | 'card.uncompleted'
   | 'card.member.assigned'
   | 'card.member.unassigned'
   | 'card.label.added'
@@ -119,7 +119,7 @@ export type CardEventType =
   | 'card.comment.deleted';
 
 /**
- * Comment Events - MILESTONE 6
+ * Comment Events
  */
 export type CommentEventType =
   | 'comment.created'
@@ -146,7 +146,7 @@ export type NotificationEventType =
   | 'notification.deleted';
 
 /**
- * Presence Events - MILESTONE 5
+ * Presence Events
  */
 export type PresenceEventType =
   | 'presence.user.joined'
@@ -323,6 +323,8 @@ export interface BoardUpdatedPayload {
     description?: string;
   };
   updatedBy: UserId;
+  name: string;
+  workspaceId: string;
 }
 
 export type BoardUpdatedEvent = BaseEvent<'board.updated', BoardUpdatedPayload>;
@@ -333,6 +335,7 @@ export type BoardUpdatedEvent = BaseEvent<'board.updated', BoardUpdatedPayload>;
 export interface BoardArchivedPayload {
   boardId: BoardId;
   archivedBy: UserId;
+  workspaceId: string;
 }
 
 export type BoardArchivedEvent = BaseEvent<'board.archived', BoardArchivedPayload>;
@@ -360,6 +363,7 @@ export interface ListCreatedPayload {
   name: string;
   position: number;
   createdBy: UserId;
+  workspaceId: string | null;
 }
 
 export type ListCreatedEvent = BaseEvent<'list.created', ListCreatedPayload>;
@@ -373,6 +377,9 @@ export interface ListUpdatedPayload {
     name?: string;
   };
   updatedBy: UserId;
+  name: string;
+  boardId: string;
+  workspaceId: string | null;
 }
 
 export type ListUpdatedEvent = BaseEvent<'list.updated', ListUpdatedPayload>;
@@ -386,6 +393,7 @@ export interface ListReorderedPayload {
   oldPosition: number;
   newPosition: number;
   reorderedBy: UserId;
+  workspaceId: string | null;
 }
 
 export type ListReorderedEvent = BaseEvent<'list.reordered', ListReorderedPayload>;
@@ -397,12 +405,13 @@ export interface ListDeletedPayload {
   listId: ListId;
   boardId: BoardId;
   deletedBy: UserId;
+  workspaceId: string | null;
 }
 
 export type ListDeletedEvent = BaseEvent<'list.deleted', ListDeletedPayload>;
 
 // ============================================================================
-// CARD EVENT PAYLOADS - MILESTONE 4
+// CARD EVENT PAYLOADS
 // ============================================================================
 
 /**
@@ -429,8 +438,8 @@ export interface CardUpdatedPayload {
     description?: string;
     dueDate?: string | null;
     priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
-    completed?: boolean; // ✅ NUEVO
-    completedAt?: string | null; // ✅ NUEVO
+    completed?: boolean;
+    completedAt?: string | null;
   };
   updatedBy: UserId;
 }
@@ -464,7 +473,6 @@ export type CardDeletedEvent = BaseEvent<'card.deleted', CardDeletedPayload>;
 
 /**
  * Card Completed Event
- * ✅ NUEVO: Evento específico cuando una card se marca como completada
  */
 export interface CardCompletedPayload {
   cardId: CardId;
@@ -477,7 +485,6 @@ export type CardCompletedEvent = BaseEvent<'card.completed', CardCompletedPayloa
 
 /**
  * Card Uncompleted Event
- * ✅ NUEVO: Evento específico cuando una card se desmarca como completada
  */
 export interface CardUncompletedPayload {
   cardId: CardId;
@@ -535,7 +542,7 @@ export interface CardLabelRemovedPayload {
 export type CardLabelRemovedEvent = BaseEvent<'card.label.removed', CardLabelRemovedPayload>;
 
 // ============================================================================
-// COMMENT EVENT PAYLOADS - MILESTONE 6
+// COMMENT EVENT PAYLOADS
 // ============================================================================
 
 /**
@@ -593,7 +600,7 @@ export interface CommentMentionedPayload {
 export type CommentMentionedEvent = BaseEvent<'comment.mentioned', CommentMentionedPayload>;
 
 // ============================================================================
-// PRESENCE EVENT PAYLOADS - MILESTONE 5
+// PRESENCE EVENT PAYLOADS
 // ============================================================================
 
 /**
@@ -686,7 +693,7 @@ export interface CursorMovedPayload {
 export type CursorMovedEvent = BaseEvent<'presence.cursor.moved', CursorMovedPayload>;
 
 // ============================================================================
-// NOTIFICATION EVENT PAYLOADS - MILESTONE 6
+// NOTIFICATION EVENT PAYLOADS
 // ============================================================================
 
 /**
@@ -781,8 +788,8 @@ export type Event =
   | CardUpdatedEvent
   | CardMovedEvent
   | CardDeletedEvent
-  | CardCompletedEvent // ✅ NUEVO
-  | CardUncompletedEvent // ✅ NUEVO
+  | CardCompletedEvent
+  | CardUncompletedEvent
   | CardMemberAssignedEvent
   | CardMemberUnassignedEvent
   | CardLabelAddedEvent
@@ -837,7 +844,7 @@ export function isEphemeralEvent(eventType: EventType): boolean {
 }
 
 // ============================================================================
-// WEBSOCKET MESSAGE TYPES - MILESTONE 5
+// WEBSOCKET MESSAGE TYPES
 // ============================================================================
 
 /**

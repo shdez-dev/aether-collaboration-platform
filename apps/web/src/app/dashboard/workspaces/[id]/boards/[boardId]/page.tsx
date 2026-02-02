@@ -19,7 +19,6 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  DragOverEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -40,11 +39,12 @@ export default function BoardPage() {
   const { currentWorkspace } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
 
-  // Permisos: OWNER y ADMIN pueden editar (crear/eliminar listas y archivar board)
-  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
+  // ✅ PERMISOS ACTUALIZADOS:
+  // OWNER y ADMIN: pueden crear/editar/eliminar listas y archivar board
+  const canEditBoard = userRole === 'ADMIN' || userRole === 'OWNER';
 
-  // OWNER, ADMIN y MEMBER pueden arrastrar (solo VIEWER no puede)
-  const canDrag = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
+  // OWNER, ADMIN y MEMBER: pueden mover cards (drag & drop)
+  const canMoveCards = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
   // Realtime
   const {
@@ -117,7 +117,7 @@ export default function BoardPage() {
   }, [lists, accessToken, setCards]);
 
   const handleArchive = async () => {
-    if (!currentBoard || !canEdit) return;
+    if (!currentBoard || !canEditBoard) return;
 
     try {
       await archiveBoard(currentBoard.id);
@@ -133,48 +133,24 @@ export default function BoardPage() {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    // Solo OWNER, ADMIN y MEMBER pueden arrastrar
-    if (!canDrag) return;
-
     const { active } = event;
-    setActiveId(active.id as string);
-    setActiveType(active.data.current?.type);
-  };
+    const activeData = active.data.current;
 
-  const handleDragOver = (event: DragOverEvent) => {
-    // Solo OWNER, ADMIN y MEMBER pueden arrastrar
-    if (!canDrag) return;
-
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    // Solo permitir arrastrar cards
-    if (active.data.current?.type === 'card') {
-      const activeCard = active.data.current?.card;
-      const activeListId = activeCard?.listId;
-
-      let overListId = over.data.current?.listId;
-
-      if (overId.startsWith('list-droppable-')) {
-        overListId = overId.replace('list-droppable-', '');
-      }
-
-      if (over.data.current?.type === 'card') {
-        overListId = over.data.current?.card?.listId;
-      }
-
-      // Actualización optimista en el frontend
-      if (activeListId && overListId && activeListId !== overListId) {
-        const targetList = cards[overListId] || [];
-        const newPosition =
-          targetList.length > 0 ? targetList[targetList.length - 1].position + 1 : 1;
-
-        moveCard(activeId, activeListId, overListId, newPosition);
-      }
+    // Verificar permisos según el tipo
+    if (activeData?.type === 'list' && !canEditBoard) {
+      console.log('⚠️ No tienes permisos para mover listas');
+      return;
     }
+
+    if (activeData?.type === 'card' && !canMoveCards) {
+      console.log('⚠️ No tienes permisos para mover cards');
+      return;
+    }
+
+    setActiveId(active.id as string);
+    setActiveType(activeData?.type);
+
+    console.log('🎯 Drag started:', activeData);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -183,14 +159,23 @@ export default function BoardPage() {
     setActiveId(null);
     setActiveType(null);
 
-    if (!over) return;
+    if (!over) {
+      console.log('⚠️ Elemento soltado fuera de área válida');
+      return;
+    }
 
-    const activeId = active.id as string;
-    const overId = over.id as string;
+    const activeData = active.data.current;
+    const overData = over.data.current;
 
-    // Reordenar listas - Solo OWNER y ADMIN
-    if (active.data.current?.type === 'list' && over.data.current?.type === 'list') {
-      if (!canEdit) return;
+    // ==================== CASO 1: REORDENAR LISTAS ====================
+    if (activeData?.type === 'list' && overData?.type === 'list') {
+      if (!canEditBoard) {
+        toast.error('No tienes permisos para reordenar listas');
+        return;
+      }
+
+      const activeId = active.id as string;
+      const overId = over.id as string;
 
       if (activeId !== overId) {
         const sortedLists = [...lists].sort((a: List, b: List) => a.position - b.position);
@@ -221,61 +206,88 @@ export default function BoardPage() {
       }
     }
 
-    // Mover cards - OWNER, ADMIN y MEMBER
-    if (active.data.current?.type === 'card') {
-      if (!canDrag) return;
-
-      const card = active.data.current.card;
-      const fromListId = card.listId;
-
-      let toListId = over.data.current?.listId;
-
-      if (overId.startsWith('list-droppable-')) {
-        toListId = overId.replace('list-droppable-', '');
+    // ==================== CASO 2: MOVER CARDS ====================
+    else if (activeData?.type === 'card') {
+      if (!canMoveCards) {
+        toast.error('No tienes permisos para mover tarjetas');
+        return;
       }
 
-      if (over.data.current?.type === 'card') {
-        toListId = over.data.current?.card?.listId;
+      const cardId = active.id as string;
+      const activeCard = activeData.card;
+      const fromListId = activeCard.listId;
+
+      let toListId = fromListId;
+      let targetPosition = 0;
+
+      // Determinar lista destino y posición
+      if (overData?.type === 'list') {
+        // Se soltó sobre un área de lista (posiblemente vacía)
+        toListId = overData.listId;
+        const toListCards = cards[toListId] || [];
+        targetPosition = toListCards.length; // Al final de la lista
+      } else if (overData?.type === 'card') {
+        // Se soltó sobre otra card
+        const overCard = overData.card;
+        toListId = overCard.listId;
+
+        const overListCards = cards[toListId] || [];
+        const overIndex = overListCards.findIndex((c) => c.id === over.id);
+        targetPosition = overIndex >= 0 ? overIndex : 0;
       }
 
-      if (!toListId || fromListId === toListId) return;
+      // Verificar si realmente cambió algo
+      const fromListCards = cards[fromListId] || [];
+      const currentIndex = fromListCards.findIndex((c) => c.id === cardId);
+
+      if (fromListId === toListId && currentIndex === targetPosition) {
+        console.log('ℹ️ Card no cambió de posición');
+        return;
+      }
+
+      console.log('🎯 Moviendo card:', {
+        cardId,
+        fromListId,
+        toListId,
+        currentPosition: currentIndex,
+        targetPosition,
+      });
+
+      // ✅ PASO 1: OPTIMISTIC UPDATE (actualizar UI inmediatamente)
+      moveCard(cardId, fromListId, toListId, targetPosition);
 
       try {
-        console.log('[BoardPage] Moviendo card:', {
-          cardId: card.id,
-          fromListId,
-          toListId,
-        });
-
-        // Enviar solo listId, el backend calcula la posición automáticamente
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cards/${card.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            listId: toListId,
-          }),
-        });
+        // ✅ PASO 2: PERSISTIR EN BASE DE DATOS
+        // ⚠️ IMPORTANTE: Usar endpoint correcto /api/cards/:id/move
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${cardId}/move`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              toListId,
+              position: targetPosition + 1, // Backend usa posiciones 1-indexed
+            }),
+          }
+        );
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'Error al mover la tarjeta');
+          throw new Error(errorData.error?.message || 'Error al mover card');
         }
 
         const { data } = await response.json();
-        console.log('[BoardPage] Card movida exitosamente:', data.card);
+        console.log('✅ Card movida exitosamente en la base de datos:', data.card);
 
-        toast.moved('Tarjeta', card.title);
+        toast.moved('Tarjeta', activeCard.title);
       } catch (error: any) {
-        console.error('[BoardPage] Error al sincronizar movimiento:', error);
+        console.error('❌ Error moviendo card:', error);
 
-        // Revertir cambio optimista
-        const targetList = cards[fromListId] || [];
-        const revertPosition =
-          targetList.length > 0 ? targetList[targetList.length - 1].position + 1 : 1;
-        moveCard(card.id, toListId, fromListId, revertPosition);
+        // ✅ PASO 3: ROLLBACK si falla
+        moveCard(cardId, toListId, fromListId, currentIndex);
 
         toast.error(`Error al mover la tarjeta: ${error.message}`);
       }
@@ -303,7 +315,7 @@ export default function BoardPage() {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
-          <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent animate-spin mb-4"></div>
+          <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
           <p className="text-text-secondary">Cargando board...</p>
         </div>
       </div>
@@ -339,7 +351,7 @@ export default function BoardPage() {
             </div>
 
             {/* Archive Button - Solo OWNER y ADMIN */}
-            {canEdit && (
+            {canEditBoard && (
               <button
                 onClick={() => setShowArchiveConfirm(true)}
                 className="px-4 py-2 border border-warning/30 bg-warning/10 text-warning hover:bg-warning hover:text-white transition-all text-sm font-medium flex items-center gap-2"
@@ -412,7 +424,6 @@ export default function BoardPage() {
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
             modifiers={[restrictToWindowEdges]}
@@ -430,7 +441,7 @@ export default function BoardPage() {
               </SortableContext>
 
               {/* Add List Button - Solo OWNER y ADMIN */}
-              {canEdit && <AddListButton boardId={boardId} />}
+              {canEditBoard && <AddListButton boardId={boardId} />}
             </div>
 
             <DragOverlay>
@@ -456,7 +467,7 @@ export default function BoardPage() {
       </div>
 
       {/* Archive Confirmation Modal */}
-      {showArchiveConfirm && canEdit && (
+      {showArchiveConfirm && canEditBoard && (
         <>
           <div
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-fade-in"

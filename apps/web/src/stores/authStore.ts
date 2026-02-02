@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
+import { socketService } from '@/services/socketService';
 
 // ==================== TYPES ====================
 
@@ -10,7 +11,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  avatar?: string; // ← AGREGAR ESTA LÍNEA
+  avatar?: string;
   createdAt: string;
 }
 
@@ -165,6 +166,11 @@ export const useAuthStore = create<AuthState>()(
           });
 
           console.log('✓ Login exitoso:', user.email);
+
+          // Inicializar socket después de login exitoso
+          if (socketService && accessToken) {
+            socketService.connect(accessToken);
+          }
         } catch (error) {
           set({
             isLoading: false,
@@ -177,7 +183,15 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const { accessToken } = get();
 
-        // Notificar al servidor (opcional, no bloqueante)
+        console.log('[AuthStore] Cerrando sesión...');
+
+        // 1. DESCONECTAR SOCKET PRIMERO
+        if (socketService) {
+          console.log('[AuthStore] Desconectando socket...');
+          socketService.disconnect();
+        }
+
+        // 2. Notificar al servidor (opcional, no bloqueante)
         if (accessToken) {
           try {
             await apiRequest('/api/auth/logout', {
@@ -187,13 +201,14 @@ export const useAuthStore = create<AuthState>()(
               },
             });
           } catch (error) {
-            console.warn('Error al notificar logout al servidor:', error);
+            console.warn('[AuthStore] Error al notificar logout al servidor:', error);
           }
         }
 
-        // Limpiar estado local
+        // 3. Limpiar estado local
         get().clearAuth();
-        console.log('✓ Sesión cerrada');
+
+        console.log('✓ Sesión cerrada exitosamente');
       },
 
       // ==================== GET CURRENT USER ====================
@@ -218,6 +233,11 @@ export const useAuthStore = create<AuthState>()(
           if (!response.success || !response.data) {
             // Token inválido o expirado
             get().clearAuth();
+
+            // Desconectar socket si el token es inválido
+            if (socketService) {
+              socketService.disconnect();
+            }
             return;
           }
 
@@ -226,8 +246,18 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           });
+
+          // Reconectar socket si es necesario
+          if (socketService && accessToken && !socketService.isConnected()) {
+            socketService.connect(accessToken);
+          }
         } catch (error) {
           get().clearAuth();
+
+          // Desconectar socket en caso de error
+          if (socketService) {
+            socketService.disconnect();
+          }
         }
       },
 

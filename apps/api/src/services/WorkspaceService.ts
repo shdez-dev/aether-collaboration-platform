@@ -1,7 +1,7 @@
 // apps/api/src/services/WorkspaceService.ts
 
 import { pool } from '../lib/db';
-import { eventStore } from './EventStoreService'; // ✅ Ya está correcto
+import { eventStore } from './EventStoreService';
 import type {
   Workspace,
   WorkspaceMembership,
@@ -48,9 +48,8 @@ export class WorkspaceService {
         [workspace.id, userId, 'OWNER']
       );
 
-      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceCreatedPayload = {
         workspaceId: workspace.id as any,
         name: workspace.name,
@@ -202,9 +201,8 @@ export class WorkspaceService {
 
       const userRole = membershipResult.rows[0]?.role as WorkspaceRole;
 
-      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceUpdatedPayload = {
         workspaceId: workspace.id as any,
         changes: data,
@@ -245,9 +243,8 @@ export class WorkspaceService {
 
       await client.query(`DELETE FROM workspaces WHERE id = $1`, [workspaceId]);
 
-      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       await eventStore.emit(
         'workspace.deleted',
         { workspaceId: workspaceId as any, deletedBy: userId as any },
@@ -300,9 +297,8 @@ export class WorkspaceService {
         [workspaceId, inviteeId, role]
       );
 
-      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceMemberInvitedPayload = {
         workspaceId: workspaceId as any,
         inviterId: inviterId as any,
@@ -384,9 +380,8 @@ export class WorkspaceService {
         [newRole, workspaceId, targetUserId]
       );
 
-      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+      await client.query('COMMIT'); //
 
-      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceMemberRoleChangedPayload = {
         workspaceId: workspaceId as any,
         userId: targetUserId as any,
@@ -419,9 +414,8 @@ export class WorkspaceService {
         [workspaceId, targetUserId]
       );
 
-      await client.query('COMMIT'); // ✅ CAMBIO: COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ CAMBIO: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: WorkspaceMemberRemovedPayload = {
         workspaceId: workspaceId as any,
         userId: targetUserId as any,

@@ -46,26 +46,6 @@ const MONTHS_SHORT = [
   'Dic',
 ];
 
-// ✅ Función para calcular contraste de texto
-function getTextColor(hexColor: string): string {
-  const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-  if (luminance > 0.7) {
-    return 'rgba(0, 0, 0, 0.85)';
-  } else if (luminance > 0.5) {
-    return 'rgba(0, 0, 0, 0.75)';
-  } else if (luminance > 0.3) {
-    return 'rgba(255, 255, 255, 0.95)';
-  } else {
-    return 'rgba(255, 255, 255, 1)';
-  }
-}
-
 export function Card({ card }: CardProps) {
   const setSelectedCard = useCardStore((state) => state.setSelectedCard);
   const updateCard = useCardStore((state) => state.updateCard);
@@ -75,7 +55,13 @@ export function Card({ card }: CardProps) {
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
 
   const userRole = currentWorkspace?.userRole;
+
+  // ✅ PERMISOS ACTUALIZADOS:
+  // OWNER y ADMIN: pueden editar campos (título, descripción, etc.)
   const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
+
+  // OWNER, ADMIN y MEMBER: pueden arrastrar cards
+  const canDrag = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -83,7 +69,7 @@ export function Card({ card }: CardProps) {
       type: 'card',
       card,
     },
-    disabled: !canEdit,
+    disabled: !canDrag, // ✅ Cambiado de canEdit a canDrag
   });
 
   const style = {
@@ -158,7 +144,6 @@ export function Card({ card }: CardProps) {
   const priority = card.priority ? priorityConfig[card.priority] : null;
   const commentCount = (card as any)._count?.comments || 0;
 
-  // ✅ LABELS LOGIC
   const labels = (card as any).labels || [];
   const visibleLabels = labels.slice(0, 3);
   const remainingLabels = labels.length > 3 ? labels.length - 3 : 0;
@@ -167,13 +152,13 @@ export function Card({ card }: CardProps) {
     <div
       ref={setNodeRef}
       style={style}
-      {...(canEdit ? attributes : {})}
-      {...(canEdit ? listeners : {})}
+      {...(canDrag ? attributes : {})}
+      {...(canDrag ? listeners : {})}
       onClick={handleClick}
       className={`
         bg-card border rounded-lg p-3
         transition-all cursor-pointer
-        ${isDragging ? 'cursor-grabbing shadow-xl border-accent' : canEdit ? 'cursor-grab' : 'cursor-pointer'}
+        ${isDragging ? 'cursor-grabbing shadow-xl border-accent' : canDrag ? 'cursor-grab' : 'cursor-pointer'}
         ${
           card.completed
             ? 'border-success/30 bg-success/5'
@@ -183,7 +168,7 @@ export function Card({ card }: CardProps) {
     >
       {/* Checkbox + Título */}
       <div className="pb-2 border-b border-border/30 flex items-start gap-2">
-        {/* CHECKBOX DE COMPLETADO */}
+        {/* CHECKBOX DE COMPLETADO - Solo ADMIN y OWNER pueden completar */}
         <button
           onClick={handleToggleComplete}
           disabled={!canEdit || isTogglingComplete}

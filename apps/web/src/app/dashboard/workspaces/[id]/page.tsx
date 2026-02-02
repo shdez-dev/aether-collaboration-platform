@@ -8,6 +8,7 @@ import { useBoardStore } from '@/stores/boardStore';
 import InviteMemberModal from '@/components/InviteMemberModal';
 import ConfirmRemoveMemberModal from '@/components/ConfirmRemoveMemberModal';
 import CreateBoardModal from '@/components/CreateBoardModal';
+import ActivityFeed from '@/components/ActivityFeed';
 import {
   Settings,
   ArrowLeft,
@@ -444,7 +445,7 @@ export default function WorkspaceDetailPage() {
             </div>
 
             {/* ACTIVITY */}
-            <div className="bg-card border border-border">
+            <div className="bg-card border border-border max-h-[300px] flex flex-col">
               <div className="px-4 py-3 border-b border-border flex items-center gap-2">
                 <div className="p-1.5 bg-warning/10 border border-warning/30">
                   <Activity className="w-4 h-4 text-warning" />
@@ -454,13 +455,7 @@ export default function WorkspaceDetailPage() {
                   <p className="text-xs text-text-muted">Últimos 7 días</p>
                 </div>
               </div>
-
-              <div className="p-4">
-                <div className="text-center py-12">
-                  <Activity className="w-10 h-10 mx-auto mb-2 text-text-muted opacity-50" />
-                  <p className="text-xs text-text-secondary">Sin actividad reciente</p>
-                </div>
-              </div>
+              <ActivityFeed workspaceId={workspaceId} />
             </div>
           </div>
         </div>

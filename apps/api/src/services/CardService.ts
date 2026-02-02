@@ -2,6 +2,7 @@
 
 import { pool } from '../lib/db';
 import { eventStore } from './EventStoreService';
+import { userActivityService } from './UserActivityService';
 import type { Card } from '@aether/types';
 
 export class CardService {
@@ -24,6 +25,14 @@ export class CardService {
       [cardId]
     );
     return result.rows[0]?.board_id || null;
+  }
+
+  /**
+   * Helper: Obtener workspaceId desde boardId
+   */
+  private static async getWorkspaceIdFromBoard(boardId: string): Promise<string | null> {
+    const result = await pool.query('SELECT workspace_id FROM boards WHERE id = $1', [boardId]);
+    return result.rows[0]?.workspace_id || null;
   }
 
   /**
@@ -103,21 +112,20 @@ export class CardService {
       await client.query('COMMIT');
 
       const boardId = await this.getBoardIdFromList(listId);
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
-      await eventStore.emit(
-        'card.created',
-        {
-          cardId: card.id as any,
-          listId: card.listId as any,
-          title: card.title,
-          description: card.description,
-          position: card.position,
-          createdBy: userId as any,
-        },
-        userId as any,
-        boardId || undefined,
-        socketId
-      );
+      const payload = {
+        cardId: card.id as any,
+        listId: card.listId as any,
+        title: card.title,
+        description: card.description,
+        position: card.position,
+        createdBy: userId as any,
+        boardId,
+        workspaceId,
+      };
+
+      await eventStore.emit('card.created', payload, userId as any, boardId || undefined, socketId);
 
       return card;
     } catch (error) {
@@ -173,7 +181,7 @@ export class CardService {
       priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
       completed?: boolean;
       completedAt?: string | null;
-      listId?: string; // NUEVO: Permite mover la card a otra lista
+      listId?: string;
     },
     socketId?: string
   ): Promise<Card> {
@@ -182,7 +190,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Obtener card actual para detectar cambios
       const currentCardResult = await client.query('SELECT * FROM cards WHERE id = $1', [cardId]);
 
       if (currentCardResult.rows.length === 0) {
@@ -216,36 +223,29 @@ export class CardService {
         values.push(data.priority);
       }
 
-      // Manejar campo completed
       if (data.completed !== undefined) {
         updates.push(`completed = $${paramCount++}`);
         values.push(data.completed);
 
-        // Si se marca como completada sin especificar fecha, usar NOW()
         if (data.completed && data.completedAt === undefined) {
           updates.push(`completed_at = NOW()`);
         } else if (!data.completed) {
-          // Si se desmarca, limpiar fecha de completado
           updates.push(`completed_at = NULL`);
         }
       }
 
-      // Manejar completedAt si se especifica explícitamente
       if (data.completedAt !== undefined && data.completed === undefined) {
         updates.push(`completed_at = $${paramCount++}`);
         values.push(data.completedAt);
       }
 
-      // NUEVO: Manejar cambio de lista
       if (data.listId !== undefined && data.listId !== originalListId) {
-        // Verificar que la nueva lista existe
         const listExists = await client.query('SELECT id FROM lists WHERE id = $1', [data.listId]);
 
         if (listExists.rows.length === 0) {
           throw new Error('Target list not found');
         }
 
-        // Calcular nueva posición automáticamente (al final de la lista destino)
         const maxPosResult = await client.query(
           'SELECT COALESCE(MAX(position), 0) as max_pos FROM cards WHERE list_id = $1',
           [data.listId]
@@ -273,26 +273,29 @@ export class CardService {
       await client.query('COMMIT');
 
       const boardId = await this.getBoardIdFromCard(cardId);
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
-      // Emitir evento apropiado según el tipo de cambio
       if (data.listId && data.listId !== originalListId) {
-        // Emitir evento de movimiento entre listas
+        const movePayload = {
+          cardId: card.id as any,
+          fromListId: originalListId as any,
+          toListId: data.listId as any,
+          fromPosition: currentCard.position,
+          toPosition: card.position,
+          movedBy: userId as any,
+          title: card.title,
+          boardId,
+          workspaceId,
+        };
+
         await eventStore.emit(
           'card.moved',
-          {
-            cardId: card.id as any,
-            fromListId: originalListId as any,
-            toListId: data.listId as any,
-            fromPosition: currentCard.position,
-            toPosition: card.position,
-            movedBy: userId as any,
-          },
+          movePayload,
           userId as any,
           boardId || undefined,
           socketId
         );
       } else {
-        // Emitir evento de actualización de contenido
         const changes: any = {};
         if (data.title !== undefined) changes.title = data.title;
         if (data.description !== undefined) changes.description = data.description;
@@ -301,13 +304,18 @@ export class CardService {
         if (data.completed !== undefined) changes.completed = data.completed;
         if (data.completedAt !== undefined) changes.completedAt = data.completedAt;
 
+        const updatePayload = {
+          cardId: card.id as any,
+          changes,
+          updatedBy: userId as any,
+          title: card.title,
+          boardId,
+          workspaceId,
+        };
+
         await eventStore.emit(
           'card.updated',
-          {
-            cardId: card.id as any,
-            changes,
-            updatedBy: userId as any,
-          },
+          updatePayload,
           userId as any,
           boardId || undefined,
           socketId
@@ -350,7 +358,6 @@ export class CardService {
       const fromListId = currentCard.list_id;
       const fromPosition = currentCard.position;
 
-      // Si cambia de lista, ajustar posiciones en lista origen
       if (fromListId !== data.toListId) {
         await client.query(
           'UPDATE cards SET position = position - 1 WHERE list_id = $1 AND position > $2',
@@ -358,13 +365,11 @@ export class CardService {
         );
       }
 
-      // Ajustar posiciones en lista destino
       await client.query(
         'UPDATE cards SET position = position + 1 WHERE list_id = $1 AND position >= $2',
         [data.toListId, data.position]
       );
 
-      // Actualizar la card
       const result = await client.query(
         `UPDATE cards 
          SET list_id = $1, position = $2, updated_at = NOW()
@@ -378,21 +383,21 @@ export class CardService {
       await client.query('COMMIT');
 
       const boardId = await this.getBoardIdFromList(data.toListId);
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
-      await eventStore.emit(
-        'card.moved',
-        {
-          cardId: card.id as any,
-          fromListId: fromListId as any,
-          toListId: data.toListId as any,
-          fromPosition,
-          toPosition: data.position,
-          movedBy: userId as any,
-        },
-        userId as any,
-        boardId || undefined,
-        socketId
-      );
+      const payload = {
+        cardId: card.id as any,
+        fromListId: fromListId as any,
+        toListId: data.toListId as any,
+        fromPosition,
+        toPosition: data.position,
+        movedBy: userId as any,
+        title: currentCard.title,
+        boardId,
+        workspaceId,
+      };
+
+      await eventStore.emit('card.moved', payload, userId as any, boardId || undefined, socketId);
 
       return card;
     } catch (error) {
@@ -420,10 +425,10 @@ export class CardService {
       }
 
       const boardId = await this.getBoardIdFromList(card.list_id);
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
       await client.query('DELETE FROM cards WHERE id = $1', [cardId]);
 
-      // Ajustar posiciones de cards restantes
       await client.query(
         'UPDATE cards SET position = position - 1 WHERE list_id = $1 AND position > $2',
         [card.list_id, card.position]
@@ -431,17 +436,16 @@ export class CardService {
 
       await client.query('COMMIT');
 
-      await eventStore.emit(
-        'card.deleted',
-        {
-          cardId: card.id as any,
-          listId: card.list_id as any,
-          deletedBy: userId as any,
-        },
-        userId as any,
-        boardId || undefined,
-        socketId
-      );
+      const payload = {
+        cardId: card.id as any,
+        listId: card.list_id as any,
+        deletedBy: userId as any,
+        title: card.title,
+        boardId,
+        workspaceId,
+      };
+
+      await eventStore.emit('card.deleted', payload, userId as any, boardId || undefined, socketId);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -464,7 +468,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Verificar si ya está asignado
       const existingResult = await client.query(
         'SELECT * FROM card_members WHERE card_id = $1 AND user_id = $2',
         [cardId, memberId]
@@ -482,14 +485,19 @@ export class CardService {
       await client.query('COMMIT');
 
       const boardId = await this.getBoardIdFromCard(cardId);
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
+
+      const payload = {
+        cardId: cardId as any,
+        userId: memberId as any,
+        assignedBy: userId as any,
+        boardId,
+        workspaceId,
+      };
 
       await eventStore.emit(
         'card.member.assigned',
-        {
-          cardId: cardId as any,
-          userId: memberId as any,
-          assignedBy: userId as any,
-        },
+        payload,
         userId as any,
         boardId || undefined,
         socketId
@@ -524,14 +532,19 @@ export class CardService {
       await client.query('COMMIT');
 
       const boardId = await this.getBoardIdFromCard(cardId);
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
+
+      const payload = {
+        cardId: cardId as any,
+        userId: memberId as any,
+        unassignedBy: userId as any,
+        boardId,
+        workspaceId,
+      };
 
       await eventStore.emit(
         'card.member.unassigned',
-        {
-          cardId: cardId as any,
-          userId: memberId as any,
-          unassignedBy: userId as any,
-        },
+        payload,
         userId as any,
         boardId || undefined,
         socketId
@@ -558,7 +571,6 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
-      // Verificar si el label ya está agregado
       const existingResult = await client.query(
         'SELECT * FROM card_labels WHERE card_id = $1 AND label_id = $2',
         [cardId, labelId]
@@ -576,14 +588,19 @@ export class CardService {
       await client.query('COMMIT');
 
       const boardId = await this.getBoardIdFromCard(cardId);
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
+
+      const payload = {
+        cardId: cardId as any,
+        labelId: labelId as any,
+        addedBy: userId as any,
+        boardId,
+        workspaceId,
+      };
 
       await eventStore.emit(
         'card.label.added',
-        {
-          cardId: cardId as any,
-          labelId: labelId as any,
-          addedBy: userId as any,
-        },
+        payload,
         userId as any,
         boardId || undefined,
         socketId
@@ -618,14 +635,19 @@ export class CardService {
       await client.query('COMMIT');
 
       const boardId = await this.getBoardIdFromCard(cardId);
+      const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
+
+      const payload = {
+        cardId: cardId as any,
+        labelId: labelId as any,
+        removedBy: userId as any,
+        boardId,
+        workspaceId,
+      };
 
       await eventStore.emit(
         'card.label.removed',
-        {
-          cardId: cardId as any,
-          labelId: labelId as any,
-          removedBy: userId as any,
-        },
+        payload,
         userId as any,
         boardId || undefined,
         socketId

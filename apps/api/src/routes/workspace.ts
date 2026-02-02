@@ -85,4 +85,14 @@ router.delete('/:id/members/:userId', checkWorkspaceMembership, requireAdmin, (r
   workspaceController.removeMember(req, res)
 );
 
+/**
+ * GET /api/workspaces/:id/activity
+ * Obtener actividad reciente del workspace (últimos 7 días)
+ * Middleware: checkWorkspaceMembership (valida que sea miembro)
+ * Permite: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
+ */
+router.get('/:id/activity', checkWorkspaceMembership, (req, res) =>
+  workspaceController.getWorkspaceActivity(req, res)
+);
+
 export default router;

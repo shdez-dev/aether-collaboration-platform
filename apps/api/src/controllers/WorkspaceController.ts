@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { workspaceService } from '../services/WorkspaceService';
+import { userActivityService } from '../services/UserActivityService';
 import type { WorkspaceRequest } from '../middleware/workspace';
 import type { WorkspaceRole } from '@aether/types';
 
@@ -497,6 +498,75 @@ class WorkspaceController {
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Failed to remove member',
+        },
+      });
+    }
+  }
+
+  /**
+   * GET /api/workspaces/:id/activity
+   * Obtener actividad reciente del workspace
+   * Permisos: Miembro del workspace (cualquier rol)
+   */
+  async getWorkspaceActivity(req: WorkspaceRequest, res: Response) {
+    try {
+      const { id: workspaceId } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      // El middleware checkWorkspaceMembership ya verificó que el usuario es miembro
+      // Obtener actividad del workspace (últimos 7 días por defecto)
+      const limit = parseInt(req.query.limit as string) || 50;
+      const activities = await userActivityService.getWorkspaceActivity(workspaceId, limit);
+
+      // Filtrar solo actividad de los últimos 7 días
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const recentActivities = activities.filter((activity) => {
+        const activityDate = new Date(activity.created_at);
+        return activityDate >= sevenDaysAgo;
+      });
+
+      // Formatear actividades para el frontend
+      const events = recentActivities.map((activity) => ({
+        id: activity.id,
+        type: activity.activity_type,
+        user: {
+          id: activity.user_id,
+          name: activity.user_name,
+          email: activity.user_email,
+          avatar: activity.user_avatar,
+        },
+        payload: activity.metadata || {},
+        boardId: activity.board_id,
+        workspaceId: activity.workspace_id,
+        timestamp: activity.created_at,
+      }));
+
+      return res.json({
+        success: true,
+        data: {
+          activities: events,
+          count: events.length,
+        },
+      });
+    } catch (error) {
+      console.error('[WorkspaceController] GetWorkspaceActivity error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to get workspace activity',
         },
       });
     }

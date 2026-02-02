@@ -1,15 +1,14 @@
 // apps/api/src/services/BoardService.ts
 
 import { pool } from '../lib/db';
-import { eventStore } from './EventStoreService'; // ✅ CAMBIO 1: Usar instancia compartida
+import { eventStore } from './EventStoreService';
+import { userActivityService } from './UserActivityService';
 import type {
   Board,
   BoardCreatedPayload,
   BoardUpdatedPayload,
   BoardArchivedPayload,
 } from '@aether/types';
-
-// ❌ ELIMINAR: const eventStore = new EventStoreService();
 
 export class BoardService {
   /**
@@ -28,7 +27,6 @@ export class BoardService {
     try {
       await client.query('BEGIN');
 
-      // 1. Obtener la posición máxima actual de boards en el workspace
       const positionResult = await client.query(
         `SELECT COALESCE(MAX(position), 0) as max_position 
          FROM boards 
@@ -38,7 +36,6 @@ export class BoardService {
 
       const nextPosition = positionResult.rows[0].max_position + 1;
 
-      // 2. Crear el board
       const boardResult = await client.query(
         `INSERT INTO boards (workspace_id, name, description, position, created_by)
          VALUES ($1, $2, $3, $4, $5)
@@ -48,16 +45,14 @@ export class BoardService {
 
       const board = boardResult.rows[0];
 
-      // 3. Crear lista "Backlog" automáticamente
       await client.query(
         `INSERT INTO lists (board_id, name, position, created_by)
          VALUES ($1, $2, $3, $4)`,
         [board.id, 'Backlog', 1, userId]
       );
 
-      await client.query('COMMIT'); // ✅ CAMBIO 2: COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ CAMBIO 3: EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: BoardCreatedPayload = {
         boardId: board.id as any,
         workspaceId: workspaceId as any,
@@ -211,13 +206,14 @@ export class BoardService {
 
       const board = result.rows[0];
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
       const payload: BoardUpdatedPayload = {
         boardId: board.id as any,
         changes: data,
         updatedBy: userId as any,
+        name: board.name,
+        workspaceId: board.workspace_id,
       };
 
       await eventStore.emit('board.updated', payload, userId as any, boardId);
@@ -240,17 +236,19 @@ export class BoardService {
     try {
       await client.query('BEGIN');
 
-      await client.query(
-        `UPDATE boards SET archived = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      const boardResult = await client.query(
+        `UPDATE boards SET archived = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING workspace_id`,
         [boardId]
       );
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      const workspaceId = boardResult.rows[0]?.workspace_id;
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
+      await client.query('COMMIT');
+
       const payload: BoardArchivedPayload = {
         boardId: boardId as any,
         archivedBy: userId as any,
+        workspaceId,
       };
 
       await eventStore.emit('board.archived', payload, userId as any, boardId);
@@ -271,9 +269,10 @@ export class BoardService {
     try {
       await client.query('BEGIN');
 
-      const boardResult = await client.query(`SELECT archived FROM boards WHERE id = $1`, [
-        boardId,
-      ]);
+      const boardResult = await client.query(
+        `SELECT archived, workspace_id FROM boards WHERE id = $1`,
+        [boardId]
+      );
 
       if (boardResult.rows.length === 0) {
         throw new Error('Board not found');
@@ -282,6 +281,8 @@ export class BoardService {
       if (!boardResult.rows[0].archived) {
         throw new Error('Board must be archived before deleting');
       }
+
+      const workspaceId = boardResult.rows[0].workspace_id;
 
       const listsResult = await client.query(
         `SELECT COUNT(*) as count FROM lists WHERE board_id = $1`,
@@ -294,14 +295,15 @@ export class BoardService {
 
       await client.query(`DELETE FROM boards WHERE id = $1`, [boardId]);
 
-      await client.query('COMMIT'); // ✅ COMMIT PRIMERO
+      await client.query('COMMIT');
 
-      // ✅ EMITIR EVENTO DESPUÉS DEL COMMIT
-      await eventStore.emit(
-        'board.deleted',
-        { boardId: boardId as any, deletedBy: userId as any },
-        userId as any
-      );
+      const payload = {
+        boardId: boardId as any,
+        deletedBy: userId as any,
+        workspaceId,
+      };
+
+      await eventStore.emit('board.deleted', payload, userId as any);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
