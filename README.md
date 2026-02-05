@@ -108,7 +108,6 @@ MIT License - Ver archivo LICENSE para más detalles.
 
 ## Autor
 
-**Juan Sebastián Hernández Rincón**
+**Sebastián Hernández**
 
-GitHub: [@Loksz](https://github.com/Loksz)  
-Email: juanhernandezr0075@gmail.com
+LinkedIn: (https://www.linkedin.com/in/sebastian-hernandez-03284a229/)  
