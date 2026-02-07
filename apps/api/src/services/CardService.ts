@@ -304,6 +304,50 @@ export class CardService {
         if (data.completed !== undefined) changes.completed = data.completed;
         if (data.completedAt !== undefined) changes.completedAt = data.completedAt;
 
+        // Si cambió el estado de completed, emitir evento específico y notificar a miembros
+        if (data.completed !== undefined && data.completed !== currentCard.completed) {
+          // Obtener miembros asignados a la card
+          const membersResult = await client.query(
+            'SELECT user_id FROM card_members WHERE card_id = $1',
+            [cardId]
+          );
+          const assignedMembers = membersResult.rows.map((row) => row.user_id);
+
+          const completionPayload = {
+            cardId: card.id as any,
+            completed: data.completed,
+            completedAt: card.completedAt,
+            completedBy: userId as any,
+            title: card.title,
+            boardId,
+            workspaceId,
+          };
+
+          // Emitir al board
+          await eventStore.emit(
+            data.completed ? 'card.completed' : 'card.uncompleted',
+            completionPayload,
+            userId as any,
+            boardId || undefined,
+            socketId
+          );
+
+          // Notificar directamente a cada miembro asignado
+          for (const memberId of assignedMembers) {
+            if (memberId !== userId) {
+              // No enviar al usuario que hizo el cambio
+              await eventStore.emit(
+                data.completed ? 'card.completed' : 'card.uncompleted',
+                completionPayload,
+                userId as any,
+                undefined, // No enviar al board de nuevo
+                undefined, // No hay socketId para estos envíos directos
+                memberId // Enviar directamente al miembro
+              );
+            }
+          }
+        }
+
         const updatePayload = {
           cardId: card.id as any,
           changes,
@@ -487,20 +531,35 @@ export class CardService {
       const boardId = await this.getBoardIdFromCard(cardId);
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
+      // Obtener información de la card y del usuario que asignó
+      const cardResult = await client.query('SELECT title FROM cards WHERE id = $1', [cardId]);
+      const cardTitle = cardResult.rows[0]?.title || 'Unknown card';
+
+      const userResult = await client.query('SELECT name, email FROM users WHERE id = $1', [
+        userId,
+      ]);
+      const assignerName = userResult.rows[0]?.name || 'Unknown user';
+
       const payload = {
         cardId: cardId as any,
         userId: memberId as any,
-        assignedBy: userId as any,
+        assignedBy: {
+          id: userId,
+          name: assignerName,
+        },
+        title: cardTitle,
         boardId,
         workspaceId,
       };
 
+      // Emitir evento tanto al board como directamente al usuario asignado
       await eventStore.emit(
         'card.member.assigned',
         payload,
         userId as any,
         boardId || undefined,
-        socketId
+        socketId,
+        memberId // 👈 Enviar directamente al usuario asignado
       );
     } catch (error) {
       await client.query('ROLLBACK');
@@ -534,20 +593,27 @@ export class CardService {
       const boardId = await this.getBoardIdFromCard(cardId);
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
+      // Obtener información de la card para el evento
+      const cardResult = await client.query('SELECT title FROM cards WHERE id = $1', [cardId]);
+      const cardTitle = cardResult.rows[0]?.title || 'Unknown card';
+
       const payload = {
         cardId: cardId as any,
         userId: memberId as any,
         unassignedBy: userId as any,
+        title: cardTitle,
         boardId,
         workspaceId,
       };
 
+      // Emitir evento tanto al board como directamente al usuario desasignado
       await eventStore.emit(
         'card.member.unassigned',
         payload,
         userId as any,
         boardId || undefined,
-        socketId
+        socketId,
+        memberId // 👈 Enviar directamente al usuario desasignado
       );
     } catch (error) {
       await client.query('ROLLBACK');

@@ -194,7 +194,10 @@ class SocketService {
    * Escuchar eventos del sistema (card.created, card.moved, etc.)
    */
   onEvent(callback: (event: Event) => void): void {
-    this.on('event', callback);
+    this.on('event', (event: Event) => {
+      console.log('[Socket] Event received:', event.type, event);
+      callback(event);
+    });
   }
 
   /**

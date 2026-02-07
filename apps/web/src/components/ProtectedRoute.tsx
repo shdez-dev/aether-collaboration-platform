@@ -10,32 +10,43 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, isLoading, getCurrentUser } = useAuthStore();
+  const { isAuthenticated, isLoading, isHydrated, getCurrentUser } = useAuthStore();
   const [isChecking, setIsChecking] = useState(true);
+  const [mounted, setMounted] = useState(false); // ← NUEVO
+
+  // ← NUEVO: Asegurar que solo renderice en el cliente
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Si no hay token, redirigir inmediatamente
+      if (!isHydrated) {
+        return;
+      }
+
       if (!isAuthenticated) {
         router.push('/login');
         return;
       }
 
-      // Verificar que el token siga siendo válido
       try {
         await getCurrentUser();
         setIsChecking(false);
       } catch (error) {
-        // Token inválido, redirigir a login
         router.push('/login');
       }
     };
 
     checkAuth();
-  }, [isAuthenticated, getCurrentUser, router]);
+  }, [isAuthenticated, isHydrated, getCurrentUser, router]);
 
-  // Mostrar loading mientras verifica
-  if (isChecking || isLoading) {
+  // ← NUEVO: No renderizar nada en el servidor
+  if (!mounted) {
+    return null;
+  }
+
+  if (!isHydrated || isChecking || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg-primary">
         <div className="card-terminal max-w-md">
@@ -49,11 +60,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Si no está autenticado, no mostrar nada (ya está redirigiendo)
   if (!isAuthenticated) {
     return null;
   }
 
-  // Usuario autenticado, mostrar contenido
   return <>{children}</>;
 }

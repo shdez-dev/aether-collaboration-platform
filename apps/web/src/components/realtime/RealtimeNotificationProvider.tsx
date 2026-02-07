@@ -6,28 +6,27 @@ import { useEffect, useRef } from 'react';
 import { socketService } from '@/services/socketService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/authStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { CheckCircle2, Trash2, Edit3, MoveRight, Plus, ListPlus } from 'lucide-react';
 
 /**
- * Tipo personalizado para eventos de WebSocket
+ * Estructura de eventos recibidos del WebSocket
  */
 interface RealtimeEvent {
   type: string;
   payload: Record<string, any>;
-  metadata?: {
-    userId?: string;
-    user?: {
-      id: string;
-      name: string;
-      email?: string;
-    };
-    timestamp?: string;
+  meta: {
+    userId: string;
+    eventId: string;
+    timestamp: number;
+    version: number;
+    vectorClock: Record<string, number>;
     socketId?: string;
   };
 }
 
 /**
- * Configuración de notificación
+ * Configuración para cada tipo de notificación
  */
 interface NotificationConfig {
   message: string;
@@ -37,24 +36,15 @@ interface NotificationConfig {
 }
 
 /**
- * RealtimeNotificationProvider
- * Provider que escucha eventos de WebSocket y muestra notificaciones toast
- * Debe montarse en el layout del board, después del Toaster
+ * Provider que gestiona toasts de notificaciones en tiempo real
  *
- * @example
- * ```tsx
- * // apps/web/src/app/(authenticated)/boards/[boardId]/layout.tsx
+ * IMPORTANTE: Este provider SOLO muestra toasts.
+ * Las notificaciones persistentes se manejan en useNotifications.ts
  *
- * export default function BoardLayout({ children }) {
- *   return (
- *     <>
- *       <Toaster />
- *       <RealtimeNotificationProvider />
- *       {children}
- *     </>
- *   );
- * }
- * ```
+ * Responsabilidades:
+ * - Escuchar eventos del WebSocket
+ * - Mostrar toasts temporales
+ * - Filtrar eventos propios del usuario
  */
 export function RealtimeNotificationProvider() {
   const { toast } = useToast();
@@ -62,21 +52,26 @@ export function RealtimeNotificationProvider() {
   const hasSetupRef = useRef(false);
 
   useEffect(() => {
-    // Evitar setup múltiple
+    // Evitar configuración duplicada
     if (hasSetupRef.current) return;
-    if (!socketService.isConnected()) return;
 
-    console.log('[RealtimeNotificationProvider] Setting up event listeners');
+    if (!socketService.isConnected()) {
+      console.log('[RealtimeNotificationProvider] Socket not connected, skipping setup');
+      return;
+    }
+
+    console.log('[RealtimeNotificationProvider] Initializing toast event listeners');
     hasSetupRef.current = true;
 
-    // Listener principal de eventos
+    /**
+     * Handler para eventos del sistema
+     * Solo muestra toasts, NO maneja notificaciones persistentes
+     */
     const handleEvent = (event: any) => {
-      // Type casting seguro
       const realtimeEvent = event as RealtimeEvent;
 
-      // No mostrar notificación de mis propios eventos
-      if (realtimeEvent.metadata?.userId === user?.id) {
-        console.log('[RealtimeNotificationProvider] Ignoring own event:', realtimeEvent.type);
+      // Ignorar eventos generados por el usuario actual
+      if (realtimeEvent.meta?.userId === user?.id) {
         return;
       }
 
@@ -85,6 +80,7 @@ export function RealtimeNotificationProvider() {
       if (notification) {
         const Icon = notification.icon;
 
+        // Mostrar toast temporal
         toast({
           description: (
             <div className="flex items-center gap-2">
@@ -101,129 +97,94 @@ export function RealtimeNotificationProvider() {
           duration: 3000,
         });
 
-        console.log('[RealtimeNotificationProvider] Notification shown:', notification.message);
+        console.log('[RealtimeNotificationProvider] Toast displayed:', notification.message);
       }
     };
 
-    // Suscribirse a eventos
+    // Registrar listener solo para eventos del sistema
     socketService.onEvent(handleEvent);
 
-    // Cleanup
+    // Cleanup al desmontar
     return () => {
-      console.log('[RealtimeNotificationProvider] Cleaning up event listeners');
+      console.log('[RealtimeNotificationProvider] Removing toast event listeners');
       socketService.off('event', handleEvent);
       hasSetupRef.current = false;
     };
   }, [toast, user?.id]);
 
-  // Este componente no renderiza nada
   return null;
 }
 
 /**
- * Mapear eventos a notificaciones
+ * Mapea eventos del sistema a configuraciones de toast
+ *
+ * NOTA: Solo eventos que merecen un toast visible, no todos los eventos.
+ * Las notificaciones persistentes se manejan en el hook useNotifications.
+ *
+ * @param event - Evento recibido del WebSocket
+ * @returns Configuración de toast o null si no debe mostrarse
  */
 function mapEventToNotification(event: RealtimeEvent): NotificationConfig | null {
-  const userName = event.metadata?.user?.name || 'Alguien';
+  // Extraer nombre del usuario que generó el evento
+  const userName =
+    event.payload?.assignedBy?.name ||
+    event.payload?.unassignedBy?.name ||
+    event.payload?.completedBy?.name ||
+    event.payload?.updatedBy?.name ||
+    event.payload?.createdBy?.name ||
+    event.payload?.movedBy?.name ||
+    'Alguien';
 
   switch (event.type) {
-    // ========== CARD EVENTS ==========
-    case 'card.created': {
-      const card = event.payload.card;
+    // EVENTOS DE CARDS - Solo los más relevantes
+    case 'card.member.assigned': {
+      const title = event.payload.title;
       return {
-        message: `${userName} creó una card`,
-        description: card?.title ? `"${card.title}"` : undefined,
+        message: `${userName} te asignó una card`,
+        description: title ? `"${title}"` : undefined,
         icon: Plus,
       };
     }
 
-    case 'card.updated': {
-      const changes = event.payload.changes;
-      const field = changes ? Object.keys(changes)[0] : undefined;
-
+    case 'card.member.unassigned': {
+      const title = event.payload.title;
       return {
-        message: `${userName} actualizó una card`,
-        description: field ? `Cambió ${getFieldLabel(field)}` : undefined,
-        icon: Edit3,
+        message: `${userName} te quitó de una card`,
+        description: title ? `"${title}"` : undefined,
+        icon: Trash2,
       };
     }
 
-    case 'card.moved': {
-      const { fromListId, toListId } = event.payload;
+    case 'card.completed': {
+      const title = event.payload.title;
       return {
-        message: `${userName} movió una card`,
-        description: fromListId !== toListId ? 'A otra lista' : 'Cambió posición',
-        icon: MoveRight,
+        message: `${userName} completó una card`,
+        description: title ? `"${title}"` : undefined,
+        icon: CheckCircle2,
       };
     }
 
-    case 'card.deleted':
+    // EVENTOS DE WORKSPACES - Muy importantes
+    case 'workspace.member.added': {
       return {
-        message: `${userName} eliminó una card`,
+        message: `${userName} te agregó a un workspace`,
+        description: event.payload.workspace?.name,
+        icon: Plus,
+      };
+    }
+
+    case 'workspace.member.removed': {
+      return {
+        message: `${userName} te quitó de un workspace`,
+        description: event.payload.workspace?.name,
         icon: Trash2,
         variant: 'destructive',
       };
-
-    // ========== LIST EVENTS ==========
-    case 'list.created': {
-      const list = event.payload.list;
-      return {
-        message: `${userName} creó una lista`,
-        description: list?.name ? `"${list.name}"` : undefined,
-        icon: ListPlus,
-      };
     }
 
-    case 'list.updated': {
-      const changes = event.payload.changes;
-      return {
-        message: `${userName} renombró una lista`,
-        description: changes?.name ? `"${changes.name}"` : undefined,
-        icon: Edit3,
-      };
-    }
-
-    case 'list.deleted':
-      return {
-        message: `${userName} eliminó una lista`,
-        icon: Trash2,
-        variant: 'destructive',
-      };
-
-    case 'list.reordered':
-      return {
-        message: `${userName} reordenó las listas`,
-        icon: MoveRight,
-      };
-
-    // ========== BOARD EVENTS ==========
-    case 'board.updated': {
-      const changes = event.payload.changes;
-      return {
-        message: `${userName} actualizó el board`,
-        description: changes?.name ? `"${changes.name}"` : undefined,
-        icon: Edit3,
-      };
-    }
-
-    // No mostrar notificación para eventos no implementados
+    // No mostrar toast para otros eventos
+    // (pueden generar ruido innecesario)
     default:
       return null;
   }
-}
-
-/**
- * Obtener label legible para campos
- */
-function getFieldLabel(field: string): string {
-  const labels: Record<string, string> = {
-    title: 'el título',
-    description: 'la descripción',
-    dueDate: 'la fecha de vencimiento',
-    priority: 'la prioridad',
-    position: 'la posición',
-    name: 'el nombre',
-  };
-
-  return labels[field] || field;
 }

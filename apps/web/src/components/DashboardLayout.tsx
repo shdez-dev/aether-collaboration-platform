@@ -8,13 +8,18 @@ import { useAuthStore } from '@/stores/authStore';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isAuthenticated, getCurrentUser, isLoading } = useAuthStore();
+  const { user, logout, isAuthenticated, isHydrated, getCurrentUser, isLoading } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isChecking, setIsChecking] = useState(true);
 
   // Verificar autenticación
   useEffect(() => {
     const checkAuth = async () => {
+      // CRÍTICO: Esperar a que Zustand termine de cargar desde localStorage
+      if (!isHydrated) {
+        return;
+      }
+
       if (!isAuthenticated) {
         router.push('/login');
         return;
@@ -29,7 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     checkAuth();
-  }, [isAuthenticated, getCurrentUser, router]);
+  }, [isAuthenticated, isHydrated, getCurrentUser, router]);
 
   const handleLogout = async () => {
     await logout();
@@ -69,8 +74,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
   ];
 
-  // Mostrar loading mientras verifica
-  if (isChecking || isLoading) {
+  // Mostrar loading mientras verifica O mientras se hidrata el estado
+  if (!isHydrated || isChecking || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="card-terminal max-w-md">

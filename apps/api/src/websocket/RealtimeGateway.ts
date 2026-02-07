@@ -97,6 +97,12 @@ export class RealtimeGateway {
       console.log(`✅ User connected: ${authSocket.userName} (${authSocket.userId})`);
 
       // ========================================================================
+      // AUTO-JOIN PERSONAL ROOM (para recibir notificaciones globales)
+      // ========================================================================
+      socket.join(`user:${authSocket.userId}`);
+      console.log(`📫 User ${authSocket.userName} joined personal room: user:${authSocket.userId}`);
+
+      // ========================================================================
       // JOIN BOARD
       // ========================================================================
       socket.on('join:board', async (data: JoinBoardCommand) => {
@@ -275,16 +281,12 @@ export class RealtimeGateway {
   }
 
   /**
-   * Enviar evento a un usuario específico
+   * Enviar evento a un usuario específico (usando room personal)
    */
   public sendToUser(userId: string, event: Event): void {
-    // Encontrar el socket del usuario
-    const sockets = Array.from(this.io.sockets.sockets.values());
-    const userSocket = sockets.find((s) => (s as AuthenticatedSocket).userId === userId);
-
-    if (userSocket) {
-      userSocket.emit('event', event);
-    }
+    const userRoom = `user:${userId}`;
+    this.io.to(userRoom).emit('event', event);
+    console.log(`📤 Event sent to user ${userId}: ${event.type}`);
   }
 
   /**

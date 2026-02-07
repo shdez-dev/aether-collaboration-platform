@@ -1,6 +1,7 @@
+// apps/web/src/app/dashboard/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { socketService } from '@/services/socketService';
@@ -61,7 +62,10 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'pending' | 'overdue' | 'completed'>('pending');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const fetchDashboardStats = async () => {
+  // ✅ Ref para evitar múltiples refreshes simultáneos
+  const isRefreshingRef = useRef(false);
+
+  const fetchDashboardStats = useCallback(async () => {
     if (!accessToken) return;
 
     try {
@@ -78,13 +82,15 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('[Dashboard] Error fetching stats:', error);
     }
-  };
+  }, [accessToken]);
 
-  const fetchUserCards = async () => {
-    if (!accessToken) return;
+  const fetchUserCards = useCallback(async () => {
+    if (!accessToken || isRefreshingRef.current) return;
 
     try {
-      console.log('[Dashboard] Fetching user cards...');
+      isRefreshingRef.current = true;
+      console.log('[Dashboard] 🔄 Fetching user cards...');
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/me/cards`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -93,25 +99,26 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const { data } = await response.json();
-        console.log('[Dashboard] Cards received:', {
+        console.log('[Dashboard] ✅ Cards received:', {
           pending: data.pending?.length || 0,
           overdue: data.overdue?.length || 0,
           completed: data.completed?.length || 0,
         });
 
-        // ✅ Usar directamente la clasificación del backend
         setUserCards({
           pending: data.pending || [],
           overdue: data.overdue || [],
           completed: data.completed || [],
         });
       } else {
-        console.error('[Dashboard] Error response:', response.status);
+        console.error('[Dashboard] ❌ Error response:', response.status);
       }
     } catch (error) {
-      console.error('[Dashboard] Error fetching user cards:', error);
+      console.error('[Dashboard] ❌ Error fetching user cards:', error);
+    } finally {
+      isRefreshingRef.current = false;
     }
-  };
+  }, [accessToken]);
 
   const getPriorityColor = (priority: string | null) => {
     switch (priority) {
@@ -204,6 +211,7 @@ export default function DashboardPage() {
     router.push(`/dashboard/workspaces/${card.workspaceId}/boards/${card.boardId}`);
   };
 
+  // Effect 1: Configurar fecha
   useEffect(() => {
     const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const months = [
@@ -224,6 +232,7 @@ export default function DashboardPage() {
     setCurrentDate(`${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]}`);
   }, []);
 
+  // Effect 2: Cargar datos iniciales
   useEffect(() => {
     const loadDashboard = async () => {
       setIsLoading(true);
@@ -232,28 +241,133 @@ export default function DashboardPage() {
     };
 
     loadDashboard();
-  }, [accessToken]);
+  }, [fetchDashboardStats, fetchUserCards]);
 
+  // Effect 3: Listeners de tiempo real
   useEffect(() => {
-    if (!socketService.isConnected()) return;
+    if (!socketService.isConnected()) {
+      console.log('[Dashboard] ⏳ Socket not connected yet');
 
-    const handleRealtimeEvent = () => {
-      fetchDashboardStats();
-      fetchUserCards();
+      const { accessToken: token } = useAuthStore.getState();
+      if (token) {
+        socketService.connect(token);
+      }
+
+      return;
+    }
+
+    console.log('[Dashboard] ✅ Setting up real-time listeners');
+
+    const handleRealtimeEvent = (event: any) => {
+      console.log('[Dashboard] 📡 Event received:', {
+        type: event.type,
+        payload: event.payload,
+        meta: event.meta,
+      });
+
+      // ✅ Helper: Extraer userId de diferentes estructuras de payload
+      const extractUserId = (payload: any): string | null => {
+        // Intenta diferentes caminos donde puede estar el userId
+        return (
+          payload?.member?.userId ||
+          payload?.member?.id ||
+          payload?.memberId ||
+          payload?.userId ||
+          payload?.user?.id ||
+          null
+        );
+      };
+
+      // ✅ Helper: Verificar si el evento es relevante
+      const isRelevantForCurrentUser = (): boolean => {
+        const eventType = event.type;
+
+        // CASO 1: Asignación de miembro
+        if (eventType === 'card.member.assigned') {
+          const assignedUserId = extractUserId(event.payload);
+          const isForMe = assignedUserId === user?.id;
+
+          console.log('[Dashboard] 🔍 Member assigned check:', {
+            assignedUserId,
+            currentUserId: user?.id,
+            isForMe,
+            fullPayload: event.payload,
+          });
+
+          return isForMe;
+        }
+
+        // CASO 2: Desasignación de miembro
+        if (eventType === 'card.member.unassigned') {
+          const unassignedUserId = extractUserId(event.payload);
+          const isForMe = unassignedUserId === user?.id;
+
+          console.log('[Dashboard] 🔍 Member unassigned check:', {
+            unassignedUserId,
+            currentUserId: user?.id,
+            isForMe,
+            fullPayload: event.payload,
+          });
+
+          return isForMe;
+        }
+
+        // CASO 3: Cambios en cards que ya tengo
+        const cardId = event.payload?.cardId || event.payload?.card?.id;
+        if (cardId) {
+          const allMyCards = [...userCards.pending, ...userCards.overdue, ...userCards.completed];
+          const hasThisCard = allMyCards.some((card) => card.id === cardId);
+
+          console.log('[Dashboard] 🔍 Card update check:', {
+            cardId,
+            hasThisCard,
+          });
+
+          return hasThisCard;
+        }
+
+        return false;
+      };
+
+      // Lista de eventos relevantes
+      const relevantEvents = [
+        'card.member.assigned',
+        'card.member.unassigned',
+        'card.updated',
+        'card.deleted',
+        'card.completed',
+        'card.uncompleted',
+      ];
+
+      // Solo procesar si es relevante
+      if (relevantEvents.includes(event.type)) {
+        const isRelevant = isRelevantForCurrentUser();
+
+        console.log('[Dashboard] 📊 Event relevance:', {
+          type: event.type,
+          isRelevant,
+        });
+
+        if (isRelevant) {
+          console.log('[Dashboard] 🔄 Refreshing dashboard (relevant event)...');
+          // Pequeño delay para asegurar que el backend actualizó
+          setTimeout(() => {
+            fetchDashboardStats();
+            fetchUserCards();
+          }, 100);
+        } else {
+          console.log('[Dashboard] ⏭️  Skipping refresh (not relevant for user)');
+        }
+      }
     };
 
-    socketService.on('card.created', handleRealtimeEvent);
-    socketService.on('card.updated', handleRealtimeEvent);
-    socketService.on('card.deleted', handleRealtimeEvent);
-    socketService.on('card.moved', handleRealtimeEvent);
+    socketService.onEvent(handleRealtimeEvent);
 
     return () => {
-      socketService.off('card.created', handleRealtimeEvent);
-      socketService.off('card.updated', handleRealtimeEvent);
-      socketService.off('card.deleted', handleRealtimeEvent);
-      socketService.off('card.moved', handleRealtimeEvent);
+      console.log('[Dashboard] 🧹 Cleaning up listeners');
+      socketService.off('event', handleRealtimeEvent);
     };
-  }, []);
+  }, [user?.id, userCards, fetchDashboardStats, fetchUserCards]);
 
   if (isLoading) {
     return (
@@ -310,7 +424,6 @@ export default function DashboardPage() {
               }`}
             >
               <div className="flex items-start gap-3">
-                {/* Checkbox */}
                 <div
                   className={`w-5 h-5 mt-0.5 rounded border-2 flex-shrink-0 flex items-center justify-center ${
                     isCompleted
@@ -337,7 +450,6 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <p
                     className={`text-sm font-medium mb-2 transition-colors ${
@@ -351,31 +463,22 @@ export default function DashboardPage() {
                     {card.title}
                   </p>
 
-                  {/* Metadata */}
                   <div className="flex items-center gap-3 text-xs text-text-muted flex-wrap">
-                    {/* Workspace */}
                     <span className="flex items-center gap-1">
                       <span>▣</span>
                       <span>{card.workspaceName}</span>
                     </span>
-
                     <span>•</span>
-
-                    {/* Board */}
                     <span className="flex items-center gap-1">
                       <span>▦</span>
                       <span>{card.boardName}</span>
                     </span>
-
                     <span>•</span>
-
-                    {/* Lista */}
                     <span className="flex items-center gap-1">
                       <span>▨</span>
                       <span>{card.listName}</span>
                     </span>
 
-                    {/* ✅ MOSTRAR FECHA DE COMPLETADO EN VEZ DE DUE DATE */}
                     {isCompleted && completedInfo && (
                       <>
                         <span>•</span>
@@ -386,7 +489,6 @@ export default function DashboardPage() {
                       </>
                     )}
 
-                    {/* Due Date (solo para pending y overdue) */}
                     {!isCompleted && dueInfo && (
                       <>
                         <span>•</span>
@@ -397,7 +499,6 @@ export default function DashboardPage() {
                       </>
                     )}
 
-                    {/* Priority */}
                     {card.priority && (
                       <>
                         <span>•</span>
@@ -421,7 +522,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1400px] mx-auto px-8 py-8">
-        {/* Header */}
         <div className="mb-8">
           <p className="text-xs text-text-muted mb-1">{currentDate}</p>
           <h1 className="text-3xl font-normal mb-2">
@@ -432,9 +532,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Workspaces */}
           <div className="space-y-6">
             <div className="card-terminal">
               <h2 className="text-base font-medium text-text-primary mb-2">Workspaces</h2>
@@ -459,7 +557,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Cards Asignadas */}
           <div className="lg:col-span-2">
             <div className="card-terminal h-[500px] flex flex-col">
               <div className="flex items-center gap-2 mb-6 flex-shrink-0">
@@ -477,7 +574,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Tabs */}
               <div className="flex gap-1 mb-6 border-b border-border flex-shrink-0">
                 <button
                   onClick={() => setActiveTab('pending')}
@@ -526,7 +622,6 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              {/* Content - Área con scroll fijo */}
               <div className="flex-1 overflow-y-auto activity-scroll pr-2">
                 <div className="space-y-3">
                   {activeTab === 'pending' && renderCardList(userCards.pending, 'pending')}
@@ -538,7 +633,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Create Workspace Modal */}
         <CreateWorkspaceModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}

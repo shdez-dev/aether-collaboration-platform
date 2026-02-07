@@ -28,6 +28,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  isHydrated: boolean; // Nuevo flag para saber si ya se hidrató desde localStorage
 
   // Acciones
   register: (name: string, email: string, password: string) => Promise<void>;
@@ -35,6 +36,7 @@ interface AuthState {
   logout: () => Promise<void>;
   getCurrentUser: () => Promise<void>;
   clearError: () => void;
+  setHydrated: (hydrated: boolean) => void; // Nueva acción
 
   // Helpers internos
   setAuth: (user: User, tokens: AuthTokens) => void;
@@ -103,6 +105,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      isHydrated: false,
 
       // ==================== REGISTER ====================
       register: async (name: string, email: string, password: string) => {
@@ -285,6 +288,10 @@ export const useAuthStore = create<AuthState>()(
       clearError: () => {
         set({ error: null });
       },
+
+      setHydrated: (hydrated: boolean) => {
+        set({ isHydrated: hydrated });
+      },
     }),
     {
       name: 'aether-auth-storage',
@@ -295,6 +302,10 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Cuando termina de hidratar, marcar como hidratado
+        state?.setHydrated(true);
+      },
     }
   )
 );

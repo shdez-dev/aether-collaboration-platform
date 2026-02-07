@@ -104,6 +104,38 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     const { type, payload, user } = event;
 
     switch (type) {
+      case 'workspace.created':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">creó el workspace</span>{' '}
+              <strong className="text-accent">{payload.name}</strong>
+            </p>
+          </div>
+        );
+
+      case 'workspace.updated':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">actualizó el workspace</span>{' '}
+              <strong className="text-accent">{payload.name}</strong>
+            </p>
+          </div>
+        );
+
+      case 'workspace.deleted':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">eliminó un workspace</span>
+            </p>
+          </div>
+        );
+
       case 'board.created':
         return (
           <div>
@@ -131,7 +163,8 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">archivó un board</span>
+              <span className="text-text-secondary">archivó el board</span>{' '}
+              {payload.title && <strong className="text-warning">{payload.title}</strong>}
             </p>
           </div>
         );
@@ -143,6 +176,13 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
               <strong className="text-text-primary">{user.name}</strong>{' '}
               <span className="text-text-secondary">creó la lista</span>{' '}
               <strong className="text-accent">{payload.name}</strong>
+              {payload.boardTitle && (
+                <>
+                  {' '}
+                  <span className="text-text-secondary">en el board</span>{' '}
+                  <strong className="text-text-muted">{payload.boardTitle}</strong>
+                </>
+              )}
             </p>
           </div>
         );
@@ -163,7 +203,8 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">reordenó una lista</span>
+              <span className="text-text-secondary">reordenó la lista</span>{' '}
+              {payload.name && <strong className="text-accent">{payload.name}</strong>}
             </p>
           </div>
         );
@@ -173,7 +214,8 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">eliminó una lista</span>
+              <span className="text-text-secondary">eliminó la lista</span>{' '}
+              {payload.name && <strong className="text-error">{payload.name}</strong>}
             </p>
           </div>
         );
@@ -185,6 +227,13 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
               <strong className="text-text-primary">{user.name}</strong>{' '}
               <span className="text-text-secondary">creó la tarjeta</span>{' '}
               <strong className="text-accent">{payload.title}</strong>
+              {payload.listName && (
+                <>
+                  {' '}
+                  <span className="text-text-secondary">en la lista</span>{' '}
+                  <strong className="text-text-muted">{payload.listName}</strong>
+                </>
+              )}
             </p>
           </div>
         );
@@ -244,7 +293,8 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">comentó en una tarjeta</span>
+              <span className="text-text-secondary">comentó en la tarjeta</span>{' '}
+              {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
             </p>
             {payload.contentPreview && (
               <p className="text-[11px] text-text-muted italic mt-1 line-clamp-1">
@@ -259,7 +309,15 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">asignó un miembro a una tarjeta</span>
+              <span className="text-text-secondary">asignó a</span>{' '}
+              {payload.memberName && <strong className="text-accent">{payload.memberName}</strong>}
+              {payload.cardTitle && (
+                <>
+                  {' '}
+                  <span className="text-text-secondary">a la tarjeta</span>{' '}
+                  <strong className="text-text-muted">{payload.cardTitle}</strong>
+                </>
+              )}
             </p>
           </div>
         );
@@ -269,7 +327,15 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">removió un miembro de una tarjeta</span>
+              <span className="text-text-secondary">removió a</span>{' '}
+              {payload.memberName && <strong className="text-error">{payload.memberName}</strong>}
+              {payload.cardTitle && (
+                <>
+                  {' '}
+                  <span className="text-text-secondary">de la tarjeta</span>{' '}
+                  <strong className="text-text-muted">{payload.cardTitle}</strong>
+                </>
+              )}
             </p>
           </div>
         );
@@ -279,7 +345,15 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">agregó una etiqueta</span>
+              <span className="text-text-secondary">agregó la etiqueta</span>{' '}
+              {payload.labelName && <strong className="text-accent">{payload.labelName}</strong>}
+              {payload.cardTitle && (
+                <>
+                  {' '}
+                  <span className="text-text-secondary">a la tarjeta</span>{' '}
+                  <strong className="text-text-muted">{payload.cardTitle}</strong>
+                </>
+              )}
             </p>
           </div>
         );
@@ -289,7 +363,15 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">removió una etiqueta</span>
+              <span className="text-text-secondary">removió la etiqueta</span>{' '}
+              {payload.labelName && <strong className="text-error">{payload.labelName}</strong>}
+              {payload.cardTitle && (
+                <>
+                  {' '}
+                  <span className="text-text-secondary">de la tarjeta</span>{' '}
+                  <strong className="text-text-muted">{payload.cardTitle}</strong>
+                </>
+              )}
             </p>
           </div>
         );

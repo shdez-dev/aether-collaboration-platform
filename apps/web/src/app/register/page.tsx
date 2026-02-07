@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register, isLoading, error, isAuthenticated, clearError } = useAuthStore();
+  const { register, isLoading, error, isAuthenticated, isHydrated, clearError } = useAuthStore();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -15,12 +15,12 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [validationError, setValidationError] = useState('');
 
-  // Redirigir si ya está autenticado
+  // Redirigir si ya está autenticado (SOLO después de hidratar)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isHydrated && isAuthenticated) {
       router.push('/dashboard');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isHydrated, router]);
 
   // Limpiar error al desmontar
   useEffect(() => {

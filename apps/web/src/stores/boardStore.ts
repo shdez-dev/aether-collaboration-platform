@@ -240,23 +240,142 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         break;
       }
 
-      case 'card.member.assigned':
-      case 'card.member.unassigned': {
-        const { cardId } = event.payload as any;
-        if (cardId) {
-          // Recargar card para obtener lista actualizada de miembros
-          // Esto se puede optimizar más adelante
-          console.log('[BoardStore] Member assignment changed for card:', cardId);
+      // ✅ FIXED: Actualización en tiempo real de miembros asignados
+      case 'card.member.assigned': {
+        const { cardId, member } = event.payload as any;
+        if (cardId && member) {
+          console.log('[BoardStore] ✅ Member assigned to card:', cardId, member);
+
+          // Obtener la card actual del store
+          const allCards = cardStore.cards;
+          let currentCard: Card | null = null;
+
+          // Buscar la card en todas las listas
+          for (const cards of Object.values(allCards)) {
+            const found = cards.find((c) => c.id === cardId);
+            if (found) {
+              currentCard = found;
+              break;
+            }
+          }
+
+          if (currentCard) {
+            // Verificar que el miembro no esté ya asignado (evitar duplicados)
+            const alreadyAssigned = (currentCard.members || []).some((m) => m.id === member.id);
+
+            if (!alreadyAssigned) {
+              // Agregar el nuevo miembro a la lista de miembros
+              const updatedMembers = [...(currentCard.members || []), member];
+              cardStore.updateCard(cardId, { members: updatedMembers });
+
+              // Si la card está seleccionada en el modal, actualizarla también
+              if (cardStore.selectedCard?.id === cardId) {
+                cardStore.setSelectedCard({ ...currentCard, members: updatedMembers });
+              }
+
+              console.log('[BoardStore] ✅ Card members updated:', updatedMembers);
+            }
+          }
         }
         break;
       }
 
-      case 'card.label.added':
+      case 'card.member.unassigned': {
+        const { cardId, memberId } = event.payload as any;
+        if (cardId && memberId) {
+          console.log('[BoardStore] ✅ Member unassigned from card:', cardId, memberId);
+
+          // Obtener la card actual del store
+          const allCards = cardStore.cards;
+          let currentCard: Card | null = null;
+
+          // Buscar la card en todas las listas
+          for (const cards of Object.values(allCards)) {
+            const found = cards.find((c) => c.id === cardId);
+            if (found) {
+              currentCard = found;
+              break;
+            }
+          }
+
+          if (currentCard) {
+            // Remover el miembro de la lista
+            const updatedMembers = (currentCard.members || []).filter((m) => m.id !== memberId);
+            cardStore.updateCard(cardId, { members: updatedMembers });
+
+            // Si la card está seleccionada en el modal, actualizarla también
+            if (cardStore.selectedCard?.id === cardId) {
+              cardStore.setSelectedCard({ ...currentCard, members: updatedMembers });
+            }
+
+            console.log('[BoardStore] ✅ Card members updated:', updatedMembers);
+          }
+        }
+        break;
+      }
+
+      // ✅ FIXED: Actualización en tiempo real de labels
+      case 'card.label.added': {
+        const { cardId, label } = event.payload as any;
+        if (cardId && label) {
+          console.log('[BoardStore] ✅ Label added to card:', cardId, label);
+
+          // Obtener la card actual del store
+          const allCards = cardStore.cards;
+          let currentCard: Card | null = null;
+
+          // Buscar la card en todas las listas
+          for (const cards of Object.values(allCards)) {
+            const found = cards.find((c) => c.id === cardId);
+            if (found) {
+              currentCard = found;
+              break;
+            }
+          }
+
+          if (currentCard) {
+            // Verificar que el label no esté ya asignado
+            const alreadyAssigned = (currentCard.labels || []).some((l) => l.id === label.id);
+
+            if (!alreadyAssigned) {
+              const updatedLabels = [...(currentCard.labels || []), label];
+              cardStore.updateCard(cardId, { labels: updatedLabels });
+
+              if (cardStore.selectedCard?.id === cardId) {
+                cardStore.setSelectedCard({ ...currentCard, labels: updatedLabels });
+              }
+            }
+          }
+        }
+        break;
+      }
+
       case 'card.label.removed': {
-        const { cardId } = event.payload as any;
-        if (cardId) {
-          // Recargar card para obtener lista actualizada de labels
-          console.log('[BoardStore] Label changed for card:', cardId);
+        const { cardId, labelId } = event.payload as any;
+        if (cardId && labelId) {
+          console.log('[BoardStore] ✅ Label removed from card:', cardId, labelId);
+
+          // Obtener la card actual del store
+          const allCards = cardStore.cards;
+          let currentCard: Card | null = null;
+
+          // Buscar la card en todas las listas
+          for (const cards of Object.values(allCards)) {
+            const found = cards.find((c) => c.id === cardId);
+            if (found) {
+              currentCard = found;
+              break;
+            }
+          }
+
+          if (currentCard) {
+            const updatedLabels = (currentCard.labels || []).filter((l) => l.id !== labelId);
+            cardStore.updateCard(cardId, { labels: updatedLabels });
+
+            if (cardStore.selectedCard?.id === cardId) {
+              cardStore.setSelectedCard({ ...currentCard, labels: updatedLabels });
+            }
+          }
         }
         break;
       }

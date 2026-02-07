@@ -21,6 +21,7 @@ export class EventStoreService {
    * @param userId - ID del usuario que genera el evento
    * @param boardId - ID del board (opcional, para WebSocket broadcast)
    * @param socketId - ID del socket que originó el evento (opcional, para evitar echo)
+   * @param targetUserId - ID de usuario específico para envío directo (opcional)
    * @returns El evento creado
    */
   async emit<T extends EventType>(
@@ -28,7 +29,8 @@ export class EventStoreService {
     payload: unknown,
     userId: UserId,
     boardId?: string,
-    socketId?: string
+    socketId?: string,
+    targetUserId?: string
   ): Promise<Event> {
     const eventId = uuidv7() as EventId;
     const timestamp = Date.now();
@@ -82,13 +84,19 @@ export class EventStoreService {
       // No fallar si Redis no está disponible
     }
 
-    // Broadcast via WebSocket si hay boardId
-    if (boardId) {
-      try {
-        // Import dinámico para evitar dependencia circular
-        const { getRealtimeGateway } = await import('../websocket/RealtimeGateway');
-        const gateway = getRealtimeGateway();
+    // Broadcast via WebSocket
+    try {
+      // Import dinámico para evitar dependencia circular
+      const { getRealtimeGateway } = await import('../websocket/RealtimeGateway');
+      const gateway = getRealtimeGateway();
 
+      // Si hay un usuario objetivo específico, enviar directamente
+      if (targetUserId) {
+        gateway.sendToUser(targetUserId, event);
+      }
+
+      // Si hay boardId, broadcast al board
+      if (boardId) {
         if (socketId) {
           // Broadcast a todos EXCEPTO el socket que originó el evento
           gateway.broadcastToBoardExcept(boardId, event, socketId);
@@ -96,13 +104,18 @@ export class EventStoreService {
           // Broadcast a todos
           gateway.broadcastToBoard(boardId, event);
         }
-      } catch (error) {
-        console.warn('[EventStore] WebSocket gateway not available:', error);
-        // No fallar si WebSocket no está disponible
       }
+    } catch (error) {
+      console.warn('[EventStore] WebSocket gateway not available:', error);
+      // No fallar si WebSocket no está disponible
     }
 
-    console.log(`[EVENT] ${type}`, { eventId, userId, boardId: boardId || 'none' });
+    console.log(`[EVENT] ${type}`, {
+      eventId,
+      userId,
+      boardId: boardId || 'none',
+      targetUserId: targetUserId || 'none',
+    });
 
     return event;
   }
