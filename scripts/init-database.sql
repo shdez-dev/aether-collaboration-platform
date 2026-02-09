@@ -269,6 +269,103 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read) WHERE read = FALSE;
 
 
+-- Tabla principal de documentos
+CREATE TABLE IF NOT EXISTS documents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  content TEXT DEFAULT '', -- Texto plano extraído para búsqueda
+  yjs_state BYTEA, -- Estado binario serializado de Yjs
+  created_by UUID NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_documents_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  CONSTRAINT fk_documents_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Índices para performance
+CREATE INDEX IF NOT EXISTS idx_documents_workspace ON documents(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_documents_created_by ON documents(created_by);
+CREATE INDEX IF NOT EXISTS idx_documents_updated_at ON documents(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_title_search ON documents USING gin(to_tsvector('english', title));
+CREATE INDEX IF NOT EXISTS idx_documents_content_search ON documents USING gin(to_tsvector('english', content));
+
+-- Tabla de versiones del documento (snapshots para historial)
+CREATE TABLE IF NOT EXISTS document_versions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  document_id UUID NOT NULL,
+  yjs_state BYTEA NOT NULL, -- Snapshot del estado Yjs en ese momento
+  metadata JSONB, -- { operationCount: number, author: string, timestamp: number, description?: string }
+  created_by UUID NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_document_versions_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+  CONSTRAINT fk_document_versions_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Índices para versiones
+CREATE INDEX IF NOT EXISTS idx_document_versions_document ON document_versions(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_versions_created_at ON document_versions(created_at DESC);
+
+-- Tabla de comentarios en documentos
+CREATE TABLE IF NOT EXISTS document_comments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  document_id UUID NOT NULL,
+  content TEXT NOT NULL,
+  position JSONB NOT NULL, -- { from: number, to: number } - rango de caracteres en el documento
+  resolved BOOLEAN DEFAULT FALSE,
+  created_by UUID NOT NULL,
+  parent_id UUID, -- Para threading (respuestas a comentarios)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_document_comments_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+  CONSTRAINT fk_document_comments_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_document_comments_parent FOREIGN KEY (parent_id) REFERENCES document_comments(id) ON DELETE CASCADE
+);
+
+-- Índices para comentarios
+CREATE INDEX IF NOT EXISTS idx_document_comments_document ON document_comments(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_comments_created_by ON document_comments(created_by);
+CREATE INDEX IF NOT EXISTS idx_document_comments_parent ON document_comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_document_comments_resolved ON document_comments(resolved);
+
+-- Tabla de permisos específicos de documentos (opcional, por ahora heredan del workspace)
+CREATE TABLE IF NOT EXISTS document_permissions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  document_id UUID NOT NULL,
+  user_id UUID,
+  permission VARCHAR(20) NOT NULL CHECK (permission IN ('VIEW', 'COMMENT', 'EDIT')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_document_permissions_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+  CONSTRAINT fk_document_permissions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT unique_document_user_permission UNIQUE(document_id, user_id)
+);
+
+-- Índices para permisos
+CREATE INDEX IF NOT EXISTS idx_document_permissions_document ON document_permissions(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_permissions_user ON document_permissions(user_id);
+
+-- Trigger para auto-actualizar updated_at en documents
+CREATE OR REPLACE FUNCTION update_document_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_document_timestamp
+  BEFORE UPDATE ON documents
+  FOR EACH ROW
+  WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION update_document_updated_at();
+
+-- Trigger para auto-actualizar updated_at en document_comments
+CREATE TRIGGER trigger_update_document_comment_timestamp
+  BEFORE UPDATE ON document_comments
+  FOR EACH ROW
+  WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION update_document_updated_at();
+
 -- Success message
 SELECT 'Database schema created successfully!' as message;
 

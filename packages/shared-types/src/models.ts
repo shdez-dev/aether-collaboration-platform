@@ -29,6 +29,22 @@ export enum CardPriority {
   HIGH = 'HIGH',
 }
 
+/**
+ * Document Permission Levels
+ */
+export enum DocumentPermissionLevel {
+  VIEW = 'VIEW',
+  COMMENT = 'COMMENT',
+  EDIT = 'EDIT',
+}
+
+export type DocumentPermission = 'VIEW' | 'COMMENT' | 'EDIT';
+
+/**
+ * Document Export Formats
+ */
+export type DocumentExportFormat = 'markdown' | 'pdf' | 'html';
+
 // ============================================================================
 // USER
 // ============================================================================
@@ -62,6 +78,7 @@ export interface Workspace {
   // Propiedades opcionales calculadas
   userRole?: WorkspaceRole;
   boardCount?: number;
+  documentCount?: number;
   memberCount?: number;
 }
 
@@ -232,19 +249,371 @@ export interface CommentWithReplies extends CommentWithUser {
 }
 
 // ============================================================================
-// DOCUMENT
+// DOCUMENT - MILESTONE 7
 // ============================================================================
 
+/**
+ * Base Document Model
+ */
 export interface Document {
   id: string;
   workspaceId: string;
   title: string;
-  content: Record<string, unknown>; // JSON structure for blocks
-  version: number;
+  content: string; // Texto plano extraído para búsqueda
+  yjsState?: Uint8Array; // Estado binario serializado de Yjs
   createdBy: string;
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * Document with Creator Info
+ */
+export interface DocumentWithCreator extends Document {
+  creator: User;
+}
+
+/**
+ * Document with full details including permissions and collaborators
+ */
+export interface DocumentWithDetails extends DocumentWithCreator {
+  permissions: DocumentPermissionWithUser[];
+  activeUsers: ActiveDocumentUser[];
+  commentCount: number;
+  versionCount: number;
+  lastModifiedBy?: User;
+  userPermission?: DocumentPermission; // Permiso del usuario actual
+}
+
+/**
+ * Document Version (Snapshot)
+ */
+export interface DocumentVersion {
+  id: string;
+  documentId: string;
+  yjsState: Uint8Array; // Snapshot del estado Yjs
+  metadata: DocumentVersionMetadata;
+  createdBy: string;
+  createdAt: string;
+}
+
+/**
+ * Document Version Metadata
+ */
+export interface DocumentVersionMetadata {
+  operationCount?: number;
+  description?: string;
+  contentPreview?: string; // Primeras 200 chars del contenido
+  changesSummary?: string; // "Added 50 words, removed 10 words"
+}
+
+/**
+ * Document Version with Creator
+ */
+export interface DocumentVersionWithCreator extends DocumentVersion {
+  creator: User;
+}
+
+/**
+ * Document Comment
+ */
+export interface DocumentComment {
+  id: string;
+  documentId: string;
+  content: string;
+  position: DocumentCommentPosition; // Posición en el documento
+  resolved: boolean;
+  createdBy: string;
+  parentId?: string; // Para threading
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Position of a comment in the document
+ */
+export interface DocumentCommentPosition {
+  from: number; // Character offset start
+  to: number; // Character offset end
+}
+
+/**
+ * Document Comment with User
+ */
+export interface DocumentCommentWithUser extends DocumentComment {
+  user: User;
+  replies?: DocumentCommentWithUser[]; // Para threading
+}
+
+/**
+ * Document Permission
+ */
+export interface DocumentPermissionEntry {
+  id: string;
+  documentId: string;
+  userId?: string;
+  permission: DocumentPermission;
+  createdAt: string;
+}
+
+/**
+ * Document Permission with User Info
+ */
+export interface DocumentPermissionWithUser extends DocumentPermissionEntry {
+  user: User;
+}
+
+/**
+ * Document Template
+ */
+export interface DocumentTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  category: DocumentTemplateCategory;
+  content: any; // ProseMirror JSON structure
+  preview?: string; // URL or base64 image
+  icon?: string;
+}
+
+/**
+ * Template Categories
+ */
+export type DocumentTemplateCategory =
+  | 'meeting-notes'
+  | 'project-brief'
+  | 'technical-spec'
+  | 'retrospective'
+  | 'blank'
+  | 'custom';
+
+/**
+ * Built-in templates
+ */
+export const DOCUMENT_TEMPLATES: Record<DocumentTemplateCategory, DocumentTemplate> = {
+  blank: {
+    id: 'blank',
+    name: 'Blank Document',
+    description: 'Start with an empty document',
+    category: 'blank',
+    content: {
+      type: 'doc',
+      content: [{ type: 'paragraph' }],
+    },
+  },
+  'meeting-notes': {
+    id: 'meeting-notes',
+    name: 'Meeting Notes',
+    description: 'Template for recording meeting discussions',
+    category: 'meeting-notes',
+    content: {
+      type: 'doc',
+      content: [
+        {
+          type: 'heading',
+          attrs: { level: 1 },
+          content: [{ type: 'text', text: 'Meeting Notes' }],
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Date:' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Attendees:' }],
+        },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }],
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Agenda:' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Notes:' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Action Items:' }],
+        },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }],
+        },
+      ],
+    },
+  },
+  'project-brief': {
+    id: 'project-brief',
+    name: 'Project Brief',
+    description: 'Template for project planning and overview',
+    category: 'project-brief',
+    content: {
+      type: 'doc',
+      content: [
+        {
+          type: 'heading',
+          attrs: { level: 1 },
+          content: [{ type: 'text', text: 'Project Brief' }],
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Overview' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Goals' }],
+        },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }],
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Stakeholders' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Timeline' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Success Criteria' }],
+        },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }],
+        },
+      ],
+    },
+  },
+  'technical-spec': {
+    id: 'technical-spec',
+    name: 'Technical Specification',
+    description: 'Template for technical documentation',
+    category: 'technical-spec',
+    content: {
+      type: 'doc',
+      content: [
+        {
+          type: 'heading',
+          attrs: { level: 1 },
+          content: [{ type: 'text', text: 'Technical Specification' }],
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Problem Statement' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Proposed Solution' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Architecture' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Implementation Details' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Testing Strategy' }],
+        },
+        { type: 'paragraph' },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Risks & Mitigation' }],
+        },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }],
+        },
+      ],
+    },
+  },
+  retrospective: {
+    id: 'retrospective',
+    name: 'Retrospective',
+    description: 'Template for team retrospectives',
+    category: 'retrospective',
+    content: {
+      type: 'doc',
+      content: [
+        {
+          type: 'heading',
+          attrs: { level: 1 },
+          content: [{ type: 'text', text: 'Retrospective' }],
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'What went well? 🎉' }],
+        },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }],
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'What could be improved? 🤔' }],
+        },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }],
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Action items 🎯' }],
+        },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }],
+        },
+      ],
+    },
+  },
+  custom: {
+    id: 'custom',
+    name: 'Custom Template',
+    description: 'Create your own template',
+    category: 'custom',
+    content: {
+      type: 'doc',
+      content: [{ type: 'paragraph' }],
+    },
+  },
+};
 
 // ============================================================================
 // ATTACHMENT
@@ -304,6 +673,33 @@ export interface ActiveUser {
 }
 
 /**
+ * Active Users in Document (Awareness)
+ */
+export interface DocumentPresence {
+  documentId: string;
+  users: ActiveDocumentUser[];
+  updatedAt: string;
+}
+
+/**
+ * Active User in Document
+ */
+export interface ActiveDocumentUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  color: string; // Color del cursor/selección
+  cursor?: number; // Posición actual del cursor
+  selection?: {
+    from: number;
+    to: number;
+  };
+  joinedAt: string;
+  lastActivity: string;
+}
+
+/**
  * Typing Indicator State
  * Estado de quien está escribiendo en una card
  */
@@ -315,20 +711,18 @@ export interface TypingIndicator {
 }
 
 /**
- * Cursor Position (para editors colaborativos - futuro)
+ * Cursor Position (para editores colaborativos)
  */
 export interface CursorPosition {
   userId: string;
   documentId: string;
-  position: {
-    line: number;
-    column: number;
-  };
+  position: number; // Character offset in document
   selection?: {
-    start: { line: number; column: number };
-    end: { line: number; column: number };
+    from: number;
+    to: number;
   };
   color: string; // Color del cursor del usuario
+  userName: string;
 }
 
 /**
@@ -339,6 +733,7 @@ export interface SocketConnection {
   socketId: string;
   userId: string;
   boardId?: string;
+  documentId?: string;
   connectedAt: string;
   lastPing: string;
 }
@@ -348,7 +743,8 @@ export interface SocketConnection {
  * Estadísticas de actividad en tiempo real
  */
 export interface RealtimeStats {
-  boardId: string;
+  boardId?: string;
+  documentId?: string;
   activeUsers: number;
   totalConnections: number;
   eventsLastMinute: number;
@@ -365,7 +761,10 @@ export type NotificationType =
   | 'CARD_ASSIGNED'
   | 'CARD_DUE_SOON'
   | 'BOARD_INVITE'
-  | 'WORKSPACE_INVITE';
+  | 'WORKSPACE_INVITE'
+  | 'DOCUMENT_MENTION'
+  | 'DOCUMENT_SHARED'
+  | 'DOCUMENT_COMMENT';
 
 /**
  * Notification
@@ -409,6 +808,15 @@ export interface NotificationData {
   workspaceName?: string;
   invitedBy?: string;
   invitedByName?: string;
+
+  // Para DOCUMENT_MENTION / DOCUMENT_COMMENT / DOCUMENT_SHARED
+  documentId?: string;
+  documentTitle?: string;
+  documentCommentId?: string;
+  documentCommentPreview?: string;
+  sharedBy?: string;
+  sharedByName?: string;
+  permission?: DocumentPermission;
 
   // Otros datos genéricos
   [key: string]: any;

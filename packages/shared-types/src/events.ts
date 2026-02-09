@@ -19,6 +19,8 @@ export type BoardId = Brand<string, 'BoardId'>;
 export type ListId = Brand<string, 'ListId'>;
 export type CardId = Brand<string, 'CardId'>;
 export type DocumentId = Brand<string, 'DocumentId'>;
+export type DocumentVersionId = Brand<string, 'DocumentVersionId'>;
+export type DocumentCommentId = Brand<string, 'DocumentCommentId'>;
 export type CommentId = Brand<string, 'CommentId'>;
 export type LabelId = Brand<string, 'LabelId'>;
 export type NotificationId = Brand<string, 'NotificationId'>;
@@ -134,6 +136,19 @@ export type DocumentEventType =
   | 'document.created'
   | 'document.updated'
   | 'document.deleted'
+  | 'document.title.changed'
+  | 'document.operation.applied'
+  | 'document.format.applied'
+  | 'document.version.created'
+  | 'document.version.restored'
+  | 'document.exported'
+  | 'document.permission.updated'
+  | 'document.comment.added'
+  | 'document.comment.updated'
+  | 'document.comment.deleted'
+  | 'document.comment.resolved'
+  | 'document.user.joined'
+  | 'document.user.left'
   | 'document.cursor.moved'
   | 'document.selection.changed';
 
@@ -600,6 +615,311 @@ export interface CommentMentionedPayload {
 export type CommentMentionedEvent = BaseEvent<'comment.mentioned', CommentMentionedPayload>;
 
 // ============================================================================
+// DOCUMENT EVENT PAYLOADS
+// ============================================================================
+
+/**
+ * Document Created Event
+ */
+export interface DocumentCreatedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  title: string;
+  createdBy: UserId;
+  templateId?: string; // Si se creó desde una plantilla
+}
+
+export type DocumentCreatedEvent = BaseEvent<'document.created', DocumentCreatedPayload>;
+
+/**
+ * Document Updated Event
+ * Para cambios generales del documento (no contenido Yjs)
+ */
+export interface DocumentUpdatedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  changes: {
+    title?: string;
+    content?: string; // Texto plano extraído
+  };
+  updatedBy: UserId;
+}
+
+export type DocumentUpdatedEvent = BaseEvent<'document.updated', DocumentUpdatedPayload>;
+
+/**
+ * Document Title Changed Event
+ */
+export interface DocumentTitleChangedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  oldTitle: string;
+  newTitle: string;
+  changedBy: UserId;
+}
+
+export type DocumentTitleChangedEvent = BaseEvent<
+  'document.title.changed',
+  DocumentTitleChangedPayload
+>;
+
+/**
+ * Document Deleted Event
+ */
+export interface DocumentDeletedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  deletedBy: UserId;
+}
+
+export type DocumentDeletedEvent = BaseEvent<'document.deleted', DocumentDeletedPayload>;
+
+/**
+ * Document Operation Applied Event
+ * Para operaciones Yjs (CRDT) - granular
+ */
+export interface DocumentOperationAppliedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  operation: {
+    type: 'insert' | 'delete' | 'format' | 'update';
+    position?: number;
+    length?: number;
+    content?: string;
+    attributes?: Record<string, any>;
+  };
+  userId: UserId;
+  vectorClock: VectorClock; // Para ordenamiento causal
+}
+
+export type DocumentOperationAppliedEvent = BaseEvent<
+  'document.operation.applied',
+  DocumentOperationAppliedPayload
+>;
+
+/**
+ * Document Format Applied Event
+ * Para cambios de formato (negrita, cursiva, etc.)
+ */
+export interface DocumentFormatAppliedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  format: {
+    type: 'bold' | 'italic' | 'underline' | 'strike' | 'heading' | 'list' | 'link' | 'code';
+    from: number;
+    to: number;
+    value?: any; // e.g., nivel de heading, URL del link, etc.
+  };
+  appliedBy: UserId;
+}
+
+export type DocumentFormatAppliedEvent = BaseEvent<
+  'document.format.applied',
+  DocumentFormatAppliedPayload
+>;
+
+/**
+ * Document Version Created Event
+ * Snapshot automático del documento
+ */
+export interface DocumentVersionCreatedPayload {
+  versionId: DocumentVersionId;
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  metadata: {
+    operationCount?: number;
+    description?: string;
+  };
+  createdBy: UserId;
+}
+
+export type DocumentVersionCreatedEvent = BaseEvent<
+  'document.version.created',
+  DocumentVersionCreatedPayload
+>;
+
+/**
+ * Document Version Restored Event
+ */
+export interface DocumentVersionRestoredPayload {
+  versionId: DocumentVersionId;
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  restoredBy: UserId;
+}
+
+export type DocumentVersionRestoredEvent = BaseEvent<
+  'document.version.restored',
+  DocumentVersionRestoredPayload
+>;
+
+/**
+ * Document Exported Event
+ */
+export interface DocumentExportedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  format: 'markdown' | 'pdf' | 'html';
+  exportedBy: UserId;
+}
+
+export type DocumentExportedEvent = BaseEvent<'document.exported', DocumentExportedPayload>;
+
+/**
+ * Document Permission Updated Event
+ */
+export interface DocumentPermissionUpdatedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  targetUserId?: UserId;
+  permission: 'VIEW' | 'COMMENT' | 'EDIT';
+  updatedBy: UserId;
+}
+
+export type DocumentPermissionUpdatedEvent = BaseEvent<
+  'document.permission.updated',
+  DocumentPermissionUpdatedPayload
+>;
+
+/**
+ * Document Comment Added Event
+ */
+export interface DocumentCommentAddedPayload {
+  commentId: DocumentCommentId;
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  content: string;
+  position: {
+    from: number;
+    to: number;
+  };
+  mentions?: UserId[];
+  parentId?: DocumentCommentId; // Para threading
+  createdBy: UserId;
+}
+
+export type DocumentCommentAddedEvent = BaseEvent<
+  'document.comment.added',
+  DocumentCommentAddedPayload
+>;
+
+/**
+ * Document Comment Updated Event
+ */
+export interface DocumentCommentUpdatedPayload {
+  commentId: DocumentCommentId;
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  changes: {
+    content?: string;
+    mentions?: UserId[];
+  };
+  updatedBy: UserId;
+}
+
+export type DocumentCommentUpdatedEvent = BaseEvent<
+  'document.comment.updated',
+  DocumentCommentUpdatedPayload
+>;
+
+/**
+ * Document Comment Deleted Event
+ */
+export interface DocumentCommentDeletedPayload {
+  commentId: DocumentCommentId;
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  deletedBy: UserId;
+}
+
+export type DocumentCommentDeletedEvent = BaseEvent<
+  'document.comment.deleted',
+  DocumentCommentDeletedPayload
+>;
+
+/**
+ * Document Comment Resolved Event
+ */
+export interface DocumentCommentResolvedPayload {
+  commentId: DocumentCommentId;
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  resolved: boolean;
+  resolvedBy: UserId;
+}
+
+export type DocumentCommentResolvedEvent = BaseEvent<
+  'document.comment.resolved',
+  DocumentCommentResolvedPayload
+>;
+
+/**
+ * Document User Joined Event (Awareness/Presencia)
+ */
+export interface DocumentUserJoinedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  userId: UserId;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    color: string; // Color del cursor
+  };
+}
+
+export type DocumentUserJoinedEvent = BaseEvent<'document.user.joined', DocumentUserJoinedPayload>;
+
+/**
+ * Document User Left Event
+ */
+export interface DocumentUserLeftPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  userId: UserId;
+}
+
+export type DocumentUserLeftEvent = BaseEvent<'document.user.left', DocumentUserLeftPayload>;
+
+/**
+ * Document Cursor Moved Event (Ephemeral)
+ */
+export interface DocumentCursorMovedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  userId: UserId;
+  position: number; // Posición en el documento
+  userName: string;
+  userColor: string;
+}
+
+export type DocumentCursorMovedEvent = BaseEvent<
+  'document.cursor.moved',
+  DocumentCursorMovedPayload
+>;
+
+/**
+ * Document Selection Changed Event (Ephemeral)
+ */
+export interface DocumentSelectionChangedPayload {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+  userId: UserId;
+  selection: {
+    from: number;
+    to: number;
+  };
+  userName: string;
+  userColor: string;
+}
+
+export type DocumentSelectionChangedEvent = BaseEvent<
+  'document.selection.changed',
+  DocumentSelectionChangedPayload
+>;
+
+// ============================================================================
 // PRESENCE EVENT PAYLOADS
 // ============================================================================
 
@@ -682,7 +1002,7 @@ export type UserTypingStoppedEvent = BaseEvent<
  */
 export interface CursorMovedPayload {
   userId: UserId;
-  documentId: DocumentId;
+  documentId?: DocumentId;
   position: {
     x: number;
     y: number;
@@ -702,13 +1022,21 @@ export type CursorMovedEvent = BaseEvent<'presence.cursor.moved', CursorMovedPay
 export interface NotificationCreatedPayload {
   notificationId: NotificationId;
   userId: UserId;
-  type: 'COMMENT_MENTION' | 'CARD_ASSIGNED' | 'CARD_DUE_SOON';
+  type:
+    | 'COMMENT_MENTION'
+    | 'CARD_ASSIGNED'
+    | 'CARD_DUE_SOON'
+    | 'DOCUMENT_MENTION'
+    | 'DOCUMENT_SHARED'
+    | 'DOCUMENT_COMMENT';
   title: string;
   message: string;
   data: {
     cardId?: CardId;
     cardTitle?: string;
-    commentId?: CommentId;
+    documentId?: DocumentId;
+    documentTitle?: string;
+    commentId?: CommentId | DocumentCommentId;
     commentPreview?: string;
     authorId?: UserId;
     authorName?: string;
@@ -798,6 +1126,24 @@ export type Event =
   | CommentUpdatedEvent
   | CommentDeletedEvent
   | CommentMentionedEvent
+  | DocumentCreatedEvent
+  | DocumentUpdatedEvent
+  | DocumentTitleChangedEvent
+  | DocumentDeletedEvent
+  | DocumentOperationAppliedEvent
+  | DocumentFormatAppliedEvent
+  | DocumentVersionCreatedEvent
+  | DocumentVersionRestoredEvent
+  | DocumentExportedEvent
+  | DocumentPermissionUpdatedEvent
+  | DocumentCommentAddedEvent
+  | DocumentCommentUpdatedEvent
+  | DocumentCommentDeletedEvent
+  | DocumentCommentResolvedEvent
+  | DocumentUserJoinedEvent
+  | DocumentUserLeftEvent
+  | DocumentCursorMovedEvent
+  | DocumentSelectionChangedEvent
   | NotificationCreatedEvent
   | NotificationReadEvent
   | NotificationReadAllEvent
@@ -837,6 +1183,8 @@ export const EPHEMERAL_EVENTS = new Set<EventType>([
   'presence.user.typing',
   'presence.user.typing.stopped',
   'presence.cursor.moved',
+  'document.cursor.moved',
+  'document.selection.changed',
 ]);
 
 export function isEphemeralEvent(eventType: EventType): boolean {
@@ -863,9 +1211,12 @@ export interface WebSocketMessage<T = unknown> {
 export type WebSocketCommand =
   | 'join.board'
   | 'leave.board'
+  | 'join.document'
+  | 'leave.document'
   | 'typing.start'
   | 'typing.stop'
-  | 'cursor.move';
+  | 'cursor.move'
+  | 'selection.change';
 
 /**
  * Join Board Command
@@ -882,6 +1233,22 @@ export interface LeaveBoardCommand {
 }
 
 /**
+ * Join Document Command
+ */
+export interface JoinDocumentCommand {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+}
+
+/**
+ * Leave Document Command
+ */
+export interface LeaveDocumentCommand {
+  documentId: DocumentId;
+  workspaceId: WorkspaceId;
+}
+
+/**
  * Typing Start Command
  */
 export interface TypingStartCommand {
@@ -893,4 +1260,23 @@ export interface TypingStartCommand {
  */
 export interface TypingStopCommand {
   cardId: CardId;
+}
+
+/**
+ * Cursor Move Command
+ */
+export interface CursorMoveCommand {
+  documentId: DocumentId;
+  position: number;
+}
+
+/**
+ * Selection Change Command
+ */
+export interface SelectionChangeCommand {
+  documentId: DocumentId;
+  selection: {
+    from: number;
+    to: number;
+  };
 }
