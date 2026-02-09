@@ -2,7 +2,7 @@
 
 **Plataforma de colaboración en tiempo real para equipos distribuidos**
 
-Sistema de gestión de proyectos y documentos colaborativos con sincronización en tiempo real, arquitectura basada en eventos y soporte offline-first.
+Sistema de gestión de proyectos y documentos colaborativos con sincronización en tiempo real, arquitectura basada en eventos.
 
 > **Estado**: Proyecto en desarrollo activo
 
