@@ -54,8 +54,8 @@ export default function BoardPage() {
     isConnected,
     activeUsers,
   } = useRealtimeBoard(boardId, {
-    onConnect: () => console.log('[BoardPage] Conectado al tiempo real'),
-    onDisconnect: () => console.log('[BoardPage] Desconectado del tiempo real'),
+    onConnect: () => {},
+    onDisconnect: () => {},
   });
 
   const toast = useRealtimeToast();
@@ -102,7 +102,6 @@ export default function BoardPage() {
           }
           return { listId: list.id, cards: [] };
         } catch (error) {
-          console.error(`Error al cargar tarjetas para la lista ${list.id}:`, error);
           return { listId: list.id, cards: [] };
         }
       });
@@ -138,19 +137,15 @@ export default function BoardPage() {
 
     // Verificar permisos según el tipo
     if (activeData?.type === 'list' && !canEditBoard) {
-      console.log('⚠️ No tienes permisos para mover listas');
       return;
     }
 
     if (activeData?.type === 'card' && !canMoveCards) {
-      console.log('⚠️ No tienes permisos para mover cards');
       return;
     }
 
     setActiveId(active.id as string);
     setActiveType(activeData?.type);
-
-    console.log('🎯 Drag started:', activeData);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -160,7 +155,6 @@ export default function BoardPage() {
     setActiveType(null);
 
     if (!over) {
-      console.log('⚠️ Elemento soltado fuera de área válida');
       return;
     }
 
@@ -200,7 +194,6 @@ export default function BoardPage() {
           await reorderList(activeId, newPosition);
           toast.success('Lista reordenada');
         } catch (error) {
-          console.error('Error al reordenar lista:', error);
           toast.error('Error al reordenar lista');
         }
       }
@@ -241,17 +234,8 @@ export default function BoardPage() {
       const currentIndex = fromListCards.findIndex((c) => c.id === cardId);
 
       if (fromListId === toListId && currentIndex === targetPosition) {
-        console.log('ℹ️ Card no cambió de posición');
         return;
       }
-
-      console.log('🎯 Moviendo card:', {
-        cardId,
-        fromListId,
-        toListId,
-        currentPosition: currentIndex,
-        targetPosition,
-      });
 
       // ✅ PASO 1: OPTIMISTIC UPDATE (actualizar UI inmediatamente)
       moveCard(cardId, fromListId, toListId, targetPosition);
@@ -280,12 +264,9 @@ export default function BoardPage() {
         }
 
         const { data } = await response.json();
-        console.log('✅ Card movida exitosamente en la base de datos:', data.card);
 
         toast.moved('Tarjeta', activeCard.title);
       } catch (error: any) {
-        console.error('❌ Error moviendo card:', error);
-
         // ✅ PASO 3: ROLLBACK si falla
         moveCard(cardId, toListId, fromListId, currentIndex);
 

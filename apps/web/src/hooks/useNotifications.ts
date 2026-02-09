@@ -1,10 +1,8 @@
 // apps/web/src/hooks/useNotifications.ts
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { socketService } from '@/services/socketService';
-import type { Event, Notification } from '@aether/types';
-import { toast } from 'sonner';
+import { toast as showToast } from '@/hooks/use-toast';
 
 /**
  * Hook para manejar notificaciones
@@ -23,87 +21,8 @@ export function useNotifications() {
   const deleteNotification = useNotificationStore((state) => state.deleteNotification);
   const toggleDropdown = useNotificationStore((state) => state.toggleDropdown);
   const closeDropdown = useNotificationStore((state) => state.closeDropdown);
-  const addNotification = useNotificationStore((state) => state.addNotification);
-  const updateUnreadCount = useNotificationStore((state) => state.updateUnreadCount);
-
-  const hasLoadedRef = useRef(false);
-
-  // ============================================================================
-  // FETCH INITIAL DATA
-  // ============================================================================
-  useEffect(() => {
-    if (!hasLoadedRef.current) {
-      fetchUnreadCount();
-      hasLoadedRef.current = true;
-    }
-  }, [fetchUnreadCount]);
-
-  // ============================================================================
-  // REALTIME LISTENERS
-  // ============================================================================
-  useEffect(() => {
-    const handleRealtimeEvent = (event: Event) => {
-      // Notification Created
-      if (event.type === 'notification.created') {
-        const payload = event.payload as any;
-        console.log('[useNotifications] Notification created:', payload);
-
-        // Agregar notificación al store
-        const notification: Notification = {
-          id: payload.notificationId || payload.notification?.id,
-          userId: payload.userId,
-          type: payload.type,
-          title: payload.title,
-          message: payload.message,
-          data: payload.data,
-          read: false,
-          createdAt: new Date().toISOString(),
-        };
-
-        addNotification(notification);
-
-        // Mostrar toast
-        toast.info(notification.title, {
-          description: notification.message,
-          duration: 5000,
-        });
-      }
-
-      // Notification Read
-      if (event.type === 'notification.read') {
-        const payload = event.payload as any;
-        console.log('[useNotifications] Notification read:', payload);
-
-        if (payload.unreadCount !== undefined) {
-          updateUnreadCount(payload.unreadCount);
-        }
-      }
-
-      // Notification Read All
-      if (event.type === 'notification.read_all') {
-        const payload = event.payload as any;
-        console.log('[useNotifications] All notifications marked as read');
-
-        updateUnreadCount(0);
-      }
-
-      // Notification Deleted
-      if (event.type === 'notification.deleted') {
-        const payload = event.payload as any;
-        console.log('[useNotifications] Notification deleted:', payload);
-
-        if (payload.unreadCount !== undefined) {
-          updateUnreadCount(payload.unreadCount);
-        }
-      }
-    };
-
-    socketService.onEvent(handleRealtimeEvent);
-
-    return () => {
-      socketService.off('event', handleRealtimeEvent);
-    };
-  }, [addNotification, updateUnreadCount]);
+  // NO escuchamos eventos aquí - eso lo hace NotificationListener globalmente
+  // Este hook solo proporciona acceso al store y acciones
 
   // ============================================================================
   // ACTIONS CON MANEJO DE ERRORES
@@ -114,8 +33,10 @@ export function useNotifications() {
       try {
         await markAsRead(notificationId);
       } catch (error: any) {
-        toast.error('Error al marcar como leída');
-        console.error('[useNotifications] Error marking as read:', error);
+        showToast({
+          title: 'Error al marcar como leída',
+          variant: 'destructive',
+        });
       }
     },
     [markAsRead]
@@ -124,10 +45,14 @@ export function useNotifications() {
   const handleMarkAllAsRead = useCallback(async () => {
     try {
       await markAllAsRead();
-      toast.success('Todas las notificaciones marcadas como leídas');
+      showToast({
+        title: 'Todas las notificaciones marcadas como leídas',
+      });
     } catch (error: any) {
-      toast.error('Error al marcar todas como leídas');
-      console.error('[useNotifications] Error marking all as read:', error);
+      showToast({
+        title: 'Error al marcar todas como leídas',
+        variant: 'destructive',
+      });
     }
   }, [markAllAsRead]);
 
@@ -135,10 +60,14 @@ export function useNotifications() {
     async (notificationId: string) => {
       try {
         await deleteNotification(notificationId);
-        toast.success('Notificación eliminada');
+        showToast({
+          title: 'Notificación eliminada',
+        });
       } catch (error: any) {
-        toast.error('Error al eliminar notificación');
-        console.error('[useNotifications] Error deleting notification:', error);
+        showToast({
+          title: 'Error al eliminar notificación',
+          variant: 'destructive',
+        });
       }
     },
     [deleteNotification]
@@ -148,8 +77,10 @@ export function useNotifications() {
     try {
       await fetchNotifications();
     } catch (error: any) {
-      toast.error('Error al cargar notificaciones');
-      console.error('[useNotifications] Error loading notifications:', error);
+      showToast({
+        title: 'Error al cargar notificaciones',
+        variant: 'destructive',
+      });
     }
   }, [fetchNotifications]);
 
@@ -184,52 +115,23 @@ export function useNotifications() {
 }
 
 /**
- * Hook para escuchar notificaciones en tiempo real sin cargar la lista completa
- * Útil para mostrar solo el badge de contador
+ * Hook simplificado para mostrar solo el contador de notificaciones
+ * NO escucha eventos en tiempo real - eso lo hace useNotifications
+ * Solo lee del store compartido
  */
 export function useNotificationCount() {
   const unreadCount = useNotificationStore((state) => state.unreadCount);
   const fetchUnreadCount = useNotificationStore((state) => state.fetchUnreadCount);
-  const updateUnreadCount = useNotificationStore((state) => state.updateUnreadCount);
 
   const hasLoadedRef = useRef(false);
 
-  // Fetch inicial
+  // Fetch inicial SOLO si el store está vacío
   useEffect(() => {
     if (!hasLoadedRef.current) {
       fetchUnreadCount();
       hasLoadedRef.current = true;
     }
   }, [fetchUnreadCount]);
-
-  // Escuchar eventos de tiempo real
-  useEffect(() => {
-    const handleRealtimeEvent = (event: Event) => {
-      if (event.type === 'notification.created') {
-        // Incrementar contador
-        useNotificationStore.setState((state) => ({
-          unreadCount: state.unreadCount + 1,
-        }));
-      }
-
-      if (
-        event.type === 'notification.read' ||
-        event.type === 'notification.read_all' ||
-        event.type === 'notification.deleted'
-      ) {
-        const payload = event.payload as any;
-        if (payload.unreadCount !== undefined) {
-          updateUnreadCount(payload.unreadCount);
-        }
-      }
-    };
-
-    socketService.onEvent(handleRealtimeEvent);
-
-    return () => {
-      socketService.off('event', handleRealtimeEvent);
-    };
-  }, [updateUnreadCount]);
 
   return {
     unreadCount,

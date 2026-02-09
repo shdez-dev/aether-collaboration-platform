@@ -82,7 +82,6 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
     return data;
   } catch (error) {
-    console.error('API Request Error:', error);
     return {
       success: false,
       error: {
@@ -168,7 +167,6 @@ export const useAuthStore = create<AuthState>()(
             error: null,
           });
 
-          console.log('✓ Login exitoso:', user.email);
 
           // Inicializar socket después de login exitoso
           if (socketService && accessToken) {
@@ -186,11 +184,9 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const { accessToken } = get();
 
-        console.log('[AuthStore] Cerrando sesión...');
 
         // 1. DESCONECTAR SOCKET PRIMERO
         if (socketService) {
-          console.log('[AuthStore] Desconectando socket...');
           socketService.disconnect();
         }
 
@@ -211,7 +207,6 @@ export const useAuthStore = create<AuthState>()(
         // 3. Limpiar estado local
         get().clearAuth();
 
-        console.log('✓ Sesión cerrada exitosamente');
       },
 
       // ==================== GET CURRENT USER ====================

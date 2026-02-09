@@ -71,7 +71,6 @@ export function useRealtimeBoard(
       return;
     }
 
-    console.log('[useRealtimeBoard] Initializing board:', boardId);
 
     // 1. Fetch board data
     fetchBoardById(boardId);
@@ -88,7 +87,6 @@ export function useRealtimeBoard(
   const cleanup = useCallback(() => {
     if (!prevBoardIdRef.current) return;
 
-    console.log('[useRealtimeBoard] Cleaning up board:', prevBoardIdRef.current);
 
     // Salir del board actual
     leaveBoard(prevBoardIdRef.current);
@@ -105,7 +103,6 @@ export function useRealtimeBoard(
   const refresh = useCallback(async () => {
     if (!boardId) return;
 
-    console.log('[useRealtimeBoard] Refreshing board:', boardId);
     await fetchBoardById(boardId);
   }, [boardId, fetchBoardById]);
 
@@ -113,7 +110,6 @@ export function useRealtimeBoard(
    * Reconectar socket manualmente
    */
   const reconnect = useCallback(() => {
-    console.log('[useRealtimeBoard] Manual reconnect');
     disconnectSocket();
     setTimeout(() => {
       connectSocket();
@@ -156,7 +152,6 @@ export function useRealtimeBoard(
   useEffect(() => {
     return () => {
       // Al desmontar el componente completamente, desconectar socket
-      console.log('[useRealtimeBoard] Component unmounting, disconnecting socket');
       disconnectSocket();
       selectBoard(null);
     };

@@ -79,9 +79,7 @@ export default function DashboardPage() {
         const { data } = await response.json();
         setStats(data);
       }
-    } catch (error) {
-      console.error('[Dashboard] Error fetching stats:', error);
-    }
+    } catch (error) {}
   }, [accessToken]);
 
   const fetchUserCards = useCallback(async () => {
@@ -89,7 +87,6 @@ export default function DashboardPage() {
 
     try {
       isRefreshingRef.current = true;
-      console.log('[Dashboard] 🔄 Fetching user cards...');
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/me/cards`, {
         headers: {
@@ -99,11 +96,6 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const { data } = await response.json();
-        console.log('[Dashboard] ✅ Cards received:', {
-          pending: data.pending?.length || 0,
-          overdue: data.overdue?.length || 0,
-          completed: data.completed?.length || 0,
-        });
 
         setUserCards({
           pending: data.pending || [],
@@ -111,10 +103,8 @@ export default function DashboardPage() {
           completed: data.completed || [],
         });
       } else {
-        console.error('[Dashboard] ❌ Error response:', response.status);
       }
     } catch (error) {
-      console.error('[Dashboard] ❌ Error fetching user cards:', error);
     } finally {
       isRefreshingRef.current = false;
     }
@@ -245,26 +235,12 @@ export default function DashboardPage() {
 
   // Effect 3: Listeners de tiempo real
   useEffect(() => {
+    // El socket se conecta automáticamente en SocketProvider
     if (!socketService.isConnected()) {
-      console.log('[Dashboard] ⏳ Socket not connected yet');
-
-      const { accessToken: token } = useAuthStore.getState();
-      if (token) {
-        socketService.connect(token);
-      }
-
       return;
     }
 
-    console.log('[Dashboard] ✅ Setting up real-time listeners');
-
     const handleRealtimeEvent = (event: any) => {
-      console.log('[Dashboard] 📡 Event received:', {
-        type: event.type,
-        payload: event.payload,
-        meta: event.meta,
-      });
-
       // ✅ Helper: Extraer userId de diferentes estructuras de payload
       const extractUserId = (payload: any): string | null => {
         // Intenta diferentes caminos donde puede estar el userId
@@ -287,13 +263,6 @@ export default function DashboardPage() {
           const assignedUserId = extractUserId(event.payload);
           const isForMe = assignedUserId === user?.id;
 
-          console.log('[Dashboard] 🔍 Member assigned check:', {
-            assignedUserId,
-            currentUserId: user?.id,
-            isForMe,
-            fullPayload: event.payload,
-          });
-
           return isForMe;
         }
 
@@ -301,13 +270,6 @@ export default function DashboardPage() {
         if (eventType === 'card.member.unassigned') {
           const unassignedUserId = extractUserId(event.payload);
           const isForMe = unassignedUserId === user?.id;
-
-          console.log('[Dashboard] 🔍 Member unassigned check:', {
-            unassignedUserId,
-            currentUserId: user?.id,
-            isForMe,
-            fullPayload: event.payload,
-          });
 
           return isForMe;
         }
@@ -317,11 +279,6 @@ export default function DashboardPage() {
         if (cardId) {
           const allMyCards = [...userCards.pending, ...userCards.overdue, ...userCards.completed];
           const hasThisCard = allMyCards.some((card) => card.id === cardId);
-
-          console.log('[Dashboard] 🔍 Card update check:', {
-            cardId,
-            hasThisCard,
-          });
 
           return hasThisCard;
         }
@@ -343,20 +300,13 @@ export default function DashboardPage() {
       if (relevantEvents.includes(event.type)) {
         const isRelevant = isRelevantForCurrentUser();
 
-        console.log('[Dashboard] 📊 Event relevance:', {
-          type: event.type,
-          isRelevant,
-        });
-
         if (isRelevant) {
-          console.log('[Dashboard] 🔄 Refreshing dashboard (relevant event)...');
           // Pequeño delay para asegurar que el backend actualizó
           setTimeout(() => {
             fetchDashboardStats();
             fetchUserCards();
           }, 100);
         } else {
-          console.log('[Dashboard] ⏭️  Skipping refresh (not relevant for user)');
         }
       }
     };
@@ -364,7 +314,6 @@ export default function DashboardPage() {
     socketService.onEvent(handleRealtimeEvent);
 
     return () => {
-      console.log('[Dashboard] 🧹 Cleaning up listeners');
       socketService.off('event', handleRealtimeEvent);
     };
   }, [user?.id, userCards, fetchDashboardStats, fetchUserCards]);

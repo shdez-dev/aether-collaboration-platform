@@ -42,6 +42,7 @@ export function CommentForm({
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [selectedMemberIndex, setSelectedMemberIndex] = useState(0);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
@@ -198,6 +199,60 @@ export function CommentForm({
   };
 
   /**
+   * Calcular posición del cursor en el textarea
+   */
+  const getCaretCoordinates = (element: HTMLTextAreaElement, position: number) => {
+    const div = document.createElement('div');
+    const style = getComputedStyle(element);
+
+    // Copiar estilos del textarea
+    for (const prop of style) {
+      div.style.setProperty(prop, style.getPropertyValue(prop));
+    }
+
+    div.style.position = 'absolute';
+    div.style.visibility = 'hidden';
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.wordWrap = 'break-word';
+
+    document.body.appendChild(div);
+
+    const text = element.value.substring(0, position);
+    div.textContent = text;
+
+    const span = document.createElement('span');
+    span.textContent = element.value.substring(position) || '.';
+    div.appendChild(span);
+
+    const rect = element.getBoundingClientRect();
+    const spanRect = span.getBoundingClientRect();
+
+    const coordinates = {
+      top: spanRect.top - rect.top - element.scrollTop,
+      left: spanRect.left - rect.left - element.scrollLeft,
+    };
+
+    document.body.removeChild(div);
+    return coordinates;
+  };
+
+  /**
+   * Actualizar posición del dropdown
+   */
+  const updateDropdownPosition = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const rect = textarea.getBoundingClientRect();
+    const caretPos = getCaretCoordinates(textarea, textarea.selectionStart);
+
+    setDropdownPosition({
+      top: rect.top + caretPos.top + 20, // 20px debajo del cursor
+      left: rect.left + caretPos.left,
+    });
+  };
+
+  /**
    * Detectar trigger de mención
    */
   const detectMentionTrigger = (text: string, cursorPosition: number) => {
@@ -270,6 +325,11 @@ export function CommentForm({
       setMentionStartIndex(mentionTrigger.startIndex);
       setMentionQuery(mentionTrigger.query);
       setSelectedMemberIndex(0);
+
+      // Calcular posición del dropdown
+      setTimeout(() => {
+        updateDropdownPosition();
+      }, 0);
     } else {
       setShowMentionDropdown(false);
       setMentionQuery('');
@@ -338,10 +398,6 @@ export function CommentForm({
     try {
       const mentionIds = extractMentionIds(content);
 
-      console.log('[CommentForm] Content:', content);
-      console.log('[CommentForm] Mention map:', mentionMap);
-      console.log('[CommentForm] Submitting with mention IDs:', mentionIds);
-
       await onSubmit(content, mentionIds.length > 0 ? mentionIds : undefined);
 
       if (!isEditing) {
@@ -352,7 +408,6 @@ export function CommentForm({
         }
       }
     } catch (error) {
-      console.error('[CommentForm] Error submitting:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -459,27 +514,39 @@ export function CommentForm({
         </div>
       </div>
 
-      {showMentionDropdown && filteredMembers.length > 0 && (
+      {showMentionDropdown && (
         <div
           ref={dropdownRef}
           className="fixed bg-popover border border-border rounded-md shadow-lg overflow-hidden"
           style={{
             width: '280px',
             maxHeight: '200px',
-            overflowY: 'auto',
             zIndex: 99999,
-            transform: 'translateY(-100%)',
-            marginTop: '-8px',
-            marginLeft: '52px',
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
           }}
         >
-          {filteredMembers.map((member, index) => (
-            <button
-              key={member.id}
-              type="button"
-              data-index={index}
-              onClick={() => insertMention(member)}
-              className={`
+          {/* Header del dropdown */}
+          <div className="px-3 py-2 bg-muted/50 border-b border-border/50">
+            <p className="text-xs font-medium text-muted-foreground">
+              Mencionar a un miembro {mentionQuery && `"${mentionQuery}"`}
+            </p>
+          </div>
+
+          {/* Lista de miembros */}
+          <div className="max-h-[160px] overflow-y-auto">
+            {filteredMembers.length === 0 ? (
+              <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                No se encontraron miembros
+              </div>
+            ) : (
+              filteredMembers.map((member, index) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  data-index={index}
+                  onClick={() => insertMention(member)}
+                  className={`
                 w-full flex items-center gap-2 px-3 py-2 text-left text-sm
                 transition-colors border-b border-border/50 last:border-b-0
                 ${
@@ -488,24 +555,26 @@ export function CommentForm({
                     : 'hover:bg-muted'
                 }
               `}
-            >
-              <Avatar className="h-7 w-7 shrink-0">
-                <AvatarImage src={member.avatar || undefined} alt={member.name} />
-                <AvatarFallback className="text-[10px]">
-                  {member.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .toUpperCase()
-                    .slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{member.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-              </div>
-            </button>
-          ))}
+                >
+                  <Avatar className="h-7 w-7 shrink-0">
+                    <AvatarImage src={member.avatar || undefined} alt={member.name} />
+                    <AvatarFallback className="text-[10px]">
+                      {member.name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .toUpperCase()
+                        .slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{member.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
 

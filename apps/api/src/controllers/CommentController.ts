@@ -104,7 +104,6 @@ export class CommentController {
       }
 
       const userId = user.id; // ← CORRECCIÓN: user.id en lugar de user.userId
-      console.log('✓ User authenticated:', userId);
 
       // Validar body con Zod
       const validationResult = createCommentSchema.safeParse(req.body);
@@ -121,16 +120,12 @@ export class CommentController {
 
       const { content, mentions } = validationResult.data;
 
-      console.log('Creating comment:', { cardId, userId, content });
-
       const comment = await commentService.createComment({
         cardId,
         userId,
         content,
         mentions,
       });
-
-      console.log('✓ Comment created:', comment.id);
 
       return res.status(201).json({
         success: true,

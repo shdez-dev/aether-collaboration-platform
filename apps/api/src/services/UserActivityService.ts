@@ -29,9 +29,7 @@ export class UserActivityService {
         ]
       );
 
-      console.log(`[UserActivity] Logged: ${activityType} for user ${userId}`);
     } catch (error) {
-      console.error('[UserActivity] Error logging activity:', error);
     }
   }
 
@@ -87,7 +85,6 @@ export class UserActivityService {
         toList: toListId ? listMap.get(toListId) : undefined,
       };
     } catch (error) {
-      console.error('[UserActivity] Error getting list names:', error);
       return {};
     }
   }
@@ -392,7 +389,6 @@ export class UserActivityService {
 
       return result.rows;
     } catch (error) {
-      console.error('[UserActivity] Error getting user activity:', error);
       return [];
     }
   }
@@ -418,7 +414,6 @@ export class UserActivityService {
 
       return result.rows;
     } catch (error) {
-      console.error('[UserActivity] Error getting board activity:', error);
       return [];
     }
   }
@@ -444,7 +439,6 @@ export class UserActivityService {
 
       return result.rows;
     } catch (error) {
-      console.error('[UserActivity] Error getting workspace activity:', error);
       return [];
     }
   }

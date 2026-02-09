@@ -80,7 +80,6 @@ export class EventStoreService {
     try {
       await redisPubClient.publish('aether:events', JSON.stringify(event));
     } catch (error) {
-      console.error('[EventStore] Failed to publish to Redis:', error);
       // No fallar si Redis no está disponible
     }
 
@@ -109,13 +108,6 @@ export class EventStoreService {
       console.warn('[EventStore] WebSocket gateway not available:', error);
       // No fallar si WebSocket no está disponible
     }
-
-    console.log(`[EVENT] ${type}`, {
-      eventId,
-      userId,
-      boardId: boardId || 'none',
-      targetUserId: targetUserId || 'none',
-    });
 
     return event;
   }
@@ -158,7 +150,7 @@ export class EventStoreService {
   }
 
   /**
-   * Obtiene eventos de un board (Milestone 5)
+   * Obtiene eventos de un board
    */
   async getBoardEvents(boardId: string, limit = 50, offset = 0): Promise<Event[]> {
     try {
@@ -195,13 +187,12 @@ export class EventStoreService {
         },
       }));
     } catch (error) {
-      console.error('[EventStore] Error getting board events:', error);
       return [];
     }
   }
 
   /**
-   * Obtiene eventos de una card (Milestone 5)
+   * Obtiene eventos de una card
    */
   async getCardEvents(cardId: string, limit = 20): Promise<Event[]> {
     try {
@@ -226,7 +217,6 @@ export class EventStoreService {
         },
       }));
     } catch (error) {
-      console.error('[EventStore] Error getting card events:', error);
       return [];
     }
   }

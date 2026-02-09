@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useState } from 'react';
+import { useState, memo } from 'react';
 
 interface CardProps {
   card: CardType;
@@ -47,14 +47,13 @@ const MONTHS_SHORT = [
 ];
 
 export function Card({ card }: CardProps) {
-  const setSelectedCard = useCardStore((state) => state.setSelectedCard);
+  // Optimización: Solo extraer lo que necesitamos del store
   const updateCard = useCardStore((state) => state.updateCard);
-  const { accessToken } = useAuthStore();
-  const { currentWorkspace } = useWorkspaceStore();
+  const setSelectedCard = useCardStore((state) => state.setSelectedCard);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const userRole = useWorkspaceStore((state) => state.currentWorkspace?.userRole);
 
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
-
-  const userRole = currentWorkspace?.userRole;
 
   // ✅ PERMISOS ACTUALIZADOS:
   // OWNER y ADMIN: pueden editar campos (título, descripción, etc.)
@@ -334,3 +333,18 @@ export function Card({ card }: CardProps) {
     </div>
   );
 }
+
+// Memoizar para evitar re-renders innecesarios cuando las props no cambian
+export default memo(Card, (prevProps, nextProps) => {
+  // Solo re-renderizar si la card realmente cambió
+  return (
+    prevProps.card.id === nextProps.card.id &&
+    prevProps.card.title === nextProps.card.title &&
+    prevProps.card.position === nextProps.card.position &&
+    prevProps.card.completed === nextProps.card.completed &&
+    prevProps.card.dueDate === nextProps.card.dueDate &&
+    prevProps.card.priority === nextProps.card.priority &&
+    prevProps.card.members?.length === nextProps.card.members?.length &&
+    prevProps.card.labels?.length === nextProps.card.labels?.length
+  );
+});

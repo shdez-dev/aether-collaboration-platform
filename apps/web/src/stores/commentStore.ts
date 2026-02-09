@@ -81,7 +81,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
         const accessToken = useAuthStore.getState().accessToken;
 
         if (!accessToken) {
-          console.error('[CommentStore] No access token available');
           set((state) => ({
             errors: { ...state.errors, [cardId]: 'No estás autenticado' },
           }));
@@ -94,12 +93,10 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             errors: { ...state.errors, [cardId]: null },
           }));
 
-          console.log(`[CommentStore] Fetching comments for card: ${cardId}`);
 
           // commentService.getCommentsByCard retorna CommentWithUser[]
           const comments = await commentService.getCommentsByCard(cardId);
 
-          console.log(`[CommentStore] Loaded ${comments.length} comments`);
 
           set((state) => ({
             commentsByCard: { ...state.commentsByCard, [cardId]: comments },
@@ -107,7 +104,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             loading: { ...state.loading, [cardId]: false },
           }));
         } catch (error: any) {
-          console.error('[CommentStore] Error fetching comments:', error);
           set((state) => ({
             loading: { ...state.loading, [cardId]: false },
             errors: { ...state.errors, [cardId]: error.message },
@@ -124,7 +120,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
         const currentUser = useAuthStore.getState().user;
 
         if (!accessToken || !currentUser) {
-          console.error('[CommentStore] No access token or user available');
           set((state) => ({
             errors: { ...state.errors, [`create-${cardId}`]: 'No estás autenticado' },
           }));
@@ -137,7 +132,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             errors: { ...state.errors, [`create-${cardId}`]: null },
           }));
 
-          console.log(`[CommentStore] Creating comment on card: ${cardId}`);
 
           // Crear comentario optimista
           const optimisticComment: CommentWithUser = {
@@ -168,7 +162,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             mentions,
           });
 
-          console.log('[CommentStore] Comment created:', newComment.id);
 
           // Reemplazar comentario optimista con el real
           set((state) => {
@@ -190,7 +183,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
 
           return newComment;
         } catch (error: any) {
-          console.error('[CommentStore] Error creating comment:', error);
 
           // Remover comentario optimista en caso de error
           set((state) => {
@@ -222,7 +214,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
         const accessToken = useAuthStore.getState().accessToken;
 
         if (!accessToken) {
-          console.error('[CommentStore] No access token available');
           set((state) => ({
             errors: { ...state.errors, [`update-${commentId}`]: 'No estás autenticado' },
           }));
@@ -235,7 +226,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             errors: { ...state.errors, [`update-${commentId}`]: null },
           }));
 
-          console.log(`[CommentStore] Updating comment: ${commentId}`);
 
           // Update optimista
           get().updateCommentOptimistic(commentId, {
@@ -250,7 +240,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             mentions,
           });
 
-          console.log('[CommentStore] Comment updated');
 
           // Actualizar con datos reales del servidor
           set((state) => {
@@ -275,7 +264,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             };
           });
         } catch (error: any) {
-          console.error('[CommentStore] Error updating comment:', error);
           set((state) => ({
             loading: { ...state.loading, [`update-${commentId}`]: false },
             errors: { ...state.errors, [`update-${commentId}`]: error.message },
@@ -290,7 +278,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
         const accessToken = useAuthStore.getState().accessToken;
 
         if (!accessToken) {
-          console.error('[CommentStore] No access token available');
           set((state) => ({
             errors: { ...state.errors, [`delete-${commentId}`]: 'No estás autenticado' },
           }));
@@ -303,7 +290,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             errors: { ...state.errors, [`delete-${commentId}`]: null },
           }));
 
-          console.log(`[CommentStore] Deleting comment: ${commentId}`);
 
           // Backup para posible rollback
           const backup = get().commentsByCard[cardId];
@@ -314,13 +300,11 @@ export const useCommentStore = create<CommentState & CommentActions>()(
           // commentService.deleteComment retorna void
           await commentService.deleteComment(commentId);
 
-          console.log('[CommentStore] Comment deleted');
 
           set((state) => ({
             loading: { ...state.loading, [`delete-${commentId}`]: false },
           }));
         } catch (error: any) {
-          console.error('[CommentStore] Error deleting comment:', error);
 
           // Rollback en caso de error
           set((state) => ({
@@ -341,12 +325,10 @@ export const useCommentStore = create<CommentState & CommentActions>()(
         const accessToken = useAuthStore.getState().accessToken;
 
         if (!accessToken) {
-          console.error('[CommentStore] No access token available for count');
           return;
         }
 
         try {
-          console.log(`[CommentStore] Fetching comment count for card: ${cardId}`);
 
           // commentService.getCommentsByCard retorna CommentWithUser[]
           const comments = await commentService.getCommentsByCard(cardId);
@@ -355,7 +337,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             countsByCard: { ...state.countsByCard, [cardId]: comments.length },
           }));
         } catch (error: any) {
-          console.error('[CommentStore] Error fetching comment count:', error);
         }
       },
 

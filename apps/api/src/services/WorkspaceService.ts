@@ -308,6 +308,30 @@ export class WorkspaceService {
       };
 
       await eventStore.emit('workspace.member.invited', payload, inviterId as any);
+
+      // Crear notificación de invitación
+      try {
+        const workspaceResult = await client.query('SELECT name FROM workspaces WHERE id = $1', [
+          workspaceId,
+        ]);
+        const workspaceName = workspaceResult.rows[0]?.name || 'Unknown workspace';
+
+        const inviterResult = await client.query('SELECT name FROM users WHERE id = $1', [
+          inviterId,
+        ]);
+        const inviterName = inviterResult.rows[0]?.name || 'Someone';
+
+        const { notificationService } = await import('./NotificationService');
+        await notificationService.createWorkspaceInviteNotification({
+          userId: inviteeId,
+          workspaceId,
+          workspaceName,
+          inviterId,
+          inviterName,
+        });
+      } catch (notifError) {
+        console.error('[WorkspaceService] Error creating invite notification:', notifError);
+      }
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

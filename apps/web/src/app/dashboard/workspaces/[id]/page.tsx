@@ -9,6 +9,7 @@ import InviteMemberModal from '@/components/InviteMemberModal';
 import ConfirmRemoveMemberModal from '@/components/ConfirmRemoveMemberModal';
 import CreateBoardModal from '@/components/CreateBoardModal';
 import ActivityFeed from '@/components/ActivityFeed';
+import DocumentsSection from '@/components/workspace/DocumentsSection';
 import {
   Settings,
   ArrowLeft,
@@ -457,6 +458,9 @@ export default function WorkspaceDetailPage() {
               </div>
               <ActivityFeed workspaceId={workspaceId} />
             </div>
+
+            {/* DOCUMENTS */}
+            <DocumentsSection workspaceId={workspaceId} isOwnerOrAdmin={isOwnerOrAdmin} />
           </div>
         </div>
       </div>

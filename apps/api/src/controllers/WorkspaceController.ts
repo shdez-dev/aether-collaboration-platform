@@ -73,7 +73,6 @@ class WorkspaceController {
         data: { workspace },
       });
     } catch (error) {
-      console.error('[WorkspaceController] Create error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -109,7 +108,6 @@ class WorkspaceController {
         data: { workspaces },
       });
     } catch (error) {
-      console.error('[WorkspaceController] List error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -152,19 +150,12 @@ class WorkspaceController {
       }
 
       // 🔍 DEBUG: Ver qué está devolviendo el servicio
-      console.log('=== WORKSPACE CONTROLLER DEBUG ===');
-      console.log('Workspace ID:', workspaceId);
-      console.log('User ID:', userId);
-      console.log('Workspace object:', workspace);
-      console.log('userRole:', workspace.userRole);
-      console.log('==================================');
 
       return res.json({
         success: true,
         data: { workspace },
       });
     } catch (error) {
-      console.error('[WorkspaceController] GetById error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -195,11 +186,6 @@ class WorkspaceController {
       }
 
       // 🔍 DEBUG: Ver middleware workspace
-      console.log('=== UPDATE WORKSPACE DEBUG ===');
-      console.log('User ID:', userId);
-      console.log('Workspace ID:', workspaceId);
-      console.log('req.workspace:', req.workspace);
-      console.log('==============================');
 
       // Validar datos
       const validation = updateWorkspaceSchema.safeParse(req.body);
@@ -226,7 +212,6 @@ class WorkspaceController {
         data: { workspace },
       });
     } catch (error) {
-      console.error('[WorkspaceController] Update error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -263,7 +248,6 @@ class WorkspaceController {
         data: { message: 'Workspace deleted successfully' },
       });
     } catch (error: any) {
-      console.error('[WorkspaceController] Delete error:', error);
 
       if (error.message === 'Only workspace owner can delete workspace') {
         return res.status(403).json({
@@ -329,7 +313,6 @@ class WorkspaceController {
         data: { message: 'Member invited successfully' },
       });
     } catch (error: any) {
-      console.error('[WorkspaceController] InviteMember error:', error);
 
       if (error.message === 'User not found') {
         return res.status(404).json({
@@ -376,7 +359,6 @@ class WorkspaceController {
         data: { members },
       });
     } catch (error) {
-      console.error('[WorkspaceController] GetMembers error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -443,7 +425,6 @@ class WorkspaceController {
         data: { message: 'Member role updated successfully' },
       });
     } catch (error) {
-      console.error('[WorkspaceController] ChangeMemberRole error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -492,7 +473,6 @@ class WorkspaceController {
         data: { message: 'Member removed successfully' },
       });
     } catch (error) {
-      console.error('[WorkspaceController] RemoveMember error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -561,7 +541,6 @@ class WorkspaceController {
         },
       });
     } catch (error) {
-      console.error('[WorkspaceController] GetWorkspaceActivity error:', error);
       return res.status(500).json({
         success: false,
         error: {

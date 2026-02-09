@@ -74,7 +74,6 @@ export function NotificationItem({
       try {
         await onMarkAsRead(notification.id);
       } catch (error) {
-        console.error('[NotificationItem] Error marking as read:', error);
       } finally {
         setIsLoading(false);
       }
@@ -85,12 +84,10 @@ export function NotificationItem({
       // TODO: Navegar a la card modal
       // Por ahora cerramos el dropdown
       onClose?.();
-      console.log('Navigate to card:', notification.data.cardId);
     }
 
     if (notification.type === 'CARD_ASSIGNED' && notification.data.cardId) {
       onClose?.();
-      console.log('Navigate to card:', notification.data.cardId);
     }
 
     if (notification.type === 'BOARD_INVITE' && notification.data.boardId) {
@@ -116,7 +113,6 @@ export function NotificationItem({
     try {
       await onMarkAsRead(notification.id);
     } catch (error) {
-      console.error('[NotificationItem] Error marking as read:', error);
     } finally {
       setIsLoading(false);
     }
@@ -134,7 +130,6 @@ export function NotificationItem({
     try {
       await onDelete(notification.id);
     } catch (error) {
-      console.error('[NotificationItem] Error deleting:', error);
     } finally {
       setIsLoading(false);
     }

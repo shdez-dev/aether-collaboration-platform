@@ -15,17 +15,14 @@ export const pool = new Pool({
 
 // Test de conexión
 pool.on('connect', () => {
-  console.log('[DB] Connected to PostgreSQL');
 });
 
 pool.on('error', (err) => {
-  console.error('[DB] Unexpected error:', err);
 });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
   await pool.end();
-  console.log('[DB] Pool has ended');
   process.exit(0);
 });
 
@@ -47,9 +44,6 @@ export async function query<T extends QueryResultRow = any>(
 
     return result;
   } catch (error) {
-    console.error('[DB] Query error:', error);
-    console.error('[DB] Query:', text);
-    console.error('[DB] Params:', params);
     throw error;
   }
 }

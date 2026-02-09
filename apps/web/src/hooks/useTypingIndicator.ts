@@ -77,7 +77,6 @@ export function useTypingIndicator({
   const emitTypingStart = useCallback(() => {
     if (disabled || !socketService.isConnected()) return;
 
-    console.log('[useTypingIndicator] Typing started:', cardId);
     socketService.startTyping(cardId);
     isTypingRef.current = true;
   }, [cardId, disabled]);
@@ -86,7 +85,6 @@ export function useTypingIndicator({
   const emitTypingStop = useCallback(() => {
     if (disabled || !socketService.isConnected()) return;
 
-    console.log('[useTypingIndicator] Typing stopped:', cardId);
     socketService.stopTyping(cardId);
     isTypingRef.current = false;
   }, [cardId, disabled]);
@@ -157,7 +155,6 @@ export function useTypingListeners(cardId: string) {
     const handleTypingStarted = (data: { cardId: string; userId: string; userName: string }) => {
       if (data.cardId !== cardId) return;
 
-      console.log('[useTypingListeners] User started typing:', data.userName);
 
       setTypingUsers((prev) => {
         // Evitar duplicados
@@ -172,7 +169,6 @@ export function useTypingListeners(cardId: string) {
     const handleTypingStopped = (data: { cardId: string; userId: string }) => {
       if (data.cardId !== cardId) return;
 
-      console.log('[useTypingListeners] User stopped typing:', data.userId);
 
       setTypingUsers((prev) => prev.filter((u) => u.userId !== data.userId));
     };

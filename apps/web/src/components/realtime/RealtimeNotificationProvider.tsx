@@ -56,11 +56,9 @@ export function RealtimeNotificationProvider() {
     if (hasSetupRef.current) return;
 
     if (!socketService.isConnected()) {
-      console.log('[RealtimeNotificationProvider] Socket not connected, skipping setup');
       return;
     }
 
-    console.log('[RealtimeNotificationProvider] Initializing toast event listeners');
     hasSetupRef.current = true;
 
     /**
@@ -97,7 +95,6 @@ export function RealtimeNotificationProvider() {
           duration: 3000,
         });
 
-        console.log('[RealtimeNotificationProvider] Toast displayed:', notification.message);
       }
     };
 
@@ -106,7 +103,6 @@ export function RealtimeNotificationProvider() {
 
     // Cleanup al desmontar
     return () => {
-      console.log('[RealtimeNotificationProvider] Removing toast event listeners');
       socketService.off('event', handleEvent);
       hasSetupRef.current = false;
     };

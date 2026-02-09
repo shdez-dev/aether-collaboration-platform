@@ -146,19 +146,39 @@ export class NotificationRepository {
   async existsRecent(data: {
     userId: string;
     type: string;
-    cardId: string;
-    commentId: string;
+    cardId?: string;
+    commentId?: string;
+    workspaceId?: string;
   }): Promise<boolean> {
-    const result = await query(
-      `SELECT id FROM notifications
+    let queryText = `SELECT id FROM notifications
        WHERE user_id = $1
          AND type = $2
-         AND data->>'cardId' = $3
-         AND data->>'commentId' = $4
-         AND created_at > NOW() - INTERVAL '5 minutes'
-       LIMIT 1`,
-      [data.userId, data.type, data.cardId, data.commentId]
-    );
+         AND created_at > NOW() - INTERVAL '5 minutes'`;
+
+    const params: any[] = [data.userId, data.type];
+    let paramIndex = 3;
+
+    if (data.cardId) {
+      queryText += ` AND data->>'cardId' = $${paramIndex}`;
+      params.push(data.cardId);
+      paramIndex++;
+    }
+
+    if (data.commentId) {
+      queryText += ` AND data->>'commentId' = $${paramIndex}`;
+      params.push(data.commentId);
+      paramIndex++;
+    }
+
+    if (data.workspaceId) {
+      queryText += ` AND data->>'workspaceId' = $${paramIndex}`;
+      params.push(data.workspaceId);
+      paramIndex++;
+    }
+
+    queryText += ' LIMIT 1';
+
+    const result = await query(queryText, params);
 
     return result.rows.length > 0;
   }

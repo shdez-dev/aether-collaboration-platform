@@ -59,7 +59,6 @@ export function useComments(cardId: string) {
       if (event.type === 'comment.created') {
         const payload = event.payload as CommentCreatedPayload;
         if (payload.cardId === cardId) {
-          console.log('[useComments] Comment created event:', payload);
 
           // Si no es del usuario actual, refetch para obtener datos completos
           const socketId = socketService.getSocketId();
@@ -73,7 +72,6 @@ export function useComments(cardId: string) {
       if (event.type === 'comment.updated') {
         const payload = event.payload as CommentUpdatedPayload;
         if (payload.cardId === cardId) {
-          console.log('[useComments] Comment updated event:', payload);
 
           const socketId = socketService.getSocketId();
           if (event.meta.socketId !== socketId) {
@@ -90,7 +88,6 @@ export function useComments(cardId: string) {
       if (event.type === 'comment.deleted') {
         const payload = event.payload as CommentDeletedPayload;
         if (payload.cardId === cardId) {
-          console.log('[useComments] Comment deleted event:', payload);
 
           const socketId = socketService.getSocketId();
           if (event.meta.socketId !== socketId) {
@@ -103,7 +100,6 @@ export function useComments(cardId: string) {
       if (event.type === 'comment.mentioned') {
         const payload = event.payload as CommentMentionedPayload;
         if (payload.cardId === cardId) {
-          console.log('[useComments] User mentioned event:', payload);
           // Esto se manejará en el provider de notificaciones
         }
       }

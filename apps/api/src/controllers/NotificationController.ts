@@ -34,7 +34,6 @@ export class NotificationController {
       const userId = user.id;
       const onlyUnread = req.query.unread === 'true';
 
-      console.log('[NotificationController] Getting notifications for user:', userId);
 
       const notifications = await notificationService.getNotifications(userId, onlyUnread);
 
@@ -43,7 +42,6 @@ export class NotificationController {
         data: { notifications },
       });
     } catch (error: any) {
-      console.error('❌ Error getting notifications:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -77,7 +75,6 @@ export class NotificationController {
         data: { count },
       });
     } catch (error: any) {
-      console.error('❌ Error getting unread count:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -123,7 +120,6 @@ export class NotificationController {
         data: { message: 'Notification marked as read' },
       });
     } catch (error: any) {
-      console.error('❌ Error marking notification as read:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -158,7 +154,6 @@ export class NotificationController {
         data: { message: 'All notifications marked as read' },
       });
     } catch (error: any) {
-      console.error('❌ Error marking all notifications as read:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -204,7 +199,6 @@ export class NotificationController {
         data: { message: 'Notification deleted' },
       });
     } catch (error: any) {
-      console.error('❌ Error deleting notification:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },

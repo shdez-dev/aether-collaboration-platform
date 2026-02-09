@@ -50,7 +50,6 @@ function getAuthToken(): string | null {
 
     return token;
   } catch (error) {
-    console.error('[CommentService] Error reading auth token:', error);
     return null;
   }
 }
@@ -109,7 +108,6 @@ class CommentService {
    */
   async getCommentsByCard(cardId: string): Promise<CommentWithUser[]> {
     try {
-      console.log('[CommentService] Fetching comments for card:', cardId);
 
       const response = await fetch(`${this.baseUrl}/api/cards/${cardId}/comments`, {
         method: 'GET',
@@ -117,10 +115,8 @@ class CommentService {
       });
 
       const result = await this.handleResponse<{ comments: CommentWithUser[] }>(response);
-      console.log('[CommentService] Loaded comments:', result.comments.length);
       return result.comments;
     } catch (error) {
-      console.error('[CommentService] Error getting comments:', error);
       throw error;
     }
   }
@@ -131,7 +127,6 @@ class CommentService {
    */
   async createComment(cardId: string, data: CreateCommentDto): Promise<CommentWithUser> {
     try {
-      console.log('[CommentService] Creating comment on card:', cardId);
 
       const response = await fetch(`${this.baseUrl}/api/cards/${cardId}/comments`, {
         method: 'POST',
@@ -140,10 +135,8 @@ class CommentService {
       });
 
       const result = await this.handleResponse<{ comment: CommentWithUser }>(response);
-      console.log('[CommentService] Comment created:', result.comment.id);
       return result.comment;
     } catch (error) {
-      console.error('[CommentService] Error creating comment:', error);
       throw error;
     }
   }
@@ -162,7 +155,6 @@ class CommentService {
       const result = await this.handleResponse<{ comment: CommentWithUser }>(response);
       return result.comment;
     } catch (error) {
-      console.error('[CommentService] Error getting comment:', error);
       throw error;
     }
   }
@@ -173,7 +165,6 @@ class CommentService {
    */
   async updateComment(commentId: string, data: UpdateCommentDto): Promise<CommentWithUser> {
     try {
-      console.log('[CommentService] Updating comment:', commentId);
 
       const response = await fetch(`${this.baseUrl}/api/comments/${commentId}`, {
         method: 'PATCH',
@@ -182,10 +173,8 @@ class CommentService {
       });
 
       const result = await this.handleResponse<{ comment: CommentWithUser }>(response);
-      console.log('[CommentService] Comment updated');
       return result.comment;
     } catch (error) {
-      console.error('[CommentService] Error updating comment:', error);
       throw error;
     }
   }
@@ -196,7 +185,6 @@ class CommentService {
    */
   async deleteComment(commentId: string): Promise<void> {
     try {
-      console.log('[CommentService] Deleting comment:', commentId);
 
       const response = await fetch(`${this.baseUrl}/api/comments/${commentId}`, {
         method: 'DELETE',
@@ -204,9 +192,7 @@ class CommentService {
       });
 
       await this.handleResponse<{ message: string }>(response);
-      console.log('[CommentService] Comment deleted');
     } catch (error) {
-      console.error('[CommentService] Error deleting comment:', error);
       throw error;
     }
   }
@@ -225,7 +211,6 @@ class CommentService {
       const result = await this.handleResponse<{ count: number }>(response);
       return result.count;
     } catch (error) {
-      console.error('[CommentService] Error getting comment count:', error);
       throw error;
     }
   }
@@ -247,7 +232,6 @@ class CommentService {
       const result = await this.handleResponse<{ comments: CommentWithUser[] }>(response);
       return result.comments;
     } catch (error) {
-      console.error('[CommentService] Error getting recent comments:', error);
       throw error;
     }
   }

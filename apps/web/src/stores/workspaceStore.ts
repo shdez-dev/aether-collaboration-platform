@@ -93,11 +93,9 @@ async function apiRequest<T>(
         // El token puede estar en state.accessToken o directamente en accessToken
         token = parsed.state?.accessToken || parsed.accessToken;
       } catch (e) {
-        console.error('Error parsing auth data:', e);
       }
     }
 
-    console.log('🔑 Token being used:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
 
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
@@ -111,13 +109,11 @@ async function apiRequest<T>(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('❌ API Error:', data);
       return { success: false, error: data.error };
     }
 
     return data;
   } catch (error) {
-    console.error('API Request Error:', error);
     return {
       success: false,
       error: { code: 'NETWORK_ERROR', message: 'Error de conexión con el servidor' },

@@ -266,13 +266,6 @@ export class CardController {
         });
       }
 
-      console.log('[CardController] Moving card:', {
-        cardId: id,
-        toListId: validationResult.data.toListId,
-        position: validationResult.data.position,
-        userRole,
-      });
-
       const card = await CardService.moveCard(id, userId, validationResult.data, socketId);
 
       return res.status(200).json({

@@ -131,7 +131,6 @@ export function MemberPicker({
 
       setWorkspaceMembers(transformedMembers);
     } catch (error) {
-      console.error('Error al obtener miembros del workspace:', error);
       setWorkspaceMembers([]);
     } finally {
       setIsLoading(false);
@@ -142,7 +141,6 @@ export function MemberPicker({
     async (member: Member) => {
       // ✅ VALIDACIÓN: No permitir asignar si ya está asignado
       if (assignedMemberIds.has(member.id)) {
-        console.log('Miembro ya asignado:', member.name);
         return;
       }
 
@@ -166,7 +164,6 @@ export function MemberPicker({
 
         onMemberAssigned(member);
       } catch (error: any) {
-        console.error('Error al asignar miembro:', error);
         alert(`Error al asignar miembro: ${error.message}`);
       }
     },
@@ -193,7 +190,6 @@ export function MemberPicker({
 
         onMemberRemoved(memberId);
       } catch (error: any) {
-        console.error('Error al remover miembro:', error);
         alert(`Error al remover miembro: ${error.message}`);
       }
     },

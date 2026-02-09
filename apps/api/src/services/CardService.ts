@@ -561,6 +561,17 @@ export class CardService {
         socketId,
         memberId // 👈 Enviar directamente al usuario asignado
       );
+
+      // Crear notificación de asignación
+      const { notificationService } = await import('./NotificationService');
+      await notificationService.createCardAssignedNotification({
+        assignedUserId: memberId,
+        assignerId: userId,
+        assignerName,
+        cardId,
+        cardTitle,
+        boardId: boardId || '',
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

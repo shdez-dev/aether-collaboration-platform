@@ -99,8 +99,6 @@ export function LabelPicker({
 
   // ✅ DEBUG: Ver labels asignadas
   useEffect(() => {
-    console.log('📋 Labels asignadas:', assignedLabels);
-    console.log('🆔 IDs asignados:', Array.from(assignedLabelIds));
   }, [assignedLabels]);
 
   useEffect(() => {
@@ -113,7 +111,6 @@ export function LabelPicker({
     async (label: Label) => {
       // ✅ VALIDACIÓN 1: Verificar si ya está asignada localmente
       if (assignedLabelIds.has(label.id)) {
-        console.log('⚠️ Label ya asignada (validación local):', label.name);
         return;
       }
 
@@ -132,7 +129,6 @@ export function LabelPicker({
 
         // ✅ VALIDACIÓN 2: Manejar 409 Conflict (ya existe en BD)
         if (response.status === 409) {
-          console.log('⚠️ Label ya asignada (409 del servidor):', label.name);
           // Simplemente ignorar, la label ya está asignada
           // Opcionalmente, actualizar el estado local si no está sincronizado
           if (!assignedLabelIds.has(label.id)) {
@@ -148,7 +144,6 @@ export function LabelPicker({
 
         onLabelAssigned(label);
       } catch (error: any) {
-        console.error('❌ Error al asignar etiqueta:', error);
         alert(`Error al asignar etiqueta: ${error.message}`);
       }
     },

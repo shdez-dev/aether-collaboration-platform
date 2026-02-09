@@ -16,10 +16,12 @@ import userRoutes from './routes/user';
 import presenceRoutes from './routes/presence';
 import commentRoutes from './routes/comments';
 import notificationRoutes from './routes/notifications';
+import documentRoutes from './routes/documentss';
 
 // Import WebSocket and Redis
 import { initializeRedis, closeRedisConnections } from './lib/redis';
 import { initializeRealtimeGateway } from './websocket/RealtimeGateway';
+import { initializeYjsGateway } from './websocket/Yjsgateway';
 
 // Load environment variables
 dotenv.config();
@@ -78,6 +80,7 @@ app.use('/api', cardRoutes);
 app.use('/api', labelRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', notificationRoutes);
+app.use('/api', documentRoutes);
 app.use('/api/presence', presenceRoutes);
 
 // 404 handler
@@ -121,7 +124,11 @@ async function startServer() {
     const realtimeGateway = initializeRealtimeGateway(httpServer);
     console.log('[Server] ✅ WebSocket Gateway initialized');
 
-    // 3. Start HTTP server
+    // 3. Initialize Yjs Gateway
+    const yjsGateway = initializeYjsGateway(realtimeGateway.getIO());
+    console.log('[Server] ✅ Yjs Gateway initialized');
+
+    // 4. Start HTTP server
     httpServer.listen(PORT, () => {
       console.log('');
       console.log('╔═══════════════════════════════════════════════════════╗');
@@ -132,6 +139,7 @@ async function startServer() {
       console.log('');
       console.log(`📡 HTTP Server:     http://localhost:${PORT}`);
       console.log(`🔌 WebSocket:       ws://localhost:${PORT}`);
+      console.log(`📄 Yjs Sync:        ws://localhost:${PORT}`);
       console.log(`🗄️  PostgreSQL:     Connected`);
       console.log(`🔴 Redis:           Connected`);
       console.log(`📝 Health Check:    http://localhost:${PORT}/health`);
@@ -179,6 +187,17 @@ async function startServer() {
       console.log('  POST   /api/cards/:id/labels');
       console.log('  DELETE /api/cards/:id/labels/:labelId');
       console.log('');
+      console.log('DOCUMENTS:');
+      console.log('  POST   /api/workspaces/:wId/documents');
+      console.log('  GET    /api/workspaces/:wId/documents');
+      console.log('  GET    /api/documents/:id');
+      console.log('  PUT    /api/documents/:id');
+      console.log('  DELETE /api/documents/:id');
+      console.log('  POST   /api/documents/:id/versions');
+      console.log('  GET    /api/documents/:id/versions');
+      console.log('  POST   /api/documents/:id/versions/:vId/restore');
+      console.log('  PUT    /api/documents/:id/permissions');
+      console.log('');
       console.log('COMMENTS:');
       console.log('  GET    /api/cards/:cardId/comments/count');
       console.log('  GET    /api/cards/:cardId/comments');
@@ -188,7 +207,7 @@ async function startServer() {
       console.log('  PATCH  /api/comments/:commentId');
       console.log('  DELETE /api/comments/:commentId');
       console.log('');
-      console.log('NOTIFICATIONS:'); // ← NUEVO
+      console.log('NOTIFICATIONS:');
       console.log('  GET    /api/notifications');
       console.log('  GET    /api/notifications/unread-count');
       console.log('  PATCH  /api/notifications/:id/read');

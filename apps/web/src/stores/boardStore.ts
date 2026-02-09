@@ -83,7 +83,6 @@ async function apiRequest<T>(
         const parsed = JSON.parse(authData);
         token = parsed.state?.accessToken || parsed.accessToken;
       } catch (e) {
-        console.error('Error parsing auth data:', e);
       }
     }
 
@@ -103,13 +102,11 @@ async function apiRequest<T>(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('❌ API Error:', data);
       return { success: false, error: data.error };
     }
 
     return data;
   } catch (error) {
-    console.error('API Request Error:', error);
     return {
       success: false,
       error: { code: 'NETWORK_ERROR', message: 'Error de conexión con el servidor' },
@@ -139,16 +136,13 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     }
 
     if (socketService.isConnected()) {
-      console.log('[BoardStore] Socket already connected');
       return;
     }
 
-    console.log('[BoardStore] Connecting to WebSocket...');
     socketService.connect(accessToken);
 
     // Configurar event listeners
     socketService.on('connect', () => {
-      console.log('[BoardStore] Socket connected');
       set({ isSocketConnected: true });
 
       // Re-unirse al board actual si existe
@@ -159,7 +153,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     });
 
     socketService.on('disconnect', () => {
-      console.log('[BoardStore] Socket disconnected');
       set({ isSocketConnected: false, activeUsers: [] });
     });
 
@@ -175,14 +168,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
     // Cuando te unes exitosamente a un board
     socketService.onJoinedBoard((data) => {
-      console.log('[BoardStore] Joined board:', data.boardId);
       set({ activeUsers: data.users });
     });
   },
 
   // ==================== WEBSOCKET - DISCONNECT ====================
   disconnectSocket: () => {
-    console.log('[BoardStore] Disconnecting socket...');
     socketService.removeAllListeners();
     socketService.disconnect();
     set({ isSocketConnected: false, activeUsers: [] });
@@ -190,20 +181,17 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
   // ==================== WEBSOCKET - JOIN BOARD ====================
   joinBoard: (boardId: string) => {
-    console.log('[BoardStore] Joining board:', boardId);
     socketService.joinBoard(boardId);
   },
 
   // ==================== WEBSOCKET - LEAVE BOARD ====================
   leaveBoard: (boardId: string) => {
-    console.log('[BoardStore] Leaving board:', boardId);
     socketService.leaveBoard(boardId);
     set({ activeUsers: [] });
   },
 
   // ==================== WEBSOCKET - HANDLE EVENT ====================
   handleEvent: (event: Event) => {
-    console.log('[BoardStore] Event received:', event.type, event.payload);
     const cardStore = useCardStore.getState();
 
     switch (event.type) {
@@ -244,7 +232,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       case 'card.member.assigned': {
         const { cardId, member } = event.payload as any;
         if (cardId && member) {
-          console.log('[BoardStore] ✅ Member assigned to card:', cardId, member);
 
           // Obtener la card actual del store
           const allCards = cardStore.cards;
@@ -273,7 +260,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                 cardStore.setSelectedCard({ ...currentCard, members: updatedMembers });
               }
 
-              console.log('[BoardStore] ✅ Card members updated:', updatedMembers);
             }
           }
         }
@@ -283,7 +269,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       case 'card.member.unassigned': {
         const { cardId, memberId } = event.payload as any;
         if (cardId && memberId) {
-          console.log('[BoardStore] ✅ Member unassigned from card:', cardId, memberId);
 
           // Obtener la card actual del store
           const allCards = cardStore.cards;
@@ -308,7 +293,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
               cardStore.setSelectedCard({ ...currentCard, members: updatedMembers });
             }
 
-            console.log('[BoardStore] ✅ Card members updated:', updatedMembers);
           }
         }
         break;
@@ -318,7 +302,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       case 'card.label.added': {
         const { cardId, label } = event.payload as any;
         if (cardId && label) {
-          console.log('[BoardStore] ✅ Label added to card:', cardId, label);
 
           // Obtener la card actual del store
           const allCards = cardStore.cards;
@@ -353,7 +336,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       case 'card.label.removed': {
         const { cardId, labelId } = event.payload as any;
         if (cardId && labelId) {
-          console.log('[BoardStore] ✅ Label removed from card:', cardId, labelId);
 
           // Obtener la card actual del store
           const allCards = cardStore.cards;
@@ -437,7 +419,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       }
 
       default:
-        console.log('[BoardStore] Unhandled event type:', event.type);
     }
   },
 

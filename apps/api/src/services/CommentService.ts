@@ -55,19 +55,18 @@ export class CommentService {
       data.userId as UserId
     );
 
-    // Procesar menciones y crear notificaciones
-    if (data.mentions && data.mentions.length > 0) {
-      console.log(`[CommentService] Processing ${data.mentions.length} mentions`);
+    // Obtener información del autor y la tarjeta para notificaciones
+    try {
+      const authorResult = await pool.query(`SELECT id, name, email FROM users WHERE id = $1`, [
+        data.userId,
+      ]);
+      const author = authorResult.rows[0];
+      const card = await CardService.getCardById(data.cardId);
 
-      try {
-        const authorResult = await pool.query(`SELECT id, name, email FROM users WHERE id = $1`, [
-          data.userId,
-        ]);
-        const author = authorResult.rows[0];
+      if (author && card) {
+        // Procesar menciones y crear notificaciones de mención
+        if (data.mentions && data.mentions.length > 0) {
 
-        const card = await CardService.getCardById(data.cardId);
-
-        if (author && card) {
           for (const mentionedUserId of data.mentions) {
             try {
               await notificationService.createMentionNotification({
@@ -80,12 +79,7 @@ export class CommentService {
                 commentPreview: data.content,
               });
 
-              console.log(`[CommentService] ✓ Notification created for user: ${mentionedUserId}`);
             } catch (error) {
-              console.error(
-                `[CommentService] ❌ Error creating notification for ${mentionedUserId}:`,
-                error
-              );
             }
           }
 
@@ -102,12 +96,25 @@ export class CommentService {
               data.userId as UserId
             );
           }
-        } else {
-          console.warn('[CommentService] Author or card not found for mention notifications');
         }
-      } catch (error) {
-        console.error('[CommentService] ❌ Error processing mentions:', error);
+
+        // Crear notificación de comentario para todos los miembros de la tarjeta
+        if (card.members && card.members.length > 0) {
+          const cardMemberIds = card.members.map((m: any) => m.id);
+          await notificationService.createCommentNotification({
+            cardMembers: cardMemberIds,
+            authorId: author.id,
+            authorName: author.name,
+            cardId: card.id,
+            cardTitle: card.title,
+            commentId: comment.id,
+            commentPreview: data.content,
+          });
+        }
+      } else {
+        console.warn('[CommentService] Author or card not found for notifications');
       }
+    } catch (error) {
     }
 
     const commentWithUser = await this.commentRepository.findById(comment.id);
@@ -187,7 +194,6 @@ export class CommentService {
 
     // Procesar menciones actualizadas
     if (data.mentions && data.mentions.length > 0) {
-      console.log(`[CommentService] Processing updated mentions: ${data.mentions.length}`);
 
       try {
         const authorResult = await pool.query(`SELECT id, name, email FROM users WHERE id = $1`, [
@@ -210,10 +216,6 @@ export class CommentService {
                 commentPreview: updatedComment.content,
               });
             } catch (error) {
-              console.error(
-                `[CommentService] ❌ Error creating notification for ${mentionedUserId}:`,
-                error
-              );
             }
           }
 
@@ -232,7 +234,6 @@ export class CommentService {
           }
         }
       } catch (error) {
-        console.error('[CommentService] ❌ Error processing updated mentions:', error);
       }
     }
 

@@ -82,7 +82,6 @@ export class RealtimeGateway {
 
         next();
       } catch (error) {
-        console.error('WebSocket auth error:', error);
         next(new Error('Authentication error'));
       }
     });
@@ -94,13 +93,11 @@ export class RealtimeGateway {
   private setupEventHandlers() {
     this.io.on('connection', (socket: Socket) => {
       const authSocket = socket as AuthenticatedSocket;
-      console.log(`✅ User connected: ${authSocket.userName} (${authSocket.userId})`);
 
       // ========================================================================
       // AUTO-JOIN PERSONAL ROOM (para recibir notificaciones globales)
       // ========================================================================
       socket.join(`user:${authSocket.userId}`);
-      console.log(`📫 User ${authSocket.userName} joined personal room: user:${authSocket.userId}`);
 
       // ========================================================================
       // JOIN BOARD
@@ -146,9 +143,7 @@ export class RealtimeGateway {
             users: activeUsers,
           });
 
-          console.log(`👥 User ${authSocket.userName} joined board ${boardId}`);
         } catch (error) {
-          console.error('Error joining board:', error);
           socket.emit('error', { message: 'Failed to join board' });
         }
       });
@@ -173,9 +168,7 @@ export class RealtimeGateway {
             users: activeUsers,
           });
 
-          console.log(`👋 User ${authSocket.userName} left board ${boardId}`);
         } catch (error) {
-          console.error('Error leaving board:', error);
         }
       });
 
@@ -198,7 +191,6 @@ export class RealtimeGateway {
             });
           }
         } catch (error) {
-          console.error('Error handling typing start:', error);
         }
       });
 
@@ -216,7 +208,6 @@ export class RealtimeGateway {
             });
           }
         } catch (error) {
-          console.error('Error handling typing stop:', error);
         }
       });
 
@@ -225,7 +216,6 @@ export class RealtimeGateway {
       // ========================================================================
       socket.on('disconnect', async () => {
         try {
-          console.log(`❌ User disconnected: ${authSocket.userName}`);
 
           // Limpiar presencia del usuario en todos los boards
           await this.presenceService.cleanupUser(authSocket.userId);
@@ -243,7 +233,6 @@ export class RealtimeGateway {
             }
           }
         } catch (error) {
-          console.error('Error handling disconnect:', error);
         }
       });
 
@@ -286,7 +275,6 @@ export class RealtimeGateway {
   public sendToUser(userId: string, event: Event): void {
     const userRoom = `user:${userId}`;
     this.io.to(userRoom).emit('event', event);
-    console.log(`📤 Event sent to user ${userId}: ${event.type}`);
   }
 
   /**
@@ -304,7 +292,6 @@ export class RealtimeGateway {
         this.broadcastToBoardExcept(boardId, event, excludeSocketId);
       }
     } catch (error) {
-      console.error('Error broadcasting comment event:', error);
     }
   }
 
@@ -336,7 +323,6 @@ export class RealtimeGateway {
 
       return result.rows.length > 0;
     } catch (error) {
-      console.error('Error checking board access:', error);
       return false;
     }
   }
@@ -356,7 +342,6 @@ export class RealtimeGateway {
 
       return result.rows[0]?.board_id || null;
     } catch (error) {
-      console.error('Error getting boardId from card:', error);
       return null;
     }
   }
@@ -375,7 +360,6 @@ let gatewayInstance: RealtimeGateway | null = null;
 export function initializeRealtimeGateway(httpServer: HTTPServer): RealtimeGateway {
   if (!gatewayInstance) {
     gatewayInstance = new RealtimeGateway(httpServer);
-    console.log('✅ Realtime Gateway initialized');
   }
   return gatewayInstance;
 }
