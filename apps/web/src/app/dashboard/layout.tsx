@@ -11,6 +11,7 @@ import { RealtimeNotificationProvider } from '@/components/realtime/RealtimeNoti
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { SocketProvider } from '@/components/providers/SocketProvider';
 import { NotificationListener } from '@/components/notifications/NotificationListener';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -24,6 +25,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const navigation = [
+    {
+      name: 'Home',
+      href: '/',
+      icon: '⌂',
+      active: false, // Nunca activo porque no estamos en home
+    },
     {
       name: 'Dashboard',
       href: '/dashboard',
@@ -43,6 +50,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       active: pathname?.startsWith('/dashboard/documents'),
     },
   ];
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <ProtectedRoute>
@@ -64,19 +80,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* User Info */}
-                <div className="p-4 border-b border-border flex-shrink-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-terminal bg-accent/20 flex items-center justify-center">
-                      <span className="text-accent font-bold">
-                        {user?.name.charAt(0).toUpperCase()}
+                <Link href="/dashboard/profile">
+                  <div className="p-4 border-b border-border flex-shrink-0 hover:bg-card/50 transition-colors cursor-pointer group">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="w-10 h-10 border-2 border-accent/50 group-hover:border-accent transition-colors">
+                        {user?.avatar ? (
+                          <AvatarImage
+                            src={`http://localhost:4000${user.avatar}`}
+                            alt={user.name}
+                          />
+                        ) : (
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold">
+                            {user && getInitials(user.name)}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-text-primary truncate group-hover:text-accent transition-colors">
+                          {user?.name}
+                        </p>
+                        <p className="text-xs text-text-muted truncate">{user?.email}</p>
+                      </div>
+                      <span className="text-xs text-text-muted group-hover:text-accent transition-colors">
+                        ▸
                       </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text-primary truncate">{user?.name}</p>
-                      <p className="text-xs text-text-muted truncate">{user?.email}</p>
-                    </div>
                   </div>
-                </div>
+                </Link>
 
                 {/* Navigation - SCROLLABLE SECTION */}
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto min-h-0">

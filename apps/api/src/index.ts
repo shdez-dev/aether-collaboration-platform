@@ -44,6 +44,9 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files (avatars, uploads)
+app.use('/uploads', express.static('public/uploads'));
+
 // Request logging
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);

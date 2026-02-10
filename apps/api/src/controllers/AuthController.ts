@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { UserId } from '@aether/types';
 import { eventStore } from '../services/EventStoreService';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { pool } from '../lib/db';
 
 // Esquemas de validación con Zod
@@ -244,6 +244,81 @@ export class AuthController {
           message: 'Error al cerrar sesión',
         },
       });
+    }
+  }
+
+  /**
+   * POST /api/auth/refresh
+   * Renueva el access token usando el refresh token
+   */
+  async refresh(req: Request, res: Response) {
+    const client = await pool.connect();
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'REFRESH_TOKEN_REQUIRED',
+            message: 'Refresh token es requerido',
+          },
+        });
+      }
+
+      // Verificar el refresh token
+      const decoded = verifyRefreshToken(refreshToken);
+
+      // Buscar usuario en la base de datos
+      const result = await client.query('SELECT id, email, name, avatar FROM users WHERE id = $1', [
+        decoded.userId,
+      ]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: 'Usuario no encontrado',
+          },
+        });
+      }
+
+      const user = result.rows[0];
+
+      // Generar nuevos tokens
+      const tokenPayload = {
+        userId: user.id as UserId,
+        email: user.email,
+      };
+
+      const newAccessToken = generateAccessToken(tokenPayload);
+      const newRefreshToken = generateRefreshToken(tokenPayload);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatar: user.avatar,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('[AUTH] Refresh token error:', error);
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_REFRESH_TOKEN',
+          message: 'Refresh token inválido o expirado',
+        },
+      });
+    } finally {
+      client.release();
     }
   }
 

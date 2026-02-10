@@ -42,12 +42,12 @@ class DocumentController {
         });
       }
 
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER' && userRole !== 'MEMBER') {
         return res.status(403).json({
           success: false,
           error: {
             code: 'INSUFFICIENT_PERMISSIONS',
-            message: 'Solo ADMIN o OWNER pueden crear documentos',
+            message: 'Solo ADMIN, OWNER o MEMBER pueden crear documentos',
           },
         });
       }

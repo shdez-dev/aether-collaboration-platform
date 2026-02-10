@@ -27,9 +27,35 @@ CREATE TABLE IF NOT EXISTS users (
   password VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL,
   avatar VARCHAR(500),
+  bio TEXT,
+  position VARCHAR(255), -- Cargo o puesto
+  timezone VARCHAR(100) DEFAULT 'UTC',
+  language VARCHAR(10) DEFAULT 'en', -- Idioma preferido: 'en', 'es', etc.
+  phone VARCHAR(50),
+  location VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- User Preferences (configuración y preferencias de usuario)
+CREATE TABLE IF NOT EXISTS user_preferences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID UNIQUE NOT NULL,
+  theme VARCHAR(20) DEFAULT 'dark', -- 'light', 'dark', 'system'
+  email_notifications BOOLEAN DEFAULT TRUE,
+  push_notifications BOOLEAN DEFAULT TRUE,
+  in_app_notifications BOOLEAN DEFAULT TRUE,
+  notification_frequency VARCHAR(20) DEFAULT 'realtime', -- 'realtime', 'daily', 'weekly'
+  compact_mode BOOLEAN DEFAULT FALSE, -- Vista compacta en boards
+  show_archived BOOLEAN DEFAULT FALSE, -- Mostrar items archivados por defecto
+  default_board_view VARCHAR(20) DEFAULT 'kanban', -- 'kanban', 'list', 'calendar'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_user_preferences_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Index para búsqueda rápida de preferencias por usuario
+CREATE INDEX IF NOT EXISTS idx_user_preferences_user ON user_preferences(user_id);
 
 -- Workspaces
 CREATE TABLE IF NOT EXISTS workspaces (
@@ -280,7 +306,7 @@ CREATE TABLE IF NOT EXISTS documents (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_documents_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
-  CONSTRAINT fk_documents_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+  CONSTRAINT fk_documents_creator FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
 -- Índices para performance
@@ -299,7 +325,7 @@ CREATE TABLE IF NOT EXISTS document_versions (
   created_by UUID NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_document_versions_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
-  CONSTRAINT fk_document_versions_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+  CONSTRAINT fk_document_versions_creator FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
 -- Índices para versiones
@@ -318,8 +344,8 @@ CREATE TABLE IF NOT EXISTS document_comments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_document_comments_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
-  CONSTRAINT fk_document_comments_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_document_comments_parent FOREIGN KEY (parent_id) REFERENCES document_comments(id) ON DELETE CASCADE
+  CONSTRAINT fk_document_comments_creator FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_document_comments_parent FOREIGN KEY (parent_id) REFERENCES document_comments(id)
 );
 
 -- Índices para comentarios
@@ -336,7 +362,7 @@ CREATE TABLE IF NOT EXISTS document_permissions (
   permission VARCHAR(20) NOT NULL CHECK (permission IN ('VIEW', 'COMMENT', 'EDIT')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_document_permissions_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
-  CONSTRAINT fk_document_permissions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_document_permissions_user FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT unique_document_user_permission UNIQUE(document_id, user_id)
 );
 
@@ -365,6 +391,51 @@ CREATE TRIGGER trigger_update_document_comment_timestamp
   FOR EACH ROW
   WHEN (OLD.* IS DISTINCT FROM NEW.*)
   EXECUTE FUNCTION update_document_updated_at();
+
+-- Trigger para auto-actualizar updated_at en users
+CREATE OR REPLACE FUNCTION update_users_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_users_timestamp
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION update_users_updated_at();
+
+-- Trigger para auto-actualizar updated_at en user_preferences
+CREATE OR REPLACE FUNCTION update_user_preferences_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_user_preferences_timestamp
+  BEFORE UPDATE ON user_preferences
+  FOR EACH ROW
+  WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION update_user_preferences_updated_at();
+
+-- Trigger para auto-crear preferencias por defecto cuando se crea un usuario
+CREATE OR REPLACE FUNCTION create_default_user_preferences()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO user_preferences (user_id)
+  VALUES (NEW.id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_create_user_preferences
+  AFTER INSERT ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION create_default_user_preferences();
 
 -- Success message
 SELECT 'Database schema created successfully!' as message;

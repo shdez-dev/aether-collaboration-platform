@@ -7,7 +7,7 @@
 
 @layer base {
   :root {
-    /* AETHER Theme - Negro Puro con Acentos Azules */
+    /* AETHER Theme - Dark Mode (default) */
     --background: 0 0% 7%;
     --foreground: 210 40% 98%;
 
@@ -35,6 +35,39 @@
     --border: 0 0% 20%;
     --input: 0 0% 12%;
     --ring: 217.2 91.2% 59.8%;
+
+    --radius: 0.25rem;
+  }
+
+  .light {
+    /* AETHER Theme - Light Mode - Alto Contraste */
+    --background: 0 0% 97%;
+    --foreground: 222 47% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 8%;
+
+    --primary: 221 83% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 92%;
+    --secondary-foreground: 222 47% 8%;
+
+    --muted: 210 40% 92%;
+    --muted-foreground: 215 20% 35%;
+
+    --accent: 221 83% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 75%;
+    --input: 0 0% 100%;
+    --ring: 221 83% 48%;
 
     --radius: 0.25rem;
   }
@@ -69,6 +102,68 @@
 
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-text-muted;
+  }
+
+  /* Tema claro - ajustes específicos con más contraste */
+  .light {
+    --surface: 0 0% 100%;
+    --text-primary: 222 47% 8%;
+    --text-secondary: 215 20% 25%;
+    --text-muted: 215 20% 40%;
+    --border-light: 214 32% 65%;
+    --accent-hover: 221 83% 40%;
+    --success: 142 71% 40%;
+    --warning: 38 92% 45%;
+    --error: 0 84% 55%;
+  }
+
+  .light ::-webkit-scrollbar-track {
+    background: hsl(210 40% 95%);
+  }
+
+  .light ::-webkit-scrollbar-thumb {
+    background: hsl(214 32% 70%);
+  }
+
+  .light ::-webkit-scrollbar-thumb:hover {
+    background: hsl(214 32% 60%);
+  }
+
+  /* Cards y componentes en tema claro con más contraste */
+  .light .card-terminal,
+  .light [class*='rounded-xl'][class*='border'] {
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.1),
+      0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+
+  .light .card-terminal:hover,
+  .light [class*='rounded-xl'][class*='border']:hover {
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.1),
+      0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+
+  /* Input y select en tema claro con borde más visible */
+  .light input,
+  .light select,
+  .light textarea {
+    border-color: hsl(214 32% 75%);
+  }
+
+  .light input:focus,
+  .light select:focus,
+  .light textarea:focus {
+    border-color: hsl(221 83% 48%);
+  }
+
+  /* Botones en tema claro */
+  .light button[class*='border'] {
+    border-color: hsl(214 32% 75%);
+  }
+
+  .light button:hover[class*='border']:not([class*='primary']) {
+    border-color: hsl(214 32% 60%);
   }
 }
 
@@ -210,6 +305,24 @@
 
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes gradient {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  animation: gradient 3s ease infinite;
+}
+
+.bg-300\% {
+  background-size: 300%;
 }
 
 @keyframes scaleIn {

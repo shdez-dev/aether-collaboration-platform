@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
 import { socketService } from '@/services/socketService';
+import { apiService } from '@/services/apiService';
 
 // ==================== TYPES ====================
 
@@ -12,7 +13,14 @@ interface User {
   email: string;
   name: string;
   avatar?: string;
+  bio?: string;
+  position?: string;
+  timezone?: string;
+  language?: string;
+  phone?: string;
+  location?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 interface AuthTokens {
@@ -35,61 +43,17 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   getCurrentUser: () => Promise<void>;
+  updateProfile: (
+    data: Partial<Omit<User, 'id' | 'email' | 'createdAt' | 'updatedAt'>>
+  ) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   clearError: () => void;
-  setHydrated: (hydrated: boolean) => void; // Nueva acción
+  setHydrated: (hydrated: boolean) => void;
 
   // Helpers internos
   setAuth: (user: User, tokens: AuthTokens) => void;
   clearAuth: () => void;
-}
-
-// ==================== API CONFIG ====================
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-// ==================== API HELPERS ====================
-
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
-
-async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || {
-          code: 'UNKNOWN_ERROR',
-          message: 'Ocurrió un error desconocido',
-        },
-      };
-    }
-
-    return data;
-  } catch (error) {
-    return {
-      success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: 'Error de conexión. Verifica que el servidor esté corriendo.',
-      },
-    };
-  }
 }
 
 // ==================== STORE ====================
@@ -111,10 +75,11 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
 
         try {
-          const response = await apiRequest<{ user: User }>('/api/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({ name, email, password }),
-          });
+          const response = await apiService.post<{ user: User }>(
+            '/api/auth/register',
+            { name, email, password },
+            false
+          );
 
           if (!response.success || !response.data) {
             set({
@@ -139,14 +104,11 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
 
         try {
-          const response = await apiRequest<{
+          const response = await apiService.post<{
             user: User;
             accessToken: string;
             refreshToken: string;
-          }>('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-          });
+          }>('/api/auth/login', { email, password }, false);
 
           if (!response.success || !response.data) {
             set({
@@ -167,7 +129,6 @@ export const useAuthStore = create<AuthState>()(
             error: null,
           });
 
-
           // Inicializar socket después de login exitoso
           if (socketService && accessToken) {
             socketService.connect(accessToken);
@@ -184,7 +145,6 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const { accessToken } = get();
 
-
         // 1. DESCONECTAR SOCKET PRIMERO
         if (socketService) {
           socketService.disconnect();
@@ -193,20 +153,21 @@ export const useAuthStore = create<AuthState>()(
         // 2. Notificar al servidor (opcional, no bloqueante)
         if (accessToken) {
           try {
-            await apiRequest('/api/auth/logout', {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            });
+            await apiService.post('/api/auth/logout', {}, true);
           } catch (error) {
             console.warn('[AuthStore] Error al notificar logout al servidor:', error);
           }
         }
 
-        // 3. Limpiar estado local
-        get().clearAuth();
+        // 3. Limpiar TODOS los stores de localStorage
+        localStorage.removeItem('aether-auth-storage');
+        localStorage.removeItem('aether-workspace-storage');
+        localStorage.removeItem('aether-board-storage');
+        localStorage.removeItem('aether-card-storage');
+        localStorage.removeItem('aether-document-storage');
 
+        // 4. Limpiar estado local
+        get().clearAuth();
       },
 
       // ==================== GET CURRENT USER ====================
@@ -221,12 +182,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          const response = await apiRequest<{ user: User }>('/api/auth/me', {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          });
+          const response = await apiService.get<{ user: User }>('/api/auth/me', true);
 
           if (!response.success || !response.data) {
             // Token inválido o expirado
@@ -286,6 +242,116 @@ export const useAuthStore = create<AuthState>()(
 
       setHydrated: (hydrated: boolean) => {
         set({ isHydrated: hydrated });
+      },
+
+      // ==================== UPDATE PROFILE ====================
+      updateProfile: async (
+        data: Partial<Omit<User, 'id' | 'email' | 'createdAt' | 'updatedAt'>>
+      ) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const response = await apiService.put<{ user: User }>('/api/users/me', data, true);
+
+          if (!response.success || !response.data) {
+            set({
+              isLoading: false,
+              error: response.error?.message || 'Error al actualizar perfil',
+            });
+            return;
+          }
+
+          set({
+            user: response.data.user,
+            isLoading: false,
+            error: null,
+          });
+        } catch (error) {
+          set({
+            isLoading: false,
+            error: 'Error inesperado al actualizar perfil',
+          });
+        }
+      },
+
+      // ==================== UPLOAD AVATAR ====================
+      uploadAvatar: async (file: File) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const formData = new FormData();
+          formData.append('avatar', file);
+
+          const { accessToken } = get();
+          if (!accessToken) {
+            set({
+              isLoading: false,
+              error: 'No estás autenticado',
+            });
+            return;
+          }
+
+          const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000';
+          const res = await fetch(`${API_URL}/api/users/me/avatar`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: formData,
+          });
+
+          const response = await res.json();
+
+          if (!response.success || !response.data) {
+            set({
+              isLoading: false,
+              error: response.error?.message || 'Error al subir avatar',
+            });
+            return;
+          }
+
+          set({
+            user: response.data.user,
+            isLoading: false,
+            error: null,
+          });
+        } catch (error) {
+          set({
+            isLoading: false,
+            error: 'Error inesperado al subir avatar',
+          });
+        }
+      },
+
+      // ==================== CHANGE PASSWORD ====================
+      changePassword: async (currentPassword: string, newPassword: string) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const response = await apiService.put<{ message: string }>(
+            '/api/users/me/password',
+            { currentPassword, newPassword },
+            true
+          );
+
+          if (!response.success) {
+            set({
+              isLoading: false,
+              error: response.error?.message || 'Error al cambiar contraseña',
+            });
+            return;
+          }
+
+          set({
+            isLoading: false,
+            error: null,
+          });
+        } catch (error) {
+          set({
+            isLoading: false,
+            error: 'Error inesperado al cambiar contraseña',
+          });
+        }
       },
     }),
     {

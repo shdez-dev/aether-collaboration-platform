@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { pool } from '../lib/db';
 import { userActivityService } from '../services/UserActivityService';
+import bcrypt from 'bcrypt';
 
 class UserController {
   /**
@@ -307,6 +308,506 @@ class UserController {
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Failed to get user cards',
+        },
+      });
+    }
+  }
+
+  /**
+   * PUT /api/users/me
+   * Actualizar perfil del usuario autenticado
+   */
+  async updateProfile(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      const { name, bio, position, timezone, language, phone, location } = req.body;
+
+      // Validar que al menos un campo esté presente
+      if (!name && !bio && !position && !timezone && !language && !phone && !location) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'MISSING_FIELDS',
+            message: 'At least one field is required',
+          },
+        });
+      }
+
+      // Construir query dinámicamente solo con los campos proporcionados
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (name !== undefined) {
+        updates.push(`name = $${paramIndex++}`);
+        values.push(name);
+      }
+      if (bio !== undefined) {
+        updates.push(`bio = $${paramIndex++}`);
+        values.push(bio);
+      }
+      if (position !== undefined) {
+        updates.push(`position = $${paramIndex++}`);
+        values.push(position);
+      }
+      if (timezone !== undefined) {
+        updates.push(`timezone = $${paramIndex++}`);
+        values.push(timezone);
+      }
+      if (language !== undefined) {
+        updates.push(`language = $${paramIndex++}`);
+        values.push(language);
+      }
+      if (phone !== undefined) {
+        updates.push(`phone = $${paramIndex++}`);
+        values.push(phone);
+      }
+      if (location !== undefined) {
+        updates.push(`location = $${paramIndex++}`);
+        values.push(location);
+      }
+
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(userId);
+
+      const result = await pool.query(
+        `UPDATE users 
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING id, email, name, avatar, bio, position, timezone, language, phone, location, created_at, updated_at`,
+        values
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: 'User not found',
+          },
+        });
+      }
+
+      const user = result.rows[0];
+
+      return res.json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatar: user.avatar,
+            bio: user.bio,
+            position: user.position,
+            timezone: user.timezone,
+            language: user.language,
+            phone: user.phone,
+            location: user.location,
+            createdAt: user.created_at,
+            updatedAt: user.updated_at,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('[UserController] UpdateProfile error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to update profile',
+        },
+      });
+    }
+  }
+
+  /**
+   * PUT /api/users/me/password
+   * Cambiar contraseña del usuario autenticado
+   */
+  async changePassword(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'MISSING_FIELDS',
+            message: 'Current password and new password are required',
+          },
+        });
+      }
+
+      // Validar longitud de nueva contraseña
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_PASSWORD',
+            message: 'New password must be at least 6 characters long',
+          },
+        });
+      }
+
+      // Obtener contraseña actual del usuario
+      const userResult = await pool.query('SELECT password FROM users WHERE id = $1', [userId]);
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: 'User not found',
+          },
+        });
+      }
+
+      const user = userResult.rows[0];
+
+      // Verificar que la contraseña actual sea correcta
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'INVALID_PASSWORD',
+            message: 'Current password is incorrect',
+          },
+        });
+      }
+
+      // Hash de la nueva contraseña
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Actualizar contraseña
+      await pool.query(
+        'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [hashedPassword, userId]
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          message: 'Password changed successfully',
+        },
+      });
+    } catch (error) {
+      console.error('[UserController] ChangePassword error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to change password',
+        },
+      });
+    }
+  }
+
+  /**
+   * POST /api/users/me/avatar
+   * Subir avatar del usuario
+   */
+  async uploadAvatar(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'NO_FILE',
+            message: 'No file uploaded',
+          },
+        });
+      }
+
+      // Construir URL pública del avatar
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+      // Actualizar el avatar en la base de datos
+      const result = await pool.query(
+        `UPDATE users 
+         SET avatar = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING id, email, name, avatar, bio, position, timezone, language, phone, location`,
+        [avatarUrl, userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: 'User not found',
+          },
+        });
+      }
+
+      const user = result.rows[0];
+
+      return res.json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatar: user.avatar,
+            bio: user.bio,
+            position: user.position,
+            timezone: user.timezone,
+            language: user.language,
+            phone: user.phone,
+            location: user.location,
+          },
+          avatarUrl: user.avatar,
+        },
+      });
+    } catch (error) {
+      console.error('[UserController] UploadAvatar error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to upload avatar',
+        },
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/me/preferences
+   * Obtener preferencias del usuario
+   */
+  async getPreferences(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      const result = await pool.query(`SELECT * FROM user_preferences WHERE user_id = $1`, [
+        userId,
+      ]);
+
+      // Si no existen preferencias, crearlas con valores por defecto
+      if (result.rows.length === 0) {
+        const createResult = await pool.query(
+          `INSERT INTO user_preferences (user_id) VALUES ($1) RETURNING *`,
+          [userId]
+        );
+
+        const prefs = createResult.rows[0];
+        return res.json({
+          success: true,
+          data: {
+            preferences: {
+              theme: prefs.theme,
+              emailNotifications: prefs.email_notifications,
+              pushNotifications: prefs.push_notifications,
+              inAppNotifications: prefs.in_app_notifications,
+              notificationFrequency: prefs.notification_frequency,
+              compactMode: prefs.compact_mode,
+              showArchived: prefs.show_archived,
+              defaultBoardView: prefs.default_board_view,
+            },
+          },
+        });
+      }
+
+      const prefs = result.rows[0];
+
+      return res.json({
+        success: true,
+        data: {
+          preferences: {
+            theme: prefs.theme,
+            emailNotifications: prefs.email_notifications,
+            pushNotifications: prefs.push_notifications,
+            inAppNotifications: prefs.in_app_notifications,
+            notificationFrequency: prefs.notification_frequency,
+            compactMode: prefs.compact_mode,
+            showArchived: prefs.show_archived,
+            defaultBoardView: prefs.default_board_view,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('[UserController] GetPreferences error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to get preferences',
+        },
+      });
+    }
+  }
+
+  /**
+   * PUT /api/users/me/preferences
+   * Actualizar preferencias del usuario
+   */
+  async updatePreferences(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      const {
+        theme,
+        emailNotifications,
+        pushNotifications,
+        inAppNotifications,
+        notificationFrequency,
+        compactMode,
+        showArchived,
+        defaultBoardView,
+      } = req.body;
+
+      // Verificar si existen preferencias
+      const checkResult = await pool.query('SELECT id FROM user_preferences WHERE user_id = $1', [
+        userId,
+      ]);
+
+      if (checkResult.rows.length === 0) {
+        // Crear preferencias por defecto
+        await pool.query('INSERT INTO user_preferences (user_id) VALUES ($1)', [userId]);
+      }
+
+      // Construir query dinámicamente
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (theme !== undefined) {
+        updates.push(`theme = $${paramIndex++}`);
+        values.push(theme);
+      }
+      if (emailNotifications !== undefined) {
+        updates.push(`email_notifications = $${paramIndex++}`);
+        values.push(emailNotifications);
+      }
+      if (pushNotifications !== undefined) {
+        updates.push(`push_notifications = $${paramIndex++}`);
+        values.push(pushNotifications);
+      }
+      if (inAppNotifications !== undefined) {
+        updates.push(`in_app_notifications = $${paramIndex++}`);
+        values.push(inAppNotifications);
+      }
+      if (notificationFrequency !== undefined) {
+        updates.push(`notification_frequency = $${paramIndex++}`);
+        values.push(notificationFrequency);
+      }
+      if (compactMode !== undefined) {
+        updates.push(`compact_mode = $${paramIndex++}`);
+        values.push(compactMode);
+      }
+      if (showArchived !== undefined) {
+        updates.push(`show_archived = $${paramIndex++}`);
+        values.push(showArchived);
+      }
+      if (defaultBoardView !== undefined) {
+        updates.push(`default_board_view = $${paramIndex++}`);
+        values.push(defaultBoardView);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'MISSING_FIELDS',
+            message: 'At least one preference field is required',
+          },
+        });
+      }
+
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(userId);
+
+      const result = await pool.query(
+        `UPDATE user_preferences 
+         SET ${updates.join(', ')}
+         WHERE user_id = $${paramIndex}
+         RETURNING *`,
+        values
+      );
+
+      const prefs = result.rows[0];
+
+      return res.json({
+        success: true,
+        data: {
+          preferences: {
+            theme: prefs.theme,
+            emailNotifications: prefs.email_notifications,
+            pushNotifications: prefs.push_notifications,
+            inAppNotifications: prefs.in_app_notifications,
+            notificationFrequency: prefs.notification_frequency,
+            compactMode: prefs.compact_mode,
+            showArchived: prefs.show_archived,
+            defaultBoardView: prefs.default_board_view,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('[UserController] UpdatePreferences error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to update preferences',
         },
       });
     }

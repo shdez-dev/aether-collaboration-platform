@@ -31,13 +31,40 @@ model User {
   password  String
   name      String
   avatar    String?
+  bio       String?
+  position  String?  @db.VarChar(255)
+  timezone  String?  @default("UTC") @db.VarChar(100)
+  language  String?  @default("en") @db.VarChar(10)
+  phone     String?  @db.VarChar(50)
+  location  String?  @db.VarChar(255)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  workspaces WorkspaceMember[]
+  workspaces    WorkspaceMember[]
   createdBoards Board[]
+  preferences   UserPreferences?
 
   @@map("users")
+}
+
+// User Preferences
+model UserPreferences {
+  id                     String   @id @default(uuid()) @db.Uuid
+  userId                 String   @unique @map("user_id") @db.Uuid
+  theme                  String   @default("dark") @db.VarChar(20)
+  emailNotifications     Boolean  @default(true) @map("email_notifications")
+  pushNotifications      Boolean  @default(true) @map("push_notifications")
+  inAppNotifications     Boolean  @default(true) @map("in_app_notifications")
+  notificationFrequency  String   @default("realtime") @map("notification_frequency") @db.VarChar(20)
+  compactMode            Boolean  @default(false) @map("compact_mode")
+  showArchived           Boolean  @default(false) @map("show_archived")
+  defaultBoardView       String   @default("kanban") @map("default_board_view") @db.VarChar(20)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
 }
 
 // Workspace

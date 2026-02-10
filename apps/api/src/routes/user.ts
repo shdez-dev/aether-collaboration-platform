@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { userController } from '../controllers/UserController';
 import { authenticateJWT } from '../middleware/auth';
+import { uploadAvatar } from '../middleware/upload';
 
 const router = Router();
 
@@ -36,5 +37,40 @@ router.get('/me/activity', (req, res) => userController.getUserActivity(req, res
  * Permisos: Usuario autenticado
  */
 router.get('/me/cards', (req, res) => userController.getUserCards(req, res));
+
+/**
+ * PUT /api/users/me
+ * Actualizar perfil del usuario autenticado
+ * Permisos: Usuario autenticado
+ */
+router.put('/me', (req, res) => userController.updateProfile(req, res));
+
+/**
+ * PUT /api/users/me/password
+ * Cambiar contraseña del usuario
+ * Permisos: Usuario autenticado
+ */
+router.put('/me/password', (req, res) => userController.changePassword(req, res));
+
+/**
+ * POST /api/users/me/avatar
+ * Subir avatar del usuario
+ * Permisos: Usuario autenticado
+ */
+router.post('/me/avatar', uploadAvatar, (req, res) => userController.uploadAvatar(req, res));
+
+/**
+ * GET /api/users/me/preferences
+ * Obtener preferencias del usuario
+ * Permisos: Usuario autenticado
+ */
+router.get('/me/preferences', (req, res) => userController.getPreferences(req, res));
+
+/**
+ * PUT /api/users/me/preferences
+ * Actualizar preferencias del usuario
+ * Permisos: Usuario autenticado
+ */
+router.put('/me/preferences', (req, res) => userController.updatePreferences(req, res));
 
 export default router;

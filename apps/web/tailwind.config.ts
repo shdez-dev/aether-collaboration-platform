@@ -12,27 +12,27 @@ const config: Config = {
     extend: {
       colors: {
         background: 'hsl(var(--background))',
-        surface: '#111111',
+        surface: 'hsl(var(--background))',
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        'card-hover': '#1f1f1f',
+        'card-hover': 'hsl(var(--muted))',
         border: 'hsl(var(--border))',
-        'border-light': '#333333',
+        'border-light': 'hsl(var(--border) / 0.8)',
         text: {
-          primary: '#e5e5e5',
-          secondary: '#a0a0a0',
-          muted: '#6b6b6b',
+          primary: 'hsl(var(--foreground))',
+          secondary: 'hsl(var(--muted-foreground))',
+          muted: 'hsl(var(--muted-foreground) / 0.7)',
         },
         accent: {
           DEFAULT: 'hsl(var(--accent))',
-          hover: '#2563eb',
+          hover: 'hsl(var(--accent) / 0.9)',
           foreground: 'hsl(var(--accent-foreground))',
         },
-        success: '#10b981',
-        warning: '#f59e0b',
-        error: '#ef4444',
+        success: 'hsl(142 71% 45%)',
+        warning: 'hsl(38 92% 50%)',
+        error: 'hsl(0 84% 60%)',
         foreground: 'hsl(var(--foreground))',
         popover: {
           DEFAULT: 'hsl(var(--popover))',
