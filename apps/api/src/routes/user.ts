@@ -11,11 +11,25 @@ const router = Router();
 router.use(authenticateJWT);
 
 /**
+ * GET /api/users?search=xxx&page=1&limit=20
+ * Directorio de usuarios con búsqueda
+ * Permisos: Usuario autenticado
+ */
+router.get('/', (req, res) => userController.listUsers(req, res));
+
+/**
  * GET /api/users/search?email=xxx
  * Buscar usuario por email
  * Permisos: Usuario autenticado
  */
 router.get('/search', (req, res) => userController.searchByEmail(req, res));
+
+/**
+ * GET /api/users/:id
+ * Perfil público de un usuario
+ * Permisos: Usuario autenticado
+ */
+router.get('/:id', (req, res) => userController.getUserProfile(req, res));
 
 /**
  * GET /api/users/me/stats

@@ -12,6 +12,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { SocketProvider } from '@/components/providers/SocketProvider';
 import { NotificationListener } from '@/components/notifications/NotificationListener';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { getAvatarUrl, getInitials } from '@/lib/utils/avatar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -49,6 +50,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       icon: '▤',
       active: pathname?.startsWith('/dashboard/documents'),
     },
+    {
+      name: 'Users',
+      href: '/dashboard/users',
+      icon: '◎',
+      active: pathname?.startsWith('/dashboard/users'),
+    },
   ];
 
   const getInitials = (name: string) => {
@@ -84,10 +91,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="p-4 border-b border-border flex-shrink-0 hover:bg-card/50 transition-colors cursor-pointer group">
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10 border-2 border-accent/50 group-hover:border-accent transition-colors">
-                        {user?.avatar ? (
+                        {getAvatarUrl(user?.avatar) ? (
                           <AvatarImage
-                            src={`http://localhost:4000${user.avatar}`}
-                            alt={user.name}
+                            src={getAvatarUrl(user?.avatar)!}
+                            alt={user?.name || 'User'}
                           />
                         ) : (
                           <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold">

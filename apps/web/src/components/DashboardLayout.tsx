@@ -8,7 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isAuthenticated, isHydrated, getCurrentUser, isLoading } = useAuthStore();
+  const { user, logout, isAuthenticated, isHydrated, getCurrentUser } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isChecking, setIsChecking] = useState(true);
 
@@ -72,10 +72,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       icon: '◉',
       active: pathname?.startsWith('/dashboard/notifications'),
     },
+    {
+      name: 'Usuarios',
+      href: '/dashboard/users',
+      icon: '◎',
+      active: pathname?.startsWith('/dashboard/users'),
+    },
   ];
 
   // Mostrar loading mientras verifica O mientras se hidrata el estado
-  if (!isHydrated || isChecking || isLoading) {
+  if (!isHydrated || isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="card-terminal max-w-md">

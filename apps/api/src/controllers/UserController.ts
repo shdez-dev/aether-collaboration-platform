@@ -812,6 +812,145 @@ class UserController {
       });
     }
   }
+  /**
+   * GET /api/users?search=xxx&page=1&limit=20
+   * Directorio de usuarios — lista paginada con búsqueda por nombre o email
+   */
+  async listUsers(req: Request, res: Response) {
+    try {
+      const requestingUserId = req.user?.id;
+      if (!requestingUserId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      const search = (req.query.search as string) || '';
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+      const offset = (page - 1) * limit;
+
+      const searchParam = search ? `%${search.trim()}%` : '%';
+
+      const result = await pool.query(
+        `SELECT id, name, email, avatar, bio, position, location, created_at
+         FROM users
+         WHERE (LOWER(name) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1))
+         ORDER BY name ASC
+         LIMIT $2 OFFSET $3`,
+        [searchParam, limit, offset]
+      );
+
+      const countResult = await pool.query(
+        `SELECT COUNT(*) as total
+         FROM users
+         WHERE (LOWER(name) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1))`,
+        [searchParam]
+      );
+
+      const users = result.rows.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        avatar: u.avatar,
+        bio: u.bio,
+        position: u.position,
+        location: u.location,
+        createdAt: u.created_at,
+      }));
+
+      return res.json({
+        success: true,
+        data: {
+          users,
+          total: parseInt(countResult.rows[0].total),
+          page,
+          limit,
+        },
+      });
+    } catch (error) {
+      console.error('[UserController] ListUsers error:', error);
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to list users' },
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/:id
+   * Perfil público de un usuario
+   */
+  async getUserProfile(req: Request, res: Response) {
+    try {
+      const requestingUserId = req.user?.id;
+      if (!requestingUserId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      const { id } = req.params;
+
+      const result = await pool.query(
+        `SELECT id, name, email, avatar, bio, position, location, created_at
+         FROM users
+         WHERE id = $1`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'USER_NOT_FOUND', message: 'User not found' },
+        });
+      }
+
+      const u = result.rows[0];
+
+      // Workspaces compartidos con el usuario que consulta
+      const sharedWorkspaces = await pool.query(
+        `SELECT w.id, w.name, w.icon, w.color, wm.role
+         FROM workspaces w
+         JOIN workspace_members wm ON wm.workspace_id = w.id
+         JOIN workspace_members wm2 ON wm2.workspace_id = w.id
+         WHERE wm.user_id = $1 AND wm2.user_id = $2
+         ORDER BY w.name ASC`,
+        [id, requestingUserId]
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          user: {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            avatar: u.avatar,
+            bio: u.bio,
+            position: u.position,
+            location: u.location,
+            createdAt: u.created_at,
+          },
+          sharedWorkspaces: sharedWorkspaces.rows.map((w) => ({
+            id: w.id,
+            name: w.name,
+            icon: w.icon,
+            color: w.color,
+            role: w.role,
+          })),
+        },
+      });
+    } catch (error) {
+      console.error('[UserController] GetUserProfile error:', error);
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to get user profile' },
+      });
+    }
+  }
 }
 
 export const userController = new UserController();
