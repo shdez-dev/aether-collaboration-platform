@@ -11,41 +11,8 @@ import { MemberPicker } from './MemberPicker';
 import { LabelPicker } from './LabelPicker';
 import { CommentList } from './comments/CommentList';
 import { X, Calendar, Flag, Tag, Users as UsersIcon } from 'lucide-react';
-
-const priorityOptions = [
-  {
-    value: null,
-    label: 'Sin prioridad',
-    color: 'text-text-muted',
-    symbol: '',
-    iconColor: 'text-text-muted',
-  },
-  { value: 'LOW', label: 'Baja', color: 'text-success', symbol: '▼', iconColor: 'text-success' },
-  {
-    value: 'MEDIUM',
-    label: 'Media',
-    color: 'text-warning',
-    symbol: '■',
-    iconColor: 'text-warning',
-  },
-  { value: 'HIGH', label: 'Alta', color: 'text-error', symbol: '▲', iconColor: 'text-error' },
-];
-
-const DAYS = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'];
-const MONTHS = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-];
+import { useT } from '@/lib/i18n';
+import { formatShort } from '@/lib/utils/date';
 
 function CustomCalendar({
   value,
@@ -56,6 +23,7 @@ function CustomCalendar({
   onChange: (date: string) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [currentDate, setCurrentDate] = useState(() => {
     if (value) return new Date(value);
     return new Date();
@@ -114,7 +82,7 @@ function CustomCalendar({
     <div className="absolute right-0 top-full mt-2 bg-card border border-border shadow-xl z-50 p-4 w-72">
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-semibold font-mono">
-          {MONTHS[month]} {year}
+          {t.months_long[month]} {year}
         </span>
         <div className="flex gap-1">
           <button
@@ -153,7 +121,7 @@ function CustomCalendar({
       </div>
 
       <div className="grid grid-cols-7 gap-1 mb-2">
-        {DAYS.map((day) => (
+        {t.days_short.map((day) => (
           <div key={day} className="text-center text-xs text-text-muted font-mono">
             {day}
           </div>
@@ -185,14 +153,14 @@ function CustomCalendar({
           className="flex-1 px-3 py-1.5 text-xs border border-border hover:bg-surface transition-colors"
           type="button"
         >
-          Limpiar
+          {t.card_due_date_clear}
         </button>
         <button
           onClick={handleToday}
           className="flex-1 px-3 py-1.5 text-xs bg-accent text-white hover:bg-accent/80 transition-colors"
           type="button"
         >
-          Hoy
+          {t.card_due_date_today}
         </button>
       </div>
     </div>
@@ -200,11 +168,43 @@ function CustomCalendar({
 }
 
 export function CardDetailModal() {
+  const t = useT();
   const { selectedCard, setSelectedCard, updateCard, removeCard, currentWorkspaceId } =
     useCardStore();
-  const { accessToken } = useAuthStore();
+  const { accessToken, user } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
+
+  const priorityOptions = [
+    {
+      value: null,
+      label: t.card_priority_none,
+      color: 'text-text-muted',
+      symbol: '',
+      iconColor: 'text-text-muted',
+    },
+    {
+      value: 'LOW',
+      label: t.card_priority_low,
+      color: 'text-success',
+      symbol: '▼',
+      iconColor: 'text-success',
+    },
+    {
+      value: 'MEDIUM',
+      label: t.card_priority_medium,
+      color: 'text-warning',
+      symbol: '■',
+      iconColor: 'text-warning',
+    },
+    {
+      value: 'HIGH',
+      label: t.card_priority_high,
+      color: 'text-error',
+      symbol: '▲',
+      iconColor: 'text-error',
+    },
+  ];
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
@@ -394,10 +394,8 @@ export function CardDetailModal() {
     setSelectedCard({ ...selectedCard, labels: updatedLabels });
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return `${date.getDate()} ${MONTHS[date.getMonth()]}, ${date.getFullYear()}`;
-  };
+  const formatDate = (dateString: string) =>
+    formatShort(dateString, user?.timezone, user?.language as 'es' | 'en');
 
   const currentPriority = priorityOptions.find((p) => p.value === editedPriority);
 
@@ -440,15 +438,15 @@ export function CardDetailModal() {
               <button
                 onClick={handleClose}
                 className="p-2 hover:bg-surface border border-transparent hover:border-border transition-all"
-                aria-label="Cerrar"
+                aria-label={t.btn_close}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <p className="text-xs text-text-muted font-mono">
-              Creada {formatDate(selectedCard.createdAt)}
+              {t.card_created(formatDate(selectedCard.createdAt))}
               {selectedCard.updatedAt !== selectedCard.createdAt &&
-                ` • Actualizada ${formatDate(selectedCard.updatedAt)}`}
+                ` • ${t.card_updated(formatDate(selectedCard.updatedAt))}`}
             </p>
           </div>
 
@@ -458,7 +456,7 @@ export function CardDetailModal() {
             <section>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                  DESCRIPCIÓN
+                  {t.card_section_description}
                 </h3>
                 {typingUsers.length > 0 && (
                   <TypingIndicator typingUsers={typingUsers} position="inline" size="sm" />
@@ -471,7 +469,7 @@ export function CardDetailModal() {
                   onChange={(e) => setEditedDescription(e.target.value)}
                   onFocus={() => setIsDescriptionFocused(true)}
                   onBlur={() => setIsDescriptionFocused(false)}
-                  placeholder="Añade una descripción..."
+                  placeholder={t.card_placeholder_description}
                   rows={5}
                   className="w-full p-3 bg-surface border border-border text-sm font-mono resize-none focus:outline-none focus:border-accent transition-colors"
                 />
@@ -488,7 +486,7 @@ export function CardDetailModal() {
                     </p>
                   ) : (
                     <p className="text-sm text-text-muted font-mono italic">
-                      {canEdit ? 'Clic para añadir descripción...' : 'Sin descripción'}
+                      {canEdit ? t.card_click_add_description : t.card_no_description}
                     </p>
                   )}
                 </div>
@@ -502,7 +500,7 @@ export function CardDetailModal() {
                 <div className="flex items-center gap-2 mb-2">
                   <Flag className={`w-4 h-4 ${currentPriority?.iconColor || 'text-text-muted'}`} />
                   <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                    PRIORIDAD
+                    {t.card_section_priority}
                   </h3>
                 </div>
 
@@ -535,7 +533,7 @@ export function CardDetailModal() {
                       <span className={currentPriority.color}>{currentPriority.symbol}</span>
                     )}
                     <span className={currentPriority?.color || 'text-text-muted'}>
-                      {currentPriority?.label || 'Sin prioridad'}
+                      {currentPriority?.label || t.card_priority_none}
                     </span>
                   </button>
                 )}
@@ -546,7 +544,7 @@ export function CardDetailModal() {
                 <div className="flex items-center gap-2 mb-2">
                   <Calendar className="w-4 h-4 text-text-muted" />
                   <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                    FECHA LÍMITE
+                    {t.card_section_due_date}
                   </h3>
                 </div>
 
@@ -557,7 +555,7 @@ export function CardDetailModal() {
                       onClick={() => setShowCalendar(!showCalendar)}
                       className="w-full p-2 bg-surface border border-border text-sm font-mono hover:border-accent transition-colors text-left"
                     >
-                      {editedDueDate ? formatDate(editedDueDate) : 'Seleccionar fecha'}
+                      {editedDueDate ? formatDate(editedDueDate) : t.card_due_date_select}
                     </button>
                     {showCalendar && (
                       <CustomCalendar
@@ -575,7 +573,7 @@ export function CardDetailModal() {
                       canEdit ? 'hover:border-accent' : ''
                     } transition-colors text-left`}
                   >
-                    {selectedCard.dueDate ? formatDate(selectedCard.dueDate) : 'Sin fecha límite'}
+                    {selectedCard.dueDate ? formatDate(selectedCard.dueDate) : t.card_due_date_none}
                   </button>
                 )}
               </div>
@@ -588,7 +586,7 @@ export function CardDetailModal() {
                 <div className="flex items-center gap-2 mb-3">
                   <Tag className="w-4 h-4 text-text-muted" />
                   <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                    ETIQUETAS
+                    {t.card_section_labels}
                   </h3>
                 </div>
                 <div className="bg-surface border border-border p-3 max-h-[200px] overflow-y-auto custom-scrollbar">
@@ -601,7 +599,7 @@ export function CardDetailModal() {
                       onLabelRemoved={handleLabelRemoved}
                     />
                   ) : (
-                    <p className="text-xs text-text-muted font-mono">Cargando...</p>
+                    <p className="text-xs text-text-muted font-mono">{t.loading}</p>
                   )}
                 </div>
               </div>
@@ -611,7 +609,7 @@ export function CardDetailModal() {
                 <div className="flex items-center gap-2 mb-3">
                   <UsersIcon className="w-4 h-4 text-text-muted" />
                   <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                    MIEMBROS
+                    {t.card_section_members}
                   </h3>
                 </div>
                 <div className="bg-surface border border-border p-3 max-h-[200px] overflow-y-auto custom-scrollbar">
@@ -646,14 +644,12 @@ export function CardDetailModal() {
                             </div>
                           ))
                         ) : (
-                          <p className="text-xs text-text-muted font-mono">
-                            Sin miembros asignados
-                          </p>
+                          <p className="text-xs text-text-muted font-mono">{t.card_members_none}</p>
                         )}
                       </div>
                     )
                   ) : (
-                    <p className="text-xs text-text-muted font-mono">Cargando...</p>
+                    <p className="text-xs text-text-muted font-mono">{t.loading}</p>
                   )}
                 </div>
               </div>
@@ -680,7 +676,7 @@ export function CardDetailModal() {
                 onClick={() => setShowDeleteConfirm(true)}
                 className="px-4 py-2 border border-error/30 bg-error/10 text-error hover:bg-error hover:text-white transition-all text-sm font-medium"
               >
-                Eliminar
+                {t.btn_delete}
               </button>
             )}
 
@@ -700,14 +696,14 @@ export function CardDetailModal() {
                     disabled={isUpdating}
                     className="px-4 py-2 border border-border hover:bg-surface transition-colors text-sm font-medium"
                   >
-                    Cancelar
+                    {t.btn_cancel}
                   </button>
                   <button
                     onClick={handleUpdate}
                     disabled={isUpdating || !editedTitle.trim()}
                     className="px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors text-sm font-medium disabled:opacity-50"
                   >
-                    {isUpdating ? 'Guardando...' : 'Guardar'}
+                    {isUpdating ? t.card_btn_saving : t.btn_save}
                   </button>
                 </>
               ) : (
@@ -716,7 +712,7 @@ export function CardDetailModal() {
                     onClick={() => setIsEditing(true)}
                     className="px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors text-sm font-medium"
                   >
-                    Editar
+                    {t.btn_edit}
                   </button>
                 )
               )}
@@ -734,10 +730,9 @@ export function CardDetailModal() {
           />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="bg-card border border-error max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold mb-2 font-mono">¿Eliminar Tarjeta?</h3>
+              <h3 className="text-lg font-semibold mb-2 font-mono">{t.card_delete_title}</h3>
               <p className="text-sm text-text-secondary mb-4 font-mono">
-                ¿Estás seguro de eliminar "<strong>{selectedCard.title}</strong>"? No se puede
-                deshacer.
+                {t.card_delete_desc(selectedCard.title)}
               </p>
               <div className="flex gap-2">
                 <button
@@ -745,14 +740,14 @@ export function CardDetailModal() {
                   disabled={isDeleting}
                   className="flex-1 px-4 py-2 border border-border hover:bg-surface transition-colors"
                 >
-                  Cancelar
+                  {t.btn_cancel}
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={isDeleting}
                   className="flex-1 px-4 py-2 bg-error text-white hover:bg-error/80 transition-colors"
                 >
-                  {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                  {isDeleting ? t.card_btn_deleting : t.btn_delete}
                 </button>
               </div>
             </div>

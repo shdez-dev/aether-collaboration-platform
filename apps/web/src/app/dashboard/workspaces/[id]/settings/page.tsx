@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { ArrowLeft, Save, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 const COLORS = [
   '#3b82f6',
@@ -21,6 +22,7 @@ const COLORS = [
 const ICONS = ['▣', '◆', '▦', '▤', '◉', '▲', '●', '■'];
 
 export default function WorkspaceSettingsPage() {
+  const t = useT();
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.id as string;
@@ -75,14 +77,14 @@ export default function WorkspaceSettingsPage() {
         <div className="w-16 h-16 mx-auto mb-4 bg-error/10 border border-error flex items-center justify-center">
           <AlertTriangle className="w-8 h-8 text-error" />
         </div>
-        <h3 className="text-xl font-medium mb-2">Sin permisos</h3>
-        <p className="text-error mb-6">No tienes permiso para acceder a la configuración</p>
+        <h3 className="text-xl font-medium mb-2">{t.ws_settings_no_permission_title}</h3>
+        <p className="text-error mb-6">{t.ws_settings_no_permission_desc}</p>
         <Link
           href={`/dashboard/workspaces/${workspaceId}`}
           className="btn-secondary inline-flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Volver al Workspace</span>
+          <span>{t.ws_settings_btn_back}</span>
         </Link>
       </div>
     );
@@ -116,17 +118,15 @@ export default function WorkspaceSettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-medium mb-1">Configuración del Workspace</h1>
-          <p className="text-text-secondary text-xs">
-            Administra la configuración y personalización de tu espacio de trabajo
-          </p>
+          <h1 className="text-xl font-medium mb-1">{t.ws_settings_title}</h1>
+          <p className="text-text-secondary text-xs">{t.ws_settings_subtitle}</p>
         </div>
         <Link
           href={`/dashboard/workspaces/${workspaceId}`}
           className="px-3 py-1.5 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card transition-colors flex items-center gap-1.5"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Volver</span>
+          <span>{t.btn_back}</span>
         </Link>
       </div>
 
@@ -135,10 +135,8 @@ export default function WorkspaceSettingsPage() {
         <div className="bg-success/10 border border-success p-3 flex items-start gap-2 animate-fade-in">
           <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-success font-medium text-xs">Cambios guardados exitosamente</p>
-            <p className="text-text-secondary text-xs mt-0.5">
-              Tu workspace ha sido actualizado correctamente
-            </p>
+            <p className="text-success font-medium text-xs">{t.ws_settings_success_title}</p>
+            <p className="text-text-secondary text-xs mt-0.5">{t.ws_settings_success_desc}</p>
           </div>
         </div>
       )}
@@ -149,7 +147,9 @@ export default function WorkspaceSettingsPage() {
           <div className="p-1.5 bg-accent/10 border border-accent/30">
             <Save className="w-4 h-4 text-accent" />
           </div>
-          <h2 className="text-base font-medium text-text-primary">Configuración General</h2>
+          <h2 className="text-base font-medium text-text-primary">
+            {t.ws_settings_section_general}
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -158,7 +158,7 @@ export default function WorkspaceSettingsPage() {
             {/* Name */}
             <div>
               <label htmlFor="name" className="block text-xs font-medium text-text-primary mb-1.5">
-                Nombre del Workspace
+                {t.ws_settings_label_name}
               </label>
               <input
                 id="name"
@@ -166,7 +166,7 @@ export default function WorkspaceSettingsPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 bg-surface border border-border text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
-                placeholder="Ingresa un nombre"
+                placeholder={t.ws_settings_placeholder_name}
                 maxLength={255}
               />
             </div>
@@ -177,14 +177,14 @@ export default function WorkspaceSettingsPage() {
                 htmlFor="description"
                 className="block text-xs font-medium text-text-primary mb-1.5"
               >
-                Descripción
+                {t.ws_settings_label_description}
               </label>
               <textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-3 py-2 bg-surface border border-border text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-accent transition-colors min-h-[80px] resize-none"
-                placeholder="Describe tu workspace"
+                placeholder={t.ws_settings_placeholder_description}
                 maxLength={1000}
               />
               <p className="text-xs text-text-muted mt-1">{description.length}/1000</p>
@@ -194,7 +194,9 @@ export default function WorkspaceSettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               {/* Icon */}
               <div>
-                <label className="block text-xs font-medium text-text-primary mb-2">Icono</label>
+                <label className="block text-xs font-medium text-text-primary mb-2">
+                  {t.ws_settings_label_icon}
+                </label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {ICONS.map((icon) => (
                     <button
@@ -215,7 +217,9 @@ export default function WorkspaceSettingsPage() {
 
               {/* Color */}
               <div>
-                <label className="block text-xs font-medium text-text-primary mb-2">Color</label>
+                <label className="block text-xs font-medium text-text-primary mb-2">
+                  {t.ws_settings_label_color}
+                </label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {COLORS.map((color) => (
                     <button
@@ -240,7 +244,7 @@ export default function WorkspaceSettingsPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-text-primary mb-2">
-                Vista Previa
+                {t.ws_settings_label_preview}
               </label>
               <div className="flex items-start gap-3 p-4 border border-border bg-surface">
                 <div
@@ -255,10 +259,10 @@ export default function WorkspaceSettingsPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-base font-medium text-text-primary truncate">
-                    {name || 'Nombre del workspace'}
+                    {name || t.ws_settings_placeholder_name}
                   </h3>
                   <p className="text-xs text-text-secondary mt-1 line-clamp-2">
-                    {description || 'Descripción del workspace'}
+                    {description || t.ws_settings_placeholder_description}
                   </p>
                 </div>
               </div>
@@ -272,13 +276,13 @@ export default function WorkspaceSettingsPage() {
                 className="flex-1 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>{isLoading ? 'Guardando...' : 'Guardar'}</span>
+                <span>{isLoading ? t.btn_saving : t.btn_save}</span>
               </button>
               <Link
                 href={`/dashboard/workspaces/${workspaceId}`}
                 className="px-4 py-2 border border-border bg-surface text-text-primary text-sm font-medium hover:bg-card transition-colors"
               >
-                Cancelar
+                {t.btn_cancel}
               </Link>
             </div>
           </div>
@@ -292,17 +296,16 @@ export default function WorkspaceSettingsPage() {
             <div className="p-1.5 bg-error/10 border border-error/30">
               <AlertTriangle className="w-4 h-4 text-error" />
             </div>
-            <h2 className="text-base font-medium text-error">Zona de Peligro</h2>
+            <h2 className="text-base font-medium text-error">{t.ws_settings_danger_zone}</h2>
           </div>
 
           <div className="flex items-start gap-3 p-3 bg-background border border-error/30">
             <Trash2 className="w-4 h-4 text-error flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-text-primary mb-1">Eliminar Workspace</h3>
-              <p className="text-xs text-text-secondary mb-3">
-                Al eliminar este workspace se removerán permanentemente todos los boards, tarjetas y
-                datos asociados. Esta acción no se puede deshacer.
-              </p>
+              <h3 className="text-sm font-medium text-text-primary mb-1">
+                {t.ws_settings_delete_title}
+              </h3>
+              <p className="text-xs text-text-secondary mb-3">{t.ws_settings_delete_desc}</p>
 
               {!showDeleteConfirm ? (
                 <button
@@ -310,15 +313,13 @@ export default function WorkspaceSettingsPage() {
                   className="px-3 py-1.5 border border-error bg-error/10 text-error text-xs font-medium hover:bg-error hover:text-white transition-colors flex items-center gap-1.5"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Eliminar Workspace</span>
+                  <span>{t.ws_settings_btn_delete}</span>
                 </button>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-start gap-2 p-2 bg-error/10 border border-error">
                     <AlertTriangle className="w-3.5 h-3.5 text-error flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-error font-medium">
-                      ¿Estás completamente seguro? Esta acción es irreversible.
-                    </p>
+                    <p className="text-xs text-error font-medium">{t.ws_settings_confirm_delete}</p>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -326,13 +327,13 @@ export default function WorkspaceSettingsPage() {
                       className="px-3 py-1.5 bg-error text-white text-xs font-medium hover:bg-error/80 transition-colors flex items-center gap-1.5"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Sí, Eliminar</span>
+                      <span>{t.ws_settings_btn_confirm_delete}</span>
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(false)}
                       className="px-3 py-1.5 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card transition-colors"
                     >
-                      Cancelar
+                      {t.btn_cancel}
                     </button>
                   </div>
                 </div>

@@ -333,8 +333,16 @@ class UserController {
 
       const { name, bio, position, timezone, language, phone, location } = req.body;
 
-      // Validar que al menos un campo esté presente
-      if (!name && !bio && !position && !timezone && !language && !phone && !location) {
+      // Validar que al menos un campo esté presente (usar undefined, no falsy, para permitir strings vacíos)
+      if (
+        name === undefined &&
+        bio === undefined &&
+        position === undefined &&
+        timezone === undefined &&
+        language === undefined &&
+        phone === undefined &&
+        location === undefined
+      ) {
         return res.status(400).json({
           success: false,
           error: {

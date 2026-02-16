@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { ArrowLeft } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 export default function RegisterPage() {
+  const t = useT();
   const router = useRouter();
   const { register, isLoading, error, isAuthenticated, isHydrated, clearError } = useAuthStore();
 
@@ -35,17 +37,17 @@ export default function RegisterPage() {
 
     // Validación de contraseñas
     if (password !== confirmPassword) {
-      setValidationError('Las contraseñas no coinciden');
+      setValidationError(t.register_validation_passwords);
       return;
     }
 
     if (password.length < 8) {
-      setValidationError('La contraseña debe tener al menos 8 caracteres');
+      setValidationError(t.register_validation_password_short);
       return;
     }
 
     if (name.trim().length < 2) {
-      setValidationError('El nombre debe tener al menos 2 caracteres');
+      setValidationError(t.register_validation_name_short);
       return;
     }
 
@@ -65,7 +67,7 @@ export default function RegisterPage() {
           className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Volver al inicio</span>
+          <span>{t.register_btn_back}</span>
         </Link>
 
         {/* Header */}
@@ -91,7 +93,7 @@ export default function RegisterPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="input-terminal"
-                placeholder="Tu nombre completo"
+                placeholder={t.register_placeholder_name}
                 required
                 disabled={isLoading}
                 minLength={2}
@@ -128,13 +130,13 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input-terminal"
-                placeholder="Mínimo 8 caracteres"
+                placeholder={t.register_placeholder_password}
                 required
                 disabled={isLoading}
                 minLength={8}
                 autoComplete="new-password"
               />
-              <p className="text-text-muted text-xs mt-1">Min. 8 caracteres</p>
+              <p className="text-text-muted text-xs mt-1">{t.register_password_hint}</p>
             </div>
 
             {/* Confirm Password */}
@@ -148,7 +150,7 @@ export default function RegisterPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="input-terminal"
-                placeholder="Confirma tu contraseña"
+                placeholder={t.register_placeholder_confirm}
                 required
                 disabled={isLoading}
                 autoComplete="new-password"
@@ -178,9 +180,9 @@ export default function RegisterPage() {
           {/* Footer links */}
           <div className="mt-6 pt-6 border-t border-border">
             <p className="text-text-secondary text-sm">
-              ¿Ya tienes cuenta?{' '}
+              {t.register_has_account}{' '}
               <Link href="/login" className="link-terminal">
-                Iniciar sesión
+                {t.register_link_signin}
               </Link>
             </p>
           </div>

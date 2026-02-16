@@ -12,8 +12,10 @@ import {
 import { NotificationList } from './NotificationList';
 import { useNotificationCount } from '@/hooks/useNotifications';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useT } from '@/lib/i18n';
 
 export function NotificationBell() {
+  const t = useT();
   const { unreadCount, hasUnread } = useNotificationCount();
   const { isOpen, toggleDropdown, closeDropdown } = useNotificationStore();
 
@@ -24,7 +26,7 @@ export function NotificationBell() {
           variant="ghost"
           size="icon"
           className="relative"
-          aria-label={`Notificaciones${hasUnread ? ` (${unreadCount} nuevas)` : ''}`}
+          aria-label={`${t.notifications_title}${hasUnread ? ` (${unreadCount} nuevas)` : ''}`}
         >
           <Bell className="h-5 w-5" />
 

@@ -119,15 +119,19 @@ export const useDocumentStore = create<DocumentState>()(
       setActiveUsers: (users: ActiveDocumentUser[]) => set({ activeUsers: users }),
 
       fetchDocuments: async (workspaceId: string) => {
-        set({ isLoading: true, error: null });
-        const response = await apiService.get<{ documents: Document[] }>(
-          `/api/workspaces/${workspaceId}/documents`,
-          true
-        );
-        if (response.success && response.data) {
-          set({ documents: response.data.documents, isLoading: false });
-        } else {
-          set({ error: response.error?.message || 'Error', isLoading: false });
+        set({ isLoading: true, error: null, documents: [] });
+        try {
+          const response = await apiService.get<{ documents: Document[] }>(
+            `/api/workspaces/${workspaceId}/documents`,
+            true
+          );
+          if (response.success) {
+            set({ documents: response.data?.documents ?? [], isLoading: false });
+          } else {
+            set({ error: response.error?.message || 'Error', isLoading: false });
+          }
+        } catch {
+          set({ error: 'Error de conexión', isLoading: false });
         }
       },
 

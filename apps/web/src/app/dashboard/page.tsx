@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { socketService } from '@/services/socketService';
 import { Loader2, Calendar, CheckCircle2 } from 'lucide-react';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
+import { useT } from '@/lib/i18n';
 
 interface DashboardStats {
   workspaceCount: number;
@@ -41,6 +42,7 @@ interface CardsResponse {
 }
 
 export default function DashboardPage() {
+  const t = useT();
   const router = useRouter();
   const { user, accessToken } = useAuthStore();
 
@@ -146,27 +148,27 @@ export default function DashboardPage() {
 
     if (diffDays < 0) {
       return {
-        text: `Hace ${Math.abs(diffDays)} día${Math.abs(diffDays) !== 1 ? 's' : ''}`,
+        text: t.dashboard_due_overdue(Math.abs(diffDays)),
         color: 'text-error',
       };
     } else if (diffDays === 0) {
       return {
-        text: 'Hoy',
+        text: t.dashboard_due_today,
         color: 'text-warning',
       };
     } else if (diffDays === 1) {
       return {
-        text: 'Mañana',
+        text: t.dashboard_due_tomorrow,
         color: 'text-warning',
       };
     } else if (diffDays <= 7) {
       return {
-        text: `En ${diffDays} días`,
+        text: t.dashboard_due_in_days(diffDays),
         color: 'text-text-secondary',
       };
     } else {
       return {
-        text: date.toLocaleDateString('es-ES', {
+        text: date.toLocaleDateString(undefined, {
           day: 'numeric',
           month: 'short',
         }),
@@ -176,7 +178,7 @@ export default function DashboardPage() {
   };
 
   const formatCompletedDate = (completedAt: string | null) => {
-    if (!completedAt) return 'Finalizada';
+    if (!completedAt) return t.dashboard_completed_fallback;
 
     const date = new Date(completedAt);
     const now = new Date();
@@ -184,16 +186,18 @@ export default function DashboardPage() {
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return 'Completada hoy';
+      return t.dashboard_completed_today;
     } else if (diffDays === 1) {
-      return 'Completada ayer';
+      return t.dashboard_completed_yesterday;
     } else if (diffDays < 7) {
-      return `Completada hace ${diffDays} días`;
+      return t.dashboard_completed_n_days_ago(diffDays);
     } else {
-      return `Completada el ${date.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-      })}`;
+      return t.dashboard_completed_on_date(
+        date.toLocaleDateString(undefined, {
+          day: 'numeric',
+          month: 'short',
+        })
+      );
     }
   };
 
@@ -203,24 +207,11 @@ export default function DashboardPage() {
 
   // Effect 1: Configurar fecha
   useEffect(() => {
-    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const months = [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
-    ];
+    const days = t.days_long as readonly string[];
+    const months = t.months_long as readonly string[];
     const now = new Date();
-    setCurrentDate(`${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]}`);
-  }, []);
+    setCurrentDate(`${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`);
+  }, [t]);
 
   // Effect 2: Cargar datos iniciales
   useEffect(() => {
@@ -323,7 +314,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-text-muted" />
-          <p className="text-sm text-text-muted">Cargando dashboard...</p>
+          <p className="text-sm text-text-muted">{t.dashboard_loading}</p>
         </div>
       </div>
     );
@@ -339,14 +330,14 @@ export default function DashboardPage() {
             {type === 'completed' && <Calendar className="h-8 w-8 text-text-muted" />}
           </div>
           <h3 className="text-base font-medium text-text-primary mb-1">
-            {type === 'pending' && 'No hay cards pendientes'}
-            {type === 'overdue' && 'No tienes cards con retraso'}
-            {type === 'completed' && 'No hay cards finalizadas'}
+            {type === 'pending' && t.dashboard_empty_pending_title}
+            {type === 'overdue' && t.dashboard_empty_overdue_title}
+            {type === 'completed' && t.dashboard_empty_completed_title}
           </h3>
           <p className="text-sm text-text-secondary">
-            {type === 'pending' && '¡Excelente trabajo! Todas tus cards están al día.'}
-            {type === 'overdue' && '¡Excelente! Todas tus cards están a tiempo.'}
-            {type === 'completed' && 'Las cards completadas aparecerán aquí.'}
+            {type === 'pending' && t.dashboard_empty_pending_desc}
+            {type === 'overdue' && t.dashboard_empty_overdue_desc}
+            {type === 'completed' && t.dashboard_empty_completed_desc}
           </p>
         </div>
       );
@@ -474,25 +465,27 @@ export default function DashboardPage() {
         <div className="mb-8">
           <p className="text-xs text-text-muted mb-1">{currentDate}</p>
           <h1 className="text-3xl font-normal mb-2">
-            Buenos días, <span className="text-accent">{user?.name}</span>
+            {t.dashboard_greeting_morning}, <span className="text-accent">{user?.name}</span>
           </h1>
-          <p className="text-text-secondary">
-            Aquí está lo que está pasando con tus proyectos hoy.
-          </p>
+          <p className="text-text-secondary">{t.dashboard_greeting_subtitle}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-6">
             <div className="card-terminal">
-              <h2 className="text-base font-medium text-text-primary mb-2">Workspaces</h2>
-              <p className="text-xs text-text-muted mb-4 uppercase tracking-wide">Acceso rápido</p>
+              <h2 className="text-base font-medium text-text-primary mb-2">
+                {t.dashboard_section_workspaces}
+              </h2>
+              <p className="text-xs text-text-muted mb-4 uppercase tracking-wide">
+                {t.dashboard_quick_access}
+              </p>
 
               <button
                 className="w-full h-28 border-2 border-dashed border-border rounded-terminal hover:border-accent/50 hover:bg-card/50 transition-all flex flex-col items-center justify-center gap-2 text-text-muted hover:text-accent"
                 onClick={() => setIsCreateModalOpen(true)}
               >
                 <span className="text-2xl">+</span>
-                <span className="text-xs">Crear workspace</span>
+                <span className="text-xs">{t.dashboard_btn_create_workspace}</span>
               </button>
 
               <div className="mt-4">
@@ -500,7 +493,7 @@ export default function DashboardPage() {
                   onClick={() => router.push('/dashboard/workspaces')}
                   className="w-full py-2 text-xs text-text-secondary hover:text-accent transition-colors"
                 >
-                  Ver todos los workspaces →
+                  {t.dashboard_btn_view_all_workspaces}
                 </button>
               </div>
             </div>
@@ -513,12 +506,15 @@ export default function DashboardPage() {
                   <span className="text-lg">▤</span>
                 </div>
                 <div>
-                  <h2 className="text-lg font-medium text-text-primary">Mis cards asignadas</h2>
+                  <h2 className="text-lg font-medium text-text-primary">
+                    {t.dashboard_section_my_cards}
+                  </h2>
                   <p className="text-xs text-text-muted">
-                    {userCards.pending.length +
-                      userCards.overdue.length +
-                      userCards.completed.length}{' '}
-                    cards en total
+                    {t.dashboard_cards_total(
+                      userCards.pending.length +
+                        userCards.overdue.length +
+                        userCards.completed.length
+                    )}
                   </p>
                 </div>
               </div>
@@ -532,7 +528,7 @@ export default function DashboardPage() {
                       : 'text-text-muted border-transparent hover:text-text-primary hover:border-border'
                   }`}
                 >
-                  Próximas
+                  {t.dashboard_tab_pending}
                   {userCards.pending.length > 0 && (
                     <span className="ml-2 px-2 py-0.5 text-xs bg-accent/10 text-accent rounded-full">
                       {userCards.pending.length}
@@ -547,7 +543,7 @@ export default function DashboardPage() {
                       : 'text-text-muted border-transparent hover:text-text-primary hover:border-border'
                   }`}
                 >
-                  Con retraso
+                  {t.dashboard_tab_overdue}
                   {userCards.overdue.length > 0 && (
                     <span className="ml-2 px-2 py-0.5 text-xs bg-error/10 text-error rounded-full">
                       {userCards.overdue.length}
@@ -562,7 +558,7 @@ export default function DashboardPage() {
                       : 'text-text-muted border-transparent hover:text-text-primary hover:border-border'
                   }`}
                 >
-                  Finalizadas
+                  {t.dashboard_tab_completed}
                   {userCards.completed.length > 0 && (
                     <span className="ml-2 px-2 py-0.5 text-xs bg-success/10 text-success rounded-full">
                       {userCards.completed.length}

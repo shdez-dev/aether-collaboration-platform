@@ -9,6 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, Send, AtSign } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceMembers, WorkspaceMember } from '@/hooks/useWorkspaceMembers';
+import { getAvatarUrl } from '@/lib/utils/avatar';
+import { useT } from '@/lib/i18n';
 
 interface CommentFormProps {
   onSubmit: (content: string, mentions?: string[]) => Promise<void>;
@@ -24,8 +26,8 @@ interface CommentFormProps {
 
 export function CommentForm({
   onSubmit,
-  submitText = 'Comentar',
-  placeholder = 'Escribe un comentario...',
+  submitText,
+  placeholder,
   initialValue = '',
   isEditing = false,
   onCancel,
@@ -33,6 +35,9 @@ export function CommentForm({
   autoFocus = false,
   workspaceId,
 }: CommentFormProps) {
+  const t = useT();
+  const resolvedSubmitText = submitText ?? t.comments_default_submit;
+  const resolvedPlaceholder = placeholder ?? t.comments_default_placeholder;
   const [content, setContent] = useState(initialValue);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -447,7 +452,11 @@ export function CommentForm({
       <div className="flex gap-3">
         {!isEditing && user && (
           <Avatar className="h-8 w-8 shrink-0">
-            <AvatarImage src={user.avatar || undefined} alt={user.name} />
+            <AvatarImage
+              src={getAvatarUrl(user.avatar) || undefined}
+              alt={user.name}
+              crossOrigin="anonymous"
+            />
             <AvatarFallback className="text-xs">
               {user.name
                 .split(' ')
@@ -481,7 +490,7 @@ export function CommentForm({
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               onScroll={syncScroll}
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               disabled={loading}
               autoFocus={autoFocus}
               className="min-h-[80px] resize-none relative bg-transparent border-0 focus-visible:ring-0"
@@ -495,19 +504,22 @@ export function CommentForm({
           {mentionedUserNames.length > 0 && !showMentionDropdown && (
             <div className="mt-2 flex items-center gap-2 text-xs text-blue-500">
               <AtSign className="h-3 w-3" />
-              <span>Mencionando a: {mentionedUserNames.join(', ')}</span>
+              <span>{t.comments_mentioning(mentionedUserNames.join(', '))}</span>
             </div>
           )}
 
           <p className="mt-1 text-xs text-muted-foreground">
-            <kbd className="rounded border bg-muted px-1 text-[10px]">@</kbd> para mencionar
+            <kbd className="rounded border bg-muted px-1 text-[10px]">@</kbd>{' '}
+            {t.comments_hint_mention}
             {' • '}
             <kbd className="rounded border bg-muted px-1 text-[10px]">Ctrl</kbd> +{' '}
-            <kbd className="rounded border bg-muted px-1 text-[10px]">Enter</kbd> para enviar
+            <kbd className="rounded border bg-muted px-1 text-[10px]">Enter</kbd>{' '}
+            {t.comments_hint_send}
             {isEditing && (
               <>
                 {' • '}
-                <kbd className="rounded border bg-muted px-1 text-[10px]">Esc</kbd> cancelar
+                <kbd className="rounded border bg-muted px-1 text-[10px]">Esc</kbd>{' '}
+                {t.comments_hint_cancel}
               </>
             )}
           </p>
@@ -529,7 +541,7 @@ export function CommentForm({
           {/* Header del dropdown */}
           <div className="px-3 py-2 bg-muted/50 border-b border-border/50">
             <p className="text-xs font-medium text-muted-foreground">
-              Mencionar a un miembro {mentionQuery && `"${mentionQuery}"`}
+              {t.comments_mention_header} {mentionQuery && `"${mentionQuery}"`}
             </p>
           </div>
 
@@ -537,7 +549,7 @@ export function CommentForm({
           <div className="max-h-[160px] overflow-y-auto">
             {filteredMembers.length === 0 ? (
               <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                No se encontraron miembros
+                {t.comments_mention_no_results}
               </div>
             ) : (
               filteredMembers.map((member, index) => (
@@ -557,7 +569,11 @@ export function CommentForm({
               `}
                 >
                   <Avatar className="h-7 w-7 shrink-0">
-                    <AvatarImage src={member.avatar || undefined} alt={member.name} />
+                    <AvatarImage
+                      src={getAvatarUrl(member.avatar) || undefined}
+                      alt={member.name}
+                      crossOrigin="anonymous"
+                    />
                     <AvatarFallback className="text-[10px]">
                       {member.name
                         .split(' ')
@@ -581,14 +597,14 @@ export function CommentForm({
       <div className="flex items-center justify-end gap-2">
         {isEditing && onCancel && (
           <Button type="button" variant="ghost" size="sm" onClick={handleCancel} disabled={loading}>
-            Cancelar
+            {t.btn_cancel}
           </Button>
         )}
 
         <Button type="submit" size="sm" disabled={isEmpty || loading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {!loading && <Send className="mr-2 h-4 w-4" />}
-          {submitText}
+          {resolvedSubmitText}
         </Button>
       </div>
     </form>

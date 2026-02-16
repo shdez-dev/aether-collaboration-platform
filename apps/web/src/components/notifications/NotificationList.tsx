@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Bell, CheckCheck } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useT } from '@/lib/i18n';
 
 interface NotificationListProps {
   /**
@@ -24,6 +25,7 @@ interface NotificationListProps {
 }
 
 export function NotificationList({ onClose, maxHeight = '400px' }: NotificationListProps) {
+  const t = useT();
   const router = useRouter();
 
   const {
@@ -60,7 +62,7 @@ export function NotificationList({ onClose, maxHeight = '400px' }: NotificationL
       <div className="flex h-[200px] w-[380px] items-center justify-center">
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <p className="text-sm">Cargando notificaciones...</p>
+          <p className="text-sm">{t.notifications_loading}</p>
         </div>
       </div>
     );
@@ -74,10 +76,8 @@ export function NotificationList({ onClose, maxHeight = '400px' }: NotificationL
       <div className="w-[380px] p-6">
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
           <Bell className="mb-3 h-12 w-12 text-muted-foreground/50" />
-          <p className="text-sm font-medium">No hay notificaciones</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Te notificaremos cuando haya novedades
-          </p>
+          <p className="text-sm font-medium">{t.notifications_empty_title}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t.notifications_empty_desc}</p>
         </div>
       </div>
     );
@@ -91,7 +91,7 @@ export function NotificationList({ onClose, maxHeight = '400px' }: NotificationL
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">Notificaciones</h3>
+          <h3 className="text-sm font-semibold">{t.notifications_title}</h3>
           {hasUnread && (
             <span className="flex h-5 items-center justify-center rounded-full bg-primary px-2 text-xs font-medium text-primary-foreground">
               {unreadCount}
@@ -103,7 +103,7 @@ export function NotificationList({ onClose, maxHeight = '400px' }: NotificationL
         {hasUnread && (
           <Button variant="ghost" size="sm" onClick={markAllAsRead} className="h-7 text-xs">
             <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
-            Marcar todas
+            {t.notifications_btn_mark_all}
           </Button>
         )}
       </div>
@@ -127,7 +127,7 @@ export function NotificationList({ onClose, maxHeight = '400px' }: NotificationL
       <Separator />
       <div className="p-2">
         <Button variant="ghost" size="sm" className="w-full text-xs" onClick={handleViewAll}>
-          Ver todas las notificaciones
+          {t.notifications_btn_view_all}
         </Button>
       </div>
     </div>

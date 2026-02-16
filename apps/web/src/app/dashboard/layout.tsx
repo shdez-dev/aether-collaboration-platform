@@ -13,12 +13,14 @@ import { SocketProvider } from '@/components/providers/SocketProvider';
 import { NotificationListener } from '@/components/notifications/NotificationListener';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getAvatarUrl, getInitials } from '@/lib/utils/avatar';
+import { useT } from '@/lib/i18n';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const t = useT();
 
   const handleLogout = async () => {
     await logout();
@@ -27,31 +29,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navigation = [
     {
-      name: 'Home',
+      name: t.nav_home,
       href: '/',
       icon: '⌂',
-      active: false, // Nunca activo porque no estamos en home
+      active: false,
     },
     {
-      name: 'Dashboard',
+      name: t.nav_dashboard,
       href: '/dashboard',
       icon: '◆',
       active: pathname === '/dashboard',
     },
     {
-      name: 'Workspaces',
+      name: t.nav_workspaces,
       href: '/dashboard/workspaces',
       icon: '▣',
       active: pathname?.startsWith('/dashboard/workspaces'),
     },
     {
-      name: 'Documents',
+      name: t.nav_documents,
       href: '/dashboard/documents',
       icon: '▤',
       active: pathname?.startsWith('/dashboard/documents'),
     },
     {
-      name: 'Users',
+      name: t.nav_users,
       href: '/dashboard/users',
       icon: '◎',
       active: pathname?.startsWith('/dashboard/users'),
@@ -83,7 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="p-6 border-b border-border flex-shrink-0">
                   <h1 className="text-xl font-normal mb-1">[ AETHER ]</h1>
                   <p className="text-text-muted text-xs">Event-sourced platform</p>
-                  <div className="status-online mt-3">OPERATIONAL</div>
+                  <div className="status-online mt-3">{t.status_operational}</div>
                 </div>
 
                 {/* User Info */}
@@ -91,16 +93,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="p-4 border-b border-border flex-shrink-0 hover:bg-card/50 transition-colors cursor-pointer group">
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10 border-2 border-accent/50 group-hover:border-accent transition-colors">
-                        {getAvatarUrl(user?.avatar) ? (
+                        {getAvatarUrl(user?.avatar) && (
                           <AvatarImage
                             src={getAvatarUrl(user?.avatar)!}
                             alt={user?.name || 'User'}
+                            crossOrigin="anonymous"
                           />
-                        ) : (
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold">
-                            {user && getInitials(user.name)}
-                          </AvatarFallback>
                         )}
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold">
+                          {user && getInitials(user.name)}
+                        </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-text-primary truncate group-hover:text-accent transition-colors">
@@ -140,14 +142,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     className="flex items-center gap-3 px-3 py-2 rounded-terminal text-text-secondary hover:bg-card hover:text-text-primary transition-colors text-sm"
                   >
                     <span>⚙</span>
-                    <span>Settings</span>
+                    <span>{t.nav_settings}</span>
                   </Link>
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-terminal text-error hover:bg-error/10 transition-colors text-sm"
                   >
                     <span>⏻</span>
-                    <span>Logout</span>
+                    <span>{t.nav_logout}</span>
                   </button>
                 </div>
               </>
@@ -183,7 +185,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                  <span className="text-xs text-text-muted">CONNECTED</span>
+                  <span className="text-xs text-text-muted">{t.status_connected}</span>
                 </div>
               </div>
             </header>

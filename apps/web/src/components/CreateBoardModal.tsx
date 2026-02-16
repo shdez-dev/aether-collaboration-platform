@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useBoardStore } from '@/stores/boardStore';
+import { useT } from '@/lib/i18n';
 
 interface CreateBoardModalProps {
   workspaceId: string;
@@ -17,6 +18,7 @@ export default function CreateBoardModal({
   onClose,
   onSuccess,
 }: CreateBoardModalProps) {
+  const t = useT();
   const { createBoard, isLoading } = useBoardStore();
 
   const [name, setName] = useState('');
@@ -51,7 +53,7 @@ export default function CreateBoardModal({
     setError('');
 
     if (!name.trim()) {
-      setError('El nombre es obligatorio');
+      setError(t.create_board_validation_name);
       return;
     }
 
@@ -66,7 +68,7 @@ export default function CreateBoardModal({
         onSuccess(board.id);
       }
     } catch (err: any) {
-      setError(err.message || 'Error al crear el board');
+      setError(err.message || t.create_board_error);
     }
   };
 
@@ -87,8 +89,8 @@ export default function CreateBoardModal({
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-normal">Crear Board</h2>
-              <p className="text-text-secondary text-sm">Comienza a organizar tu trabajo</p>
+              <h2 className="text-xl font-normal">{t.create_board_title}</h2>
+              <p className="text-text-secondary text-sm">{t.create_board_subtitle}</p>
             </div>
             <button
               onClick={onClose}
@@ -103,7 +105,7 @@ export default function CreateBoardModal({
             {/* Name */}
             <div>
               <label htmlFor="name" className="block text-sm text-text-secondary mb-2">
-                NOMBRE:
+                {t.create_board_label_name}
               </label>
               <input
                 id="name"
@@ -114,7 +116,7 @@ export default function CreateBoardModal({
                   setError('');
                 }}
                 className={`input-terminal ${error ? 'border-error' : ''}`}
-                placeholder="ej., Hoja de Ruta del Producto"
+                placeholder={t.create_board_placeholder_name}
                 maxLength={255}
                 disabled={isLoading}
                 autoFocus
@@ -129,14 +131,14 @@ export default function CreateBoardModal({
             {/* Description */}
             <div>
               <label htmlFor="description" className="block text-sm text-text-secondary mb-2">
-                DESCRIPCIÓN (OPCIONAL):
+                {t.create_board_label_description}
               </label>
               <textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="input-terminal min-h-[80px] resize-none"
-                placeholder="¿Para qué es este board?"
+                placeholder={t.create_board_placeholder_description}
                 maxLength={1000}
                 disabled={isLoading}
               />
@@ -151,14 +153,14 @@ export default function CreateBoardModal({
                 disabled={isLoading}
                 className="btn-secondary flex-1"
               >
-                Cancelar
+                {t.btn_cancel}
               </button>
               <button
                 type="submit"
                 disabled={isLoading || !name.trim()}
                 className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Creando...' : 'Crear Board'}
+                {isLoading ? t.btn_creating : t.create_board_title}
               </button>
             </div>
           </form>

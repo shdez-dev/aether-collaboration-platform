@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useT } from '@/lib/i18n';
 
 interface InviteMemberModalProps {
   workspaceId: string;
@@ -24,6 +25,7 @@ export default function InviteMemberModal({
   isOpen,
   onClose,
 }: InviteMemberModalProps) {
+  const t = useT();
   const { inviteMember, isLoading } = useWorkspaceStore();
 
   const [email, setEmail] = useState('');
@@ -138,17 +140,17 @@ export default function InviteMemberModal({
 
     // Validación básica
     if (!email.trim()) {
-      setError('El email es obligatorio');
+      setError(t.invite_validation_email_required);
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Formato de email inválido');
+      setError(t.invite_validation_email_invalid);
       return;
     }
 
     if (!userPreview) {
-      setError('Usuario no encontrado. Asegúrate de que tenga una cuenta.');
+      setError(t.invite_user_not_found);
       return;
     }
 
@@ -161,25 +163,25 @@ export default function InviteMemberModal({
         onClose();
       }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Error al invitar miembro. El usuario puede que ya sea miembro.');
+      setError(err.message || t.invite_error);
     }
   };
 
   const roles: { value: Role; label: string; description: string }[] = [
     {
       value: 'VIEWER',
-      label: 'Visualizador',
-      description: 'Puede ver boards y tarjetas pero no puede editar',
+      label: t.invite_role_viewer_label,
+      description: t.invite_role_viewer_desc,
     },
     {
       value: 'MEMBER',
-      label: 'Miembro',
-      description: 'Puede crear y editar boards y tarjetas',
+      label: t.invite_role_member_label,
+      description: t.invite_role_member_desc,
     },
     {
       value: 'ADMIN',
-      label: 'Administrador',
-      description: 'Puede gestionar configuración del workspace y miembros',
+      label: t.invite_role_admin_label,
+      description: t.invite_role_admin_desc,
     },
   ];
 
@@ -200,8 +202,8 @@ export default function InviteMemberModal({
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-normal">Invitar Miembro</h2>
-              <p className="text-text-secondary text-sm">Añade un nuevo miembro a tu workspace</p>
+              <h2 className="text-xl font-normal">{t.invite_title}</h2>
+              <p className="text-text-secondary text-sm">{t.invite_subtitle}</p>
             </div>
             <button
               onClick={onClose}
@@ -217,10 +219,8 @@ export default function InviteMemberModal({
               <div className="flex items-center gap-3">
                 <span className="text-accent text-xl">✓</span>
                 <div>
-                  <p className="text-accent font-medium">¡Miembro invitado exitosamente!</p>
-                  <p className="text-text-secondary text-sm">
-                    Ahora puede acceder a este workspace
-                  </p>
+                  <p className="text-accent font-medium">{t.invite_success_title}</p>
+                  <p className="text-text-secondary text-sm">{t.invite_success_desc}</p>
                 </div>
               </div>
             </div>
@@ -231,7 +231,7 @@ export default function InviteMemberModal({
             {/* Email Input */}
             <div>
               <label htmlFor="email" className="block text-sm text-text-secondary mb-2">
-                DIRECCIÓN DE EMAIL:
+                {t.invite_label_email}
               </label>
               <input
                 id="email"
@@ -242,7 +242,7 @@ export default function InviteMemberModal({
                   setError('');
                 }}
                 className={`input-terminal ${error ? 'border-error' : ''}`}
-                placeholder="miembro@ejemplo.com"
+                placeholder={t.invite_placeholder_email}
                 disabled={isLoading || success}
                 autoFocus
               />
@@ -285,9 +285,7 @@ export default function InviteMemberModal({
                 <div className="mt-3 p-3 bg-error/5 border border-error/30 rounded-terminal animate-scale-in">
                   <div className="flex items-center gap-2 text-error">
                     <span>⚠</span>
-                    <p className="text-sm">
-                      Usuario no encontrado. Asegúrate de que tenga una cuenta.
-                    </p>
+                    <p className="text-sm">{t.invite_user_not_found}</p>
                   </div>
                 </div>
               )}
@@ -303,7 +301,9 @@ export default function InviteMemberModal({
             {/* Role Selector - Solo visible si hay usuario encontrado */}
             {userPreview && (
               <div className="animate-fade-in">
-                <label className="block text-sm text-text-secondary mb-3">SELECCIONAR ROL:</label>
+                <label className="block text-sm text-text-secondary mb-3">
+                  {t.invite_label_role}
+                </label>
                 <div className="space-y-2">
                   {roles.map((role) => (
                     <button
@@ -342,14 +342,18 @@ export default function InviteMemberModal({
                 disabled={isLoading}
                 className="btn-secondary flex-1"
               >
-                Cancelar
+                {t.btn_cancel}
               </button>
               <button
                 type="submit"
                 disabled={isLoading || success || !userPreview}
                 className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Invitando...' : success ? '¡Invitado!' : 'Enviar Invitación'}
+                {isLoading
+                  ? t.invite_btn_inviting
+                  : success
+                    ? t.invite_btn_invited
+                    : t.invite_btn_send}
               </button>
             </div>
           </form>

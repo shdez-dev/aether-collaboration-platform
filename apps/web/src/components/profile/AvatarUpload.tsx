@@ -2,12 +2,13 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Upload, X } from 'lucide-react';
 import { getAvatarUrl } from '@/lib/utils/avatar';
 import { AvatarCropModal } from './AvatarCropModal';
+import { useT } from '@/lib/i18n';
 
 interface AvatarUploadProps {
   currentAvatar?: string;
@@ -17,6 +18,7 @@ interface AvatarUploadProps {
 }
 
 export function AvatarUpload({ currentAvatar, userName, onUpload, isLoading }: AvatarUploadProps) {
+  const t = useT();
   const [preview, setPreview] = useState<string | null>(null);
   const [croppedFile, setCroppedFile] = useState<File | null>(null);
   const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
@@ -29,13 +31,13 @@ export function AvatarUpload({ currentAvatar, userName, onUpload, isLoading }: A
 
     // Validar tipo de archivo
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona una imagen válida');
+      alert(t.avatar_alert_invalid);
       return;
     }
 
     // Validar tamaño (10MB antes del crop)
     if (file.size > 10 * 1024 * 1024) {
-      alert('La imagen debe ser menor a 10MB');
+      alert(t.avatar_alert_too_large);
       return;
     }
 
@@ -96,18 +98,31 @@ export function AvatarUpload({ currentAvatar, userName, onUpload, isLoading }: A
   };
 
   const avatarUrl = preview || getAvatarUrl(currentAvatar);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [avatarUrl]);
+
+  const handleImgError = () => setImgError(true);
+  const handleImgLoad = () => setImgError(false);
 
   return (
     <>
       <div className="flex flex-col items-center gap-4">
         <Avatar className="h-32 w-32 border-4 border-zinc-800">
-          {avatarUrl ? (
-            <AvatarImage src={avatarUrl} alt={userName} />
-          ) : (
-            <AvatarFallback className="text-3xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-              {getInitials(userName)}
-            </AvatarFallback>
-          )}
+          {avatarUrl && !imgError ? (
+            <AvatarImage
+              src={avatarUrl}
+              alt={userName}
+              crossOrigin="anonymous"
+              onError={handleImgError}
+              onLoad={handleImgLoad}
+            />
+          ) : null}
+          <AvatarFallback className="text-3xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+            {getInitials(userName)}
+          </AvatarFallback>
         </Avatar>
 
         <div className="flex flex-col items-center gap-2">
@@ -130,16 +145,16 @@ export function AvatarUpload({ currentAvatar, userName, onUpload, isLoading }: A
                 className="gap-2"
               >
                 <Upload className="h-4 w-4" />
-                Cambiar Avatar
+                {t.avatar_btn_change}
               </Button>
-              <p className="text-xs text-zinc-500">JPG, PNG o GIF (máximo 10MB)</p>
+              <p className="text-xs text-zinc-500">{t.avatar_format_hint}</p>
             </>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <p className="text-xs text-text-muted">Vista previa del recorte</p>
+              <p className="text-xs text-text-muted">{t.avatar_crop_preview}</p>
               <div className="flex gap-2">
                 <Button type="button" size="sm" onClick={handleUpload} disabled={isLoading}>
-                  {isLoading ? 'Subiendo...' : 'Guardar'}
+                  {isLoading ? t.avatar_btn_uploading : t.avatar_btn_save}
                 </Button>
                 <Button
                   type="button"
@@ -148,7 +163,7 @@ export function AvatarUpload({ currentAvatar, userName, onUpload, isLoading }: A
                   onClick={() => setShowCropModal(true)}
                   disabled={isLoading || !rawImageSrc}
                 >
-                  Recortar de nuevo
+                  {t.avatar_btn_recrop}
                 </Button>
                 <Button
                   type="button"

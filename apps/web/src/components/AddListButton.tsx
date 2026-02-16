@@ -3,12 +3,14 @@
 
 import { useState } from 'react';
 import { useBoardStore } from '@/stores/boardStore';
+import { useT } from '@/lib/i18n';
 
 interface AddListButtonProps {
   boardId: string;
 }
 
 export default function AddListButton({ boardId }: AddListButtonProps) {
+  const t = useT();
   const { createList, isLoading } = useBoardStore();
 
   const [isCreating, setIsCreating] = useState(false);
@@ -41,7 +43,7 @@ export default function AddListButton({ boardId }: AddListButtonProps) {
           className="w-full card-terminal hover:border-primary/50 transition-all text-left flex items-center gap-2 text-text-muted hover:text-text-primary"
         >
           <span className="text-xl">+</span>
-          <span>Add List</span>
+          <span>{t.addlist_btn}</span>
         </button>
       </div>
     );
@@ -66,7 +68,7 @@ export default function AddListButton({ boardId }: AddListButtonProps) {
               handleCancel();
             }}
             className="input-terminal text-base"
-            placeholder="Enter list name..."
+            placeholder={t.addlist_placeholder}
             maxLength={255}
             disabled={isLoading}
             autoFocus
@@ -79,7 +81,7 @@ export default function AddListButton({ boardId }: AddListButtonProps) {
               disabled={isLoading || !name.trim()}
               className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creating...' : 'Add List'}
+              {isLoading ? t.addlist_btn_creating : t.addlist_btn_add}
             </button>
             <button
               type="button"

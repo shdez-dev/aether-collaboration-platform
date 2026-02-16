@@ -343,7 +343,9 @@ export class AuthController {
       }
 
       const result = await client.query(
-        'SELECT id, email, name, avatar, created_at, updated_at FROM users WHERE id = $1',
+        `SELECT id, email, name, avatar, bio, position, phone, location, timezone, language,
+                created_at, updated_at
+         FROM users WHERE id = $1`,
         [userId]
       );
 
@@ -367,6 +369,12 @@ export class AuthController {
             email: user.email,
             name: user.name,
             avatar: user.avatar,
+            bio: user.bio,
+            position: user.position,
+            phone: user.phone,
+            location: user.location,
+            timezone: user.timezone,
+            language: user.language,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
           },

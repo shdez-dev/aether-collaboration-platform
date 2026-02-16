@@ -27,11 +27,17 @@ import {
   UserMinus,
   ChevronRight,
 } from 'lucide-react';
+import { useT } from '@/lib/i18n';
+import { formatShort } from '@/lib/utils/date';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function WorkspaceDetailPage() {
+  const t = useT();
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.id as string;
+
+  const { user } = useAuthStore();
 
   const {
     currentWorkspace,
@@ -67,7 +73,7 @@ export default function WorkspaceDetailPage() {
       <div className="flex items-center justify-center h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <div className="loading-lg" />
-          <p className="text-sm text-text-muted">Cargando workspace...</p>
+          <p className="text-sm text-text-muted">{t.workspace_loading}</p>
         </div>
       </div>
     );
@@ -80,16 +86,14 @@ export default function WorkspaceDetailPage() {
           <div className="w-20 h-20 mx-auto mb-6 bg-error/10 border border-error flex items-center justify-center">
             <span className="text-4xl">⚠</span>
           </div>
-          <h3 className="text-2xl font-medium mb-2">Workspace no encontrado</h3>
-          <p className="text-text-secondary mb-8">
-            Este workspace no existe o no tienes acceso a él
-          </p>
+          <h3 className="text-2xl font-medium mb-2">{t.workspace_not_found_title}</h3>
+          <p className="text-text-secondary mb-8">{t.workspace_not_found_desc}</p>
           <Link
             href="/dashboard/workspaces"
             className="btn-secondary inline-flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Volver a Workspaces</span>
+            <span>{t.workspace_btn_back}</span>
           </Link>
         </div>
       </div>
@@ -112,7 +116,7 @@ export default function WorkspaceDetailPage() {
       setMemberToRemove(null);
     } catch (error) {
       console.error('Error removing member:', error);
-      alert('Error al eliminar miembro. Intenta de nuevo.');
+      alert(t.workspace_error_removing_member);
     } finally {
       setRemovingMember(false);
     }
@@ -124,7 +128,7 @@ export default function WorkspaceDetailPage() {
       await changeMemberRole(workspaceId, userId, newRole);
     } catch (error) {
       console.error('Error changing role:', error);
-      alert('Error al cambiar rol. Intenta de nuevo.');
+      alert(t.workspace_error_changing_role);
     } finally {
       setChangingRoleMemberId(null);
     }
@@ -171,10 +175,10 @@ export default function WorkspaceDetailPage() {
 
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
-      OWNER: 'Propietario',
-      ADMIN: 'Admin',
-      MEMBER: 'Miembro',
-      VIEWER: 'Viewer',
+      OWNER: t.role_owner,
+      ADMIN: t.role_admin,
+      MEMBER: t.role_member,
+      VIEWER: t.role_viewer,
     };
     return labels[role] || role;
   };
@@ -189,7 +193,7 @@ export default function WorkspaceDetailPage() {
             className="flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Volver a Workspaces</span>
+            <span>{t.workspace_btn_back}</span>
           </Link>
 
           {isOwnerOrAdmin && (
@@ -198,7 +202,7 @@ export default function WorkspaceDetailPage() {
               className="px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-sm font-medium flex items-center gap-2"
             >
               <Settings className="w-4 h-4" />
-              <span>Configuración</span>
+              <span>{t.workspace_btn_settings}</span>
             </Link>
           )}
         </div>
@@ -231,14 +235,14 @@ export default function WorkspaceDetailPage() {
               </div>
 
               <p className="text-text-secondary text-sm mb-4">
-                {currentWorkspace.description || 'Sin descripción'}
+                {currentWorkspace.description || t.no_description}
               </p>
 
               <div className="flex items-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <LayoutGrid className="w-4 h-4 text-accent" />
                   <span className="text-text-primary font-medium">{activeBoards}</span>
-                  <span className="text-text-muted">boards</span>
+                  <span className="text-text-muted">{t.workspace_stat_boards}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -246,7 +250,7 @@ export default function WorkspaceDetailPage() {
                   <span className="text-text-primary font-medium">
                     {currentWorkspace.memberCount || 0}
                   </span>
-                  <span className="text-text-muted">miembros</span>
+                  <span className="text-text-muted">{t.workspace_stat_members}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -254,16 +258,17 @@ export default function WorkspaceDetailPage() {
                   <span className="text-text-primary font-medium">
                     {boards.reduce((sum, b) => sum + (b.cardCount || 0), 0)}
                   </span>
-                  <span className="text-text-muted">tareas</span>
+                  <span className="text-text-muted">{t.workspace_stat_tasks}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-text-muted" />
                   <span className="text-text-muted text-xs">
-                    {new Date(currentWorkspace.createdAt).toLocaleDateString('es-ES', {
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                    {formatShort(
+                      new Date(currentWorkspace.createdAt),
+                      user?.timezone,
+                      user?.language as 'es' | 'en'
+                    )}
                   </span>
                 </div>
               </div>
@@ -281,9 +286,11 @@ export default function WorkspaceDetailPage() {
                   <LayoutGrid className="w-5 h-5 text-accent" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-medium text-text-primary">Boards</h2>
+                  <h2 className="text-xl font-medium text-text-primary">
+                    {t.workspace_section_boards}
+                  </h2>
                   <p className="text-sm text-text-muted">
-                    {activeBoards} activos • {boards.length - activeBoards} archivados
+                    {t.workspace_boards_active_archived(activeBoards, boards.length - activeBoards)}
                   </p>
                 </div>
               </div>
@@ -293,7 +300,7 @@ export default function WorkspaceDetailPage() {
                   onClick={() => setShowCreateBoardModal(true)}
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Nuevo</span>
+                  <span>{t.workspace_btn_new_board}</span>
                 </button>
               )}
             </div>
@@ -304,11 +311,11 @@ export default function WorkspaceDetailPage() {
                   <div className="w-16 h-16 mx-auto mb-4 bg-accent/10 border border-accent flex items-center justify-center">
                     <LayoutGrid className="w-8 h-8 text-accent" />
                   </div>
-                  <h3 className="text-base font-medium mb-2">No hay boards aún</h3>
+                  <h3 className="text-base font-medium mb-2">{t.workspace_empty_boards_title}</h3>
                   <p className="text-text-secondary text-sm mb-6">
                     {isOwnerOrAdmin
-                      ? 'Crea tu primer board para comenzar a organizar'
-                      : 'No hay boards creados todavía'}
+                      ? t.workspace_empty_boards_desc_owner
+                      : t.workspace_empty_boards_desc_member}
                   </p>
                   {isOwnerOrAdmin && (
                     <button
@@ -316,7 +323,7 @@ export default function WorkspaceDetailPage() {
                       onClick={() => setShowCreateBoardModal(true)}
                     >
                       <Plus className="w-4 h-4" />
-                      <span>Crear Board</span>
+                      <span>{t.workspace_btn_create_board}</span>
                     </button>
                   )}
                 </div>
@@ -376,8 +383,12 @@ export default function WorkspaceDetailPage() {
                     <Users className="w-4 h-4 text-success" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-text-primary">Miembros</h3>
-                    <p className="text-xs text-text-muted">{currentMembers.length} total</p>
+                    <h3 className="text-sm font-medium text-text-primary">
+                      {t.workspace_section_members}
+                    </h3>
+                    <p className="text-xs text-text-muted">
+                      {t.workspace_members_total(currentMembers.length)}
+                    </p>
                   </div>
                 </div>
                 {isOwnerOrAdmin && (
@@ -394,7 +405,7 @@ export default function WorkspaceDetailPage() {
                 {currentMembers.length === 0 ? (
                   <div className="text-center py-8">
                     <Users className="w-10 h-10 mx-auto mb-2 text-text-muted opacity-50" />
-                    <p className="text-xs text-text-secondary">Sin miembros</p>
+                    <p className="text-xs text-text-secondary">{t.no_description}</p>
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-3 max-h-[300px] overflow-y-auto">
@@ -452,8 +463,10 @@ export default function WorkspaceDetailPage() {
                   <Activity className="w-4 h-4 text-warning" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-text-primary">Actividad</h3>
-                  <p className="text-xs text-text-muted">Últimos 7 días</p>
+                  <h3 className="text-sm font-medium text-text-primary">
+                    {t.workspace_section_activity}
+                  </h3>
+                  <p className="text-xs text-text-muted">{t.workspace_activity_last_7_days}</p>
                 </div>
               </div>
               <ActivityFeed workspaceId={workspaceId} />

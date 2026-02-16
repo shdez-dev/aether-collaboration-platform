@@ -11,15 +11,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Key } from 'lucide-react';
+import { Loader2, Save, Key, User, MapPin, Phone, Globe, Languages } from 'lucide-react';
+import { formatPhoneDisplay, cleanPhoneValue, validatePhone } from '@/lib/utils/phone';
+import { useT } from '@/lib/i18n';
 
 export default function ProfilePage() {
+  const t = useT();
   const { user, isLoading, updateProfile, uploadAvatar, changePassword } = useAuthStore();
   const { toast } = useToast();
 
-  // Estado del formulario de perfil
   const [profileForm, setProfileForm] = useState({
     name: '',
     bio: '',
@@ -30,7 +31,6 @@ export default function ProfilePage() {
     language: '',
   });
 
-  // Estado del formulario de contraseña
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -39,6 +39,44 @@ export default function ProfilePage() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | undefined>();
+  const [phoneDisplay, setPhoneDisplay] = useState('');
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    // Si el usuario borra todo, limpiar
+    if (!raw) {
+      setPhoneDisplay('');
+      setProfileForm((f) => ({ ...f, phone: '' }));
+      setPhoneError(undefined);
+      return;
+    }
+    // Asegurar que empiece con '+'
+    const withPlus = raw.startsWith('+') ? raw : `+${raw}`;
+    const clean = cleanPhoneValue(withPlus);
+    const display = formatPhoneDisplay(clean);
+    setPhoneDisplay(display);
+    setProfileForm((f) => ({ ...f, phone: clean }));
+    const { valid, error } = validatePhone(clean);
+    if (!valid) {
+      const lang = profileForm.language === 'en' ? 'en' : 'es';
+      const msgs: Record<string, Record<string, string>> = {
+        no_prefix: {
+          es: 'Debe comenzar con el código de país (ej: +56)',
+          en: 'Must start with country code (e.g. +1)',
+        },
+        too_short: { es: 'Número demasiado corto', en: 'Number too short' },
+        too_long: {
+          es: 'Número demasiado largo (máx. 15 dígitos)',
+          en: 'Number too long (max. 15 digits)',
+        },
+        invalid_chars: { es: 'Solo se permiten números', en: 'Only numbers are allowed' },
+      };
+      setPhoneError(msgs[error!]?.[lang] ?? error);
+    } else {
+      setPhoneError(undefined);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -48,26 +86,27 @@ export default function ProfilePage() {
         position: user.position || '',
         phone: user.phone || '',
         location: user.location || '',
-        timezone: user.timezone || 'UTC',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         language: user.language || 'es',
       });
+      setPhoneDisplay(formatPhoneDisplay(user.phone || ''));
     }
   }, [user]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (phoneError) return;
     setIsSaving(true);
-
     try {
       await updateProfile(profileForm);
       toast({
-        title: 'Perfil actualizado',
-        description: 'Tus cambios han sido guardados exitosamente.',
+        title: t.profile_toast_updated_title,
+        description: t.profile_toast_updated_desc,
       });
-    } catch (error) {
+    } catch {
       toast({
-        title: 'Error',
-        description: 'No se pudo actualizar el perfil. Intenta nuevamente.',
+        title: t.error_title,
+        description: t.profile_toast_error_desc,
         variant: 'destructive',
       });
     } finally {
@@ -79,13 +118,13 @@ export default function ProfilePage() {
     try {
       await uploadAvatar(file);
       toast({
-        title: 'Avatar actualizado',
-        description: 'Tu foto de perfil ha sido actualizada.',
+        title: t.profile_toast_avatar_title,
+        description: t.profile_toast_avatar_desc,
       });
-    } catch (error) {
+    } catch {
       toast({
-        title: 'Error',
-        description: 'No se pudo subir el avatar. Intenta nuevamente.',
+        title: t.error_title,
+        description: t.profile_toast_avatar_error,
         variant: 'destructive',
       });
     }
@@ -96,8 +135,8 @@ export default function ProfilePage() {
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast({
-        title: 'Error',
-        description: 'Las contraseñas no coinciden.',
+        title: t.error_title,
+        description: t.profile_toast_passwords_no_match,
         variant: 'destructive',
       });
       return;
@@ -105,30 +144,25 @@ export default function ProfilePage() {
 
     if (passwordForm.newPassword.length < 6) {
       toast({
-        title: 'Error',
-        description: 'La contraseña debe tener al menos 6 caracteres.',
+        title: t.error_title,
+        description: t.profile_toast_password_too_short,
         variant: 'destructive',
       });
       return;
     }
 
     setIsChangingPassword(true);
-
     try {
       await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
       toast({
-        title: 'Contraseña actualizada',
-        description: 'Tu contraseña ha sido cambiada exitosamente.',
+        title: t.profile_toast_password_title,
+        description: t.profile_toast_password_desc,
       });
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
-    } catch (error) {
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch {
       toast({
-        title: 'Error',
-        description: 'No se pudo cambiar la contraseña. Verifica tu contraseña actual.',
+        title: t.error_title,
+        description: t.profile_toast_password_error,
         variant: 'destructive',
       });
     } finally {
@@ -145,224 +179,280 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 px-4">
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mi Perfil</h1>
-          <p className="text-zinc-500 mt-2">
-            Administra tu información personal y configuración de cuenta
-          </p>
+    <div className="container mx-auto max-w-6xl py-6 px-4">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">{t.profile_title}</h1>
+        <p className="text-zinc-500 text-sm mt-1">{t.profile_subtitle}</p>
+      </div>
+
+      {/* Main layout: 2 columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN: Avatar + quick info */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          {/* Avatar card */}
+          <Card>
+            <CardContent className="pt-6">
+              <AvatarUpload
+                currentAvatar={user.avatar}
+                userName={user.name}
+                onUpload={handleAvatarUpload}
+                isLoading={isLoading}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Quick info summary */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                {t.profile_section_summary}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-zinc-500 shrink-0" />
+                <span className="truncate text-zinc-300">{user.name}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Globe className="h-4 w-4 text-zinc-500 shrink-0" />
+                <span className="truncate text-zinc-400">{user.email}</span>
+              </div>
+              {profileForm.position && (
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="h-4 w-4 text-zinc-500 shrink-0" />
+                  <span className="truncate text-zinc-400">{profileForm.position}</span>
+                </div>
+              )}
+              {profileForm.location && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-zinc-500 shrink-0" />
+                  <span className="truncate text-zinc-400">{profileForm.location}</span>
+                </div>
+              )}
+              {profileForm.phone && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4 text-zinc-500 shrink-0" />
+                  <span className="truncate text-zinc-400">{profileForm.phone}</span>
+                </div>
+              )}
+              {profileForm.timezone && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Globe className="h-4 w-4 text-zinc-500 shrink-0" />
+                  <span className="truncate text-zinc-400">{profileForm.timezone}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Avatar Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Foto de Perfil</CardTitle>
-            <CardDescription>Sube una foto para personalizar tu perfil</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AvatarUpload
-              currentAvatar={user.avatar}
-              userName={user.name}
-              onUpload={handleAvatarUpload}
-              isLoading={isLoading}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Profile Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Información Personal</CardTitle>
-            <CardDescription>
-              Actualiza tu información de perfil y detalles de contacto
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleProfileSubmit} className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nombre Completo *</Label>
-                  <Input
-                    id="name"
-                    value={profileForm.name}
-                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                    required
-                  />
+        {/* RIGHT COLUMN: Forms */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          {/* Personal Info */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {t.profile_section_personal_title}
+              </CardTitle>
+              <CardDescription>{t.profile_section_personal_desc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleProfileSubmit} className="space-y-4">
+                {/* Row 1: Name + Email */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name">{t.profile_label_name}</Label>
+                    <Input
+                      id="name"
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email">{t.profile_label_email}</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={user.email}
+                      disabled
+                      className="bg-zinc-900/50 opacity-60"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={user.email}
-                    disabled
-                    className="bg-zinc-900/50"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bio">Biografía</Label>
-                <Textarea
-                  id="bio"
-                  value={profileForm.bio}
-                  onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
-                  placeholder="Cuéntanos un poco sobre ti..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="position">Cargo / Posición</Label>
-                  <Input
-                    id="position"
-                    value={profileForm.position}
-                    onChange={(e) => setProfileForm({ ...profileForm, position: e.target.value })}
-                    placeholder="ej. Desarrollador Frontend"
-                  />
+                {/* Row 2: Position + Phone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="position">{t.profile_label_position}</Label>
+                    <Input
+                      id="position"
+                      value={profileForm.position}
+                      onChange={(e) => setProfileForm({ ...profileForm, position: e.target.value })}
+                      placeholder={t.profile_placeholder_position}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone">{t.profile_label_phone}</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={phoneDisplay}
+                      onChange={handlePhoneChange}
+                      placeholder="+56 9 1234 5678"
+                      className={phoneError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    />
+                    {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Teléfono</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                    placeholder="+1 234 567 890"
-                  />
+                {/* Row 3: Location + Timezone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="location">{t.profile_label_location}</Label>
+                    <Input
+                      id="location"
+                      value={profileForm.location}
+                      onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })}
+                      placeholder={t.profile_placeholder_location}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="timezone">{t.profile_label_timezone}</Label>
+                    <Input
+                      id="timezone"
+                      value={Intl.DateTimeFormat().resolvedOptions().timeZone}
+                      disabled
+                      className="bg-zinc-900/50 opacity-60"
+                    />
+                    <p className="text-xs text-zinc-500">
+                      {t.profile_lang_es === 'Español'
+                        ? 'Detectada automáticamente de tu navegador'
+                        : 'Automatically detected from your browser'}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="location">Ubicación</Label>
-                  <Input
-                    id="location"
-                    value={profileForm.location}
-                    onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })}
-                    placeholder="ej. Madrid, España"
-                  />
+                {/* Row 4: Language + Bio */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="language">
+                      <Languages className="h-3.5 w-3.5 inline mr-1" />
+                      {t.profile_label_language}
+                    </Label>
+                    <Select
+                      id="language"
+                      value={profileForm.language}
+                      onChange={(e) => setProfileForm({ ...profileForm, language: e.target.value })}
+                    >
+                      <option value="es">{t.profile_lang_es}</option>
+                      <option value="en">{t.profile_lang_en}</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="bio">{t.profile_label_bio}</Label>
+                    <Textarea
+                      id="bio"
+                      value={profileForm.bio}
+                      onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                      placeholder={t.profile_placeholder_bio}
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="timezone">Zona Horaria</Label>
-                  <Input
-                    id="timezone"
-                    value={profileForm.timezone}
-                    onChange={(e) => setProfileForm({ ...profileForm, timezone: e.target.value })}
-                    placeholder="UTC"
-                  />
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" disabled={isSaving || !!phoneError} className="gap-2">
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t.profile_btn_saving}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        {t.profile_btn_save}
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </div>
+              </form>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="language">Idioma</Label>
-                <Select
-                  id="language"
-                  value={profileForm.language}
-                  onChange={(e) => setProfileForm({ ...profileForm, language: e.target.value })}
-                >
-                  <option value="es">Español</option>
-                  <option value="en">English</option>
-                  <option value="fr">Français</option>
-                  <option value="de">Deutsch</option>
-                  <option value="pt">Português</option>
-                </Select>
-              </div>
+          {/* Password */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                {t.profile_section_password_title}
+              </CardTitle>
+              <CardDescription>{t.profile_section_password_desc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="currentPassword">{t.profile_label_current_password}</Label>
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={passwordForm.currentPassword}
+                      onChange={(e) =>
+                        setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newPassword">{t.profile_label_new_password}</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={passwordForm.newPassword}
+                      onChange={(e) =>
+                        setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+                      }
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword">{t.profile_label_confirm_password}</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) =>
+                        setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
+                      }
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
 
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Guardar Cambios
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Password Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cambiar Contraseña</CardTitle>
-            <CardDescription>
-              Actualiza tu contraseña para mantener tu cuenta segura
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Contraseña Actual *</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) =>
-                    setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Nueva Contraseña *</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) =>
-                    setPasswordForm({ ...passwordForm, newPassword: e.target.value })
-                  }
-                  required
-                  minLength={6}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Nueva Contraseña *</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) =>
-                    setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
-                  }
-                  required
-                  minLength={6}
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isChangingPassword}>
-                  {isChangingPassword ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Cambiando...
-                    </>
-                  ) : (
-                    <>
-                      <Key className="h-4 w-4" />
-                      Cambiar Contraseña
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" disabled={isChangingPassword} className="gap-2">
+                    {isChangingPassword ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t.profile_btn_changing_password}
+                      </>
+                    ) : (
+                      <>
+                        <Key className="h-4 w-4" />
+                        {t.profile_btn_change_password}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

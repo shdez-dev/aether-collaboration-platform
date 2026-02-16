@@ -13,12 +13,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Edit2, Trash2, MoreVertical, Check } from 'lucide-react';
+import { getAvatarUrl } from '@/lib/utils/avatar';
 import { CommentForm } from './CommentForm';
 import { useCommentEdit } from '@/hooks/useComment';
 import { useAuthStore } from '@/stores/authStore';
 import type { CommentWithUser } from '@aether/types';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useT } from '@/lib/i18n';
+import { formatRelative } from '@/lib/utils/date';
 
 interface CommentItemProps {
   comment: CommentWithUser;
@@ -28,6 +29,7 @@ interface CommentItemProps {
 }
 
 export function CommentItem({ comment, onUpdate, onDelete, showActions = true }: CommentItemProps) {
+  const t = useT();
   const { user: currentUser } = useAuthStore();
   const { isEditing, isUpdating, startEdit, cancelEdit } = useCommentEdit(comment.id);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -58,14 +60,7 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
   };
 
   const getRelativeTime = (date: string) => {
-    try {
-      return formatDistanceToNow(new Date(date), {
-        addSuffix: true,
-        locale: es,
-      });
-    } catch (error) {
-      return date;
-    }
+    return formatRelative(date, currentUser?.language as 'es' | 'en') || date;
   };
 
   const renderContent = (content: string) => {
@@ -93,7 +88,7 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
           onCancel={cancelEdit}
           isLoading={isUpdating}
           autoFocus={true}
-          submitText="Guardar"
+          submitText={t.btn_save}
         />
       </div>
     );
@@ -102,7 +97,11 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
   return (
     <div className="group relative flex gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50">
       <Avatar className="h-8 w-8 shrink-0">
-        <AvatarImage src={comment.user.avatar || undefined} alt={comment.user.name} />
+        <AvatarImage
+          src={getAvatarUrl(comment.user.avatar) || undefined}
+          alt={comment.user.name}
+          crossOrigin="anonymous"
+        />
         <AvatarFallback className="text-xs">
           {comment.user.name
             .split(' ')
@@ -122,7 +121,7 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
           {comment.edited && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Check className="h-3 w-3" />
-              Editado
+              {t.comments_edited_badge}
             </span>
           )}
         </div>
@@ -143,7 +142,7 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={startEdit} disabled={isUpdating}>
                 <Edit2 className="mr-2 h-4 w-4" />
-                Editar
+                {t.comments_dropdown_edit}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -152,7 +151,7 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
+                {t.comments_dropdown_delete}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

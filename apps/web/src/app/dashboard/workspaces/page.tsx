@@ -6,10 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
 import { Search, Star, Clock, Users, Grid3x3, LayoutGrid, Plus } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 type ViewMode = 'grid' | 'list';
 
 export default function WorkspacesPage() {
+  const t = useT();
   const router = useRouter();
   const { workspaces, isLoading, fetchWorkspaces } = useWorkspaceStore();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -56,12 +58,12 @@ export default function WorkspacesPage() {
 
   const getRoleLabel = (role?: string) => {
     const labels: Record<string, string> = {
-      OWNER: 'Propietario',
-      ADMIN: 'Admin',
-      MEMBER: 'Miembro',
-      VIEWER: 'Viewer',
+      OWNER: t.role_owner,
+      ADMIN: t.role_admin,
+      MEMBER: t.role_member,
+      VIEWER: t.role_viewer,
     };
-    return labels[role || 'MEMBER'] || 'Miembro';
+    return labels[role || 'MEMBER'] || t.role_member;
   };
 
   const filteredWorkspaces = workspaces.filter(
@@ -114,7 +116,7 @@ export default function WorkspacesPage() {
               </span>
             </div>
             <p className="text-sm text-text-secondary truncate">
-              {workspace.description || 'Sin descripción'}
+              {workspace.description || t.no_description}
             </p>
           </div>
 
@@ -175,7 +177,7 @@ export default function WorkspacesPage() {
               {workspace.name}
             </h3>
             <p className="text-sm text-text-secondary line-clamp-2">
-              {workspace.description || 'Sin descripción'}
+              {workspace.description || t.no_description}
             </p>
           </div>
         </div>
@@ -184,12 +186,12 @@ export default function WorkspacesPage() {
           <div className="flex items-center gap-1.5">
             <LayoutGrid className="w-4 h-4" />
             <span className="font-medium">{workspace.boardCount || 0}</span>
-            <span>boards</span>
+            <span>{t.workspace_stat_boards}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-4 h-4" />
             <span className="font-medium">{workspace.memberCount || 0}</span>
-            <span>miembros</span>
+            <span>{t.workspace_stat_members}</span>
           </div>
         </div>
 
@@ -209,10 +211,8 @@ export default function WorkspacesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <h1 className="text-2xl font-medium mb-2">Workspaces</h1>
-          <p className="text-text-secondary text-sm">
-            Gestiona tus espacios de trabajo y colabora con tu equipo
-          </p>
+          <h1 className="text-2xl font-medium mb-2">{t.workspaces_title}</h1>
+          <p className="text-text-secondary text-sm">{t.workspaces_subtitle}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -244,7 +244,7 @@ export default function WorkspacesPage() {
           <button onClick={() => setIsCreateModalOpen(true)} className="btn-primary">
             <span className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
-              <span>Crear Workspace</span>
+              <span>{t.workspaces_btn_create}</span>
             </span>
           </button>
         </div>
@@ -255,7 +255,7 @@ export default function WorkspacesPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
         <input
           type="text"
-          placeholder="Buscar workspaces..."
+          placeholder={t.workspaces_search_placeholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
@@ -275,7 +275,7 @@ export default function WorkspacesPage() {
         <div className="bg-card border border-border p-12">
           <div className="flex flex-col items-center justify-center">
             <div className="loading-lg mb-4" />
-            <p className="text-text-secondary text-sm">Cargando workspaces...</p>
+            <p className="text-text-secondary text-sm">{t.workspaces_loading}</p>
           </div>
         </div>
       )}
@@ -286,14 +286,12 @@ export default function WorkspacesPage() {
           <div className="w-20 h-20 mx-auto mb-6 bg-accent/10 border border-accent flex items-center justify-center">
             <LayoutGrid className="w-10 h-10 text-accent" />
           </div>
-          <h3 className="text-xl font-medium mb-2">No hay workspaces todavía</h3>
-          <p className="text-text-secondary text-sm mb-6">
-            Crea tu primer workspace para comenzar a organizar tus proyectos
-          </p>
+          <h3 className="text-xl font-medium mb-2">{t.workspaces_empty_title}</h3>
+          <p className="text-text-secondary text-sm mb-6">{t.workspaces_empty_desc}</p>
           <button onClick={() => setIsCreateModalOpen(true)} className="btn-primary">
             <span className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
-              <span>Crear Workspace</span>
+              <span>{t.workspaces_btn_create}</span>
             </span>
           </button>
         </div>
@@ -309,7 +307,7 @@ export default function WorkspacesPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <Clock className="w-3.5 h-3.5 text-text-muted" />
                   <h2 className="text-xs font-medium text-text-primary uppercase tracking-wide">
-                    Recientes
+                    {t.workspaces_section_recent}
                   </h2>
                 </div>
                 <div className="space-y-2">
@@ -346,7 +344,7 @@ export default function WorkspacesPage() {
                             </span>
                           </div>
                           <p className="text-xs text-text-secondary truncate">
-                            {workspace.description || 'Sin descripción'}
+                            {workspace.description || t.no_description}
                           </p>
                         </div>
 
@@ -392,7 +390,7 @@ export default function WorkspacesPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Star className="w-4 h-4 text-warning" fill="currentColor" />
                   <h2 className="text-sm font-medium text-text-primary uppercase tracking-wide">
-                    Favoritos
+                    {t.workspaces_section_favorites}
                   </h2>
                   <span className="text-xs text-text-muted">({favoriteWorkspaces.length})</span>
                 </div>
@@ -421,7 +419,7 @@ export default function WorkspacesPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <LayoutGrid className="w-4 h-4 text-accent" />
                   <h2 className="text-sm font-medium text-text-primary uppercase tracking-wide">
-                    Mis Workspaces
+                    {t.workspaces_section_mine}
                   </h2>
                   <span className="text-xs text-text-muted">({ownedWorkspaces.length})</span>
                 </div>
@@ -449,7 +447,7 @@ export default function WorkspacesPage() {
               <div className="flex items-center gap-2 mb-4">
                 <Users className="w-4 h-4 text-success" />
                 <h2 className="text-sm font-medium text-text-primary uppercase tracking-wide">
-                  Compartidos Conmigo
+                  {t.workspaces_section_shared}
                 </h2>
                 <span className="text-xs text-text-muted">({sharedWorkspaces.length})</span>
               </div>
@@ -473,10 +471,8 @@ export default function WorkspacesPage() {
               <div className="w-16 h-16 mx-auto mb-4 bg-text-muted/10 border border-text-muted/30 flex items-center justify-center">
                 <Search className="w-8 h-8 text-text-muted" />
               </div>
-              <h3 className="text-lg font-medium mb-2">No se encontraron workspaces</h3>
-              <p className="text-text-secondary text-sm">
-                Intenta buscar con palabras clave diferentes
-              </p>
+              <h3 className="text-lg font-medium mb-2">{t.workspaces_no_results_title}</h3>
+              <p className="text-text-secondary text-sm">{t.workspaces_no_results_desc}</p>
             </div>
           )}
         </div>

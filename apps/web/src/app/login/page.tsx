@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { ArrowLeft } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 export default function LoginPage() {
+  const t = useT();
   const router = useRouter();
   const { login, isLoading, error, isAuthenticated, isHydrated, clearError } = useAuthStore();
 
@@ -43,7 +45,7 @@ export default function LoginPage() {
           className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Volver al inicio</span>
+          <span>{t.login_btn_back}</span>
         </Link>
 
         {/* Header */}
@@ -119,15 +121,15 @@ export default function LoginPage() {
           {/* Footer links */}
           <div className="mt-6 pt-6 border-t border-border space-y-2">
             <p className="text-text-secondary text-sm">
-              ¿No tienes cuenta?{' '}
+              {t.login_no_account}{' '}
               <Link href="/register" className="link-terminal">
-                Crear cuenta
+                {t.login_link_create}
               </Link>
             </p>
             <p className="text-text-muted text-xs">
-              ¿Olvidaste tu contraseña?{' '}
+              {t.login_forgot_password}{' '}
               <Link href="/forgot-password" className="link-terminal">
-                Recuperar
+                {t.login_link_recover}
               </Link>
             </p>
           </div>

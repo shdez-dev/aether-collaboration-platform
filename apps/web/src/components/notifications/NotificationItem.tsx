@@ -9,6 +9,7 @@ import { Check, X, MessageSquare, UserPlus, Calendar, Mail } from 'lucide-react'
 import type { Notification } from '@aether/types';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useT } from '@/lib/i18n';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -23,6 +24,7 @@ export function NotificationItem({
   onDelete,
   onClose,
 }: NotificationItemProps) {
+  const t = useT();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -190,7 +192,7 @@ export function NotificationItem({
             size="icon"
             className="h-7 w-7"
             onClick={handleMarkAsRead}
-            title="Marcar como leída"
+            title={t.notifications_btn_mark_read}
           >
             <Check className="h-3.5 w-3.5" />
           </Button>
@@ -202,7 +204,7 @@ export function NotificationItem({
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-destructive"
             onClick={handleDelete}
-            title="Eliminar"
+            title={t.notifications_btn_delete}
           >
             <X className="h-3.5 w-3.5" />
           </Button>

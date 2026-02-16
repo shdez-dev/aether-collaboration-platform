@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import { Button } from '@/components/ui/button';
 import { X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 interface Area {
   x: number;
@@ -63,6 +64,7 @@ async function getCroppedImage(imageSrc: string, pixelCrop: Area): Promise<File>
 }
 
 export function AvatarCropModal({ imageSrc, onCropComplete, onClose }: AvatarCropModalProps) {
+  const t = useT();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -90,7 +92,7 @@ export function AvatarCropModal({ imageSrc, onCropComplete, onClose }: AvatarCro
       <div className="card-terminal w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="text-text-primary font-medium">Recortar Avatar</h3>
+          <h3 className="text-text-primary font-medium">{t.avatar_crop_title}</h3>
           <button
             onClick={onClose}
             className="text-text-muted hover:text-text-primary transition-colors"
@@ -144,7 +146,7 @@ export function AvatarCropModal({ imageSrc, onCropComplete, onClose }: AvatarCro
                 setCrop({ x: 0, y: 0 });
               }}
               className="text-text-secondary hover:text-text-primary transition-colors ml-1"
-              title="Reiniciar"
+              title={t.avatar_crop_btn_reset}
             >
               <RotateCcw className="h-4 w-4" />
             </button>
@@ -152,10 +154,10 @@ export function AvatarCropModal({ imageSrc, onCropComplete, onClose }: AvatarCro
 
           <div className="flex gap-2 justify-end">
             <Button variant="outline" size="sm" onClick={onClose} disabled={isProcessing}>
-              Cancelar
+              {t.btn_cancel}
             </Button>
             <Button size="sm" onClick={handleConfirm} disabled={isProcessing}>
-              {isProcessing ? 'Procesando...' : 'Aplicar'}
+              {isProcessing ? t.avatar_crop_btn_processing : t.avatar_crop_btn_apply}
             </Button>
           </div>
         </div>

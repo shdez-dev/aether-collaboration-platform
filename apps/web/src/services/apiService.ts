@@ -164,6 +164,18 @@ export const apiService = {
             localStorage.setItem('aether-auth-storage', JSON.stringify(updatedAuth));
           }
 
+          // Actualizar también el store de Zustand en memoria para evitar tokens stale
+          try {
+            const { useAuthStore } = await import('../stores/authStore');
+            useAuthStore.setState({
+              accessToken: refreshData.accessToken,
+              refreshToken: refreshData.refreshToken,
+              user: refreshData.user as any,
+            });
+          } catch {
+            // Si falla la importación dinámica, al menos localStorage está actualizado
+          }
+
           // Notificar a las peticiones en cola que ya pueden continuar
           processQueue(null, refreshData.accessToken);
           isRefreshing = false;

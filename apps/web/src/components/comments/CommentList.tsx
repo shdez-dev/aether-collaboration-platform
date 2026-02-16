@@ -7,6 +7,7 @@ import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
 import { useComments } from '@/hooks/useComment';
 import { Loader2, MessageSquare } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 interface CommentListProps {
   cardId: string;
@@ -38,6 +39,7 @@ export function CommentList({
     refreshComments,
   } = useComments(cardId);
 
+  const t = useT();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export function CommentList({
       <div className="flex h-[200px] items-center justify-center">
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <p className="text-sm font-mono">Cargando comentarios...</p>
+          <p className="text-sm font-mono">{t.comments_loading}</p>
         </div>
       </div>
     );
@@ -67,7 +69,9 @@ export function CommentList({
           <div className="flex items-center justify-between border-b border-border pb-2">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold font-mono tracking-tight">COMENTARIOS</h3>
+              <h3 className="text-sm font-semibold font-mono tracking-tight">
+                {t.comments_section_title}
+              </h3>
               <span className="text-xs text-muted-foreground font-mono">({count})</span>
             </div>
           </div>
@@ -75,10 +79,8 @@ export function CommentList({
 
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/50 p-8 text-center bg-surface/30">
           <MessageSquare className="mb-2 h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground font-mono">No hay comentarios aún</p>
-          <p className="text-xs text-muted-foreground/70 font-mono mt-1">
-            Sé el primero en comentar
-          </p>
+          <p className="text-sm text-muted-foreground font-mono">{t.comments_empty_title}</p>
+          <p className="text-xs text-muted-foreground/70 font-mono mt-1">{t.comments_empty_desc}</p>
         </div>
 
         {showForm && (
@@ -88,7 +90,7 @@ export function CommentList({
                 await createComment(content, mentions);
               }}
               isLoading={isCreating}
-              placeholder="Escribe el primer comentario..."
+              placeholder={t.comments_first_placeholder}
               workspaceId={workspaceId}
             />
           </div>
@@ -103,7 +105,9 @@ export function CommentList({
         <div className="flex items-center justify-between border-b border-border pb-2">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold font-mono tracking-tight">COMENTARIOS</h3>
+            <h3 className="text-sm font-semibold font-mono tracking-tight">
+              {t.comments_section_title}
+            </h3>
             <span className="text-xs text-muted-foreground font-mono">({count})</span>
           </div>
 
@@ -112,7 +116,7 @@ export function CommentList({
             className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-surface/50"
             title="Refrescar comentarios"
           >
-            ⟳ Actualizar
+            {t.btn_refresh}
           </button>
         </div>
       )}
@@ -151,7 +155,7 @@ export function CommentList({
               await createComment(content, mentions);
             }}
             isLoading={isCreating}
-            placeholder="Agregar un comentario..."
+            placeholder={t.comments_add_placeholder}
             workspaceId={workspaceId}
           />
         </div>

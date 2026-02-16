@@ -7,23 +7,29 @@ import { useDocumentStore } from '@/stores/documentStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { FileText, Plus, Search, Clock, User, ArrowLeft, FileEdit } from 'lucide-react';
 import type { Document } from '@aether/types';
-
-const DOCUMENT_TEMPLATES = [
-  { id: 'blank', name: 'Documento en Blanco', icon: '📄' },
-  { id: 'meeting-notes', name: 'Notas de Reunión', icon: '📝' },
-  { id: 'project-brief', name: 'Brief de Proyecto', icon: '📋' },
-  { id: 'technical-spec', name: 'Especificación Técnica', icon: '⚙️' },
-  { id: 'retrospective', name: 'Retrospectiva', icon: '🔄' },
-];
+import { useT } from '@/lib/i18n';
+import { formatShort } from '@/lib/utils/date';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function DocumentsPage() {
+  const t = useT();
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.id as string;
 
-  const { documents, isLoading, fetchDocuments, createDocument } = useDocumentStore();
+  const { documents, fetchDocuments, createDocument } = useDocumentStore();
+  const [isLoading, setIsLoading] = useState(true);
   const { currentWorkspace } = useWorkspaceStore();
+  const { user } = useAuthStore();
   const userRole = currentWorkspace?.userRole;
+
+  const DOCUMENT_TEMPLATES = [
+    { id: 'blank', name: t.documents_template_blank, icon: '📄' },
+    { id: 'meeting-notes', name: t.documents_template_meeting, icon: '📝' },
+    { id: 'project-brief', name: t.documents_template_project, icon: '📋' },
+    { id: 'technical-spec', name: t.documents_template_technical, icon: '⚙️' },
+    { id: 'retrospective', name: t.documents_template_retrospective, icon: '🔄' },
+  ];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -35,7 +41,8 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     if (workspaceId) {
-      fetchDocuments(workspaceId);
+      setIsLoading(true);
+      fetchDocuments(workspaceId).finally(() => setIsLoading(false));
     }
   }, [workspaceId, fetchDocuments]);
 
@@ -43,7 +50,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && workspaceId) {
-        fetchDocuments(workspaceId);
+        fetchDocuments(workspaceId).catch(() => {});
       }
     };
 
@@ -97,7 +104,7 @@ export default function DocumentsPage() {
                 className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Volver</span>
+                <span>{t.btn_back}</span>
               </button>
 
               <div className="w-px h-6 bg-border" />
@@ -107,7 +114,9 @@ export default function DocumentsPage() {
                   <FileText className="w-5 h-5 text-accent" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-medium text-text-primary">Documentos</h1>
+                  <h1 className="text-xl font-medium text-text-primary">
+                    {t.documents_section_title}
+                  </h1>
                   <p className="text-sm text-text-secondary">
                     {currentWorkspace?.name || 'Workspace'}
                   </p>
@@ -121,7 +130,7 @@ export default function DocumentsPage() {
                 className="flex items-center gap-2 px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                <span>Nuevo Documento</span>
+                <span>{t.documents_btn_new}</span>
               </button>
             )}
           </div>
@@ -130,7 +139,7 @@ export default function DocumentsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               type="text"
-              placeholder="Buscar documentos..."
+              placeholder={t.documents_search_placeholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
@@ -144,7 +153,7 @@ export default function DocumentsPage() {
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-text-secondary">Cargando documentos...</p>
+              <p className="text-text-secondary">{t.documents_loading}</p>
             </div>
           </div>
         ) : filteredDocuments.length === 0 ? (
@@ -153,12 +162,10 @@ export default function DocumentsPage() {
               <FileText className="w-12 h-12 text-text-muted" />
             </div>
             <h3 className="text-lg font-medium text-text-primary mb-2">
-              {searchQuery ? 'No se encontraron documentos' : 'No hay documentos aún'}
+              {searchQuery ? t.documents_no_results_title : t.documents_empty_ws_title}
             </h3>
             <p className="text-text-secondary mb-6">
-              {searchQuery
-                ? 'Intenta con otros términos de búsqueda'
-                : 'Crea tu primer documento para comenzar'}
+              {searchQuery ? t.documents_no_results_desc : t.documents_empty_ws_desc}
             </p>
             {canCreateDocument && !searchQuery && (
               <button
@@ -166,7 +173,7 @@ export default function DocumentsPage() {
                 className="flex items-center gap-2 px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                <span>Crear Documento</span>
+                <span>{t.documents_btn_create}</span>
               </button>
             )}
           </div>
@@ -177,6 +184,8 @@ export default function DocumentsPage() {
                 key={doc.id}
                 document={doc}
                 onClick={() => handleDocumentClick(doc.id)}
+                userTimezone={user?.timezone}
+                userLanguage={user?.language as 'es' | 'en'}
               />
             ))}
           </div>
@@ -191,15 +200,17 @@ export default function DocumentsPage() {
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-card border border-border max-w-2xl w-full p-6">
-              <h2 className="text-xl font-medium mb-6">Crear Nuevo Documento</h2>
+              <h2 className="text-xl font-medium mb-6">{t.documents_modal_title}</h2>
 
               <div className="mb-6">
-                <label className="block text-sm text-text-secondary mb-2">Título</label>
+                <label className="block text-sm text-text-secondary mb-2">
+                  {t.documents_modal_label_title}
+                </label>
                 <input
                   type="text"
                   value={newDocTitle}
                   onChange={(e) => setNewDocTitle(e.target.value)}
-                  placeholder="Escribe un título..."
+                  placeholder={t.documents_modal_placeholder_title}
                   className="w-full px-4 py-2 bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
                   autoFocus
                   disabled={isCreating}
@@ -209,7 +220,7 @@ export default function DocumentsPage() {
 
               <div className="mb-6">
                 <label className="block text-sm text-text-secondary mb-3">
-                  Seleccionar Plantilla
+                  {t.documents_modal_label_template}
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {DOCUMENT_TEMPLATES.map((template) => (
@@ -236,7 +247,7 @@ export default function DocumentsPage() {
                   disabled={isCreating}
                   className="flex-1 px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors disabled:opacity-50"
                 >
-                  Cancelar
+                  {t.documents_btn_cancel}
                 </button>
                 <button
                   onClick={handleCreateDocument}
@@ -246,12 +257,12 @@ export default function DocumentsPage() {
                   {isCreating ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Creando...</span>
+                      <span>{t.documents_btn_creating}</span>
                     </>
                   ) : (
                     <>
                       <FileEdit className="w-4 h-4" />
-                      <span>Crear Documento</span>
+                      <span>{t.documents_btn_create_confirm}</span>
                     </>
                   )}
                 </button>
@@ -264,11 +275,18 @@ export default function DocumentsPage() {
   );
 }
 
-function DocumentCard({ document, onClick }: { document: Document; onClick: () => void }) {
-  const formatDate = (date: string) => {
-    const d = new Date(date);
-    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
+function DocumentCard({
+  document,
+  onClick,
+  userTimezone,
+  userLanguage,
+}: {
+  document: Document;
+  onClick: () => void;
+  userTimezone?: string;
+  userLanguage?: 'es' | 'en';
+}) {
+  const t = useT();
 
   return (
     <button
@@ -288,7 +306,11 @@ function DocumentCard({ document, onClick }: { document: Document; onClick: () =
       <div className="space-y-1.5 text-xs text-text-muted">
         <div className="flex items-center gap-2">
           <Clock className="w-3 h-3" />
-          <span>Actualizado {formatDate(document.updatedAt)}</span>
+          <span>
+            {t.documents_updated(
+              formatShort(new Date(document.updatedAt), userTimezone, userLanguage)
+            )}
+          </span>
         </div>
       </div>
     </button>

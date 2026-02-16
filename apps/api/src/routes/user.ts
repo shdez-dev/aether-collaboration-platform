@@ -25,13 +25,6 @@ router.get('/', (req, res) => userController.listUsers(req, res));
 router.get('/search', (req, res) => userController.searchByEmail(req, res));
 
 /**
- * GET /api/users/:id
- * Perfil público de un usuario
- * Permisos: Usuario autenticado
- */
-router.get('/:id', (req, res) => userController.getUserProfile(req, res));
-
-/**
  * GET /api/users/me/stats
  * Obtener estadísticas del dashboard
  * Permisos: Usuario autenticado
@@ -51,6 +44,13 @@ router.get('/me/activity', (req, res) => userController.getUserActivity(req, res
  * Permisos: Usuario autenticado
  */
 router.get('/me/cards', (req, res) => userController.getUserCards(req, res));
+
+/**
+ * GET /api/users/me/preferences
+ * Obtener preferencias del usuario
+ * Permisos: Usuario autenticado
+ */
+router.get('/me/preferences', (req, res) => userController.getPreferences(req, res));
 
 /**
  * PUT /api/users/me
@@ -74,17 +74,17 @@ router.put('/me/password', (req, res) => userController.changePassword(req, res)
 router.post('/me/avatar', uploadAvatar, (req, res) => userController.uploadAvatar(req, res));
 
 /**
- * GET /api/users/me/preferences
- * Obtener preferencias del usuario
- * Permisos: Usuario autenticado
- */
-router.get('/me/preferences', (req, res) => userController.getPreferences(req, res));
-
-/**
  * PUT /api/users/me/preferences
  * Actualizar preferencias del usuario
  * Permisos: Usuario autenticado
  */
 router.put('/me/preferences', (req, res) => userController.updatePreferences(req, res));
+
+/**
+ * GET /api/users/:id
+ * Perfil público de un usuario (debe ir AL FINAL, después de todas las rutas /me/*)
+ * Permisos: Usuario autenticado
+ */
+router.get('/:id', (req, res) => userController.getUserProfile(req, res));
 
 export default router;

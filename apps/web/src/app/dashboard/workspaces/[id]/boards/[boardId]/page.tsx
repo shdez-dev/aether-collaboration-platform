@@ -27,8 +27,10 @@ import {
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { ArrowLeft, LayoutGrid, FileText, Users, Archive, AlertTriangle } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 export default function BoardPage() {
+  const t = useT();
   const params = useParams();
   const router = useRouter();
 
@@ -120,10 +122,10 @@ export default function BoardPage() {
 
     try {
       await archiveBoard(currentBoard.id);
-      toast.success('Board archivado exitosamente');
+      toast.success(t.board_toast_archived);
       router.push(`/dashboard/workspaces/${workspaceId}`);
     } catch (error) {
-      toast.error('Error al archivar el board');
+      toast.error(t.board_toast_archive_error);
     }
   };
 
@@ -164,7 +166,7 @@ export default function BoardPage() {
     // ==================== CASO 1: REORDENAR LISTAS ====================
     if (activeData?.type === 'list' && overData?.type === 'list') {
       if (!canEditBoard) {
-        toast.error('No tienes permisos para reordenar listas');
+        toast.error(t.board_toast_no_permission_lists);
         return;
       }
 
@@ -192,9 +194,9 @@ export default function BoardPage() {
 
         try {
           await reorderList(activeId, newPosition);
-          toast.success('Lista reordenada');
+          toast.success(t.board_toast_list_reordered);
         } catch (error) {
-          toast.error('Error al reordenar lista');
+          toast.error(t.board_toast_list_reorder_error);
         }
       }
     }
@@ -202,7 +204,7 @@ export default function BoardPage() {
     // ==================== CASO 2: MOVER CARDS ====================
     else if (activeData?.type === 'card') {
       if (!canMoveCards) {
-        toast.error('No tienes permisos para mover tarjetas');
+        toast.error(t.board_toast_no_permission_cards);
         return;
       }
 
@@ -270,7 +272,7 @@ export default function BoardPage() {
         // ✅ PASO 3: ROLLBACK si falla
         moveCard(cardId, toListId, fromListId, currentIndex);
 
-        toast.error(`Error al mover la tarjeta: ${error.message}`);
+        toast.error(t.board_toast_card_move_error(error.message));
       }
     }
   };
@@ -297,7 +299,7 @@ export default function BoardPage() {
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
           <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-text-secondary">Cargando board...</p>
+          <p className="text-text-secondary">{t.board_loading}</p>
         </div>
       </div>
     );
@@ -316,7 +318,7 @@ export default function BoardPage() {
                 className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Volver</span>
+                <span>{t.btn_back}</span>
               </button>
 
               <div className="w-px h-6 bg-border" />
@@ -338,7 +340,7 @@ export default function BoardPage() {
                 className="px-4 py-2 border border-warning/30 bg-warning/10 text-warning hover:bg-warning hover:text-white transition-all text-sm font-medium flex items-center gap-2"
               >
                 <Archive className="w-4 h-4" />
-                <span>Archivar</span>
+                <span>{t.board_btn_archive}</span>
               </button>
             )}
           </div>
@@ -353,7 +355,7 @@ export default function BoardPage() {
                 <LayoutGrid className="w-4 h-4 text-accent" />
               </div>
               <div>
-                <p className="text-xs text-text-muted">Listas</p>
+                <p className="text-xs text-text-muted">{t.board_stat_lists}</p>
                 <p className="text-sm font-medium text-text-primary">{lists.length}</p>
               </div>
             </div>
@@ -364,7 +366,7 @@ export default function BoardPage() {
                 <FileText className="w-4 h-4 text-success" />
               </div>
               <div>
-                <p className="text-xs text-text-muted">Tarjetas</p>
+                <p className="text-xs text-text-muted">{t.board_stat_cards}</p>
                 <p className="text-sm font-medium text-text-primary">{totalCards}</p>
               </div>
             </div>
@@ -376,7 +378,7 @@ export default function BoardPage() {
               </div>
               <div className="flex items-center gap-2">
                 <div>
-                  <p className="text-xs text-text-muted">Activos</p>
+                  <p className="text-xs text-text-muted">{t.board_stat_active}</p>
                   <p className="text-sm font-medium text-text-primary">{activeUsers.length}</p>
                 </div>
                 <ActiveUsers users={activeUsers} maxVisible={5} showCount={false} size="sm" />
@@ -392,7 +394,7 @@ export default function BoardPage() {
               } animate-pulse`}
             />
             <span className="text-xs text-text-muted">
-              {isConnected ? 'Conectado' : 'Desconectado'}
+              {isConnected ? t.status_connected : t.status_disconnected}
             </span>
           </div>
         </div>
@@ -430,7 +432,7 @@ export default function BoardPage() {
                 <div className="w-80 opacity-60 rotate-2">
                   <div className="bg-card border border-border p-4">
                     <div className="text-center text-text-primary">
-                      Moviendo "{activeList.name}"...
+                      {t.board_drag_moving_list(activeList.name)}
                     </div>
                   </div>
                 </div>
@@ -438,7 +440,7 @@ export default function BoardPage() {
                 <div className="w-80 opacity-80 rotate-3">
                   <div className="bg-card border-2 border-accent p-3 shadow-xl">
                     <div className="text-sm text-text-primary">{activeCard.title}</div>
-                    <div className="text-xs text-text-muted mt-1">Moviendo tarjeta...</div>
+                    <div className="text-xs text-text-muted mt-1">{t.board_drag_moving_card}</div>
                   </div>
                 </div>
               ) : null}
@@ -461,11 +463,8 @@ export default function BoardPage() {
                   <AlertTriangle className="w-6 h-6 text-warning" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium mb-1">¿Archivar Board?</h3>
-                  <p className="text-sm text-text-secondary">
-                    Este board será archivado y removido de la lista de boards activos. Puedes
-                    restaurarlo más tarde desde la sección de boards archivados.
-                  </p>
+                  <h3 className="text-lg font-medium mb-1">{t.board_archive_title}</h3>
+                  <p className="text-sm text-text-secondary">{t.board_archive_desc}</p>
                 </div>
               </div>
 
@@ -474,13 +473,13 @@ export default function BoardPage() {
                   onClick={() => setShowArchiveConfirm(false)}
                   className="flex-1 px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors"
                 >
-                  Cancelar
+                  {t.btn_cancel}
                 </button>
                 <button
                   onClick={handleArchive}
                   className="flex-1 px-4 py-2 bg-warning text-white hover:bg-warning/80 transition-colors"
                 >
-                  Archivar
+                  {t.board_btn_confirm_archive}
                 </button>
               </div>
             </div>

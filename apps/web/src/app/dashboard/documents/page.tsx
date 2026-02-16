@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useAuthStore } from '@/stores/authStore';
 import { apiService } from '@/services/apiService';
 import { FileText, Search, Clock, Folder, ArrowRight, LayoutGrid, List } from 'lucide-react';
 import type { Document } from '@aether/types';
+import { useT } from '@/lib/i18n';
+import { formatShort } from '@/lib/utils/date';
 
 type DocumentWithWorkspace = Document & {
   workspaceId: string;
@@ -17,56 +20,67 @@ type DocumentWithWorkspace = Document & {
 type ViewMode = 'grid' | 'list';
 
 export default function AllDocumentsPage() {
+  const t = useT();
   const router = useRouter();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const { user } = useAuthStore();
   const [documents, setDocuments] = useState<DocumentWithWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [workspacesFetched, setWorkspacesFetched] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>('all');
 
   useEffect(() => {
-    fetchWorkspaces();
+    fetchWorkspaces().finally(() => setWorkspacesFetched(true));
   }, [fetchWorkspaces]);
 
   useEffect(() => {
-    const fetchAllDocuments = async () => {
-      if (workspaces.length === 0) return;
+    if (!workspacesFetched) return;
 
+    // Si no hay workspaces, no hay documentos que cargar
+    if (workspaces.length === 0) {
+      setDocuments([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchAllDocuments = async () => {
       setIsLoading(true);
       try {
         const allDocs: DocumentWithWorkspace[] = [];
 
-        for (const workspace of workspaces) {
-          const response = await apiService.get<{ documents: Document[] }>(
-            `/api/workspaces/${workspace.id}/documents`,
-            true
-          );
+        await Promise.all(
+          workspaces.map(async (workspace) => {
+            const response = await apiService.get<{ documents: Document[] }>(
+              `/api/workspaces/${workspace.id}/documents`,
+              true
+            );
+            if (response.success && response.data?.documents) {
+              const docsWithWorkspace = response.data.documents.map((doc) => ({
+                ...doc,
+                workspaceId: workspace.id,
+                workspaceName: workspace.name,
+                workspaceColor: workspace.color || '#3B82F6',
+                workspaceIcon: workspace.icon || '▣',
+              }));
+              allDocs.push(...docsWithWorkspace);
+            }
+          })
+        );
 
-          if (response.success && response.data) {
-            const docsWithWorkspace = response.data.documents.map((doc) => ({
-              ...doc,
-              workspaceId: workspace.id,
-              workspaceName: workspace.name,
-              workspaceColor: workspace.color || '#3B82F6',
-              workspaceIcon: workspace.icon || '▣',
-            }));
-            allDocs.push(...docsWithWorkspace);
-          }
-        }
-
-        // Ordenar por última actualización
         allDocs.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         setDocuments(allDocs);
       } catch (error) {
         console.error('[AllDocuments] Error fetching documents:', error);
+        setDocuments([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAllDocuments();
-  }, [workspaces]);
+  }, [workspaces, workspacesFetched]);
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch =
@@ -101,11 +115,6 @@ export default function AllDocumentsPage() {
     router.push(`/dashboard/workspaces/${doc.workspaceId}/documents/${doc.id}`);
   };
 
-  const formatDate = (date: string) => {
-    const d = new Date(date);
-    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
-
   const DocumentCard = ({ doc }: { doc: DocumentWithWorkspace }) => {
     if (viewMode === 'list') {
       return (
@@ -131,7 +140,15 @@ export default function AllDocumentsPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3 h-3" />
-                <span>Actualizado {formatDate(doc.updatedAt)}</span>
+                <span>
+                  {t.documents_updated(
+                    formatShort(
+                      new Date(doc.updatedAt),
+                      user?.timezone,
+                      user?.language as 'es' | 'en'
+                    )
+                  )}
+                </span>
               </div>
             </div>
           </div>
@@ -166,7 +183,11 @@ export default function AllDocumentsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-3 h-3 flex-shrink-0" />
-            <span>Actualizado {formatDate(doc.updatedAt)}</span>
+            <span>
+              {t.documents_updated(
+                formatShort(new Date(doc.updatedAt), user?.timezone, user?.language as 'es' | 'en')
+              )}
+            </span>
           </div>
         </div>
       </button>
@@ -178,10 +199,8 @@ export default function AllDocumentsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <h1 className="text-2xl font-medium mb-2">Todos los Documentos</h1>
-          <p className="text-text-secondary text-sm">
-            Accede a todos tus documentos de todos los workspaces
-          </p>
+          <h1 className="text-2xl font-medium mb-2">{t.documents_title}</h1>
+          <p className="text-text-secondary text-sm">{t.documents_subtitle}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -218,7 +237,7 @@ export default function AllDocumentsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             type="text"
-            placeholder="Buscar documentos..."
+            placeholder={t.documents_search_placeholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
@@ -230,7 +249,7 @@ export default function AllDocumentsPage() {
           onChange={(e) => setSelectedWorkspace(e.target.value)}
           className="px-4 py-2.5 bg-surface border border-border text-sm text-text-primary focus:outline-none focus:border-accent transition-colors min-w-[200px]"
         >
-          <option value="all">Todos los workspaces</option>
+          <option value="all">{t.documents_filter_all_workspaces}</option>
           {workspaces.map((workspace) => (
             <option key={workspace.id} value={workspace.id}>
               {workspace.icon} {workspace.name}
@@ -244,7 +263,7 @@ export default function AllDocumentsPage() {
         <div className="bg-card border border-border p-12">
           <div className="flex flex-col items-center justify-center">
             <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-text-secondary text-sm">Cargando documentos...</p>
+            <p className="text-text-secondary text-sm">{t.documents_loading}</p>
           </div>
         </div>
       )}
@@ -255,10 +274,8 @@ export default function AllDocumentsPage() {
           <div className="w-20 h-20 mx-auto mb-6 bg-accent/10 border border-accent flex items-center justify-center">
             <FileText className="w-10 h-10 text-accent" />
           </div>
-          <h3 className="text-xl font-medium mb-2">No hay documentos todavía</h3>
-          <p className="text-text-secondary text-sm mb-6">
-            Crea documentos en tus workspaces para verlos aquí
-          </p>
+          <h3 className="text-xl font-medium mb-2">{t.documents_empty_title}</h3>
+          <p className="text-text-secondary text-sm mb-6">{t.documents_empty_desc}</p>
         </div>
       )}
 
@@ -268,10 +285,8 @@ export default function AllDocumentsPage() {
           <div className="w-16 h-16 mx-auto mb-4 bg-text-muted/10 border border-text-muted/30 flex items-center justify-center">
             <Search className="w-8 h-8 text-text-muted" />
           </div>
-          <h3 className="text-lg font-medium mb-2">No se encontraron documentos</h3>
-          <p className="text-text-secondary text-sm">
-            Intenta buscar con palabras clave diferentes o cambia el filtro de workspace
-          </p>
+          <h3 className="text-lg font-medium mb-2">{t.documents_no_results_title}</h3>
+          <p className="text-text-secondary text-sm">{t.documents_no_results_desc}</p>
         </div>
       )}
 
@@ -295,14 +310,14 @@ export default function AllDocumentsPage() {
                 <div className="flex-1">
                   <h2 className="text-lg font-medium text-text-primary">{workspace.name}</h2>
                   <p className="text-sm text-text-muted">
-                    {workspaceDocs.length} documento{workspaceDocs.length !== 1 ? 's' : ''}
+                    {t.documents_showing(workspaceDocs.length, workspaceDocs.length)}
                   </p>
                 </div>
                 <button
                   onClick={() => router.push(`/dashboard/workspaces/${workspace.id}/documents`)}
                   className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-accent hover:bg-surface border border-transparent hover:border-border transition-all"
                 >
-                  <span>Ver todos</span>
+                  <span>{t.btn_back}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -328,10 +343,7 @@ export default function AllDocumentsPage() {
       {!isLoading && filteredDocuments.length > 0 && (
         <div className="border-t border-border pt-4">
           <div className="flex items-center justify-between text-sm text-text-muted">
-            <span>
-              Mostrando {filteredDocuments.length} de {documents.length} documento
-              {documents.length !== 1 ? 's' : ''}
-            </span>
+            <span>{t.documents_showing(filteredDocuments.length, documents.length)}</span>
             <span>
               {Object.keys(groupedByWorkspace).length} workspace
               {Object.keys(groupedByWorkspace).length !== 1 ? 's' : ''}

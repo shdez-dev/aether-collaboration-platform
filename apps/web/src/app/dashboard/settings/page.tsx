@@ -27,8 +27,10 @@ import {
   Smartphone,
   MessageSquare,
 } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 export default function SettingsPage() {
+  const t = useT();
   const { preferences, isLoading, loadPreferences, updatePreferences } = usePreferencesStore();
   const { theme: currentTheme, setTheme, actualTheme } = useTheme();
   const { toast } = useToast();
@@ -86,13 +88,13 @@ export default function SettingsPage() {
 
       setHasChanges(false);
       toast({
-        title: 'Configuración guardada',
-        description: 'Tus preferencias han sido actualizadas exitosamente.',
+        title: t.settings_toast_saved_title,
+        description: t.settings_toast_saved_desc,
       });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'No se pudo guardar la configuración. Intenta nuevamente.',
+        title: t.error_title,
+        description: t.settings_toast_error_desc,
         variant: 'destructive',
       });
     } finally {
@@ -113,9 +115,25 @@ export default function SettingsPage() {
   }
 
   const themeOptions = [
-    { value: 'light', label: 'Claro', icon: Sun },
-    { value: 'dark', label: 'Oscuro', icon: Moon },
-    { value: 'system', label: 'Sistema', icon: Monitor },
+    { value: 'light', label: t.settings_theme_light, icon: Sun },
+    { value: 'dark', label: t.settings_theme_dark, icon: Moon },
+    { value: 'system', label: t.settings_theme_system, icon: Monitor },
+  ];
+
+  const viewOptions = [
+    { value: 'kanban', label: t.settings_view_kanban, icon: '▦' },
+    { value: 'list', label: t.settings_view_list, icon: '☰' },
+    { value: 'calendar', label: t.settings_view_calendar, icon: '📅' },
+  ];
+
+  const frequencyOptions = [
+    {
+      value: 'realtime',
+      label: t.settings_freq_realtime_label,
+      desc: t.settings_freq_realtime_desc,
+    },
+    { value: 'daily', label: t.settings_freq_daily_label, desc: t.settings_freq_daily_desc },
+    { value: 'weekly', label: t.settings_freq_weekly_label, desc: t.settings_freq_weekly_desc },
   ];
 
   return (
@@ -124,8 +142,8 @@ export default function SettingsPage() {
         {/* Header con botón de guardar */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Configuración</h1>
-            <p className="text-muted-foreground mt-2">Personaliza tu experiencia en Aether</p>
+            <h1 className="text-3xl font-bold tracking-tight">{t.settings_title}</h1>
+            <p className="text-muted-foreground mt-2">{t.settings_subtitle}</p>
           </div>
 
           {hasChanges && (
@@ -133,12 +151,12 @@ export default function SettingsPage() {
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Guardando...
+                  {t.btn_saving}
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  Guardar Cambios
+                  {t.btn_save_changes}
                 </>
               )}
             </Button>
@@ -154,9 +172,9 @@ export default function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Palette className="h-5 w-5 text-primary" />
-                <CardTitle>Apariencia</CardTitle>
+                <CardTitle>{t.settings_section_appearance}</CardTitle>
               </div>
-              <CardDescription>Elige el tema que más te guste</CardDescription>
+              <CardDescription>{t.settings_section_appearance_desc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
@@ -197,9 +215,9 @@ export default function SettingsPage() {
                       className={`w-3 h-3 rounded-full ${actualTheme === 'dark' ? 'bg-slate-800' : 'bg-white'} border-2 border-primary`}
                     />
                     <span className="text-muted-foreground">
-                      Tema actual:{' '}
+                      {t.settings_current_theme}{' '}
                       <span className="font-medium text-foreground">
-                        {actualTheme === 'dark' ? 'Oscuro' : 'Claro'}
+                        {actualTheme === 'dark' ? t.settings_theme_dark : t.settings_theme_light}
                       </span>
                     </span>
                   </div>
@@ -213,20 +231,18 @@ export default function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Layout className="h-5 w-5 text-primary" />
-                <CardTitle>Vista de Boards</CardTitle>
+                <CardTitle>{t.settings_section_board_view}</CardTitle>
               </div>
-              <CardDescription>Personaliza la visualización de los boards</CardDescription>
+              <CardDescription>{t.settings_section_board_view_desc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between py-2">
                   <div className="space-y-0.5">
                     <Label htmlFor="compactMode" className="text-base">
-                      Modo Compacto
+                      {t.settings_label_compact_mode}
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Reduce el espaciado para ver más contenido
-                    </p>
+                    <p className="text-sm text-muted-foreground">{t.settings_compact_mode_desc}</p>
                   </div>
                   <Switch
                     id="compactMode"
@@ -241,14 +257,10 @@ export default function SettingsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="defaultBoardView" className="text-base">
-                    Vista Predeterminada
+                    {t.settings_label_default_view}
                   </Label>
                   <div className="grid grid-cols-3 gap-2 pt-2">
-                    {[
-                      { value: 'kanban', label: 'Kanban', icon: '▦' },
-                      { value: 'list', label: 'Lista', icon: '☰' },
-                      { value: 'calendar', label: 'Calendario', icon: '📅' },
-                    ].map(({ value, label, icon }) => (
+                    {viewOptions.map(({ value, label, icon }) => (
                       <button
                         key={value}
                         onClick={() =>
@@ -275,11 +287,9 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between py-2">
                   <div className="space-y-0.5">
                     <Label htmlFor="showArchived" className="text-base">
-                      Mostrar Archivados
+                      {t.settings_label_show_archived}
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Incluye elementos archivados en las vistas
-                    </p>
+                    <p className="text-sm text-muted-foreground">{t.settings_show_archived_desc}</p>
                   </div>
                   <Switch
                     id="showArchived"
@@ -300,16 +310,16 @@ export default function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Bell className="h-5 w-5 text-primary" />
-                <CardTitle>Notificaciones</CardTitle>
+                <CardTitle>{t.settings_section_notifications}</CardTitle>
               </div>
-              <CardDescription>Controla cómo y cuándo recibes notificaciones</CardDescription>
+              <CardDescription>{t.settings_section_notifications_desc}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Columna 1: Tipos de notificación */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Canales
+                    {t.settings_notifications_channels}
                   </h4>
 
                   <div className="space-y-4">
@@ -318,10 +328,10 @@ export default function SettingsPage() {
                         <Mail className="h-5 w-5 text-muted-foreground" />
                         <div>
                           <Label htmlFor="emailNotifications" className="text-base">
-                            Email
+                            {t.settings_label_email_notif}
                           </Label>
                           <p className="text-sm text-muted-foreground">
-                            Recibe actualizaciones por correo
+                            {t.settings_email_notif_desc}
                           </p>
                         </div>
                       </div>
@@ -341,10 +351,10 @@ export default function SettingsPage() {
                         <Smartphone className="h-5 w-5 text-muted-foreground" />
                         <div>
                           <Label htmlFor="pushNotifications" className="text-base">
-                            Push
+                            {t.settings_label_push_notif}
                           </Label>
                           <p className="text-sm text-muted-foreground">
-                            Notificaciones en el navegador
+                            {t.settings_push_notif_desc}
                           </p>
                         </div>
                       </div>
@@ -364,10 +374,10 @@ export default function SettingsPage() {
                         <MessageSquare className="h-5 w-5 text-muted-foreground" />
                         <div>
                           <Label htmlFor="inAppNotifications" className="text-base">
-                            In-App
+                            {t.settings_label_inapp_notif}
                           </Label>
                           <p className="text-sm text-muted-foreground">
-                            Notificaciones dentro de la app
+                            {t.settings_inapp_notif_desc}
                           </p>
                         </div>
                       </div>
@@ -385,21 +395,13 @@ export default function SettingsPage() {
                 {/* Columna 2: Frecuencia */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Frecuencia
+                    {t.settings_notifications_frequency}
                   </h4>
 
                   <div className="space-y-2">
-                    <Label className="text-base">Frecuencia de Email</Label>
+                    <Label className="text-base">{t.settings_label_email_frequency}</Label>
                     <div className="space-y-2 pt-2">
-                      {[
-                        {
-                          value: 'realtime',
-                          label: 'Tiempo Real',
-                          desc: 'Inmediatamente cuando ocurra',
-                        },
-                        { value: 'daily', label: 'Resumen Diario', desc: 'Una vez al día' },
-                        { value: 'weekly', label: 'Resumen Semanal', desc: 'Una vez a la semana' },
-                      ].map(({ value, label, desc }) => (
+                      {frequencyOptions.map(({ value, label, desc }) => (
                         <button
                           key={value}
                           onClick={() =>
@@ -442,12 +444,12 @@ export default function SettingsPage() {
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Guardando...
+                  {t.btn_saving}
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  Guardar Cambios
+                  {t.btn_save_changes}
                 </>
               )}
             </Button>

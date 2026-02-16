@@ -7,6 +7,8 @@ import { Users } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { getAvatarUrl } from '@/lib/utils/avatar';
+import { useT } from '@/lib/i18n';
 
 interface ActiveUser {
   id: string;
@@ -32,6 +34,7 @@ export function ActiveUsers({
   size = 'md',
   className,
 }: ActiveUsersProps) {
+  const t = useT();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const visibleUsers = isExpanded ? users : users.slice(0, maxVisible);
@@ -77,7 +80,7 @@ export function ActiveUsers({
                 </button>
               </TooltipTrigger>
               <TooltipContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                <p className="text-sm">Ver todos los usuarios activos</p>
+                <p className="text-sm">{t.active_users_tooltip}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -88,9 +91,7 @@ export function ActiveUsers({
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Users className="h-4 w-4" />
           <span className="font-medium">{users.length}</span>
-          <span className="hidden sm:inline">
-            {users.length === 1 ? 'usuario activo' : 'usuarios activos'}
-          </span>
+          <span className="hidden sm:inline">{t.active_users_count(users.length)}</span>
         </div>
       )}
 
@@ -99,7 +100,7 @@ export function ActiveUsers({
           onClick={() => setIsExpanded(false)}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          Mostrar menos
+          {t.active_users_btn_show_less}
         </button>
       )}
     </div>
@@ -107,6 +108,7 @@ export function ActiveUsers({
 }
 
 function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zIndex: number }) {
+  const t = useT();
   const initials = user.name
     .split(' ')
     .map((n) => n[0])
@@ -114,7 +116,7 @@ function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zI
     .toUpperCase()
     .slice(0, 2);
 
-  const timeActive = getTimeActive(user.joinedAt);
+  const timeActive = getTimeActive(user.joinedAt, t);
   const bgColor = getUserColor(user.id);
 
   return (
@@ -127,7 +129,7 @@ function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zI
           >
             <Avatar className={cn(size, 'border-2 border-background cursor-pointer')}>
               {user.avatar ? (
-                <AvatarImage src={user.avatar} alt={user.name} />
+                <AvatarImage src={getAvatarUrl(user.avatar) || undefined} alt={user.name} />
               ) : (
                 <AvatarFallback className={bgColor}>
                   <span className="text-xs font-semibold text-white">{initials}</span>
@@ -150,7 +152,7 @@ function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zI
           <div className="space-y-1">
             <p className="font-semibold text-white">{user.name}</p>
             <p className="text-xs text-gray-400">{user.email}</p>
-            <p className="text-xs text-gray-500">Activo hace {timeActive}</p>
+            <p className="text-xs text-gray-500">{t.active_users_active_since(timeActive)}</p>
           </div>
         </TooltipContent>
       </Tooltip>
@@ -181,20 +183,20 @@ function getUserColor(userId: string): string {
   return colors[index];
 }
 
-function getTimeActive(joinedAt: string): string {
+function getTimeActive(joinedAt: string, t: ReturnType<typeof useT>): string {
   const now = new Date();
   const joined = new Date(joinedAt);
   const diffMs = now.getTime() - joined.getTime();
   const diffMins = Math.floor(diffMs / 60000);
 
-  if (diffMins < 1) return 'menos de 1 min';
-  if (diffMins < 60) return `${diffMins} min`;
+  if (diffMins < 1) return t.active_users_time_less_1min;
+  if (diffMins < 60) return t.active_users_time_min(diffMins);
 
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours} h`;
+  if (diffHours < 24) return t.active_users_time_h(diffHours);
 
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} día${diffDays > 1 ? 's' : ''}`;
+  return t.active_users_time_day(diffDays);
 }
 
 export function ActiveUsersCompact({
@@ -214,6 +216,7 @@ export function ActiveUsersExpandable({
   users: ActiveUser[];
   className?: string;
 }) {
+  const t = useT();
   const [isOpen, setIsOpen] = useState(false);
 
   if (users.length === 0) return null;
@@ -236,7 +239,11 @@ export function ActiveUsersExpandable({
             return (
               <Avatar key={user.id} className="h-6 w-6 border-2 border-background">
                 {user.avatar ? (
-                  <AvatarImage src={user.avatar} alt={user.name} />
+                  <AvatarImage
+                    src={getAvatarUrl(user.avatar) || undefined}
+                    alt={user.name}
+                    crossOrigin="anonymous"
+                  />
                 ) : (
                   <AvatarFallback className={getUserColor(user.id)}>
                     <span className="text-[10px] font-semibold text-white">{initials}</span>
@@ -247,9 +254,7 @@ export function ActiveUsersExpandable({
           })}
         </div>
 
-        <span className="text-sm font-medium">
-          {users.length} {users.length === 1 ? 'usuario' : 'usuarios'}
-        </span>
+        <span className="text-sm font-medium">{t.active_users_count(users.length)}</span>
       </button>
 
       {isOpen && (
@@ -259,7 +264,7 @@ export function ActiveUsersExpandable({
           {/* ✅ Popover con tema oscuro */}
           <div className="absolute top-full right-0 mt-2 w-64 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg z-50 p-3">
             <div className="space-y-2">
-              <h4 className="font-semibold text-sm mb-3 text-white">Usuarios activos</h4>
+              <h4 className="font-semibold text-sm mb-3 text-white">{t.active_users_title}</h4>
 
               {users.map((user) => {
                 const initials = user.name
@@ -273,7 +278,11 @@ export function ActiveUsersExpandable({
                   <div key={user.id} className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
                       {user.avatar ? (
-                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarImage
+                          src={getAvatarUrl(user.avatar) || undefined}
+                          alt={user.name}
+                          crossOrigin="anonymous"
+                        />
                       ) : (
                         <AvatarFallback className={getUserColor(user.id)}>
                           <span className="text-xs font-semibold text-white">{initials}</span>

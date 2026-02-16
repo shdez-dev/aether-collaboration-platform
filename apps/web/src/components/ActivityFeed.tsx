@@ -17,6 +17,7 @@ import {
   FileText,
   ArrowRight,
 } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 interface ActivityEvent {
   id: string;
@@ -38,6 +39,7 @@ interface ActivityFeedProps {
 }
 
 export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
+  const t = useT();
   const { accessToken } = useAuthStore();
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +64,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
       );
 
       if (!response.ok) {
-        throw new Error('Error al cargar actividad');
+        throw new Error(t.activity_error);
       }
 
       const { data } = await response.json();
@@ -109,7 +111,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">creó el workspace</span>{' '}
+              <span className="text-text-secondary">{t.activity_workspace_created}</span>{' '}
               <strong className="text-accent">{payload.name}</strong>
             </p>
           </div>
@@ -120,7 +122,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">actualizó el workspace</span>{' '}
+              <span className="text-text-secondary">{t.activity_workspace_updated}</span>{' '}
               <strong className="text-accent">{payload.name}</strong>
             </p>
           </div>
@@ -131,7 +133,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">eliminó un workspace</span>
+              <span className="text-text-secondary">{t.activity_workspace_deleted}</span>
             </p>
           </div>
         );
@@ -141,7 +143,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">creó el board</span>{' '}
+              <span className="text-text-secondary">{t.activity_board_created}</span>{' '}
               <strong className="text-accent">{payload.title || payload.name}</strong>
             </p>
           </div>
@@ -152,7 +154,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">actualizó el board</span>{' '}
+              <span className="text-text-secondary">{t.activity_board_updated}</span>{' '}
               <strong className="text-accent">{payload.title || payload.name}</strong>
             </p>
           </div>
@@ -163,7 +165,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">archivó el board</span>{' '}
+              <span className="text-text-secondary">{t.activity_board_archived}</span>{' '}
               {payload.title && <strong className="text-warning">{payload.title}</strong>}
             </p>
           </div>
@@ -174,12 +176,12 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">creó la lista</span>{' '}
+              <span className="text-text-secondary">{t.activity_list_created}</span>{' '}
               <strong className="text-accent">{payload.name}</strong>
               {payload.boardTitle && (
                 <>
                   {' '}
-                  <span className="text-text-secondary">en el board</span>{' '}
+                  <span className="text-text-secondary">{t.activity_list_in_board}</span>{' '}
                   <strong className="text-text-muted">{payload.boardTitle}</strong>
                 </>
               )}
@@ -192,7 +194,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">renombró la lista a</span>{' '}
+              <span className="text-text-secondary">{t.activity_list_updated}</span>{' '}
               <strong className="text-accent">{payload.name}</strong>
             </p>
           </div>
@@ -203,7 +205,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">reordenó la lista</span>{' '}
+              <span className="text-text-secondary">{t.activity_list_reordered}</span>{' '}
               {payload.name && <strong className="text-accent">{payload.name}</strong>}
             </p>
           </div>
@@ -214,7 +216,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">eliminó la lista</span>{' '}
+              <span className="text-text-secondary">{t.activity_list_deleted}</span>{' '}
               {payload.name && <strong className="text-error">{payload.name}</strong>}
             </p>
           </div>
@@ -225,12 +227,12 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">creó la tarjeta</span>{' '}
+              <span className="text-text-secondary">{t.activity_card_created}</span>{' '}
               <strong className="text-accent">{payload.title}</strong>
               {payload.listName && (
                 <>
                   {' '}
-                  <span className="text-text-secondary">en la lista</span>{' '}
+                  <span className="text-text-secondary">{t.activity_card_in_list}</span>{' '}
                   <strong className="text-text-muted">{payload.listName}</strong>
                 </>
               )}
@@ -243,7 +245,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">actualizó la tarjeta</span>{' '}
+              <span className="text-text-secondary">{t.activity_card_updated}</span>{' '}
               <strong className="text-accent">{payload.title}</strong>
             </p>
           </div>
@@ -254,7 +256,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed mb-1">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">movió la tarjeta</span>{' '}
+              <span className="text-text-secondary">{t.activity_card_moved}</span>{' '}
               <strong className="text-accent">{payload.title}</strong>
             </p>
             {(payload.fromListName || payload.toListName) && (
@@ -282,7 +284,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">eliminó la tarjeta</span>{' '}
+              <span className="text-text-secondary">{t.activity_card_deleted}</span>{' '}
               {payload.title && <strong className="text-error">{payload.title}</strong>}
             </p>
           </div>
@@ -293,7 +295,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">comentó en la tarjeta</span>{' '}
+              <span className="text-text-secondary">{t.activity_comment_created}</span>{' '}
               {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
             </p>
             {payload.contentPreview && (
@@ -309,12 +311,12 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">asignó a</span>{' '}
+              <span className="text-text-secondary">{t.activity_member_assigned}</span>{' '}
               {payload.memberName && <strong className="text-accent">{payload.memberName}</strong>}
               {payload.cardTitle && (
                 <>
                   {' '}
-                  <span className="text-text-secondary">a la tarjeta</span>{' '}
+                  <span className="text-text-secondary">{t.activity_member_assigned_to}</span>{' '}
                   <strong className="text-text-muted">{payload.cardTitle}</strong>
                 </>
               )}
@@ -327,12 +329,14 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">removió a</span>{' '}
+              <span className="text-text-secondary">{t.activity_member_unassigned}</span>{' '}
               {payload.memberName && <strong className="text-error">{payload.memberName}</strong>}
               {payload.cardTitle && (
                 <>
                   {' '}
-                  <span className="text-text-secondary">de la tarjeta</span>{' '}
+                  <span className="text-text-secondary">
+                    {t.activity_member_unassigned_from}
+                  </span>{' '}
                   <strong className="text-text-muted">{payload.cardTitle}</strong>
                 </>
               )}
@@ -345,12 +349,12 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">agregó la etiqueta</span>{' '}
+              <span className="text-text-secondary">{t.activity_label_added}</span>{' '}
               {payload.labelName && <strong className="text-accent">{payload.labelName}</strong>}
               {payload.cardTitle && (
                 <>
                   {' '}
-                  <span className="text-text-secondary">a la tarjeta</span>{' '}
+                  <span className="text-text-secondary">{t.activity_label_added_to}</span>{' '}
                   <strong className="text-text-muted">{payload.cardTitle}</strong>
                 </>
               )}
@@ -363,12 +367,12 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">removió la etiqueta</span>{' '}
+              <span className="text-text-secondary">{t.activity_label_removed}</span>{' '}
               {payload.labelName && <strong className="text-error">{payload.labelName}</strong>}
               {payload.cardTitle && (
                 <>
                   {' '}
-                  <span className="text-text-secondary">de la tarjeta</span>{' '}
+                  <span className="text-text-secondary">{t.activity_label_removed_from}</span>{' '}
                   <strong className="text-text-muted">{payload.cardTitle}</strong>
                 </>
               )}
@@ -381,7 +385,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           <div>
             <p className="text-xs leading-relaxed">
               <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">realizó una acción</span>
+              <span className="text-text-secondary">{t.activity_default}</span>
             </p>
           </div>
         );
@@ -396,11 +400,11 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Justo ahora';
-    if (diffMins < 60) return `Hace ${diffMins}m`;
-    if (diffHours < 24) return `Hace ${diffHours}h`;
-    if (diffDays === 1) return 'Ayer';
-    if (diffDays < 7) return `Hace ${diffDays}d`;
+    if (diffMins < 1) return t.activity_time_just_now;
+    if (diffMins < 60) return t.activity_time_minutes(diffMins);
+    if (diffHours < 24) return t.activity_time_hours(diffHours);
+    if (diffDays === 1) return t.activity_time_yesterday;
+    if (diffDays < 7) return t.activity_time_days(diffDays);
 
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   };
@@ -435,8 +439,8 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     return (
       <div className="p-4 text-center py-12">
         <Clock className="w-10 h-10 mx-auto mb-2 text-text-muted opacity-50" />
-        <p className="text-xs text-text-secondary">Sin actividad reciente</p>
-        <p className="text-xs text-text-muted mt-1">Los últimos 7 días</p>
+        <p className="text-xs text-text-secondary">{t.activity_empty_title}</p>
+        <p className="text-xs text-text-muted mt-1">{t.activity_empty_desc}</p>
       </div>
     );
   }

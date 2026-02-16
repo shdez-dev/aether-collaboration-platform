@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useT } from '@/lib/i18n';
 
 interface CreateWorkspaceModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ const COLORS = [
 const ICONS = ['▣', '◆', '▦', '▤', '◉', '▲', '●', '■'];
 
 export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspaceModalProps) {
+  const t = useT();
   const router = useRouter();
   const { createWorkspace, isLoading } = useWorkspaceStore();
 
@@ -38,7 +40,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
     setError('');
 
     if (name.trim().length < 1) {
-      setError('El nombre es obligatorio');
+      setError(t.create_ws_validation_name);
       return;
     }
 
@@ -54,7 +56,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
       onClose();
       router.push(`/dashboard/workspaces/${workspace.id}`);
     } catch (err: any) {
-      setError(err.message || 'Error al crear workspace');
+      setError(err.message || t.create_ws_error);
     }
   };
 
@@ -73,7 +75,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="card-terminal max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="section-header">CREAR WORKSPACE</h2>
+          <h2 className="section-header">{t.create_ws_title}</h2>
           <button
             onClick={handleClose}
             disabled={isLoading}
@@ -87,7 +89,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
           {/* Name */}
           <div>
             <label htmlFor="name" className="block text-sm text-text-secondary mb-2">
-              NOMBRE: <span className="text-error">*</span>
+              {t.create_ws_label_name} <span className="text-error">*</span>
             </label>
             <input
               id="name"
@@ -95,7 +97,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="input-terminal"
-              placeholder="Mi Workspace"
+              placeholder={t.create_ws_placeholder_name}
               required
               disabled={isLoading}
               maxLength={255}
@@ -105,14 +107,14 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
           {/* Description */}
           <div>
             <label htmlFor="description" className="block text-sm text-text-secondary mb-2">
-              DESCRIPCIÓN:
+              {t.create_ws_label_description}
             </label>
             <textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="input-terminal min-h-[80px] resize-none"
-              placeholder="Descripción del workspace (opcional)"
+              placeholder={t.create_ws_placeholder_description}
               disabled={isLoading}
               maxLength={1000}
             />
@@ -120,7 +122,9 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
           {/* Icon Selector */}
           <div>
-            <label className="block text-sm text-text-secondary mb-2">ICONO:</label>
+            <label className="block text-sm text-text-secondary mb-2">
+              {t.create_ws_label_icon}
+            </label>
             <div className="grid grid-cols-8 gap-2">
               {ICONS.map((icon) => (
                 <button
@@ -142,7 +146,9 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
           {/* Color Picker */}
           <div>
-            <label className="block text-sm text-text-secondary mb-2">COLOR:</label>
+            <label className="block text-sm text-text-secondary mb-2">
+              {t.create_ws_label_color}
+            </label>
             <div className="grid grid-cols-8 gap-2">
               {COLORS.map((color) => (
                 <button
@@ -161,7 +167,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
           {/* Preview */}
           <div className="p-4 bg-background rounded-terminal border border-border">
-            <p className="text-xs text-text-muted mb-2">VISTA PREVIA:</p>
+            <p className="text-xs text-text-muted mb-2">{t.create_ws_preview_label}</p>
             <div className="flex items-center gap-3">
               <div
                 className="w-12 h-12 rounded-terminal flex items-center justify-center text-2xl"
@@ -170,8 +176,10 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                 {selectedIcon}
               </div>
               <div>
-                <p className="text-text-primary font-medium">{name || 'Nombre del Workspace'}</p>
-                <p className="text-xs text-text-muted">{description || 'Sin descripción'}</p>
+                <p className="text-text-primary font-medium">
+                  {name || t.create_ws_placeholder_name}
+                </p>
+                <p className="text-xs text-text-muted">{description || t.no_description}</p>
               </div>
             </div>
           </div>
@@ -191,16 +199,16 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               disabled={isLoading}
               className="btn-secondary flex-1"
             >
-              CANCELAR
+              {t.create_ws_btn_cancel}
             </button>
             <button type="submit" disabled={isLoading} className="btn-primary flex-1">
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="loading" />
-                  CREANDO...
+                  {t.create_ws_btn_creating}
                 </span>
               ) : (
-                'CREAR WORKSPACE'
+                t.create_ws_btn_create
               )}
             </button>
           </div>

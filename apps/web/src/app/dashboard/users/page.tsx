@@ -9,8 +9,8 @@ import { apiService } from '@/services/apiService';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useT } from '@/lib/i18n';
+import { formatShort } from '@/lib/utils/date';
 
 interface PublicUser {
   id: string;
@@ -36,6 +36,7 @@ interface UserProfile extends PublicUser {
 // ── Panel de detalle (columna derecha) ───────────────────────────────────────
 
 function UserDetailPanel({ userId }: { userId: string | null }) {
+  const t = useT();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [inviteWorkspaceId, setInviteWorkspaceId] = useState('');
@@ -89,7 +90,7 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
     setIsInviting(true);
     try {
       await inviteMember(inviteWorkspaceId, profile.email, inviteRole);
-      toast.success(`${profile.name} fue invitado al workspace`);
+      toast.success(t.users_toast_invited(profile.name));
       setInviteWorkspaceId('');
       // Refrescar perfil para que aparezca el nuevo workspace compartido
       const res = await apiService.get<{
@@ -100,7 +101,7 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
         setProfile({ ...res.data.user, sharedWorkspaces: res.data.sharedWorkspaces });
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Error al invitar al usuario');
+      toast.error(err?.message || t.users_toast_invite_error);
     } finally {
       setIsInviting(false);
     }
@@ -113,10 +114,8 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
         <div className="w-20 h-20 rounded-full bg-surface border border-border flex items-center justify-center mb-4">
           <Users className="h-9 w-9 text-text-muted" />
         </div>
-        <p className="text-text-secondary font-medium">Selecciona un usuario</p>
-        <p className="text-text-muted text-sm mt-1">
-          Haz clic en cualquier usuario de la lista para ver su perfil
-        </p>
+        <p className="text-text-secondary font-medium">{t.users_select_title}</p>
+        <p className="text-text-muted text-sm mt-1">{t.users_select_desc}</p>
       </div>
     );
   }
@@ -133,7 +132,7 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
   if (!profile) {
     return (
       <div className="flex-1 flex items-center justify-center border-l border-border">
-        <p className="text-text-muted text-sm">No se pudo cargar el perfil</p>
+        <p className="text-text-muted text-sm">{t.users_profile_error}</p>
       </div>
     );
   }
@@ -149,17 +148,16 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
         <div className="px-6 pb-4">
           <div className="flex items-end justify-between -mt-10 mb-3">
             <Avatar className="h-20 w-20 border-4 border-background">
-              {avatarUrl ? (
-                <AvatarImage src={avatarUrl} alt={profile.name} />
-              ) : (
-                <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                  {getInitials(profile.name)}
-                </AvatarFallback>
+              {avatarUrl && (
+                <AvatarImage src={avatarUrl} alt={profile.name} crossOrigin="anonymous" />
               )}
+              <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                {getInitials(profile.name)}
+              </AvatarFallback>
             </Avatar>
             {isOwnProfile && (
               <span className="text-xs text-accent border border-accent/40 px-2 py-0.5 rounded-terminal">
-                Tú
+                {t.users_badge_you}
               </span>
             )}
           </div>
@@ -183,7 +181,15 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
             )}
             <div className="flex items-center gap-1 text-text-muted text-xs">
               <Calendar className="h-3 w-3 flex-shrink-0" />
-              <span>Se unió {format(new Date(profile.createdAt), 'MMM yyyy', { locale: es })}</span>
+              <span>
+                {t.users_joined(
+                  formatShort(
+                    new Date(profile.createdAt),
+                    currentUser?.timezone,
+                    currentUser?.language as 'es' | 'en'
+                  )
+                )}
+              </span>
             </div>
           </div>
         </div>
@@ -193,7 +199,9 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
         {/* Bio */}
         {profile.bio && (
           <div className="bg-surface rounded-terminal p-4 border border-border">
-            <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Sobre mí</p>
+            <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
+              {t.users_section_about}
+            </p>
             <p className="text-text-secondary text-sm leading-relaxed">{profile.bio}</p>
           </div>
         )}
@@ -202,7 +210,7 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
         {profile.sharedWorkspaces.length > 0 && (
           <div>
             <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
-              Workspaces en común — {profile.sharedWorkspaces.length}
+              {t.users_section_shared_workspaces(profile.sharedWorkspaces.length)}
             </p>
             <div className="space-y-1">
               {profile.sharedWorkspaces.map((w) => (
@@ -222,13 +230,15 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
         {/* Invitar a workspace */}
         {!isOwnProfile && invitableWorkspaces.length > 0 && (
           <div className="bg-surface rounded-terminal p-4 border border-border space-y-3">
-            <p className="text-xs text-text-muted uppercase tracking-wider">Invitar a workspace</p>
+            <p className="text-xs text-text-muted uppercase tracking-wider">
+              {t.users_section_invite}
+            </p>
             <select
               value={inviteWorkspaceId}
               onChange={(e) => setInviteWorkspaceId(e.target.value)}
               className="input-terminal w-full text-sm"
             >
-              <option value="">Seleccionar workspace...</option>
+              <option value="">{t.users_select_workspace}</option>
               {invitableWorkspaces.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -241,9 +251,9 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
                 onChange={(e) => setInviteRole(e.target.value)}
                 className="input-terminal text-sm"
               >
-                <option value="MEMBER">Miembro</option>
-                <option value="ADMIN">Admin</option>
-                <option value="VIEWER">Viewer</option>
+                <option value="MEMBER">{t.role_member}</option>
+                <option value="ADMIN">{t.role_admin}</option>
+                <option value="VIEWER">{t.role_viewer}</option>
               </select>
               <Button
                 size="sm"
@@ -252,7 +262,7 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
                 className="gap-2 flex-1"
               >
                 <UserPlus className="h-4 w-4" />
-                {isInviting ? 'Invitando...' : 'Invitar'}
+                {isInviting ? t.users_btn_inviting : t.users_btn_invite}
               </Button>
             </div>
           </div>
@@ -265,6 +275,7 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
 // ── Página principal ─────────────────────────────────────────────────────────
 
 export default function UsersPage() {
+  const t = useT();
   const [allUsers, setAllUsers] = useState<PublicUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -328,7 +339,7 @@ export default function UsersPage() {
         <div className="px-4 pt-4 pb-3 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-text-primary font-medium text-sm">
-              Usuarios
+              {t.users_title}
               {search.trim() && !isLoading && (
                 <span className="ml-2 text-text-muted font-normal">{filteredUsers.length}</span>
               )}
@@ -341,7 +352,7 @@ export default function UsersPage() {
             <input
               ref={searchRef}
               type="text"
-              placeholder="Buscar..."
+              placeholder={t.users_search_placeholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input-terminal w-full pl-8 pr-3 py-1.5 text-sm"
@@ -354,7 +365,7 @@ export default function UsersPage() {
           {!search.trim() ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
               <Search className="h-8 w-8 text-text-muted mb-2" />
-              <p className="text-text-muted text-sm">Escribe para buscar usuarios</p>
+              <p className="text-text-muted text-sm">{t.users_empty_search}</p>
             </div>
           ) : isLoading ? (
             <div className="space-y-1 px-2 pt-2">
@@ -373,7 +384,7 @@ export default function UsersPage() {
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-              <p className="text-text-muted text-sm">Sin resultados para</p>
+              <p className="text-text-muted text-sm">{t.users_no_results}</p>
               <p className="text-text-secondary text-sm font-medium mt-0.5">"{search}"</p>
             </div>
           ) : (
@@ -392,13 +403,12 @@ export default function UsersPage() {
                   style={{ width: 'calc(100% - 8px)' }}
                 >
                   <Avatar className="h-8 w-8 flex-shrink-0 border border-border">
-                    {avatarUrl ? (
-                      <AvatarImage src={avatarUrl} alt={u.name} />
-                    ) : (
-                      <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                        {getInitials(u.name)}
-                      </AvatarFallback>
+                    {avatarUrl && (
+                      <AvatarImage src={avatarUrl} alt={u.name} crossOrigin="anonymous" />
                     )}
+                    <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                      {getInitials(u.name)}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate leading-tight">{u.name}</p>
