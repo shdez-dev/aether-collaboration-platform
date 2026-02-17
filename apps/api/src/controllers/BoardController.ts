@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { boardService } from '../services/BoardService';
+import { DependencyGraphService } from '../services/DependencyGraphService';
 import { WorkspaceRequest } from '../middleware/workspace';
 
 /**
@@ -397,6 +398,24 @@ class BoardController {
           code: 'INTERNAL_ERROR',
           message: 'Error al eliminar board',
         },
+      });
+    }
+  }
+  /**
+   * GET /api/boards/:id/dependency-graph
+   * Obtener el grafo de dependencias de un board (nodos + aristas)
+   * Permite: Todos los roles
+   */
+  async getDependencyGraph(req: WorkspaceRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const graph = await DependencyGraphService.getGraph(id);
+      return res.json({ success: true, data: { graph } });
+    } catch (error: any) {
+      console.error('[BoardController] getDependencyGraph error:', error);
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: error.message },
       });
     }
   }

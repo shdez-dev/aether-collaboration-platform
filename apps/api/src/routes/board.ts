@@ -44,6 +44,16 @@ router.get('/boards/:id', checkWorkspaceMembership, (req, res) =>
 );
 
 /**
+ * GET /api/boards/:id/dependency-graph
+ * Obtener el grafo de dependencias del board (nodos + aristas)
+ * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
+ * Permite: Todos los roles
+ */
+router.get('/boards/:id/dependency-graph', checkWorkspaceMembership, (req, res) =>
+  boardController.getDependencyGraph(req, res)
+);
+
+/**
  * PUT /api/boards/:id
  * Actualizar un board
  * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)

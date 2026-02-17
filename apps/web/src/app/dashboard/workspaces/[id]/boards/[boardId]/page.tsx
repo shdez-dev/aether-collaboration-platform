@@ -31,7 +31,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
-import { ArrowLeft, LayoutGrid, FileText, Users, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, FileText, Users, AlertTriangle, GitBranch } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
 export default function BoardPage() {
@@ -439,6 +439,18 @@ export default function BoardPage() {
                 )}
               </div>
             </div>
+
+            {/* Botón mapa de dependencias */}
+            <button
+              onClick={() =>
+                router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}/dependencies`)
+              }
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all flex-shrink-0"
+              title="Ver mapa de dependencias"
+            >
+              <GitBranch className="w-4 h-4" />
+              <span className="hidden sm:inline">Dependencias</span>
+            </button>
           </div>
         </div>
 
