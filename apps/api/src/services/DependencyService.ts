@@ -252,26 +252,23 @@ export class DependencyService {
   ): Promise<
     Array<{ id: string; title: string; completed: boolean; listName: string; listId: string }>
   > {
-    // IDs ya relacionados (en cualquier dirección)
-    const existingResult = await pool.query(
-      `SELECT blocking_card_id AS related FROM card_dependencies WHERE blocked_card_id = $1
-       UNION
-       SELECT blocked_card_id  AS related FROM card_dependencies WHERE blocking_card_id = $1`,
-      [cardId]
-    );
-    const existingIds = existingResult.rows.map((r: any) => r.related);
-    existingIds.push(cardId); // excluir la card actual también
-
+    // Excluir mediante subquery: la card actual + cualquier card que ya tenga
+    // relación directa con ella en cualquier dirección
     const r = await pool.query(
       `SELECT c.id, c.title, c.completed, l.id AS list_id, l.name AS list_name
        FROM cards c
        JOIN lists l ON l.id = c.list_id
        WHERE l.board_id = $1
-         AND c.id != ALL($2::uuid[])
-         AND c.title ILIKE $3
+         AND c.title ILIKE $2
+         AND c.id <> $3
+         AND c.id NOT IN (
+           SELECT blocking_card_id FROM card_dependencies WHERE blocked_card_id  = $3
+           UNION ALL
+           SELECT blocked_card_id  FROM card_dependencies WHERE blocking_card_id = $3
+         )
        ORDER BY l.position ASC, c.position ASC
        LIMIT 20`,
-      [boardId, existingIds, `%${query}%`]
+      [boardId, `%${query}%`, cardId]
     );
 
     return r.rows.map((row: any) => ({
