@@ -85,7 +85,7 @@ export function Card({ card }: CardProps) {
   const handleToggleComplete = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!canEdit || isTogglingComplete) return;
+    if (!canEdit || isTogglingComplete || isBlocked) return;
 
     setIsTogglingComplete(true);
     const newCompletedState = !card.completed;
@@ -108,7 +108,18 @@ export function Card({ card }: CardProps) {
         }),
       });
 
-      if (!response.ok) throw new Error('Error al actualizar tarjeta');
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        // Rollback optimistic update
+        updateCard(card.id, { completed: card.completed, completedAt: card.completedAt });
+        if (json?.error?.code === 'BLOCKED_BY_DEPENDENCY') {
+          // El backend rechazó el completado por dependencias bloqueantes
+          console.warn('Card bloqueada por dependencias:', json.error.message);
+        } else {
+          console.error('Error al actualizar tarjeta:', json);
+        }
+        return;
+      }
 
       const { data } = await response.json();
       updateCard(card.id, data.card);
@@ -178,22 +189,48 @@ export function Card({ card }: CardProps) {
     >
       {/* Checkbox + Título */}
       <div className="pb-2 border-b border-border/30 flex items-start gap-2">
-        {/* CHECKBOX DE COMPLETADO - Solo ADMIN y OWNER pueden completar */}
+        {/* CHECKBOX DE COMPLETADO - Solo ADMIN y OWNER pueden completar; bloqueado si hay dependencias pendientes */}
         <button
           onClick={handleToggleComplete}
-          disabled={!canEdit || isTogglingComplete}
+          disabled={!canEdit || isTogglingComplete || isBlocked}
+          title={
+            isBlocked
+              ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}`
+              : !canEdit
+                ? 'Sin permisos para completar'
+                : card.completed
+                  ? 'Marcar como pendiente'
+                  : 'Marcar como completada'
+          }
           className={`
             mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 
             flex items-center justify-center transition-all
             ${
-              card.completed
-                ? 'bg-success border-success hover:bg-success/80'
-                : 'border-border hover:border-accent'
+              isBlocked
+                ? 'border-warning/50 bg-warning/10 cursor-not-allowed'
+                : card.completed
+                  ? 'bg-success border-success hover:bg-success/80 cursor-pointer'
+                  : canEdit
+                    ? 'border-border hover:border-accent cursor-pointer'
+                    : 'border-border cursor-not-allowed opacity-50'
             }
-            ${!canEdit ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
           `}
         >
-          {card.completed && (
+          {isBlocked ? (
+            <svg
+              className="w-2.5 h-2.5 text-warning"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
+            </svg>
+          ) : card.completed ? (
             <svg
               className="w-3 h-3 text-white"
               fill="none"
@@ -207,7 +244,7 @@ export function Card({ card }: CardProps) {
                 d="M5 13l4 4L19 7"
               />
             </svg>
-          )}
+          ) : null}
         </button>
 
         {/* Título */}

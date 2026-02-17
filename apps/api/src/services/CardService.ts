@@ -228,6 +228,27 @@ export class CardService {
       const currentCard = currentCardResult.rows[0];
       const originalListId = currentCard.list_id;
 
+      // ── Validación de dependencias bloqueantes ───────────────────────────
+      // Si se intenta marcar como completada, verificar que no haya bloqueantes pendientes
+      if (data.completed === true && !currentCard.completed) {
+        const blockedByResult = await client.query(
+          `SELECT COUNT(*)::int as count
+           FROM card_dependencies cd
+           INNER JOIN cards bc ON cd.blocking_card_id = bc.id
+           WHERE cd.blocked_card_id = $1 AND bc.completed = FALSE`,
+          [cardId]
+        );
+        const pendingBlockers = blockedByResult.rows[0].count;
+        if (pendingBlockers > 0) {
+          const error: any = new Error(
+            `Esta card tiene ${pendingBlockers} dependencia${pendingBlockers !== 1 ? 's' : ''} bloqueante${pendingBlockers !== 1 ? 's' : ''} pendiente${pendingBlockers !== 1 ? 's' : ''}. Completa esas cards primero.`
+          );
+          error.code = 'BLOCKED_BY_DEPENDENCY';
+          error.pendingBlockers = pendingBlockers;
+          throw error;
+        }
+      }
+
       const updates: string[] = [];
       const values: any[] = [];
       let paramCount = 1;

@@ -210,6 +210,17 @@ export class CardController {
     } catch (error: any) {
       console.error('Error updating card:', error);
 
+      if (error.code === 'BLOCKED_BY_DEPENDENCY') {
+        return res.status(422).json({
+          success: false,
+          error: {
+            code: 'BLOCKED_BY_DEPENDENCY',
+            message: error.message,
+            pendingBlockers: error.pendingBlockers,
+          },
+        });
+      }
+
       if (error.message === 'Target list not found') {
         return res.status(404).json({
           success: false,
