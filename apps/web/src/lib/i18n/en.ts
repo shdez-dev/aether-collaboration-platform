@@ -319,6 +319,20 @@ export const en = {
   join_joining: 'Joining...',
   join_btn_join: 'Join Workspace',
 
+  // ── Board Filters ─────────────────────────────────────────────────────────
+  board_filter_search_placeholder: 'Search cards...',
+  board_filter_priority: 'Priority',
+  board_filter_member: 'Member',
+  board_filter_label: 'Label',
+  board_filter_date: 'Date',
+  board_filter_date_overdue: 'Overdue',
+  board_filter_date_today: 'Due today',
+  board_filter_date_week: 'Due this week',
+  board_filter_date_none: 'No date',
+  board_filter_clear: 'Clear filters',
+  board_filter_showing: (visible: number, total: number) =>
+    `Showing ${visible} of ${total} card${total !== 1 ? 's' : ''}`,
+
   // ── Board ─────────────────────────────────────────────────────────────────
   board_loading: 'Loading board...',
   board_btn_archive: 'Archive',
@@ -417,6 +431,39 @@ export const en = {
   invite_btn_inviting: 'Inviting...',
   invite_btn_invited: 'Invited!',
   invite_btn_send: 'Send Invitation',
+
+  // ── Card Dependencies ─────────────────────────────────────────────────────
+  dep_section_title: 'DEPENDENCIES',
+  dep_blocked_by_title: 'Blocked by',
+  dep_blocking_title: 'Blocking',
+  dep_blocked_by_desc: 'This card cannot be started until the following are completed',
+  dep_blocking_desc: 'The following cards are waiting for this one to be completed',
+  dep_add_blocking: 'Add blocking card',
+  dep_search_placeholder: 'Search card by title...',
+  dep_empty_blocked_by: 'No dependencies — this card can be started freely',
+  dep_empty_blocking: 'This card does not block any other',
+  dep_badge_blocked: 'Blocked',
+  dep_badge_blocking: 'Blocking',
+  dep_remove_confirm: 'Remove this dependency?',
+  dep_no_cards_found: 'No cards found',
+  dep_already_added: 'Already added',
+  dep_circular_error: 'Circular dependency detected',
+  dep_status_pending: 'Pending',
+  dep_status_done: 'Completed',
+  dep_tooltip_blocked: (n: number) => `Blocked by ${n} card${n !== 1 ? 's' : ''}`,
+  dep_tooltip_blocking: (n: number) => `Blocking ${n} card${n !== 1 ? 's' : ''}`,
+  dep_select_card: 'Select card',
+  dep_list_label: 'List:',
+
+  // ── Checklist / Subtasks ──────────────────────────────────────────────────
+  checklist_section_title: 'SUBTASKS',
+  checklist_progress: (done: number, total: number) => `${done} of ${total}`,
+  checklist_placeholder: 'Add subtask...',
+  checklist_btn_add: 'Add',
+  checklist_empty: 'No subtasks yet',
+  checklist_delete_confirm: 'Delete this subtask?',
+  checklist_input_placeholder: 'Subtask name...',
+  checklist_edit_placeholder: 'Edit subtask...',
 
   // ── Comments ──────────────────────────────────────────────────────────────
   comments_section_title: 'COMMENTS',

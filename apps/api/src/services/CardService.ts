@@ -152,7 +152,36 @@ export class CardService {
           'id', l.id,
           'name', l.name,
           'color', l.color
-        )) FILTER (WHERE l.id IS NOT NULL) as labels
+        )) FILTER (WHERE l.id IS NOT NULL) as labels,
+        COALESCE(
+          (
+            SELECT json_agg(
+              jsonb_build_object(
+                'id', ci.id,
+                'cardId', ci.card_id,
+                'title', ci.title,
+                'completed', ci.completed,
+                'position', ci.position,
+                'createdBy', ci.created_by,
+                'createdAt', ci.created_at,
+                'updatedAt', ci.updated_at
+              ) ORDER BY ci.position ASC, ci.created_at ASC
+            )
+            FROM card_checklist_items ci WHERE ci.card_id = c.id
+          ),
+          '[]'::json
+        ) as checklist_items,
+        (
+          SELECT COUNT(*)::int
+          FROM card_dependencies cd
+          INNER JOIN cards bc ON cd.blocking_card_id = bc.id
+          WHERE cd.blocked_card_id = c.id AND bc.completed = FALSE
+        ) as blocked_by_pending_count,
+        (
+          SELECT COUNT(*)::int
+          FROM card_dependencies cd
+          WHERE cd.blocking_card_id = c.id
+        ) as blocking_count
        FROM cards c
        LEFT JOIN card_members cm ON c.id = cm.card_id
        LEFT JOIN users u ON cm.user_id = u.id
@@ -756,6 +785,9 @@ export class CardService {
       updatedAt: row.updated_at,
       members: row.members || [],
       labels: row.labels || [],
+      checklistItems: row.checklist_items || [],
+      blockedByPendingCount: row.blocked_by_pending_count ?? 0,
+      blockingCount: row.blocking_count ?? 0,
     };
   }
 }

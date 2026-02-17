@@ -152,6 +152,33 @@ export interface ListWithCards extends List {
 // CARD - MILESTONE 4
 // ============================================================================
 
+export interface CardDependency {
+  id: string;
+  blockingCardId: string;
+  blockedCardId: string;
+  createdBy: string;
+  createdAt: string;
+  // Datos enriquecidos de la card relacionada (devueltos por el backend)
+  relatedCard?: {
+    id: string;
+    title: string;
+    completed: boolean;
+    listName?: string;
+    listId?: string;
+  };
+}
+
+export interface ChecklistItem {
+  id: string;
+  cardId: string;
+  title: string;
+  completed: boolean;
+  position: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Card {
   id: string;
   listId: string;
@@ -169,6 +196,15 @@ export interface Card {
   members?: User[];
   labels?: Label[];
   assignedUsers?: User[]; // Alias para members
+  checklistItems?: ChecklistItem[];
+  /** Cards que deben completarse antes de que esta pueda iniciarse */
+  blockedBy?: CardDependency[];
+  /** Cards que están esperando a que esta se complete */
+  blocking?: CardDependency[];
+  /** Número de dependencias bloqueantes aún pendientes (para badge en kanban) */
+  blockedByPendingCount?: number;
+  /** Número de cards que esta card está bloqueando */
+  blockingCount?: number;
 }
 
 export interface CardMember {

@@ -25,9 +25,11 @@ interface List {
 
 interface BoardListProps {
   list: List;
+  /** Cuando hay filtros activos, se pasan las cards ya filtradas desde el padre */
+  filteredCards?: any[];
 }
 
-export default function BoardList({ list }: BoardListProps) {
+export default function BoardList({ list, filteredCards: filteredCardsProp }: BoardListProps) {
   const { updateList, deleteList } = useBoardStore();
   const { cards, addCard } = useCardStore();
   const setSelectedCard = useCardStore((state) => state.setSelectedCard);
@@ -114,8 +116,7 @@ export default function BoardList({ list }: BoardListProps) {
   const handleDelete = async () => {
     if (!canEdit) return;
 
-    const listCards = cards[list.id] || [];
-    if (listCards.length > 0) {
+    if (allListCards.length > 0) {
       alert(
         'No se puede eliminar una lista con tarjetas. Por favor, mueve o elimina las tarjetas primero.'
       );
@@ -172,8 +173,10 @@ export default function BoardList({ list }: BoardListProps) {
     setIsAddingCard(false);
   };
 
-  const listCards = cards[list.id] || [];
+  const allListCards = cards[list.id] || [];
+  const listCards = filteredCardsProp ?? allListCards;
   const cardIds = listCards.map((card) => card.id);
+  const isFiltered = filteredCardsProp !== undefined;
 
   return (
     <>
@@ -266,7 +269,11 @@ export default function BoardList({ list }: BoardListProps) {
                   listCards.map((card) => <Card key={card.id} card={card} />)
                 ) : (
                   <div className="text-center text-text-muted text-sm py-8">
-                    {isOver ? 'Suelta la tarjeta aquí' : 'Sin tarjetas aún'}
+                    {isOver
+                      ? 'Suelta la tarjeta aquí'
+                      : isFiltered
+                        ? 'Sin resultados'
+                        : 'Sin tarjetas aún'}
                   </div>
                 )}
               </div>
@@ -318,7 +325,16 @@ export default function BoardList({ list }: BoardListProps) {
 
           {/* Card Count */}
           <div className="mt-3 pt-3 border-t border-border text-text-muted text-xs font-mono flex-shrink-0">
-            {listCards.length} {listCards.length === 1 ? 'tarjeta' : 'tarjetas'}
+            {isFiltered ? (
+              <>
+                {listCards.length} <span className="text-accent">/ {allListCards.length}</span>{' '}
+                {allListCards.length === 1 ? 'tarjeta' : 'tarjetas'}
+              </>
+            ) : (
+              <>
+                {listCards.length} {listCards.length === 1 ? 'tarjeta' : 'tarjetas'}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -336,10 +352,10 @@ export default function BoardList({ list }: BoardListProps) {
               <p className="text-text-secondary mb-2">
                 ¿Estás seguro de que deseas eliminar <strong>{list.name}</strong>?
               </p>
-              {listCards.length > 0 ? (
+              {allListCards.length > 0 ? (
                 <p className="text-error text-sm mb-6">
-                  ⚠ Esta lista tiene {listCards.length}{' '}
-                  {listCards.length === 1 ? 'tarjeta' : 'tarjetas'}. Por favor, muévelas o
+                  ⚠ Esta lista tiene {allListCards.length}{' '}
+                  {allListCards.length === 1 ? 'tarjeta' : 'tarjetas'}. Por favor, muévelas o
                   elimínalas primero.
                 </p>
               ) : (
@@ -354,7 +370,7 @@ export default function BoardList({ list }: BoardListProps) {
                 </button>
                 <button
                   onClick={handleDelete}
-                  disabled={listCards.length > 0}
+                  disabled={allListCards.length > 0}
                   className="btn-primary bg-error hover:bg-error/80 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Eliminar

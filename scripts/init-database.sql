@@ -178,6 +178,42 @@ CREATE INDEX IF NOT EXISTS idx_card_members_user ON card_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_card_labels_card ON card_labels(card_id);
 CREATE INDEX IF NOT EXISTS idx_card_labels_label ON card_labels(label_id);
 
+-- Card Checklist Items (subtareas de una card)
+CREATE TABLE IF NOT EXISTS card_checklist_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  card_id UUID NOT NULL,
+  title VARCHAR(500) NOT NULL,
+  completed BOOLEAN DEFAULT FALSE NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_by UUID NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_checklist_card FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+  CONSTRAINT fk_checklist_creator FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_card ON card_checklist_items(card_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_card_position ON card_checklist_items(card_id, position);
+
+-- Card Dependencies (dependencias entre cards: A bloquea a B)
+-- blocking_card_id: la card que DEBE completarse primero
+-- blocked_card_id : la card que NO puede iniciarse hasta que blocking esté lista
+CREATE TABLE IF NOT EXISTS card_dependencies (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  blocking_card_id UUID NOT NULL,
+  blocked_card_id  UUID NOT NULL,
+  created_by UUID NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_dep_blocking FOREIGN KEY (blocking_card_id) REFERENCES cards(id) ON DELETE CASCADE,
+  CONSTRAINT fk_dep_blocked  FOREIGN KEY (blocked_card_id)  REFERENCES cards(id) ON DELETE CASCADE,
+  CONSTRAINT fk_dep_creator  FOREIGN KEY (created_by)       REFERENCES users(id),
+  CONSTRAINT no_self_dep     CHECK (blocking_card_id <> blocked_card_id),
+  CONSTRAINT unique_dep      UNIQUE (blocking_card_id, blocked_card_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dep_blocking ON card_dependencies(blocking_card_id);
+CREATE INDEX IF NOT EXISTS idx_dep_blocked  ON card_dependencies(blocked_card_id);
+
 -- MILESTONE 5: Sistema de Presencia y Tiempo Real
 -- La mayoría de la presencia se maneja en Redis (ephemeral), 
 -- pero guardamos logs para analytics

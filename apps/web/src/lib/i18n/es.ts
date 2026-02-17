@@ -321,6 +321,20 @@ export const es = {
   join_joining: 'Uniéndose...',
   join_btn_join: 'Unirse al Workspace',
 
+  // ── Board Filters ─────────────────────────────────────────────────────────
+  board_filter_search_placeholder: 'Buscar tarjetas...',
+  board_filter_priority: 'Prioridad',
+  board_filter_member: 'Miembro',
+  board_filter_label: 'Etiqueta',
+  board_filter_date: 'Fecha',
+  board_filter_date_overdue: 'Vencidas',
+  board_filter_date_today: 'Vence hoy',
+  board_filter_date_week: 'Vence esta semana',
+  board_filter_date_none: 'Sin fecha',
+  board_filter_clear: 'Limpiar filtros',
+  board_filter_showing: (visible: number, total: number) =>
+    `Mostrando ${visible} de ${total} tarjeta${total !== 1 ? 's' : ''}`,
+
   // ── Board ─────────────────────────────────────────────────────────────────
   board_loading: 'Cargando board...',
   board_btn_archive: 'Archivar',
@@ -419,6 +433,39 @@ export const es = {
   invite_btn_inviting: 'Invitando...',
   invite_btn_invited: '¡Invitado!',
   invite_btn_send: 'Enviar Invitación',
+
+  // ── Dependencias entre Cards ──────────────────────────────────────────────
+  dep_section_title: 'DEPENDENCIAS',
+  dep_blocked_by_title: 'Bloqueada por',
+  dep_blocking_title: 'Bloquea a',
+  dep_blocked_by_desc: 'Esta card no puede iniciarse hasta que las siguientes estén completadas',
+  dep_blocking_desc: 'Las siguientes cards esperan que esta esté completada',
+  dep_add_blocking: 'Añadir card bloqueante',
+  dep_search_placeholder: 'Buscar card por título...',
+  dep_empty_blocked_by: 'Sin dependencias — esta card puede iniciarse libremente',
+  dep_empty_blocking: 'Esta card no bloquea a ninguna otra',
+  dep_badge_blocked: 'Bloqueada',
+  dep_badge_blocking: 'Bloquea',
+  dep_remove_confirm: '¿Eliminar esta dependencia?',
+  dep_no_cards_found: 'No se encontraron cards',
+  dep_already_added: 'Ya está agregada',
+  dep_circular_error: 'Dependencia circular detectada',
+  dep_status_pending: 'Pendiente',
+  dep_status_done: 'Completada',
+  dep_tooltip_blocked: (n: number) => `Bloqueada por ${n} card${n !== 1 ? 's' : ''}`,
+  dep_tooltip_blocking: (n: number) => `Bloquea ${n} card${n !== 1 ? 's' : ''}`,
+  dep_select_card: 'Seleccionar card',
+  dep_list_label: 'Lista:',
+
+  // ── Checklist / Subtareas ─────────────────────────────────────────────────
+  checklist_section_title: 'SUBTAREAS',
+  checklist_progress: (done: number, total: number) => `${done} de ${total}`,
+  checklist_placeholder: 'Añadir subtarea...',
+  checklist_btn_add: 'Añadir',
+  checklist_empty: 'No hay subtareas aún',
+  checklist_delete_confirm: '¿Eliminar esta subtarea?',
+  checklist_input_placeholder: 'Nombre de la subtarea...',
+  checklist_edit_placeholder: 'Editar subtarea...',
 
   // ── Comentarios ───────────────────────────────────────────────────────────
   comments_section_title: 'COMENTARIOS',

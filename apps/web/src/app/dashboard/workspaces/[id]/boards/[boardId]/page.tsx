@@ -1,7 +1,7 @@
 // apps/web/src/app/dashboard/workspaces/[id]/boards/[boardId]/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
@@ -10,7 +10,12 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useRealtimeBoard } from '@/hooks/useRealTimeBoard';
 import { useRealtimeToast } from '@/hooks/useRealtimeToast';
 import BoardList from '@/components/BoardList';
-import type { List } from '@aether/types';
+import BoardFilters, {
+  BoardFilterState,
+  EMPTY_FILTERS,
+  hasActiveFilters,
+} from '@/components/BoardFilters';
+import type { List, Card, User, Label } from '@aether/types';
 import AddListButton from '@/components/AddListButton';
 import { CardDetailModal } from '@/components/CardDetailModal';
 import { ActiveUsers } from '@/components/realtime/ActiveUsers';
@@ -69,6 +74,118 @@ export default function BoardPage() {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'list' | 'card' | null>(null);
+  const [filters, setFilters] = useState<BoardFilterState>(EMPTY_FILTERS);
+
+  // ── Derivar members y labels únicos de todas las cards ────────────────────
+  const allCards = useMemo(() => Object.values(cards).flat() as Card[], [cards]);
+
+  const boardMembers = useMemo((): User[] => {
+    const seen = new Set<string>();
+    const result: User[] = [];
+    for (const card of allCards) {
+      for (const m of card.members ?? []) {
+        if (!seen.has(m.id)) {
+          seen.add(m.id);
+          result.push(m);
+        }
+      }
+    }
+    return result;
+  }, [allCards]);
+
+  const boardLabels = useMemo((): Label[] => {
+    const seen = new Set<string>();
+    const result: Label[] = [];
+    for (const card of allCards) {
+      for (const l of card.labels ?? []) {
+        if (!seen.has(l.id)) {
+          seen.add(l.id);
+          result.push(l);
+        }
+      }
+    }
+    return result;
+  }, [allCards]);
+
+  // ── Función de filtrado ───────────────────────────────────────────────────
+  const applyFilters = useMemo(() => {
+    if (!hasActiveFilters(filters)) return null;
+
+    return (listCards: Card[]): Card[] => {
+      return listCards.filter((card) => {
+        // Búsqueda de texto
+        if (filters.search.trim()) {
+          const q = filters.search.toLowerCase();
+          const matchTitle = card.title.toLowerCase().includes(q);
+          const matchDesc = card.description?.toLowerCase().includes(q) ?? false;
+          if (!matchTitle && !matchDesc) return false;
+        }
+
+        // Prioridad
+        if (filters.priorities.length > 0) {
+          if (!card.priority || !filters.priorities.includes(card.priority as any)) return false;
+        }
+
+        // Miembros asignados
+        if (filters.memberIds.length > 0) {
+          const cardMemberIds = (card.members ?? []).map((m) => m.id);
+          if (!filters.memberIds.some((id) => cardMemberIds.includes(id))) return false;
+        }
+
+        // Labels
+        if (filters.labelIds.length > 0) {
+          const cardLabelIds = (card.labels ?? []).map((l) => l.id);
+          if (!filters.labelIds.some((id) => cardLabelIds.includes(id))) return false;
+        }
+
+        // Fecha
+        if (filters.dates.length > 0) {
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const weekEnd = new Date(today);
+          weekEnd.setDate(today.getDate() + 7);
+
+          const dueDate = card.dueDate ? new Date(card.dueDate) : null;
+
+          const matchesDate = filters.dates.some((d) => {
+            if (d === 'no_date') return !dueDate;
+            if (!dueDate) return false;
+            const due = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+            if (d === 'overdue') return !card.completed && due < today;
+            if (d === 'due_today') return due.getTime() === today.getTime();
+            if (d === 'due_week') return due >= today && due <= weekEnd;
+            return false;
+          });
+          if (!matchesDate) return false;
+        }
+
+        return true;
+      });
+    };
+  }, [filters]);
+
+  // ── Cards filtradas por lista (null = sin filtro activo) ──────────────────
+  const filteredCardsByList = useMemo((): Record<string, Card[]> | null => {
+    if (!applyFilters) return null;
+    const result: Record<string, Card[]> = {};
+    for (const [listId, listCards] of Object.entries(cards)) {
+      result[listId] = applyFilters(listCards as Card[]);
+    }
+    return result;
+  }, [applyFilters, cards]);
+
+  // Totales para el contador del filtro
+  const totalCards = useMemo(
+    () => Object.values(cards).reduce((sum, lc) => sum + lc.length, 0),
+    [cards]
+  );
+  const filteredTotal = useMemo(
+    () =>
+      filteredCardsByList
+        ? Object.values(filteredCardsByList).reduce((sum, lc) => sum + lc.length, 0)
+        : totalCards,
+    [filteredCardsByList, totalCards]
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -284,8 +401,6 @@ export default function BoardPage() {
           .find((card) => card.id === activeId)
       : null;
 
-  const totalCards = Object.values(cards).reduce((total, listCards) => total + listCards.length, 0);
-
   if (isLoading || !currentBoard) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
@@ -327,8 +442,8 @@ export default function BoardPage() {
           </div>
         </div>
 
-        {/* Bottom Row - Stats & Users */}
-        <div className="px-6 py-3 flex items-center justify-between">
+        {/* Middle Row - Stats & Users */}
+        <div className="px-6 py-3 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-6">
             {/* Lists Count */}
             <div className="flex items-center gap-2">
@@ -348,7 +463,16 @@ export default function BoardPage() {
               </div>
               <div>
                 <p className="text-xs text-text-muted">{t.board_stat_cards}</p>
-                <p className="text-sm font-medium text-text-primary">{totalCards}</p>
+                <p className="text-sm font-medium text-text-primary">
+                  {filteredCardsByList ? (
+                    <>
+                      <span className="text-accent">{filteredTotal}</span>
+                      <span className="text-text-muted text-xs"> / {totalCards}</span>
+                    </>
+                  ) : (
+                    totalCards
+                  )}
+                </p>
               </div>
             </div>
 
@@ -379,6 +503,18 @@ export default function BoardPage() {
             </span>
           </div>
         </div>
+
+        {/* Bottom Row - Filters */}
+        <div className="px-6 py-3">
+          <BoardFilters
+            filters={filters}
+            onChange={setFilters}
+            members={boardMembers}
+            labels={boardLabels}
+            totalCards={totalCards}
+            filteredCards={filteredTotal}
+          />
+        </div>
       </header>
 
       {/* Board Content */}
@@ -400,7 +536,13 @@ export default function BoardPage() {
                 {lists
                   .sort((a: List, b: List) => a.position - b.position)
                   .map((list: List) => (
-                    <BoardList key={list.id} list={list} />
+                    <BoardList
+                      key={list.id}
+                      list={list}
+                      filteredCards={
+                        filteredCardsByList ? (filteredCardsByList[list.id] ?? []) : undefined
+                      }
+                    />
                   ))}
               </SortableContext>
 

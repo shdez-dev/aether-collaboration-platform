@@ -147,6 +147,17 @@ export function Card({ card }: CardProps) {
   const visibleLabels = labels.slice(0, 3);
   const remainingLabels = labels.length > 3 ? labels.length - 3 : 0;
 
+  // Progreso del checklist (solo disponible si la card fue abierta al menos 1 vez)
+  const checklistItems: Array<{ completed: boolean }> = card.checklistItems || [];
+  const checklistTotal = checklistItems.length;
+  const checklistDone = checklistItems.filter((i) => i.completed).length;
+  const checklistPct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
+
+  // Dependencias (disponibles después de abrir la card al menos 1 vez)
+  const blockedByPendingCount = card.blockedByPendingCount ?? 0;
+  const blockingCount = card.blockingCount ?? 0;
+  const isBlocked = blockedByPendingCount > 0 && !card.completed;
+
   return (
     <div
       ref={setNodeRef}
@@ -278,6 +289,80 @@ export function Card({ card }: CardProps) {
         </div>
       )}
 
+      {/* Checklist progress bar */}
+      {checklistTotal > 0 && (
+        <div className="py-1.5 border-b border-border/30">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 text-xs text-text-muted flex-shrink-0">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                />
+              </svg>
+              <span>
+                {checklistDone}/{checklistTotal}
+              </span>
+            </div>
+            <div className="flex-1 h-1 bg-surface border border-border/50 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${checklistPct === 100 ? 'bg-success' : 'bg-accent'}`}
+                style={{ width: `${checklistPct}%` }}
+              />
+            </div>
+            <span
+              className={`text-[10px] font-mono w-7 text-right ${checklistPct === 100 ? 'text-success' : 'text-text-muted'}`}
+            >
+              {checklistPct}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Dependency badges */}
+      {(isBlocked || blockingCount > 0) && (
+        <div className="py-1.5 border-b border-border/30 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs text-text-muted">
+            <svg
+              className="w-3 h-3 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+            <span>Dependencias</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {isBlocked && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] border bg-warning/10 border-warning/40 text-warning font-mono">
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+                {blockedByPendingCount} bloqueante{blockedByPendingCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {blockingCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] border border-border text-text-muted font-mono">
+                bloquea {blockingCount}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Comments + Labels + Completed Badge */}
       <div className="pt-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-text-muted">
@@ -345,6 +430,11 @@ export default memo(Card, (prevProps, nextProps) => {
     prevProps.card.dueDate === nextProps.card.dueDate &&
     prevProps.card.priority === nextProps.card.priority &&
     prevProps.card.members?.length === nextProps.card.members?.length &&
-    prevProps.card.labels?.length === nextProps.card.labels?.length
+    prevProps.card.labels?.length === nextProps.card.labels?.length &&
+    prevProps.card.checklistItems?.length === nextProps.card.checklistItems?.length &&
+    prevProps.card.checklistItems?.filter((i) => i.completed).length ===
+      nextProps.card.checklistItems?.filter((i) => i.completed).length &&
+    prevProps.card.blockedByPendingCount === nextProps.card.blockedByPendingCount &&
+    prevProps.card.blockingCount === nextProps.card.blockingCount
   );
 });

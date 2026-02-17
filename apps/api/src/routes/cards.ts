@@ -2,6 +2,8 @@
 
 import { Router } from 'express';
 import { CardController } from '../controllers/CardController';
+import { ChecklistController } from '../controllers/ChecklistController';
+import { DependencyController } from '../controllers/DependencyController';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
 
@@ -100,6 +102,74 @@ router.delete(
   authenticateJWT,
   checkWorkspaceMembership,
   CardController.removeLabel
+);
+
+// ==================== CHECKLIST DE CARD ====================
+
+// Obtener ítems del checklist
+router.get(
+  '/cards/:id/checklist',
+  authenticateJWT,
+  checkWorkspaceMembership,
+  ChecklistController.getItems
+);
+
+// Crear ítem en el checklist (ADMIN, OWNER, MEMBER)
+router.post(
+  '/cards/:id/checklist',
+  authenticateJWT,
+  checkWorkspaceMembership,
+  ChecklistController.createItem
+);
+
+// Actualizar ítem del checklist (ADMIN, OWNER, MEMBER)
+router.put(
+  '/cards/:id/checklist/:itemId',
+  authenticateJWT,
+  checkWorkspaceMembership,
+  ChecklistController.updateItem
+);
+
+// Eliminar ítem del checklist (ADMIN, OWNER)
+router.delete(
+  '/cards/:id/checklist/:itemId',
+  authenticateJWT,
+  checkWorkspaceMembership,
+  ChecklistController.deleteItem
+);
+
+// ==================== DEPENDENCIAS ENTRE CARDS ====================
+
+// Buscar cards del mismo board (para picker — va ANTES del :id genérico)
+router.get(
+  '/cards/:id/dependencies/search',
+  authenticateJWT,
+  checkWorkspaceMembership,
+  DependencyController.searchCards
+);
+
+// Obtener dependencias de una card
+router.get(
+  '/cards/:id/dependencies',
+  authenticateJWT,
+  checkWorkspaceMembership,
+  DependencyController.getDependencies
+);
+
+// Agregar dependencia (esta card es bloqueada por blockingCardId)
+router.post(
+  '/cards/:id/dependencies',
+  authenticateJWT,
+  checkWorkspaceMembership,
+  DependencyController.addDependency
+);
+
+// Eliminar dependencia
+router.delete(
+  '/cards/:id/dependencies/:depId',
+  authenticateJWT,
+  checkWorkspaceMembership,
+  DependencyController.removeDependency
 );
 
 export default router;

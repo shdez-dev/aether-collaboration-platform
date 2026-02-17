@@ -13,6 +13,8 @@ import { CommentList } from './comments/CommentList';
 import { X, Calendar, Flag, Tag, Users as UsersIcon } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
+import { CardChecklist } from './CardChecklist';
+import { CardDependencies } from './CardDependencies';
 
 function CustomCalendar({
   value,
@@ -217,6 +219,10 @@ export function CardDetailModal() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [checklistProgress, setChecklistProgress] = useState<{ done: number; total: number }>({
+    done: 0,
+    total: 0,
+  });
 
   const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
@@ -492,6 +498,15 @@ export function CardDetailModal() {
                 </div>
               )}
             </section>
+
+            {/* CHECKLIST / SUBTAREAS */}
+            <CardChecklist
+              cardId={selectedCard.id}
+              onProgressChange={(done, total) => setChecklistProgress({ done, total })}
+            />
+
+            {/* DEPENDENCIAS */}
+            <CardDependencies cardId={selectedCard.id} />
 
             {/* PRIORIDAD Y FECHA */}
             <section className="grid grid-cols-2 gap-4">
