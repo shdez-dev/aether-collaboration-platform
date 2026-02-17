@@ -5,7 +5,18 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
-import { Search, Star, Clock, Users, Grid3x3, LayoutGrid, Plus } from 'lucide-react';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
+import {
+  Search,
+  Star,
+  Clock,
+  Users,
+  Grid3x3,
+  LayoutGrid,
+  Plus,
+  Archive,
+  ArchiveRestore,
+} from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
 type ViewMode = 'grid' | 'list';
@@ -13,19 +24,20 @@ type ViewMode = 'grid' | 'list';
 export default function WorkspacesPage() {
   const t = useT();
   const router = useRouter();
-  const { workspaces, isLoading, fetchWorkspaces } = useWorkspaceStore();
+  const { workspaces, isLoading, fetchWorkspaces, restoreWorkspace } = useWorkspaceStore();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
-    fetchWorkspaces();
+    fetchWorkspaces(showArchived);
     const savedFavorites = localStorage.getItem('aether-favorite-workspaces');
     if (savedFavorites) {
       setFavorites(new Set(JSON.parse(savedFavorites)));
     }
-  }, [fetchWorkspaces]);
+  }, [fetchWorkspaces, showArchived]);
 
   const toggleFavorite = (e: React.MouseEvent, workspaceId: string) => {
     e.preventDefault();
@@ -66,7 +78,10 @@ export default function WorkspacesPage() {
     return labels[role || 'MEMBER'] || t.role_member;
   };
 
-  const filteredWorkspaces = workspaces.filter(
+  const activeWorkspaces = workspaces.filter((w) => !w.archived);
+  const archivedWorkspaces = workspaces.filter((w) => w.archived);
+
+  const filteredWorkspaces = activeWorkspaces.filter(
     (w) =>
       w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       w.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -92,14 +107,14 @@ export default function WorkspacesPage() {
           className="group flex items-center gap-4 p-4 border border-border bg-card hover:border-accent hover:bg-surface transition-all"
         >
           <div
-            className="w-12 h-12 flex items-center justify-center text-2xl flex-shrink-0 border"
+            className="w-12 h-12 flex items-center justify-center flex-shrink-0 border"
             style={{
               backgroundColor: `${workspace.color}15`,
               color: workspace.color,
               borderColor: `${workspace.color}40`,
             }}
           >
-            {workspace.icon || '▣'}
+            <WorkspaceIcon icon={workspace.icon} className="w-6 h-6" />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -163,14 +178,14 @@ export default function WorkspacesPage() {
 
         <div className="flex items-start gap-4 mb-4">
           <div
-            className="w-14 h-14 flex items-center justify-center text-2xl flex-shrink-0 border"
+            className="w-14 h-14 flex items-center justify-center flex-shrink-0 border"
             style={{
               backgroundColor: `${workspace.color}15`,
               color: workspace.color,
               borderColor: `${workspace.color}40`,
             }}
           >
-            {workspace.icon || '▣'}
+            <WorkspaceIcon icon={workspace.icon} className="w-7 h-7" />
           </div>
           <div className="flex-1 min-w-0 pr-8">
             <h3 className="text-lg font-medium text-text-primary truncate group-hover:text-accent transition-colors mb-1">
@@ -240,6 +255,23 @@ export default function WorkspacesPage() {
               <Grid3x3 className="w-4 h-4" />
             </button>
           </div>
+
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-2 border text-xs font-medium transition-colors ${
+              showArchived
+                ? 'border-warning bg-warning/10 text-warning'
+                : 'border-border bg-surface text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            <span>{t.ws_list_tab_archived}</span>
+            {archivedWorkspaces.length > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 bg-warning/20 text-warning text-[10px] font-bold">
+                {archivedWorkspaces.length}
+              </span>
+            )}
+          </button>
 
           <button onClick={() => setIsCreateModalOpen(true)} className="btn-primary">
             <span className="flex items-center gap-2">
@@ -320,14 +352,14 @@ export default function WorkspacesPage() {
                         className="group flex items-center gap-3 p-2.5 border border-border bg-card hover:border-accent hover:bg-surface transition-all"
                       >
                         <div
-                          className="w-9 h-9 flex items-center justify-center text-lg flex-shrink-0 border"
+                          className="w-9 h-9 flex items-center justify-center flex-shrink-0 border"
                           style={{
                             backgroundColor: `${workspace.color}15`,
                             color: workspace.color,
                             borderColor: `${workspace.color}40`,
                           }}
                         >
-                          {workspace.icon || '▣'}
+                          <WorkspaceIcon icon={workspace.icon} className="w-4 h-4" />
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -473,6 +505,66 @@ export default function WorkspacesPage() {
               </div>
               <h3 className="text-lg font-medium mb-2">{t.workspaces_no_results_title}</h3>
               <p className="text-text-secondary text-sm">{t.workspaces_no_results_desc}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Archived Workspaces */}
+      {showArchived && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pt-2 pb-1 border-t border-border">
+            <Archive className="w-4 h-4 text-warning" />
+            <h2 className="text-sm font-medium text-text-primary uppercase tracking-wide">
+              {t.ws_list_tab_archived}
+            </h2>
+            <span className="text-xs text-text-muted">({archivedWorkspaces.length})</span>
+          </div>
+
+          {archivedWorkspaces.length === 0 ? (
+            <div className="bg-card border border-border p-10 text-center">
+              <Archive className="w-10 h-10 mx-auto mb-3 text-text-muted opacity-40" />
+              <p className="text-sm text-text-secondary">{t.ws_list_empty_archived}</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {archivedWorkspaces.map((workspace) => (
+                <div
+                  key={workspace.id}
+                  className="flex items-center gap-4 p-4 border border-border bg-card opacity-70"
+                >
+                  <div
+                    className="w-10 h-10 flex items-center justify-center flex-shrink-0 border grayscale"
+                    style={{
+                      backgroundColor: `${workspace.color}15`,
+                      color: workspace.color,
+                      borderColor: `${workspace.color}40`,
+                    }}
+                  >
+                    <WorkspaceIcon icon={workspace.icon} className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="text-sm font-medium text-text-primary truncate">
+                        {workspace.name}
+                      </h3>
+                      <span className="text-[10px] px-1.5 py-0.5 border border-warning/40 bg-warning/10 text-warning font-medium">
+                        {t.ws_list_archived_badge}
+                      </span>
+                    </div>
+                    <p className="text-xs text-text-secondary truncate">
+                      {workspace.description || t.no_description}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => restoreWorkspace(workspace.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card hover:border-accent transition-colors flex-shrink-0"
+                  >
+                    <ArchiveRestore className="w-3.5 h-3.5" />
+                    <span>{t.ws_settings_btn_restore}</span>
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

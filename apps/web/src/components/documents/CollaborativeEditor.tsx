@@ -278,7 +278,6 @@ export default function CollaborativeEditor({
   useEffect(() => {
     if (isJoinedRef.current) return;
 
-
     // Handler para recibir el estado inicial
     const handleInitialSync = (data: { documentId: string; update: number[] }) => {
       if (data.documentId === documentId && !initialSyncReceivedRef.current) {
@@ -299,7 +298,18 @@ export default function CollaborativeEditor({
     socketService.joinDocument(documentId, workspaceId);
     isJoinedRef.current = true;
 
+    // Fallback: si el servidor no responde con document:sync en 8s,
+    // mostrar el editor igualmente (el documento estará vacío/en blanco)
+    const syncTimeout = setTimeout(() => {
+      if (!initialSyncReceivedRef.current) {
+        initialSyncReceivedRef.current = true;
+        setIsDocumentReady(true);
+        socketService.off('document:sync', handleInitialSync);
+      }
+    }, 8000);
+
     return () => {
+      clearTimeout(syncTimeout);
       if (isJoinedRef.current) {
         socketService.leaveDocument(documentId);
         socketService.off('document:sync', handleInitialSync);
@@ -389,7 +399,6 @@ export default function CollaborativeEditor({
   });
   useEffect(() => {
     if (!editor || !yjsDoc || !isDocumentReady) return;
-
 
     const updateHandler = (update: Uint8Array, origin: any) => {
       if (origin !== 'server') {

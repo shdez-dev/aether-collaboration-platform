@@ -73,6 +73,10 @@ export interface Workspace {
   ownerId: string;
   icon?: string;
   color?: string;
+  archived?: boolean;
+  archivedAt?: string | null;
+  visibility?: 'private' | 'public';
+  inviteToken?: string | null;
   createdAt: string;
   updatedAt: string;
   // Propiedades opcionales calculadas

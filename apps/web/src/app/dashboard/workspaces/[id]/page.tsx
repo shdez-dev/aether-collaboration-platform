@@ -26,10 +26,19 @@ import {
   Sparkles,
   UserMinus,
   ChevronRight,
+  BarChart2,
+  CheckSquare,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  UserX,
+  Zap,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
 import { useAuthStore } from '@/stores/authStore';
+import { getAvatarUrl } from '@/lib/utils/avatar';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 
 export default function WorkspaceDetailPage() {
   const t = useT();
@@ -41,8 +50,10 @@ export default function WorkspaceDetailPage() {
 
   const {
     currentWorkspace,
+    currentStats,
     fetchWorkspaceById,
     fetchMembers,
+    fetchStats,
     currentMembers,
     isLoading,
     removeMember,
@@ -51,6 +62,7 @@ export default function WorkspaceDetailPage() {
 
   const { boards, fetchBoards } = useBoardStore();
 
+  const [activeTab, setActiveTab] = useState<'stats' | 'boards'>('stats');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{
@@ -65,8 +77,9 @@ export default function WorkspaceDetailPage() {
       fetchWorkspaceById(workspaceId);
       fetchMembers(workspaceId);
       fetchBoards(workspaceId);
+      fetchStats(workspaceId);
     }
-  }, [workspaceId, fetchWorkspaceById, fetchMembers, fetchBoards]);
+  }, [workspaceId, fetchWorkspaceById, fetchMembers, fetchBoards, fetchStats]);
 
   if (isLoading && !currentWorkspace) {
     return (
@@ -173,6 +186,11 @@ export default function WorkspaceDetailPage() {
     }
   };
 
+  const completionPct =
+    currentStats && currentStats.totalCards > 0
+      ? Math.round((currentStats.completedCards / currentStats.totalCards) * 100)
+      : 0;
+
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
       OWNER: t.role_owner,
@@ -211,14 +229,14 @@ export default function WorkspaceDetailPage() {
         <div className="bg-card border border-border p-6">
           <div className="flex items-start gap-6">
             <div
-              className="w-20 h-20 flex items-center justify-center text-4xl flex-shrink-0 border"
+              className="w-20 h-20 flex items-center justify-center flex-shrink-0 border"
               style={{
                 backgroundColor: `${currentWorkspace.color}15`,
                 color: currentWorkspace.color,
                 borderColor: `${currentWorkspace.color}40`,
               }}
             >
-              {currentWorkspace.icon || '▣'}
+              <WorkspaceIcon icon={currentWorkspace.icon} className="w-10 h-10" />
             </div>
 
             <div className="flex-1">
@@ -278,23 +296,48 @@ export default function WorkspaceDetailPage() {
 
         {/* Grid de 3 columnas */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* BOARDS - 2 columnas */}
+          {/* PANEL PRINCIPAL (tabs) - 2 columnas */}
           <div className="lg:col-span-2 space-y-4">
+            {/* Tab switcher */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent/10 border border-accent/30">
-                  <LayoutGrid className="w-5 h-5 text-accent" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-medium text-text-primary">
-                    {t.workspace_section_boards}
-                  </h2>
-                  <p className="text-sm text-text-muted">
-                    {t.workspace_boards_active_archived(activeBoards, boards.length - activeBoards)}
-                  </p>
-                </div>
+              <div className="flex border border-border overflow-hidden">
+                <button
+                  onClick={() => setActiveTab('stats')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+                    activeTab === 'stats'
+                      ? 'bg-accent text-white'
+                      : 'bg-surface text-text-secondary hover:text-text-primary hover:bg-card'
+                  }`}
+                >
+                  <BarChart2 className="w-4 h-4" />
+                  <span>{t.ws_tab_stats}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('boards')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border-l border-border ${
+                    activeTab === 'boards'
+                      ? 'bg-accent text-white'
+                      : 'bg-surface text-text-secondary hover:text-text-primary hover:bg-card'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  <span>{t.ws_tab_boards}</span>
+                  {activeBoards > 0 && (
+                    <span
+                      className={`text-xs px-1.5 py-0.5 font-mono ${
+                        activeTab === 'boards'
+                          ? 'bg-white/20 text-white'
+                          : 'bg-accent/10 text-accent'
+                      }`}
+                    >
+                      {activeBoards}
+                    </span>
+                  )}
+                </button>
               </div>
-              {isOwnerOrAdmin && (
+
+              {/* Acción contextual según tab */}
+              {activeTab === 'boards' && isOwnerOrAdmin && (
                 <button
                   className="px-4 py-2 bg-accent text-white hover:bg-accent/90 transition-colors text-sm font-medium flex items-center gap-2"
                   onClick={() => setShowCreateBoardModal(true)}
@@ -305,72 +348,244 @@ export default function WorkspaceDetailPage() {
               )}
             </div>
 
-            <div className="bg-card border border-border">
-              {boards.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-accent/10 border border-accent flex items-center justify-center">
-                    <LayoutGrid className="w-8 h-8 text-accent" />
+            {/* ── TAB: ESTADÍSTICAS ── */}
+            {activeTab === 'stats' && (
+              <div className="bg-card border border-border">
+                {!currentStats ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="loading" />
                   </div>
-                  <h3 className="text-base font-medium mb-2">{t.workspace_empty_boards_title}</h3>
-                  <p className="text-text-secondary text-sm mb-6">
-                    {isOwnerOrAdmin
-                      ? t.workspace_empty_boards_desc_owner
-                      : t.workspace_empty_boards_desc_member}
-                  </p>
-                  {isOwnerOrAdmin && (
-                    <button
-                      className="px-4 py-2 bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-2"
-                      onClick={() => setShowCreateBoardModal(true)}
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{t.workspace_btn_create_board}</span>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="p-4 space-y-2">
-                  {boards.map((board) => (
-                    <button
-                      key={board.id}
-                      onClick={() => handleGoToBoard(board.id)}
-                      className="group w-full text-left p-4 border border-border bg-surface hover:bg-card hover:border-accent transition-all flex items-center justify-between"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="text-xl font-medium group-hover:text-accent transition-colors truncate">
-                            {board.name}
-                          </h4>
-                          {board.archived && (
-                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-warning/10 border border-warning text-xs flex-shrink-0">
-                              <Archive className="w-3 h-3 text-warning" />
-                            </div>
-                          )}
-                        </div>
-
-                        {board.description && (
-                          <p className="text-text-secondary text-xs mb-2 line-clamp-1">
-                            {board.description}
-                          </p>
-                        )}
-
-                        <div className="flex items-center gap-4 text-xs text-text-muted">
+                ) : currentStats.totalCards === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <BarChart2 className="w-10 h-10 text-text-muted opacity-30" />
+                    <p className="text-sm text-text-muted">{t.ws_stats_no_data}</p>
+                  </div>
+                ) : (
+                  <div className="p-5 space-y-5">
+                    {/* ── Fila 1: métricas de estado ── */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {/* Progreso global */}
+                      <div className="p-3 bg-surface border border-border col-span-2 sm:col-span-2 space-y-2">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-1 h-4 bg-accent" />
-                            <span className="font-medium">{board.listCount || 0}</span>
+                            <CheckSquare className="w-3.5 h-3.5 text-success" />
+                            <span className="text-xs font-medium text-text-primary">
+                              {t.ws_stats_completion_rate}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span className="font-medium">{board.cardCount || 0}</span>
+                          <span className="text-lg font-bold text-success">{completionPct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-border overflow-hidden">
+                          <div
+                            className="h-full bg-success transition-all duration-500"
+                            style={{ width: `${completionPct}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-text-muted">
+                          {currentStats.completedCards} {t.ws_stats_of} {currentStats.totalCards}{' '}
+                          {t.ws_stats_cards_done}
+                        </p>
+                      </div>
+
+                      {/* Vencidas */}
+                      <div
+                        className={`p-3 border space-y-1 ${currentStats.overdueCards > 0 ? 'bg-error/5 border-error/30' : 'bg-surface border-border'}`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle
+                            className={`w-3.5 h-3.5 ${currentStats.overdueCards > 0 ? 'text-error' : 'text-text-muted'}`}
+                          />
+                          <span className="text-[11px] text-text-secondary">
+                            {t.ws_stats_overdue}
+                          </span>
+                        </div>
+                        <p
+                          className={`text-2xl font-bold ${currentStats.overdueCards > 0 ? 'text-error' : 'text-text-muted'}`}
+                        >
+                          {currentStats.overdueCards}
+                        </p>
+                        <p className="text-[11px] text-text-muted">{t.ws_stats_overdue_desc}</p>
+                      </div>
+
+                      {/* Sin asignar */}
+                      <div
+                        className={`p-3 border space-y-1 ${currentStats.unassignedCards > 0 ? 'bg-warning/5 border-warning/30' : 'bg-surface border-border'}`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <UserX
+                            className={`w-3.5 h-3.5 ${currentStats.unassignedCards > 0 ? 'text-warning' : 'text-text-muted'}`}
+                          />
+                          <span className="text-[11px] text-text-secondary">
+                            {t.ws_stats_unassigned}
+                          </span>
+                        </div>
+                        <p
+                          className={`text-2xl font-bold ${currentStats.unassignedCards > 0 ? 'text-warning' : 'text-text-muted'}`}
+                        >
+                          {currentStats.unassignedCards}
+                        </p>
+                        <p className="text-[11px] text-text-muted">{t.ws_stats_unassigned_desc}</p>
+                      </div>
+                    </div>
+
+                    {/* ── Fila 2: velocidad + progreso por board ── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-border">
+                      {/* Velocidad semanal */}
+                      <div className="p-3 bg-surface border border-border space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-accent" />
+                          <span className="text-xs font-medium text-text-primary">
+                            {t.ws_stats_velocity}
+                          </span>
+                        </div>
+                        <div className="flex items-end gap-3">
+                          <div>
+                            <p className="text-2xl font-bold text-accent">
+                              {currentStats.completedThisWeek}
+                            </p>
+                            <p className="text-[11px] text-text-muted">{t.ws_stats_this_week}</p>
+                          </div>
+                          <div className="pb-1">
+                            {currentStats.completedThisWeek > currentStats.completedLastWeek ? (
+                              <div className="flex items-center gap-1 text-success text-[11px]">
+                                <TrendingUp className="w-3 h-3" />
+                                <span>
+                                  +{currentStats.completedThisWeek - currentStats.completedLastWeek}{' '}
+                                  {t.ws_stats_vs_last_week}
+                                </span>
+                              </div>
+                            ) : currentStats.completedThisWeek < currentStats.completedLastWeek ? (
+                              <div className="flex items-center gap-1 text-error text-[11px]">
+                                <TrendingDown className="w-3 h-3" />
+                                <span>
+                                  {currentStats.completedThisWeek - currentStats.completedLastWeek}{' '}
+                                  {t.ws_stats_vs_last_week}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-text-muted">
+                                {t.ws_stats_same_as_last_week}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      <ChevronRight className="w-5 h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0 ml-2" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                      {/* Progreso por board */}
+                      <div className="p-3 bg-surface border border-border space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5 text-accent" />
+                          <span className="text-xs font-medium text-text-primary">
+                            {t.ws_stats_board_progress}
+                          </span>
+                        </div>
+                        <div className="space-y-2 max-h-[90px] overflow-y-auto pr-1">
+                          {currentStats.boardProgress
+                            .filter((b) => b.total > 0)
+                            .map((board) => {
+                              const pct =
+                                board.total > 0
+                                  ? Math.round((board.completed / board.total) * 100)
+                                  : 0;
+                              return (
+                                <div key={board.boardId} className="space-y-0.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[11px] text-text-secondary truncate max-w-[120px]">
+                                      {board.name}
+                                    </span>
+                                    <span className="text-[11px] font-medium text-text-primary flex-shrink-0">
+                                      {pct}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-1 bg-border overflow-hidden">
+                                    <div
+                                      className="h-full bg-accent transition-all"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          {currentStats.boardProgress.every((b) => b.total === 0) && (
+                            <p className="text-[11px] text-text-muted">{t.ws_stats_no_cards_yet}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── TAB: BOARDS ── */}
+            {activeTab === 'boards' && (
+              <div className="bg-card border border-border">
+                {boards.length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-accent/10 border border-accent flex items-center justify-center">
+                      <LayoutGrid className="w-8 h-8 text-accent" />
+                    </div>
+                    <h3 className="text-base font-medium mb-2">{t.workspace_empty_boards_title}</h3>
+                    <p className="text-text-secondary text-sm mb-6">
+                      {isOwnerOrAdmin
+                        ? t.workspace_empty_boards_desc_owner
+                        : t.workspace_empty_boards_desc_member}
+                    </p>
+                    {isOwnerOrAdmin && (
+                      <button
+                        className="px-4 py-2 bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-2"
+                        onClick={() => setShowCreateBoardModal(true)}
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>{t.workspace_btn_create_board}</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4 space-y-2">
+                    {boards.map((board) => (
+                      <button
+                        key={board.id}
+                        onClick={() => handleGoToBoard(board.id)}
+                        className="group w-full text-left p-4 border border-border bg-surface hover:bg-card hover:border-accent transition-all flex items-center justify-between"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="text-xl font-medium group-hover:text-accent transition-colors truncate">
+                              {board.name}
+                            </h4>
+                            {board.archived && (
+                              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-warning/10 border border-warning text-xs flex-shrink-0">
+                                <Archive className="w-3 h-3 text-warning" />
+                              </div>
+                            )}
+                          </div>
+
+                          {board.description && (
+                            <p className="text-text-secondary text-xs mb-2 line-clamp-1">
+                              {board.description}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-4 text-xs text-text-muted">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1 h-4 bg-accent" />
+                              <span className="font-medium">{board.listCount || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span className="font-medium">{board.cardCount || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <ChevronRight className="w-5 h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0 ml-2" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* SIDEBAR - 1 columna con Members y Activity */}
@@ -415,14 +630,27 @@ export default function WorkspaceDetailPage() {
                         className="group relative flex items-center gap-2 px-3 py-2 bg-surface border border-border hover:border-accent transition-all"
                       >
                         <div
-                          className="w-9 h-9 flex items-center justify-center text-sm font-bold border flex-shrink-0"
-                          style={{
-                            backgroundColor: `${currentWorkspace.color}15`,
-                            color: currentWorkspace.color,
-                            borderColor: `${currentWorkspace.color}40`,
-                          }}
+                          className="w-9 h-9 flex-shrink-0 border overflow-hidden"
+                          style={{ borderColor: `${currentWorkspace.color}40` }}
                         >
-                          {member.user?.name.charAt(0).toUpperCase()}
+                          {member.user?.avatar && getAvatarUrl(member.user.avatar) ? (
+                            <img
+                              src={getAvatarUrl(member.user.avatar)!}
+                              alt={member.user.name}
+                              crossOrigin="anonymous"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div
+                              className="w-full h-full flex items-center justify-center text-sm font-bold"
+                              style={{
+                                backgroundColor: `${currentWorkspace.color}15`,
+                                color: currentWorkspace.color,
+                              }}
+                            >
+                              {member.user?.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex flex-col min-w-0">

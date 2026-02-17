@@ -26,7 +26,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
-import { ArrowLeft, LayoutGrid, FileText, Users, Archive, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, FileText, Users, AlertTriangle } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
 export default function BoardPage() {
@@ -38,7 +38,7 @@ export default function BoardPage() {
   const boardId = params.boardId as string;
 
   // Obtener rol del usuario
-  const { currentWorkspace } = useWorkspaceStore();
+  const { currentWorkspace, fetchWorkspaceById } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
 
   // ✅ PERMISOS ACTUALIZADOS:
@@ -63,11 +63,10 @@ export default function BoardPage() {
   const toast = useRealtimeToast();
 
   // Stores
-  const { archiveBoard, reorderList } = useBoardStore();
+  const { reorderList } = useBoardStore();
   const { cards, setCards, moveCard, setCurrentWorkspaceId, clearAllCards } = useCardStore();
   const { accessToken } = useAuthStore();
 
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'list' | 'card' | null>(null);
 
@@ -83,7 +82,12 @@ export default function BoardPage() {
     if (!workspaceId) return;
     clearAllCards();
     setCurrentWorkspaceId(workspaceId);
-  }, [workspaceId, setCurrentWorkspaceId, clearAllCards]);
+    // Si el workspace no está cargado o no coincide con el actual,
+    // lo cargamos para asegurar que userRole esté disponible
+    if (!currentWorkspace || currentWorkspace.id !== workspaceId) {
+      fetchWorkspaceById(workspaceId);
+    }
+  }, [workspaceId, setCurrentWorkspaceId, clearAllCards, fetchWorkspaceById, currentWorkspace?.id]);
 
   useEffect(() => {
     if (lists.length === 0 || !accessToken) return;
@@ -116,18 +120,6 @@ export default function BoardPage() {
 
     loadCards();
   }, [lists, accessToken, setCards]);
-
-  const handleArchive = async () => {
-    if (!currentBoard || !canEditBoard) return;
-
-    try {
-      await archiveBoard(currentBoard.id);
-      toast.success(t.board_toast_archived);
-      router.push(`/dashboard/workspaces/${workspaceId}`);
-    } catch (error) {
-      toast.error(t.board_toast_archive_error);
-    }
-  };
 
   const handleBack = () => {
     router.push(`/dashboard/workspaces/${workspaceId}`);
@@ -332,17 +324,6 @@ export default function BoardPage() {
                 )}
               </div>
             </div>
-
-            {/* Archive Button - Solo OWNER y ADMIN */}
-            {canEditBoard && (
-              <button
-                onClick={() => setShowArchiveConfirm(true)}
-                className="px-4 py-2 border border-warning/30 bg-warning/10 text-warning hover:bg-warning hover:text-white transition-all text-sm font-medium flex items-center gap-2"
-              >
-                <Archive className="w-4 h-4" />
-                <span>{t.board_btn_archive}</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -448,44 +429,6 @@ export default function BoardPage() {
           </DndContext>
         </div>
       </div>
-
-      {/* Archive Confirmation Modal */}
-      {showArchiveConfirm && canEditBoard && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-fade-in"
-            onClick={() => setShowArchiveConfirm(false)}
-          />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="bg-card border border-warning max-w-md w-full p-6 pointer-events-auto animate-scale-in">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="p-2 bg-warning/10 border border-warning/30">
-                  <AlertTriangle className="w-6 h-6 text-warning" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium mb-1">{t.board_archive_title}</h3>
-                  <p className="text-sm text-text-secondary">{t.board_archive_desc}</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowArchiveConfirm(false)}
-                  className="flex-1 px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors"
-                >
-                  {t.btn_cancel}
-                </button>
-                <button
-                  onClick={handleArchive}
-                  className="flex-1 px-4 py-2 bg-warning text-white hover:bg-warning/80 transition-colors"
-                >
-                  {t.board_btn_confirm_archive}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
 
       <CardDetailModal />
     </div>

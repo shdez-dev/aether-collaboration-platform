@@ -23,6 +23,7 @@ export default function DocumentEditorPage() {
   const {
     currentDocument,
     isLoading,
+    error: documentError,
     activeUsers,
     fetchDocumentById,
     updateDocument,
@@ -204,12 +205,39 @@ export default function DocumentEditorPage() {
     });
   };
 
+  if (documentError && !currentDocument) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 mx-auto bg-error/10 border border-error/30 flex items-center justify-center">
+            <span className="text-error text-xl">!</span>
+          </div>
+          <p className="text-text-secondary text-sm">{documentError}</p>
+          <button
+            onClick={() => router.push(`/dashboard/workspaces/${workspaceId}/documents`)}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-surface text-text-primary text-sm hover:bg-card transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading || !currentDocument || !user) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <div className="text-center">
-          <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-text-secondary">Cargando documento...</p>
+        <div className="text-center space-y-4">
+          <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-text-secondary text-sm">Cargando documento...</p>
+          <button
+            onClick={() => router.push(`/dashboard/workspaces/${workspaceId}/documents`)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 border border-border bg-surface text-text-secondary text-xs hover:bg-card transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Volver</span>
+          </button>
         </div>
       </div>
     );

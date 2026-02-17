@@ -10,6 +10,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { useT } from '@/lib/i18n';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import { formatShort } from '@/lib/utils/date';
 
 interface PublicUser {
@@ -218,7 +219,10 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
                   key={w.id}
                   className="flex items-center gap-2 px-3 py-2 rounded-terminal bg-surface border border-border text-sm"
                 >
-                  <span className="text-base">{w.icon || '▣'}</span>
+                  <WorkspaceIcon
+                    icon={w.icon}
+                    className="w-4 h-4 text-text-secondary flex-shrink-0"
+                  />
                   <span className="flex-1 text-text-secondary truncate">{w.name}</span>
                   <span className="text-xs text-text-muted">{w.role}</span>
                 </div>

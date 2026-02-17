@@ -9,6 +9,7 @@ import { FileText, Search, Clock, Folder, ArrowRight, LayoutGrid, List } from 'l
 import type { Document } from '@aether/types';
 import { useT } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 
 type DocumentWithWorkspace = Document & {
   workspaceId: string;
@@ -62,7 +63,7 @@ export default function AllDocumentsPage() {
                 workspaceId: workspace.id,
                 workspaceName: workspace.name,
                 workspaceColor: workspace.color || '#3B82F6',
-                workspaceIcon: workspace.icon || '▣',
+                workspaceIcon: workspace.icon || 'Folder',
               }));
               allDocs.push(...docsWithWorkspace);
             }
@@ -252,7 +253,7 @@ export default function AllDocumentsPage() {
           <option value="all">{t.documents_filter_all_workspaces}</option>
           {workspaces.map((workspace) => (
             <option key={workspace.id} value={workspace.id}>
-              {workspace.icon} {workspace.name}
+              {workspace.name}
             </option>
           ))}
         </select>
@@ -298,14 +299,14 @@ export default function AllDocumentsPage() {
               {/* Workspace Header */}
               <div className="flex items-center gap-3 mb-4">
                 <div
-                  className="w-10 h-10 flex items-center justify-center text-lg border"
+                  className="w-10 h-10 flex items-center justify-center border"
                   style={{
                     backgroundColor: `${workspace.color}15`,
                     color: workspace.color,
                     borderColor: `${workspace.color}40`,
                   }}
                 >
-                  {workspace.icon}
+                  <WorkspaceIcon icon={workspace.icon} className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
                   <h2 className="text-lg font-medium text-text-primary">{workspace.name}</h2>

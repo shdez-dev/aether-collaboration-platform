@@ -137,34 +137,46 @@ export const useDocumentStore = create<DocumentState>()(
 
       fetchDocumentById: async (documentId: string) => {
         set({ isLoading: true, error: null });
-        const response = await apiService.get<{ document: DocumentWithDetails }>(
-          `/api/documents/${documentId}`,
-          true
-        );
-        if (response.success && response.data) {
-          set({ currentDocument: response.data.document, isLoading: false });
-          get().initYjsDoc();
-        } else {
-          set({ error: response.error?.message || 'Error', isLoading: false });
+        try {
+          const response = await apiService.get<{ document: DocumentWithDetails }>(
+            `/api/documents/${documentId}`,
+            true
+          );
+          if (response.success && response.data) {
+            set({ currentDocument: response.data.document, isLoading: false });
+            get().initYjsDoc();
+          } else {
+            set({
+              error: response.error?.message || 'Error al cargar el documento',
+              isLoading: false,
+            });
+          }
+        } catch {
+          set({ error: 'Error de conexión al cargar el documento', isLoading: false });
         }
       },
 
       createDocument: async (workspaceId: string, data: CreateDocumentData) => {
         set({ isLoading: true });
-        const response = await apiService.post<{ document: Document }>(
-          `/api/workspaces/${workspaceId}/documents`,
-          data,
-          true
-        );
-        if (response.success && response.data) {
-          set((state) => ({
-            documents: [...state.documents, response.data!.document],
-            isLoading: false,
-          }));
-          return response.data.document;
+        try {
+          const response = await apiService.post<{ document: Document }>(
+            `/api/workspaces/${workspaceId}/documents`,
+            data,
+            true
+          );
+          if (response.success && response.data) {
+            set((state) => ({
+              documents: [...state.documents, response.data!.document],
+              isLoading: false,
+            }));
+            return response.data.document;
+          }
+          set({ isLoading: false });
+          throw new Error(response.error?.message);
+        } catch (err) {
+          set({ isLoading: false });
+          throw err;
         }
-        set({ isLoading: false });
-        throw new Error(response.error?.message);
       },
 
       updateDocument: async (documentId: string, data: UpdateDocumentData) => {

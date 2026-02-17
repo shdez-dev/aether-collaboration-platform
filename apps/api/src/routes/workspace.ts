@@ -25,6 +25,20 @@ router.post('/', (req, res) => workspaceController.create(req, res));
 router.get('/', (req, res) => workspaceController.list(req, res));
 
 /**
+ * POST /api/workspaces/from-template
+ * Crear workspace desde template predefinido
+ * DEBE ir antes de /:id para que Express no lo capture como parámetro
+ */
+router.post('/from-template', (req, res) => workspaceController.createFromTemplate(req, res));
+
+/**
+ * POST /api/workspaces/join/:token
+ * Unirse a workspace vía link de invitación
+ * DEBE ir antes de /:id
+ */
+router.post('/join/:token', (req, res) => workspaceController.joinByToken(req, res));
+
+/**
  * GET /api/workspaces/:id
  * Obtener un workspace específico
  * Permisos: Miembro del workspace
@@ -87,12 +101,65 @@ router.delete('/:id/members/:userId', checkWorkspaceMembership, requireAdmin, (r
 
 /**
  * GET /api/workspaces/:id/activity
- * Obtener actividad reciente del workspace (últimos 7 días)
- * Middleware: checkWorkspaceMembership (valida que sea miembro)
- * Permite: Todos los roles (VIEWER, MEMBER, ADMIN, OWNER)
  */
 router.get('/:id/activity', checkWorkspaceMembership, (req, res) =>
   workspaceController.getWorkspaceActivity(req, res)
+);
+
+/**
+ * GET /api/workspaces/:id/stats
+ * Obtener estadísticas del workspace
+ */
+router.get('/:id/stats', checkWorkspaceMembership, (req, res) =>
+  workspaceController.getStats(req, res)
+);
+
+/**
+ * POST /api/workspaces/:id/archive
+ * Archivar workspace (solo OWNER)
+ */
+router.post('/:id/archive', checkWorkspaceMembership, requireOwner, (req, res) =>
+  workspaceController.archive(req, res)
+);
+
+/**
+ * POST /api/workspaces/:id/restore
+ * Restaurar workspace archivado (solo OWNER)
+ */
+router.post('/:id/restore', checkWorkspaceMembership, requireOwner, (req, res) =>
+  workspaceController.restore(req, res)
+);
+
+/**
+ * POST /api/workspaces/:id/duplicate
+ * Duplicar workspace (OWNER o ADMIN)
+ */
+router.post('/:id/duplicate', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceController.duplicate(req, res)
+);
+
+/**
+ * PUT /api/workspaces/:id/visibility
+ * Cambiar visibilidad (OWNER o ADMIN)
+ */
+router.put('/:id/visibility', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceController.updateVisibility(req, res)
+);
+
+/**
+ * POST /api/workspaces/:id/invite-token
+ * Generar token de invitación público (OWNER o ADMIN)
+ */
+router.post('/:id/invite-token', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceController.regenerateInviteToken(req, res)
+);
+
+/**
+ * DELETE /api/workspaces/:id/invite-token
+ * Revocar token de invitación (OWNER o ADMIN)
+ */
+router.delete('/:id/invite-token', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceController.revokeInviteToken(req, res)
 );
 
 export default router;

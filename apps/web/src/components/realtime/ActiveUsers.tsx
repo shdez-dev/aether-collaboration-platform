@@ -129,7 +129,11 @@ function UserAvatar({ user, size, zIndex }: { user: ActiveUser; size: string; zI
           >
             <Avatar className={cn(size, 'border-2 border-background cursor-pointer')}>
               {user.avatar ? (
-                <AvatarImage src={getAvatarUrl(user.avatar) || undefined} alt={user.name} />
+                <AvatarImage
+                  src={getAvatarUrl(user.avatar) || undefined}
+                  alt={user.name}
+                  crossOrigin="anonymous"
+                />
               ) : (
                 <AvatarFallback className={bgColor}>
                   <span className="text-xs font-semibold text-white">{initials}</span>

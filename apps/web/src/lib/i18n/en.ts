@@ -223,6 +223,102 @@ export const en = {
   ws_settings_no_permission_desc: "You don't have permission to access settings",
   ws_settings_btn_back: 'Back to Workspace',
 
+  // Workspace Settings — Archive
+  ws_settings_archive_title: 'Archive Workspace',
+  ws_settings_archive_desc:
+    'Archived workspaces are hidden from your list but not deleted. You can restore them at any time.',
+  ws_settings_btn_archive: 'Archive Workspace',
+  ws_settings_confirm_archive: 'Archive this workspace? It will be hidden until you restore it.',
+  ws_settings_btn_confirm_archive: 'Yes, Archive',
+  ws_settings_restore_title: 'Restore Workspace',
+  ws_settings_restore_desc: 'This workspace is archived. Restore it to make it visible again.',
+  ws_settings_btn_restore: 'Restore Workspace',
+
+  // Workspace Settings — Visibility
+  ws_settings_visibility_title: 'Visibility',
+  ws_settings_visibility_desc: 'Control who can find and join this workspace.',
+  ws_settings_visibility_private: 'Private',
+  ws_settings_visibility_private_desc: 'Only invited members can access.',
+  ws_settings_visibility_public: 'Public',
+  ws_settings_visibility_public_desc: 'Anyone with the link can join.',
+  ws_settings_invite_link_title: 'Invite link',
+  ws_settings_invite_link_desc: 'Anyone with this link can join as a member.',
+  ws_settings_btn_generate_link: 'Generate link',
+  ws_settings_btn_revoke_link: 'Revoke link',
+  ws_settings_btn_copy_link: 'Copy link',
+  ws_settings_link_copied: 'Link copied to clipboard',
+
+  // Workspace Settings — Duplicate
+  ws_settings_duplicate_title: 'Duplicate Workspace',
+  ws_settings_duplicate_desc: 'Create a copy of this workspace with the same structure.',
+  ws_settings_duplicate_include_boards: 'Include boards (structure only, no cards)',
+  ws_settings_btn_duplicate: 'Duplicate Workspace',
+  ws_settings_duplicate_success: 'Workspace duplicated successfully',
+
+  // Workspace tabs
+  ws_tab_stats: 'Statistics',
+  ws_tab_boards: 'Boards',
+  ws_stats_completion_rate: 'Overall progress',
+  ws_stats_no_data: 'No cards yet. Create boards and start adding tasks.',
+  ws_stats_of: 'of',
+  ws_stats_cards_done: 'cards completed',
+  ws_stats_overdue: 'Overdue',
+  ws_stats_overdue_desc: 'Incomplete with past due date',
+  ws_stats_unassigned: 'Unassigned',
+  ws_stats_unassigned_desc: 'Cards with no assignee',
+  ws_stats_velocity: 'Velocity',
+  ws_stats_this_week: 'completed this week',
+  ws_stats_vs_last_week: 'vs last week',
+  ws_stats_same_as_last_week: 'same as last week',
+  ws_stats_board_progress: 'Progress by board',
+  ws_stats_no_cards_yet: 'No cards yet',
+
+  // Workspace Stats
+  ws_stats_title: 'Statistics',
+  ws_stats_total_boards: 'Total boards',
+  ws_stats_active_boards: 'Active boards',
+  ws_stats_archived_boards: 'Archived boards',
+  ws_stats_total_members: 'Members',
+  ws_stats_total_cards: 'Total cards',
+  ws_stats_completed_cards: 'Completed',
+  ws_stats_total_docs: 'Documents',
+  ws_stats_recent_activity: 'Activity (7 days)',
+
+  // Workspace Templates
+  ws_template_title: 'Create from template',
+  ws_template_subtitle: 'Choose a template to start with a predefined structure',
+  ws_template_development: 'Development',
+  ws_template_development_desc: 'Backlog, Bugs and Releases with typical software workflows',
+  ws_template_marketing: 'Marketing',
+  ws_template_marketing_desc: 'Campaigns and content for marketing teams',
+  ws_template_design: 'Design',
+  ws_template_design_desc: 'Design projects and assets management',
+  ws_template_hr: 'Human Resources',
+  ws_template_hr_desc: 'Recruitment and staff onboarding',
+  ws_template_general: 'General',
+  ws_template_general_desc: 'Basic general-purpose workspace',
+  ws_template_placeholder_name: 'Workspace name',
+  ws_template_btn_create: 'Create Workspace',
+
+  // Workspace List — archived filter
+  ws_list_tab_active: 'Active',
+  ws_list_tab_archived: 'Archived',
+  ws_list_archived_badge: 'Archived',
+  ws_list_public_badge: 'Public',
+  ws_list_empty_archived: 'No archived workspaces',
+
+  // Join by invite link
+  join_title: 'Join Workspace',
+  join_loading: 'Verifying invitation...',
+  join_success: 'You have successfully joined the workspace!',
+  join_btn_go: 'Go to Workspace',
+  join_error_invalid: 'The invitation link is invalid or has expired.',
+  join_error_already: 'You are already a member of this workspace.',
+  join_btn_retry: 'Try again',
+  join_btn_home: 'Go home',
+  join_joining: 'Joining...',
+  join_btn_join: 'Join Workspace',
+
   // ── Board ─────────────────────────────────────────────────────────────────
   board_loading: 'Loading board...',
   board_btn_archive: 'Archive',

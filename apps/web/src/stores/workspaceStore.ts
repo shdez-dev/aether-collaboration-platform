@@ -13,11 +13,30 @@ interface Workspace {
   ownerId: string;
   icon?: string;
   color?: string;
+  archived?: boolean;
+  archivedAt?: string | null;
+  visibility?: 'private' | 'public';
+  inviteToken?: string | null;
   createdAt: string;
   updatedAt: string;
   userRole?: string;
   boardCount?: number;
   memberCount?: number;
+}
+
+interface WorkspaceStats {
+  // Progreso global
+  totalCards: number;
+  completedCards: number;
+  overdueCards: number;
+  unassignedCards: number;
+  // Velocidad
+  completedThisWeek: number;
+  completedLastWeek: number;
+  // Progreso por board
+  boardProgress: { boardId: string; name: string; total: number; completed: number }[];
+  // Distribución por prioridad
+  priorityBreakdown: { priority: string; count: number }[];
 }
 
 interface WorkspaceMember {
@@ -39,15 +58,24 @@ interface WorkspaceState {
   workspaces: Workspace[];
   currentWorkspace: Workspace | null;
   currentMembers: WorkspaceMember[];
+  currentStats: WorkspaceStats | null;
   isLoading: boolean;
   error: string | null;
 
   // Acciones
-  fetchWorkspaces: () => Promise<void>;
+  fetchWorkspaces: (includeArchived?: boolean) => Promise<void>;
   fetchWorkspaceById: (id: string) => Promise<void>;
   createWorkspace: (data: CreateWorkspaceData) => Promise<Workspace>;
   updateWorkspace: (id: string, data: UpdateWorkspaceData) => Promise<void>;
   deleteWorkspace: (id: string) => Promise<void>;
+  archiveWorkspace: (id: string) => Promise<void>;
+  restoreWorkspace: (id: string) => Promise<void>;
+  duplicateWorkspace: (id: string, includeBoards?: boolean) => Promise<Workspace>;
+  updateVisibility: (id: string, visibility: 'private' | 'public') => Promise<void>;
+  regenerateInviteToken: (id: string) => Promise<string>;
+  revokeInviteToken: (id: string) => Promise<void>;
+  fetchStats: (id: string) => Promise<void>;
+  createFromTemplate: (templateId: string, name: string) => Promise<Workspace>;
   selectWorkspace: (workspace: Workspace | null) => void;
 
   // Miembros
@@ -83,16 +111,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       workspaces: [],
       currentWorkspace: null,
       currentMembers: [],
+      currentStats: null,
       isLoading: false,
       error: null,
 
       // ==================== FETCH WORKSPACES ====================
-      fetchWorkspaces: async () => {
+      fetchWorkspaces: async (includeArchived = false) => {
         set({ isLoading: true, error: null });
 
         try {
           const response = await apiService.get<{ workspaces: Workspace[] }>(
-            '/api/workspaces',
+            `/api/workspaces${includeArchived ? '?archived=true' : ''}`,
             true
           );
 
@@ -367,6 +396,213 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             error: 'Error al remover miembro',
             isLoading: false,
           });
+        }
+      },
+
+      // ==================== ARCHIVE WORKSPACE ====================
+      archiveWorkspace: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiService.post<{ workspace: Workspace }>(
+            `/api/workspaces/${id}/archive`,
+            {},
+            true
+          );
+          if (!response.success || !response.data) {
+            set({
+              error: response.error?.message || 'Failed to archive workspace',
+              isLoading: false,
+            });
+            return;
+          }
+          set((state) => ({
+            workspaces: state.workspaces.map((w) => (w.id === id ? response.data!.workspace : w)),
+            currentWorkspace:
+              state.currentWorkspace?.id === id ? response.data!.workspace : state.currentWorkspace,
+            isLoading: false,
+          }));
+        } catch {
+          set({ error: 'Error al archivar workspace', isLoading: false });
+        }
+      },
+
+      // ==================== RESTORE WORKSPACE ====================
+      restoreWorkspace: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiService.post<{ workspace: Workspace }>(
+            `/api/workspaces/${id}/restore`,
+            {},
+            true
+          );
+          if (!response.success || !response.data) {
+            set({
+              error: response.error?.message || 'Failed to restore workspace',
+              isLoading: false,
+            });
+            return;
+          }
+          set((state) => ({
+            workspaces: state.workspaces.map((w) => (w.id === id ? response.data!.workspace : w)),
+            currentWorkspace:
+              state.currentWorkspace?.id === id ? response.data!.workspace : state.currentWorkspace,
+            isLoading: false,
+          }));
+        } catch {
+          set({ error: 'Error al restaurar workspace', isLoading: false });
+        }
+      },
+
+      // ==================== DUPLICATE WORKSPACE ====================
+      duplicateWorkspace: async (id: string, includeBoards = true) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiService.post<{ workspace: Workspace }>(
+            `/api/workspaces/${id}/duplicate`,
+            { includeBoards },
+            true
+          );
+          if (!response.success || !response.data) {
+            set({
+              error: response.error?.message || 'Failed to duplicate workspace',
+              isLoading: false,
+            });
+            throw new Error(response.error?.message);
+          }
+          set((state) => ({
+            workspaces: [response.data!.workspace, ...state.workspaces],
+            isLoading: false,
+          }));
+          return response.data.workspace;
+        } catch (error: any) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
+      // ==================== UPDATE VISIBILITY ====================
+      updateVisibility: async (id: string, visibility: 'private' | 'public') => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiService.put<{ workspace: Workspace }>(
+            `/api/workspaces/${id}/visibility`,
+            { visibility },
+            true
+          );
+          if (!response.success || !response.data) {
+            set({
+              error: response.error?.message || 'Failed to update visibility',
+              isLoading: false,
+            });
+            return;
+          }
+          set((state) => ({
+            workspaces: state.workspaces.map((w) => (w.id === id ? response.data!.workspace : w)),
+            currentWorkspace:
+              state.currentWorkspace?.id === id ? response.data!.workspace : state.currentWorkspace,
+            isLoading: false,
+          }));
+        } catch {
+          set({ error: 'Error al actualizar visibilidad', isLoading: false });
+        }
+      },
+
+      // ==================== REGENERATE INVITE TOKEN ====================
+      regenerateInviteToken: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiService.post<{ token: string }>(
+            `/api/workspaces/${id}/invite-token`,
+            {},
+            true
+          );
+          if (!response.success || !response.data) {
+            set({ error: response.error?.message || 'Failed to generate token', isLoading: false });
+            throw new Error(response.error?.message);
+          }
+          // Update token in local state
+          set((state) => ({
+            workspaces: state.workspaces.map((w) =>
+              w.id === id ? { ...w, inviteToken: response.data!.token } : w
+            ),
+            currentWorkspace:
+              state.currentWorkspace?.id === id
+                ? { ...state.currentWorkspace, inviteToken: response.data!.token }
+                : state.currentWorkspace,
+            isLoading: false,
+          }));
+          return response.data.token;
+        } catch (error: any) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
+      // ==================== REVOKE INVITE TOKEN ====================
+      revokeInviteToken: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiService.delete(`/api/workspaces/${id}/invite-token`, true);
+          if (!response.success) {
+            set({ error: response.error?.message || 'Failed to revoke token', isLoading: false });
+            return;
+          }
+          set((state) => ({
+            workspaces: state.workspaces.map((w) =>
+              w.id === id ? { ...w, inviteToken: null } : w
+            ),
+            currentWorkspace:
+              state.currentWorkspace?.id === id
+                ? { ...state.currentWorkspace, inviteToken: null }
+                : state.currentWorkspace,
+            isLoading: false,
+          }));
+        } catch {
+          set({ error: 'Error al revocar token', isLoading: false });
+        }
+      },
+
+      // ==================== FETCH STATS ====================
+      fetchStats: async (id: string) => {
+        try {
+          const response = await apiService.get<{ stats: WorkspaceStats }>(
+            `/api/workspaces/${id}/stats`,
+            true
+          );
+          if (response.success && response.data) {
+            set({ currentStats: response.data.stats });
+          } else {
+            console.warn('[fetchStats] Failed:', response.error?.message);
+          }
+        } catch (err) {
+          console.warn('[fetchStats] Exception:', err);
+        }
+      },
+
+      // ==================== CREATE FROM TEMPLATE ====================
+      createFromTemplate: async (templateId: string, name: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiService.post<{ workspace: Workspace }>(
+            '/api/workspaces/from-template',
+            { templateId, name },
+            true
+          );
+          if (!response.success || !response.data) {
+            set({
+              error: response.error?.message || 'Failed to create from template',
+              isLoading: false,
+            });
+            throw new Error(response.error?.message);
+          }
+          set((state) => ({
+            workspaces: [response.data!.workspace, ...state.workspaces],
+            isLoading: false,
+          }));
+          return response.data.workspace;
+        } catch (error: any) {
+          set({ isLoading: false });
+          throw error;
         }
       },
 

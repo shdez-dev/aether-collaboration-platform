@@ -223,6 +223,104 @@ export const es = {
   ws_settings_no_permission_desc: 'No tienes permiso para acceder a la configuración',
   ws_settings_btn_back: 'Volver al Workspace',
 
+  // Workspace Settings — Archive
+  ws_settings_archive_title: 'Archivar Workspace',
+  ws_settings_archive_desc:
+    'Los workspaces archivados quedan ocultos en tu lista pero no se eliminan. Puedes restaurarlos en cualquier momento.',
+  ws_settings_btn_archive: 'Archivar Workspace',
+  ws_settings_confirm_archive: '¿Archivar este workspace? Quedará oculto hasta que lo restaures.',
+  ws_settings_btn_confirm_archive: 'Sí, Archivar',
+  ws_settings_restore_title: 'Restaurar Workspace',
+  ws_settings_restore_desc:
+    'Este workspace está archivado. Restáuralo para que sea visible nuevamente.',
+  ws_settings_btn_restore: 'Restaurar Workspace',
+
+  // Workspace Settings — Visibility
+  ws_settings_visibility_title: 'Visibilidad',
+  ws_settings_visibility_desc: 'Controla quién puede encontrar y unirse a este workspace.',
+  ws_settings_visibility_private: 'Privado',
+  ws_settings_visibility_private_desc: 'Solo los miembros invitados pueden acceder.',
+  ws_settings_visibility_public: 'Público',
+  ws_settings_visibility_public_desc: 'Cualquier persona con el link puede unirse.',
+  ws_settings_invite_link_title: 'Link de invitación',
+  ws_settings_invite_link_desc: 'Cualquier persona con este link puede unirse como miembro.',
+  ws_settings_btn_generate_link: 'Generar link',
+  ws_settings_btn_revoke_link: 'Revocar link',
+  ws_settings_btn_copy_link: 'Copiar link',
+  ws_settings_link_copied: 'Link copiado al portapapeles',
+
+  // Workspace Settings — Duplicate
+  ws_settings_duplicate_title: 'Duplicar Workspace',
+  ws_settings_duplicate_desc: 'Crea una copia de este workspace con la misma estructura.',
+  ws_settings_duplicate_include_boards: 'Incluir boards (solo estructura, sin tarjetas)',
+  ws_settings_btn_duplicate: 'Duplicar Workspace',
+  ws_settings_duplicate_success: 'Workspace duplicado correctamente',
+
+  // Workspace tabs
+  ws_tab_stats: 'Estadísticas',
+  ws_tab_boards: 'Boards',
+  ws_stats_completion_rate: 'Progreso global',
+  ws_stats_no_data: 'Aún no hay tarjetas. Crea boards y empieza a añadir tareas.',
+  ws_stats_of: 'de',
+  ws_stats_cards_done: 'tarjetas completadas',
+  ws_stats_overdue: 'Vencidas',
+  ws_stats_overdue_desc: 'Sin completar y con fecha pasada',
+  ws_stats_unassigned: 'Sin asignar',
+  ws_stats_unassigned_desc: 'Tarjetas sin responsable',
+  ws_stats_velocity: 'Velocidad',
+  ws_stats_this_week: 'completadas esta semana',
+  ws_stats_vs_last_week: 'vs semana anterior',
+  ws_stats_same_as_last_week: 'igual que la semana anterior',
+  ws_stats_board_progress: 'Progreso por board',
+  ws_stats_no_cards_yet: 'Sin tarjetas todavía',
+
+  // Workspace Stats
+  ws_stats_title: 'Estadísticas',
+  ws_stats_total_boards: 'Boards totales',
+  ws_stats_active_boards: 'Boards activos',
+  ws_stats_archived_boards: 'Boards archivados',
+  ws_stats_total_members: 'Miembros',
+  ws_stats_total_cards: 'Tarjetas totales',
+  ws_stats_completed_cards: 'Completadas',
+  ws_stats_total_docs: 'Documentos',
+  ws_stats_recent_activity: 'Actividad (7 días)',
+
+  // Workspace Templates
+  ws_template_title: 'Crear desde template',
+  ws_template_subtitle: 'Elige un template para iniciar con estructura predefinida',
+  ws_template_development: 'Desarrollo',
+  ws_template_development_desc:
+    'Backlog, Bugs y Releases con flujos de trabajo típicos de software',
+  ws_template_marketing: 'Marketing',
+  ws_template_marketing_desc: 'Campañas y contenido para equipos de marketing',
+  ws_template_design: 'Diseño',
+  ws_template_design_desc: 'Gestión de proyectos y assets de diseño',
+  ws_template_hr: 'Recursos Humanos',
+  ws_template_hr_desc: 'Reclutamiento y onboarding de personal',
+  ws_template_general: 'General',
+  ws_template_general_desc: 'Workspace básico de propósito general',
+  ws_template_placeholder_name: 'Nombre del workspace',
+  ws_template_btn_create: 'Crear Workspace',
+
+  // Workspace List — archived filter
+  ws_list_tab_active: 'Activos',
+  ws_list_tab_archived: 'Archivados',
+  ws_list_archived_badge: 'Archivado',
+  ws_list_public_badge: 'Público',
+  ws_list_empty_archived: 'No hay workspaces archivados',
+
+  // Join by invite link
+  join_title: 'Unirse al Workspace',
+  join_loading: 'Verificando invitación...',
+  join_success: '¡Te has unido al workspace exitosamente!',
+  join_btn_go: 'Ir al Workspace',
+  join_error_invalid: 'El link de invitación no es válido o ha expirado.',
+  join_error_already: 'Ya eres miembro de este workspace.',
+  join_btn_retry: 'Intentar de nuevo',
+  join_btn_home: 'Ir al inicio',
+  join_joining: 'Uniéndose...',
+  join_btn_join: 'Unirse al Workspace',
+
   // ── Board ─────────────────────────────────────────────────────────────────
   board_loading: 'Cargando board...',
   board_btn_archive: 'Archivar',
