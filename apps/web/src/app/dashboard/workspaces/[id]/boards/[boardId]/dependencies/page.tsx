@@ -10,6 +10,8 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  Handle,
+  Position,
   type Node,
   type Edge,
   type NodeProps,
@@ -29,7 +31,7 @@ import {
   Circle,
 } from 'lucide-react';
 
-// ─── Tipos del grafo ──────────────────────────────────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface GraphCard {
   id: string;
@@ -53,18 +55,16 @@ interface GraphData {
   edges: GraphEdge[];
 }
 
+type CardNodeData = { card: GraphCard };
+
 // ─── Constantes de layout ─────────────────────────────────────────────────────
 
-const NODE_WIDTH = 240;
-const NODE_HEIGHT = 90;
-const COL_GAP = 120; // espacio horizontal entre columnas
-const ROW_GAP = 28; // espacio vertical entre nodos dentro de una columna
+const NODE_W = 220;
+const NODE_H = 100;
+const COL_GAP = 160; // espacio horizontal entre niveles
+const ROW_GAP = 40; // espacio vertical entre nodos del mismo nivel
 
-// ─── Nodo personalizado ───────────────────────────────────────────────────────
-
-type CardNodeData = {
-  card: GraphCard;
-};
+// ─── Nodo personalizado con Handles ──────────────────────────────────────────
 
 function CardNode({ data }: NodeProps) {
   const { card } = data as CardNodeData;
@@ -83,121 +83,189 @@ function CardNode({ data }: NodeProps) {
   const isBlocked = card.blockedByPendingCount > 0 && !card.completed;
 
   return (
-    <div
-      className={`
-        w-[240px] rounded-lg border-2 p-3 shadow-lg font-mono text-sm transition-all
-        ${
-          card.completed
-            ? 'bg-emerald-950/60 border-emerald-500/50'
-            : isBlocked
-              ? 'bg-amber-950/60 border-amber-500/60'
-              : 'bg-zinc-900 border-zinc-600 hover:border-zinc-400'
-        }
-      `}
-    >
-      {/* Header: estado + lista */}
-      <div className="flex items-center justify-between mb-2 gap-2">
-        <span className="text-[10px] text-zinc-400 truncate max-w-[140px]" title={card.listName}>
-          {card.listName}
-        </span>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {isBlocked && (
-            <span title={`Bloqueada por ${card.blockedByPendingCount} dependencia(s)`}>
-              <Lock className="w-3 h-3 text-amber-400" />
+    <>
+      {/* Handle izquierdo: donde llegan las flechas (target) */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{
+          background: isBlocked ? '#f59e0b' : card.completed ? '#22c55e' : '#71717a',
+          border: '2px solid #18181b',
+          width: 10,
+          height: 10,
+        }}
+      />
+
+      <div
+        style={{ width: NODE_W }}
+        className={`
+          rounded-lg border-2 p-3 shadow-xl font-mono text-sm
+          ${
+            card.completed
+              ? 'bg-emerald-950/80 border-emerald-500/50'
+              : isBlocked
+                ? 'bg-amber-950/80 border-amber-500/60'
+                : 'bg-zinc-900 border-zinc-600 hover:border-zinc-400'
+          }
+        `}
+      >
+        {/* Lista de origen */}
+        <div className="flex items-center justify-between mb-1.5 gap-2">
+          <span className="text-[10px] text-zinc-500 truncate" title={card.listName}>
+            {card.listName}
+          </span>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {isBlocked && (
+              <span title={`Bloqueada por ${card.blockedByPendingCount} dependencia(s)`}>
+                <Lock className="w-3 h-3 text-amber-400" />
+              </span>
+            )}
+            {card.completed ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <Circle className="w-3.5 h-3.5 text-zinc-600" />
+            )}
+          </div>
+        </div>
+
+        {/* Título */}
+        <p
+          className={`text-[13px] leading-snug mb-2 font-medium ${
+            card.completed ? 'line-through text-zinc-500' : 'text-zinc-100'
+          }`}
+        >
+          {card.title}
+        </p>
+
+        {/* Badges de prioridad / estado */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {card.priority && (
+            <span
+              className={`text-[9px] px-1.5 py-0.5 rounded border ${priorityStyle[card.priority]}`}
+            >
+              {priorityLabel[card.priority]}
             </span>
           )}
-          {card.completed ? (
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-          ) : (
-            <Circle className="w-3.5 h-3.5 text-zinc-500" />
+          {isBlocked && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300">
+              {card.blockedByPendingCount} bloqueante{card.blockedByPendingCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {card.completed && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
+              Completada
+            </span>
           )}
         </div>
       </div>
 
-      {/* Título */}
-      <p
-        className={`text-[13px] leading-snug mb-2 ${card.completed ? 'line-through text-zinc-400' : 'text-zinc-100'}`}
-      >
-        {card.title}
-      </p>
-
-      {/* Footer: prioridad + estado bloqueo */}
-      <div className="flex items-center gap-2">
-        {card.priority && (
-          <span
-            className={`text-[9px] px-1.5 py-0.5 rounded border ${priorityStyle[card.priority]}`}
-          >
-            {priorityLabel[card.priority]}
-          </span>
-        )}
-        {isBlocked && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300">
-            {card.blockedByPendingCount} bloqueante{card.blockedByPendingCount !== 1 ? 's' : ''}
-          </span>
-        )}
-        {card.completed && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
-            Completada
-          </span>
-        )}
-      </div>
-    </div>
+      {/* Handle derecho: de donde salen las flechas (source) */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{
+          background: card.completed ? '#22c55e' : '#71717a',
+          border: '2px solid #18181b',
+          width: 10,
+          height: 10,
+        }}
+      />
+    </>
   );
 }
 
 const nodeTypes = { card: CardNode };
 
-// ─── Algoritmo de layout por columnas ────────────────────────────────────────
+// ─── Layout topológico (por niveles) ─────────────────────────────────────────
+//
+// Asigna un "nivel" a cada nodo basándose en la profundidad máxima desde
+// los nodos raíz (los que no tienen bloqueantes). Los nodos del mismo nivel
+// se distribuyen verticalmente de forma centrada.
 
-function computeLayout(cards: GraphCard[]): Node[] {
-  // Agrupar por lista, ordenadas por posición de lista
-  const listOrder = new Map<string, number>();
-  for (const c of cards) {
-    if (!listOrder.has(c.listId)) {
-      listOrder.set(c.listId, c.listPosition);
+function computeLayout(cards: GraphCard[], apiEdges: GraphEdge[]): Node[] {
+  if (cards.length === 0) return [];
+
+  const ids = cards.map((c) => c.id);
+
+  // Construir mapa de adyacencia: blocking → [blocked]
+  const children = new Map<string, string[]>(ids.map((id) => [id, []]));
+  const parents = new Map<string, string[]>(ids.map((id) => [id, []]));
+
+  for (const e of apiEdges) {
+    children.get(e.blockingCardId)?.push(e.blockedCardId);
+    parents.get(e.blockedCardId)?.push(e.blockingCardId);
+  }
+
+  // BFS desde las raíces para asignar nivel (longest path)
+  const level = new Map<string, number>(ids.map((id) => [id, 0]));
+
+  // Raíces: nodos sin padres
+  const roots = ids.filter((id) => (parents.get(id)?.length ?? 0) === 0);
+
+  // Si no hay raíces (ciclo roto), todos al nivel 0
+  const queue = roots.length > 0 ? [...roots] : [...ids];
+  const visited = new Set<string>();
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    const currentLevel = level.get(current) ?? 0;
+    for (const child of children.get(current) ?? []) {
+      const childLevel = level.get(child) ?? 0;
+      // Forzar que el hijo esté al menos un nivel más a la derecha
+      if (childLevel <= currentLevel) {
+        level.set(child, currentLevel + 1);
+      }
+      queue.push(child);
     }
   }
 
-  // Ordenar listas
-  const sortedListIds = [...listOrder.entries()].sort(([, a], [, b]) => a - b).map(([id]) => id);
+  // Agrupar nodos por nivel
+  const byLevel = new Map<number, string[]>();
+  for (const [id, lv] of level.entries()) {
+    if (!byLevel.has(lv)) byLevel.set(lv, []);
+    byLevel.get(lv)!.push(id);
+  }
 
-  // Agrupar cards por lista
-  const byList = new Map<string, GraphCard[]>();
-  for (const id of sortedListIds) byList.set(id, []);
-  for (const c of cards) byList.get(c.listId)?.push(c);
+  // Máximo de nodos en cualquier nivel (para centrar verticalmente)
+  const maxInLevel = Math.max(...[...byLevel.values()].map((v) => v.length));
+  const totalHeight = maxInLevel * (NODE_H + ROW_GAP) - ROW_GAP;
 
+  const cardMap = new Map(cards.map((c) => [c.id, c]));
   const nodes: Node[] = [];
-  let x = 0;
 
-  for (const listId of sortedListIds) {
-    const listCards = byList.get(listId) ?? [];
-    listCards.forEach((card, rowIdx) => {
+  for (const [lv, lvIds] of byLevel.entries()) {
+    const colHeight = lvIds.length * (NODE_H + ROW_GAP) - ROW_GAP;
+    const startY = (totalHeight - colHeight) / 2; // centrar verticalmente
+
+    lvIds.forEach((id, rowIdx) => {
+      const card = cardMap.get(id)!;
       nodes.push({
-        id: card.id,
+        id,
         type: 'card',
         position: {
-          x,
-          y: rowIdx * (NODE_HEIGHT + ROW_GAP),
+          x: lv * (NODE_W + COL_GAP),
+          y: startY + rowIdx * (NODE_H + ROW_GAP),
         },
         data: { card },
         draggable: true,
       });
     });
-    x += NODE_WIDTH + COL_GAP;
   }
 
   return nodes;
 }
 
-// ─── Transformar edges de API a React Flow ────────────────────────────────────
+// ─── Edges ────────────────────────────────────────────────────────────────────
 
 function buildEdges(apiEdges: GraphEdge[], cards: GraphCard[]): Edge[] {
   const cardMap = new Map(cards.map((c) => [c.id, c]));
 
   return apiEdges.map((e) => {
     const blocking = cardMap.get(e.blockingCardId);
-    const blocked = cardMap.get(e.blockedCardId);
-    const isActive = blocking && !blocking.completed; // la dependencia sigue activa
+    const isActive = blocking && !blocking.completed;
 
     return {
       id: e.id,
@@ -207,25 +275,29 @@ function buildEdges(apiEdges: GraphEdge[], cards: GraphCard[]): Edge[] {
       animated: !!isActive,
       style: {
         stroke: isActive ? '#f59e0b' : '#22c55e',
-        strokeWidth: isActive ? 2 : 1.5,
-        strokeDasharray: isActive ? undefined : '5 3',
+        strokeWidth: isActive ? 2.5 : 1.5,
+        strokeDasharray: isActive ? undefined : '6 3',
+        opacity: 0.9,
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: isActive ? '#f59e0b' : '#22c55e',
-        width: 18,
-        height: 18,
+        width: 20,
+        height: 20,
       },
-      label: isActive ? 'bloquea' : 'completada',
+      label: isActive ? 'bloquea' : '✓',
       labelStyle: {
         fill: isActive ? '#f59e0b' : '#22c55e',
-        fontSize: 9,
+        fontSize: 10,
         fontFamily: 'monospace',
+        fontWeight: 600,
       },
       labelBgStyle: {
         fill: '#18181b',
-        fillOpacity: 0.85,
+        fillOpacity: 0.9,
       },
+      labelBgPadding: [4, 6] as [number, number],
+      labelBgBorderRadius: 3,
     };
   });
 }
@@ -284,36 +356,23 @@ export default function DependencyMapPage() {
   // Recalcular layout cuando llegan datos
   useEffect(() => {
     if (!graph) return;
-    const computedNodes = computeLayout(graph.cards);
+    const computedNodes = computeLayout(graph.cards, graph.edges);
     const computedEdges = buildEdges(graph.edges, graph.cards);
     setNodes(computedNodes);
     setEdges(computedEdges);
   }, [graph, setNodes, setEdges]);
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
+  // Stats
   const stats = useMemo(() => {
     if (!graph) return null;
-    const blockedCount = graph.cards.filter(
-      (c) => c.blockedByPendingCount > 0 && !c.completed
-    ).length;
-    const completedCount = graph.cards.filter((c) => c.completed).length;
-    const activeEdges = graph.edges.filter((e) => {
-      const blocking = graph.cards.find((c) => c.id === e.blockingCardId);
-      return blocking && !blocking.completed;
-    }).length;
-    return {
-      total: graph.cards.length,
-      blocked: blockedCount,
-      completed: completedCount,
-      activeEdges,
-    };
+    const blocked = graph.cards.filter((c) => c.blockedByPendingCount > 0 && !c.completed).length;
+    const completed = graph.cards.filter((c) => c.completed).length;
+    return { total: graph.cards.length, blocked, completed, deps: graph.edges.length };
   }, [graph]);
 
-  const handleBack = () => {
-    router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
-  };
+  const handleBack = () => router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
 
-  // ── Estado de carga ────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-zinc-950">
@@ -347,7 +406,6 @@ export default function DependencyMapPage() {
   if (!graph || graph.cards.length === 0) {
     return (
       <div className="flex flex-col h-screen bg-zinc-950">
-        {/* Header */}
         <header className="border-b border-zinc-800 px-6 py-4 flex items-center gap-4 bg-zinc-900">
           <button
             onClick={handleBack}
@@ -384,7 +442,7 @@ export default function DependencyMapPage() {
     );
   }
 
-  // ── Mapa con React Flow ────────────────────────────────────────────────────
+  // ── Mapa ───────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-zinc-950">
       {/* Header */}
@@ -406,7 +464,6 @@ export default function DependencyMapPage() {
           </div>
         </div>
 
-        {/* Stats + refresh */}
         <div className="flex items-center gap-6">
           {stats && (
             <div className="flex items-center gap-5 font-mono text-xs">
@@ -428,9 +485,9 @@ export default function DependencyMapPage() {
                   {stats.completed} completada{stats.completed !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-zinc-400">
+              <div className="flex items-center gap-1.5 text-zinc-500">
                 <span>
-                  {graph.edges.length} dependencia{graph.edges.length !== 1 ? 's' : ''}
+                  {stats.deps} dependencia{stats.deps !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>
@@ -446,38 +503,47 @@ export default function DependencyMapPage() {
       </header>
 
       {/* Leyenda */}
-      <div className="px-6 py-2.5 flex items-center gap-6 border-b border-zinc-800 bg-zinc-900/50 font-mono text-xs text-zinc-400 flex-shrink-0">
-        <span className="font-medium text-zinc-300">Leyenda:</span>
-        <div className="flex items-center gap-1.5">
-          <div className="w-8 h-0.5 bg-amber-400" style={{ backgroundImage: 'none' }} />
-          <span>Dependencia activa (anima)</span>
+      <div className="px-6 py-2 flex items-center gap-5 border-b border-zinc-800 bg-zinc-900/60 font-mono text-xs text-zinc-400 flex-shrink-0 overflow-x-auto">
+        <span className="font-medium text-zinc-300 flex-shrink-0">Leyenda:</span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <svg width="28" height="10" viewBox="0 0 28 10">
+            <line x1="0" y1="5" x2="28" y2="5" stroke="#f59e0b" strokeWidth="2.5" />
+            <polygon points="22,1 28,5 22,9" fill="#f59e0b" />
+          </svg>
+          <span>Dependencia activa</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div
-            className="w-8 h-0.5 bg-emerald-400"
-            style={{
-              backgroundSize: '8px 4px',
-              backgroundImage:
-                'repeating-linear-gradient(90deg, #22c55e 0, #22c55e 5px, transparent 5px, transparent 8px)',
-            }}
-          />
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <svg width="28" height="10" viewBox="0 0 28 10">
+            <line
+              x1="0"
+              y1="5"
+              x2="28"
+              y2="5"
+              stroke="#22c55e"
+              strokeWidth="1.5"
+              strokeDasharray="5 3"
+            />
+            <polygon points="22,1 28,5 22,9" fill="#22c55e" />
+          </svg>
           <span>Dependencia resuelta</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded border-2 border-amber-500/60 bg-amber-950/60" />
-          <span>Card bloqueada</span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="w-3 h-3 rounded border-2 border-amber-500/60 bg-amber-950/80" />
+          <span>Bloqueada</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded border-2 border-emerald-500/50 bg-emerald-950/60" />
-          <span>Card completada</span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="w-3 h-3 rounded border-2 border-emerald-500/50 bg-emerald-950/80" />
+          <span>Completada</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <div className="w-3 h-3 rounded border-2 border-zinc-600 bg-zinc-900" />
-          <span>Card pendiente</span>
+          <span>Pendiente</span>
         </div>
+        <span className="text-zinc-600 flex-shrink-0">·</span>
+        <span className="flex-shrink-0">Flujo: izquierda → derecha</span>
       </div>
 
-      {/* React Flow canvas */}
+      {/* Canvas */}
       <div className="flex-1">
         <ReactFlow
           nodes={nodes}
@@ -486,14 +552,13 @@ export default function DependencyMapPage() {
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.18, maxZoom: 1.2 }}
-          minZoom={0.2}
+          fitViewOptions={{ padding: 0.2, maxZoom: 1.1 }}
+          minZoom={0.15}
           maxZoom={2}
-          defaultEdgeOptions={{ type: 'smoothstep' }}
           proOptions={{ hideAttribution: true }}
           colorMode="dark"
         >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#3f3f46" />
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#3f3f46" />
           <Controls
             style={{ background: '#27272a', border: '1px solid #3f3f46', borderRadius: 4 }}
           />
@@ -502,20 +567,18 @@ export default function DependencyMapPage() {
               const card = (node.data as CardNodeData).card;
               if (card.completed) return '#22c55e';
               if (card.blockedByPendingCount > 0) return '#f59e0b';
-              return '#71717a';
+              return '#52525b';
             }}
             style={{ background: '#18181b', border: '1px solid #3f3f46' }}
-            maskColor="rgba(0,0,0,0.4)"
+            maskColor="rgba(0,0,0,0.45)"
           />
-
-          {/* Panel: instrucciones */}
           <Panel position="bottom-center">
-            <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/90 border border-zinc-700 text-xs text-zinc-400 font-mono backdrop-blur">
-              <span>Arrastra para mover nodos</span>
+            <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/90 border border-zinc-700 text-xs text-zinc-400 font-mono backdrop-blur rounded-md mb-2">
+              <span>Arrastra nodos para reorganizar</span>
               <span className="text-zinc-600">·</span>
-              <span>Rueda para zoom</span>
+              <span>Rueda del ratón para zoom</span>
               <span className="text-zinc-600">·</span>
-              <span>Ctrl + scroll para navegar</span>
+              <span>Clic y arrastra el fondo para navegar</span>
             </div>
           </Panel>
         </ReactFlow>
