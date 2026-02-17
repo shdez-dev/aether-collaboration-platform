@@ -6,6 +6,7 @@ import { CheckSquare, Square, Plus, Trash2, Pencil, X, Check } from 'lucide-reac
 import { useT } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useCardStore } from '@/stores/cardStore';
 import type { ChecklistItem } from '@aether/types';
 
 interface CardChecklistProps {
@@ -21,6 +22,7 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
   const { accessToken } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
+  const updateCard = useCardStore((state) => state.updateCard);
 
   const canEdit = userRole === 'ADMIN' || userRole === 'OWNER' || userRole === 'MEMBER';
   const canDelete = userRole === 'ADMIN' || userRole === 'OWNER';
@@ -65,6 +67,13 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
     const done = items.filter((i) => i.completed).length;
     onProgressChange?.(done, items.length);
   }, [items, onProgressChange]);
+
+  // Sincronizar checklistItems con el store para que la card kanban se actualice en tiempo real
+  useEffect(() => {
+    if (!isLoading) {
+      updateCard(cardId, { checklistItems: items });
+    }
+  }, [items, isLoading, cardId, updateCard]);
 
   // Foco al mostrar input
   useEffect(() => {
