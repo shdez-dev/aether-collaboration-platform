@@ -358,12 +358,17 @@ export function Card({ card }: CardProps) {
         </div>
       )}
 
-      {/* Dependency badges */}
-      {(isBlocked || blockingCount > 0) && (
-        <div className="py-1.5 border-b border-border/30 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-text-muted">
+      {/* Footer: comentarios · dependencias · labels · completado */}
+      <div className="pt-2 flex items-center justify-between gap-2 min-w-0">
+        {/* Izquierda: comentarios + dependencias */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-shrink-0">
+          {/* Comentarios */}
+          <div
+            className="flex items-center gap-1 text-text-muted"
+            title={`${commentCount} comentario${commentCount !== 1 ? 's' : ''}`}
+          >
             <svg
-              className="w-3 h-3 flex-shrink-0"
+              className="w-3.5 h-3.5 flex-shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -372,56 +377,66 @@ export function Card({ card }: CardProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
               />
             </svg>
-            <span>Dependencias</span>
+            <span className="text-xs font-medium">{commentCount}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            {isBlocked && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] border bg-warning/10 border-warning/40 text-warning font-mono">
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
-                {blockedByPendingCount} bloqueante{blockedByPendingCount !== 1 ? 's' : ''}
-              </span>
-            )}
-            {blockingCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] border border-border text-text-muted font-mono">
-                bloquea {blockingCount}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Comments + Labels + Completed Badge */}
-      <div className="pt-2 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-text-muted">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
-          <span className="text-xs font-medium">{commentCount}</span>
+          {/* Dependencias: solo iconos + números */}
+          {isBlocked && (
+            <div
+              className="flex items-center gap-1 text-warning"
+              title={`Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}`}
+            >
+              <svg
+                className="w-3 h-3 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+              <span className="text-xs font-medium">{blockedByPendingCount}</span>
+            </div>
+          )}
+          {!isBlocked && blockingCount > 0 && (
+            <div
+              className="flex items-center gap-1 text-text-muted"
+              title={`Bloquea a ${blockingCount} card${blockingCount !== 1 ? 's' : ''}`}
+            >
+              <svg
+                className="w-3 h-3 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                />
+              </svg>
+              <span className="text-xs font-medium">{blockingCount}</span>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* LABELS DOTS */}
+        {/* Derecha: labels + completado */}
+        <div className="flex items-center gap-2 min-w-0 justify-end flex-1">
+          {/* Labels: puntos de color */}
           {labels.length > 0 && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
               {visibleLabels.map((label: any) => (
                 <div
                   key={label.id}
-                  className="w-2 h-2 rounded-full"
+                  className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: label.color }}
                   title={label.name}
                 />
@@ -437,17 +452,20 @@ export function Card({ card }: CardProps) {
             </div>
           )}
 
-          {/* BADGE DE COMPLETADO */}
-          {card.completed && card.completedAt && (
-            <div className="flex items-center gap-1 text-xs text-success">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          {/* Badge completado */}
+          {card.completed && (
+            <div title="Completada">
+              <svg
+                className="w-3.5 h-3.5 text-success flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
                 <path
                   fillRule="evenodd"
                   d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                   clipRule="evenodd"
                 />
               </svg>
-              <span>Completada</span>
             </div>
           )}
         </div>
