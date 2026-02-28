@@ -26,19 +26,24 @@ model Event {
 
 // User
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  password  String
-  name      String
-  avatar    String?
-  bio       String?
-  position  String?  @db.VarChar(255)
-  timezone  String?  @default("UTC") @db.VarChar(100)
-  language  String?  @default("en") @db.VarChar(10)
-  phone     String?  @db.VarChar(50)
-  location  String?  @db.VarChar(255)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                       String    @id @default(uuid()) @db.Uuid
+  email                    String    @unique
+  password                 String
+  name                     String
+  avatar                   String?
+  bio                      String?
+  position                 String?   @db.VarChar(255)
+  timezone                 String?   @default("UTC") @db.VarChar(100)
+  language                 String?   @default("en") @db.VarChar(10)
+  phone                    String?   @db.VarChar(50)
+  location                 String?   @db.VarChar(255)
+  emailVerified            Boolean   @default(false) @map("email_verified")
+  emailVerificationToken   String?   @unique @map("email_verification_token") @db.VarChar(255)
+  emailVerificationExpires DateTime? @map("email_verification_expires")
+  passwordResetToken       String?   @unique @map("password_reset_token") @db.VarChar(255)
+  passwordResetExpires     DateTime? @map("password_reset_expires")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
 
   workspaces    WorkspaceMember[]
   createdBoards Board[]

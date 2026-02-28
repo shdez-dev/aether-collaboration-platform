@@ -399,12 +399,16 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
 
-      await client.query(
+      const result = await client.query(
         `UPDATE workspace_members 
          SET role = $1
          WHERE workspace_id = $2 AND user_id = $3`,
         [newRole, workspaceId, targetUserId]
       );
+
+      if (result.rowCount === 0) {
+        throw new Error('Member not found');
+      }
 
       await client.query('COMMIT'); //
 
@@ -434,11 +438,15 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
 
-      await client.query(
+      const result = await client.query(
         `DELETE FROM workspace_members 
          WHERE workspace_id = $1 AND user_id = $2`,
         [workspaceId, targetUserId]
       );
+
+      if (result.rowCount === 0) {
+        throw new Error('Member not found or already removed');
+      }
 
       await client.query('COMMIT');
 
@@ -449,6 +457,30 @@ export class WorkspaceService {
       };
 
       await eventStore.emit('workspace.member.removed', payload, removerId as any);
+
+      // Notificar al usuario eliminado
+      try {
+        const workspaceResult = await client.query('SELECT name FROM workspaces WHERE id = $1', [
+          workspaceId,
+        ]);
+        const workspaceName = workspaceResult.rows[0]?.name || 'Unknown workspace';
+
+        const removerResult = await client.query('SELECT name FROM users WHERE id = $1', [
+          removerId,
+        ]);
+        const removerName = removerResult.rows[0]?.name || 'Alguien';
+
+        const { notificationService } = await import('./NotificationService');
+        await notificationService.createWorkspaceRemovedNotification({
+          userId: targetUserId,
+          removerId,
+          removerName,
+          workspaceId,
+          workspaceName,
+        });
+      } catch (notifError) {
+        console.error('[WorkspaceService] Error creating removed notification:', notifError);
+      }
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

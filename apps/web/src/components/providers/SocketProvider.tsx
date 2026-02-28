@@ -2,43 +2,61 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { socketService } from '@/services/socketService';
 import { useAuthStore } from '@/stores/authStore';
 
+interface SocketContextValue {
+  /** true en cuanto el socket haya completado el handshake TCP */
+  isSocketConnected: boolean;
+}
+
+const SocketContext = createContext<SocketContextValue>({ isSocketConnected: false });
+
+/** Hook para consumir el estado de conexión del socket en cualquier componente hijo */
+export function useSocketContext() {
+  return useContext(SocketContext);
+}
+
 /**
- * Provider que gestiona la conexión global del WebSocket
- * Se encarga de conectar/desconectar automáticamente según el estado de autenticación
+ * Provider que gestiona la conexión global del WebSocket.
+ * Expone `isSocketConnected` por contexto para que los listeners
+ * (NotificationListener, RealtimeNotificationProvider, etc.) sepan
+ * exactamente cuándo el socket está listo, sin race conditions.
  */
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { accessToken, user } = useAuthStore();
   const hasConnectedRef = useRef(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   useEffect(() => {
-    // Si no hay token o usuario, desconectar
+    // Sin token o usuario: desconectar
     if (!accessToken || !user) {
       if (socketService.isConnected()) {
         socketService.disconnect();
         hasConnectedRef.current = false;
       }
+      setIsSocketConnected(false);
       return;
     }
+
+    // Callback que dispara cuando la conexión TCP se establece (o reconecta)
+    const onConnected = () => setIsSocketConnected(true);
+
+    // Suscribirse ANTES de llamar connect() para no perder el evento
+    socketService.onConnect(onConnected);
 
     // Si ya está conectado, no volver a conectar
-    if (hasConnectedRef.current && socketService.isConnected()) {
-      return;
+    if (!(hasConnectedRef.current && socketService.isConnected())) {
+      socketService.connect(accessToken);
+      hasConnectedRef.current = true;
     }
 
-    // Conectar al WebSocket
-    socketService.connect(accessToken);
-    hasConnectedRef.current = true;
-
-    // Cleanup al desmontar
     return () => {
-      // NO desconectar aquí porque puede ser un remount temporal
-      // La desconexión se maneja en el logout
+      socketService.offConnect(onConnected);
+      // No desconectar aquí: puede ser un remount temporal (Strict Mode, HMR)
     };
   }, [accessToken, user]);
 
-  return <>{children}</>;
+  return <SocketContext.Provider value={{ isSocketConnected }}>{children}</SocketContext.Provider>;
 }

@@ -4,14 +4,11 @@
 
 import { useEffect, useRef } from 'react';
 import { socketService } from '@/services/socketService';
+import { useSocketContext } from '@/components/providers/SocketProvider';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/authStore';
-import { useNotificationStore } from '@/stores/notificationStore';
 import { CheckCircle2, Trash2, Edit3, MoveRight, Plus, ListPlus } from 'lucide-react';
 
-/**
- * Estructura de eventos recibidos del WebSocket
- */
 interface RealtimeEvent {
   type: string;
   payload: Record<string, any>;
@@ -25,9 +22,6 @@ interface RealtimeEvent {
   };
 }
 
-/**
- * Configuración para cada tipo de notificación
- */
 interface NotificationConfig {
   message: string;
   description?: string;
@@ -36,92 +30,64 @@ interface NotificationConfig {
 }
 
 /**
- * Provider que gestiona toasts de notificaciones en tiempo real
- *
- * IMPORTANTE: Este provider SOLO muestra toasts.
- * Las notificaciones persistentes se manejan en useNotifications.ts
- *
- * Responsabilidades:
- * - Escuchar eventos del WebSocket
- * - Mostrar toasts temporales
- * - Filtrar eventos propios del usuario
+ * Provider que muestra toasts temporales para eventos del sistema en tiempo real.
+ * Solo toasts — las notificaciones persistentes las maneja NotificationListener.
  */
 export function RealtimeNotificationProvider() {
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const hasSetupRef = useRef(false);
+  const { isSocketConnected } = useSocketContext();
+  // Guardamos la referencia al handler activo para poder hacer off preciso
+  const handlerRef = useRef<((event: any) => void) | null>(null);
 
   useEffect(() => {
-    // Evitar configuración duplicada
-    if (hasSetupRef.current) return;
+    if (!isSocketConnected) return;
 
-    if (!socketService.isConnected()) {
-      return;
+    // Limpiar handler previo si existe (evita acumulación en re-renders)
+    if (handlerRef.current) {
+      socketService.off('event', handlerRef.current);
     }
 
-    hasSetupRef.current = true;
-
-    /**
-     * Handler para eventos del sistema
-     * Solo muestra toasts, NO maneja notificaciones persistentes
-     */
     const handleEvent = (event: any) => {
       const realtimeEvent = event as RealtimeEvent;
 
-      // Ignorar eventos generados por el usuario actual
-      if (realtimeEvent.meta?.userId === user?.id) {
-        return;
-      }
+      // No mostrar toast para eventos propios del usuario
+      if (realtimeEvent.meta?.userId === user?.id) return;
 
       const notification = mapEventToNotification(realtimeEvent);
+      if (!notification) return;
 
-      if (notification) {
-        const Icon = notification.icon;
-
-        // Mostrar toast temporal
-        toast({
-          description: (
-            <div className="flex items-center gap-2">
-              <Icon className="h-4 w-4" />
-              <div className="flex flex-col gap-1">
-                <span className="font-medium">{notification.message}</span>
-                {notification.description && (
-                  <span className="text-xs text-muted-foreground">{notification.description}</span>
-                )}
-              </div>
+      const Icon = notification.icon;
+      toast({
+        description: (
+          <div className="flex items-center gap-2">
+            <Icon className="h-4 w-4" />
+            <div className="flex flex-col gap-1">
+              <span className="font-medium">{notification.message}</span>
+              {notification.description && (
+                <span className="text-xs text-muted-foreground">{notification.description}</span>
+              )}
             </div>
-          ),
-          variant: notification.variant || 'default',
-          duration: 3000,
-        });
-
-      }
+          </div>
+        ),
+        variant: notification.variant || 'default',
+        duration: 3000,
+      });
     };
 
-    // Registrar listener solo para eventos del sistema
+    handlerRef.current = handleEvent;
     socketService.onEvent(handleEvent);
 
-    // Cleanup al desmontar
     return () => {
       socketService.off('event', handleEvent);
-      hasSetupRef.current = false;
+      handlerRef.current = null;
     };
-  }, [toast, user?.id]);
+  }, [isSocketConnected, toast, user?.id]);
 
   return null;
 }
 
-/**
- * Mapea eventos del sistema a configuraciones de toast
- *
- * NOTA: Solo eventos que merecen un toast visible, no todos los eventos.
- * Las notificaciones persistentes se manejan en el hook useNotifications.
- *
- * @param event - Evento recibido del WebSocket
- * @returns Configuración de toast o null si no debe mostrarse
- */
 function mapEventToNotification(event: RealtimeEvent): NotificationConfig | null {
-  // Extraer nombre del usuario que generó el evento
   const userName =
     event.payload?.assignedBy?.name ||
     event.payload?.unassignedBy?.name ||
@@ -132,54 +98,42 @@ function mapEventToNotification(event: RealtimeEvent): NotificationConfig | null
     'Alguien';
 
   switch (event.type) {
-    // EVENTOS DE CARDS - Solo los más relevantes
-    case 'card.member.assigned': {
-      const title = event.payload.title;
+    case 'card.member.assigned':
       return {
         message: `${userName} te asignó una card`,
-        description: title ? `"${title}"` : undefined,
+        description: event.payload.title ? `"${event.payload.title}"` : undefined,
         icon: Plus,
       };
-    }
 
-    case 'card.member.unassigned': {
-      const title = event.payload.title;
+    case 'card.member.unassigned':
       return {
         message: `${userName} te quitó de una card`,
-        description: title ? `"${title}"` : undefined,
+        description: event.payload.title ? `"${event.payload.title}"` : undefined,
         icon: Trash2,
       };
-    }
 
-    case 'card.completed': {
-      const title = event.payload.title;
+    case 'card.completed':
       return {
         message: `${userName} completó una card`,
-        description: title ? `"${title}"` : undefined,
+        description: event.payload.title ? `"${event.payload.title}"` : undefined,
         icon: CheckCircle2,
       };
-    }
 
-    // EVENTOS DE WORKSPACES - Muy importantes
-    case 'workspace.member.added': {
+    case 'workspace.member.invited':
       return {
         message: `${userName} te agregó a un workspace`,
         description: event.payload.workspace?.name,
         icon: Plus,
       };
-    }
 
-    case 'workspace.member.removed': {
+    case 'workspace.member.removed':
       return {
         message: `${userName} te quitó de un workspace`,
         description: event.payload.workspace?.name,
         icon: Trash2,
         variant: 'destructive',
       };
-    }
 
-    // No mostrar toast para otros eventos
-    // (pueden generar ruido innecesario)
     default:
       return null;
   }

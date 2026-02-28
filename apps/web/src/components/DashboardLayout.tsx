@@ -9,8 +9,56 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, isAuthenticated, isHydrated, getCurrentUser } = useAuthStore();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Mobile-first: sidebar cerrado por defecto en móvil, abierto en desktop
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  // Minimum swipe distance (in px) to trigger close
+  const minSwipeDistance = 50;
+
+  // Detectar si es móvil y ajustar sidebar inicial
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // En desktop, abrir sidebar por defecto solo la primera vez
+      if (!mobile && !isSidebarOpen) {
+        setIsSidebarOpen(true);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Swipe gesture handlers for mobile sidebar
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+
+    if (isLeftSwipe && isSidebarOpen && isMobile) {
+      setIsSidebarOpen(false);
+    }
+
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
 
   // Verificar autenticación
   useEffect(() => {
@@ -100,11 +148,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
+      {/* Sidebar Overlay (Mobile only) */}
+      {isSidebarOpen && isMobile && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-label="Cerrar menú"
+        />
+      )}
+
+      {/* Sidebar - Mobile: Fixed drawer, Desktop: Static sidebar */}
       <aside
-        className={`bg-surface border-r border-border transition-all duration-300 ${
-          isSidebarOpen ? 'w-64' : 'w-0'
-        } flex flex-col overflow-hidden`}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        className={`
+          bg-surface border-r border-border flex flex-col
+          transition-transform duration-300 ease-out
+          ${isMobile ? 'fixed top-0 left-0 h-full w-72 z-50' : 'relative'}
+          ${isMobile && !isSidebarOpen ? '-translate-x-full' : 'translate-x-0'}
+          ${!isMobile && !isSidebarOpen ? 'w-0' : isMobile ? 'w-72' : 'w-64'}
+          overflow-hidden
+        `}
       >
         {isSidebarOpen && (
           <>
@@ -171,45 +236,115 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Bar */}
-        <header className="bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        {/* Top Bar - Mobile optimized */}
+        <header className="bg-surface border-b border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+            {/* Hamburger Menu Button - Mobile friendly */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="text-text-secondary hover:text-text-primary transition-colors"
-              aria-label="Alternar barra lateral"
+              className="p-2 -ml-2 text-text-secondary hover:text-text-primary hover:bg-surface/50 rounded-lg transition-all active:scale-95"
+              aria-label="Alternar menú"
             >
-              <span className="text-xl">{isSidebarOpen ? '◀' : '▶'}</span>
+              {isSidebarOpen && !isMobile ? (
+                <span className="text-xl">◀</span>
+              ) : (
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
             </button>
-            <div>
-              <h2 className="text-lg text-text-primary font-normal">
+
+            {/* Page Title - Responsive */}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base md:text-lg text-text-primary font-normal truncate">
                 {navigation.find((item) => item.active)?.name || 'Panel'}
               </h2>
-              <p className="text-xs text-text-muted">~/ {pathname}</p>
+              <p className="text-xs text-text-muted truncate hidden sm:block">~/ {pathname}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Search */}
-            <div className="relative">
+          <div className="flex items-center gap-2 md:gap-4">
+            {/* Search - Hidden on mobile, shown on tablet+ */}
+            <div className="relative hidden md:block">
               <input
                 type="search"
                 placeholder="Buscar..."
-                className="input-terminal w-64 text-sm"
+                className="input-terminal w-48 lg:w-64 text-sm"
               />
             </div>
 
-            {/* Status indicator */}
-            <div className="flex items-center gap-2">
+            {/* Status indicator - Hidden on mobile */}
+            <div className="hidden sm:flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
               <span className="text-xs text-text-muted">CONECTADO</span>
             </div>
+
+            {/* User Avatar - Mobile: Just avatar, Desktop: with name */}
+            <Link
+              href="/dashboard/settings"
+              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-surface/50 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                <span className="text-accent font-bold text-sm">
+                  {user?.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <span className="text-sm text-text-primary hidden lg:block">{user?.name}</span>
+            </Link>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+        {/* Page Content - Add bottom padding for mobile bottom nav */}
+        <main className="flex-1 p-4 md:p-6 overflow-auto pb-20 md:pb-6">{children}</main>
       </div>
+
+      {/* Bottom Navigation - Mobile Only */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border md:hidden z-30 safe-area-bottom">
+        <div className="flex items-center justify-around h-16">
+          {/* Main navigation items for mobile */}
+          {navigation.slice(0, 4).map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${
+                item.active
+                  ? 'text-accent bg-accent/5'
+                  : 'text-text-muted hover:text-text-primary active:bg-surface/50'
+              }`}
+            >
+              <span className="text-xl">{item.icon}</span>
+              <span className="text-[10px] font-medium">{item.name}</span>
+            </Link>
+          ))}
+
+          {/* More menu button */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="flex flex-col items-center justify-center flex-1 h-full gap-1 text-text-muted hover:text-text-primary active:bg-surface/50 transition-colors"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <span className="text-[10px] font-medium">Más</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

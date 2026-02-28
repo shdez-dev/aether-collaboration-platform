@@ -11,6 +11,7 @@ import type {
   DocumentComment,
   DocumentPermission,
 } from '@aether/types';
+import { documentTemplateService, type TemplateCategory } from './DocumentTemplateService';
 
 export class DocumentService {
   /**
@@ -115,6 +116,10 @@ export class DocumentService {
       title: string;
       templateId?: string;
       content?: any;
+      metadata?: {
+        projectType?: string;
+        [key: string]: any;
+      };
     }
   ): Promise<Document> {
     const client = await pool.connect();
@@ -131,15 +136,40 @@ export class DocumentService {
 
       const document = this.formatDocument(result.rows[0]);
 
-      // ✅ Inicializar yjs_state con documento Yjs vacío válido
-      const emptyYDoc = new Y.Doc();
-      const emptyState = Y.encodeStateAsUpdate(emptyYDoc);
+      // Inicializar yjs_state con template o vacío
+      let initialState: Uint8Array;
+
+      if (data.templateId) {
+        try {
+          console.log(`[DocumentService] Creating document with template: ${data.templateId}`);
+          if (data.metadata) {
+            console.log(`[DocumentService] Template metadata:`, data.metadata);
+          }
+          initialState = documentTemplateService.createYjsStateFromTemplate(
+            data.templateId as TemplateCategory,
+            data.metadata
+          );
+          console.log(
+            `[DocumentService] Template loaded successfully, state size: ${initialState.length}`
+          );
+        } catch (error) {
+          console.error('[DocumentService] Error loading template, using empty document:', error);
+          // Fallback a documento vacío si hay error con el template
+          const emptyYDoc = new Y.Doc();
+          initialState = Y.encodeStateAsUpdate(emptyYDoc);
+          emptyYDoc.destroy();
+        }
+      } else {
+        // Documento vacío si no hay template
+        const emptyYDoc = new Y.Doc();
+        initialState = Y.encodeStateAsUpdate(emptyYDoc);
+        emptyYDoc.destroy();
+      }
+
       await client.query(`UPDATE documents SET yjs_state = $1 WHERE id = $2`, [
-        Buffer.from(emptyState),
+        Buffer.from(initialState),
         document.id,
       ]);
-      emptyYDoc.destroy();
-
 
       // Dar permiso EDIT al creador automáticamente
       await client.query(
@@ -431,17 +461,63 @@ export class DocumentService {
    * ✅ TAMBIÉN EXTRAE Y GUARDA TEXTO PLANO
    */
   async updateYjsState(documentId: string, yjsState: Uint8Array): Promise<void> {
-    // Extraer texto plano del estado Yjs
-    const plainText = this.extractTextFromYjs(yjsState);
+    const client = await pool.connect();
 
-    // Guardar tanto yjs_state como content (texto plano)
-    await pool.query(
-      `UPDATE documents 
-       SET yjs_state = $1, content = $2, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $3`,
-      [Buffer.from(yjsState), plainText, documentId]
-    );
+    try {
+      await client.query('BEGIN');
 
+      // Obtener el estado actual de la base de datos
+      const result = await client.query(
+        'SELECT yjs_state FROM documents WHERE id = $1 FOR UPDATE',
+        [documentId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('Document not found');
+      }
+
+      const existingState = result.rows[0].yjs_state;
+      let finalState: Uint8Array;
+
+      if (existingState && existingState.length > 0) {
+        // MERGE: Aplicar el nuevo estado sobre el existente
+        // Esto garantiza que no se pierdan cambios de otros documentos
+        const tempDoc = new Y.Doc();
+
+        // Aplicar estado existente de DB
+        Y.applyUpdate(tempDoc, new Uint8Array(existingState));
+
+        // Aplicar nuevo estado (merge automático por YJS)
+        Y.applyUpdate(tempDoc, yjsState);
+
+        // Obtener estado merged completo
+        finalState = Y.encodeStateAsUpdate(tempDoc);
+
+        // Limpiar documento temporal
+        tempDoc.destroy();
+      } else {
+        // Si no hay estado previo, usar el nuevo directamente
+        finalState = yjsState;
+      }
+
+      // Extraer texto plano del estado final merged
+      const plainText = this.extractTextFromYjs(finalState);
+
+      // Guardar estado merged
+      await client.query(
+        `UPDATE documents 
+         SET yjs_state = $1, content = $2, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $3`,
+        [Buffer.from(finalState), plainText, documentId]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**
@@ -569,6 +645,26 @@ export class DocumentService {
       };
 
       await eventStore.emit('document.version.restored', payload, userId as any);
+
+      // CRÍTICO: Forzar recarga del documento en memoria si hay usuarios conectados
+      // Esto evita que se pierdan datos cuando se restaura una versión
+      const yjsGateway = (global as any).yjsGateway;
+      if (yjsGateway) {
+        const doc = yjsGateway.getDocument(documentId);
+        if (doc) {
+          // Hay usuarios conectados, actualizar su documento en memoria
+          doc.destroy();
+          const newDoc = new Y.Doc();
+          Y.applyUpdate(newDoc, yjsState);
+          (yjsGateway as any).docs.set(documentId, newDoc);
+
+          // Notificar a todos los usuarios que deben recargar
+          yjsGateway.broadcastToDocument(documentId, 'document:force-reload', {
+            documentId,
+            reason: 'Version restored',
+          });
+        }
+      }
 
       return document;
     } catch (error) {
@@ -719,8 +815,7 @@ export class DocumentService {
           permission: effectivePermission,
           updatedBy,
         });
-      } catch (wsError) {
-      }
+      } catch (wsError) {}
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

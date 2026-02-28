@@ -34,7 +34,7 @@ export class RealtimeGateway {
   constructor(httpServer: HTTPServer) {
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        origin: process.env.FRONTEND_URL || 'http://localhost:3001',
         credentials: true,
       },
       transports: ['websocket', 'polling'],
@@ -142,7 +142,6 @@ export class RealtimeGateway {
             boardId,
             users: activeUsers,
           });
-
         } catch (error) {
           socket.emit('error', { message: 'Failed to join board' });
         }
@@ -167,9 +166,7 @@ export class RealtimeGateway {
             boardId,
             users: activeUsers,
           });
-
-        } catch (error) {
-        }
+        } catch (error) {}
       });
 
       // ========================================================================
@@ -190,8 +187,7 @@ export class RealtimeGateway {
               userName: authSocket.userName,
             });
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       });
 
       socket.on('typing:stop', async (data: TypingStopCommand) => {
@@ -207,8 +203,7 @@ export class RealtimeGateway {
               userId: authSocket.userId,
             });
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       });
 
       // ========================================================================
@@ -216,7 +211,6 @@ export class RealtimeGateway {
       // ========================================================================
       socket.on('disconnect', async () => {
         try {
-
           // Limpiar presencia del usuario en todos los boards
           await this.presenceService.cleanupUser(authSocket.userId);
 
@@ -232,8 +226,7 @@ export class RealtimeGateway {
               });
             }
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       });
 
       // ========================================================================
@@ -291,8 +284,7 @@ export class RealtimeGateway {
       if (boardId) {
         this.broadcastToBoardExcept(boardId, event, excludeSocketId);
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   /**

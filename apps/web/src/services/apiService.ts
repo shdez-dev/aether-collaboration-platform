@@ -64,7 +64,6 @@ async function refreshAccessToken(refreshToken: string): Promise<RefreshResponse
 
     return data.data;
   } catch (error) {
-    console.error('[API] Error refreshing token:', error);
     return null;
   }
 }

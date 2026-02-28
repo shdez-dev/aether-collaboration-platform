@@ -1,12 +1,14 @@
 // apps/web/src/app/dashboard/workspaces/[id]/boards/[boardId]/page.tsx
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useRealtimeBoard } from '@/hooks/useRealTimeBoard';
 import { useRealtimeToast } from '@/hooks/useRealtimeToast';
 import BoardList from '@/components/BoardList';
@@ -31,8 +33,38 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
-import { ArrowLeft, LayoutGrid, FileText, Users, AlertTriangle, GitBranch } from 'lucide-react';
+import {
+  ArrowLeft,
+  LayoutGrid,
+  FileText,
+  Users,
+  GitBranch,
+  Table2,
+  CalendarDays,
+  GanttChart,
+  Kanban,
+} from 'lucide-react';
 import { useT } from '@/lib/i18n';
+import type { BoardView } from '@aether/types';
+import { BoardTableView } from '@/components/BoardTableView';
+import { BoardCalendarView } from '@/components/BoardCalendarView';
+
+// Dynamic import para BoardTimelineView para evitar problemas con dependencias de Node.js
+const BoardTimelineView = dynamic(
+  () =>
+    import('@/components/BoardTimelineView').then((mod) => ({ default: mod.BoardTimelineView })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-text-secondary">Loading Timeline View...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 export default function BoardPage() {
   const t = useT();
@@ -71,10 +103,25 @@ export default function BoardPage() {
   const { reorderList } = useBoardStore();
   const { cards, setCards, moveCard, setCurrentWorkspaceId, clearAllCards } = useCardStore();
   const { accessToken } = useAuthStore();
+  const { preferences, loadPreferences, updatePreferences } = usePreferencesStore();
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'list' | 'card' | null>(null);
   const [filters, setFilters] = useState<BoardFilterState>(EMPTY_FILTERS);
+  const [currentView, setCurrentView] = useState<BoardView>('kanban');
+  const [viewInitialized, setViewInitialized] = useState(false);
+
+  // Función para cambiar la vista y guardarla en preferencias
+  const handleViewChange = async (view: BoardView) => {
+    setCurrentView(view);
+
+    // Guardar la nueva vista como preferencia predeterminada
+    try {
+      await updatePreferences({ defaultBoardView: view });
+    } catch (error) {
+      // Error saving preference
+    }
+  };
 
   // ── Derivar members y labels únicos de todas las cards ────────────────────
   const allCards = useMemo(() => Object.values(cards).flat() as Card[], [cards]);
@@ -187,13 +234,29 @@ export default function BoardPage() {
     [filteredCardsByList, totalCards]
   );
 
+  // Mobile-optimized drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 15, // Increased from 8px for better touch accuracy
+        delay: 150, // Add delay to distinguish between scroll and drag on mobile
+        tolerance: 5, // Allow small movements without canceling
       },
     })
   );
+
+  // Cargar preferencias del usuario al montar el componente
+  useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
+
+  // Aplicar defaultBoardView de las preferencias al inicializar
+  useEffect(() => {
+    if (preferences && !viewInitialized) {
+      setCurrentView(preferences.defaultBoardView);
+      setViewInitialized(true);
+    }
+  }, [preferences, viewInitialized]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -503,16 +566,32 @@ export default function BoardPage() {
             </div>
           </div>
 
-          {/* Connection Status */}
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-success' : 'bg-error'
-              } animate-pulse`}
-            />
-            <span className="text-xs text-text-muted">
-              {isConnected ? t.status_connected : t.status_disconnected}
-            </span>
+          <div className="flex items-center gap-3">
+            {/* View Toggle */}
+            <div className="flex items-center border border-border bg-surface">
+              {(
+                [
+                  { view: 'kanban', icon: Kanban, label: t.view_kanban },
+                  { view: 'table', icon: Table2, label: t.view_table },
+                  { view: 'calendar', icon: CalendarDays, label: t.view_calendar },
+                  { view: 'timeline', icon: GanttChart, label: t.view_timeline },
+                ] as const
+              ).map(({ view, icon: Icon, label }) => (
+                <button
+                  key={view}
+                  onClick={() => handleViewChange(view)}
+                  title={label}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono transition-colors ${
+                    currentView === view
+                      ? 'bg-accent text-white'
+                      : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -530,59 +609,87 @@ export default function BoardPage() {
       </header>
 
       {/* Board Content */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="h-full p-6">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-            modifiers={[restrictToWindowEdges]}
-          >
-            <div className="flex gap-6 min-w-min h-full">
-              <SortableContext
-                items={lists.map((list: List) => list.id)}
-                strategy={horizontalListSortingStrategy}
-              >
-                {lists
-                  .sort((a: List, b: List) => a.position - b.position)
-                  .map((list: List) => (
-                    <BoardList
-                      key={list.id}
-                      list={list}
-                      filteredCards={
-                        filteredCardsByList ? (filteredCardsByList[list.id] ?? []) : undefined
-                      }
-                    />
-                  ))}
-              </SortableContext>
+      {currentView === 'table' ? (
+        <div className="flex-1 overflow-auto">
+          <BoardTableView
+            lists={lists}
+            filteredCards={filteredCardsByList}
+            onCardClick={(card) => useCardStore.getState().setSelectedCard(card)}
+          />
+        </div>
+      ) : currentView === 'calendar' ? (
+        <div className="flex-1 overflow-auto">
+          <BoardCalendarView
+            lists={lists}
+            filteredCards={filteredCardsByList}
+            onCardClick={(card) => useCardStore.getState().setSelectedCard(card)}
+          />
+        </div>
+      ) : currentView === 'timeline' ? (
+        <div className="flex-1 overflow-auto">
+          <BoardTimelineView
+            boardId={boardId}
+            lists={lists}
+            filteredCards={filteredCardsByList}
+            onCardClick={(card) => useCardStore.getState().setSelectedCard(card)}
+          />
+        </div>
+      ) : (
+        /* Kanban (default) */
+        <div className="flex-1 overflow-x-auto overflow-y-hidden">
+          <div className="h-full p-6">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+              modifiers={[restrictToWindowEdges]}
+            >
+              <div className="flex gap-6 min-w-min h-full">
+                <SortableContext
+                  items={lists.map((list: List) => list.id)}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {lists
+                    .sort((a: List, b: List) => a.position - b.position)
+                    .map((list: List) => (
+                      <BoardList
+                        key={list.id}
+                        list={list}
+                        filteredCards={
+                          filteredCardsByList ? (filteredCardsByList[list.id] ?? []) : undefined
+                        }
+                      />
+                    ))}
+                </SortableContext>
 
-              {/* Add List Button - Solo OWNER y ADMIN */}
-              {canEditBoard && <AddListButton boardId={boardId} />}
-            </div>
+                {/* Add List Button - Solo OWNER y ADMIN */}
+                {canEditBoard && <AddListButton boardId={boardId} />}
+              </div>
 
-            <DragOverlay>
-              {activeList ? (
-                <div className="w-80 opacity-60 rotate-2">
-                  <div className="bg-card border border-border p-4">
-                    <div className="text-center text-text-primary">
-                      {t.board_drag_moving_list(activeList.name)}
+              <DragOverlay>
+                {activeList ? (
+                  <div className="w-80 opacity-60 rotate-2">
+                    <div className="bg-card border border-border p-4">
+                      <div className="text-center text-text-primary">
+                        {t.board_drag_moving_list(activeList.name)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : activeCard ? (
-                <div className="w-80 opacity-80 rotate-3">
-                  <div className="bg-card border-2 border-accent p-3 shadow-xl">
-                    <div className="text-sm text-text-primary">{activeCard.title}</div>
-                    <div className="text-xs text-text-muted mt-1">{t.board_drag_moving_card}</div>
+                ) : activeCard ? (
+                  <div className="w-80 opacity-80 rotate-3">
+                    <div className="bg-card border-2 border-accent p-3 shadow-xl">
+                      <div className="text-sm text-text-primary">{activeCard.title}</div>
+                      <div className="text-xs text-text-muted mt-1">{t.board_drag_moving_card}</div>
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
         </div>
-      </div>
+      )}
 
       <CardDetailModal />
     </div>

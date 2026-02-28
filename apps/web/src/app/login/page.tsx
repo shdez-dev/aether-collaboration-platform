@@ -69,6 +69,7 @@ export default function LoginPage() {
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -82,11 +83,20 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm text-text-secondary mb-2">
-                PASSWORD:
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="password" className="block text-sm text-text-secondary">
+                  PASSWORD:
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-primary hover:text-primary-hover transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
               <input
                 id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -124,12 +134,6 @@ export default function LoginPage() {
               {t.login_no_account}{' '}
               <Link href="/register" className="link-terminal">
                 {t.login_link_create}
-              </Link>
-            </p>
-            <p className="text-text-muted text-xs">
-              {t.login_forgot_password}{' '}
-              <Link href="/forgot-password" className="link-terminal">
-                {t.login_link_recover}
               </Link>
             </p>
           </div>

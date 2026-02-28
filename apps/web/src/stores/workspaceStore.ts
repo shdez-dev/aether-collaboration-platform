@@ -571,11 +571,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           );
           if (response.success && response.data) {
             set({ currentStats: response.data.stats });
-          } else {
-            console.warn('[fetchStats] Failed:', response.error?.message);
           }
         } catch (err) {
-          console.warn('[fetchStats] Exception:', err);
+          // Error fetching stats
         }
       },
 

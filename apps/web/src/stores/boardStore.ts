@@ -87,7 +87,6 @@ export const useBoardStore = create<BoardState>()(
         const { accessToken } = useAuthStore.getState();
 
         if (!accessToken) {
-          console.warn('[BoardStore] No access token available for WebSocket');
           return;
         }
 

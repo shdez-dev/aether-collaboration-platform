@@ -135,6 +135,10 @@ export class ListService {
         [data.name, listId]
       );
 
+      if (result.rows.length === 0) {
+        throw new Error('List not found');
+      }
+
       const list = result.rows[0];
 
       await client.query('COMMIT');

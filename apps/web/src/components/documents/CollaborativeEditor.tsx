@@ -1,7 +1,7 @@
 // apps/web/src/components/documents/CollaborativeEditor.tsx
 'use client';
 
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, BubbleMenu, Extension } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
@@ -10,18 +10,30 @@ import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import Highlight from '@tiptap/extension-highlight';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
+import { common, createLowlight } from 'lowlight';
 import * as Y from 'yjs';
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { socketService } from '@/services/socketService';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useDocumentAutoSave } from '@/hooks/useDocumentAutoSave';
-import { Awareness } from 'y-protocols/awareness';
+import {
+  Awareness,
+  encodeAwarenessUpdate as awarenessEncodeUpdate,
+  applyAwarenessUpdate as awarenessApplyUpdate,
+} from 'y-protocols/awareness';
 import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
   Strikethrough,
   Code,
+  Code2,
   List,
   ListOrdered,
   ListChecks,
@@ -35,41 +47,610 @@ import {
   Save,
   Check,
   Eye,
+  Highlighter,
+  Table as TableIcon,
+  Link as LinkIcon,
+  IndentIncrease,
+  IndentDecrease,
+  ChevronDown,
+  Plus,
+  Trash2,
+  MessageSquare,
 } from 'lucide-react';
+import { CommentMarkExtension } from './CommentMarkExtension';
+import { DocumentCommentsSidebar, CommentGutterIndicators } from './DocumentCommentsSidebar';
+import {
+  useDocumentCommentStore,
+  selectSidebarOpen,
+  selectDocumentComments,
+  selectActiveCommentId,
+} from '@/stores/documentCommentStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useT } from '@/lib/i18n';
+
+const lowlight = createLowlight(common);
+
+// ── Highlight colour palette ──────────────────────────────────────────────────
+const HIGHLIGHT_COLORS = [
+  { label: 'Amarillo', value: '#fef08a' },
+  { label: 'Verde', value: '#bbf7d0' },
+  { label: 'Azul', value: '#bfdbfe' },
+  { label: 'Rosa', value: '#fbcfe8' },
+  { label: 'Naranja', value: '#fed7aa' },
+  { label: 'Violeta', value: '#e9d5ff' },
+  { label: 'Rojo', value: '#fecaca' },
+  { label: 'Cyan', value: '#a5f3fc' },
+];
+
+// ── Custom Indent extension ───────────────────────────────────────────────────
+// Handles indent/outdent on non-list paragraphs/headings via Tab / Shift+Tab
+const IndentExtension = Extension.create({
+  name: 'indent',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph', 'heading'],
+        attributes: {
+          indent: {
+            default: 0,
+            parseHTML: (el) => parseInt(el.getAttribute('data-indent') ?? '0', 10),
+            renderHTML: (attrs) => {
+              if (!attrs.indent) return {};
+              return {
+                'data-indent': attrs.indent,
+                style: `padding-left: ${attrs.indent * 2}rem`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addKeyboardShortcuts() {
+    const indent = () => {
+      const { state, dispatch } = this.editor.view;
+      const { selection } = state;
+      const node = state.doc.nodeAt(selection.from);
+      const type = state.doc.resolve(selection.from).parent.type.name;
+      if (type !== 'paragraph' && type !== 'heading') return false;
+      const parentNode = state.doc.resolve(selection.from).parent;
+      const current = (parentNode.attrs.indent as number) ?? 0;
+      if (current >= 8) return false;
+      this.editor
+        .chain()
+        .updateAttributes(type, { indent: current + 1 })
+        .run();
+      return true;
+    };
+    const outdent = () => {
+      const { state } = this.editor.view;
+      const { selection } = state;
+      const type = state.doc.resolve(selection.from).parent.type.name;
+      if (type !== 'paragraph' && type !== 'heading') return false;
+      const parentNode = state.doc.resolve(selection.from).parent;
+      const current = (parentNode.attrs.indent as number) ?? 0;
+      if (current <= 0) return false;
+      this.editor
+        .chain()
+        .updateAttributes(type, { indent: current - 1 })
+        .run();
+      return true;
+    };
+    return { Tab: indent, 'Shift-Tab': outdent };
+  },
+});
+
+// ── TableCell with colwidth attribute ────────────────────────────────────────
+// colwidth is stored as a percentage (0–100) so the table stays proportional
+// and never escapes its container regardless of viewport width.
+const ResizableTableCell = TableCell.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      colwidth: {
+        default: null,
+        parseHTML: (el) => {
+          const w = el.getAttribute('data-colwidth');
+          return w ? parseFloat(w) : null;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.colwidth) return {};
+          return {
+            'data-colwidth': attrs.colwidth,
+            style: `width: ${attrs.colwidth}%; min-width: ${MIN_COL_WIDTH}px`,
+          };
+        },
+      },
+    };
+  },
+});
+
+const ResizableTableHeader = TableHeader.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      colwidth: {
+        default: null,
+        parseHTML: (el) => {
+          const w = el.getAttribute('data-colwidth');
+          return w ? parseFloat(w) : null;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.colwidth) return {};
+          return {
+            'data-colwidth': attrs.colwidth,
+            style: `width: ${attrs.colwidth}%; min-width: ${MIN_COL_WIDTH}px`,
+          };
+        },
+      },
+    };
+  },
+});
+
+// ── TableRow with rowHeight attribute ─────────────────────────────────────────
+const ResizableTableRow = TableRow.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      rowHeight: {
+        default: null,
+        parseHTML: (el) => {
+          const h = el.getAttribute('data-rowheight');
+          return h ? parseInt(h, 10) : null;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.rowHeight) return {};
+          return {
+            'data-rowheight': attrs.rowHeight,
+            style: `height: ${attrs.rowHeight}px`,
+          };
+        },
+      },
+    };
+  },
+});
+
+// ── Table resize overlay ──────────────────────────────────────────────────────
+// Renders drag handles on every column border (left+right outer, all inner)
+// and on every row's bottom border. Purely visual overlay — no ProseMirror
+// node views needed.
+const MIN_COL_WIDTH = 40;
+const MIN_ROW_HEIGHT = 28;
+
+function TableResizeOverlay({
+  editor,
+  containerRef,
+  scrollRef,
+  canEdit,
+}: {
+  editor: any;
+  containerRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement>;
+  canEdit: boolean;
+}) {
+  // colHandles: x positions of each column border (left outer + all inner + right outer)
+  const [colHandles, setColHandles] = useState<
+    { x: number; top: number; height: number; colIndex: number }[]
+  >([]);
+  // rowHandles: y positions of each row's bottom border
+  const [rowHandles, setRowHandles] = useState<
+    { y: number; left: number; width: number; rowIndex: number }[]
+  >([]);
+  const [activeTable, setActiveTable] = useState<Element | null>(null);
+
+  // Re-scan the DOM for column/row handles whenever content changes or mouse enters table
+  const scan = useCallback(
+    (table: Element) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const cr = container.getBoundingClientRect();
+      const scrollTop = scrollRef.current?.scrollTop ?? 0;
+
+      // ── Column handles ────────────────────────────────────────────────────
+      const firstRow = table.querySelector('tr');
+      if (!firstRow) return;
+      const cells = Array.from(firstRow.querySelectorAll('th, td'));
+      if (cells.length === 0) return;
+
+      const tableRect = table.getBoundingClientRect();
+      const relTop = tableRect.top - cr.top + scrollTop;
+      const relHeight = tableRect.height;
+
+      const newColHandles: typeof colHandles = [];
+      cells.forEach((cell, i) => {
+        const cellRect = cell.getBoundingClientRect();
+        // Left edge of first cell = left outer border
+        if (i === 0) {
+          newColHandles.push({
+            x: cellRect.left - cr.left,
+            top: relTop,
+            height: relHeight,
+            colIndex: -1, // left outer — resize first col
+          });
+        }
+        // Right edge of every cell = inner border (or right outer for last)
+        newColHandles.push({
+          x: cellRect.right - cr.left,
+          top: relTop,
+          height: relHeight,
+          colIndex: i,
+        });
+      });
+      setColHandles(newColHandles);
+
+      // ── Row handles ───────────────────────────────────────────────────────
+      const rows = Array.from(table.querySelectorAll('tr'));
+      const newRowHandles: typeof rowHandles = [];
+      rows.forEach((row, i) => {
+        const rowRect = row.getBoundingClientRect();
+        newRowHandles.push({
+          y: rowRect.bottom - cr.top + scrollTop,
+          left: tableRect.left - cr.left,
+          width: tableRect.width,
+          rowIndex: i,
+        });
+      });
+      setRowHandles(newRowHandles);
+    },
+    [containerRef, scrollRef]
+  );
+
+  // Listen for mousemove inside the editor to detect when to show handles
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !canEdit) return;
+    const onMove = (e: MouseEvent) => {
+      const table = (e.target as Element).closest?.('table');
+      if (table) {
+        setActiveTable(table);
+        scan(table);
+      }
+    };
+    container.addEventListener('mousemove', onMove);
+    return () => container.removeEventListener('mousemove', onMove);
+  }, [containerRef, canEdit, scan]);
+
+  // Re-scan when editor content updates (column/row added)
+  useEffect(() => {
+    if (!editor || !canEdit) return;
+    const onUpdate = () => {
+      if (activeTable) {
+        // Table element may have been replaced; re-query
+        const container = containerRef.current;
+        if (!container) return;
+        const tables = container.querySelectorAll('table');
+        // Find table still in DOM
+        let found: Element | null = null;
+        tables.forEach((t) => {
+          if (t === activeTable || t.contains(activeTable as Node)) found = t;
+        });
+        if (!found && tables.length > 0) found = tables[tables.length - 1];
+        if (found) {
+          setActiveTable(found);
+          scan(found);
+        } else {
+          setColHandles([]);
+          setRowHandles([]);
+          setActiveTable(null);
+        }
+      }
+    };
+    editor.on('update', onUpdate);
+    return () => editor.off('update', onUpdate);
+  }, [editor, canEdit, activeTable, containerRef, scan]);
+
+  if (!canEdit || (colHandles.length === 0 && rowHandles.length === 0)) return null;
+
+  return (
+    <>
+      {colHandles.map((h, idx) => (
+        <ColResizeHandle
+          key={`col-${idx}`}
+          handle={h}
+          editor={editor}
+          activeTable={activeTable}
+          containerRef={containerRef}
+          scrollRef={scrollRef}
+          onResizeDone={() => activeTable && scan(activeTable)}
+        />
+      ))}
+      {rowHandles.map((h, idx) => (
+        <RowResizeHandle
+          key={`row-${idx}`}
+          handle={h}
+          editor={editor}
+          activeTable={activeTable}
+          containerRef={containerRef}
+          scrollRef={scrollRef}
+          onResizeDone={() => activeTable && scan(activeTable)}
+        />
+      ))}
+    </>
+  );
+}
+
+// ── Column resize handle ──────────────────────────────────────────────────────
+function ColResizeHandle({
+  handle,
+  editor,
+  activeTable,
+  containerRef,
+  scrollRef,
+  onResizeDone,
+}: {
+  handle: { x: number; top: number; height: number; colIndex: number };
+  editor: any;
+  activeTable: Element | null;
+  containerRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement>;
+  onResizeDone: () => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef(0);
+  // Widths in percentage at drag start
+  const startPcts = useRef<number[]>([]);
+  // Total pixel width of the table at drag start (used to convert px delta → %)
+  const tablePixelWidth = useRef(0);
+
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!activeTable) return;
+
+      const firstRow = activeTable.querySelector('tr');
+      if (!firstRow) return;
+      const cells = Array.from(firstRow.querySelectorAll('th, td'));
+      const tableRect = activeTable.getBoundingClientRect();
+      tablePixelWidth.current = tableRect.width;
+
+      startX.current = e.clientX;
+      // Capture current widths as percentages of the table
+      startPcts.current = cells.map(
+        (c) => ((c as HTMLElement).getBoundingClientRect().width / tablePixelWidth.current) * 100
+      );
+      setDragging(true);
+
+      const onMove = (ev: MouseEvent) => {
+        if (!activeTable || tablePixelWidth.current === 0) return;
+        const deltaPx = ev.clientX - startX.current;
+        const deltaPct = (deltaPx / tablePixelWidth.current) * 100;
+        const colIndex = handle.colIndex;
+        const numCols = startPcts.current.length;
+
+        // Minimum column width as a percentage
+        const minPct = (MIN_COL_WIDTH / tablePixelWidth.current) * 100;
+
+        if (colIndex === -1) {
+          // Left outer border → resize first column and compensate with second
+          const leftNeighbor = 1; // column that absorbs the change
+          if (numCols < 2) return;
+          const rawLeft = startPcts.current[0] - deltaPct;
+          const clampedLeft = Math.max(
+            minPct,
+            Math.min(rawLeft, startPcts.current[0] + startPcts.current[leftNeighbor] - minPct)
+          );
+          const diff = clampedLeft - startPcts.current[0];
+          const newNeighbor = Math.max(minPct, startPcts.current[leftNeighbor] - diff);
+          applyColWidths(editor, activeTable, [
+            { colIndex: 0, pct: clampedLeft },
+            { colIndex: leftNeighbor, pct: newNeighbor },
+          ]);
+        } else {
+          // Right border of colIndex → swap width with right neighbor only
+          const rightNeighbor = colIndex + 1;
+          if (rightNeighbor >= numCols) return; // right outer border — no neighbor to swap with
+          const rawLeft = startPcts.current[colIndex] + deltaPct;
+          const combined = startPcts.current[colIndex] + startPcts.current[rightNeighbor];
+          const clampedLeft = Math.max(minPct, Math.min(rawLeft, combined - minPct));
+          const newNeighbor = Math.max(minPct, combined - clampedLeft);
+          applyColWidths(editor, activeTable, [
+            { colIndex: colIndex, pct: clampedLeft },
+            { colIndex: rightNeighbor, pct: newNeighbor },
+          ]);
+        }
+      };
+
+      const onUp = () => {
+        setDragging(false);
+        onResizeDone();
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    [activeTable, editor, handle, onResizeDone]
+  );
+
+  const HANDLE_W = 8;
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      style={{
+        position: 'absolute',
+        left: handle.x - HANDLE_W / 2,
+        top: handle.top,
+        width: HANDLE_W,
+        height: handle.height,
+        zIndex: 25,
+        cursor: 'col-resize',
+      }}
+      className={`group ${dragging ? 'bg-accent/40' : 'hover:bg-accent/30'} transition-colors`}
+    >
+      {/* Visible thin line in center */}
+      <div
+        className={`absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 transition-colors ${
+          dragging ? 'bg-accent' : 'bg-transparent group-hover:bg-accent/60'
+        }`}
+      />
+    </div>
+  );
+}
+
+// ── Row resize handle ─────────────────────────────────────────────────────────
+function RowResizeHandle({
+  handle,
+  editor,
+  activeTable,
+  containerRef,
+  scrollRef,
+  onResizeDone,
+}: {
+  handle: { y: number; left: number; width: number; rowIndex: number };
+  editor: any;
+  activeTable: Element | null;
+  containerRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement>;
+  onResizeDone: () => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const startY = useRef(0);
+  const startHeight = useRef(0);
+
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!activeTable) return;
+
+      const rows = Array.from(activeTable.querySelectorAll('tr'));
+      const targetRow = rows[handle.rowIndex];
+      if (!targetRow) return;
+
+      startY.current = e.clientY;
+      startHeight.current = targetRow.getBoundingClientRect().height;
+      setDragging(true);
+
+      const onMove = (ev: MouseEvent) => {
+        const delta = ev.clientY - startY.current;
+        const newHeight = Math.max(MIN_ROW_HEIGHT, startHeight.current + delta);
+        applyRowHeight(editor, activeTable, handle.rowIndex, newHeight);
+      };
+
+      const onUp = () => {
+        setDragging(false);
+        onResizeDone();
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    [activeTable, editor, handle, onResizeDone]
+  );
+
+  const HANDLE_H = 8;
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      style={{
+        position: 'absolute',
+        left: handle.left,
+        top: handle.y - HANDLE_H / 2,
+        width: handle.width,
+        height: HANDLE_H,
+        zIndex: 25,
+        cursor: 'row-resize',
+      }}
+      className={`group ${dragging ? 'bg-accent/40' : 'hover:bg-accent/30'} transition-colors`}
+    >
+      <div
+        className={`absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 transition-colors ${
+          dragging ? 'bg-accent' : 'bg-transparent group-hover:bg-accent/60'
+        }`}
+      />
+    </div>
+  );
+}
+
+// ── Helpers: apply width/height via ProseMirror transaction ──────────────────
+// `pct` is a percentage (0–100) stored with 2 decimal places.
+// Apply multiple column widths in a single transaction to avoid cascading reflows.
+function applyColWidths(editor: any, table: Element, changes: { colIndex: number; pct: number }[]) {
+  const { state, dispatch } = editor.view;
+  const { doc, tr } = state;
+
+  const updates: { pos: number; attrs: any }[] = [];
+  doc.descendants((node: any, pos: number) => {
+    if (node.type.name === 'tableRow') {
+      let cellIdx = 0;
+      node.forEach((cell: any, offset: number) => {
+        const change = changes.find((c) => c.colIndex === cellIdx);
+        if (change) {
+          updates.push({
+            pos: pos + 1 + offset,
+            attrs: { ...cell.attrs, colwidth: parseFloat(change.pct.toFixed(2)) },
+          });
+        }
+        cellIdx++;
+      });
+    }
+  });
+
+  if (updates.length === 0) return;
+  let transaction = tr;
+  updates.forEach(({ pos, attrs }) => {
+    const node = doc.nodeAt(pos);
+    if (node) transaction = transaction.setNodeMarkup(pos, undefined, attrs);
+  });
+  dispatch(transaction);
+}
+
+function applyRowHeight(editor: any, table: Element, rowIndex: number, height: number) {
+  const { state, dispatch } = editor.view;
+  const { doc, tr } = state;
+
+  // Apply height only to the specific row being resized
+  const updates: { pos: number; attrs: any }[] = [];
+  let currentRowIndex = 0;
+  doc.descendants((node: any, pos: number) => {
+    if (node.type.name === 'tableRow') {
+      if (currentRowIndex === rowIndex) {
+        updates.push({ pos, attrs: { ...node.attrs, rowHeight: Math.round(height) } });
+      }
+      currentRowIndex++;
+    }
+  });
+
+  if (updates.length === 0) return;
+  let transaction = tr;
+  updates.forEach(({ pos, attrs }) => {
+    const node = doc.nodeAt(pos);
+    if (node) transaction = transaction.setNodeMarkup(pos, undefined, attrs);
+  });
+  dispatch(transaction);
+}
 
 interface CollaborativeEditorProps {
   documentId: string;
   workspaceId: string;
-  currentUser: {
-    id: string;
-    name: string;
-    color: string;
-  };
+  currentUser: { id: string; name: string; color: string };
   canEdit: boolean;
 }
 
-function EditorToolbar({
-  editor,
-  onSave,
-  isSaving,
+// ── Icon wrapper for responsive sizing ────────────────────────────────────────
+function ResponsiveIcon({ Icon, className = '' }: { Icon: any; className?: string }) {
+  return <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${className}`} />;
+}
+
+// ── Reusable toolbar button ───────────────────────────────────────────────────
+function ToolbarButton({
+  onClick,
+  isActive,
+  disabled,
+  children,
+  title,
 }: {
-  editor: any;
-  onSave: () => void;
-  isSaving: boolean;
+  onClick: () => void;
+  isActive?: boolean;
+  disabled?: boolean;
+  children: React.ReactNode;
+  title: string;
 }) {
-  const ToolbarButton = ({
-    onClick,
-    isActive,
-    disabled,
-    children,
-    title,
-  }: {
-    onClick: () => void;
-    isActive?: boolean;
-    disabled?: boolean;
-    children: React.ReactNode;
-    title: string;
-  }) => (
+  return (
     <button
       onMouseDown={(e) => {
         e.preventDefault();
@@ -77,7 +658,7 @@ function EditorToolbar({
       }}
       disabled={disabled}
       title={title}
-      className={`p-2 border transition-colors ${
+      className={`p-1.5 sm:p-2 border transition-colors touch-manipulation min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
         isActive
           ? 'bg-accent text-white border-accent'
           : 'bg-surface text-text-primary border-border hover:bg-card hover:border-border-hover'
@@ -86,18 +667,511 @@ function EditorToolbar({
       {children}
     </button>
   );
+}
+
+function Divider() {
+  return <div className="w-px h-6 bg-border mx-1 flex-shrink-0" />;
+}
+
+// ── Highlight colour picker button ────────────────────────────────────────────
+function HighlightPicker({ editor }: { editor: any }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isActive = editor.isActive('highlight');
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
 
   return (
-    <div className="border-b border-border bg-card px-6 py-2 flex-shrink-0">
-      <div className="flex items-center gap-1 flex-wrap">
+    <div ref={ref} className="relative">
+      <button
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setOpen((v) => !v);
+        }}
+        title="Color de resaltado"
+        className={`flex items-center gap-0.5 p-2 border transition-colors ${
+          isActive
+            ? 'bg-accent text-white border-accent'
+            : 'bg-surface text-text-primary border-border hover:bg-card hover:border-border-hover'
+        }`}
+      >
+        <Highlighter className="w-4 h-4" />
+        <ChevronDown className="w-3 h-3 opacity-60" />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border shadow-xl p-2 w-48">
+          <p className="text-[10px] text-text-muted font-mono uppercase tracking-wider mb-2 px-1">
+            Color de resaltado
+          </p>
+          <div className="grid grid-cols-4 gap-1 mb-2">
+            {HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c.value}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  editor.chain().focus().setHighlight({ color: c.value }).run();
+                  setOpen(false);
+                }}
+                title={c.label}
+                style={{ backgroundColor: c.value }}
+                className="w-8 h-8 rounded-sm border-2 border-transparent hover:border-border transition-colors"
+              />
+            ))}
+          </div>
+          {/* Custom colour input */}
+          <div className="flex items-center gap-1 border-t border-border pt-2">
+            <span className="text-[10px] text-text-muted font-mono flex-shrink-0">Custom:</span>
+            <input
+              type="color"
+              defaultValue="#fef08a"
+              onInput={(e) => {
+                const val = (e.target as HTMLInputElement).value;
+                editor.chain().focus().setHighlight({ color: val }).run();
+              }}
+              className="w-8 h-6 cursor-pointer border border-border rounded-sm bg-surface p-0"
+              title="Color personalizado"
+            />
+          </div>
+          {/* Remove highlight */}
+          {isActive && (
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.chain().focus().unsetHighlight().run();
+                setOpen(false);
+              }}
+              className="mt-2 w-full text-[10px] text-error font-mono hover:underline text-left px-1"
+            >
+              Quitar resaltado
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Table hover buttons (add column / add row) ───────────────────────────────
+// Detects mouse proximity to the table edges (within SENSE_PX) so the buttons
+// appear before the user reaches the exact edge. The outer wrapper intercepts
+// pointer events only in the button zones so the editor remains fully usable.
+const SENSE_PX = 48; // px beyond table edge where detection activates
+
+function TableHoverButtons({
+  editor,
+  containerRef,
+  scrollRef,
+}: {
+  editor: any;
+  containerRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement>;
+}) {
+  const [tablePos, setTablePos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentTableRef = useRef<Element | null>(null);
+
+  // Compute position relative to containerRef (position:relative parent),
+  // accounting for the scrollable ancestor's scroll offset.
+  const measure = useCallback(
+    (table: Element) => {
+      const container = containerRef.current;
+      if (!container) return;
+      // getBoundingClientRect gives viewport-relative coords.
+      // Subtracting container's rect gives coords relative to the container,
+      // then we add the container's own scrollTop (always 0 here since it
+      // doesn't scroll) plus the scrollable parent's scrollTop so that the
+      // absolute-positioned buttons follow the page when scrolled.
+      const cr = container.getBoundingClientRect();
+      const tr = table.getBoundingClientRect();
+      const scrollTop = scrollRef.current?.scrollTop ?? 0;
+      setTablePos({
+        top: tr.top - cr.top + scrollTop,
+        left: tr.left - cr.left,
+        width: tr.width,
+        height: tr.height,
+      });
+    },
+    [containerRef, scrollRef]
+  );
+
+  const scheduleHide = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
+      setTablePos(null);
+      currentTableRef.current = null;
+    }, 200);
+  }, []);
+
+  const cancelHide = useCallback(() => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onMove = (e: MouseEvent) => {
+      // Walk up the DOM to find the closest table
+      const table = (e.target as Element).closest?.('table');
+
+      if (table) {
+        // Mouse is directly over the table
+        cancelHide();
+        if (currentTableRef.current !== table) {
+          currentTableRef.current = table;
+        }
+        measure(table);
+        return;
+      }
+
+      // Mouse is NOT on the table — check proximity to the last known table
+      if (currentTableRef.current) {
+        const tr = currentTableRef.current.getBoundingClientRect();
+
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+
+        const nearRight =
+          mouseX >= tr.right - 8 &&
+          mouseX <= tr.right + SENSE_PX &&
+          mouseY >= tr.top - 8 &&
+          mouseY <= tr.bottom + 8;
+
+        const nearBottom =
+          mouseY >= tr.bottom - 8 &&
+          mouseY <= tr.bottom + SENSE_PX &&
+          mouseX >= tr.left - 8 &&
+          mouseX <= tr.right + 8;
+
+        if (nearRight || nearBottom) {
+          cancelHide();
+          measure(currentTableRef.current);
+          return;
+        }
+      }
+
+      // Not near any table — schedule hide
+      scheduleHide();
+    };
+
+    container.addEventListener('mousemove', onMove);
+    return () => {
+      container.removeEventListener('mousemove', onMove);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [containerRef, measure, cancelHide, scheduleHide]);
+
+  if (!editor || !tablePos) return null;
+
+  return (
+    <>
+      {/* Add column — vertical line on right edge with centered + */}
+      <button
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setTablePos(null);
+          currentTableRef.current = null;
+          editor.chain().focus().addColumnAfter().run();
+        }}
+        onMouseEnter={cancelHide}
+        onMouseLeave={scheduleHide}
+        title="Añadir columna"
+        style={{
+          position: 'absolute',
+          top: tablePos.top,
+          left: tablePos.left + tablePos.width + 2,
+          width: 20,
+          height: tablePos.height,
+          zIndex: 30,
+        }}
+        className="group flex items-center justify-center cursor-pointer border-none bg-transparent p-0 outline-none"
+      >
+        {/* thin vertical line */}
+        <span className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border/40 group-hover:bg-accent/60 transition-colors duration-200" />
+        {/* + badge at center */}
+        <span
+          className="relative flex items-center justify-center w-5 h-5 rounded-full bg-background border border-border/50 text-text-muted group-hover:border-accent group-hover:text-accent group-hover:bg-accent/10 transition-all duration-200 shadow-sm opacity-60 group-hover:opacity-100 scale-90 group-hover:scale-100"
+          style={{ fontSize: 13, lineHeight: 1 }}
+        >
+          <Plus className="w-3 h-3" />
+        </span>
+      </button>
+
+      {/* Add row — horizontal line on bottom edge with centered + */}
+      <button
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setTablePos(null);
+          currentTableRef.current = null;
+          editor.chain().focus().addRowAfter().run();
+        }}
+        onMouseEnter={cancelHide}
+        onMouseLeave={scheduleHide}
+        title="Añadir fila"
+        style={{
+          position: 'absolute',
+          top: tablePos.top + tablePos.height + 2,
+          left: tablePos.left,
+          width: tablePos.width,
+          height: 20,
+          zIndex: 30,
+        }}
+        className="group flex items-center justify-center cursor-pointer border-none bg-transparent p-0 outline-none"
+      >
+        {/* thin horizontal line */}
+        <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-border/40 group-hover:bg-accent/60 transition-colors duration-200" />
+        {/* + badge at center */}
+        <span
+          className="relative flex items-center justify-center w-5 h-5 rounded-full bg-background border border-border/50 text-text-muted group-hover:border-accent group-hover:text-accent group-hover:bg-accent/10 transition-all duration-200 shadow-sm opacity-60 group-hover:opacity-100 scale-90 group-hover:scale-100"
+          style={{ fontSize: 13, lineHeight: 1 }}
+        >
+          <Plus className="w-3 h-3" />
+        </span>
+      </button>
+    </>
+  );
+}
+
+// ── Table context menu ────────────────────────────────────────────────────────
+function TableMenu({ editor, t }: { editor: any; t: any }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const inTable = editor.isActive('table');
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const run = (cmd: () => void) => {
+    cmd();
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setOpen((v) => !v);
+        }}
+        title="Opciones de tabla"
+        className={`flex items-center gap-0.5 p-2 border transition-colors ${
+          inTable
+            ? 'bg-accent text-white border-accent'
+            : 'bg-surface text-text-primary border-border hover:bg-card hover:border-border-hover'
+        }`}
+      >
+        <TableIcon className="w-4 h-4" />
+        <ChevronDown className="w-3 h-3 opacity-60" />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border shadow-xl py-1 w-52 text-sm font-mono">
+          {/* Insert new table */}
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              run(() =>
+                editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+              );
+            }}
+            className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-3.5 h-3.5 text-accent" /> Insertar tabla (3×3)
+          </button>
+
+          {inTable && (
+            <>
+              <div className="border-t border-border/50 my-1" />
+              {/* Columns */}
+              <p className="px-3 py-0.5 text-[10px] text-text-muted uppercase tracking-wider">
+                Columnas
+              </p>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  run(() => editor.chain().focus().addColumnBefore().run());
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
+              >
+                + Columna a la izquierda
+              </button>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  run(() => editor.chain().focus().addColumnAfter().run());
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
+              >
+                + Columna a la derecha
+              </button>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  run(() => editor.chain().focus().deleteColumn().run());
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-surface text-error/80 hover:text-error transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-3 h-3" /> {t.editor_table_delete_column}
+              </button>
+
+              <div className="border-t border-border/50 my-1" />
+              {/* Rows */}
+              <p className="px-3 py-0.5 text-[10px] text-text-muted uppercase tracking-wider">
+                Filas
+              </p>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  run(() => editor.chain().focus().addRowBefore().run());
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
+              >
+                + Fila arriba
+              </button>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  run(() => editor.chain().focus().addRowAfter().run());
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
+              >
+                + Fila abajo
+              </button>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  run(() => editor.chain().focus().deleteRow().run());
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-surface text-error/80 hover:text-error transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-3 h-3" /> {t.editor_table_delete_row}
+              </button>
+
+              <div className="border-t border-border/50 my-1" />
+              {/* Header toggle */}
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  run(() => editor.chain().focus().toggleHeaderRow().run());
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
+              >
+                ⇅ Alternar fila encabezado
+              </button>
+              {/* Delete table */}
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  run(() => editor.chain().focus().deleteTable().run());
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-surface text-error transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-3 h-3" /> {t.editor_table_delete_table}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main toolbar ──────────────────────────────────────────────────────────────
+function EditorToolbar({
+  editor,
+  onSave,
+  isSaving,
+  onToggleComments,
+  commentsOpen,
+  t,
+}: {
+  editor: any;
+  onSave: () => void;
+  isSaving: boolean;
+  onToggleComments?: () => void;
+  commentsOpen?: boolean;
+  t: any;
+}) {
+  const handleLinkToggle = () => {
+    if (editor.isActive('link')) {
+      editor.chain().focus().unsetLink().run();
+    } else {
+      const url = window.prompt('URL del enlace:');
+      if (url) editor.chain().focus().setLink({ href: url }).run();
+    }
+  };
+
+  // Indent / outdent — works on lists and paragraphs
+  const handleIndent = () => {
+    if (editor.isActive('listItem') || editor.isActive('taskItem')) {
+      editor.chain().focus().sinkListItem('listItem').run() ||
+        editor.chain().focus().sinkListItem('taskItem').run();
+    } else {
+      const type = editor.state.doc.resolve(editor.state.selection.from).parent.type.name;
+      if (type === 'paragraph' || type === 'heading') {
+        const current = editor.getAttributes(type).indent ?? 0;
+        if (current < 8)
+          editor
+            .chain()
+            .focus()
+            .updateAttributes(type, { indent: current + 1 })
+            .run();
+      }
+    }
+  };
+
+  const handleOutdent = () => {
+    if (editor.isActive('listItem') || editor.isActive('taskItem')) {
+      editor.chain().focus().liftListItem('listItem').run() ||
+        editor.chain().focus().liftListItem('taskItem').run();
+    } else {
+      const type = editor.state.doc.resolve(editor.state.selection.from).parent.type.name;
+      if (type === 'paragraph' || type === 'heading') {
+        const current = editor.getAttributes(type).indent ?? 0;
+        if (current > 0)
+          editor
+            .chain()
+            .focus()
+            .updateAttributes(type, { indent: current - 1 })
+            .run();
+      }
+    }
+  };
+
+  return (
+    <div className="border-b border-border bg-card px-3 sm:px-6 py-2 flex-shrink-0">
+      <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap overflow-x-auto sm:overflow-x-visible">
+        {/* History */}
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
           title="Deshacer (Ctrl+Z)"
         >
-          <Undo className="w-4 h-4" />
+          <Undo className="w-4 h-4 sm:w-5 sm:h-5" />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
@@ -106,8 +1180,9 @@ function EditorToolbar({
           <Redo className="w-4 h-4" />
         </ToolbarButton>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <Divider />
 
+        {/* Inline formatting */}
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive('bold')}
@@ -115,7 +1190,6 @@ function EditorToolbar({
         >
           <Bold className="w-4 h-4" />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleItalic().run()}
           isActive={editor.isActive('italic')}
@@ -123,7 +1197,6 @@ function EditorToolbar({
         >
           <Italic className="w-4 h-4" />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           isActive={editor.isActive('underline')}
@@ -131,7 +1204,6 @@ function EditorToolbar({
         >
           <UnderlineIcon className="w-4 h-4" />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleStrike().run()}
           isActive={editor.isActive('strike')}
@@ -139,7 +1211,7 @@ function EditorToolbar({
         >
           <Strikethrough className="w-4 h-4" />
         </ToolbarButton>
-
+        <HighlightPicker editor={editor} />
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleCode().run()}
           isActive={editor.isActive('code')}
@@ -147,9 +1219,13 @@ function EditorToolbar({
         >
           <Code className="w-4 h-4" />
         </ToolbarButton>
+        <ToolbarButton onClick={handleLinkToggle} isActive={editor.isActive('link')} title="Enlace">
+          <LinkIcon className="w-4 h-4" />
+        </ToolbarButton>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <Divider />
 
+        {/* Headings */}
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           isActive={editor.isActive('heading', { level: 1 })}
@@ -157,7 +1233,6 @@ function EditorToolbar({
         >
           <Heading1 className="w-4 h-4" />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           isActive={editor.isActive('heading', { level: 2 })}
@@ -165,7 +1240,6 @@ function EditorToolbar({
         >
           <Heading2 className="w-4 h-4" />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           isActive={editor.isActive('heading', { level: 3 })}
@@ -174,8 +1248,9 @@ function EditorToolbar({
           <Heading3 className="w-4 h-4" />
         </ToolbarButton>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <Divider />
 
+        {/* Lists */}
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           isActive={editor.isActive('bulletList')}
@@ -183,7 +1258,6 @@ function EditorToolbar({
         >
           <List className="w-4 h-4" />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           isActive={editor.isActive('orderedList')}
@@ -191,7 +1265,6 @@ function EditorToolbar({
         >
           <ListOrdered className="w-4 h-4" />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleTaskList().run()}
           isActive={editor.isActive('taskList')}
@@ -200,8 +1273,19 @@ function EditorToolbar({
           <ListChecks className="w-4 h-4" />
         </ToolbarButton>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <Divider />
 
+        {/* Indent / outdent */}
+        <ToolbarButton onClick={handleOutdent} title="Disminuir sangría (Shift+Tab)">
+          <IndentDecrease className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={handleIndent} title="Aumentar sangría (Tab)">
+          <IndentIncrease className="w-4 h-4" />
+        </ToolbarButton>
+
+        <Divider />
+
+        {/* Blocks */}
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           isActive={editor.isActive('blockquote')}
@@ -209,7 +1293,13 @@ function EditorToolbar({
         >
           <Quote className="w-4 h-4" />
         </ToolbarButton>
-
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          isActive={editor.isActive('codeBlock')}
+          title="Bloque de código"
+        >
+          <Code2 className="w-4 h-4" />
+        </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
           title="Línea horizontal"
@@ -217,12 +1307,33 @@ function EditorToolbar({
           <Minus className="w-4 h-4" />
         </ToolbarButton>
 
+        <Divider />
+
+        {/* Table with dropdown */}
+        <TableMenu editor={editor} t={t} />
+
         <div className="flex-1" />
 
+        {/* Toggle comments sidebar */}
+        {onToggleComments && (
+          <button
+            onClick={onToggleComments}
+            title={commentsOpen ? 'Cerrar comentarios' : 'Abrir comentarios'}
+            className={`px-2.5 py-2 border transition-all flex items-center gap-1.5 text-sm ${
+              commentsOpen
+                ? 'bg-accent/10 border-accent/50 text-accent'
+                : 'bg-surface border-border hover:bg-card text-text-muted hover:text-text-primary'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Save */}
         <button
           onClick={onSave}
           disabled={isSaving}
-          title="Guardar (Ctrl+S)"
+          title={t.editor_btn_save_tooltip}
           className={`px-3 py-2 border transition-all flex items-center gap-2 text-sm ${
             isSaving
               ? 'bg-success/20 border-success text-success'
@@ -232,12 +1343,12 @@ function EditorToolbar({
           {isSaving ? (
             <>
               <Check className="w-4 h-4" />
-              <span>Guardado</span>
+              <span>{t.editor_btn_saved}</span>
             </>
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>Guardar</span>
+              <span>{t.btn_save}</span>
             </>
           )}
         </button>
@@ -246,148 +1357,187 @@ function EditorToolbar({
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export default function CollaborativeEditor({
   documentId,
   workspaceId,
   currentUser,
   canEdit,
 }: CollaborativeEditorProps) {
+  const t = useT();
   const [yjsDoc] = useState(() => new Y.Doc());
   const { saveYjsState } = useDocumentStore();
   const isJoinedRef = useRef(false);
   const [isDocumentReady, setIsDocumentReady] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const initialSyncReceivedRef = useRef(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const editorWrapRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // ── Comment sidebar state ─────────────────────────────────────────────────
+  const {
+    setSidebarOpen,
+    setPendingSelection,
+    ingestAdded,
+    ingestUpdated,
+    ingestDeleted,
+    ingestResolved,
+    clearDocument: clearDocumentComments,
+  } = useDocumentCommentStore();
+  const commentSidebarOpen = useDocumentCommentStore(selectSidebarOpen);
+  const commentsList = useDocumentCommentStore(selectDocumentComments(documentId));
+  const activeCommentId = useDocumentCommentStore(selectActiveCommentId);
+  const workspaceMembers = useWorkspaceStore((s) =>
+    s.currentMembers
+      .filter((m) => m.user)
+      .map((m) => ({ id: m.user!.id, name: m.user!.name, avatar: m.user!.avatar ?? null }))
+  );
+  const [selectedText, setSelectedText] = useState('');
 
   const provider = useMemo(() => {
     if (typeof window === 'undefined') return null;
-
     const awareness = new Awareness(yjsDoc);
-
-    awareness.setLocalState({
-      user: {
-        name: currentUser.name,
-        color: currentUser.color,
-      },
-    });
-
+    awareness.setLocalState({ user: { name: currentUser.name, color: currentUser.color } });
     return { awareness };
-  }, [yjsDoc, currentUser.name, currentUser.color]);
+  }, [yjsDoc]); // Solo recrear si cambia yjsDoc, no el color del usuario
 
-  // UNIRSE AL DOCUMENTO VÍA WEBSOCKET Y ESPERAR SYNC INICIAL
   useEffect(() => {
     if (isJoinedRef.current) return;
 
-    // Handler para recibir el estado inicial
+    const startTime = performance.now();
+
     const handleInitialSync = (data: { documentId: string; update: number[] }) => {
       if (data.documentId === documentId && !initialSyncReceivedRef.current) {
-        const update = new Uint8Array(data.update);
-        Y.applyUpdate(yjsDoc, update, 'server');
-        initialSyncReceivedRef.current = true;
-        setIsDocumentReady(true);
-
-        // Cleanup: remover listener después de recibir sync inicial
-        socketService.off('document:sync', handleInitialSync);
+        try {
+          Y.applyUpdate(yjsDoc, new Uint8Array(data.update), 'server');
+          initialSyncReceivedRef.current = true;
+          setIsDocumentReady(true);
+          setSyncError(null);
+          setRetryCount(0);
+          socketService.off('document:sync', handleInitialSync);
+        } catch (error) {
+          setSyncError('Error al cargar el contenido del documento');
+        }
       }
     };
 
-    // Registrar listener ANTES de hacer join
-    socketService.onYjsSync(handleInitialSync);
+    const handleError = (error: any) => {
+      setSyncError('Error de conexión con el servidor');
+    };
 
-    // Join al documento
+    socketService.onYjsSync(handleInitialSync);
+    socketService.on('error', handleError);
     socketService.joinDocument(documentId, workspaceId);
     isJoinedRef.current = true;
 
-    // Fallback: si el servidor no responde con document:sync en 8s,
-    // mostrar el editor igualmente (el documento estará vacío/en blanco)
+    // Timeout reducido a 3 segundos con retry logic
     const syncTimeout = setTimeout(() => {
       if (!initialSyncReceivedRef.current) {
-        initialSyncReceivedRef.current = true;
-        setIsDocumentReady(true);
-        socketService.off('document:sync', handleInitialSync);
+        if (retryCount < 2) {
+          // Reintentar hasta 2 veces
+          setRetryCount((prev) => prev + 1);
+          socketService.leaveDocument(documentId);
+          isJoinedRef.current = false;
+          setTimeout(() => {
+            if (!initialSyncReceivedRef.current) {
+              socketService.joinDocument(documentId, workspaceId);
+              isJoinedRef.current = true;
+            }
+          }, 1000);
+        } else {
+          // Después de 2 reintentos, aceptar documento vacío
+          initialSyncReceivedRef.current = true;
+          setIsDocumentReady(true);
+          setSyncError(null);
+          socketService.off('document:sync', handleInitialSync);
+        }
       }
-    }, 8000);
+    }, 3000); // Reducido de 8000ms a 3000ms
 
     return () => {
       clearTimeout(syncTimeout);
       if (isJoinedRef.current) {
         socketService.leaveDocument(documentId);
         socketService.off('document:sync', handleInitialSync);
+        socketService.off('error', handleError);
         isJoinedRef.current = false;
         initialSyncReceivedRef.current = false;
         setIsDocumentReady(false);
+        setSyncError(null);
+        setRetryCount(0);
       }
     };
-  }, [documentId, workspaceId, yjsDoc]);
+  }, [documentId, workspaceId, yjsDoc, retryCount]);
+
+  // Memoizar extensions para evitar recreaciones innecesarias
+  const extensions = useMemo(
+    () => [
+      StarterKit.configure({
+        history: false,
+        codeBlock: false, // replaced by CodeBlockLowlight
+        bulletList: { keepMarks: true, keepAttributes: false },
+        orderedList: { keepMarks: true, keepAttributes: false },
+      }),
+      Collaboration.configure({ document: yjsDoc }),
+      ...(provider
+        ? [
+            CollaborationCursor.configure({
+              provider,
+              user: { name: currentUser.name, color: currentUser.color },
+            }),
+          ]
+        : []),
+      Placeholder.configure({
+        placeholder: canEdit ? 'Comienza a escribir...' : 'Este documento es de solo lectura',
+      }),
+      Underline,
+      Link.configure({ openOnClick: false }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Highlight.configure({ multicolor: true }),
+      CodeBlockLowlight.configure({ lowlight }),
+      Table.configure({ resizable: false }),
+      ResizableTableRow,
+      ResizableTableHeader,
+      ResizableTableCell,
+      IndentExtension,
+      CommentMarkExtension,
+    ],
+    [yjsDoc, provider, canEdit, currentUser.name, currentUser.color]
+  );
 
   const editor = useEditor(
     {
       immediatelyRender: false,
-      extensions: [
-        StarterKit.configure({
-          history: false,
-          bulletList: {
-            keepMarks: true,
-            keepAttributes: false,
-          },
-          orderedList: {
-            keepMarks: true,
-            keepAttributes: false,
-          },
-        }),
-        Collaboration.configure({
-          document: yjsDoc,
-        }),
-        ...(provider
-          ? [
-              CollaborationCursor.configure({
-                provider: provider,
-                user: {
-                  name: currentUser.name,
-                  color: currentUser.color,
-                },
-              }),
-            ]
-          : []),
-        Placeholder.configure({
-          placeholder: canEdit ? 'Comienza a escribir...' : 'Este documento es de solo lectura',
-        }),
-        Underline,
-        Link.configure({
-          openOnClick: false,
-        }),
-        TaskList,
-        TaskItem.configure({
-          nested: true,
-        }),
-      ],
+      extensions,
       editable: canEdit,
       editorProps: {
-        attributes: {
-          class: 'focus:outline-none',
+        attributes: { class: 'focus:outline-none' },
+        // Override Tab inside lists to sink/lift items
+        handleKeyDown(view, event) {
+          if (event.key === 'Tab') {
+            // Let the IndentExtension keyboard shortcut handle it
+            return false;
+          }
+          return false;
         },
       },
     },
-    [provider, isDocumentReady]
+    [] // Solo crear una vez, no recrear en cada render
   );
 
-  // Update editor editable state when canEdit changes with smooth transition
   useEffect(() => {
     if (editor) {
       setIsTransitioning(true);
-
-      // Small delay for smooth transition animation
       setTimeout(() => {
         editor.setEditable(canEdit);
-
-        setTimeout(() => {
-          setIsTransitioning(false);
-        }, 300);
+        setTimeout(() => setIsTransitioning(false), 300);
       }, 150);
     }
   }, [editor, canEdit]);
 
-  // Hook de auto-guardado (híbrido: solo Ctrl+S y al salir)
   const { saveNow, isSaving } = useDocumentAutoSave({
     documentId,
     yjsDoc,
@@ -397,25 +1547,19 @@ export default function CollaborativeEditor({
       await saveYjsState(docId, state);
     },
   });
+
   useEffect(() => {
     if (!editor || !yjsDoc || !isDocumentReady) return;
 
     const updateHandler = (update: Uint8Array, origin: any) => {
-      if (origin !== 'server') {
-        socketService.sendYjsUpdate(documentId, update);
-      }
+      if (origin !== 'server') socketService.sendYjsUpdate(documentId, update);
     };
-
     yjsDoc.on('update', updateHandler);
 
-    // Handler para updates en tiempo real de otros usuarios
     const handleUpdate = (data: { documentId: string; update: number[] }) => {
-      if (data.documentId === documentId) {
-        const update = new Uint8Array(data.update);
-        Y.applyUpdate(yjsDoc, update, 'server');
-      }
+      if (data.documentId === documentId)
+        Y.applyUpdate(yjsDoc, new Uint8Array(data.update), 'server');
     };
-
     socketService.onYjsUpdate(handleUpdate);
 
     return () => {
@@ -424,56 +1568,245 @@ export default function CollaborativeEditor({
     };
   }, [editor, yjsDoc, documentId, isDocumentReady]);
 
+  // Sincronización manual de Awareness vía Socket.IO
   useEffect(() => {
-    if (!editor || !provider?.awareness || !isDocumentReady) return;
+    if (!provider?.awareness || !isDocumentReady) return;
 
     const awareness = provider.awareness;
 
-    const sendCurrentAwareness = () => {
-      if (!editor) return;
+    // Enviar cambios locales de awareness al servidor
+    const awarenessChangeHandler = ({ added, updated, removed }: any) => {
+      const changedClients = added.concat(updated).concat(removed);
+      const awarenessUpdate = Array.from(awarenessEncodeUpdate(awareness, changedClients));
 
-      const { from, to } = editor.state.selection;
-
-      socketService.sendAwareness(documentId, from, { from, to });
-    };
-
-    editor.on('selectionUpdate', sendCurrentAwareness);
-
-    const awarenessUpdateHandler = () => {
-      sendCurrentAwareness();
-    };
-
-    awareness.on('update', awarenessUpdateHandler);
-
-    const handleRemoteAwareness = (data: {
-      documentId: string;
-      user: any;
-      cursor?: number;
-      selection?: any;
-    }) => {
-      if (data.documentId === documentId && data.user?.id !== currentUser.id) {
+      if (awarenessUpdate.length > 0) {
+        socketService.emit('document:awareness:update', {
+          documentId,
+          update: awarenessUpdate,
+        });
       }
     };
 
-    socketService.onAwareness(handleRemoteAwareness);
+    awareness.on('change', awarenessChangeHandler);
 
-    sendCurrentAwareness();
+    // Recibir cambios remotos de awareness
+    const handleRemoteAwareness = (data: { documentId: string; update: number[] }) => {
+      if (data.documentId === documentId) {
+        awarenessApplyUpdate(awareness, new Uint8Array(data.update), 'server');
+      }
+    };
+
+    socketService.on('document:awareness:update', handleRemoteAwareness);
+
+    // Enviar estado inicial de awareness
+    const fullAwarenessUpdate = Array.from(awarenessEncodeUpdate(awareness, [awareness.clientID]));
+    socketService.emit('document:awareness:update', {
+      documentId,
+      update: fullAwarenessUpdate,
+    });
 
     return () => {
-      editor.off('selectionUpdate', sendCurrentAwareness);
-      awareness.off('update', awarenessUpdateHandler);
-      socketService.off('document:awareness', handleRemoteAwareness);
+      awareness.off('change', awarenessChangeHandler);
+      socketService.off('document:awareness:update', handleRemoteAwareness);
     };
-  }, [editor, provider, documentId, currentUser.id, isDocumentReady]);
+  }, [provider, documentId, isDocumentReady]);
+
+  // ── Force reload handler (cuando se restaura una versión) ────────────────
+  useEffect(() => {
+    const handleForceReload = (data: { documentId: string; reason: string }) => {
+      if (data.documentId === documentId) {
+        window.location.reload();
+      }
+    };
+
+    socketService.onForceReload(handleForceReload);
+
+    return () => {
+      socketService.off('document:force-reload', handleForceReload);
+    };
+  }, [documentId]);
+
+  // ── Socket listeners for realtime comment events ─────────────────────────
+  useEffect(() => {
+    if (!isDocumentReady) return;
+
+    const handleCommentAdded = (data: { documentId: string; comment: any }) => {
+      if (data.documentId === documentId) ingestAdded(documentId, data.comment);
+    };
+    const handleCommentUpdated = (data: { documentId: string; comment: any }) => {
+      if (data.documentId === documentId) ingestUpdated(documentId, data.comment);
+    };
+    const handleCommentDeleted = (data: { documentId: string; commentId: string }) => {
+      if (data.documentId === documentId) ingestDeleted(documentId, data.commentId);
+    };
+    const handleCommentResolved = (data: { documentId: string; comment: any }) => {
+      if (data.documentId === documentId) ingestResolved(documentId, data.comment);
+    };
+
+    socketService.on('document:comment:added', handleCommentAdded);
+    socketService.on('document:comment:updated', handleCommentUpdated);
+    socketService.on('document:comment:deleted', handleCommentDeleted);
+    socketService.on('document:comment:resolved', handleCommentResolved);
+
+    return () => {
+      socketService.off('document:comment:added', handleCommentAdded);
+      socketService.off('document:comment:updated', handleCommentUpdated);
+      socketService.off('document:comment:deleted', handleCommentDeleted);
+      socketService.off('document:comment:resolved', handleCommentResolved);
+    };
+  }, [isDocumentReady, documentId, ingestAdded, ingestUpdated, ingestDeleted, ingestResolved]);
+
+  // ── Track selected text for comment preview ───────────────────────────────
+  useEffect(() => {
+    if (!editor) return undefined;
+    const onSelectionUpdate = () => {
+      const { from, to } = editor.state.selection;
+      if (from !== to) {
+        setSelectedText(editor.state.doc.textBetween(from, to, ' '));
+      } else {
+        setSelectedText('');
+      }
+    };
+    editor.on('selectionUpdate', onSelectionUpdate);
+    return () => {
+      editor.off('selectionUpdate', onSelectionUpdate);
+    };
+  }, [editor]);
+
+  // ── Sincronizar comment-marks en el editor con el store ──────────────────
+  // Cada vez que la lista de comentarios cambia (carga inicial, nuevo comentario,
+  // resolve, delete) reconstruimos todas las marcas en el documento Tiptap.
+  useEffect(() => {
+    if (!editor || !isDocumentReady) return;
+
+    // Usar queueMicrotask para no bloquear renders y dejar que Tiptap procese
+    const tid = setTimeout(() => {
+      const { state, view } = editor;
+      const { tr, doc } = state;
+      const commentMarkType = state.schema.marks['commentMark'];
+      if (!commentMarkType) return;
+
+      // 1. Quitar TODAS las comment-marks existentes en el doc de una vez
+      doc.nodesBetween(0, doc.content.size, (node, pos) => {
+        if (!node.isText) return;
+        const hasMark = node.marks.some((m) => m.type === commentMarkType);
+        if (hasMark) tr.removeMark(pos, pos + node.nodeSize, commentMarkType);
+      });
+
+      // 2. Aplicar marcas frescas por cada comentario raíz no resuelto
+      commentsList
+        .filter((c) => !c.resolved && !c.parentId)
+        .forEach((comment) => {
+          const { from, to } = comment.position;
+          if (from < 0 || to > doc.content.size || from >= to) return;
+          const mark = commentMarkType.create({ commentId: comment.id, resolved: false });
+          tr.addMark(from, to, mark);
+        });
+
+      // Aplicar la transacción sin crear historia (no undo-able)
+      tr.setMeta('addToHistory', false);
+      view.dispatch(tr);
+    }, 0);
+
+    return () => clearTimeout(tid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commentsList, editor, isDocumentReady]);
+
+  // ── Resaltar el comment-mark activo en el editor ─────────────────────────
+  useEffect(() => {
+    if (!editorWrapRef.current) return;
+    // Quitar clase activa de todos los marks
+    editorWrapRef.current.querySelectorAll('.comment-mark.comment-mark--active').forEach((el) => {
+      el.classList.remove('comment-mark--active');
+    });
+    // Añadir clase activa al mark del comentario activo
+    if (activeCommentId) {
+      editorWrapRef.current
+        .querySelectorAll(`[data-comment-id="${activeCommentId}"]`)
+        .forEach((el) => el.classList.add('comment-mark--active'));
+    }
+  }, [activeCommentId]);
+
+  // ── Cleanup comment store on unmount ─────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      clearDocumentComments(documentId);
+      setSidebarOpen(false);
+      setPendingSelection(null);
+    };
+  }, [documentId, clearDocumentComments, setSidebarOpen, setPendingSelection]);
 
   if (!isDocumentReady || !editor) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
-          <div className="text-text-secondary">
-            {!isDocumentReady ? 'Cargando documento...' : 'Inicializando editor...'}
-          </div>
+      <div className="flex items-center justify-center h-full bg-surface">
+        <div className="text-center max-w-md">
+          {syncError ? (
+            // Error state
+            <div className="space-y-4">
+              <div className="w-12 h-12 mx-auto rounded-full bg-error/10 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-error"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  Error al cargar documento
+                </h3>
+                <p className="text-sm text-text-muted mb-4">{syncError}</p>
+                <button
+                  onClick={() => {
+                    setSyncError(null);
+                    setRetryCount(0);
+                    initialSyncReceivedRef.current = false;
+                    isJoinedRef.current = false;
+                    window.location.reload();
+                  }}
+                  className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/80 transition-colors"
+                >
+                  Reintentar
+                </button>
+              </div>
+            </div>
+          ) : (
+            // Loading state
+            <div className="space-y-4">
+              <div className="inline-block w-10 h-10 border-3 border-accent border-t-transparent rounded-full animate-spin" />
+              <div className="space-y-2">
+                <p className="text-text-primary font-medium">
+                  {!isDocumentReady ? 'Cargando documento...' : 'Inicializando editor...'}
+                </p>
+                {retryCount > 0 && (
+                  <p className="text-sm text-text-muted">
+                    Reintentando conexión ({retryCount}/2)...
+                  </p>
+                )}
+                <div className="flex justify-center gap-1 mt-4">
+                  <div
+                    className="w-2 h-2 bg-accent rounded-full animate-pulse"
+                    style={{ animationDelay: '0ms' }}
+                  />
+                  <div
+                    className="w-2 h-2 bg-accent rounded-full animate-pulse"
+                    style={{ animationDelay: '200ms' }}
+                  />
+                  <div
+                    className="w-2 h-2 bg-accent rounded-full animate-pulse"
+                    style={{ animationDelay: '400ms' }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -481,30 +1814,258 @@ export default function CollaborativeEditor({
 
   return (
     <div className="flex flex-col h-full bg-surface">
-      {canEdit && <EditorToolbar editor={editor} onSave={saveNow} isSaving={isSaving} />}
+      {canEdit && (
+        <EditorToolbar
+          editor={editor}
+          onSave={saveNow}
+          isSaving={isSaving}
+          onToggleComments={() => setSidebarOpen(!commentSidebarOpen)}
+          commentsOpen={commentSidebarOpen}
+          t={t}
+        />
+      )}
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="min-h-full py-12 px-4">
-          <div
-            className={`max-w-4xl mx-auto bg-card border border-border shadow-lg transition-all duration-300 ${
-              isTransitioning ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'
-            }`}
+      {/* Bubble menu — appears on text selection */}
+      {canEdit && (
+        <BubbleMenu
+          editor={editor}
+          tippyOptions={{ duration: 100 }}
+          className="flex items-center gap-0.5 bg-card border border-border shadow-xl px-1 py-1"
+        >
+          {[
+            {
+              cmd: () => editor.chain().focus().toggleBold().run(),
+              active: editor.isActive('bold'),
+              icon: <Bold className="w-3.5 h-3.5" />,
+              title: 'Negrita',
+            },
+            {
+              cmd: () => editor.chain().focus().toggleItalic().run(),
+              active: editor.isActive('italic'),
+              icon: <Italic className="w-3.5 h-3.5" />,
+              title: 'Cursiva',
+            },
+            {
+              cmd: () => editor.chain().focus().toggleUnderline().run(),
+              active: editor.isActive('underline'),
+              icon: <UnderlineIcon className="w-3.5 h-3.5" />,
+              title: 'Subrayado',
+            },
+            {
+              cmd: () => editor.chain().focus().toggleStrike().run(),
+              active: editor.isActive('strike'),
+              icon: <Strikethrough className="w-3.5 h-3.5" />,
+              title: 'Tachado',
+            },
+            {
+              cmd: () => editor.chain().focus().toggleCode().run(),
+              active: editor.isActive('code'),
+              icon: <Code className="w-3.5 h-3.5" />,
+              title: 'Código',
+            },
+          ].map(({ cmd, active, icon, title }) => (
+            <button
+              key={title}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                cmd();
+              }}
+              title={title}
+              className={`p-1.5 border transition-colors ${active ? 'bg-accent text-white border-accent' : 'border-transparent hover:bg-surface text-text-primary'}`}
+            >
+              {icon}
+            </button>
+          ))}
+          <div className="w-px h-4 bg-border mx-0.5" />
+          {/* Inline highlight colour swatches in bubble menu */}
+          {HIGHLIGHT_COLORS.slice(0, 5).map((c) => (
+            <button
+              key={c.value}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.chain().focus().setHighlight({ color: c.value }).run();
+              }}
+              title={`Resaltar: ${c.label}`}
+              style={{ backgroundColor: c.value }}
+              className="w-5 h-5 rounded-sm border border-transparent hover:border-border transition-colors"
+            />
+          ))}
+          {editor.isActive('highlight') && (
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.chain().focus().unsetHighlight().run();
+              }}
+              title="Quitar resaltado"
+              className="p-1.5 border border-transparent hover:bg-surface text-text-muted hover:text-error transition-colors"
+            >
+              <Minus className="w-3 h-3" />
+            </button>
+          )}
+          <div className="w-px h-4 bg-border mx-0.5" />
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (editor.isActive('link')) {
+                editor.chain().focus().unsetLink().run();
+              } else {
+                const url = window.prompt('URL:');
+                if (url) editor.chain().focus().setLink({ href: url }).run();
+              }
+            }}
+            title="Enlace"
+            className={`p-1.5 border transition-colors ${editor.isActive('link') ? 'bg-accent text-white border-accent' : 'border-transparent hover:bg-surface text-text-primary'}`}
           >
-            <div className="px-16 py-12">
-              {!canEdit && (
-                <div className="mb-4 px-4 py-2 bg-warning/10 border-l-4 border-warning text-warning text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Eye className="w-4 h-4" />
-                  <span>Este documento es de solo lectura</span>
-                </div>
-              )}
-              <EditorContent
-                editor={editor}
-                className={`prose prose-invert prose-lg max-w-none transition-opacity duration-300 ${
-                  isTransitioning ? 'opacity-50' : 'opacity-100'
-                } prose-headings:font-bold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-4 prose-h2:text-3xl prose-h2:mb-3 prose-h3:text-2xl prose-h3:mb-2 prose-p:text-base prose-p:leading-relaxed prose-p:mb-4 prose-blockquote:border-l-4 prose-blockquote:border-accent prose-blockquote:pl-4 prose-blockquote:italic prose-code:bg-surface prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-pre:bg-surface prose-pre:border prose-pre:border-border prose-a:text-accent prose-a:no-underline hover:prose-a:underline prose-strong:text-text-primary prose-strong:font-semibold prose-em:text-text-secondary focus:outline-none`}
-              />
+            <LinkIcon className="w-3.5 h-3.5" />
+          </button>
+          <div className="w-px h-4 bg-border mx-0.5" />
+          {/* Botón de comentario inline */}
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const { from, to } = editor.state.selection;
+              if (from === to) return;
+              // Guardar la selección antes de que el sidebar tome el foco
+              setPendingSelection({ from, to });
+              setSidebarOpen(true);
+              // Mantener el foco en el editor para que la selección no se pierda
+              setTimeout(() => editor.commands.focus(), 0);
+            }}
+            title="Comentar selección"
+            className="flex items-center gap-1 p-1.5 border border-transparent hover:bg-accent/10 hover:text-accent text-text-muted transition-colors"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+          </button>
+        </BubbleMenu>
+      )}
+
+      {/* Main content area: editor + sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Editor scroll area */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+          <div className="min-h-full py-12 px-4">
+            <div
+              className={`max-w-4xl mx-auto bg-card border border-border shadow-lg transition-all duration-300 ${isTransitioning ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}
+            >
+              <div ref={editorWrapRef} className="px-16 py-12 relative">
+                {!canEdit && (
+                  <div className="mb-4 px-4 py-2 bg-warning/10 border-l-4 border-warning text-warning text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <Eye className="w-4 h-4" />
+                    <span>Este documento es de solo lectura</span>
+                  </div>
+                )}
+                <EditorContent
+                  editor={editor}
+                  className={`
+                    prose prose-invert prose-lg max-w-none transition-opacity duration-300
+                    ${isTransitioning ? 'opacity-50' : 'opacity-100'}
+                    prose-headings:font-bold prose-headings:tracking-tight
+                    prose-h1:text-4xl prose-h1:mb-4
+                    prose-h2:text-3xl prose-h2:mb-3
+                    prose-h3:text-2xl prose-h3:mb-2
+                    prose-p:text-base prose-p:leading-relaxed prose-p:mb-4
+                    prose-blockquote:border-l-4 prose-blockquote:border-accent prose-blockquote:pl-4 prose-blockquote:italic
+                    prose-code:bg-surface prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+                    prose-pre:bg-[#1e1e1e] prose-pre:border prose-pre:border-border prose-pre:rounded-md prose-pre:text-sm
+                    prose-a:text-accent prose-a:no-underline hover:prose-a:underline
+                    prose-strong:text-text-primary prose-strong:font-semibold
+                    prose-em:text-text-secondary
+                    prose-ul:pl-6 prose-ol:pl-6
+                    prose-li:my-1
+                    [&_ul_ul]:pl-6 [&_ul_ul_ul]:pl-6
+                    [&_ol_ol]:pl-6 [&_ol_ol_ol]:pl-6
+                    [&_.hljs-keyword]:text-[#c792ea]
+                    [&_.hljs-string]:text-[#c3e88d]
+                    [&_.hljs-comment]:text-[#546e7a] [&_.hljs-comment]:italic
+                    [&_.hljs-number]:text-[#f78c6c]
+                    [&_.hljs-function]:text-[#82aaff]
+                    [&_.hljs-built_in]:text-[#ffcb6b]
+                    [&_.hljs-attr]:text-[#7fdbca]
+                    [&_.hljs-variable]:text-[#f07178]
+                    [&_.hljs-title]:text-[#82aaff]
+                    [&_.hljs-params]:text-[#f07178]
+                    [&_.hljs-literal]:text-[#ff5370]
+                    [&_.hljs-type]:text-[#ffcb6b]
+                    [&_.tableWrapper]:block [&_.tableWrapper]:w-full [&_.tableWrapper]:max-w-full [&_.tableWrapper]:overflow-x-auto
+                    [&_table]:border-collapse [&_table]:my-4 [&_table]:w-full [&_table]:max-w-full [&_table]:table-fixed
+                    [&_table_th]:bg-surface [&_table_th]:border [&_table_th]:border-border [&_table_th]:px-3 [&_table_th]:py-2 [&_table_th]:text-left [&_table_th]:text-sm [&_table_th]:font-semibold [&_table_th]:break-words [&_table_th]:min-w-0 [&_table_th]:overflow-hidden
+                    [&_table_td]:border [&_table_td]:border-border [&_table_td]:px-3 [&_table_td]:py-2 [&_table_td]:text-sm [&_table_td]:align-top [&_table_td]:break-words [&_table_td]:min-w-0 [&_table_td]:overflow-hidden
+                    [&_.selectedCell]:bg-accent/10
+                    [&_mark]:rounded-sm [&_mark]:px-0.5
+                    [&_.comment-mark]:bg-transparent [&_.comment-mark]:border-b-2 [&_.comment-mark]:border-amber-400/30 [&_.comment-mark]:cursor-pointer [&_.comment-mark]:rounded-[2px] [&_.comment-mark]:px-0.5 [&_.comment-mark]:transition-all [&_.comment-mark]:duration-150
+                    [&_.comment-mark:hover]:bg-amber-400/20 [&_.comment-mark:hover]:border-amber-400/70
+                    [&_.comment-mark--active]:bg-amber-400/25 [&_.comment-mark--active]:border-amber-400 [&_.comment-mark--active]:shadow-[0_1px_0_0_theme(colors.amber.400)]
+                    [&_.comment-mark[data-comment-resolved=true]]:bg-transparent [&_.comment-mark[data-comment-resolved=true]]:border-b [&_.comment-mark[data-comment-resolved=true]]:border-dashed [&_.comment-mark[data-comment-resolved=true]]:border-border/30 [&_.comment-mark[data-comment-resolved=true]]:opacity-40
+                    focus:outline-none
+                  `}
+                  onClick={(e) => {
+                    // Detectar click en un comment-mark para enfocar el thread
+                    const target = (e.target as HTMLElement).closest(
+                      '[data-comment-id]'
+                    ) as HTMLElement | null;
+                    if (target) {
+                      const commentId = target.getAttribute('data-comment-id');
+                      if (commentId) {
+                        setSidebarOpen(true);
+                        useDocumentCommentStore.getState().setActiveComment(commentId);
+                      }
+                    } else {
+                      // Click fuera de cualquier comment-mark: deseleccionar el activo
+                      useDocumentCommentStore.getState().setActiveComment(null);
+                    }
+                  }}
+                />
+                {canEdit && editorWrapRef.current && (
+                  <TableHoverButtons
+                    editor={editor}
+                    containerRef={editorWrapRef}
+                    scrollRef={scrollContainerRef}
+                  />
+                )}
+                {editor && editorWrapRef.current && (
+                  <TableResizeOverlay
+                    editor={editor}
+                    containerRef={editorWrapRef}
+                    scrollRef={scrollContainerRef}
+                    canEdit={canEdit}
+                  />
+                )}
+                {/* Indicadores de comentario en el margen derecho */}
+                {editorWrapRef.current && commentsList.length > 0 && (
+                  <CommentGutterIndicators
+                    comments={commentsList}
+                    activeCommentId={activeCommentId}
+                    editorEl={editorWrapRef.current}
+                    scrollEl={scrollContainerRef.current}
+                    onIndicatorClick={(commentId) => {
+                      setSidebarOpen(true);
+                      useDocumentCommentStore.getState().setActiveComment(commentId);
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* Comments sidebar */}
+        <div
+          className={`flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${
+            commentSidebarOpen ? 'w-96' : 'w-0'
+          }`}
+        >
+          <DocumentCommentsSidebar
+            documentId={documentId}
+            canEdit={canEdit}
+            selectedText={selectedText}
+            members={workspaceMembers}
+            onCommentFocus={(commentId, position) => {
+              if (editor) {
+                editor.commands.setTextSelection(position);
+                editor.commands.scrollIntoView();
+              }
+            }}
+          />
         </div>
       </div>
     </div>

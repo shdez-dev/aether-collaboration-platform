@@ -93,10 +93,8 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             errors: { ...state.errors, [cardId]: null },
           }));
 
-
           // commentService.getCommentsByCard retorna CommentWithUser[]
           const comments = await commentService.getCommentsByCard(cardId);
-
 
           set((state) => ({
             commentsByCard: { ...state.commentsByCard, [cardId]: comments },
@@ -132,7 +130,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             errors: { ...state.errors, [`create-${cardId}`]: null },
           }));
 
-
           // Crear comentario optimista
           const optimisticComment: CommentWithUser = {
             id: `temp-${Date.now()}`,
@@ -162,7 +159,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             mentions,
           });
 
-
           // Reemplazar comentario optimista con el real
           set((state) => {
             const existingComments = state.commentsByCard[cardId] || [];
@@ -183,7 +179,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
 
           return newComment;
         } catch (error: any) {
-
           // Remover comentario optimista en caso de error
           set((state) => {
             const existingComments = state.commentsByCard[cardId] || [];
@@ -226,7 +221,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             errors: { ...state.errors, [`update-${commentId}`]: null },
           }));
 
-
           // Update optimista
           get().updateCommentOptimistic(commentId, {
             content,
@@ -239,7 +233,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             content,
             mentions,
           });
-
 
           // Actualizar con datos reales del servidor
           set((state) => {
@@ -264,10 +257,13 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             };
           });
         } catch (error: any) {
+          const errorMessage =
+            error.message || error.toString() || 'Error al actualizar comentario';
           set((state) => ({
             loading: { ...state.loading, [`update-${commentId}`]: false },
-            errors: { ...state.errors, [`update-${commentId}`]: error.message },
+            errors: { ...state.errors, [`update-${commentId}`]: errorMessage },
           }));
+          throw new Error(errorMessage);
         }
       },
 
@@ -290,7 +286,6 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             errors: { ...state.errors, [`delete-${commentId}`]: null },
           }));
 
-
           // Backup para posible rollback
           const backup = get().commentsByCard[cardId];
 
@@ -300,11 +295,11 @@ export const useCommentStore = create<CommentState & CommentActions>()(
           // commentService.deleteComment retorna void
           await commentService.deleteComment(commentId);
 
-
           set((state) => ({
             loading: { ...state.loading, [`delete-${commentId}`]: false },
           }));
         } catch (error: any) {
+          const errorMessage = error.message || error.toString() || 'Error al eliminar comentario';
 
           // Rollback en caso de error
           set((state) => ({
@@ -313,8 +308,9 @@ export const useCommentStore = create<CommentState & CommentActions>()(
               [cardId]: state.commentsByCard[cardId] || [],
             },
             loading: { ...state.loading, [`delete-${commentId}`]: false },
-            errors: { ...state.errors, [`delete-${commentId}`]: error.message },
+            errors: { ...state.errors, [`delete-${commentId}`]: errorMessage },
           }));
+          throw new Error(errorMessage);
         }
       },
 
@@ -329,15 +325,13 @@ export const useCommentStore = create<CommentState & CommentActions>()(
         }
 
         try {
-
           // commentService.getCommentsByCard retorna CommentWithUser[]
           const comments = await commentService.getCommentsByCard(cardId);
 
           set((state) => ({
             countsByCard: { ...state.countsByCard, [cardId]: comments.length },
           }));
-        } catch (error: any) {
-        }
+        } catch (error: any) {}
       },
 
       // ========================================================================

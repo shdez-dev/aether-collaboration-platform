@@ -16,6 +16,7 @@ import {
 import { useT } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 import type { CardDependency } from '@aether/types';
 
 interface CardDependenciesProps {
@@ -104,6 +105,7 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
   const t = useT();
   const { accessToken } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
+  const invalidateTimeline = useTimelineStore((s) => s.invalidate);
   const userRole = currentWorkspace?.userRole;
   const canEdit = userRole !== 'VIEWER';
 
@@ -225,6 +227,7 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
 
       setBlockedBy((prev) => [...prev, json.data.dependency]);
       closePicker();
+      invalidateTimeline();
     } finally {
       setIsAdding(false);
     }
@@ -245,8 +248,9 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) {
-        // Rollback
-        await fetchDeps();
+        await fetchDeps(); // rollback
+      } else {
+        invalidateTimeline();
       }
     } catch {
       await fetchDeps();

@@ -17,7 +17,6 @@ function getAuthToken(): string | null {
     const parsed = JSON.parse(authStorage);
     return parsed.state?.accessToken || null;
   } catch (error) {
-    console.error('[NotificationService] Error reading auth token:', error);
     return null;
   }
 }
@@ -65,7 +64,6 @@ class NotificationService {
       const data = await response.json();
       return data.data.notifications || [];
     } catch (error) {
-      console.error('[NotificationService] Error fetching notifications:', error);
       throw error;
     }
   }
@@ -88,7 +86,6 @@ class NotificationService {
       const data = await response.json();
       return data.data.count || 0;
     } catch (error) {
-      console.error('[NotificationService] Error fetching unread count:', error);
       return 0;
     }
   }
@@ -108,7 +105,6 @@ class NotificationService {
         throw new Error('Failed to mark notification as read');
       }
     } catch (error) {
-      console.error('[NotificationService] Error marking as read:', error);
       throw error;
     }
   }
@@ -128,7 +124,6 @@ class NotificationService {
         throw new Error('Failed to mark all as read');
       }
     } catch (error) {
-      console.error('[NotificationService] Error marking all as read:', error);
       throw error;
     }
   }
@@ -148,7 +143,6 @@ class NotificationService {
         throw new Error('Failed to delete notification');
       }
     } catch (error) {
-      console.error('[NotificationService] Error deleting notification:', error);
       throw error;
     }
   }

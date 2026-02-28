@@ -18,6 +18,11 @@ interface UserPreview {
   name: string;
   email: string;
   avatar?: string;
+  bio?: string;
+  position?: string;
+  location?: string;
+  timezone?: string;
+  createdAt?: string;
 }
 
 export default function InviteMemberModal({
@@ -53,6 +58,13 @@ export default function InviteMemberModal({
   // Buscar usuario mientras escribe
   useEffect(() => {
     const searchUser = async () => {
+      // Require minimum 3 characters
+      if (email.trim().length < 3) {
+        setUserPreview(null);
+        setUserNotFound(false);
+        return;
+      }
+
       // Validar que sea un email válido antes de buscar
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         setUserPreview(null);
@@ -96,8 +108,15 @@ export default function InviteMemberModal({
             setUserNotFound(true);
           }
         } else {
-          setUserPreview(null);
-          setUserNotFound(true);
+          const errorData = await response.json();
+          if (errorData.error?.code === 'SEARCH_TOO_SHORT') {
+            // Silently ignore - user is still typing
+            setUserPreview(null);
+            setUserNotFound(false);
+          } else {
+            setUserPreview(null);
+            setUserNotFound(true);
+          }
         }
       } catch (err) {
         console.error('Error al buscar usuario:', err);
@@ -262,26 +281,57 @@ export default function InviteMemberModal({
 
               {/* User Preview - Found */}
               {userPreview && !searchingUser && (
-                <div className="mt-3 p-3 bg-accent/5 border border-accent/30 rounded-terminal animate-scale-in">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-terminal bg-accent/20 flex items-center justify-center border border-accent/30">
-                      <span className="text-accent font-bold text-sm">
+                <div className="mt-3 p-4 bg-accent/5 border border-accent/30 rounded-terminal animate-scale-in">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-terminal bg-accent/20 flex items-center justify-center border border-accent/30 shrink-0">
+                      <span className="text-accent font-bold text-lg">
                         {userPreview.name.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-text-primary font-medium text-sm flex items-center gap-2">
-                        {userPreview.name}
-                        <span className="text-accent text-xs">✓</span>
-                      </p>
-                      <p className="text-text-muted text-xs">{userPreview.email}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-text-primary font-medium text-sm truncate">
+                          {userPreview.name}
+                        </p>
+                        <span className="text-accent text-xs shrink-0">✓</span>
+                      </div>
+                      <p className="text-text-muted text-xs mb-2 truncate">{userPreview.email}</p>
+
+                      {/* Additional Info */}
+                      <div className="space-y-1 text-xs">
+                        {userPreview.position && (
+                          <p className="text-text-secondary truncate">
+                            <span className="text-text-muted">Puesto:</span> {userPreview.position}
+                          </p>
+                        )}
+                        {userPreview.location && (
+                          <p className="text-text-secondary truncate">
+                            <span className="text-text-muted">Ubicación:</span>{' '}
+                            {userPreview.location}
+                          </p>
+                        )}
+                        {userPreview.bio && (
+                          <p className="text-text-secondary line-clamp-2">
+                            <span className="text-text-muted">Bio:</span> {userPreview.bio}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* Minimum characters hint */}
+              {email.trim() && email.trim().length < 3 && !searchingUser && (
+                <div className="mt-3 p-3 bg-card border border-border rounded-terminal">
+                  <p className="text-text-muted text-xs">
+                    Escribe al menos 3 caracteres para buscar...
+                  </p>
+                </div>
+              )}
+
               {/* User Preview - Not Found */}
-              {userNotFound && !searchingUser && email.trim() && (
+              {userNotFound && !searchingUser && email.trim() && email.trim().length >= 3 && (
                 <div className="mt-3 p-3 bg-error/5 border border-error/30 rounded-terminal animate-scale-in">
                   <div className="flex items-center gap-2 text-error">
                     <span>⚠</span>

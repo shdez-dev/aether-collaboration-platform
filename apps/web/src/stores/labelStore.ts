@@ -80,7 +80,6 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
-      console.error('Error fetching labels:', error);
       set({ error: error.message, isLoading: false });
     }
   },
@@ -125,7 +124,6 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
 
       return newLabel;
     } catch (error: any) {
-      console.error('Error creating label:', error);
       throw error;
     }
   },
@@ -170,7 +168,6 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
         return { labels: newLabels };
       });
     } catch (error: any) {
-      console.error('Error updating label:', error);
       throw error;
     }
   },
@@ -208,7 +205,6 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
         return { labels: newLabels };
       });
     } catch (error: any) {
-      console.error('Error deleting label:', error);
       throw error;
     }
   },

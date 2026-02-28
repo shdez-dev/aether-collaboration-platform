@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, X, ChevronDown, Filter, SlidersHorizontal } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import type { User, Label } from '@aether/types';
+import { getAvatarUrl } from '@/lib/utils/avatar';
 
 export type PriorityFilter = 'LOW' | 'MEDIUM' | 'HIGH';
 export type DateFilter = 'overdue' | 'due_today' | 'due_week' | 'no_date';
@@ -224,8 +225,13 @@ export default function BoardFilters({
                     <span className="text-white text-xs leading-none">✓</span>
                   )}
                 </span>
-                {m.avatar ? (
-                  <img src={m.avatar} alt={m.name} className="w-5 h-5 rounded-full object-cover" />
+                {getAvatarUrl(m.avatar) ? (
+                  <img
+                    src={getAvatarUrl(m.avatar)!}
+                    alt={m.name}
+                    className="w-5 h-5 rounded-full object-cover"
+                    crossOrigin="anonymous"
+                  />
                 ) : (
                   <span className="w-5 h-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center font-medium flex-shrink-0">
                     {m.name?.[0]?.toUpperCase() ?? '?'}

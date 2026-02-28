@@ -204,6 +204,10 @@ export class BoardService {
         values
       );
 
+      if (result.rows.length === 0) {
+        throw new Error('Board not found');
+      }
+
       const board = result.rows[0];
 
       await client.query('COMMIT');
@@ -241,7 +245,11 @@ export class BoardService {
         [boardId]
       );
 
-      const workspaceId = boardResult.rows[0]?.workspace_id;
+      if (boardResult.rows.length === 0) {
+        throw new Error('Board not found');
+      }
+
+      const workspaceId = boardResult.rows[0].workspace_id;
 
       await client.query('COMMIT');
 

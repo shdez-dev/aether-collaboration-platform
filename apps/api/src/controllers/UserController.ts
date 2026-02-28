@@ -35,9 +35,29 @@ class UserController {
         });
       }
 
+      // Require minimum 3 characters for search
+      if (email.trim().length < 3) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'SEARCH_TOO_SHORT',
+            message: 'Search query must be at least 3 characters',
+          },
+        });
+      }
+
       const result = await pool.query(
-        `SELECT id, name, email, avatar 
-         FROM users 
+        `SELECT 
+          id, 
+          name, 
+          email, 
+          avatar,
+          bio,
+          position,
+          location,
+          timezone,
+          created_at
+         FROM users
          WHERE LOWER(email) = LOWER($1)`,
         [email.trim()]
       );
@@ -62,6 +82,11 @@ class UserController {
             name: user.name,
             email: user.email,
             avatar: user.avatar,
+            bio: user.bio,
+            position: user.position,
+            location: user.location,
+            timezone: user.timezone,
+            createdAt: user.created_at,
           },
         },
       });
@@ -572,7 +597,7 @@ class UserController {
         `UPDATE users 
          SET avatar = $1, updated_at = CURRENT_TIMESTAMP
          WHERE id = $2
-         RETURNING id, email, name, avatar, bio, position, timezone, language, phone, location`,
+         RETURNING id, email, name, avatar, bio, position, timezone, language, phone, location, created_at, updated_at`,
         [avatarUrl, userId]
       );
 
@@ -602,6 +627,8 @@ class UserController {
             language: user.language,
             phone: user.phone,
             location: user.location,
+            createdAt: user.created_at,
+            updatedAt: user.updated_at,
           },
           avatarUrl: user.avatar,
         },

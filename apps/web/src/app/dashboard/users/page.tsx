@@ -299,9 +299,11 @@ export default function UsersPage() {
   }, []);
 
   // Filtrado en memoria — instantáneo
+  // Require minimum 3 characters for search
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return allUsers;
+    if (q.length < 3) return []; // Return empty if less than 3 characters
     return allUsers.filter(
       (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
     );
@@ -385,6 +387,13 @@ export default function UsersPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : search.trim() && search.trim().length < 3 ? (
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+              <p className="text-text-muted text-sm">Escribe al menos 3 caracteres para buscar</p>
+              <p className="text-text-secondary text-xs mt-1">
+                {search.trim().length}/3 caracteres
+              </p>
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center">

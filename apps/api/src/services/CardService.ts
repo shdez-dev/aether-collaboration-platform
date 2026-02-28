@@ -75,6 +75,7 @@ export class CardService {
     data: {
       title: string;
       description?: string;
+      startDate?: string;
       dueDate?: string;
       priority?: 'LOW' | 'MEDIUM' | 'HIGH';
     },
@@ -93,14 +94,15 @@ export class CardService {
       const newPosition = maxPosResult.rows[0].max_pos + 1;
 
       const result = await client.query(
-        `INSERT INTO cards (list_id, title, description, position, due_date, priority, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO cards (list_id, title, description, position, start_date, due_date, priority, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
         [
           listId,
           data.title,
           data.description || null,
           newPosition,
+          data.startDate || null,
           data.dueDate || null,
           data.priority || null,
           userId,
@@ -206,6 +208,7 @@ export class CardService {
     data: {
       title?: string;
       description?: string | null;
+      startDate?: string | null;
       dueDate?: string | null;
       priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
       completed?: boolean;
@@ -261,6 +264,11 @@ export class CardService {
       if (data.description !== undefined) {
         updates.push(`description = $${paramCount++}`);
         values.push(data.description);
+      }
+
+      if (data.startDate !== undefined) {
+        updates.push(`start_date = $${paramCount++}`);
+        values.push(data.startDate);
       }
 
       if (data.dueDate !== undefined) {
@@ -676,6 +684,24 @@ export class CardService {
         socketId,
         memberId // 👈 Enviar directamente al usuario desasignado
       );
+
+      // Crear notificación de desasignación
+      try {
+        const userResult = await client.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const removerName = userResult.rows[0]?.name || 'Alguien';
+
+        const { notificationService } = await import('./NotificationService');
+        await notificationService.createCardUnassignedNotification({
+          unassignedUserId: memberId,
+          removerId: userId,
+          removerName,
+          cardId,
+          cardTitle,
+          boardId: boardId || '',
+        });
+      } catch (notifError) {
+        console.error('[CardService] Error creating unassigned notification:', notifError);
+      }
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -797,6 +823,7 @@ export class CardService {
       title: row.title,
       description: row.description,
       position: row.position,
+      startDate: row.start_date,
       dueDate: row.due_date,
       priority: row.priority,
       completed: row.completed || false,

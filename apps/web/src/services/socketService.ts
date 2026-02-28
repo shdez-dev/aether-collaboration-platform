@@ -15,6 +15,23 @@ class SocketService {
   private reconnectDelay = 1000;
   private eventQueue: Array<{ event: string; data: any }> = [];
   private isConnecting = false;
+  private connectListeners: Array<() => void> = [];
+
+  /** Suscribirse al evento de conexión/reconexión establecida */
+  onConnect(cb: () => void): void {
+    this.connectListeners.push(cb);
+    // Si el socket ya está conectado en este instante, disparar inmediatamente
+    if (this.socket?.connected) cb();
+  }
+
+  /** Eliminar suscripción al evento de conexión */
+  offConnect(cb: () => void): void {
+    this.connectListeners = this.connectListeners.filter((l) => l !== cb);
+  }
+
+  private notifyConnectListeners(): void {
+    this.connectListeners.forEach((cb) => cb());
+  }
 
   /**
    * Conectar al servidor WebSocket
@@ -26,7 +43,6 @@ class SocketService {
 
     this.isConnecting = true;
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000';
-
 
     this.socket = io(wsUrl, {
       auth: { token },
@@ -49,6 +65,7 @@ class SocketService {
       this.isConnecting = false;
       this.reconnectAttempts = 0;
       this.flushEventQueue();
+      this.notifyConnectListeners();
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -71,20 +88,17 @@ class SocketService {
     this.socket.on('reconnect', (attemptNumber) => {
       this.reconnectAttempts = 0;
       this.flushEventQueue();
+      this.notifyConnectListeners();
     });
 
-    this.socket.on('reconnect_attempt', (attemptNumber) => {
-    });
+    this.socket.on('reconnect_attempt', (attemptNumber) => {});
 
-    this.socket.on('reconnect_failed', () => {
-    });
+    this.socket.on('reconnect_failed', () => {});
 
     // Ping/Pong para mantener conexión activa
-    this.socket.on('pong', (data: { timestamp: number }) => {
-    });
+    this.socket.on('pong', (data: { timestamp: number }) => {});
 
-    this.socket.on('error', (error: { message: string }) => {
-    });
+    this.socket.on('error', (error: { message: string }) => {});
   }
 
   /**
@@ -97,6 +111,7 @@ class SocketService {
     this.socket = null;
     this.eventQueue = [];
     this.isConnecting = false;
+    this.connectListeners = [];
   }
 
   /**
@@ -104,7 +119,6 @@ class SocketService {
    */
   joinBoard(boardId: string): void {
     if (!this.isConnected()) {
-      console.warn('[Socket] Not connected, queueing join:board');
       this.eventQueue.push({ event: 'join:board', data: { boardId } });
       return;
     }
@@ -117,7 +131,6 @@ class SocketService {
    */
   leaveBoard(boardId: string): void {
     if (!this.isConnected()) {
-      console.warn('[Socket] Not connected, skipping leave:board');
       return;
     }
 
@@ -129,7 +142,6 @@ class SocketService {
    */
   emit(event: string, data: any): void {
     if (!this.isConnected()) {
-      console.warn(`[Socket] Not connected, queueing event: ${event}`);
       this.eventQueue.push({ event, data });
       return;
     }
@@ -142,7 +154,6 @@ class SocketService {
    */
   on(event: string, callback: (data: any) => void): void {
     if (!this.socket) {
-      console.warn('[Socket] Socket not initialized');
       return;
     }
 
@@ -178,11 +189,11 @@ class SocketService {
 
   /**
    * Escuchar eventos del sistema (card.created, card.moved, etc.)
+   * Registra el callback directamente para que socketService.off('event', cb)
+   * pueda eliminarlo correctamente (sin wrapper anónimo intermedio).
    */
   onEvent(callback: (event: Event) => void): void {
-    this.on('event', (event: Event) => {
-      callback(event);
-    });
+    this.on('event', callback);
   }
 
   /**
@@ -203,7 +214,6 @@ class SocketService {
    */
   startTyping(cardId: string): void {
     if (!this.isConnected()) {
-      console.warn('[Socket] Cannot start typing - not connected');
       return;
     }
     this.emit('typing:start', { cardId });
@@ -214,7 +224,6 @@ class SocketService {
    */
   stopTyping(cardId: string): void {
     if (!this.isConnected()) {
-      console.warn('[Socket] Cannot stop typing - not connected');
       return;
     }
     this.emit('typing:stop', { cardId });
@@ -248,7 +257,6 @@ class SocketService {
   private flushEventQueue(): void {
     if (this.eventQueue.length === 0) return;
 
-
     while (this.eventQueue.length > 0) {
       const { event, data } = this.eventQueue.shift()!;
       this.socket?.emit(event, data);
@@ -269,7 +277,6 @@ class SocketService {
    */
   joinDocument(documentId: string, workspaceId: string): void {
     if (!this.isConnected()) {
-      console.warn('[Socket] Not connected, queueing document:join');
       this.eventQueue.push({ event: 'document:join', data: { documentId, workspaceId } });
       return;
     }
@@ -307,25 +314,15 @@ class SocketService {
   }
 
   /**
-   * Enviar awareness (cursor/selección)
+   * Escuchar evento de recarga forzada del documento
    */
-  sendAwareness(
-    documentId: string,
-    cursor?: number,
-    selection?: { from: number; to: number }
-  ): void {
-    if (!this.isConnected()) return;
-    this.socket?.emit('document:awareness', { documentId, cursor, selection });
+  onForceReload(callback: (data: { documentId: string; reason: string }) => void): void {
+    this.on('document:force-reload', callback);
   }
 
-  /**
-   * Recibir awareness de otros usuarios
-   */
-  onAwareness(
-    callback: (data: { documentId: string; user: any; cursor?: number; selection?: any }) => void
-  ): void {
-    this.on('document:awareness', callback);
-  }
+  // NOTA: Awareness (cursores colaborativos) es manejado automáticamente por
+  // CollaborationCursor extension de TipTap a través del protocolo YJS.
+  // No se necesitan eventos adicionales de socket para esto.
 
   /**
    * Escuchar cuando un usuario se une al documento

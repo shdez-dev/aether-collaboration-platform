@@ -77,7 +77,10 @@ export type AuthEventType =
   | 'auth.user.loggedIn'
   | 'auth.user.loggedOut'
   | 'auth.session.expired'
+  | 'auth.email.verified'
+  | 'auth.email.verificationSent'
   | 'auth.password.resetRequested'
+  | 'auth.password.reset'
   | 'auth.password.resetCompleted';
 
 /**
@@ -95,12 +98,25 @@ export type WorkspaceEventType =
 /**
  * Board Events
  */
-export type BoardEventType = 'board.created' | 'board.updated' | 'board.deleted' | 'board.archived';
+export type BoardEventType =
+  | 'board.created'
+  | 'board.updated'
+  | 'board.deleted'
+  | 'board.archived'
+  | 'board.unarchived'
+  | 'board.renamed'
+  | 'board.description.changed';
 
 /**
  * List Events
  */
-export type ListEventType = 'list.created' | 'list.updated' | 'list.deleted' | 'list.reordered';
+export type ListEventType =
+  | 'list.created'
+  | 'list.updated'
+  | 'list.deleted'
+  | 'list.reordered'
+  | 'list.renamed'
+  | 'list.archived';
 
 /**
  * Card Events
@@ -112,13 +128,21 @@ export type CardEventType =
   | 'card.moved'
   | 'card.completed'
   | 'card.uncompleted'
+  | 'card.renamed'
+  | 'card.description.changed'
+  | 'card.duedate.set'
+  | 'card.duedate.changed'
+  | 'card.duedate.removed'
+  | 'card.priority.changed'
   | 'card.member.assigned'
   | 'card.member.unassigned'
   | 'card.label.added'
   | 'card.label.removed'
   | 'card.comment.added'
   | 'card.comment.updated'
-  | 'card.comment.deleted';
+  | 'card.comment.deleted'
+  | 'card.archived'
+  | 'card.unarchived';
 
 /**
  * Comment Events
@@ -1024,8 +1048,13 @@ export interface NotificationCreatedPayload {
   userId: UserId;
   type:
     | 'COMMENT_MENTION'
+    | 'COMMENT_ADDED'
     | 'CARD_ASSIGNED'
+    | 'CARD_UNASSIGNED'
     | 'CARD_DUE_SOON'
+    | 'CARD_OVERDUE'
+    | 'WORKSPACE_INVITE'
+    | 'WORKSPACE_REMOVED'
     | 'DOCUMENT_MENTION'
     | 'DOCUMENT_SHARED'
     | 'DOCUMENT_COMMENT';

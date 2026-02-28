@@ -438,6 +438,116 @@ export class NotificationService {
   }
 
   /**
+   * Crear notificación cuando se desasigna a un usuario de una tarjeta
+   */
+  async createCardUnassignedNotification(data: {
+    unassignedUserId: string;
+    removerId: string;
+    removerName: string;
+    cardId: string;
+    cardTitle: string;
+    boardId: string;
+  }): Promise<Notification | null> {
+    // No notificarse a uno mismo
+    if (data.unassignedUserId === data.removerId) {
+      return null;
+    }
+
+    const isDuplicate = await notificationRepository.existsRecent({
+      userId: data.unassignedUserId,
+      type: 'CARD_UNASSIGNED',
+      cardId: data.cardId,
+    });
+
+    if (isDuplicate) {
+      return null;
+    }
+
+    const notification = await notificationRepository.create({
+      userId: data.unassignedUserId,
+      type: 'CARD_UNASSIGNED',
+      title: 'Te quitaron de una tarjeta',
+      message: `${data.removerName} te quitó de la tarjeta "${data.cardTitle}"`,
+      data: {
+        cardId: data.cardId,
+        cardTitle: data.cardTitle,
+        boardId: data.boardId,
+        removerId: data.removerId,
+        removerName: data.removerName,
+      },
+    });
+
+    try {
+      await eventStore.emit(
+        'notification.created',
+        {
+          notificationId: notification.id,
+          userId: data.unassignedUserId,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+        },
+        data.removerId as any,
+        undefined,
+        undefined,
+        data.unassignedUserId as any
+      );
+    } catch (error) {}
+
+    return notification;
+  }
+
+  /**
+   * Crear notificación cuando se elimina a un usuario de un workspace
+   */
+  async createWorkspaceRemovedNotification(data: {
+    userId: string;
+    removerId: string;
+    removerName: string;
+    workspaceId: string;
+    workspaceName: string;
+  }): Promise<Notification | null> {
+    // No notificarse a uno mismo
+    if (data.userId === data.removerId) {
+      return null;
+    }
+
+    const notification = await notificationRepository.create({
+      userId: data.userId,
+      type: 'WORKSPACE_REMOVED',
+      title: 'Te eliminaron de un workspace',
+      message: `${data.removerName} te eliminó del workspace "${data.workspaceName}"`,
+      data: {
+        workspaceId: data.workspaceId,
+        workspaceName: data.workspaceName,
+        removerId: data.removerId,
+        removerName: data.removerName,
+      },
+    });
+
+    try {
+      await eventStore.emit(
+        'notification.created',
+        {
+          notificationId: notification.id,
+          userId: data.userId,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+        },
+        data.removerId as any,
+        undefined,
+        undefined,
+        data.userId as any
+      );
+    } catch (error) {}
+
+    return notification;
+  }
+
+  /**
    * Limpiar notificaciones leídas antiguas
    */
   async cleanupReadNotifications(userId: string): Promise<void> {

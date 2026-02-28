@@ -212,6 +212,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                 </label>
                 <input
                   id="name"
+                  name="name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -219,6 +220,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                   placeholder={t.create_ws_placeholder_name}
                   disabled={isLoading}
                   maxLength={255}
+                  required
                 />
               </div>
 
@@ -229,6 +231,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                 </label>
                 <textarea
                   id="description"
+                  name="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="input-terminal min-h-[80px] resize-none"

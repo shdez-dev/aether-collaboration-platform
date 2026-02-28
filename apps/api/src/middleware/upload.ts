@@ -2,13 +2,28 @@
 
 import multer from 'multer';
 import path from 'path';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import fs from 'fs';
+
+// Asegurar que el directorio existe
+// En desarrollo (tsx): __dirname = apps/api/src/middleware
+// En producción (node): __dirname = apps/api/dist/middleware
+const uploadDir = path.join(__dirname, '../../public/uploads/avatars');
+console.log('[Upload Middleware] Upload directory:', uploadDir);
+
+if (!fs.existsSync(uploadDir)) {
+  console.log('[Upload Middleware] Creating upload directory:', uploadDir);
+  fs.mkdirSync(uploadDir, { recursive: true });
+} else {
+  console.log('[Upload Middleware] Upload directory exists');
+}
 
 // Configuración del almacenamiento
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     // Guardar en la carpeta public/uploads/avatars
-    cb(null, path.join(__dirname, '../../public/uploads/avatars'));
+    // __dirname = apps/api/src in tsx dev, so ../public = apps/api/public
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     // Generar nombre único: userId-timestamp.extension
@@ -31,10 +46,48 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
 };
 
 // Configuración de multer
-export const uploadAvatar = multer({
+const multerUpload = multer({
   storage,
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB máximo
   },
 }).single('avatar'); // Campo 'avatar' en el form-data
+
+// Middleware wrapper con manejo de errores
+export const uploadAvatar = (req: Request, res: Response, next: NextFunction) => {
+  multerUpload(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      // Error de Multer
+      console.error('[Upload Middleware] Multer error:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'FILE_TOO_LARGE',
+            message: 'File size exceeds 5MB limit',
+          },
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'UPLOAD_ERROR',
+          message: err.message,
+        },
+      });
+    } else if (err) {
+      // Otros errores (e.g., tipo de archivo inválido)
+      console.error('[Upload Middleware] Upload error:', err);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_FILE',
+          message: err.message,
+        },
+      });
+    }
+    // Sin errores, continuar
+    next();
+  });
+};

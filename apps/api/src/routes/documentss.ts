@@ -2,6 +2,7 @@
 
 import { Router } from 'express';
 import { documentController } from '../controllers/DocumentController';
+import { documentCommentController } from '../controllers/DocumentCommentController';
 import { documentService } from '../services/DocumentService';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
@@ -19,6 +20,9 @@ router.post('/workspaces/:workspaceId/documents', checkWorkspaceMembership, (req
 router.get('/workspaces/:workspaceId/documents', checkWorkspaceMembership, (req, res) =>
   documentController.list(req, res)
 );
+
+// GET DOCUMENT TEMPLATES - MUST BE BEFORE /documents/:id
+router.get('/documents/templates', (req, res) => documentController.getTemplates(req, res));
 
 // GET BY ID - NO middleware (verification inside controller)
 router.get('/documents/:id', (req, res) => documentController.getById(req, res));
@@ -44,6 +48,9 @@ router.put('/documents/:id/permissions', (req, res) =>
 );
 
 router.get('/documents/:id/members', (req, res) => documentController.getDocumentMembers(req, res));
+
+// EXPORT DOCUMENT
+router.get('/documents/:id/export', (req, res) => documentController.exportDocument(req, res));
 
 // SAVE YJS STATE - Auto-guardado
 router.put('/documents/:id/yjs-state', async (req, res) => {
@@ -85,7 +92,6 @@ router.put('/documents/:id/yjs-state', async (req, res) => {
     const yjsBuffer = new Uint8Array(yjsState);
     await documentService.updateYjsState(id, yjsBuffer);
 
-
     return res.json({
       success: true,
       data: { message: 'Estado guardado exitosamente' },
@@ -97,5 +103,27 @@ router.put('/documents/:id/yjs-state', async (req, res) => {
     });
   }
 });
+
+// ── COMMENT ROUTES ────────────────────────────────────────────────────────────
+// List comments for a document
+router.get('/documents/:id/comments', (req, res) => documentCommentController.list(req, res));
+
+// Create a new comment (root or reply)
+router.post('/documents/:id/comments', (req, res) => documentCommentController.create(req, res));
+
+// Update a comment's content (author only)
+router.patch('/document-comments/:commentId', (req, res) =>
+  documentCommentController.update(req, res)
+);
+
+// Resolve / reopen a comment
+router.patch('/document-comments/:commentId/resolve', (req, res) =>
+  documentCommentController.resolve(req, res)
+);
+
+// Delete a comment (author only)
+router.delete('/document-comments/:commentId', (req, res) =>
+  documentCommentController.delete(req, res)
+);
 
 export default router;

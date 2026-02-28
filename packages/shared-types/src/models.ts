@@ -149,6 +149,44 @@ export interface ListWithCards extends List {
 }
 
 // ============================================================================
+// SPRINTS & MILESTONES - MILESTONE 5
+// ============================================================================
+
+export type SprintStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED';
+
+export interface Sprint {
+  id: string;
+  boardId: string;
+  name: string;
+  goal?: string;
+  startDate: string;
+  endDate: string;
+  status: SprintStatus;
+  position: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Cards asignadas a este sprint */
+  cards?: any[];
+  /** Hitos asociados a este sprint */
+  milestones?: Milestone[];
+}
+
+export interface Milestone {
+  id: string;
+  boardId: string;
+  sprintId?: string;
+  name: string;
+  description?: string;
+  date: string;
+  color: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export type BoardView = 'kanban' | 'table' | 'calendar' | 'timeline';
+
+// ============================================================================
 // CARD - MILESTONE 4
 // ============================================================================
 
@@ -185,6 +223,7 @@ export interface Card {
   title: string;
   description?: string;
   position: number;
+  startDate?: string;
   dueDate?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH';
   completed: boolean;
@@ -229,6 +268,7 @@ export interface CardWithDetails {
   title: string;
   description?: string;
   position: number;
+  startDate?: string;
   dueDate?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH';
   completed: boolean;
@@ -798,10 +838,14 @@ export interface RealtimeStats {
  */
 export type NotificationType =
   | 'COMMENT_MENTION'
+  | 'COMMENT_ADDED'
   | 'CARD_ASSIGNED'
+  | 'CARD_UNASSIGNED'
   | 'CARD_DUE_SOON'
+  | 'CARD_OVERDUE'
   | 'BOARD_INVITE'
   | 'WORKSPACE_INVITE'
+  | 'WORKSPACE_REMOVED'
   | 'DOCUMENT_MENTION'
   | 'DOCUMENT_SHARED'
   | 'DOCUMENT_COMMENT';
@@ -833,21 +877,28 @@ export interface NotificationData {
   authorId?: string;
   authorName?: string;
 
-  // Para CARD_ASSIGNED
+  // Para CARD_ASSIGNED / CARD_UNASSIGNED
   assignedBy?: string;
   assignedByName?: string;
+  assignerId?: string;
+  assignerName?: string;
+  removerId?: string;
+  removerName?: string;
 
-  // Para CARD_DUE_SOON
+  // Para CARD_DUE_SOON / CARD_OVERDUE
   dueDate?: string;
   hoursUntilDue?: number;
+  daysUntilDue?: number;
 
-  // Para BOARD_INVITE / WORKSPACE_INVITE
+  // Para BOARD_INVITE / WORKSPACE_INVITE / WORKSPACE_REMOVED
   boardId?: string;
   boardName?: string;
   workspaceId?: string;
   workspaceName?: string;
   invitedBy?: string;
   invitedByName?: string;
+  inviterId?: string;
+  inviterName?: string;
 
   // Para DOCUMENT_MENTION / DOCUMENT_COMMENT / DOCUMENT_SHARED
   documentId?: string;

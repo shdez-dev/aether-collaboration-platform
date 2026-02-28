@@ -20,6 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const userAvatarUrl = getAvatarUrl(user?.avatar ?? null);
   const t = useT();
 
   const handleLogout = async () => {
@@ -90,12 +91,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* User Info */}
                 <Link href="/dashboard/profile">
-                  <div className="p-4 border-b border-border flex-shrink-0 hover:bg-card/50 transition-colors cursor-pointer group">
+                  <div
+                    className="p-4 border-b border-border flex-shrink-0 hover:bg-card/50 transition-colors cursor-pointer group"
+                    data-testid="user-menu"
+                  >
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10 border-2 border-accent/50 group-hover:border-accent transition-colors">
-                        {getAvatarUrl(user?.avatar) && (
+                        {userAvatarUrl && (
                           <AvatarImage
-                            src={getAvatarUrl(user?.avatar)!}
+                            src={userAvatarUrl}
                             alt={user?.name || 'User'}
                             crossOrigin="anonymous"
                           />
@@ -147,6 +151,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-terminal text-error hover:bg-error/10 transition-colors text-sm"
+                    data-testid="logout-button"
                   >
                     <span>⏻</span>
                     <span>{t.nav_logout}</span>

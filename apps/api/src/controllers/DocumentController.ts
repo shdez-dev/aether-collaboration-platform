@@ -3,6 +3,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { documentService } from '../services/DocumentService';
+import { documentExportService } from '../services/DocumentExportService';
+import { documentTemplateService } from '../services/DocumentTemplateService';
 import { WorkspaceRequest } from '../middleware/workspace';
 
 /**
@@ -12,6 +14,11 @@ const createDocumentSchema = z.object({
   title: z.string().min(1).max(255),
   templateId: z.string().optional(),
   content: z.any().optional(),
+  metadata: z
+    .object({
+      projectType: z.string().optional(),
+    })
+    .optional(),
 });
 
 const updateDocumentSchema = z.object({
@@ -556,6 +563,168 @@ class DocumentController {
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al obtener miembros' },
+      });
+    }
+  }
+
+  /**
+   * GET /api/documents/templates
+   * Get available document templates
+   */
+  async getTemplates(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      const templates = documentTemplateService.getAvailableTemplates();
+
+      return res.status(200).json({
+        success: true,
+        data: { templates },
+      });
+    } catch (error: any) {
+      console.error('[DocumentController] Get templates error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to get document templates',
+        },
+      });
+    }
+  }
+
+  /**
+   * GET /api/documents/:id/export?format=pdf|html|markdown
+   * Export document to different formats
+   */
+  async exportDocument(req: Request, res: Response) {
+    const { id: documentId } = req.params;
+    const format = (req.query.format as string)?.toLowerCase() || 'pdf';
+
+    console.log('[DocumentController] Export request:', { documentId, format });
+
+    try {
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        console.log('[DocumentController] Export failed: No userId');
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      // Validar formato
+      if (!['pdf', 'html', 'markdown'].includes(format)) {
+        console.log('[DocumentController] Export failed: Invalid format', format);
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_FORMAT', message: 'Format must be pdf, html, or markdown' },
+        });
+      }
+
+      // Verificar permisos (al menos VIEW)
+      console.log('[DocumentController] Checking permissions...');
+      const permission = await documentService.getUserPermission(documentId, userId);
+      if (!permission) {
+        console.log('[DocumentController] Export failed: No permission');
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'No access to document' },
+        });
+      }
+
+      // Obtener documento
+      console.log('[DocumentController] Fetching document...');
+      const document = await documentService.getDocumentById(documentId);
+      if (!document) {
+        console.log('[DocumentController] Export failed: Document not found');
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Document not found' },
+        });
+      }
+
+      // Obtener estado YJS
+      console.log('[DocumentController] Fetching YJS state...');
+      const yjsState = await documentService.getYjsState(documentId);
+      if (!yjsState) {
+        console.log('[DocumentController] Export failed: No YJS state');
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NO_CONTENT', message: 'Document has no content' },
+        });
+      }
+
+      console.log('[DocumentController] YJS state size:', yjsState.length, 'bytes');
+
+      // Generar nombre de archivo seguro
+      const safeTitle = document.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const timestamp = new Date().toISOString().split('T')[0];
+
+      // Exportar según formato
+      console.log('[DocumentController] Starting export to', format);
+
+      switch (format) {
+        case 'pdf': {
+          console.log('[DocumentController] Generating PDF...');
+          const pdf = await documentExportService.exportToPdf(yjsState, document.title);
+          console.log('[DocumentController] PDF generated, size:', pdf.length, 'bytes');
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="${safeTitle}_${timestamp}.pdf"`
+          );
+          return res.send(pdf);
+        }
+
+        case 'html': {
+          console.log('[DocumentController] Generating HTML...');
+          const html = await documentExportService.exportToHtml(yjsState, document.title);
+          console.log('[DocumentController] HTML generated, length:', html.length);
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="${safeTitle}_${timestamp}.html"`
+          );
+          return res.send(html);
+        }
+
+        case 'markdown': {
+          console.log('[DocumentController] Generating Markdown...');
+          const markdown = await documentExportService.exportToMarkdown(yjsState, document.title);
+          console.log('[DocumentController] Markdown generated, length:', markdown.length);
+          res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+          res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="${safeTitle}_${timestamp}.md"`
+          );
+          return res.send(markdown);
+        }
+
+        default:
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_FORMAT', message: 'Invalid format' },
+          });
+      }
+    } catch (error: any) {
+      console.error('[DocumentController] Export error:', error);
+      console.error('[DocumentController] Error stack:', error.stack);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'EXPORT_ERROR',
+          message: error.message || 'Error exporting document',
+          details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        },
       });
     }
   }

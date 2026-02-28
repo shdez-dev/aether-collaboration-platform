@@ -361,6 +361,10 @@ export const es = {
   addlist_btn_creating: 'Creando...',
   addlist_btn_add: 'Añadir Lista',
 
+  // ── List Actions ──────────────────────────────────────────────────────────
+  list_btn_delete: 'Eliminar',
+  list_delete_modal_title: '¿Eliminar Lista?',
+
   // ── Card Detail Modal ─────────────────────────────────────────────────────
   card_created: (date: string) => `Creada ${date}`,
   card_updated: (date: string) => `Actualizada ${date}`,
@@ -373,11 +377,18 @@ export const es = {
   card_priority_low: 'Baja',
   card_priority_medium: 'Media',
   card_priority_high: 'Alta',
+  card_section_start_date: 'FECHA INICIO',
+  card_start_date_select: 'Seleccionar fecha de inicio',
+  card_start_date_none: 'Sin fecha de inicio',
   card_section_due_date: 'FECHA LÍMITE',
   card_due_date_select: 'Seleccionar fecha',
   card_due_date_none: 'Sin fecha límite',
   card_due_date_clear: 'Limpiar',
   card_due_date_today: 'Hoy',
+  card_section_sprint: 'SPRINT',
+  card_sprint_none: 'Sin sprint',
+  card_sprint_assign: 'Asignar a sprint',
+  card_sprint_remove: 'Quitar del sprint',
   card_section_labels: 'ETIQUETAS',
   card_section_members: 'MIEMBROS',
   card_members_none: 'Sin miembros asignados',
@@ -501,6 +512,10 @@ export const es = {
   notifications_btn_mark_all_read: 'Marcar todas como leídas',
 
   // ── Actividad ─────────────────────────────────────────────────────────────
+  activity_page_title: 'Historial de Actividad',
+  activity_page_subtitle: 'Visualiza todos los eventos y cambios realizados en este workspace',
+  activity_error_loading_title: 'Error al cargar actividad',
+  activity_btn_retry: 'Intentar nuevamente',
   activity_workspace_created: 'creó el workspace',
   activity_workspace_updated: 'actualizó el workspace',
   activity_workspace_deleted: 'eliminó un workspace',
@@ -595,7 +610,9 @@ export const es = {
   settings_label_default_view: 'Vista Predeterminada',
   settings_view_kanban: 'Kanban',
   settings_view_list: 'Lista',
+  settings_view_table: 'Tabla',
   settings_view_calendar: 'Calendario',
+  settings_view_timeline: 'Línea de Tiempo',
   settings_label_show_archived: 'Mostrar Archivados',
   settings_show_archived_desc: 'Incluye elementos archivados en las vistas',
   settings_section_notifications: 'Notificaciones',
@@ -619,12 +636,78 @@ export const es = {
   settings_toast_saved_desc: 'Tus preferencias han sido actualizadas exitosamente.',
   settings_toast_error_desc: 'No se pudo guardar la configuración. Intenta nuevamente.',
 
+  // ── Vistas de Board ───────────────────────────────────────────────────────
+  view_kanban: 'Kanban',
+  view_table: 'Tabla',
+  view_calendar: 'Calendario',
+  view_timeline: 'Timeline',
+
+  // Vista Tabla
+  table_col_title: 'Título',
+  table_col_list: 'Lista',
+  table_col_priority: 'Prioridad',
+  table_col_due: 'Fecha límite',
+  table_col_members: 'Asignados',
+  table_col_labels: 'Etiquetas',
+  table_col_status: 'Estado',
+  table_empty: 'No hay cards en este tablero',
+  table_completed: 'Completada',
+  table_pending: 'Pendiente',
+  table_overdue: 'Vencida',
+
+  // Vista Calendario
+  calendar_prev: 'Mes anterior',
+  calendar_next: 'Mes siguiente',
+  calendar_today: 'Hoy',
+  calendar_no_date: 'Sin fecha',
+  calendar_empty_month: 'Sin cards este mes',
+
+  // Vista Timeline / Sprints
+  timeline_no_sprints: 'No hay sprints creados',
+  timeline_create_sprint: 'Crear sprint',
+  timeline_create_milestone: 'Añadir hito',
+  timeline_sprint_name: 'Nombre del sprint',
+  timeline_sprint_goal: 'Objetivo del sprint',
+  timeline_sprint_dates: 'Fechas',
+  timeline_sprint_status: 'Estado',
+  timeline_status_planned: 'Planificado',
+  timeline_status_active: 'Activo',
+  timeline_status_completed: 'Completado',
+  timeline_milestone_name: 'Nombre del hito',
+  timeline_milestone_date: 'Fecha del hito',
+  timeline_milestone_color: 'Color',
+  timeline_add_card: 'Añadir card al sprint',
+  timeline_remove_card: 'Quitar del sprint',
+  timeline_sprint_empty: 'Sin cards en este sprint',
+  timeline_unassigned: 'Sin sprint',
+  timeline_edit_sprint: 'Editar sprint',
+  timeline_delete_sprint: 'Eliminar sprint',
+  timeline_edit_milestone: 'Editar hito',
+  timeline_delete_milestone: 'Eliminar hito',
+  timeline_cards_count: (n: number) => `${n} card${n !== 1 ? 's' : ''}`,
+  timeline_sprint_complete: 'Completar sprint',
+  timeline_sprint_activate: 'Activar sprint',
+
+  // ── Document Editor ───────────────────────────────────────────────────────
+  document_loading: 'Cargando documento...',
+  document_btn_delete: 'Eliminar documento',
+  document_delete_modal_title: 'Eliminar documento',
+  editor_table_delete_column: 'Eliminar columna',
+  editor_table_delete_row: 'Eliminar fila',
+  editor_table_delete_table: 'Eliminar tabla',
+  editor_btn_save_tooltip: 'Guardar (Ctrl+S)',
+  editor_btn_saved: 'Guardado',
+  editor_comment_reply_placeholder: 'Responder...',
+  editor_comment_btn_reply: 'Responder',
+  editor_comment_new_placeholder: 'Agregar un comentario...',
+
   // ── Login / Registro ──────────────────────────────────────────────────────
   login_btn_back: 'Volver al inicio',
   login_no_account: '¿No tienes cuenta?',
   login_link_create: 'Crear cuenta',
   login_forgot_password: '¿Olvidaste tu contraseña?',
   login_link_recover: 'Recuperar',
+  login_btn_back_to_login: 'Volver a Iniciar Sesión',
   register_btn_back: 'Volver al inicio',
   register_placeholder_name: 'Tu nombre completo',
   register_placeholder_password: 'Mínimo 8 caracteres',
@@ -635,6 +718,19 @@ export const es = {
   register_validation_passwords: 'Las contraseñas no coinciden',
   register_validation_password_short: 'La contraseña debe tener al menos 8 caracteres',
   register_validation_name_short: 'El nombre debe tener al menos 2 caracteres',
+
+  // ── Forgot Password ───────────────────────────────────────────────────────
+  forgot_title: '¿Olvidaste tu contraseña?',
+  forgot_subtitle: 'Ingresa tu email y te enviaremos instrucciones para restablecer tu contraseña.',
+  forgot_label_email: 'Email',
+  forgot_placeholder_email: 'tu@email.com',
+  forgot_btn_submit: 'Enviar Instrucciones',
+  forgot_btn_submitting: 'Enviando...',
+  forgot_success_title: 'Revisa tu email',
+  forgot_success_desc:
+    'Si existe una cuenta con este email, recibirás instrucciones para restablecer tu contraseña.',
+  forgot_error_network: 'Error de conexión. Por favor intenta nuevamente.',
+  forgot_error_default: 'Error al procesar la solicitud',
 } as const;
 
 export type TranslationKey = keyof typeof es;

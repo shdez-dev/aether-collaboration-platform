@@ -285,7 +285,7 @@ function buildEdges(apiEdges: GraphEdge[], cards: GraphCard[]): Edge[] {
         width: 20,
         height: 20,
       },
-      label: isActive ? 'bloquea' : '✓',
+      label: isActive ? '' : '✓',
       labelStyle: {
         fill: isActive ? '#f59e0b' : '#22c55e',
         fontSize: 10,

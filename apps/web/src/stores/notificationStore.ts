@@ -5,42 +5,29 @@ import { devtools } from 'zustand/middleware';
 import type { Notification } from '@aether/types';
 import { notificationService } from '@/services/notificationService';
 import { socketService } from '@/services/socketService';
+import { toast as showToast } from '@/hooks/use-toast';
 
-/**
- * Estado del store de notificaciones
- */
 interface NotificationState {
   notifications: Notification[];
   unreadCount: number;
   isLoading: boolean;
-  isOpen: boolean; // Para el dropdown
+  isOpen: boolean;
 }
 
-/**
- * Acciones del store
- */
 interface NotificationActions {
-  // Fetch
   fetchNotifications: () => Promise<void>;
   fetchUnreadCount: () => Promise<void>;
-
-  // Actions
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
-
-  // UI
   toggleDropdown: () => void;
   closeDropdown: () => void;
-
-  // Real-time
   addNotification: (notification: Notification) => void;
   updateUnreadCount: (count: number) => void;
+  /** Llamar una sola vez cuando el socket se conecta */
+  initSocketListener: () => void;
 }
 
-/**
- * Estado inicial
- */
 const initialState: NotificationState = {
   notifications: [],
   unreadCount: 0,
@@ -48,146 +35,157 @@ const initialState: NotificationState = {
   isOpen: false,
 };
 
-/**
- * NotificationStore
- * Maneja el estado global de notificaciones
- */
+// Guardamos la referencia del handler fuera del store para poder hacer off exacto
+let _socketHandler: ((event: any) => void) | null = null;
+let _listenerRegistered = false;
+
+function getNotificationIcon(type: string): string {
+  switch (type) {
+    case 'WORKSPACE_INVITE':
+      return '📩';
+    case 'WORKSPACE_REMOVED':
+      return '🚪';
+    case 'CARD_ASSIGNED':
+      return '📌';
+    case 'CARD_UNASSIGNED':
+      return '📋';
+    case 'COMMENT_MENTION':
+      return '💬';
+    case 'COMMENT_ADDED':
+      return '💭';
+    case 'CARD_DUE_SOON':
+      return '⏰';
+    case 'CARD_OVERDUE':
+      return '⚠️';
+    default:
+      return '🔔';
+  }
+}
+
 export const useNotificationStore = create<NotificationState & NotificationActions>()(
   devtools(
     (set, get) => ({
       ...initialState,
 
-      // ======================================================================
-      // FETCH NOTIFICATIONS
-      // ======================================================================
       fetchNotifications: async () => {
         set({ isLoading: true });
-
         try {
           const notifications = await notificationService.getNotifications();
-
-          set({
-            notifications,
-            isLoading: false,
-          });
-        } catch (error) {
-          console.error('[NotificationStore] Error fetching notifications:', error);
+          set({ notifications, isLoading: false });
+        } catch {
           set({ isLoading: false });
         }
       },
 
-      // ======================================================================
-      // FETCH UNREAD COUNT
-      // ======================================================================
       fetchUnreadCount: async () => {
         try {
           const count = await notificationService.getUnreadCount();
           set({ unreadCount: count });
-        } catch (error) {
-          console.error('[NotificationStore] Error fetching unread count:', error);
-        }
+        } catch {}
       },
 
-      // ======================================================================
-      // MARK AS READ
-      // ======================================================================
-      markAsRead: async (notificationId: string) => {
+      markAsRead: async (notificationId) => {
         try {
           await notificationService.markAsRead(notificationId);
-
-          // Actualizar localmente
-          set((state) => ({
-            notifications: state.notifications.map((n) =>
+          set((s) => ({
+            notifications: s.notifications.map((n) =>
               n.id === notificationId ? { ...n, read: true } : n
             ),
-            unreadCount: Math.max(0, state.unreadCount - 1),
+            unreadCount: Math.max(0, s.unreadCount - 1),
           }));
-        } catch (error) {
-          console.error('[NotificationStore] Error marking as read:', error);
-        }
+        } catch {}
       },
 
-      // ======================================================================
-      // MARK ALL AS READ
-      // ======================================================================
       markAllAsRead: async () => {
         try {
           await notificationService.markAllAsRead();
-
-          // Actualizar localmente
-          set((state) => ({
-            notifications: state.notifications.map((n) => ({ ...n, read: true })),
+          set((s) => ({
+            notifications: s.notifications.map((n) => ({ ...n, read: true })),
             unreadCount: 0,
           }));
-        } catch (error) {
-          console.error('[NotificationStore] Error marking all as read:', error);
-        }
+        } catch {}
       },
 
-      // ======================================================================
-      // DELETE NOTIFICATION
-      // ======================================================================
-      deleteNotification: async (notificationId: string) => {
+      deleteNotification: async (notificationId) => {
         try {
           await notificationService.deleteNotification(notificationId);
-
-          // Actualizar localmente
-          set((state) => {
-            const notification = state.notifications.find((n) => n.id === notificationId);
-            const wasUnread = notification && !notification.read;
-
+          set((s) => {
+            const n = s.notifications.find((n) => n.id === notificationId);
             return {
-              notifications: state.notifications.filter((n) => n.id !== notificationId),
-              unreadCount: wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+              notifications: s.notifications.filter((n) => n.id !== notificationId),
+              unreadCount: n && !n.read ? Math.max(0, s.unreadCount - 1) : s.unreadCount,
             };
           });
-        } catch (error) {
-          console.error('[NotificationStore] Error deleting notification:', error);
-        }
+        } catch {}
       },
 
-      // ======================================================================
-      // UI ACTIONS
-      // ======================================================================
-      toggleDropdown: () => {
-        set((state) => ({ isOpen: !state.isOpen }));
-      },
+      toggleDropdown: () => set((s) => ({ isOpen: !s.isOpen })),
+      closeDropdown: () => set({ isOpen: false }),
 
-      closeDropdown: () => {
-        set({ isOpen: false });
-      },
-
-      // ======================================================================
-      // REAL-TIME UPDATES
-      // ======================================================================
-      addNotification: (notification: Notification) => {
-        set((state) => ({
-          notifications: [notification, ...state.notifications],
-          unreadCount: state.unreadCount + 1,
+      addNotification: (notification) => {
+        // Dedup: nunca agregar la misma notificación dos veces
+        const already = get().notifications.some((n) => n.id === notification.id);
+        if (already) return;
+        set((s) => ({
+          notifications: [notification, ...s.notifications],
+          unreadCount: s.unreadCount + 1,
         }));
       },
 
-      updateUnreadCount: (count: number) => {
-        set({ unreadCount: count });
+      updateUnreadCount: (count) => set({ unreadCount: count }),
+
+      // ── Listener único de socket ─────────────────────────────────────────────
+      initSocketListener: () => {
+        // Garantizar una sola instancia del listener en toda la vida de la app
+        if (_listenerRegistered) return;
+        _listenerRegistered = true;
+
+        _socketHandler = (event: any) => {
+          if (event.type === 'notification.created') {
+            const p = event.payload as any;
+            const notification: Notification = {
+              id: p.notificationId || p.notification?.id,
+              userId: p.userId,
+              type: p.type,
+              title: p.title,
+              message: p.message,
+              data: p.data,
+              read: false,
+              createdAt: new Date().toISOString(),
+            };
+            get().addNotification(notification);
+            showToast({
+              title: `${getNotificationIcon(notification.type)} ${notification.title}`,
+              description: notification.message,
+              duration: 5000,
+            });
+          }
+
+          if (event.type === 'notification.read') {
+            const p = event.payload as any;
+            if (p.unreadCount !== undefined) get().updateUnreadCount(p.unreadCount);
+          }
+
+          if (event.type === 'notification.read_all') {
+            get().updateUnreadCount(0);
+          }
+
+          if (event.type === 'notification.deleted') {
+            const p = event.payload as any;
+            if (p.unreadCount !== undefined) get().updateUnreadCount(p.unreadCount);
+          }
+        };
+
+        socketService.on('event', _socketHandler);
       },
     }),
     { name: 'NotificationStore' }
   )
 );
 
-// ============================================================================
-// SELECTORES
-// ============================================================================
-
-export const selectNotifications = (state: NotificationState & NotificationActions) =>
-  state.notifications;
-
-export const selectUnreadNotifications = (state: NotificationState & NotificationActions) =>
-  state.notifications.filter((n) => !n.read);
-
-export const selectUnreadCount = (state: NotificationState & NotificationActions) =>
-  state.unreadCount;
-
-export const selectIsLoading = (state: NotificationState & NotificationActions) => state.isLoading;
-
-export const selectIsOpen = (state: NotificationState & NotificationActions) => state.isOpen;
+export const selectNotifications = (s: NotificationState & NotificationActions) => s.notifications;
+export const selectUnreadNotifications = (s: NotificationState & NotificationActions) =>
+  s.notifications.filter((n) => !n.read);
+export const selectUnreadCount = (s: NotificationState & NotificationActions) => s.unreadCount;
+export const selectIsLoading = (s: NotificationState & NotificationActions) => s.isLoading;
+export const selectIsOpen = (s: NotificationState & NotificationActions) => s.isOpen;

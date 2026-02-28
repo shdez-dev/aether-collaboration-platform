@@ -549,14 +549,17 @@ body:has(.fixed.z-40) {
 
 /* ==================== COLLABORATION CURSORS ==================== */
 .collaboration-cursor__caret {
-  border-left: 2px solid;
-  border-right: 2px solid;
-  margin-left: -1px;
-  margin-right: -1px;
-  pointer-events: none;
+  border-left: 2.5px solid;
+  border-right: 2.5px solid;
+  margin-left: -1.25px;
+  margin-right: -1.25px;
+  pointer-events: all; /* Permitir hover */
   position: relative;
   word-break: normal;
   animation: cursor-blink 1s steps(2) infinite;
+  cursor: pointer;
+  height: 1.2em;
+  display: inline-block;
 }
 
 @keyframes cursor-blink {
@@ -566,10 +569,11 @@ body:has(.fixed.z-40) {
   }
   50%,
   100% {
-    opacity: 0;
+    opacity: 0.3; /* Más visible incluso cuando parpadea */
   }
 }
 
+/* Label oculta por defecto, visible solo en hover */
 .collaboration-cursor__label {
   border-radius: 4px 4px 4px 0;
   color: #fff;
@@ -578,12 +582,25 @@ body:has(.fixed.z-40) {
   font-weight: 600;
   left: -1px;
   line-height: 1.3;
-  padding: 3px 8px;
+  padding: 4px 10px;
   position: absolute;
-  top: -1.6em;
+  top: -2em;
   user-select: none;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Mostrar label en hover sobre el cursor */
+.collaboration-cursor__caret:hover .collaboration-cursor__label {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* ==================== FOCUS STYLES ==================== */
@@ -632,22 +649,124 @@ body:has(.fixed.z-40) {
     0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
-/* ==================== RESPONSIVE ==================== */
+/* ==================== MOBILE OPTIMIZATIONS ==================== */
+
+/* Safe area for devices with notches (iPhone X+) */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Prevent pull-to-refresh on mobile when not at top */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Touch-friendly minimum sizes */
 @media (max-width: 768px) {
+  /* Minimum touch target: 44x44px (Apple HIG) */
+  button:not(.touch-auto),
+  a[role='button']:not(.touch-auto),
+  input[type='checkbox'],
+  input[type='radio'] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Exception for inline text links */
+  a:not([class*='btn']):not([role='button']) {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
+/* Utility classes for touch targets */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-target-lg {
+  min-height: 48px;
+  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-auto {
+  min-height: auto !important;
+  min-width: auto !important;
+}
+
+/* Performance optimizations for lists */
+.will-change-transform {
+  will-change: transform;
+}
+
+.contain-layout {
+  contain: layout;
+}
+
+.contain-paint {
+  contain: paint;
+}
+
+/* Smooth scrolling on mobile */
+@media (max-width: 768px) {
+  .custom-scrollbar {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+}
+
+/* ==================== RESPONSIVE TEXT SCALING ==================== */
+@media (max-width: 768px) {
+  /* Base font size slightly larger on mobile */
+  html {
+    font-size: 16px;
+  }
+
+  /* Document editor */
   .ProseMirror {
     font-size: 15px;
+    line-height: 1.6;
   }
 
   .ProseMirror h1 {
     font-size: 1.875em;
+    line-height: 1.2;
   }
 
   .ProseMirror h2 {
     font-size: 1.5em;
+    line-height: 1.3;
   }
 
   .ProseMirror h3 {
     font-size: 1.25em;
+    line-height: 1.4;
+  }
+
+  /* Improve readability */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Larger minimum for small text */
+  .text-xs {
+    font-size: 0.8125rem; /* 13px instead of 12px */
+  }
+
+  .text-sm {
+    font-size: 0.875rem; /* Keep at 14px */
   }
 }
 

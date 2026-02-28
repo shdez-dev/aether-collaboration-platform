@@ -75,6 +75,7 @@ export function Card({ card }: CardProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : card.completed ? 0.7 : 1,
+    willChange: isDragging ? 'transform' : 'auto',
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -112,19 +113,12 @@ export function Card({ card }: CardProps) {
         const json = await response.json().catch(() => ({}));
         // Rollback optimistic update
         updateCard(card.id, { completed: card.completed, completedAt: card.completedAt });
-        if (json?.error?.code === 'BLOCKED_BY_DEPENDENCY') {
-          // El backend rechazó el completado por dependencias bloqueantes
-          console.warn('Card bloqueada por dependencias:', json.error.message);
-        } else {
-          console.error('Error al actualizar tarjeta:', json);
-        }
         return;
       }
 
       const { data } = await response.json();
       updateCard(card.id, data.card);
     } catch (error) {
-      console.error('Error al cambiar estado de completado:', error);
       updateCard(card.id, {
         completed: card.completed,
         completedAt: card.completedAt,
@@ -203,8 +197,9 @@ export function Card({ card }: CardProps) {
                   : 'Marcar como completada'
           }
           className={`
-            mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 
-            flex items-center justify-center transition-all
+            mt-0.5 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded border-2 
+            flex items-center justify-center transition-all touch-manipulation
+            p-2 sm:p-0
             ${
               isBlocked
                 ? 'border-warning/50 bg-warning/10 cursor-not-allowed'

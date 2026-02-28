@@ -8,17 +8,15 @@ export const pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  max: 20,
+  max: 30, // Aumentado para manejar más conexiones concurrentes en tests
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000, // Aumentado de 2s a 10s para tests e2e
 });
 
 // Test de conexión
-pool.on('connect', () => {
-});
+pool.on('connect', () => {});
 
-pool.on('error', (err) => {
-});
+pool.on('error', (err) => {});
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

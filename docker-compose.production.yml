@@ -1,0 +1,162 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # DATABASE - PostgreSQL
+  # =============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: aether-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: '-E UTF8'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-database.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aether-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+
+  # =============================================================================
+  # CACHE - Redis
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: aether-redis-prod
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - aether-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  # =============================================================================
+  # API - Backend
+  # =============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: aether-api-prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      FRONTEND_URL: ${FRONTEND_URL}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+    volumes:
+      - uploads:/app/apps/api/public/uploads
+    networks:
+      - aether-network
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # =============================================================================
+  # WEB - Frontend
+  # =============================================================================
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: aether-web-prod
+    restart: always
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+    networks:
+      - aether-network
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # =============================================================================
+  # REVERSE PROXY - Nginx
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: aether-nginx-prod
+    restart: always
+    depends_on:
+      - api
+      - web
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - uploads:/usr/share/nginx/html/uploads:ro
+    networks:
+      - aether-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads:
+    driver: local
+
+networks:
+  aether-network:
+    driver: bridge

@@ -59,7 +59,6 @@ export function useComments(cardId: string) {
       if (event.type === 'comment.created') {
         const payload = event.payload as CommentCreatedPayload;
         if (payload.cardId === cardId) {
-
           // Si no es del usuario actual, refetch para obtener datos completos
           const socketId = socketService.getSocketId();
           if (event.meta.socketId !== socketId) {
@@ -72,7 +71,6 @@ export function useComments(cardId: string) {
       if (event.type === 'comment.updated') {
         const payload = event.payload as CommentUpdatedPayload;
         if (payload.cardId === cardId) {
-
           const socketId = socketService.getSocketId();
           if (event.meta.socketId !== socketId) {
             updateCommentOptimistic(payload.commentId, {
@@ -88,7 +86,6 @@ export function useComments(cardId: string) {
       if (event.type === 'comment.deleted') {
         const payload = event.payload as CommentDeletedPayload;
         if (payload.cardId === cardId) {
-
           const socketId = socketService.getSocketId();
           if (event.meta.socketId !== socketId) {
             removeCommentOptimistic(payload.commentId, cardId);
@@ -157,7 +154,9 @@ export function useComments(cardId: string) {
         await updateComment(commentId, content.trim(), mentions);
         toast.success('Comentario actualizado');
       } catch (error: any) {
-        toast.error(error.message || 'Error al actualizar comentario');
+        console.error('[useComments] Error updating comment:', error);
+        const errorMessage = error.message || error.toString() || 'Error al actualizar comentario';
+        toast.error(errorMessage);
       }
     },
     [updateComment]
@@ -172,7 +171,9 @@ export function useComments(cardId: string) {
         await deleteComment(commentId, cardId);
         toast.success('Comentario eliminado');
       } catch (error: any) {
-        toast.error(error.message || 'Error al eliminar comentario');
+        console.error('[useComments] Error deleting comment:', error);
+        const errorMessage = error.message || error.toString() || 'Error al eliminar comentario';
+        toast.error(errorMessage);
       }
     },
     [cardId, deleteComment]

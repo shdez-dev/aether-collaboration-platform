@@ -5,7 +5,7 @@ import { apiService } from '@/services/apiService';
 
 // ==================== TYPES ====================
 
-interface UserPreferences {
+export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
   emailNotifications: boolean;
   pushNotifications: boolean;
@@ -13,7 +13,7 @@ interface UserPreferences {
   notificationFrequency: 'realtime' | 'daily' | 'weekly';
   compactMode: boolean;
   showArchived: boolean;
-  defaultBoardView: 'kanban' | 'list' | 'calendar';
+  defaultBoardView: 'kanban' | 'table' | 'calendar' | 'timeline';
 }
 
 interface PreferencesState {

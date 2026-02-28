@@ -33,6 +33,7 @@ import {
   AlertCircle,
   UserX,
   Zap,
+  ScrollText,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
@@ -128,7 +129,6 @@ export default function WorkspaceDetailPage() {
       await removeMember(workspaceId, memberToRemove.userId);
       setMemberToRemove(null);
     } catch (error) {
-      console.error('Error removing member:', error);
       alert(t.workspace_error_removing_member);
     } finally {
       setRemovingMember(false);
@@ -140,7 +140,6 @@ export default function WorkspaceDetailPage() {
     try {
       await changeMemberRole(workspaceId, userId, newRole);
     } catch (error) {
-      console.error('Error changing role:', error);
       alert(t.workspace_error_changing_role);
     } finally {
       setChangingRoleMemberId(null);
@@ -214,15 +213,25 @@ export default function WorkspaceDetailPage() {
             <span>{t.workspace_btn_back}</span>
           </Link>
 
-          {isOwnerOrAdmin && (
+          <div className="flex items-center gap-2">
             <Link
-              href={`/dashboard/workspaces/${workspaceId}/settings`}
+              href={`/dashboard/workspaces/${workspaceId}/activity`}
               className="px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-sm font-medium flex items-center gap-2"
             >
-              <Settings className="w-4 h-4" />
-              <span>{t.workspace_btn_settings}</span>
+              <ScrollText className="w-4 h-4" />
+              <span>{t.workspace_section_activity}</span>
             </Link>
-          )}
+
+            {isOwnerOrAdmin && (
+              <Link
+                href={`/dashboard/workspaces/${workspaceId}/settings`}
+                className="px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                <span>{t.workspace_btn_settings}</span>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Workspace Info Header */}

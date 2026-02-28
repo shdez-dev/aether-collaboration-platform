@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { boardController } from '../controllers/BoardController';
 import { listController } from '../controllers/ListController';
+import { SprintController } from '../controllers/SprintController';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
 
@@ -131,6 +132,42 @@ router.put('/lists/:id/reorder', checkWorkspaceMembership, (req, res) =>
  */
 router.delete('/lists/:id', checkWorkspaceMembership, (req, res) =>
   listController.delete(req, res)
+);
+
+// ==================== SPRINT ROUTES ====================
+
+router.get('/boards/:boardId/sprints', checkWorkspaceMembership, (req, res) =>
+  SprintController.getSprints(req, res)
+);
+router.post('/boards/:boardId/sprints', checkWorkspaceMembership, (req, res) =>
+  SprintController.createSprint(req, res)
+);
+router.put('/sprints/:sprintId', checkWorkspaceMembership, (req, res) =>
+  SprintController.updateSprint(req, res)
+);
+router.delete('/sprints/:sprintId', checkWorkspaceMembership, (req, res) =>
+  SprintController.deleteSprint(req, res)
+);
+router.post('/sprints/:sprintId/cards', checkWorkspaceMembership, (req, res) =>
+  SprintController.addCardToSprint(req, res)
+);
+router.delete('/sprints/:sprintId/cards/:cardId', checkWorkspaceMembership, (req, res) =>
+  SprintController.removeCardFromSprint(req, res)
+);
+
+// ==================== MILESTONE ROUTES ====================
+
+router.get('/boards/:boardId/milestones', checkWorkspaceMembership, (req, res) =>
+  SprintController.getMilestones(req, res)
+);
+router.post('/boards/:boardId/milestones', checkWorkspaceMembership, (req, res) =>
+  SprintController.createMilestone(req, res)
+);
+router.put('/milestones/:milestoneId', checkWorkspaceMembership, (req, res) =>
+  SprintController.updateMilestone(req, res)
+);
+router.delete('/milestones/:milestoneId', checkWorkspaceMembership, (req, res) =>
+  SprintController.deleteMilestone(req, res)
 );
 
 export default router;

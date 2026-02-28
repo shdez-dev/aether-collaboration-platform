@@ -11,6 +11,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from './Card';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useT } from '@/lib/i18n';
 
 interface List {
   id: string;
@@ -30,6 +31,7 @@ interface BoardListProps {
 }
 
 export default function BoardList({ list, filteredCards: filteredCardsProp }: BoardListProps) {
+  const t = useT();
   const { updateList, deleteList } = useBoardStore();
   const { cards, addCard } = useCardStore();
   const setSelectedCard = useCardStore((state) => state.setSelectedCard);
@@ -161,7 +163,6 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
       setCardTitle('');
       setIsAddingCard(false);
     } catch (error: any) {
-      console.error('Error al crear tarjeta:', error);
       alert(`Error al crear la tarjeta: ${error.message}`);
     } finally {
       setIsCreatingCard(false);
@@ -251,17 +252,17 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors text-error"
                   >
-                    ✕ Eliminar
+                    ✕ {t.list_btn_delete}
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Cards Area - Droppable con Scrollbar Personalizada */}
+          {/* Cards Area - Droppable con Scrollbar Personalizada + Performance */}
           <div
             ref={setDroppableNodeRef}
-            className="overflow-y-auto overflow-x-hidden min-h-[150px] max-h-[500px] cards-scrollbar pr-2"
+            className="overflow-y-auto overflow-x-hidden min-h-[150px] max-h-[500px] cards-scrollbar pr-2 contain-layout"
           >
             <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
@@ -308,7 +309,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
                       disabled={isCreatingCard}
                       className="btn-secondary py-1.5 px-3 text-xs"
                     >
-                      Cancelar
+                      {t.btn_cancel}
                     </button>
                   </div>
                 </form>
@@ -348,7 +349,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <div className="card-terminal max-w-md pointer-events-auto animate-scale-in">
-              <h3 className="text-xl mb-2">¿Eliminar Lista?</h3>
+              <h3 className="text-xl mb-2">{t.list_delete_modal_title}</h3>
               <p className="text-text-secondary mb-2">
                 ¿Estás seguro de que deseas eliminar <strong>{list.name}</strong>?
               </p>
@@ -366,14 +367,14 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
                   onClick={() => setShowDeleteConfirm(false)}
                   className="btn-secondary flex-1"
                 >
-                  Cancelar
+                  {t.btn_cancel}
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={allListCards.length > 0}
                   className="btn-primary bg-error hover:bg-error/80 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Eliminar
+                  {t.btn_delete}
                 </button>
               </div>
             </div>

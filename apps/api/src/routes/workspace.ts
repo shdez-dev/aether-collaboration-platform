@@ -2,6 +2,7 @@
 
 import { Router } from 'express';
 import { workspaceController } from '../controllers/WorkspaceController';
+import { activityLogController } from '../controllers/ActivityLogController';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership, requireAdmin, requireOwner } from '../middleware/workspace';
 
@@ -100,13 +101,6 @@ router.delete('/:id/members/:userId', checkWorkspaceMembership, requireAdmin, (r
 );
 
 /**
- * GET /api/workspaces/:id/activity
- */
-router.get('/:id/activity', checkWorkspaceMembership, (req, res) =>
-  workspaceController.getWorkspaceActivity(req, res)
-);
-
-/**
  * GET /api/workspaces/:id/stats
  * Obtener estadísticas del workspace
  */
@@ -160,6 +154,22 @@ router.post('/:id/invite-token', checkWorkspaceMembership, requireAdmin, (req, r
  */
 router.delete('/:id/invite-token', checkWorkspaceMembership, requireAdmin, (req, res) =>
   workspaceController.revokeInviteToken(req, res)
+);
+
+/**
+ * GET /api/workspaces/:id/activity
+ * Get activity log for a workspace with filters
+ */
+router.get('/:id/activity', checkWorkspaceMembership, (req, res) =>
+  activityLogController.getWorkspaceActivity(req, res)
+);
+
+/**
+ * GET /api/workspaces/:id/activity/stats
+ * Get activity statistics for a workspace
+ */
+router.get('/:id/activity/stats', checkWorkspaceMembership, (req, res) =>
+  activityLogController.getWorkspaceActivityStats(req, res)
 );
 
 export default router;

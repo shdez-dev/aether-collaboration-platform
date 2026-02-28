@@ -273,7 +273,11 @@ export default function WorkspacesPage() {
             )}
           </button>
 
-          <button onClick={() => setIsCreateModalOpen(true)} className="btn-primary">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="btn-primary"
+            data-testid="create-workspace-button"
+          >
             <span className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
               <span>{t.workspaces_btn_create}</span>
@@ -320,7 +324,11 @@ export default function WorkspacesPage() {
           </div>
           <h3 className="text-xl font-medium mb-2">{t.workspaces_empty_title}</h3>
           <p className="text-text-secondary text-sm mb-6">{t.workspaces_empty_desc}</p>
-          <button onClick={() => setIsCreateModalOpen(true)} className="btn-primary">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="btn-primary"
+            data-testid="create-workspace-button"
+          >
             <span className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
               <span>{t.workspaces_btn_create}</span>

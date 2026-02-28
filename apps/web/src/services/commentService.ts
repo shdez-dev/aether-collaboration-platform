@@ -37,16 +37,11 @@ function getAuthToken(): string | null {
   try {
     const authStorage = localStorage.getItem('aether-auth-storage');
     if (!authStorage) {
-      console.warn('[CommentService] No auth storage found');
       return null;
     }
 
     const parsed = JSON.parse(authStorage);
     const token = parsed.state?.accessToken || null;
-
-    if (!token) {
-      console.warn('[CommentService] No access token in storage');
-    }
 
     return token;
   } catch (error) {
@@ -78,8 +73,6 @@ class CommentService {
     const token = getAuthToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      console.warn('[CommentService] No auth token available for request');
     }
 
     return headers;
@@ -108,7 +101,6 @@ class CommentService {
    */
   async getCommentsByCard(cardId: string): Promise<CommentWithUser[]> {
     try {
-
       const response = await fetch(`${this.baseUrl}/api/cards/${cardId}/comments`, {
         method: 'GET',
         headers: this.getHeaders(),
@@ -127,7 +119,6 @@ class CommentService {
    */
   async createComment(cardId: string, data: CreateCommentDto): Promise<CommentWithUser> {
     try {
-
       const response = await fetch(`${this.baseUrl}/api/cards/${cardId}/comments`, {
         method: 'POST',
         headers: this.getHeaders(),
@@ -165,7 +156,6 @@ class CommentService {
    */
   async updateComment(commentId: string, data: UpdateCommentDto): Promise<CommentWithUser> {
     try {
-
       const response = await fetch(`${this.baseUrl}/api/comments/${commentId}`, {
         method: 'PATCH',
         headers: this.getHeaders(),
@@ -185,7 +175,6 @@ class CommentService {
    */
   async deleteComment(commentId: string): Promise<void> {
     try {
-
       const response = await fetch(`${this.baseUrl}/api/comments/${commentId}`, {
         method: 'DELETE',
         headers: this.getHeaders(),

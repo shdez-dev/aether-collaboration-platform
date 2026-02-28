@@ -90,11 +90,16 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Auto-login después de registro exitoso
-          await get().login(email, password);
-        } catch (error) {
+          try {
+            await get().login(email, password);
+          } catch (loginError) {
+            // Si el auto-login falla, marcamos como no cargando pero dejamos el error
+            set({ isLoading: false });
+          }
+        } catch (error: any) {
           set({
             isLoading: false,
-            error: 'Error inesperado al registrar',
+            error: error?.message || 'Error inesperado al registrar. Verifica tu conexión.',
           });
         }
       },
@@ -155,7 +160,7 @@ export const useAuthStore = create<AuthState>()(
           try {
             await apiService.post('/api/auth/logout', {}, true);
           } catch (error) {
-            console.warn('[AuthStore] Error al notificar logout al servidor:', error);
+            // Error al notificar logout - no crítico
           }
         }
 
@@ -291,7 +296,7 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000';
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
           const res = await fetch(`${API_URL}/api/users/me/avatar`, {
             method: 'POST',
             headers: {

@@ -51,9 +51,21 @@ export default function RegisterPage() {
       return;
     }
 
+    // Ejecutar registro y esperar resultado
     await register(name.trim(), email.trim(), password);
 
-    // Si el registro fue exitoso, el auto-login redirigirá automáticamente
+    // Verificar si el registro fue exitoso
+    const { isAuthenticated: authenticated, error: authError } = useAuthStore.getState();
+
+    if (authenticated) {
+      // Si hay autenticación exitosa, redirigir
+      router.push('/dashboard');
+    } else if (!authError) {
+      // Si no hay error pero tampoco autenticación, es posible que necesite verificación
+      // Por ahora redirigir a dashboard de todas formas
+      router.push('/dashboard');
+    }
+    // Si hay error, se mostrará automáticamente en la UI
   };
 
   const displayError = validationError || error;
@@ -89,6 +101,7 @@ export default function RegisterPage() {
               </label>
               <input
                 id="name"
+                name="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -108,6 +121,7 @@ export default function RegisterPage() {
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -126,6 +140,7 @@ export default function RegisterPage() {
               </label>
               <input
                 id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -146,6 +161,7 @@ export default function RegisterPage() {
               </label>
               <input
                 id="confirmPassword"
+                name="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

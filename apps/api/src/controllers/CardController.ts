@@ -11,6 +11,7 @@ import { WorkspaceRequest } from '../middleware/workspace';
 const createCardSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
+  startDate: z.string().datetime().optional(),
   dueDate: z.string().datetime().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
 });
@@ -18,6 +19,7 @@ const createCardSchema = z.object({
 const updateCardSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().max(5000).optional().or(z.null()),
+  startDate: z.string().datetime().optional().or(z.null()),
   dueDate: z.string().datetime().optional().or(z.null()),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional().or(z.null()),
   completed: z.boolean().optional(),

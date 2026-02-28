@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useDocumentStore } from '@/stores/documentStore';
 import { FileText, Plus, Clock, ChevronRight } from 'lucide-react';
 import type { Document } from '@aether/types';
+import { useT } from '@/lib/i18n';
 
 interface DocumentsSectionProps {
   workspaceId: string;
@@ -14,6 +15,7 @@ interface DocumentsSectionProps {
 
 export default function DocumentsSection({ workspaceId, isOwnerOrAdmin }: DocumentsSectionProps) {
   const router = useRouter();
+  const t = useT();
   const { documents, isLoading, fetchDocuments } = useDocumentStore();
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function DocumentsSection({ workspaceId, isOwnerOrAdmin }: Docume
             <button
               onClick={handleCreateDocument}
               className="p-1.5 border border-border hover:border-accent hover:bg-accent/10 transition-all"
-              title="Crear documento"
+              title={t.documents_btn_create}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -95,7 +97,7 @@ export default function DocumentsSection({ workspaceId, isOwnerOrAdmin }: Docume
                 className="px-3 py-1.5 bg-accent text-white text-xs hover:bg-accent/90 inline-flex items-center gap-1.5"
               >
                 <Plus className="w-3 h-3" />
-                <span>Crear Documento</span>
+                <span>{t.documents_btn_create}</span>
               </button>
             )}
           </div>

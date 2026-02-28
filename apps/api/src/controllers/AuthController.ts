@@ -2,11 +2,13 @@
 
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { z } from 'zod';
 import type { UserId } from '@aether/types';
 import { eventStore } from '../services/EventStoreService';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { pool } from '../lib/db';
+import { emailService } from '../services/EmailService';
 
 // Esquemas de validación con Zod
 const registerSchema = z.object({
@@ -20,22 +22,40 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password es requerida'),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Email inválido'),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token es requerido'),
+  newPassword: z.string().min(8, 'Password debe tener mínimo 8 caracteres'),
+});
+
+const verifyEmailSchema = z.object({
+  token: z.string().min(1, 'Token es requerido'),
+});
+
 export class AuthController {
   /**
    * POST /api/auth/register
    * Registra un nuevo usuario
    */
   async register(req: Request, res: Response) {
-    const client = await pool.connect();
+    let client;
     try {
-      // 1. Validar input
+      // 1. Validar input primero (antes de obtener conexión)
       const validatedData = registerSchema.parse(req.body);
       const { email, password, name } = validatedData;
 
-      // 2. Verificar que el email no exista
+      // 2. Obtener conexión del pool
+      client = await pool.connect();
+
+      // 3. Verificar que el email no exista
       const existingUser = await client.query('SELECT id FROM users WHERE email = $1', [email]);
 
       if (existingUser.rows.length > 0) {
+        client.release();
+        client = undefined;
         return res.status(400).json({
           success: false,
           error: {
@@ -45,20 +65,28 @@ export class AuthController {
         });
       }
 
-      // 3. Hashear password con bcrypt
+      // 4. Hashear password con bcrypt
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // 4. Crear usuario en la base de datos
+      // 5. Generate email verification token
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      // 6. Crear usuario en la base de datos con token de verificación
       const result = await client.query(
-        `INSERT INTO users (id, email, password, name, created_at, updated_at) 
-         VALUES (uuid_generate_v4(), $1, $2, $3, NOW(), NOW()) 
+        `INSERT INTO users (id, email, password, name, email_verified, email_verification_token, email_verification_expires, created_at, updated_at) 
+         VALUES (uuid_generate_v4(), $1, $2, $3, FALSE, $4, $5, NOW(), NOW()) 
          RETURNING id, email, name, avatar, created_at`,
-        [email, hashedPassword, name]
+        [email, hashedPassword, name, verificationToken, verificationExpires]
       );
 
       const user = result.rows[0];
 
-      // 5. Emitir evento auth.user.registered
+      // Liberar conexión antes de operaciones que no requieren DB
+      client.release();
+      client = undefined;
+
+      // 7. Emitir evento auth.user.registered
       await eventStore.emit(
         'auth.user.registered',
         {
@@ -69,7 +97,34 @@ export class AuthController {
         user.id as UserId
       );
 
-      // 6. Retornar usuario creado (SIN password)
+      // 8. Send verification email (don't block on this)
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
+
+      console.log('[AUTH] Attempting to send verification email...');
+      console.log('[AUTH] User email:', user.email);
+      console.log('[AUTH] User name:', user.name);
+      console.log('[AUTH] Verification link:', verificationLink);
+
+      emailService
+        .sendVerificationEmail(user.email, {
+          userName: user.name,
+          verificationLink,
+        })
+        .then(() => {
+          console.log('[AUTH] ✓ Verification email queued successfully');
+        })
+        .catch((error) => {
+          console.error('[AUTH] ✗ Failed to send verification email:', error);
+          console.error('[AUTH] Error details:', {
+            message: error.message,
+            stack: error.stack,
+            ...error,
+          });
+          // Don't fail registration if email fails
+        });
+
+      // 9. Retornar usuario creado (SIN password)
       return res.status(201).json({
         success: true,
         data: {
@@ -108,7 +163,9 @@ export class AuthController {
         },
       });
     } finally {
-      client.release();
+      if (client) {
+        client.release();
+      }
     }
   }
 
@@ -117,19 +174,24 @@ export class AuthController {
    * Inicia sesión de un usuario
    */
   async login(req: Request, res: Response) {
-    const client = await pool.connect();
+    let client;
     try {
-      // 1. Validar input
+      // 1. Validar input primero
       const validatedData = loginSchema.parse(req.body);
       const { email, password } = validatedData;
 
-      // 2. Buscar usuario por email
+      // 2. Obtener conexión del pool
+      client = await pool.connect();
+
+      // 3. Buscar usuario por email
       const result = await client.query(
         'SELECT id, email, name, password, avatar FROM users WHERE email = $1',
         [email]
       );
 
       if (result.rows.length === 0) {
+        client.release();
+        client = undefined;
         return res.status(401).json({
           success: false,
           error: {
@@ -141,7 +203,11 @@ export class AuthController {
 
       const user = result.rows[0];
 
-      // 3. Comparar password con bcrypt
+      // Liberar conexión ya que no la necesitamos más
+      client.release();
+      client = undefined;
+
+      // 4. Comparar password con bcrypt
       const isPasswordValid = await bcrypt.compare(password, user.password);
 
       if (!isPasswordValid) {
@@ -154,7 +220,7 @@ export class AuthController {
         });
       }
 
-      // 4. Generar JWT access token y refresh token
+      // 5. Generar JWT access token y refresh token
       const tokenPayload = {
         userId: user.id as UserId,
         email: user.email,
@@ -163,7 +229,7 @@ export class AuthController {
       const accessToken = generateAccessToken(tokenPayload);
       const refreshToken = generateRefreshToken(tokenPayload);
 
-      // 5. Emitir evento auth.user.loggedIn
+      // 6. Emitir evento auth.user.loggedIn
       await eventStore.emit(
         'auth.user.loggedIn',
         {
@@ -173,7 +239,7 @@ export class AuthController {
         user.id as UserId
       );
 
-      // 6. Retornar tokens y datos de usuario
+      // 7. Retornar tokens y datos de usuario
       return res.status(200).json({
         success: true,
         data: {
@@ -212,7 +278,9 @@ export class AuthController {
         },
       });
     } finally {
-      client.release();
+      if (client) {
+        client.release();
+      }
     }
   }
 
@@ -252,8 +320,9 @@ export class AuthController {
    * Renueva el access token usando el refresh token
    */
   async refresh(req: Request, res: Response) {
-    const client = await pool.connect();
+    let client;
     try {
+      client = await pool.connect();
       const { refreshToken } = req.body;
 
       if (!refreshToken) {
@@ -318,7 +387,9 @@ export class AuthController {
         },
       });
     } finally {
-      client.release();
+      if (client) {
+        client.release();
+      }
     }
   }
 
@@ -327,8 +398,9 @@ export class AuthController {
    * Obtiene información del usuario autenticado
    */
   async me(req: Request, res: Response) {
-    const client = await pool.connect();
+    let client;
     try {
+      client = await pool.connect();
       // Cambio: user?.id en lugar de user?.userId
       const userId = (req as any).user?.id;
 
@@ -390,7 +462,385 @@ export class AuthController {
         },
       });
     } finally {
-      client.release();
+      if (client) {
+        client.release();
+      }
+    }
+  }
+
+  /**
+   * POST /api/auth/send-verification-email
+   * Sends or resends email verification email
+   */
+  async sendVerificationEmail(req: Request, res: Response) {
+    let client;
+    try {
+      client = await pool.connect();
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'No autenticado',
+          },
+        });
+      }
+
+      // Get user info
+      const result = await client.query(
+        'SELECT id, email, name, email_verified FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: 'Usuario no encontrado',
+          },
+        });
+      }
+
+      const user = result.rows[0];
+
+      if (user.email_verified) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'EMAIL_ALREADY_VERIFIED',
+            message: 'Email ya está verificado',
+          },
+        });
+      }
+
+      // Generate verification token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      // Save token to database
+      await client.query(
+        `UPDATE users 
+         SET email_verification_token = $1, email_verification_expires = $2 
+         WHERE id = $3`,
+        [token, expires, userId]
+      );
+
+      // Send verification email
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
+
+      await emailService.sendVerificationEmail(user.email, {
+        userName: user.name,
+        verificationLink,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: 'Email de verificación enviado',
+        },
+      });
+    } catch (error) {
+      console.error('[AUTH] Send verification email error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Error al enviar email de verificación',
+        },
+      });
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  }
+
+  /**
+   * POST /api/auth/verify-email
+   * Verify email address with token
+   */
+  async verifyEmail(req: Request, res: Response) {
+    let client;
+    try {
+      client = await pool.connect();
+      const validatedData = verifyEmailSchema.parse(req.body);
+      const { token } = validatedData;
+
+      // Find user with this token
+      const result = await client.query(
+        `SELECT id, email, name, email_verification_token, email_verification_expires 
+         FROM users 
+         WHERE email_verification_token = $1`,
+        [token]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_TOKEN',
+            message: 'Token de verificación inválido',
+          },
+        });
+      }
+
+      const user = result.rows[0];
+
+      // Check if token is expired
+      if (new Date() > new Date(user.email_verification_expires)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'TOKEN_EXPIRED',
+            message: 'Token de verificación expirado',
+          },
+        });
+      }
+
+      // Mark email as verified and clear token
+      await client.query(
+        `UPDATE users 
+         SET email_verified = TRUE, 
+             email_verification_token = NULL, 
+             email_verification_expires = NULL 
+         WHERE id = $1`,
+        [user.id]
+      );
+
+      // Emit event
+      await eventStore.emit(
+        'auth.email.verified',
+        {
+          userId: user.id as UserId,
+          email: user.email,
+        },
+        user.id as UserId
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: 'Email verificado exitosamente',
+        },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Datos inválidos',
+            details: error.errors,
+          },
+        });
+      }
+
+      console.error('[AUTH] Verify email error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Error al verificar email',
+        },
+      });
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  }
+
+  /**
+   * POST /api/auth/forgot-password
+   * Request password reset email
+   */
+  async forgotPassword(req: Request, res: Response) {
+    let client;
+    try {
+      client = await pool.connect();
+      const validatedData = forgotPasswordSchema.parse(req.body);
+      const { email } = validatedData;
+
+      // Find user by email
+      const result = await client.query('SELECT id, email, name FROM users WHERE email = $1', [
+        email,
+      ]);
+
+      // Always return success even if user doesn't exist (security best practice)
+      if (result.rows.length === 0) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            message: 'Si el email existe, recibirás un correo con instrucciones',
+          },
+        });
+      }
+
+      const user = result.rows[0];
+
+      // Generate reset token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      // Save token to database
+      await client.query(
+        `UPDATE users 
+         SET password_reset_token = $1, password_reset_expires = $2 
+         WHERE id = $3`,
+        [token, expires, user.id]
+      );
+
+      // Send password reset email
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+
+      await emailService.sendPasswordResetEmail(user.email, {
+        userName: user.name,
+        resetLink,
+      });
+
+      // Emit event
+      await eventStore.emit(
+        'auth.password.resetRequested',
+        {
+          userId: user.id as UserId,
+          email: user.email,
+        },
+        user.id as UserId
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: 'Si el email existe, recibirás un correo con instrucciones',
+        },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Datos inválidos',
+            details: error.errors,
+          },
+        });
+      }
+
+      console.error('[AUTH] Forgot password error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Error al procesar solicitud',
+        },
+      });
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  }
+
+  /**
+   * POST /api/auth/reset-password
+   * Reset password with token
+   */
+  async resetPassword(req: Request, res: Response) {
+    let client;
+    try {
+      client = await pool.connect();
+      const validatedData = resetPasswordSchema.parse(req.body);
+      const { token, newPassword } = validatedData;
+
+      // Find user with this token
+      const result = await client.query(
+        `SELECT id, email, password_reset_token, password_reset_expires 
+         FROM users 
+         WHERE password_reset_token = $1`,
+        [token]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_TOKEN',
+            message: 'Token de recuperación inválido',
+          },
+        });
+      }
+
+      const user = result.rows[0];
+
+      // Check if token is expired
+      if (new Date() > new Date(user.password_reset_expires)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'TOKEN_EXPIRED',
+            message: 'Token de recuperación expirado',
+          },
+        });
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+      // Update password and clear token
+      await client.query(
+        `UPDATE users 
+         SET password = $1, 
+             password_reset_token = NULL, 
+             password_reset_expires = NULL 
+         WHERE id = $2`,
+        [hashedPassword, user.id]
+      );
+
+      // Emit event
+      await eventStore.emit(
+        'auth.password.reset',
+        {
+          userId: user.id as UserId,
+          email: user.email,
+        },
+        user.id as UserId
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: 'Contraseña actualizada exitosamente',
+        },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Datos inválidos',
+            details: error.errors,
+          },
+        });
+      }
+
+      console.error('[AUTH] Reset password error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Error al restablecer contraseña',
+        },
+      });
+    } finally {
+      if (client) {
+        client.release();
+      }
     }
   }
 }

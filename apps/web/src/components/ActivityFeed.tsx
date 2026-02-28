@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { apiService } from '@/services/apiService';
 import {
   Clock,
   Plus,
@@ -18,21 +19,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
-
-interface ActivityEvent {
-  id: string;
-  type: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-  };
-  payload: any;
-  boardId?: string;
-  workspaceId?: string;
-  timestamp: string;
-}
+import type { ActivityLogEntry } from '@/lib/utils/activityLog';
 
 interface ActivityFeedProps {
   workspaceId: string;
@@ -41,7 +28,7 @@ interface ActivityFeedProps {
 export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
   const t = useT();
   const { accessToken } = useAuthStore();
-  const [activities, setActivities] = useState<ActivityEvent[]>([]);
+  const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,21 +41,16 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     setError(null);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}/activity`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const response = await apiService.get<{
+        events: ActivityLogEntry[];
+        pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+      }>(`/api/workspaces/${workspaceId}/activity`, true);
 
-      if (!response.ok) {
-        throw new Error(t.activity_error);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || t.activity_error);
       }
 
-      const { data } = await response.json();
-      setActivities(data.activities || []);
+      setActivities(response.data.events || []);
     } catch (err: any) {
       console.error('Error loading activity:', err);
       setError(err.message);
@@ -77,7 +59,8 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     }
   };
 
-  const getActivityIcon = (type: string) => {
+  const getActivityIcon = (eventType: string) => {
+    const type = eventType;
     if (type.includes('created')) return <Plus className="w-3.5 h-3.5" />;
     if (type.includes('updated')) return <Edit className="w-3.5 h-3.5" />;
     if (type.includes('deleted')) return <Trash2 className="w-3.5 h-3.5" />;
@@ -93,7 +76,8 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     return <Clock className="w-3.5 h-3.5" />;
   };
 
-  const getActivityColor = (type: string) => {
+  const getActivityColor = (eventType: string) => {
+    const type = eventType;
     if (type.includes('created')) return 'text-success';
     if (type.includes('updated')) return 'text-accent';
     if (type.includes('deleted')) return 'text-error';
@@ -102,8 +86,9 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     return 'text-text-muted';
   };
 
-  const getActivityMessage = (event: ActivityEvent) => {
-    const { type, payload, user } = event;
+  const getActivityMessage = (event: ActivityLogEntry) => {
+    const { eventType: type, payload, userName, userId } = event;
+    const user = { id: userId, name: userName };
 
     switch (type) {
       case 'workspace.created':
@@ -392,7 +377,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
+  const formatTimestamp = (timestamp: string | Date | number) => {
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -453,19 +438,19 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           className="flex gap-3 group hover:bg-surface/50 -mx-2 px-2 py-1.5 rounded transition-colors"
         >
           <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center text-accent text-xs font-bold flex-shrink-0">
-            {event.user.name.charAt(0).toUpperCase()}
+            {event.userName.charAt(0).toUpperCase()}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">{getActivityMessage(event)}</div>
 
-              <div className={`flex-shrink-0 ${getActivityColor(event.type)}`}>
-                {getActivityIcon(event.type)}
+              <div className={`flex-shrink-0 ${getActivityColor(event.eventType)}`}>
+                {getActivityIcon(event.eventType)}
               </div>
             </div>
 
-            <p className="text-xs text-text-muted mt-1">{formatTimestamp(event.timestamp)}</p>
+            <p className="text-xs text-text-muted mt-1">{formatTimestamp(event.createdAt)}</p>
           </div>
         </div>
       ))}

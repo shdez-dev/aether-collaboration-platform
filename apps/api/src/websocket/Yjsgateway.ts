@@ -91,7 +91,6 @@ export class YjsGateway {
               color: this.getRandomColor(),
             },
           });
-
         } catch (error) {
           socket.emit('error', { message: 'Failed to join document' });
         }
@@ -138,29 +137,17 @@ export class YjsGateway {
       });
 
       // ================================================================
-      // AWARENESS (cursor y selección)
+      // AWARENESS UPDATE (sincronizar cursores/selecciones)
       // ================================================================
-      socket.on(
-        'document:awareness',
-        (data: {
-          documentId: string;
-          cursor?: number;
-          selection?: { from: number; to: number };
-        }) => {
-          const { documentId, cursor, selection } = data;
+      socket.on('document:awareness:update', (data: { documentId: string; update: number[] }) => {
+        const { documentId, update } = data;
 
-          socket.to(`document:${documentId}`).emit('document:awareness', {
-            documentId,
-            user: {
-              id: authSocket.userId,
-              name: authSocket.userName,
-              color: this.getRandomColor(),
-            },
-            cursor,
-            selection,
-          });
-        }
-      );
+        // Broadcast awareness update a todos los otros usuarios en el documento
+        socket.to(`document:${documentId}`).emit('document:awareness:update', {
+          documentId,
+          update,
+        });
+      });
 
       // ================================================================
       // LEAVE DOCUMENT
@@ -182,9 +169,7 @@ export class YjsGateway {
           if (!room || room.size === 0) {
             await this.cleanupDocument(documentId);
           }
-
-        } catch (error) {
-        }
+        } catch (error) {}
       });
 
       // ================================================================
@@ -249,8 +234,7 @@ export class YjsGateway {
     try {
       const stateVector = Y.encodeStateAsUpdate(doc);
       await documentService.updateYjsState(documentId, stateVector);
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   /**
@@ -260,7 +244,6 @@ export class YjsGateway {
     try {
       const doc = this.docs.get(documentId);
       if (!doc) return;
-
 
       // Guardar estado final
       const stateVector = Y.encodeStateAsUpdate(doc);
@@ -279,9 +262,7 @@ export class YjsGateway {
       // Destruir documento
       doc.destroy();
       this.docs.delete(documentId);
-
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   /**

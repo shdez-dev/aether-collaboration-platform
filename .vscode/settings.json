@@ -15,5 +15,12 @@
     "**/dist": true,
     "**/coverage": true
   },
-  "prisma.pinToPrisma6": true
+  "prisma.pinToPrisma6": true,
+  "python-envs.pythonProjects": [
+    {
+      "path": "apps/web/src/services",
+      "envManager": "ms-python.python:venv",
+      "packageManager": "ms-python.python:pip"
+    }
+  ]
 }

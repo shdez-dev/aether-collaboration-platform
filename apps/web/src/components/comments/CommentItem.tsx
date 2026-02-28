@@ -64,17 +64,20 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
   };
 
   const renderContent = (content: string) => {
-    const parts = content.split(/(@[a-zA-Z0-9_-]+)/g);
+    // Soporta @[Nombre Completo] (nuevo) y @PalabraSimple (legacy)
+    const parts = content.split(/(@\[[^\]]+\]|@[a-zA-Z0-9_-]+)/g);
 
     return parts.map((part, index) => {
-      if (part.startsWith('@')) {
-        return (
-          <span key={index} className="font-medium text-primary">
-            {part}
-          </span>
-        );
-      }
-      return <span key={index}>{part}</span>;
+      if (!part.startsWith('@')) return <span key={index}>{part}</span>;
+      const name = part.startsWith('@[') ? part.slice(2, -1) : part.slice(1);
+      return (
+        <span
+          key={index}
+          className="text-accent font-medium underline underline-offset-2 decoration-accent/60"
+        >
+          @{name}
+        </span>
+      );
     });
   };
 

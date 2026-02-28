@@ -1,20 +1,24 @@
 // apps/web/src/components/CardDetailModal.tsx
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCardStore } from '@/stores/cardStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useBoardStore } from '@/stores/boardStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 import { useTypingIndicator, useTypingListeners } from '@/hooks/useTypingIndicator';
 import { TypingIndicator } from './realtime/TypingIndicator';
 import { MemberPicker } from './MemberPicker';
 import { LabelPicker } from './LabelPicker';
 import { CommentList } from './comments/CommentList';
-import { X, Calendar, Flag, Tag, Users as UsersIcon } from 'lucide-react';
+import { X, Calendar, Flag, Tag, Users as UsersIcon, Zap } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
 import { CardChecklist } from './CardChecklist';
 import { CardDependencies } from './CardDependencies';
+import type { Sprint } from '@aether/types';
+import { motion, PanInfo } from 'framer-motion';
 
 function CustomCalendar({
   value,
@@ -175,6 +179,8 @@ export function CardDetailModal() {
     useCardStore();
   const { accessToken, user } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
+  const { currentBoard } = useBoardStore();
+  const invalidateTimeline = useTimelineStore((s) => s.invalidate);
   const userRole = currentWorkspace?.userRole;
 
   const priorityOptions = [
@@ -212,10 +218,12 @@ export function CardDetailModal() {
   const [editedTitle, setEditedTitle] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [editedPriority, setEditedPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | null>(null);
+  const [editedStartDate, setEditedStartDate] = useState('');
   const [editedDueDate, setEditedDueDate] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showStartCalendar, setShowStartCalendar] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -227,6 +235,20 @@ export function CardDetailModal() {
   const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
 
+  // Memoizar los callbacks para evitar loops infinitos
+  const handleCommentCountChange = useCallback((count: number) => {
+    setCommentCount(count);
+  }, []);
+
+  const handleChecklistProgressChange = useCallback((done: number, total: number) => {
+    setChecklistProgress({ done, total });
+  }, []);
+
+  // ── Sprint assignment ────────────────────────────────────────────────────
+  const [boardSprints, setBoardSprints] = useState<Sprint[]>([]);
+  const [cardSprintId, setCardSprintId] = useState<string | null>(null);
+  const [sprintUpdating, setSprintUpdating] = useState(false);
+
   useTypingIndicator({
     cardId: selectedCard?.id || '',
     isTyping: isDescriptionFocused && isEditing,
@@ -235,6 +257,7 @@ export function CardDetailModal() {
   });
 
   const typingUsers = useTypingListeners(selectedCard?.id || '');
+  const startCalendarRef = useRef<HTMLDivElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -242,6 +265,7 @@ export function CardDetailModal() {
       setEditedTitle(selectedCard.title);
       setEditedDescription(selectedCard.description || '');
       setEditedPriority(selectedCard.priority || null);
+      setEditedStartDate(selectedCard.startDate || '');
       setEditedDueDate(selectedCard.dueDate || '');
       // Trigger animation
       setTimeout(() => setIsVisible(true), 10);
@@ -267,7 +291,7 @@ export function CardDetailModal() {
             updateCard(selectedCard.id, data.card);
           }
         } catch (error) {
-          console.error('❌ Error al refrescar card:', error);
+          // Error al refrescar card
         }
       };
 
@@ -284,16 +308,97 @@ export function CardDetailModal() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (startCalendarRef.current && !startCalendarRef.current.contains(event.target as Node)) {
+        setShowStartCalendar(false);
+      }
       if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
         setShowCalendar(false);
       }
     };
 
-    if (showCalendar) {
+    if (showStartCalendar || showCalendar) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showCalendar]);
+  }, [showStartCalendar, showCalendar]);
+
+  // Fetch board sprints when modal opens
+  useEffect(() => {
+    if (!selectedCard || !currentBoard?.id || !accessToken) return;
+    const boardId = currentBoard.id;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/boards/${boardId}/sprints`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const sprints: Sprint[] = d.data.sprints;
+        setBoardSprints(sprints);
+        // Find which sprint this card is in
+        const found = sprints.find((s) =>
+          (s.cards ?? []).some((c: any) => c.id === selectedCard.id)
+        );
+        setCardSprintId(found?.id ?? null);
+      })
+      .catch(() => {});
+  }, [selectedCard?.id, currentBoard?.id, accessToken]);
+
+  // ── Auto-save a single date field immediately ────────────────────────────
+  const handleDateChange = async (field: 'startDate' | 'dueDate', value: string) => {
+    if (!selectedCard) return;
+    // Update local state immediately
+    if (field === 'startDate') setEditedStartDate(value);
+    else setEditedDueDate(value);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${selectedCard.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ [field]: value || null }),
+        }
+      );
+      if (response.ok) {
+        const { data } = await response.json();
+        updateCard(selectedCard.id, data.card);
+        setSelectedCard(data.card);
+      }
+    } catch (error) {
+      // Error saving date
+    }
+  };
+
+  const handleSprintChange = async (newSprintId: string | null) => {
+    if (!selectedCard || sprintUpdating) return;
+    setSprintUpdating(true);
+    try {
+      // Remove from current sprint first
+      if (cardSprintId) {
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/sprints/${cardSprintId}/cards/${selectedCard.id}`,
+          { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+      }
+      // Add to new sprint
+      if (newSprintId) {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sprints/${newSprintId}/cards`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ cardId: selectedCard.id }),
+        });
+      }
+      setCardSprintId(newSprintId);
+      invalidateTimeline();
+    } catch (e) {
+      // Error updating sprint
+    } finally {
+      setSprintUpdating(false);
+    }
+  };
 
   if (!selectedCard) return null;
 
@@ -303,6 +408,7 @@ export function CardDetailModal() {
       setSelectedCard(null);
       setIsEditing(false);
       setShowDeleteConfirm(false);
+      setShowStartCalendar(false);
       setShowCalendar(false);
       setIsDescriptionFocused(false);
     }, 300);
@@ -319,7 +425,7 @@ export function CardDetailModal() {
       if (editedDescription !== (selectedCard.description || ''))
         updates.description = editedDescription || null;
       if (editedPriority !== selectedCard.priority) updates.priority = editedPriority;
-      if (editedDueDate !== (selectedCard.dueDate || '')) updates.dueDate = editedDueDate || null;
+      // Dates are auto-saved on pick; skip them here to avoid overwriting with stale state
 
       if (Object.keys(updates).length === 0) {
         setIsEditing(false);
@@ -347,7 +453,6 @@ export function CardDetailModal() {
       setIsEditing(false);
       setIsDescriptionFocused(false);
     } catch (error: any) {
-      console.error('Error:', error);
       alert(`Error: ${error.message}`);
     } finally {
       setIsUpdating(false);
@@ -369,7 +474,6 @@ export function CardDetailModal() {
       removeCard(selectedCard.id, selectedCard.listId);
       handleClose();
     } catch (error: any) {
-      console.error('Error:', error);
       alert(`Error: ${error.message}`);
     } finally {
       setIsDeleting(false);
@@ -415,15 +519,25 @@ export function CardDetailModal() {
         onClick={handleClose}
       />
 
-      {/* SIDEBAR DRAWER - Animación de derecha a izquierda */}
-      <div
-        className={`fixed top-0 right-0 h-full w-[600px] bg-card border-l border-border shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
-          isVisible ? 'translate-x-0' : 'translate-x-full'
-        }`}
+      {/* SIDEBAR DRAWER - Mobile: Full screen with swipe, Desktop: Drawer 600px */}
+      <motion.div
+        drag={window.innerWidth < 640 ? 'x' : false}
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(e, info: PanInfo) => {
+          // Close if dragged right more than 100px or velocity > 500
+          if (info.offset.x > 100 || info.velocity.x > 500) {
+            handleClose();
+          }
+        }}
+        initial={{ x: '100%' }}
+        animate={{ x: isVisible ? 0 : '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="fixed top-0 right-0 h-full w-full sm:w-[600px] bg-card border-l border-border shadow-2xl z-50"
       >
         <div className="flex flex-col h-full">
-          {/* HEADER */}
-          <div className="border-b border-border px-6 py-5">
+          {/* HEADER - Responsive padding */}
+          <div className="border-b border-border px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div className="flex-1 min-w-0">
                 {isEditing && canEdit ? (
@@ -443,7 +557,7 @@ export function CardDetailModal() {
               </div>
               <button
                 onClick={handleClose}
-                className="p-2 hover:bg-surface border border-transparent hover:border-border transition-all"
+                className="p-2 hover:bg-surface border border-transparent hover:border-border transition-all touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label={t.btn_close}
               >
                 <X className="w-5 h-5" />
@@ -456,12 +570,12 @@ export function CardDetailModal() {
             </p>
           </div>
 
-          {/* BODY - SCROLLABLE */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          {/* BODY - SCROLLABLE - Responsive padding */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 custom-scrollbar">
             {/* DESCRIPCIÓN */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
+            <section className="pb-6 border-b border-border/50">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs sm:text-xs sm:text-sm font-bold text-text-primary font-mono tracking-wider uppercase">
                   {t.card_section_description}
                 </h3>
                 {typingUsers.length > 0 && (
@@ -500,23 +614,31 @@ export function CardDetailModal() {
             </section>
 
             {/* CHECKLIST / SUBTAREAS */}
-            <CardChecklist
-              cardId={selectedCard.id}
-              onProgressChange={(done, total) => setChecklistProgress({ done, total })}
-            />
+            <section className="pb-6 border-b border-border/50">
+              <CardChecklist
+                cardId={selectedCard.id}
+                onProgressChange={handleChecklistProgressChange}
+              />
+            </section>
 
             {/* DEPENDENCIAS */}
-            <CardDependencies cardId={selectedCard.id} />
+            <section className="pb-6 border-b border-border/50">
+              <CardDependencies cardId={selectedCard.id} />
+            </section>
 
-            {/* PRIORIDAD Y FECHA */}
-            <section className="grid grid-cols-2 gap-4">
+            {/* PRIORIDAD Y FECHAS */}
+            <section className="pb-6 border-b border-border/50 space-y-4">
+              <h3 className="text-xs sm:text-sm font-bold text-text-primary font-mono tracking-wider uppercase">
+                {t.card_section_priority} & {t.card_section_due_date}
+              </h3>
+
               {/* Prioridad */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <Flag className={`w-4 h-4 ${currentPriority?.iconColor || 'text-text-muted'}`} />
-                  <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
+                  <label className="text-xs font-semibold text-text-muted font-mono">
                     {t.card_section_priority}
-                  </h3>
+                  </label>
                 </div>
 
                 {isEditing && canEdit ? (
@@ -554,131 +676,215 @@ export function CardDetailModal() {
                 )}
               </div>
 
-              {/* Fecha límite */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4 text-text-muted" />
-                  <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                    {t.card_section_due_date}
-                  </h3>
+              {/* Fechas: Start Date y Due Date en la misma fila */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Fecha de inicio */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="w-4 h-4 text-text-muted" />
+                    <label className="text-xs font-semibold text-text-muted font-mono">
+                      {t.card_section_start_date}
+                    </label>
+                  </div>
+                  <div className="relative" ref={startCalendarRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canEdit) return;
+                        setShowStartCalendar(!showStartCalendar);
+                        setShowCalendar(false);
+                      }}
+                      disabled={!canEdit}
+                      className={`w-full p-2 bg-surface border border-border text-sm font-mono ${
+                        canEdit ? 'hover:border-accent' : ''
+                      } transition-colors text-left`}
+                    >
+                      {editedStartDate ? formatDate(editedStartDate) : t.card_start_date_none}
+                    </button>
+                    {showStartCalendar && (
+                      <CustomCalendar
+                        value={editedStartDate}
+                        onChange={(v) => handleDateChange('startDate', v)}
+                        onClose={() => setShowStartCalendar(false)}
+                      />
+                    )}
+                  </div>
                 </div>
 
-                {isEditing && canEdit ? (
+                {/* Fecha límite */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="w-4 h-4 text-text-muted" />
+                    <label className="text-xs font-semibold text-text-muted font-mono">
+                      {t.card_section_due_date}
+                    </label>
+                  </div>
                   <div className="relative" ref={calendarRef}>
                     <button
                       type="button"
-                      onClick={() => setShowCalendar(!showCalendar)}
-                      className="w-full p-2 bg-surface border border-border text-sm font-mono hover:border-accent transition-colors text-left"
+                      onClick={() => {
+                        if (!canEdit) return;
+                        setShowCalendar(!showCalendar);
+                        setShowStartCalendar(false);
+                      }}
+                      disabled={!canEdit}
+                      className={`w-full p-2 bg-surface border border-border text-sm font-mono ${
+                        canEdit ? 'hover:border-accent' : ''
+                      } transition-colors text-left`}
                     >
-                      {editedDueDate ? formatDate(editedDueDate) : t.card_due_date_select}
+                      {editedDueDate ? formatDate(editedDueDate) : t.card_due_date_none}
                     </button>
                     {showCalendar && (
                       <CustomCalendar
                         value={editedDueDate}
-                        onChange={setEditedDueDate}
+                        onChange={(v) => handleDateChange('dueDate', v)}
                         onClose={() => setShowCalendar(false)}
                       />
                     )}
                   </div>
-                ) : (
-                  <button
-                    onClick={() => canEdit && setIsEditing(true)}
-                    disabled={!canEdit}
-                    className={`w-full p-2 bg-surface border border-border text-sm font-mono ${
-                      canEdit ? 'hover:border-accent' : ''
-                    } transition-colors text-left`}
-                  >
-                    {selectedCard.dueDate ? formatDate(selectedCard.dueDate) : t.card_due_date_none}
-                  </button>
-                )}
+                </div>
               </div>
             </section>
 
-            {/* ETIQUETAS Y MIEMBROS - EN LA MISMA FILA */}
-            <section className="grid grid-cols-2 gap-4">
-              {/* Etiquetas */}
-              <div>
+            {/* SPRINT */}
+            {boardSprints.length > 0 && (
+              <section className="pb-6 border-b border-border/50">
                 <div className="flex items-center gap-2 mb-3">
-                  <Tag className="w-4 h-4 text-text-muted" />
-                  <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                    {t.card_section_labels}
+                  <Zap className="w-4 h-4 text-accent" />
+                  <h3 className="text-xs sm:text-sm font-bold text-text-primary font-mono tracking-wider uppercase">
+                    {t.card_section_sprint}
                   </h3>
                 </div>
-                <div className="bg-surface border border-border p-3 max-h-[200px] overflow-y-auto custom-scrollbar">
-                  {currentWorkspaceId ? (
-                    <LabelPicker
-                      workspaceId={currentWorkspaceId}
-                      cardId={selectedCard.id}
-                      assignedLabels={selectedCard.labels || []}
-                      onLabelAssigned={handleLabelAssigned}
-                      onLabelRemoved={handleLabelRemoved}
-                    />
-                  ) : (
-                    <p className="text-xs text-text-muted font-mono">{t.loading}</p>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={cardSprintId ?? ''}
+                    onChange={(e) => handleSprintChange(e.target.value || null)}
+                    disabled={!canEdit || sprintUpdating}
+                    className={`flex-1 p-2 bg-surface border border-border text-sm font-mono focus:outline-none focus:border-accent transition-colors ${
+                      !canEdit ? 'opacity-60 cursor-default' : 'hover:border-accent cursor-pointer'
+                    } ${cardSprintId ? 'text-accent' : 'text-text-muted'}`}
+                  >
+                    <option value="">{t.card_sprint_none}</option>
+                    {boardSprints.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  {cardSprintId && canEdit && (
+                    <button
+                      onClick={() => handleSprintChange(null)}
+                      disabled={sprintUpdating}
+                      className="p-2 text-text-muted hover:text-error border border-border hover:border-error/50 transition-colors"
+                      title={t.card_sprint_remove}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                  {sprintUpdating && (
+                    <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin flex-shrink-0" />
                   )}
                 </div>
-              </div>
+              </section>
+            )}
 
-              {/* Miembros */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <UsersIcon className="w-4 h-4 text-text-muted" />
-                  <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                    {t.card_section_members}
-                  </h3>
-                </div>
-                <div className="bg-surface border border-border p-3 max-h-[200px] overflow-y-auto custom-scrollbar">
-                  {currentWorkspaceId ? (
-                    canEdit ? (
-                      <MemberPicker
+            {/* ETIQUETAS Y MIEMBROS */}
+            <section className="pb-6 border-b border-border/50">
+              <h3 className="text-xs sm:text-sm font-bold text-text-primary font-mono tracking-wider uppercase mb-4">
+                {t.card_section_labels} & {t.card_section_members}
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Etiquetas */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Tag className="w-4 h-4 text-text-muted" />
+                    <label className="text-xs font-semibold text-text-muted font-mono">
+                      {t.card_section_labels}
+                    </label>
+                  </div>
+                  <div className="bg-surface border border-border p-3 max-h-[200px] overflow-y-auto custom-scrollbar">
+                    {currentWorkspaceId ? (
+                      <LabelPicker
                         workspaceId={currentWorkspaceId}
                         cardId={selectedCard.id}
-                        assignedMembers={selectedCard.members || []}
-                        onMemberAssigned={handleMemberAssigned}
-                        onMemberRemoved={handleMemberRemoved}
+                        assignedLabels={selectedCard.labels || []}
+                        onLabelAssigned={handleLabelAssigned}
+                        onLabelRemoved={handleLabelRemoved}
                       />
                     ) : (
-                      <div className="space-y-2">
-                        {selectedCard.members && selectedCard.members.length > 0 ? (
-                          selectedCard.members.map((member: any) => (
-                            <div
-                              key={member.id}
-                              className="flex items-center gap-2 p-2 bg-background border border-border"
-                            >
-                              <div className="w-8 h-8 bg-accent/20 flex items-center justify-center border border-accent/30">
-                                <span className="text-accent text-xs font-bold">
-                                  {member.user?.name?.charAt(0).toUpperCase()}
-                                </span>
+                      <p className="text-xs text-text-muted font-mono">{t.loading}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Members */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <UsersIcon className="w-4 h-4 text-text-muted" />
+                    <label className="text-xs font-semibold text-text-muted font-mono">
+                      {t.card_section_members}
+                    </label>
+                  </div>
+                  <div className="bg-surface border border-border p-3 max-h-[200px] overflow-y-auto custom-scrollbar">
+                    {currentWorkspaceId ? (
+                      canEdit ? (
+                        <MemberPicker
+                          workspaceId={currentWorkspaceId}
+                          cardId={selectedCard.id}
+                          assignedMembers={selectedCard.members || []}
+                          onMemberAssigned={handleMemberAssigned}
+                          onMemberRemoved={handleMemberRemoved}
+                        />
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedCard.members && selectedCard.members.length > 0 ? (
+                            selectedCard.members.map((member: any) => (
+                              <div
+                                key={member.id}
+                                className="flex items-center gap-2 p-2 bg-background border border-border"
+                              >
+                                <div className="w-8 h-8 bg-accent/20 flex items-center justify-center border border-accent/30">
+                                  <span className="text-accent text-xs font-bold">
+                                    {member.user?.name?.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">
+                                    {member.user?.name}
+                                  </p>
+                                  <p className="text-xs text-text-muted truncate">
+                                    {member.user?.email}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{member.user?.name}</p>
-                                <p className="text-xs text-text-muted truncate">
-                                  {member.user?.email}
-                                </p>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-text-muted font-mono">{t.card_members_none}</p>
-                        )}
-                      </div>
-                    )
-                  ) : (
-                    <p className="text-xs text-text-muted font-mono">{t.loading}</p>
-                  )}
+                            ))
+                          ) : (
+                            <p className="text-xs text-text-muted font-mono">
+                              {t.card_members_none}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    ) : (
+                      <p className="text-xs text-text-muted font-mono">{t.loading}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </section>
 
-            {/* COMENTARIOS - ALTURA MÍNIMA DE 3 COMENTARIOS */}
+            {/* COMENTARIOS */}
             <section>
+              <h3 className="text-xs sm:text-sm font-bold text-text-primary font-mono tracking-wider uppercase mb-4">
+                {t.comments_section_title}
+              </h3>
               <CommentList
                 cardId={selectedCard.id}
                 maxHeight="400px"
                 minHeight="300px"
                 showForm={true}
                 showCount={true}
-                onCountChange={setCommentCount}
+                onCountChange={handleCommentCountChange}
                 workspaceId={currentWorkspaceId || undefined}
               />
             </section>
@@ -705,7 +911,9 @@ export function CardDetailModal() {
                       setEditedTitle(selectedCard.title);
                       setEditedDescription(selectedCard.description || '');
                       setEditedPriority(selectedCard.priority || null);
+                      setEditedStartDate(selectedCard.startDate || '');
                       setEditedDueDate(selectedCard.dueDate || '');
+                      setShowStartCalendar(false);
                       setShowCalendar(false);
                     }}
                     disabled={isUpdating}
@@ -734,7 +942,7 @@ export function CardDetailModal() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Delete Confirmation */}
       {showDeleteConfirm && canEdit && (

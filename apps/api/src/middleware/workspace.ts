@@ -5,6 +5,7 @@ import { workspaceService } from '../services/WorkspaceService';
 import { boardService } from '../services/BoardService';
 import { listService } from '../services/ListService';
 import { CardService } from '../services/CardService';
+import { pool } from '../lib/db';
 import type { WorkspaceRole } from '@aether/types';
 
 // Extender el tipo Request de Express para incluir user y workspace
@@ -92,6 +93,28 @@ async function resolveWorkspaceId(req: Request): Promise<string | null> {
         return board?.workspaceId || null;
       }
     }
+  }
+
+  // 6. Desde sprintId (rutas como /api/sprints/:sprintId/cards)
+  if (req.params.sprintId) {
+    const r = await pool.query(
+      `SELECT b.workspace_id FROM board_sprints s
+       JOIN boards b ON s.board_id = b.id
+       WHERE s.id = $1`,
+      [req.params.sprintId]
+    );
+    if (r.rows.length > 0) return r.rows[0].workspace_id;
+  }
+
+  // 7. Desde milestoneId (rutas como /api/milestones/:milestoneId)
+  if (req.params.milestoneId) {
+    const r = await pool.query(
+      `SELECT b.workspace_id FROM board_milestones m
+       JOIN boards b ON m.board_id = b.id
+       WHERE m.id = $1`,
+      [req.params.milestoneId]
+    );
+    if (r.rows.length > 0) return r.rows[0].workspace_id;
   }
 
   return null;

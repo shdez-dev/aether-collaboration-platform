@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePreferencesStore } from '@/stores/preferencesStore';
+import type { UserPreferences } from '@/stores/preferencesStore';
 import { useTheme } from '@/providers/ThemeProvider';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,10 @@ import {
   Mail,
   Smartphone,
   MessageSquare,
+  Kanban,
+  Table2,
+  CalendarDays,
+  GanttChart,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
@@ -35,15 +40,15 @@ export default function SettingsPage() {
   const { theme: currentTheme, setTheme, actualTheme } = useTheme();
   const { toast } = useToast();
 
-  const [localPrefs, setLocalPrefs] = useState({
-    theme: 'dark' as 'light' | 'dark' | 'system',
+  const [localPrefs, setLocalPrefs] = useState<UserPreferences>({
+    theme: 'dark',
     emailNotifications: true,
     pushNotifications: true,
     inAppNotifications: true,
-    notificationFrequency: 'realtime' as 'realtime' | 'daily' | 'weekly',
+    notificationFrequency: 'realtime',
     compactMode: false,
     showArchived: false,
-    defaultBoardView: 'kanban' as 'kanban' | 'list' | 'calendar',
+    defaultBoardView: 'kanban',
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -121,9 +126,10 @@ export default function SettingsPage() {
   ];
 
   const viewOptions = [
-    { value: 'kanban', label: t.settings_view_kanban, icon: '▦' },
-    { value: 'list', label: t.settings_view_list, icon: '☰' },
-    { value: 'calendar', label: t.settings_view_calendar, icon: '📅' },
+    { value: 'kanban', label: t.settings_view_kanban || 'Kanban', icon: Kanban },
+    { value: 'table', label: t.settings_view_table || 'Table', icon: Table2 },
+    { value: 'calendar', label: t.settings_view_calendar || 'Calendar', icon: CalendarDays },
+    { value: 'timeline', label: t.settings_view_timeline || 'Timeline', icon: GanttChart },
   ];
 
   const frequencyOptions = [
@@ -259,15 +265,15 @@ export default function SettingsPage() {
                   <Label htmlFor="defaultBoardView" className="text-base">
                     {t.settings_label_default_view}
                   </Label>
-                  <div className="grid grid-cols-3 gap-2 pt-2">
-                    {viewOptions.map(({ value, label, icon }) => (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
+                    {viewOptions.map(({ value, label, icon: Icon }) => (
                       <button
                         key={value}
                         onClick={() =>
                           setLocalPrefs({ ...localPrefs, defaultBoardView: value as any })
                         }
                         className={`
-                          flex flex-col items-center gap-1 p-3 rounded-lg border transition-all
+                          flex flex-col items-center gap-2 p-3 rounded-lg border transition-all
                           ${
                             localPrefs.defaultBoardView === value
                               ? 'border-primary bg-primary/10 text-primary'
@@ -275,7 +281,7 @@ export default function SettingsPage() {
                           }
                         `}
                       >
-                        <span className="text-2xl">{icon}</span>
+                        <Icon className="w-6 h-6" />
                         <span className="text-xs font-medium">{label}</span>
                       </button>
                     ))}

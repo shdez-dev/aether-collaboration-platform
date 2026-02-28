@@ -53,6 +53,10 @@ interface DocumentState {
 interface CreateDocumentData {
   title: string;
   templateId?: string;
+  metadata?: {
+    projectType?: string;
+    [key: string]: any;
+  };
 }
 
 interface UpdateDocumentData {
