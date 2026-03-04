@@ -9,8 +9,8 @@ Usa este checklist para asegurarte de que no te saltas ningún paso crítico.
 - [ ] Todos los cambios están commiteados y pusheados a GitHub/GitLab
 - [ ] El archivo `render.yaml` está en la raíz del proyecto
 - [ ] Tienes una cuenta activa en [Render.com](https://render.com)
-- [ ] Tienes una cuenta y API key de [Resend](https://resend.com)
-- [ ] Has verificado tu dominio de email en Resend (si usas dominio personalizado)
+- [ ] Tienes una cuenta y API key de [Brevo](https://www.brevo.com)
+- [ ] Has verificado el email aether.notifications@gmail.com en Brevo
 
 ---
 
@@ -37,7 +37,7 @@ Usa este checklist para asegurarte de que no te saltas ningún paso crítico.
 - [ ] Configurar `FRONTEND_URL` con URL de aether-web
 - [ ] Obtener password de Redis desde servicio `aether-redis`
 - [ ] Configurar `REDIS_URL` con formato: `redis://:PASSWORD@aether-redis:6379`
-- [ ] Agregar `RESEND_API_KEY` desde Resend dashboard
+- [ ] Agregar `BREVO_API_KEY` desde Brevo dashboard
 - [ ] Configurar `EMAIL_FROM` con dominio verificado
 - [ ] Configurar `EMAIL_FROM_NAME`
 - [ ] Guardar cambios y esperar redeploy
@@ -108,8 +108,8 @@ Si algo no funciona, verifica:
 - [ ] Variables de entorno están correctamente configuradas
 - [ ] URLs no tienen espacios ni caracteres especiales
 - [ ] Redis password es correcto
-- [ ] Resend API key es válida
-- [ ] Dominio de email está verificado en Resend
+- [ ] Brevo API key es válida
+- [ ] Email aether.notifications@gmail.com está verificado en Brevo
 
 ---
 

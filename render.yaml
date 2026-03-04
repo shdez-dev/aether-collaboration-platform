@@ -92,10 +92,10 @@ services:
         sync: false # Will be set to frontend URL after deployment
       - key: FRONTEND_URL
         sync: false # Will be set to frontend URL after deployment
-      - key: RESEND_API_KEY
-        sync: false # Must be set manually from Resend dashboard
+      - key: BREVO_API_KEY
+        sync: false # Must be set manually from Brevo dashboard
       - key: EMAIL_FROM
-        value: noreply@yourdomain.com
+        value: aether.notifications@gmail.com
       - key: EMAIL_FROM_NAME
         value: Aether Platform
     # Auto-deploy on push to main branch

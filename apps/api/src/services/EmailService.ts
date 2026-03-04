@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+import { BrevoClient } from '@getbrevo/brevo';
 
 interface EmailOptions {
   to: string;
@@ -18,19 +18,25 @@ interface PasswordResetData {
 }
 
 export class EmailService {
-  private resend: Resend;
+  private brevoClient: BrevoClient;
   private fromEmail: string;
+  private fromName: string;
   private frontendUrl: string;
 
   constructor() {
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = process.env.BREVO_API_KEY;
 
     if (!apiKey) {
-      throw new Error('RESEND_API_KEY is not configured in environment variables');
+      throw new Error('BREVO_API_KEY is not configured in environment variables');
     }
 
-    this.resend = new Resend(apiKey);
-    this.fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+    // Initialize Brevo client
+    this.brevoClient = new BrevoClient({
+      apiKey: apiKey,
+    });
+
+    this.fromEmail = process.env.EMAIL_FROM || 'aether.notifications@gmail.com';
+    this.fromName = process.env.EMAIL_FROM_NAME || 'Aether Platform';
     this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   }
 
@@ -39,15 +45,23 @@ export class EmailService {
    */
   async sendEmail(options: EmailOptions): Promise<void> {
     try {
-      await this.resend.emails.send({
-        from: this.fromEmail,
-        to: options.to,
+      await this.brevoClient.transactionalEmails.sendTransacEmail({
+        sender: {
+          email: this.fromEmail,
+          name: this.fromName,
+        },
+        to: [
+          {
+            email: options.to,
+          },
+        ],
         subject: options.subject,
-        html: options.html,
-        text: options.text,
+        htmlContent: options.html,
+        textContent: options.text,
       });
     } catch (error: any) {
-      throw error;
+      console.error('Error sending email via Brevo:', error);
+      throw new Error(`Failed to send email: ${error.message || 'Unknown error'}`);
     }
   }
 

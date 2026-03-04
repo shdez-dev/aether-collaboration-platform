@@ -9,7 +9,7 @@ Esta guía te llevará paso a paso para desplegar **AETHER Collaboration Platfor
 Antes de comenzar, asegúrate de tener:
 
 1. ✅ Una cuenta en [Render.com](https://render.com) (gratis para empezar)
-2. ✅ Una cuenta en [Resend](https://resend.com) para emails transaccionales
+2. ✅ Una cuenta en [Brevo](https://www.brevo.com) (formerly Sendinblue) para emails transaccionales
 3. ✅ Tu repositorio Git sincronizado y pusheado a GitHub/GitLab
 4. ✅ Acceso al dashboard de Render
 
@@ -85,11 +85,11 @@ FRONTEND_URL=https://aether-web-xxxxx.onrender.com
 # Redis Connection
 REDIS_URL=redis://:TU_REDIS_PASSWORD@aether-redis:6379
 
-# Resend API Key (obtén uno en resend.com)
-RESEND_API_KEY=re_tu_clave_de_resend_aquí
+# Brevo API Key (obtén uno en app.brevo.com)
+BREVO_API_KEY=xkeysib-tu_clave_de_brevo_aquí
 
 # Email Configuration
-EMAIL_FROM=noreply@tudominio.com
+EMAIL_FROM=aether.notifications@gmail.com
 EMAIL_FROM_NAME=Aether Platform
 ```
 
@@ -107,11 +107,14 @@ EMAIL_FROM_NAME=Aether Platform
 - Construye la URL: `redis://:PASSWORD@aether-redis:6379`
 - Reemplaza `PASSWORD` con el valor real
 
-**📧 Para obtener tu Resend API Key:**
+**📧 Para obtener tu Brevo API Key:**
 
-1. Ve a [Resend Dashboard](https://resend.com/api-keys)
-2. Crea una nueva API Key
-3. Cópiala y pégala en `RESEND_API_KEY`
+1. Ve a [Brevo Dashboard](https://app.brevo.com/settings/keys/api)
+2. Crea una nueva API Key (v3)
+3. Cópiala y pégala en `BREVO_API_KEY`
+4. **Importante:** Debes verificar el email `aether.notifications@gmail.com` en Brevo antes de poder enviar emails
+
+📚 **Guía Detallada:** Para instrucciones completas de configuración de Brevo, consulta [BREVO_SETUP.md](./BREVO_SETUP.md)
 
 #### **4.2 Configurar el Frontend (aether-web)**
 
@@ -164,7 +167,7 @@ npm run seed
 3. **Prueba el Registro:**
    - Intenta crear una cuenta
    - Verifica que llegue el email de confirmación
-   - Si no llega, revisa los logs de `aether-api` y tu configuración de Resend
+   - Si no llega, revisa los logs de `aether-api` y tu configuración de Brevo
 
 ---
 
@@ -259,9 +262,10 @@ Error sending email: Invalid API key
 
 **Solución:**
 
-1. Verifica que `RESEND_API_KEY` esté correctamente configurada
-2. Ve a [Resend Dashboard](https://resend.com/domains) y verifica tu dominio
-3. Asegúrate de que `EMAIL_FROM` use un dominio verificado en Resend
+1. Verifica que `BREVO_API_KEY` esté correctamente configurada
+2. Ve a [Brevo Senders](https://app.brevo.com/senders) y verifica tu email
+3. Asegúrate de que aether.notifications@gmail.com esté verificado en Brevo
+4. Revisa que el email en `EMAIL_FROM` coincida con el verificado en Brevo
 
 ---
 
@@ -301,7 +305,7 @@ Error: Cannot find module '@aether/types'
 
 ✅ **NUNCA** commitees al repositorio:
 
-- Claves de API (Resend, etc)
+- Claves de API (Brevo, etc)
 - Secretos JWT
 - Passwords de base de datos
 
