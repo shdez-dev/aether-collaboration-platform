@@ -675,16 +675,16 @@ export default function WorkspaceDetailPage() {
                         </div>
 
                         <div className="flex flex-col min-w-0">
-                          <p className="text-xs font-medium text-text-primary truncate max-w-[110px]">
+                          <p className="text-[10px] md:text-xs font-medium text-text-primary truncate max-w-[80px] md:max-w-[110px]">
                             {member.user?.name}
                           </p>
                           <span
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border ${getRoleColor(
+                            className={`inline-flex items-center gap-0.5 md:gap-1 px-1 md:px-1.5 py-0.5 text-[9px] md:text-[11px] border ${getRoleColor(
                               member.role
                             )}`}
                           >
                             {getRoleIcon(member.role)}
-                            <span>{getRoleLabel(member.role)}</span>
+                            <span className="hidden sm:inline">{getRoleLabel(member.role)}</span>
                           </span>
                         </div>
 
@@ -707,15 +707,17 @@ export default function WorkspaceDetailPage() {
 
             {/* ACTIVITY */}
             <div className="bg-card border border-border max-h-[300px] flex flex-col">
-              <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+              <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-border flex items-center gap-2">
                 <div className="p-1.5 bg-warning/10 border border-warning/30">
-                  <Activity className="w-4 h-4 text-warning" />
+                  <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-warning" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-text-primary">
+                  <h3 className="text-xs md:text-sm font-medium text-text-primary">
                     {t.workspace_section_activity}
                   </h3>
-                  <p className="text-xs text-text-muted">{t.workspace_activity_last_7_days}</p>
+                  <p className="text-[10px] md:text-xs text-text-muted">
+                    {t.workspace_activity_last_7_days}
+                  </p>
                 </div>
               </div>
               <ActivityFeed workspaceId={workspaceId} />

@@ -80,31 +80,33 @@ export default function CreateBoardModal({
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      {/* Modal - Bottom sheet on mobile, centered on desktop */}
+      <div className="fixed inset-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-50 flex items-end md:items-center justify-center p-0 md:p-4 pointer-events-none">
         <div
-          className="card-terminal max-w-md w-full pointer-events-auto animate-scale-in"
+          className="card-terminal max-w-md w-full pointer-events-auto animate-slide-up md:animate-scale-in rounded-t-lg md:rounded-lg max-h-[90vh] md:max-h-[85vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-normal">{t.create_board_title}</h2>
-              <p className="text-text-secondary text-sm">{t.create_board_subtitle}</p>
+          {/* Header - Fixed on mobile */}
+          <div className="sticky top-0 bg-card z-10 pb-4 md:pb-0 md:static border-b md:border-0 border-border px-4 md:px-6 pt-4 md:pt-6">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg md:text-xl font-normal truncate">{t.create_board_title}</h2>
+                <p className="text-text-secondary text-xs md:text-sm">{t.create_board_subtitle}</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-text-muted hover:text-text-primary transition-colors text-2xl leading-none ml-3 flex-shrink-0"
+              >
+                ×
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="text-text-muted hover:text-text-primary transition-colors text-2xl leading-none"
-            >
-              ×
-            </button>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Form - Scrollable */}
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 px-4 md:px-6">
             {/* Name */}
             <div>
-              <label htmlFor="name" className="block text-sm text-text-secondary mb-2">
+              <label htmlFor="name" className="block text-xs md:text-sm text-text-secondary mb-2">
                 {t.create_board_label_name}
               </label>
               <input
@@ -115,7 +117,7 @@ export default function CreateBoardModal({
                   setName(e.target.value);
                   setError('');
                 }}
-                className={`input-terminal ${error ? 'border-error' : ''}`}
+                className={`input-terminal text-sm md:text-base ${error ? 'border-error' : ''}`}
                 placeholder={t.create_board_placeholder_name}
                 maxLength={255}
                 disabled={isLoading}
@@ -130,35 +132,40 @@ export default function CreateBoardModal({
 
             {/* Description */}
             <div>
-              <label htmlFor="description" className="block text-sm text-text-secondary mb-2">
+              <label
+                htmlFor="description"
+                className="block text-xs md:text-sm text-text-secondary mb-2"
+              >
                 {t.create_board_label_description}
               </label>
               <textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="input-terminal min-h-[80px] resize-none"
+                className="input-terminal min-h-[80px] resize-none text-sm md:text-base"
                 placeholder={t.create_board_placeholder_description}
                 maxLength={1000}
                 disabled={isLoading}
               />
-              <p className="text-text-muted text-xs mt-1">{description.length} / 1000</p>
+              <p className="text-text-muted text-[10px] md:text-xs mt-1">
+                {description.length} / 1000
+              </p>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-4 border-t border-border">
+            {/* Actions - Sticky on mobile */}
+            <div className="sticky bottom-0 bg-card z-10 flex gap-2 md:gap-3 pt-4 pb-4 md:pb-6 border-t border-border -mx-4 md:-mx-6 px-4 md:px-6">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isLoading}
-                className="btn-secondary flex-1"
+                className="btn-secondary flex-1 text-sm md:text-base py-2.5 md:py-2"
               >
                 {t.btn_cancel}
               </button>
               <button
                 type="submit"
                 disabled={isLoading || !name.trim()}
-                className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base py-2.5 md:py-2"
               >
                 {isLoading ? t.btn_creating : t.create_board_title}
               </button>

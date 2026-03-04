@@ -1,0 +1,151 @@
+# =============================================================================
+# AETHER COLLABORATION PLATFORM - Render.com Blueprint
+# =============================================================================
+# This file defines all services needed for deploying to Render
+# Render will automatically detect and deploy all services defined here
+
+services:
+  # ===========================================================================
+  # DATABASE - PostgreSQL
+  # ===========================================================================
+  - type: pserv
+    name: aether-postgres
+    env: docker
+    plan: starter # Change to 'standard' or higher for production
+    region: oregon # Change to your preferred region
+    image:
+      url: postgres:16-alpine
+    envVars:
+      - key: POSTGRES_DB
+        value: aether_production
+      - key: POSTGRES_USER
+        value: aether
+      - key: POSTGRES_PASSWORD
+        generateValue: true # Render will auto-generate a secure password
+    disk:
+      name: postgres-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 10
+    healthCheckPath: /
+
+  # ===========================================================================
+  # CACHE - Redis
+  # ===========================================================================
+  - type: pserv
+    name: aether-redis
+    env: docker
+    plan: starter
+    region: oregon
+    image:
+      url: redis:7-alpine
+    envVars:
+      - key: REDIS_PASSWORD
+        generateValue: true
+    disk:
+      name: redis-data
+      mountPath: /data
+      sizeGB: 1
+
+  # ===========================================================================
+  # API - Backend Service
+  # ===========================================================================
+  - type: web
+    name: aether-api
+    env: docker
+    region: oregon
+    plan: starter # Upgrade to 'standard' for production
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PORT
+        value: 3000
+      - key: DB_HOST
+        fromService:
+          type: pserv
+          name: aether-postgres
+          property: host
+      - key: DB_PORT
+        value: 5432
+      - key: DB_NAME
+        value: aether_production
+      - key: DB_USER
+        value: aether
+      - key: DB_PASSWORD
+        fromService:
+          type: pserv
+          name: aether-postgres
+          envVarKey: POSTGRES_PASSWORD
+      - key: DATABASE_URL
+        sync: false # Constructed from DB variables above
+      - key: REDIS_URL
+        sync: false # Will be set manually
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false # Will be set to frontend URL after deployment
+      - key: ALLOWED_ORIGINS
+        sync: false # Will be set to frontend URL after deployment
+      - key: FRONTEND_URL
+        sync: false # Will be set to frontend URL after deployment
+      - key: RESEND_API_KEY
+        sync: false # Must be set manually from Resend dashboard
+      - key: EMAIL_FROM
+        value: noreply@yourdomain.com
+      - key: EMAIL_FROM_NAME
+        value: Aether Platform
+    # Auto-deploy on push to main branch
+    autoDeploy: true
+
+  # ===========================================================================
+  # WEB - Frontend Service (Next.js)
+  # ===========================================================================
+  - type: web
+    name: aether-web
+    env: docker
+    region: oregon
+    plan: starter
+    dockerfilePath: ./apps/web/Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: NEXT_PUBLIC_API_URL
+        sync: false # Will be set to API URL after deployment
+      - key: NEXT_PUBLIC_WS_URL
+        sync: false # Will be set to API WebSocket URL after deployment
+      - key: NEXT_TELEMETRY_DISABLED
+        value: 1
+    autoDeploy: true
+
+# =============================================================================
+# NOTES FOR MANUAL CONFIGURATION AFTER DEPLOYMENT
+# =============================================================================
+# After initial deployment, you'll need to:
+#
+# 1. Get the URLs for your services from Render dashboard
+# 2. Update environment variables with actual URLs:
+#    - aether-api:
+#      - CORS_ORIGIN: https://aether-web-xxxxx.onrender.com
+#      - ALLOWED_ORIGINS: https://aether-web-xxxxx.onrender.com
+#      - FRONTEND_URL: https://aether-web-xxxxx.onrender.com
+#      - REDIS_URL: redis://:PASSWORD@aether-redis:6379
+#
+#    - aether-web:
+#      - NEXT_PUBLIC_API_URL: https://aether-api-xxxxx.onrender.com
+#      - NEXT_PUBLIC_WS_URL: wss://aether-api-xxxxx.onrender.com
+#
+# 3. Add your Resend API key to aether-api service
+# 4. Run database migrations manually from Render shell:
+#    - Go to aether-api service dashboard
+#    - Click "Shell" button
+#    - Run: cd apps/api && npx prisma migrate deploy
+# 5. (Optional) Seed database:
+#    - Run: cd apps/api && npm run seed
