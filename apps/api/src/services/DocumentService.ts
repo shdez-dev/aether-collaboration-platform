@@ -55,7 +55,6 @@ export class DocumentService {
         }
       }
 
-      console.warn('[Documents] ⚠️  No text content found in Yjs state');
       tempDoc.destroy();
       return '';
     } catch (error) {
@@ -141,19 +140,11 @@ export class DocumentService {
 
       if (data.templateId) {
         try {
-          console.log(`[DocumentService] Creating document with template: ${data.templateId}`);
-          if (data.metadata) {
-            console.log(`[DocumentService] Template metadata:`, data.metadata);
-          }
           initialState = documentTemplateService.createYjsStateFromTemplate(
             data.templateId as TemplateCategory,
             data.metadata
           );
-          console.log(
-            `[DocumentService] Template loaded successfully, state size: ${initialState.length}`
-          );
         } catch (error) {
-          console.error('[DocumentService] Error loading template, using empty document:', error);
           // Fallback a documento vacío si hay error con el template
           const emptyYDoc = new Y.Doc();
           initialState = Y.encodeStateAsUpdate(emptyYDoc);
@@ -458,57 +449,60 @@ export class DocumentService {
 
   /**
    * Update Yjs state of document
-   * ✅ TAMBIÉN EXTRAE Y GUARDA TEXTO PLANO
+   * ✅ GUARDA ESTADO COMPLETO Y EXTRAE TEXTO PLANO
+   *
+   * IMPORTANTE: El estado que llega aquí ya está completo y actualizado,
+   * viene del documento Yjs en memoria del YjsGateway que ya tiene todos
+   * los cambios aplicados. NO necesitamos hacer merge con DB.
+   *
+   * Lanza una excepción en todos los casos de rechazo para que el llamador
+   * (YjsGateway) pueda reintentar o notificar al cliente correctamente.
    */
   async updateYjsState(documentId: string, yjsState: Uint8Array): Promise<void> {
+    // PROTECCIÓN CRÍTICA: nunca sobrescribir con un estado vacío o inválido.
+    // Un Y.Doc vacío serializado pesa exactamente 2 bytes.
+    if (!yjsState || yjsState.length <= 2) {
+      const msg = `Rejected empty yjs_state for document ${documentId} (${yjsState?.length ?? 0} bytes)`;
+      throw new Error(msg);
+    }
+
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Obtener el estado actual de la base de datos
-      const result = await client.query(
-        'SELECT yjs_state FROM documents WHERE id = $1 FOR UPDATE',
+      // Leer el estado actual antes de sobrescribir (con FOR UPDATE para evitar
+      // race conditions entre guardados concurrentes del mismo documento)
+      const current = await client.query(
+        'SELECT id, length(yjs_state) as current_bytes FROM documents WHERE id = $1 FOR UPDATE',
         [documentId]
       );
 
-      if (result.rows.length === 0) {
-        throw new Error('Document not found');
+      if (current.rows.length === 0) {
+        throw new Error(`Document not found: ${documentId}`);
       }
 
-      const existingState = result.rows[0].yjs_state;
-      let finalState: Uint8Array;
+      const currentBytes = current.rows[0].current_bytes ?? 0;
 
-      if (existingState && existingState.length > 0) {
-        // MERGE: Aplicar el nuevo estado sobre el existente
-        // Esto garantiza que no se pierdan cambios de otros documentos
-        const tempDoc = new Y.Doc();
-
-        // Aplicar estado existente de DB
-        Y.applyUpdate(tempDoc, new Uint8Array(existingState));
-
-        // Aplicar nuevo estado (merge automático por YJS)
-        Y.applyUpdate(tempDoc, yjsState);
-
-        // Obtener estado merged completo
-        finalState = Y.encodeStateAsUpdate(tempDoc);
-
-        // Limpiar documento temporal
-        tempDoc.destroy();
-      } else {
-        // Si no hay estado previo, usar el nuevo directamente
-        finalState = yjsState;
+      // PROTECCIÓN ADICIONAL: si el estado actual es considerablemente mayor y el nuevo
+      // es sospechosamente pequeño (menos del 10% del tamaño actual), rechazarlo.
+      // Esto indica un bug de serialización o una race condition, NO que el usuario
+      // haya borrado contenido (borrar mucho texto aún deja un estado > 10% del original
+      // porque Yjs conserva el historial CRDT).
+      // Se lanza un error para que el llamador pueda reintentar con el estado correcto.
+      if (currentBytes > 100 && yjsState.length < currentBytes * 0.1) {
+        const msg = `Rejected suspicious state shrinkage: ${currentBytes} → ${yjsState.length} bytes for document ${documentId}`;
+        await client.query('ROLLBACK');
+        throw new Error(msg);
       }
 
-      // Extraer texto plano del estado final merged
-      const plainText = this.extractTextFromYjs(finalState);
+      const plainText = this.extractTextFromYjs(yjsState);
 
-      // Guardar estado merged
       await client.query(
         `UPDATE documents 
          SET yjs_state = $1, content = $2, updated_at = CURRENT_TIMESTAMP 
          WHERE id = $3`,
-        [Buffer.from(finalState), plainText, documentId]
+        [Buffer.from(yjsState), plainText, documentId]
       );
 
       await client.query('COMMIT');

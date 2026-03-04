@@ -81,6 +81,27 @@ router.post('/me/avatar', uploadAvatar, (req, res) => userController.uploadAvata
 router.put('/me/preferences', (req, res) => userController.updatePreferences(req, res));
 
 /**
+ * GET /api/users/favorites
+ * Obtener lista de usuarios favoritos
+ * Permisos: Usuario autenticado
+ */
+router.get('/favorites', (req, res) => userController.getFavorites(req, res));
+
+/**
+ * POST /api/users/favorites/:userId
+ * Agregar usuario a favoritos
+ * Permisos: Usuario autenticado
+ */
+router.post('/favorites/:userId', (req, res) => userController.addFavorite(req, res));
+
+/**
+ * DELETE /api/users/favorites/:userId
+ * Quitar usuario de favoritos
+ * Permisos: Usuario autenticado
+ */
+router.delete('/favorites/:userId', (req, res) => userController.removeFavorite(req, res));
+
+/**
  * GET /api/users/:id
  * Perfil público de un usuario (debe ir AL FINAL, después de todas las rutas /me/*)
  * Permisos: Usuario autenticado

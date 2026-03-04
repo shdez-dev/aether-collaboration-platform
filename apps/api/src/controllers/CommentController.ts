@@ -71,7 +71,6 @@ export class CommentController {
         data: { comments },
       });
     } catch (error: any) {
-      console.error('❌ Error getting comments:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -93,7 +92,6 @@ export class CommentController {
       const user = (req as any).user;
 
       if (!user || !user.id) {
-        console.error('❌ No user in request:', user);
         return res.status(401).json({
           success: false,
           error: {
@@ -132,7 +130,6 @@ export class CommentController {
         data: { comment },
       });
     } catch (error: any) {
-      console.error('❌ Error creating comment:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -162,7 +159,6 @@ export class CommentController {
         data: { comment },
       });
     } catch (error: any) {
-      console.error('❌ Error getting comment:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -215,8 +211,6 @@ export class CommentController {
         data: { comment },
       });
     } catch (error: any) {
-      console.error('❌ Error updating comment:', error);
-
       if (error.message === 'Only the author can edit this comment') {
         return res.status(403).json({
           success: false,
@@ -263,8 +257,6 @@ export class CommentController {
         data: { message: 'Comment deleted successfully' },
       });
     } catch (error: any) {
-      console.error('❌ Error deleting comment:', error);
-
       if (error.message === 'Only the author can delete this comment') {
         return res.status(403).json({
           success: false,
@@ -294,7 +286,6 @@ export class CommentController {
         data: { count },
       });
     } catch (error: any) {
-      console.error('❌ Error getting comment count:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -332,7 +323,6 @@ export class CommentController {
         data: { comments },
       });
     } catch (error: any) {
-      console.error('❌ Error getting recent comments:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },

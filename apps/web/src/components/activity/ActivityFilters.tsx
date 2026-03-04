@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Filter, Calendar as CalendarIcon } from 'lucide-react';
 import { EVENT_CATEGORIES } from '@/lib/utils/activityLog';
+import { DatePicker } from '@/components/ui/date-picker';
 
 export interface ActivityFilters {
   eventTypes: string[];
@@ -127,24 +128,32 @@ export function ActivityFiltersComponent({
               <label htmlFor="startDate" className="text-xs text-text-muted block mb-1.5">
                 Desde
               </label>
-              <input
-                type="date"
-                id="startDate"
-                value={filters.startDate || ''}
-                onChange={(e) => onChange({ ...filters, startDate: e.target.value || undefined })}
-                className="w-full px-3 py-2 bg-surface border border-border text-xs text-text-primary focus:border-accent focus:outline-none hover:border-border-light transition-colors"
+              <DatePicker
+                date={filters.startDate ? new Date(filters.startDate) : undefined}
+                onDateChange={(date) =>
+                  onChange({
+                    ...filters,
+                    startDate: date ? date.toISOString().split('T')[0] : undefined,
+                  })
+                }
+                placeholder="Seleccionar fecha inicial"
+                maxDate={filters.endDate ? new Date(filters.endDate) : undefined}
               />
             </div>
             <div>
               <label htmlFor="endDate" className="text-xs text-text-muted block mb-1.5">
                 Hasta
               </label>
-              <input
-                type="date"
-                id="endDate"
-                value={filters.endDate || ''}
-                onChange={(e) => onChange({ ...filters, endDate: e.target.value || undefined })}
-                className="w-full px-3 py-2 bg-surface border border-border text-xs text-text-primary focus:border-accent focus:outline-none hover:border-border-light transition-colors"
+              <DatePicker
+                date={filters.endDate ? new Date(filters.endDate) : undefined}
+                onDateChange={(date) =>
+                  onChange({
+                    ...filters,
+                    endDate: date ? date.toISOString().split('T')[0] : undefined,
+                  })
+                }
+                placeholder="Seleccionar fecha final"
+                minDate={filters.startDate ? new Date(filters.startDate) : undefined}
               />
             </div>
           </div>

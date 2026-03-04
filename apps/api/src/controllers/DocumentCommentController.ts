@@ -66,7 +66,6 @@ class DocumentCommentController {
 
       return res.status(200).json({ success: true, data: { comments } });
     } catch (error) {
-      console.error('[DocumentCommentController] list error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al obtener comentarios' },
@@ -124,7 +123,6 @@ class DocumentCommentController {
 
       return res.status(201).json({ success: true, data: { comment: commentWithUser } });
     } catch (error) {
-      console.error('[DocumentCommentController] create error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al crear comentario' },
@@ -179,7 +177,6 @@ class DocumentCommentController {
 
       return res.status(200).json({ success: true, data: { comment: commentWithUser } });
     } catch (error) {
-      console.error('[DocumentCommentController] update error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al actualizar comentario' },
@@ -243,7 +240,6 @@ class DocumentCommentController {
 
       return res.status(200).json({ success: true, data: { comment: commentWithUser } });
     } catch (error) {
-      console.error('[DocumentCommentController] resolve error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al resolver comentario' },
@@ -290,7 +286,6 @@ class DocumentCommentController {
 
       return res.status(200).json({ success: true, data: { message: 'Comentario eliminado' } });
     } catch (error) {
-      console.error('[DocumentCommentController] delete error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al eliminar comentario' },

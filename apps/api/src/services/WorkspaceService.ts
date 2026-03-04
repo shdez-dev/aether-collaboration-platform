@@ -274,7 +274,7 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
 
-      const userResult = await client.query(`SELECT id FROM users WHERE email = $1`, [
+      const userResult = await client.query(`SELECT id, name FROM users WHERE email = $1`, [
         inviteeEmail,
       ]);
 
@@ -283,6 +283,7 @@ export class WorkspaceService {
       }
 
       const inviteeId = userResult.rows[0].id;
+      const inviteeName = userResult.rows[0].name;
 
       const existingMember = await client.query(
         `SELECT id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
@@ -306,6 +307,7 @@ export class WorkspaceService {
         inviterId: inviterId as any,
         inviteeId: inviteeId as any,
         inviteeEmail,
+        inviteeName,
         role,
       };
 
@@ -331,9 +333,7 @@ export class WorkspaceService {
           inviterId,
           inviterName,
         });
-      } catch (notifError) {
-        console.error('[WorkspaceService] Error creating invite notification:', notifError);
-      }
+      } catch (notifError) {}
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -478,9 +478,7 @@ export class WorkspaceService {
           workspaceId,
           workspaceName,
         });
-      } catch (notifError) {
-        console.error('[WorkspaceService] Error creating removed notification:', notifError);
-      }
+      } catch (notifError) {}
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -511,7 +509,10 @@ export class WorkspaceService {
   /**
    * Archivar un workspace (solo OWNER)
    */
-  async archiveWorkspace(workspaceId: string, userId: string): Promise<Workspace> {
+  async archiveWorkspace(
+    workspaceId: string,
+    userId: string
+  ): Promise<Workspace & { userRole: WorkspaceRole }> {
     const memberResult = await pool.query(
       `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
       [workspaceId, userId]
@@ -519,6 +520,8 @@ export class WorkspaceService {
     if (memberResult.rows.length === 0 || memberResult.rows[0].role !== 'OWNER') {
       throw new Error('Only workspace owner can archive workspace');
     }
+
+    const userRole = memberResult.rows[0].role as WorkspaceRole;
 
     const result = await pool.query(
       `UPDATE workspaces
@@ -534,13 +537,19 @@ export class WorkspaceService {
       userId as any
     );
 
-    return this.formatWorkspace(result.rows[0]);
+    return {
+      ...this.formatWorkspace(result.rows[0]),
+      userRole,
+    };
   }
 
   /**
    * Restaurar un workspace archivado (solo OWNER)
    */
-  async restoreWorkspace(workspaceId: string, userId: string): Promise<Workspace> {
+  async restoreWorkspace(
+    workspaceId: string,
+    userId: string
+  ): Promise<Workspace & { userRole: WorkspaceRole }> {
     const memberResult = await pool.query(
       `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
       [workspaceId, userId]
@@ -548,6 +557,8 @@ export class WorkspaceService {
     if (memberResult.rows.length === 0 || memberResult.rows[0].role !== 'OWNER') {
       throw new Error('Only workspace owner can restore workspace');
     }
+
+    const userRole = memberResult.rows[0].role as WorkspaceRole;
 
     const result = await pool.query(
       `UPDATE workspaces
@@ -563,7 +574,10 @@ export class WorkspaceService {
       userId as any
     );
 
-    return this.formatWorkspace(result.rows[0]);
+    return {
+      ...this.formatWorkspace(result.rows[0]),
+      userRole,
+    };
   }
 
   /**

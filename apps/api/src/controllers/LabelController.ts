@@ -56,7 +56,6 @@ export class LabelController {
         data: { label },
       });
     } catch (error: any) {
-      console.error('❌ Error creating label:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -79,7 +78,6 @@ export class LabelController {
         data: { labels },
       });
     } catch (error: any) {
-      console.error('❌ Error getting labels:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -109,7 +107,6 @@ export class LabelController {
         data: { label },
       });
     } catch (error: any) {
-      console.error('❌ Error getting label:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -145,7 +142,6 @@ export class LabelController {
         data: { label },
       });
     } catch (error: any) {
-      console.error('❌ Error updating label:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -168,7 +164,6 @@ export class LabelController {
         data: { message: 'Label deleted successfully' },
       });
     } catch (error: any) {
-      console.error('❌ Error deleting label:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },

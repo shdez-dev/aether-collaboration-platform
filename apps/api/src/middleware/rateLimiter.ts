@@ -2,13 +2,23 @@
 
 import rateLimit from 'express-rate-limit';
 
+// Get configuration from environment variables with defaults
+const isDevelopment = process.env.NODE_ENV === 'development';
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10); // 15 minutes
+const RATE_LIMIT_MAX_REQUESTS = parseInt(
+  process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '1000' : '100'),
+  10
+);
+
 /**
  * General API rate limiter
  * Applies to all API routes to prevent abuse
+ * In development: 1000 requests per 15 minutes (configurable)
+ * In production: 100 requests per 15 minutes (configurable)
  */
 export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: RATE_LIMIT_MAX_REQUESTS,
   message: {
     success: false,
     error: {

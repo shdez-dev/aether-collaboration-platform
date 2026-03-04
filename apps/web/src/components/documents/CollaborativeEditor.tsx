@@ -1099,11 +1099,29 @@ function TableMenu({ editor, t }: { editor: any; t: any }) {
   );
 }
 
+// ── Helper para formatear tiempo relativo ─────────────────────────────────────
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+
+  if (seconds < 5) return 'ahora mismo';
+  if (seconds < 60) return 'hace un momento';
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes === 1) return 'hace 1 minuto';
+  if (minutes < 60) return `hace ${minutes} minutos`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours === 1) return 'hace 1 hora';
+  return `hace ${hours} horas`;
+}
+
 // ── Main toolbar ──────────────────────────────────────────────────────────────
 function EditorToolbar({
   editor,
   onSave,
   isSaving,
+  isSavingToServer,
+  lastSaveTime,
   onToggleComments,
   commentsOpen,
   t,
@@ -1111,6 +1129,8 @@ function EditorToolbar({
   editor: any;
   onSave: () => void;
   isSaving: boolean;
+  isSavingToServer?: boolean;
+  lastSaveTime?: Date | null;
   onToggleComments?: () => void;
   commentsOpen?: boolean;
   t: any;
@@ -1314,6 +1334,19 @@ function EditorToolbar({
 
         <div className="flex-1" />
 
+        {/* Auto-save indicator */}
+        {isSavingToServer ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-warning border border-warning/30 bg-warning/10 rounded">
+            <div className="w-2 h-2 rounded-full bg-warning animate-pulse" />
+            <span className="font-medium">Guardando en DB...</span>
+          </div>
+        ) : lastSaveTime ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-success border border-success/30 bg-success/10 rounded">
+            <Check className="w-3 h-3" />
+            <span className="font-medium">Guardado {formatTimeAgo(lastSaveTime)}</span>
+          </div>
+        ) : null}
+
         {/* Toggle comments sidebar */}
         {onToggleComments && (
           <button
@@ -1329,11 +1362,11 @@ function EditorToolbar({
           </button>
         )}
 
-        {/* Save */}
+        {/* Manual Save (Ctrl+S) */}
         <button
           onClick={onSave}
           disabled={isSaving}
-          title={t.editor_btn_save_tooltip}
+          title="Guardar manualmente (Ctrl+S)"
           className={`px-3 py-2 border transition-all flex items-center gap-2 text-sm ${
             isSaving
               ? 'bg-success/20 border-success text-success'
@@ -1343,12 +1376,12 @@ function EditorToolbar({
           {isSaving ? (
             <>
               <Check className="w-4 h-4" />
-              <span>{t.editor_btn_saved}</span>
+              <span>Guardado</span>
             </>
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>{t.btn_save}</span>
+              <span>Ctrl+S</span>
             </>
           )}
         </button>
@@ -1370,11 +1403,16 @@ export default function CollaborativeEditor({
   const isJoinedRef = useRef(false);
   const [isDocumentReady, setIsDocumentReady] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
+  const retryCountRef = useRef(0); // Ref en lugar de state para evitar re-renders y re-joins
   const initialSyncReceivedRef = useRef(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const editorWrapRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Snapshot del último estado completo recibido del servidor via document:sync.
+  // Usado como fallback de guardado en el desmontaje si el yjsDoc local está vacío
+  // (por ejemplo, si la inicialización falló parcialmente o hubo un race condition).
+  const lastServerSnapshotRef = useRef<Uint8Array | null>(null);
 
   // ── Comment sidebar state ─────────────────────────────────────────────────
   const {
@@ -1395,6 +1433,14 @@ export default function CollaborativeEditor({
       .map((m) => ({ id: m.user!.id, name: m.user!.name, avatar: m.user!.avatar ?? null }))
   );
   const [selectedText, setSelectedText] = useState('');
+  const [isSavingToServer, setIsSavingToServer] = useState(false);
+  const [, setTick] = useState(0); // Para re-render periódico del indicador de tiempo
+
+  // Actualizar el indicador de tiempo cada 15 segundos
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const provider = useMemo(() => {
     if (typeof window === 'undefined') return null;
@@ -1411,11 +1457,19 @@ export default function CollaborativeEditor({
     const handleInitialSync = (data: { documentId: string; update: number[] }) => {
       if (data.documentId === documentId && !initialSyncReceivedRef.current) {
         try {
-          Y.applyUpdate(yjsDoc, new Uint8Array(data.update), 'server');
+          const update = new Uint8Array(data.update);
+          const loadStartTime = performance.now();
+          Y.applyUpdate(yjsDoc, update, 'server');
+          const loadTime = performance.now() - loadStartTime;
+
+          // Guardar snapshot del estado completo recibido del servidor como fallback.
+          // Si el desmontaje ocurre con el doc local vacío o corrupto, usamos este snapshot.
+          lastServerSnapshotRef.current = update;
+
           initialSyncReceivedRef.current = true;
           setIsDocumentReady(true);
           setSyncError(null);
-          setRetryCount(0);
+          retryCountRef.current = 0;
           socketService.off('document:sync', handleInitialSync);
         } catch (error) {
           setSyncError('Error al cargar el contenido del documento');
@@ -1432,12 +1486,11 @@ export default function CollaborativeEditor({
     socketService.joinDocument(documentId, workspaceId);
     isJoinedRef.current = true;
 
-    // Timeout reducido a 3 segundos con retry logic
+    // Timeout de 8 segundos con retry logic (usando refs para no re-ejecutar el efecto)
     const syncTimeout = setTimeout(() => {
       if (!initialSyncReceivedRef.current) {
-        if (retryCount < 2) {
-          // Reintentar hasta 2 veces
-          setRetryCount((prev) => prev + 1);
+        if (retryCountRef.current < 2) {
+          retryCountRef.current += 1;
           socketService.leaveDocument(documentId);
           isJoinedRef.current = false;
           setTimeout(() => {
@@ -1454,7 +1507,7 @@ export default function CollaborativeEditor({
           socketService.off('document:sync', handleInitialSync);
         }
       }
-    }, 3000); // Reducido de 8000ms a 3000ms
+    }, 8000);
 
     return () => {
       clearTimeout(syncTimeout);
@@ -1464,12 +1517,12 @@ export default function CollaborativeEditor({
         socketService.off('error', handleError);
         isJoinedRef.current = false;
         initialSyncReceivedRef.current = false;
+        retryCountRef.current = 0;
         setIsDocumentReady(false);
         setSyncError(null);
-        setRetryCount(0);
       }
     };
-  }, [documentId, workspaceId, yjsDoc, retryCount]);
+  }, [documentId, workspaceId, yjsDoc]); // Sin retryCount: el retry ocurre internamente sin re-ejecutar el efecto
 
   // Memoizar extensions para evitar recreaciones innecesarias
   const extensions = useMemo(
@@ -1538,11 +1591,12 @@ export default function CollaborativeEditor({
     }
   }, [editor, canEdit]);
 
-  const { saveNow, isSaving } = useDocumentAutoSave({
+  const { saveNow, isSaving, lastSavedAt } = useDocumentAutoSave({
     documentId,
     yjsDoc,
     editor,
     enabled: canEdit && isDocumentReady,
+    lastServerSnapshotRef,
     onSave: async (docId, state) => {
       await saveYjsState(docId, state);
     },
@@ -1552,7 +1606,14 @@ export default function CollaborativeEditor({
     if (!editor || !yjsDoc || !isDocumentReady) return;
 
     const updateHandler = (update: Uint8Array, origin: any) => {
-      if (origin !== 'server') socketService.sendYjsUpdate(documentId, update);
+      if (origin !== 'server') {
+        // Enviar update al servidor (solo sincroniza con otros usuarios)
+        socketService.sendYjsUpdate(documentId, update);
+
+        // Indicar que hay cambios pendientes de guardar
+        setIsSavingToServer(true);
+        // El estado se actualizará cuando recibamos confirmación del servidor
+      }
     };
     yjsDoc.on('update', updateHandler);
 
@@ -1562,9 +1623,61 @@ export default function CollaborativeEditor({
     };
     socketService.onYjsUpdate(handleUpdate);
 
+    // El guardado principal ahora es via HTTP (useDocumentAutoSave).
+    // Este evento del servidor es solo para feedback adicional.
+    const handleSaved = (data: { documentId: string; timestamp: number; size: number }) => {
+      if (data.documentId === documentId) {
+        setIsSavingToServer(false);
+      }
+    };
+    socketService.on('document:saved', handleSaved);
+
+    const handleSaveError = (data: { documentId: string; error: string }) => {
+      if (data.documentId === documentId) {
+        setIsSavingToServer(false);
+      }
+    };
+    socketService.on('document:save-error', handleSaveError);
+
+    // El servidor perdió el doc de memoria (reinicio del servidor).
+    // En lugar de recargar toda la página, hacemos re-join al documento
+    // para que el servidor recargue el estado desde DB y nos lo reenvíe.
+    const handleReload = (data: { documentId: string }) => {
+      if (data.documentId === documentId) {
+        initialSyncReceivedRef.current = false;
+
+        // Listener para recibir el nuevo sync
+        const handleRejoin = (syncData: { documentId: string; update: number[] }) => {
+          if (syncData.documentId !== documentId) return;
+          try {
+            const update = new Uint8Array(syncData.update);
+            Y.applyUpdate(yjsDoc, update, 'server');
+            lastServerSnapshotRef.current = update;
+            initialSyncReceivedRef.current = true;
+          } catch (err) {
+            // state re-apply failed after reload — doc remains in last known state
+          } finally {
+            socketService.off('document:sync', handleRejoin);
+          }
+        };
+
+        socketService.onYjsSync(handleRejoin);
+        socketService.leaveDocument(documentId);
+        isJoinedRef.current = false;
+        setTimeout(() => {
+          socketService.joinDocument(documentId, workspaceId);
+          isJoinedRef.current = true;
+        }, 500);
+      }
+    };
+    socketService.on('document:reload', handleReload);
+
     return () => {
       yjsDoc.off('update', updateHandler);
       socketService.off('document:yjs:update', handleUpdate);
+      socketService.off('document:saved', handleSaved);
+      socketService.off('document:save-error', handleSaveError);
+      socketService.off('document:reload', handleReload);
     };
   }, [editor, yjsDoc, documentId, isDocumentReady]);
 
@@ -1766,7 +1879,7 @@ export default function CollaborativeEditor({
                 <button
                   onClick={() => {
                     setSyncError(null);
-                    setRetryCount(0);
+                    retryCountRef.current = 0;
                     initialSyncReceivedRef.current = false;
                     isJoinedRef.current = false;
                     window.location.reload();
@@ -1785,9 +1898,9 @@ export default function CollaborativeEditor({
                 <p className="text-text-primary font-medium">
                   {!isDocumentReady ? 'Cargando documento...' : 'Inicializando editor...'}
                 </p>
-                {retryCount > 0 && (
+                {retryCountRef.current > 0 && (
                   <p className="text-sm text-text-muted">
-                    Reintentando conexión ({retryCount}/2)...
+                    Reintentando conexión ({retryCountRef.current}/2)...
                   </p>
                 )}
                 <div className="flex justify-center gap-1 mt-4">
@@ -1819,6 +1932,8 @@ export default function CollaborativeEditor({
           editor={editor}
           onSave={saveNow}
           isSaving={isSaving}
+          isSavingToServer={isSavingToServer}
+          lastSaveTime={lastSavedAt}
           onToggleComments={() => setSidebarOpen(!commentSidebarOpen)}
           commentsOpen={commentSidebarOpen}
           t={t}

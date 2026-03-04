@@ -78,7 +78,6 @@ class DocumentController {
         data: { document },
       });
     } catch (error) {
-      console.error('[DocumentController] Create error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al crear documento' },
@@ -116,7 +115,6 @@ class DocumentController {
         data: result,
       });
     } catch (error) {
-      console.error('[DocumentController] List error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al obtener documentos' },
@@ -163,7 +161,6 @@ class DocumentController {
         data: { document },
       });
     } catch (error) {
-      console.error('[DocumentController] GetById error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al obtener documento' },
@@ -223,7 +220,6 @@ class DocumentController {
         data: { document },
       });
     } catch (error) {
-      console.error('[DocumentController] Update error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al actualizar documento' },
@@ -305,7 +301,6 @@ class DocumentController {
         data: { message: 'Documento eliminado exitosamente' },
       });
     } catch (error: any) {
-      console.error('[DocumentController] Delete error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -346,7 +341,6 @@ class DocumentController {
         data: { version },
       });
     } catch (error: any) {
-      console.error('[DocumentController] CreateVersion error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -386,7 +380,6 @@ class DocumentController {
         data: { versions },
       });
     } catch (error) {
-      console.error('[DocumentController] GetVersions error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al obtener versiones' },
@@ -434,7 +427,6 @@ class DocumentController {
         data: { document },
       });
     } catch (error: any) {
-      console.error('[DocumentController] RestoreVersion error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -519,7 +511,6 @@ class DocumentController {
         data: { message: 'Permiso actualizado exitosamente' },
       });
     } catch (error) {
-      console.error('[DocumentController] UpdatePermission error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al actualizar permiso' },
@@ -559,7 +550,6 @@ class DocumentController {
         data: { members },
       });
     } catch (error) {
-      console.error('[DocumentController] GetDocumentMembers error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al obtener miembros' },
@@ -589,7 +579,6 @@ class DocumentController {
         data: { templates },
       });
     } catch (error: any) {
-      console.error('[DocumentController] Get templates error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -608,13 +597,10 @@ class DocumentController {
     const { id: documentId } = req.params;
     const format = (req.query.format as string)?.toLowerCase() || 'pdf';
 
-    console.log('[DocumentController] Export request:', { documentId, format });
-
     try {
       const userId = (req as any).user?.id;
 
       if (!userId) {
-        console.log('[DocumentController] Export failed: No userId');
         return res.status(401).json({
           success: false,
           error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
@@ -623,7 +609,6 @@ class DocumentController {
 
       // Validar formato
       if (!['pdf', 'html', 'markdown'].includes(format)) {
-        console.log('[DocumentController] Export failed: Invalid format', format);
         return res.status(400).json({
           success: false,
           error: { code: 'INVALID_FORMAT', message: 'Format must be pdf, html, or markdown' },
@@ -631,10 +616,8 @@ class DocumentController {
       }
 
       // Verificar permisos (al menos VIEW)
-      console.log('[DocumentController] Checking permissions...');
       const permission = await documentService.getUserPermission(documentId, userId);
       if (!permission) {
-        console.log('[DocumentController] Export failed: No permission');
         return res.status(403).json({
           success: false,
           error: { code: 'FORBIDDEN', message: 'No access to document' },
@@ -642,10 +625,8 @@ class DocumentController {
       }
 
       // Obtener documento
-      console.log('[DocumentController] Fetching document...');
       const document = await documentService.getDocumentById(documentId);
       if (!document) {
-        console.log('[DocumentController] Export failed: Document not found');
         return res.status(404).json({
           success: false,
           error: { code: 'NOT_FOUND', message: 'Document not found' },
@@ -653,30 +634,21 @@ class DocumentController {
       }
 
       // Obtener estado YJS
-      console.log('[DocumentController] Fetching YJS state...');
       const yjsState = await documentService.getYjsState(documentId);
       if (!yjsState) {
-        console.log('[DocumentController] Export failed: No YJS state');
         return res.status(404).json({
           success: false,
           error: { code: 'NO_CONTENT', message: 'Document has no content' },
         });
       }
 
-      console.log('[DocumentController] YJS state size:', yjsState.length, 'bytes');
-
       // Generar nombre de archivo seguro
       const safeTitle = document.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const timestamp = new Date().toISOString().split('T')[0];
 
-      // Exportar según formato
-      console.log('[DocumentController] Starting export to', format);
-
       switch (format) {
         case 'pdf': {
-          console.log('[DocumentController] Generating PDF...');
           const pdf = await documentExportService.exportToPdf(yjsState, document.title);
-          console.log('[DocumentController] PDF generated, size:', pdf.length, 'bytes');
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader(
             'Content-Disposition',
@@ -686,9 +658,7 @@ class DocumentController {
         }
 
         case 'html': {
-          console.log('[DocumentController] Generating HTML...');
           const html = await documentExportService.exportToHtml(yjsState, document.title);
-          console.log('[DocumentController] HTML generated, length:', html.length);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
           res.setHeader(
             'Content-Disposition',
@@ -698,9 +668,7 @@ class DocumentController {
         }
 
         case 'markdown': {
-          console.log('[DocumentController] Generating Markdown...');
           const markdown = await documentExportService.exportToMarkdown(yjsState, document.title);
-          console.log('[DocumentController] Markdown generated, length:', markdown.length);
           res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
           res.setHeader(
             'Content-Disposition',
@@ -716,8 +684,6 @@ class DocumentController {
           });
       }
     } catch (error: any) {
-      console.error('[DocumentController] Export error:', error);
-      console.error('[DocumentController] Error stack:', error.stack);
       return res.status(500).json({
         success: false,
         error: {

@@ -78,7 +78,6 @@ export function useWorkspaceMembers(workspaceId?: string) {
 
         setMembers(transformedMembers);
       } catch (err) {
-        console.error('[useWorkspaceMembers] Error:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
         setMembers([]);
       } finally {

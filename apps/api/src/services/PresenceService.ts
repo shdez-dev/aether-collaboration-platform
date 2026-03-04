@@ -172,9 +172,7 @@ export class PresenceService {
           // Limpiar indicadores expirados
           await this.stopTyping(cardId, userId);
         }
-      } catch (e) {
-        console.error('Error parsing typing data:', e);
-      }
+      } catch (e) {}
     }
 
     return indicators;

@@ -54,7 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       active: pathname?.startsWith('/dashboard/documents'),
     },
     {
-      name: t.nav_users,
+      name: 'Contactos',
       href: '/dashboard/users',
       icon: '◎',
       active: pathname?.startsWith('/dashboard/users'),
@@ -74,11 +74,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <ProtectedRoute>
       <SocketProvider>
         <div className="min-h-screen bg-background flex">
+          {/* Overlay for mobile when sidebar is open */}
+          {isSidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-20 md:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+              aria-label="Close sidebar"
+            />
+          )}
+
           {/* Sidebar - FIXED POSITION */}
           <aside
-            className={`bg-surface border-r border-border transition-all duration-300 ${
-              isSidebarOpen ? 'w-64' : 'w-0'
-            } flex flex-col overflow-hidden fixed left-0 top-0 bottom-0 z-30`}
+            className={`bg-surface border-r border-border transition-all duration-300 flex flex-col overflow-hidden fixed left-0 top-0 bottom-0 z-30 ${
+              isSidebarOpen
+                ? 'w-64 translate-x-0'
+                : 'w-64 -translate-x-full md:translate-x-0 md:w-0'
+            }`}
           >
             {isSidebarOpen && (
               <>
@@ -164,31 +175,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Main Content - WITH MARGIN TO AVOID SIDEBAR OVERLAP */}
           <div
             className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
-              isSidebarOpen ? 'ml-64' : 'ml-0'
+              isSidebarOpen ? 'md:ml-64' : 'md:ml-0'
             }`}
           >
             {/* Top Bar */}
-            <header className="bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <header className="bg-surface border-b border-border px-3 sm:px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-1 min-w-0">
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="text-text-secondary hover:text-text-primary transition-colors"
+                  className="text-text-secondary hover:text-text-primary transition-colors p-1 touch-target"
                   aria-label="Toggle sidebar"
                 >
-                  <span className="text-xl">{isSidebarOpen ? '◀' : '▶'}</span>
+                  <span className="text-lg sm:text-xl">{isSidebarOpen ? '◀' : '▶'}</span>
                 </button>
-                <div>
-                  <h2 className="text-lg text-text-primary font-normal">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-sm sm:text-base md:text-lg text-text-primary font-normal truncate">
                     {navigation.find((item) => item.active)?.name || 'Dashboard'}
                   </h2>
-                  <p className="text-xs text-text-muted">~/ {pathname}</p>
+                  <p className="text-[10px] sm:text-xs text-text-muted truncate hidden sm:block">
+                    ~/ {pathname}
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
                 <NotificationBell />
 
-                <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
                   <span className="text-xs text-text-muted">{t.status_connected}</span>
                 </div>
@@ -196,7 +209,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </header>
 
             {/* Page Content */}
-            <main className="flex-1 p-4 overflow-auto">{children}</main>
+            <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">{children}</main>
           </div>
         </div>
 

@@ -73,7 +73,6 @@ class BoardController {
         data: { board },
       });
     } catch (error) {
-      console.error('[BoardController] Create error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -111,7 +110,6 @@ class BoardController {
         data: { boards },
       });
     } catch (error) {
-      console.error('[BoardController] List error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -171,7 +169,6 @@ class BoardController {
         data: { board },
       });
     } catch (error) {
-      console.error('[BoardController] GetById error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -246,7 +243,6 @@ class BoardController {
         data: { board },
       });
     } catch (error) {
-      console.error('[BoardController] Update error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -308,7 +304,6 @@ class BoardController {
         data: { message: 'Board archivado exitosamente' },
       });
     } catch (error) {
-      console.error('[BoardController] Archive error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -370,8 +365,6 @@ class BoardController {
         data: { message: 'Board eliminado exitosamente' },
       });
     } catch (error: any) {
-      console.error('[BoardController] Delete error:', error);
-
       if (error.message === 'Board must be archived before deleting') {
         return res.status(400).json({
           success: false,
@@ -412,7 +405,6 @@ class BoardController {
       const graph = await DependencyGraphService.getGraph(id);
       return res.json({ success: true, data: { graph } });
     } catch (error: any) {
-      console.error('[BoardController] getDependencyGraph error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },

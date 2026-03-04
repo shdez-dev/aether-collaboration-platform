@@ -221,11 +221,15 @@ export class DependencyService {
         throw new Error('Dependency not found');
       }
 
+      const removedDep = result.rows[0];
+      const blockingCardId = removedDep.blocking_card_id;
+      const blockedCardId = removedDep.blocked_card_id;
+
       const meta = await this.getBoardAndWorkspace(cardId);
       if (meta) {
         await eventStore.emit(
           'card.dependency.removed' as any,
-          { dependencyId, cardId },
+          { dependencyId, cardId, blockingCardId, blockedCardId },
           userId as any,
           meta.board_id,
           socketId

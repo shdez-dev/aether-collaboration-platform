@@ -54,35 +54,20 @@ export type Env = z.infer<typeof envSchema>;
  * Exits the process if validation fails
  */
 export function validateEnv(): Env {
-  console.log('[ENV] Validating environment variables...');
-
   try {
     const env = envSchema.parse(process.env);
-    console.log('[ENV] ✅ Environment variables validated successfully');
-    console.log('[ENV] 📝 Configuration:');
-    console.log(`[ENV]   - Environment: ${env.NODE_ENV}`);
-    console.log(`[ENV]   - Port: ${env.API_PORT}`);
-    console.log(`[ENV]   - Database: ${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`);
-    console.log(`[ENV]   - Redis: ${env.REDIS_URL.split('@')[1] || 'configured'}`);
-    console.log(`[ENV]   - CORS Origin: ${env.CORS_ORIGIN}`);
-    console.log(`[ENV]   - Frontend URL: ${env.FRONTEND_URL}`);
-
     return env;
   } catch (error) {
-    console.error('[ENV] ❌ Environment validation failed:');
+    process.stderr.write('env: configuration error — server cannot start\n');
 
     if (error instanceof z.ZodError) {
       error.errors.forEach((err) => {
-        console.error(`[ENV]   - ${err.path.join('.')}: ${err.message}`);
+        process.stderr.write(`  ${err.path.join('.')}: ${err.message}\n`);
       });
-
-      console.error('\n[ENV] 💡 Tips:');
-      console.error('[ENV]   1. Copy .env.example to .env');
-      console.error('[ENV]   2. Fill in all required values');
-      console.error('[ENV]   3. Generate secrets with: openssl rand -base64 32');
-      console.error('[ENV]   4. Never commit .env to git\n');
+      process.stderr.write('\n  Hint: copy .env.example to .env and fill all required values\n');
+      process.stderr.write('  Generate secrets: openssl rand -base64 32\n\n');
     } else {
-      console.error(error);
+      process.stderr.write(String(error) + '\n');
     }
 
     process.exit(1);

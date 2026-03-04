@@ -68,6 +68,93 @@ export const en = {
   dashboard_completed_n_days_ago: (n: number) => `Completed ${n} days ago`,
   dashboard_completed_on_date: (date: string) => `Completed on ${date}`,
   dashboard_completed_fallback: 'Done',
+
+  // ── Dashboard – Stats tiles ───────────────────────────────────────────────
+  dashboard_stat_workspaces: 'Workspaces',
+  dashboard_stat_active_boards: 'Active boards',
+  dashboard_stat_total_cards: 'Total cards',
+  dashboard_stat_collaborators: 'Collaborators',
+
+  // ── Dashboard – Recent boards ─────────────────────────────────────────────
+  dashboard_recent_boards_title: 'Recent boards',
+  dashboard_recent_boards_subtitle: 'Your boards with activity',
+
+  // ── Dashboard – Activity feed ─────────────────────────────────────────────
+  dashboard_activity_title: 'Recent activity',
+  dashboard_activity_subtitle: 'Latest events across your projects',
+  dashboard_activity_empty: 'No recent activity to show.',
+  dashboard_activity_just_now: 'just now',
+  dashboard_activity_minutes_ago: (n: number) => `${n}m ago`,
+  dashboard_activity_hours_ago: (n: number) => `${n}h ago`,
+  dashboard_activity_days_ago: (n: number) => `${n}d ago`,
+
+  // Event descriptions — workspace
+  dashboard_activity_workspace_created: (name: string) => `Created workspace "${name}"`,
+  dashboard_activity_workspace_updated: (name: string) => `Updated workspace "${name}"`,
+  dashboard_activity_workspace_deleted: (name: string) => `Deleted workspace "${name}"`,
+  dashboard_activity_workspace_member_invited: (who: string) => `Invited ${who} to the workspace`,
+  dashboard_activity_workspace_member_joined: 'Joined the workspace',
+  dashboard_activity_workspace_member_removed: (who: string) => `Removed ${who} from the workspace`,
+  dashboard_activity_workspace_member_role_changed: (who: string) => `Changed role of ${who}`,
+
+  // Event descriptions — board
+  dashboard_activity_board_created: (name: string) => `Created board "${name}"`,
+  dashboard_activity_board_updated: (name: string) => `Updated board "${name}"`,
+  dashboard_activity_board_deleted: (name: string) => `Deleted board "${name}"`,
+  dashboard_activity_board_archived: (name: string) => `Archived board "${name}"`,
+  dashboard_activity_board_unarchived: (name: string) => `Restored board "${name}"`,
+  dashboard_activity_board_renamed: (from: string, to: string) =>
+    `Renamed board from "${from}" to "${to}"`,
+
+  // Event descriptions — list
+  dashboard_activity_list_created: (name: string) => `Created list "${name}"`,
+  dashboard_activity_list_deleted: (name: string) => `Deleted list "${name}"`,
+  dashboard_activity_list_renamed: (from: string, to: string) =>
+    `Renamed list from "${from}" to "${to}"`,
+  dashboard_activity_list_archived: (name: string) => `Archived list "${name}"`,
+
+  // Event descriptions — card
+  dashboard_activity_card_created: (name: string) => `Created card "${name}"`,
+  dashboard_activity_card_updated: (name: string) => `Updated card "${name}"`,
+  dashboard_activity_card_deleted: (name: string) => `Deleted card "${name}"`,
+  dashboard_activity_card_completed: (name: string) => `Completed card "${name}"`,
+  dashboard_activity_card_uncompleted: (name: string) => `Reopened card "${name}"`,
+  dashboard_activity_card_moved: (name: string, list: string) =>
+    `Moved "${name}" to list "${list}"`,
+  dashboard_activity_card_renamed: (from: string, to: string) =>
+    `Renamed card from "${from}" to "${to}"`,
+  dashboard_activity_card_due_set: (name: string) => `Set due date for "${name}"`,
+  dashboard_activity_card_due_changed: (name: string) => `Changed due date of "${name}"`,
+  dashboard_activity_card_due_removed: (name: string) => `Removed due date from "${name}"`,
+  dashboard_activity_card_priority_changed: (name: string) => `Changed priority of "${name}"`,
+  dashboard_activity_card_member_assigned: (who: string, card: string) =>
+    `Assigned ${who} to "${card}"`,
+  dashboard_activity_card_member_unassigned: (who: string, card: string) =>
+    `Removed ${who} from "${card}"`,
+  dashboard_activity_card_label_added: (label: string, card: string) =>
+    `Added label "${label}" to "${card}"`,
+  dashboard_activity_card_label_removed: (label: string, card: string) =>
+    `Removed label "${label}" from "${card}"`,
+  dashboard_activity_card_archived: (name: string) => `Archived card "${name}"`,
+  dashboard_activity_card_unarchived: (name: string) => `Restored card "${name}"`,
+
+  // Event descriptions — comment
+  dashboard_activity_comment_added: (card: string) => `Commented on "${card}"`,
+  dashboard_activity_comment_updated: (card: string) => `Edited a comment on "${card}"`,
+  dashboard_activity_comment_deleted: (card: string) => `Deleted a comment on "${card}"`,
+
+  // Event descriptions — document
+  dashboard_activity_document_created: (name: string) => `Created document "${name}"`,
+  dashboard_activity_document_updated: (name: string) => `Updated document "${name}"`,
+  dashboard_activity_document_deleted: (name: string) => `Deleted document "${name}"`,
+  dashboard_activity_document_renamed: (from: string, to: string) =>
+    `Renamed document from "${from}" to "${to}"`,
+  dashboard_activity_document_version: (name: string) => `Saved new version of "${name}"`,
+  dashboard_activity_document_exported: (name: string) => `Exported document "${name}"`,
+
+  // fallback
+  dashboard_activity_unknown: 'Activity recorded',
+
   days_short: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
   days_long: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
   months_long: [

@@ -81,6 +81,7 @@ interface WorkspaceState {
   // Miembros
   fetchMembers: (workspaceId: string) => Promise<void>;
   inviteMember: (workspaceId: string, email: string, role: string) => Promise<void>;
+  inviteMultipleMembers: (workspaceId: string, emails: string[], role: string) => Promise<any>;
   changeMemberRole: (workspaceId: string, userId: string, role: string) => Promise<void>;
   removeMember: (workspaceId: string, userId: string) => Promise<void>;
 
@@ -328,6 +329,35 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           await get().fetchMembers(workspaceId);
 
           set({ isLoading: false });
+        } catch (error: any) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
+      inviteMultipleMembers: async (workspaceId: string, emails: string[], role: string) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const response = await apiService.post(
+            `/api/workspaces/${workspaceId}/invite-multiple`,
+            { emails, role },
+            true
+          );
+
+          if (!response.success) {
+            set({
+              error: response.error?.message || 'Failed to invite members',
+              isLoading: false,
+            });
+            throw new Error(response.error?.message);
+          }
+
+          // Recargar miembros
+          await get().fetchMembers(workspaceId);
+
+          set({ isLoading: false });
+          return response.data;
         } catch (error: any) {
           set({ isLoading: false });
           throw error;

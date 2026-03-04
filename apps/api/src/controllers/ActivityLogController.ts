@@ -113,7 +113,6 @@ export class ActivityLogController {
         });
       }
 
-      console.error('[ActivityLogController] GetWorkspaceActivity error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Failed to get activity log' },
@@ -159,7 +158,6 @@ export class ActivityLogController {
         data: stats,
       });
     } catch (error) {
-      console.error('[ActivityLogController] GetWorkspaceActivityStats error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Failed to get activity stats' },
@@ -188,7 +186,6 @@ export class ActivityLogController {
         data: { categories },
       });
     } catch (error) {
-      console.error('[ActivityLogController] GetEventCategories error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Failed to get event categories' },

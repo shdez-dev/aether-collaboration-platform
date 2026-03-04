@@ -71,7 +71,6 @@ export class EventStoreService {
       try {
         await userActivityService.processEvent(type, payload, userId);
       } catch (error) {
-        console.warn('[EventStore] Failed to log user activity:', error);
         // No fallar el evento principal si falla el log
       }
     }
@@ -105,7 +104,6 @@ export class EventStoreService {
         }
       }
     } catch (error) {
-      console.warn('[EventStore] WebSocket gateway not available:', error);
       // No fallar si WebSocket no está disponible
     }
 

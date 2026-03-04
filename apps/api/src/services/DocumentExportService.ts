@@ -526,20 +526,15 @@ export class DocumentExportService {
    * Exportar a PDF
    */
   async exportToPdf(yjsState: Uint8Array, documentTitle: string): Promise<Buffer> {
-    console.log('[DocumentExportService] Starting PDF export for:', documentTitle);
-
     let html: string;
     try {
       html = await this.exportToHtml(yjsState, documentTitle);
-      console.log('[DocumentExportService] HTML generated, length:', html.length);
     } catch (error: any) {
-      console.error('[DocumentExportService] HTML generation error:', error);
       throw new Error(`Failed to generate HTML for PDF: ${error?.message || 'Unknown error'}`);
     }
 
     let browser;
     try {
-      console.log('[DocumentExportService] Launching Puppeteer...');
       browser = await puppeteer.launch({
         headless: true,
         args: [
@@ -552,16 +547,13 @@ export class DocumentExportService {
           '--disable-gpu',
         ],
       });
-      console.log('[DocumentExportService] Puppeteer launched successfully');
 
       const page = await browser.newPage();
-      console.log('[DocumentExportService] Setting page content...');
 
       await page.setContent(html, {
         waitUntil: 'networkidle0',
         timeout: 30000,
       });
-      console.log('[DocumentExportService] Page content set, generating PDF...');
 
       const pdf = await page.pdf({
         format: 'A4',
@@ -575,21 +567,15 @@ export class DocumentExportService {
         preferCSSPageSize: true,
       });
 
-      console.log('[DocumentExportService] PDF generated successfully, size:', pdf.length);
       return Buffer.from(pdf);
     } catch (error: any) {
-      console.error('[DocumentExportService] PDF generation error:', error);
-      console.error('[DocumentExportService] Error name:', error?.name);
-      console.error('[DocumentExportService] Error message:', error?.message);
-      console.error('[DocumentExportService] Error stack:', error?.stack);
       throw new Error(`Failed to generate PDF: ${error?.message || 'Unknown error'}`);
     } finally {
       if (browser) {
         try {
           await browser.close();
-          console.log('[DocumentExportService] Browser closed successfully');
-        } catch (closeError) {
-          console.error('[DocumentExportService] Error closing browser:', closeError);
+        } catch {
+          // ignore close errors
         }
       }
     }

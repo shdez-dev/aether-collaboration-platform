@@ -101,26 +101,12 @@ export class AuthController {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
-      console.log('[AUTH] Attempting to send verification email...');
-      console.log('[AUTH] User email:', user.email);
-      console.log('[AUTH] User name:', user.name);
-      console.log('[AUTH] Verification link:', verificationLink);
-
       emailService
         .sendVerificationEmail(user.email, {
           userName: user.name,
           verificationLink,
         })
-        .then(() => {
-          console.log('[AUTH] ✓ Verification email queued successfully');
-        })
-        .catch((error) => {
-          console.error('[AUTH] ✗ Failed to send verification email:', error);
-          console.error('[AUTH] Error details:', {
-            message: error.message,
-            stack: error.stack,
-            ...error,
-          });
+        .catch(() => {
           // Don't fail registration if email fails
         });
 
@@ -154,7 +140,6 @@ export class AuthController {
         });
       }
 
-      console.error('[AUTH] Register error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -269,7 +254,6 @@ export class AuthController {
         });
       }
 
-      console.error('[AUTH] Login error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -304,7 +288,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AUTH] Logout error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -378,7 +361,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AUTH] Refresh token error:', error);
       return res.status(401).json({
         success: false,
         error: {
@@ -453,7 +435,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AUTH] Me error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -544,7 +525,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AUTH] Send verification email error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -639,7 +619,6 @@ export class AuthController {
         });
       }
 
-      console.error('[AUTH] Verify email error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -731,7 +710,6 @@ export class AuthController {
         });
       }
 
-      console.error('[AUTH] Forgot password error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -829,7 +807,6 @@ export class AuthController {
         });
       }
 
-      console.error('[AUTH] Reset password error:', error);
       return res.status(500).json({
         success: false,
         error: {

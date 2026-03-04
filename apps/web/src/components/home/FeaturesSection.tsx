@@ -1,50 +1,49 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Zap, RefreshCw, Target, Shield, FileText, Database } from 'lucide-react';
 
 const features = [
   {
-    icon: Zap,
-    title: 'Event Sourcing',
-    description:
-      'Arquitectura basada en eventos que captura cada cambio como un evento inmutable, permitiendo auditoría completa y time travel.',
-    color: 'from-yellow-500 to-orange-500',
+    tag: 'sync',
+    title: 'Zero-conflict sync',
+    body: 'Cada keystroke de tu equipo llega en milisegundos. CRDT garantiza que nunca dos ediciones colisionen — sin spinners, sin "recargar para ver cambios".',
+    stat: '< 10ms',
+    statLabel: 'latencia promedio',
   },
   {
-    icon: RefreshCw,
-    title: 'Sincronización en Tiempo Real',
-    description:
-      'Sincronización instantánea entre usuarios con WebSockets para una experiencia colaborativa fluida.',
-    color: 'from-blue-500 to-cyan-500',
+    tag: 'presence',
+    title: 'Presencia real',
+    body: 'Ve exactamente quién está editando qué, con cursores nombrados en tiempo real. Sin estados fantasma, sin confusión sobre quién cambió algo.',
+    stat: '∞',
+    statLabel: 'usuarios simultáneos',
   },
   {
-    icon: Database,
-    title: 'Event Store',
-    description:
-      'Sistema de almacenamiento persistente de eventos con PostgreSQL y Redis para caché distribuido.',
-    color: 'from-green-500 to-emerald-500',
+    tag: 'history',
+    title: 'Historial completo',
+    body: 'Cada acción es un evento inmutable. Rebobina cualquier board o documento a cualquier punto en el tiempo. Nada se pierde.',
+    stat: '100%',
+    statLabel: 'eventos auditables',
   },
   {
-    icon: Target,
-    title: 'CRDT & Vector Clocks',
-    description:
-      'Resolución determinística de conflictos usando Conflict-free Replicated Data Types y relojes vectoriales.',
-    color: 'from-purple-500 to-pink-500',
+    tag: 'offline',
+    title: 'Resilencia offline',
+    body: 'Trabaja sin conexión. Cuando vuelves, tus cambios se fusionan automáticamente con el estado del equipo. Sin sorpresas.',
+    stat: '0',
+    statLabel: 'conflictos al reconectar',
   },
   {
-    icon: Shield,
-    title: 'Type-Safe',
-    description:
-      'TypeScript end-to-end con validación en tiempo de compilación. Tipos compartidos entre frontend y backend.',
-    color: 'from-indigo-500 to-blue-500',
+    tag: 'boards',
+    title: 'Boards Kanban en vivo',
+    body: 'Arrastra tarjetas mientras tu equipo te ve. Los cambios se propagan al instante a todos los participantes del workspace.',
+    stat: 'DnD',
+    statLabel: 'sincronizado en vivo',
   },
   {
-    icon: FileText,
-    title: 'Documentos Colaborativos',
-    description:
-      'Editor de texto enriquecido con Yjs y Tiptap. Edición simultánea con cursores en tiempo real.',
-    color: 'from-red-500 to-rose-500',
+    tag: 'perms',
+    title: 'Permisos granulares',
+    body: 'Controla quién puede ver, editar o administrar cada workspace y board. Roles claros, sin configuración compleja.',
+    stat: 'RBAC',
+    statLabel: 'por workspace',
   },
 ];
 
@@ -52,105 +51,149 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
+    transition: { staggerChildren: 0.07 },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.5,
-    },
-  },
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45 } },
 };
 
 export function FeaturesSection() {
   return (
-    <section className="relative py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-surface to-background opacity-50" />
+    <section className="relative py-12 md:py-28 px-4 md:px-6 lg:px-8 overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-surface/30 to-background pointer-events-none" />
 
-      <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Section header */}
+      <div className="relative z-10 max-w-6xl mx-auto">
+        {/* MOBILE Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          transition={{ duration: 0.5 }}
+          className="mb-8 md:hidden"
         >
-          <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-text-primary">
-            Características Técnicas
+          <p className="text-accent text-xs font-bold mb-2 uppercase tracking-wider">Capacidades</p>
+          <h2 className="text-2xl font-bold text-text-primary leading-tight">
+            Todo lo que necesitas
           </h2>
-          <p className="text-text-secondary text-lg max-w-2xl mx-auto">
-            Tecnología de vanguardia para colaboración distribuida y confiable
-          </p>
         </motion.div>
 
-        {/* Features grid */}
+        {/* DESKTOP Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mb-20 hidden md:block"
+        >
+          <p className="font-mono text-xs text-accent tracking-[0.3em] uppercase mb-4">
+            // capacidades
+          </p>
+          <h2 className="text-4xl lg:text-5xl font-bold text-text-primary leading-tight max-w-xl">
+            Construido para equipos que no esperan.
+          </h2>
+        </motion.div>
+
+        {/* MOBILE: Vertical stacked cards */}
+        <div className="space-y-4 md:hidden">
+          {features.map((f, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-50px' }}
+              transition={{ duration: 0.4, delay: i * 0.05 }}
+              className="bg-surface/50 backdrop-blur-sm border border-border rounded-lg p-4"
+            >
+              {/* Compact header */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-text-primary mb-1">{f.title}</h3>
+                  <p className="text-[10px] text-accent font-mono uppercase tracking-wider">
+                    {f.tag}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-accent font-mono">{f.stat}</div>
+                  <div className="text-[9px] text-text-muted font-mono">{f.statLabel}</div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <p className="text-text-secondary text-xs leading-relaxed">{f.body}</p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* DESKTOP: Grid layout */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          viewport={{ once: true, margin: '-80px' }}
+          className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border"
         >
-          {features.map((feature, index) => (
+          {features.map((f, i) => (
             <motion.div
-              key={index}
+              key={i}
               variants={itemVariants}
-              whileHover={{ scale: 1.05, y: -5 }}
-              className="group relative"
+              className="group relative bg-background hover:bg-surface/60 transition-colors duration-300 p-8"
             >
-              {/* Card */}
-              <div className="h-full bg-card border border-border rounded-lg p-6 hover:border-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-accent/10">
-                {/* Icon with gradient background */}
-                <div
-                  className={`inline-flex items-center justify-center w-16 h-16 rounded-lg bg-gradient-to-br ${feature.color} mb-4 transform group-hover:rotate-12 transition-transform duration-300`}
-                >
-                  <feature.icon className="w-8 h-8 text-white" />
-                </div>
+              {/* Tag */}
+              <p className="font-mono text-[10px] text-text-muted tracking-[0.25em] uppercase mb-5">
+                [{f.tag}]
+              </p>
 
-                {/* Content */}
-                <h3 className="text-xl font-bold text-text-primary mb-2 group-hover:text-accent transition-colors">
-                  {feature.title}
-                </h3>
-                <p className="text-text-secondary text-sm leading-relaxed">{feature.description}</p>
-
-                {/* Hover effect overlay */}
-                <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent/0 to-accent/0 group-hover:from-accent/5 group-hover:to-transparent transition-all duration-300 pointer-events-none" />
+              {/* Stat */}
+              <div className="mb-5">
+                <span className="font-mono text-3xl font-bold text-accent">{f.stat}</span>
+                <span className="font-mono text-xs text-text-muted ml-2">{f.statLabel}</span>
               </div>
+
+              {/* Title */}
+              <h3 className="text-lg font-bold text-text-primary mb-3 group-hover:text-accent transition-colors duration-200">
+                {f.title}
+              </h3>
+
+              {/* Body */}
+              <p className="text-text-muted text-sm leading-relaxed">{f.body}</p>
+
+              {/* Bottom accent line on hover */}
+              <div className="absolute bottom-0 left-0 h-px w-0 bg-accent group-hover:w-full transition-all duration-500" />
             </motion.div>
           ))}
         </motion.div>
 
-        {/* Architecture highlight */}
+        {/* Bottom callout */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-16 p-8 bg-gradient-to-r from-accent/10 via-purple-500/10 to-accent/10 border border-accent/20 rounded-lg"
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-12 sm:mt-16 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 p-4 sm:p-6 border border-border rounded bg-surface/30"
         >
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-text-primary mb-4">Arquitectura Event-Driven</h3>
-            <p className="text-text-secondary max-w-3xl mx-auto mb-6">
-              AETHER implementa un sistema completo de Event Sourcing donde cada acción del usuario
-              genera eventos inmutables que se propagan en tiempo real a través de WebSockets,
-              garantizando consistencia y permitiendo reconstruir el estado completo del sistema en
-              cualquier punto del tiempo.
+          <div className="shrink-0">
+            <p className="font-mono text-[9px] sm:text-[10px] text-text-muted tracking-[0.2em] sm:tracking-[0.25em] uppercase mb-1">
+              arquitectura
             </p>
-            <div className="flex flex-wrap justify-center gap-3 text-sm font-mono">
-              <span className="px-4 py-2 bg-accent/20 text-accent rounded-full">PostgreSQL</span>
-              <span className="px-4 py-2 bg-accent/20 text-accent rounded-full">Redis</span>
-              <span className="px-4 py-2 bg-accent/20 text-accent rounded-full">Socket.IO</span>
-              <span className="px-4 py-2 bg-accent/20 text-accent rounded-full">Yjs CRDT</span>
-            </div>
+            <p className="font-mono text-xs sm:text-sm text-accent font-bold">Event-Driven</p>
+          </div>
+          <div className="w-px h-10 bg-border hidden sm:block shrink-0" />
+          <p className="text-text-secondary text-xs sm:text-sm leading-relaxed">
+            Cada acción genera un evento inmutable que se propaga por WebSockets, se persiste en
+            PostgreSQL y se cachea en Redis. Tu estado siempre es reconstruible desde cero.
+          </p>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {['Event Sourcing', 'CQRS', 'CRDT', 'WebSockets'].map((t) => (
+              <span
+                key={t}
+                className="px-2 sm:px-2.5 py-0.5 sm:py-1 font-mono text-[10px] sm:text-[11px] text-accent bg-accent/8 border border-accent/20 rounded whitespace-nowrap"
+              >
+                {t}
+              </span>
+            ))}
           </div>
         </motion.div>
       </div>

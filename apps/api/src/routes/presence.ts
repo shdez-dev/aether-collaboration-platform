@@ -53,7 +53,6 @@ router.get(
         },
       });
     } catch (error: any) {
-      console.error('[Presence] Error getting active users:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'FETCH_FAILED', message: 'Failed to get active users' },
@@ -93,7 +92,6 @@ router.get('/cards/:cardId/typing', authenticateJWT, async (req: Request, res: R
       },
     });
   } catch (error: any) {
-    console.error('[Presence] Error getting typing users:', error);
     return res.status(500).json({
       success: false,
       error: { code: 'FETCH_FAILED', message: 'Failed to get typing users' },
@@ -144,7 +142,6 @@ router.get('/boards/:boardId/events', authenticateJWT, async (req: Request, res:
       },
     });
   } catch (error: any) {
-    console.error('[Presence] Error getting board events:', error);
     return res.status(500).json({
       success: false,
       error: { code: 'FETCH_FAILED', message: 'Failed to get board events' },
@@ -185,7 +182,6 @@ router.get('/cards/:cardId/activity', authenticateJWT, async (req: Request, res:
       },
     });
   } catch (error: any) {
-    console.error('[Presence] Error getting card activity:', error);
     return res.status(500).json({
       success: false,
       error: { code: 'FETCH_FAILED', message: 'Failed to get card activity' },
@@ -225,7 +221,6 @@ router.get('/boards/:boardId/stats', authenticateJWT, async (req: Request, res: 
       },
     });
   } catch (error: any) {
-    console.error('[Presence] Error getting presence stats:', error);
     return res.status(500).json({
       success: false,
       error: { code: 'FETCH_FAILED', message: 'Failed to get presence stats' },

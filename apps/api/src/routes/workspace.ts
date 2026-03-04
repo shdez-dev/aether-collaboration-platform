@@ -74,6 +74,15 @@ router.post('/:id/invite', checkWorkspaceMembership, requireAdmin, (req, res) =>
 );
 
 /**
+ * POST /api/workspaces/:id/invite-multiple
+ * Invitar múltiples miembros al workspace
+ * Permisos: ADMIN o OWNER
+ */
+router.post('/:id/invite-multiple', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceController.inviteMultipleMembers(req, res)
+);
+
+/**
  * GET /api/workspaces/:id/members
  * Obtener miembros del workspace
  * Permisos: Miembro del workspace

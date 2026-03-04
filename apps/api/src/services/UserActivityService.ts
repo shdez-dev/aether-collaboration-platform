@@ -28,9 +28,7 @@ export class UserActivityService {
           isDeletionEvent ? null : workspaceId || null,
         ]
       );
-
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   /**
@@ -219,8 +217,11 @@ export class UserActivityService {
         metadata.name = payload.name;
         metadata.listId = payload.listId;
         metadata.boardId = payload.boardId;
-        // Obtener título del board para contexto
-        if (payload.boardId) {
+        // Usar título del payload si está disponible
+        if (payload.boardTitle) {
+          metadata.boardTitle = payload.boardTitle;
+        } else if (payload.boardId) {
+          // Fallback: consultar título del board
           metadata.boardTitle = await this.getBoardTitle(payload.boardId);
         }
         break;
@@ -252,8 +253,11 @@ export class UserActivityService {
         metadata.title = payload.title;
         metadata.cardId = payload.cardId;
         metadata.listId = payload.listId;
-        // Obtener nombre de la lista para contexto
-        if (payload.listId) {
+        // Usar nombre del payload si está disponible
+        if (payload.listName) {
+          metadata.listName = payload.listName;
+        } else if (payload.listId) {
+          // Fallback: consultar nombre de la lista
           metadata.listName = await this.getListName(payload.listId);
         }
         break;
@@ -280,9 +284,20 @@ export class UserActivityService {
         metadata.fromPosition = payload.fromPosition;
         metadata.toPosition = payload.toPosition;
 
-        const listNames = await this.getListNames(payload.fromListId, payload.toListId);
-        if (listNames.fromList) metadata.fromListName = listNames.fromList;
-        if (listNames.toList) metadata.toListName = listNames.toList;
+        // Usar nombres del payload si están disponibles (desde CardService)
+        if (payload.oldListName) metadata.fromListName = payload.oldListName;
+        if (payload.newListName) metadata.toListName = payload.newListName;
+        // También copiar como newListName para compatibilidad con frontend
+        if (payload.newListName) metadata.newListName = payload.newListName;
+
+        // Fallback: consultar nombres si no venían en el payload
+        if (!metadata.fromListName || !metadata.toListName) {
+          const listNames = await this.getListNames(payload.fromListId, payload.toListId);
+          if (!metadata.fromListName && listNames.fromList)
+            metadata.fromListName = listNames.fromList;
+          if (!metadata.toListName && listNames.toList) metadata.toListName = listNames.toList;
+          if (!metadata.newListName && listNames.toList) metadata.newListName = listNames.toList;
+        }
         break;
 
       case 'comment.created':
@@ -310,52 +325,74 @@ export class UserActivityService {
       case 'card.member.assigned':
         metadata.cardId = payload.cardId;
         metadata.memberId = payload.userId || payload.memberId;
-        // Obtener nombre del miembro y título de la tarjeta
+        // Usar título del payload si está disponible
+        if (payload.title) {
+          metadata.cardTitle = payload.title;
+        } else if (payload.cardId) {
+          // Fallback: consultar título de la tarjeta
+          metadata.cardTitle = await this.getCardTitle(payload.cardId);
+        }
+        // Obtener nombre del miembro
         if (metadata.memberId) {
           metadata.memberName = await this.getMemberName(metadata.memberId);
-        }
-        if (payload.cardId) {
-          metadata.cardTitle = await this.getCardTitle(payload.cardId);
         }
         break;
 
       case 'card.member.unassigned':
         metadata.cardId = payload.cardId;
         metadata.memberId = payload.userId || payload.memberId;
-        // Obtener nombre del miembro y título de la tarjeta
+        // Usar título del payload si está disponible
+        if (payload.title) {
+          metadata.cardTitle = payload.title;
+        } else if (payload.cardId) {
+          // Fallback: consultar título de la tarjeta
+          metadata.cardTitle = await this.getCardTitle(payload.cardId);
+        }
+        // Obtener nombre del miembro
         if (metadata.memberId) {
           metadata.memberName = await this.getMemberName(metadata.memberId);
-        }
-        if (payload.cardId) {
-          metadata.cardTitle = await this.getCardTitle(payload.cardId);
         }
         break;
 
       case 'card.label.added':
         metadata.cardId = payload.cardId;
         metadata.labelId = payload.labelId;
-        // Obtener info de la etiqueta y título de la tarjeta
-        if (payload.labelId) {
+        // Usar info del payload si está disponible
+        if (payload.cardTitle) {
+          metadata.cardTitle = payload.cardTitle;
+        } else if (payload.cardId) {
+          // Fallback: consultar título
+          metadata.cardTitle = await this.getCardTitle(payload.cardId);
+        }
+        if (payload.labelName) {
+          metadata.labelName = payload.labelName;
+          metadata.labelColor = payload.labelColor;
+        } else if (payload.labelId) {
+          // Fallback: consultar label info
           const labelInfo = await this.getLabelInfo(payload.labelId);
           metadata.labelName = labelInfo.name;
           metadata.labelColor = labelInfo.color;
-        }
-        if (payload.cardId) {
-          metadata.cardTitle = await this.getCardTitle(payload.cardId);
         }
         break;
 
       case 'card.label.removed':
         metadata.cardId = payload.cardId;
         metadata.labelId = payload.labelId;
-        // Obtener info de la etiqueta y título de la tarjeta
-        if (payload.labelId) {
+        // Usar info del payload si está disponible
+        if (payload.cardTitle) {
+          metadata.cardTitle = payload.cardTitle;
+        } else if (payload.cardId) {
+          // Fallback: consultar título
+          metadata.cardTitle = await this.getCardTitle(payload.cardId);
+        }
+        if (payload.labelName) {
+          metadata.labelName = payload.labelName;
+          metadata.labelColor = payload.labelColor;
+        } else if (payload.labelId) {
+          // Fallback: consultar label info
           const labelInfo = await this.getLabelInfo(payload.labelId);
           metadata.labelName = labelInfo.name;
           metadata.labelColor = labelInfo.color;
-        }
-        if (payload.cardId) {
-          metadata.cardTitle = await this.getCardTitle(payload.cardId);
         }
         break;
 

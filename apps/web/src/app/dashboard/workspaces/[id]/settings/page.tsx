@@ -123,9 +123,7 @@ export default function WorkspaceSettingsPage() {
       });
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error) {
-      console.error('Error updating workspace:', error);
-    }
+    } catch (error) {}
   };
 
   const handleDelete = async () => {

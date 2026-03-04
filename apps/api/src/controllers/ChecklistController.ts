@@ -36,7 +36,6 @@ export class ChecklistController {
       const items = await ChecklistService.getItems(cardId);
       return res.status(200).json({ success: true, data: { items } });
     } catch (error: any) {
-      console.error('Error getting checklist items:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -90,7 +89,6 @@ export class ChecklistController {
       );
       return res.status(201).json({ success: true, data: { item } });
     } catch (error: any) {
-      console.error('Error creating checklist item:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -145,7 +143,6 @@ export class ChecklistController {
       );
       return res.status(200).json({ success: true, data: { item } });
     } catch (error: any) {
-      console.error('Error updating checklist item:', error);
       if (error.message === 'Checklist item not found') {
         return res.status(404).json({
           success: false,
@@ -191,7 +188,6 @@ export class ChecklistController {
       await ChecklistService.deleteItem(itemId, cardId, userId, socketId);
       return res.status(200).json({ success: true, data: { message: 'Item deleted' } });
     } catch (error: any) {
-      console.error('Error deleting checklist item:', error);
       if (error.message === 'Checklist item not found') {
         return res.status(404).json({
           success: false,

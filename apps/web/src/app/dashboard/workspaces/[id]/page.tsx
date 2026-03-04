@@ -202,95 +202,101 @@ export default function WorkspaceDetailPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Header Navigation */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Link
             href="/dashboard/workspaces"
-            className="flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors"
+            className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-text-muted hover:text-text-primary transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5 md:w-4 md:h-4" />
             <span>{t.workspace_btn_back}</span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
             <Link
               href={`/dashboard/workspaces/${workspaceId}/activity`}
-              className="px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-sm font-medium flex items-center gap-2"
+              className="px-2 md:px-4 py-1.5 md:py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2"
             >
-              <ScrollText className="w-4 h-4" />
-              <span>{t.workspace_section_activity}</span>
+              <ScrollText className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">{t.workspace_section_activity}</span>
             </Link>
 
             {isOwnerOrAdmin && (
               <Link
                 href={`/dashboard/workspaces/${workspaceId}/settings`}
-                className="px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-sm font-medium flex items-center gap-2"
+                className="px-2 md:px-4 py-1.5 md:py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2"
               >
-                <Settings className="w-4 h-4" />
-                <span>{t.workspace_btn_settings}</span>
+                <Settings className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">{t.workspace_btn_settings}</span>
               </Link>
             )}
           </div>
         </div>
 
         {/* Workspace Info Header */}
-        <div className="bg-card border border-border p-6">
-          <div className="flex items-start gap-6">
+        <div className="bg-card border border-border p-4 md:p-6">
+          <div className="flex items-start gap-3 md:gap-6">
             <div
-              className="w-20 h-20 flex items-center justify-center flex-shrink-0 border"
+              className="w-14 h-14 md:w-20 md:h-20 flex items-center justify-center flex-shrink-0 border"
               style={{
                 backgroundColor: `${currentWorkspace.color}15`,
                 color: currentWorkspace.color,
                 borderColor: `${currentWorkspace.color}40`,
               }}
             >
-              <WorkspaceIcon icon={currentWorkspace.icon} className="w-10 h-10" />
+              <WorkspaceIcon icon={currentWorkspace.icon} className="w-7 h-7 md:w-10 md:h-10" />
             </div>
 
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-medium text-text-primary">{currentWorkspace.name}</h1>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                <h1 className="text-lg md:text-2xl font-medium text-text-primary truncate">
+                  {currentWorkspace.name}
+                </h1>
                 <span
-                  className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium border ${getRoleColor(
+                  className={`inline-flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-0.5 md:py-1 text-[10px] md:text-xs font-medium border ${getRoleColor(
                     currentWorkspace.userRole || 'MEMBER'
-                  )}`}
+                  )} w-fit`}
                 >
                   {getRoleIcon(currentWorkspace.userRole || 'MEMBER')}
                   <span>{getRoleLabel(currentWorkspace.userRole || 'MEMBER')}</span>
                 </span>
               </div>
 
-              <p className="text-text-secondary text-sm mb-4">
+              <p className="text-text-secondary text-xs md:text-sm mb-3 md:mb-4 line-clamp-2">
                 {currentWorkspace.description || t.no_description}
               </p>
 
-              <div className="flex items-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <LayoutGrid className="w-4 h-4 text-accent" />
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 md:gap-6 text-xs md:text-sm">
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <LayoutGrid className="w-3.5 h-3.5 md:w-4 md:h-4 text-accent flex-shrink-0" />
                   <span className="text-text-primary font-medium">{activeBoards}</span>
-                  <span className="text-text-muted">{t.workspace_stat_boards}</span>
+                  <span className="text-text-muted hidden xs:inline">
+                    {t.workspace_stat_boards}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-success" />
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4 text-success flex-shrink-0" />
                   <span className="text-text-primary font-medium">
                     {currentWorkspace.memberCount || 0}
                   </span>
-                  <span className="text-text-muted">{t.workspace_stat_members}</span>
+                  <span className="text-text-muted hidden xs:inline">
+                    {t.workspace_stat_members}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-warning" />
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-warning flex-shrink-0" />
                   <span className="text-text-primary font-medium">
                     {boards.reduce((sum, b) => sum + (b.cardCount || 0), 0)}
                   </span>
-                  <span className="text-text-muted">{t.workspace_stat_tasks}</span>
+                  <span className="text-text-muted hidden xs:inline">{t.workspace_stat_tasks}</span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-text-muted" />
-                  <span className="text-text-muted text-xs">
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-text-muted flex-shrink-0" />
+                  <span className="text-text-muted text-[10px] md:text-xs">
                     {formatShort(
                       new Date(currentWorkspace.createdAt),
                       user?.timezone,
@@ -304,36 +310,36 @@ export default function WorkspaceDetailPage() {
         </div>
 
         {/* Grid de 3 columnas */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* PANEL PRINCIPAL (tabs) - 2 columnas */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3 md:space-y-4">
             {/* Tab switcher */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 sm:justify-between">
               <div className="flex border border-border overflow-hidden">
                 <button
                   onClick={() => setActiveTab('stats')}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium transition-colors ${
                     activeTab === 'stats'
                       ? 'bg-accent text-white'
                       : 'bg-surface text-text-secondary hover:text-text-primary hover:bg-card'
                   }`}
                 >
-                  <BarChart2 className="w-4 h-4" />
+                  <BarChart2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span>{t.ws_tab_stats}</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('boards')}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border-l border-border ${
+                  className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium transition-colors border-l border-border ${
                     activeTab === 'boards'
                       ? 'bg-accent text-white'
                       : 'bg-surface text-text-secondary hover:text-text-primary hover:bg-card'
                   }`}
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <LayoutGrid className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span>{t.ws_tab_boards}</span>
                   {activeBoards > 0 && (
                     <span
-                      className={`text-xs px-1.5 py-0.5 font-mono ${
+                      className={`text-[10px] md:text-xs px-1.5 py-0.5 font-mono ${
                         activeTab === 'boards'
                           ? 'bg-white/20 text-white'
                           : 'bg-accent/10 text-accent'
@@ -348,10 +354,10 @@ export default function WorkspaceDetailPage() {
               {/* Acción contextual según tab */}
               {activeTab === 'boards' && isOwnerOrAdmin && (
                 <button
-                  className="px-4 py-2 bg-accent text-white hover:bg-accent/90 transition-colors text-sm font-medium flex items-center gap-2"
+                  className="w-full sm:w-auto px-3 md:px-4 py-2 bg-accent text-white hover:bg-accent/90 transition-colors text-xs md:text-sm font-medium flex items-center justify-center gap-1.5 md:gap-2"
                   onClick={() => setShowCreateBoardModal(true)}
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span>{t.workspace_btn_new_board}</span>
                 </button>
               )}
@@ -370,11 +376,11 @@ export default function WorkspaceDetailPage() {
                     <p className="text-sm text-text-muted">{t.ws_stats_no_data}</p>
                   </div>
                 ) : (
-                  <div className="p-5 space-y-5">
+                  <div className="p-3 md:p-5 space-y-4 md:space-y-5">
                     {/* ── Fila 1: métricas de estado ── */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {/* Progreso global */}
-                      <div className="p-3 bg-surface border border-border col-span-2 sm:col-span-2 space-y-2">
+                      <div className="p-2.5 md:p-3 bg-surface border border-border col-span-2 sm:col-span-2 space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <CheckSquare className="w-3.5 h-3.5 text-success" />
@@ -398,49 +404,53 @@ export default function WorkspaceDetailPage() {
 
                       {/* Vencidas */}
                       <div
-                        className={`p-3 border space-y-1 ${currentStats.overdueCards > 0 ? 'bg-error/5 border-error/30' : 'bg-surface border-border'}`}
+                        className={`p-2.5 md:p-3 border space-y-1 ${currentStats.overdueCards > 0 ? 'bg-error/5 border-error/30' : 'bg-surface border-border'}`}
                       >
                         <div className="flex items-center gap-1.5">
                           <AlertCircle
-                            className={`w-3.5 h-3.5 ${currentStats.overdueCards > 0 ? 'text-error' : 'text-text-muted'}`}
+                            className={`w-3 h-3 md:w-3.5 md:h-3.5 ${currentStats.overdueCards > 0 ? 'text-error' : 'text-text-muted'}`}
                           />
-                          <span className="text-[11px] text-text-secondary">
+                          <span className="text-[10px] md:text-[11px] text-text-secondary">
                             {t.ws_stats_overdue}
                           </span>
                         </div>
                         <p
-                          className={`text-2xl font-bold ${currentStats.overdueCards > 0 ? 'text-error' : 'text-text-muted'}`}
+                          className={`text-xl md:text-2xl font-bold ${currentStats.overdueCards > 0 ? 'text-error' : 'text-text-muted'}`}
                         >
                           {currentStats.overdueCards}
                         </p>
-                        <p className="text-[11px] text-text-muted">{t.ws_stats_overdue_desc}</p>
+                        <p className="text-[10px] md:text-[11px] text-text-muted hidden sm:block">
+                          {t.ws_stats_overdue_desc}
+                        </p>
                       </div>
 
                       {/* Sin asignar */}
                       <div
-                        className={`p-3 border space-y-1 ${currentStats.unassignedCards > 0 ? 'bg-warning/5 border-warning/30' : 'bg-surface border-border'}`}
+                        className={`p-2.5 md:p-3 border space-y-1 ${currentStats.unassignedCards > 0 ? 'bg-warning/5 border-warning/30' : 'bg-surface border-border'}`}
                       >
                         <div className="flex items-center gap-1.5">
                           <UserX
-                            className={`w-3.5 h-3.5 ${currentStats.unassignedCards > 0 ? 'text-warning' : 'text-text-muted'}`}
+                            className={`w-3 h-3 md:w-3.5 md:h-3.5 ${currentStats.unassignedCards > 0 ? 'text-warning' : 'text-text-muted'}`}
                           />
-                          <span className="text-[11px] text-text-secondary">
+                          <span className="text-[10px] md:text-[11px] text-text-secondary">
                             {t.ws_stats_unassigned}
                           </span>
                         </div>
                         <p
-                          className={`text-2xl font-bold ${currentStats.unassignedCards > 0 ? 'text-warning' : 'text-text-muted'}`}
+                          className={`text-xl md:text-2xl font-bold ${currentStats.unassignedCards > 0 ? 'text-warning' : 'text-text-muted'}`}
                         >
                           {currentStats.unassignedCards}
                         </p>
-                        <p className="text-[11px] text-text-muted">{t.ws_stats_unassigned_desc}</p>
+                        <p className="text-[10px] md:text-[11px] text-text-muted hidden sm:block">
+                          {t.ws_stats_unassigned_desc}
+                        </p>
                       </div>
                     </div>
 
                     {/* ── Fila 2: velocidad + progreso por board ── */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-border">
                       {/* Velocidad semanal */}
-                      <div className="p-3 bg-surface border border-border space-y-2">
+                      <div className="p-2.5 md:p-3 bg-surface border border-border space-y-2">
                         <div className="flex items-center gap-1.5">
                           <Zap className="w-3.5 h-3.5 text-accent" />
                           <span className="text-xs font-medium text-text-primary">
@@ -481,7 +491,7 @@ export default function WorkspaceDetailPage() {
                       </div>
 
                       {/* Progreso por board */}
-                      <div className="p-3 bg-surface border border-border space-y-2">
+                      <div className="p-2.5 md:p-3 bg-surface border border-border space-y-2">
                         <div className="flex items-center gap-1.5">
                           <Activity className="w-3.5 h-3.5 text-accent" />
                           <span className="text-xs font-medium text-text-primary">
@@ -530,65 +540,67 @@ export default function WorkspaceDetailPage() {
             {activeTab === 'boards' && (
               <div className="bg-card border border-border">
                 {boards.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-accent/10 border border-accent flex items-center justify-center">
-                      <LayoutGrid className="w-8 h-8 text-accent" />
+                  <div className="text-center py-12 md:py-16 px-4">
+                    <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-accent/10 border border-accent flex items-center justify-center">
+                      <LayoutGrid className="w-6 h-6 md:w-8 md:h-8 text-accent" />
                     </div>
-                    <h3 className="text-base font-medium mb-2">{t.workspace_empty_boards_title}</h3>
-                    <p className="text-text-secondary text-sm mb-6">
+                    <h3 className="text-sm md:text-base font-medium mb-2">
+                      {t.workspace_empty_boards_title}
+                    </h3>
+                    <p className="text-text-secondary text-xs md:text-sm mb-4 md:mb-6">
                       {isOwnerOrAdmin
                         ? t.workspace_empty_boards_desc_owner
                         : t.workspace_empty_boards_desc_member}
                     </p>
                     {isOwnerOrAdmin && (
                       <button
-                        className="px-4 py-2 bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-2"
+                        className="px-3 md:px-4 py-2 bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-1.5 md:gap-2 text-xs md:text-sm"
                         onClick={() => setShowCreateBoardModal(true)}
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         <span>{t.workspace_btn_create_board}</span>
                       </button>
                     )}
                   </div>
                 ) : (
-                  <div className="p-4 space-y-2">
+                  <div className="p-2 md:p-4 space-y-2">
                     {boards.map((board) => (
                       <button
                         key={board.id}
                         onClick={() => handleGoToBoard(board.id)}
-                        className="group w-full text-left p-4 border border-border bg-surface hover:bg-card hover:border-accent transition-all flex items-center justify-between"
+                        className="group w-full text-left p-3 md:p-4 border border-border bg-surface hover:bg-card hover:border-accent transition-all flex items-center justify-between rounded-lg md:rounded-none"
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="text-xl font-medium group-hover:text-accent transition-colors truncate">
+                          <div className="flex items-center gap-2 mb-1.5 md:mb-2">
+                            <h4 className="text-base md:text-xl font-medium group-hover:text-accent transition-colors truncate">
                               {board.name}
                             </h4>
                             {board.archived && (
-                              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-warning/10 border border-warning text-xs flex-shrink-0">
-                                <Archive className="w-3 h-3 text-warning" />
+                              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-warning/10 border border-warning text-[10px] md:text-xs flex-shrink-0">
+                                <Archive className="w-2.5 h-2.5 md:w-3 md:h-3 text-warning" />
                               </div>
                             )}
                           </div>
 
                           {board.description && (
-                            <p className="text-text-secondary text-xs mb-2 line-clamp-1">
+                            <p className="text-text-secondary text-[10px] md:text-xs mb-1.5 md:mb-2 line-clamp-1">
                               {board.description}
                             </p>
                           )}
 
-                          <div className="flex items-center gap-4 text-xs text-text-muted">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1 h-4 bg-accent" />
+                          <div className="flex items-center gap-3 md:gap-4 text-[10px] md:text-xs text-text-muted">
+                            <div className="flex items-center gap-1 md:gap-1.5">
+                              <div className="w-0.5 md:w-1 h-3 md:h-4 bg-accent" />
                               <span className="font-medium">{board.listCount || 0}</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5" />
+                            <div className="flex items-center gap-1 md:gap-1.5">
+                              <Sparkles className="w-3 h-3 md:w-3.5 md:h-3.5" />
                               <span className="font-medium">{board.cardCount || 0}</span>
                             </div>
                           </div>
                         </div>
 
-                        <ChevronRight className="w-5 h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0 ml-2" />
+                        <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0 ml-2" />
                       </button>
                     ))}
                   </div>
@@ -598,10 +610,10 @@ export default function WorkspaceDetailPage() {
           </div>
 
           {/* SIDEBAR - 1 columna con Members y Activity */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {/* MEMBERS - MÁS COMPACTO */}
             <div className="bg-card border border-border">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-success/10 border border-success/30">
                     <Users className="w-4 h-4 text-success" />
@@ -625,21 +637,21 @@ export default function WorkspaceDetailPage() {
                 )}
               </div>
 
-              <div className="p-3">
+              <div className="p-2 md:p-3">
                 {currentMembers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="w-10 h-10 mx-auto mb-2 text-text-muted opacity-50" />
-                    <p className="text-xs text-text-secondary">{t.no_description}</p>
+                  <div className="text-center py-6 md:py-8">
+                    <Users className="w-8 h-8 md:w-10 md:h-10 mx-auto mb-2 text-text-muted opacity-50" />
+                    <p className="text-[10px] md:text-xs text-text-secondary">{t.no_description}</p>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-3 max-h-[300px] overflow-y-auto">
+                  <div className="flex flex-wrap gap-2 md:gap-3 max-h-[300px] overflow-y-auto">
                     {currentMembers.map((member) => (
                       <div
                         key={member.id}
-                        className="group relative flex items-center gap-2 px-3 py-2 bg-surface border border-border hover:border-accent transition-all"
+                        className="group relative flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 bg-surface border border-border hover:border-accent transition-all rounded-lg md:rounded-none"
                       >
                         <div
-                          className="w-9 h-9 flex-shrink-0 border overflow-hidden"
+                          className="w-8 h-8 md:w-9 md:h-9 flex-shrink-0 border overflow-hidden"
                           style={{ borderColor: `${currentWorkspace.color}40` }}
                         >
                           {member.user?.avatar && getAvatarUrl(member.user.avatar) ? (

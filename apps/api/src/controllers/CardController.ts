@@ -65,7 +65,6 @@ export class CardController {
         data: { cards },
       });
     } catch (error: any) {
-      console.error('Error getting list cards:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -122,7 +121,6 @@ export class CardController {
         data: { card },
       });
     } catch (error: any) {
-      console.error('Error creating card:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -153,7 +151,6 @@ export class CardController {
         data: { card },
       });
     } catch (error: any) {
-      console.error('Error getting card:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -180,15 +177,34 @@ export class CardController {
         });
       }
 
-      // Verificar permisos: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      // Verificar permisos
+      const isMember = userRole === 'MEMBER';
+      const isPrivileged = userRole === 'ADMIN' || userRole === 'OWNER';
+
+      if (!isPrivileged && !isMember) {
         return res.status(403).json({
           success: false,
           error: {
             code: 'INSUFFICIENT_PERMISSIONS',
-            message: 'Solo ADMIN o OWNER pueden editar cards',
+            message: 'Sin permisos para editar cards',
           },
         });
+      }
+
+      // MEMBER solo puede actualizar el estado de completado, no otros campos
+      if (isMember) {
+        const allowedMemberKeys = new Set(['completed', 'completedAt']);
+        const bodyKeys = Object.keys(req.body);
+        const hasDisallowedKeys = bodyKeys.some((k) => !allowedMemberKeys.has(k));
+        if (hasDisallowedKeys) {
+          return res.status(403).json({
+            success: false,
+            error: {
+              code: 'INSUFFICIENT_PERMISSIONS',
+              message: 'MEMBER solo puede marcar cards como completadas',
+            },
+          });
+        }
       }
 
       const validationResult = updateCardSchema.safeParse(req.body);
@@ -210,8 +226,6 @@ export class CardController {
         data: { card },
       });
     } catch (error: any) {
-      console.error('Error updating card:', error);
-
       if (error.code === 'BLOCKED_BY_DEPENDENCY') {
         return res.status(422).json({
           success: false,
@@ -286,7 +300,6 @@ export class CardController {
         data: { card },
       });
     } catch (error: any) {
-      console.error('Error moving card:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -331,7 +344,6 @@ export class CardController {
         data: { message: 'Card deleted successfully' },
       });
     } catch (error: any) {
-      console.error('Error deleting card:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -388,8 +400,6 @@ export class CardController {
         data: { message: 'Member assigned successfully' },
       });
     } catch (error: any) {
-      console.error('Error assigning member:', error);
-
       if (error.message === 'Member already assigned') {
         return res.status(409).json({
           success: false,
@@ -441,7 +451,6 @@ export class CardController {
         data: { message: 'Member unassigned successfully' },
       });
     } catch (error: any) {
-      console.error('Error unassigning member:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -486,8 +495,6 @@ export class CardController {
         data: { message: 'Label added successfully' },
       });
     } catch (error: any) {
-      console.error('Error adding label:', error);
-
       if (error.message === 'Label already added') {
         return res.status(409).json({
           success: false,
@@ -527,7 +534,6 @@ export class CardController {
         data: { message: 'Label removed successfully' },
       });
     } catch (error: any) {
-      console.error('Error removing label:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },

@@ -73,7 +73,6 @@ export default function AllDocumentsPage() {
         allDocs.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         setDocuments(allDocs);
       } catch (error) {
-        console.error('[AllDocuments] Error fetching documents:', error);
         setDocuments([]);
       } finally {
         setIsLoading(false);
@@ -121,25 +120,25 @@ export default function AllDocumentsPage() {
       return (
         <button
           onClick={() => handleDocumentClick(doc)}
-          className="group w-full flex items-center gap-4 p-4 border border-border bg-card hover:border-accent hover:bg-surface transition-all text-left"
+          className="group w-full flex items-center gap-3 md:gap-4 p-3 md:p-4 border border-border bg-card hover:border-accent hover:bg-surface transition-all text-left rounded-lg md:rounded-none"
         >
-          <div className="p-2 bg-accent/10 border border-accent/30 group-hover:bg-accent/20 transition-colors">
-            <FileText className="w-5 h-5 text-accent" />
+          <div className="p-2 bg-accent/10 border border-accent/30 group-hover:bg-accent/20 transition-colors flex-shrink-0">
+            <FileText className="w-4 h-4 md:w-5 md:h-5 text-accent" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-medium text-text-primary mb-1 truncate group-hover:text-accent transition-colors">
+            <h3 className="text-sm md:text-base font-medium text-text-primary mb-1 truncate group-hover:text-accent transition-colors">
               {doc.title}
             </h3>
-            <div className="flex items-center gap-3 text-xs text-text-muted">
+            <div className="flex items-center gap-2 md:gap-3 text-xs text-text-muted">
               <div className="flex items-center gap-1.5">
                 <div
-                  className="w-3 h-3 rounded-sm"
+                  className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-sm flex-shrink-0"
                   style={{ backgroundColor: doc.workspaceColor }}
                 />
-                <span>{doc.workspaceName}</span>
+                <span className="truncate max-w-[100px] md:max-w-none">{doc.workspaceName}</span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="hidden sm:flex items-center gap-1.5">
                 <Clock className="w-3 h-3" />
                 <span>
                   {t.documents_updated(
@@ -154,7 +153,7 @@ export default function AllDocumentsPage() {
             </div>
           </div>
 
-          <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-accent transition-colors opacity-0 group-hover:opacity-100" />
+          <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-accent transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" />
         </button>
       );
     }
@@ -162,27 +161,27 @@ export default function AllDocumentsPage() {
     return (
       <button
         onClick={() => handleDocumentClick(doc)}
-        className="group bg-card border border-border hover:border-accent hover:shadow-lg transition-all text-left p-4 w-full"
+        className="group bg-card border border-border hover:border-accent hover:shadow-lg transition-all text-left p-3 md:p-4 w-full rounded-lg md:rounded-none"
       >
-        <div className="flex items-start justify-between mb-3">
-          <div className="p-2 bg-accent/10 border border-accent/30 group-hover:bg-accent/20 transition-colors">
-            <FileText className="w-5 h-5 text-accent" />
+        <div className="flex items-start justify-between mb-2 md:mb-3">
+          <div className="p-1.5 md:p-2 bg-accent/10 border border-accent/30 group-hover:bg-accent/20 transition-colors">
+            <FileText className="w-4 h-4 md:w-5 md:h-5 text-accent" />
           </div>
         </div>
 
-        <h3 className="text-base font-medium text-text-primary mb-2 line-clamp-2 group-hover:text-accent transition-colors">
+        <h3 className="text-sm md:text-base font-medium text-text-primary mb-2 line-clamp-2 group-hover:text-accent transition-colors">
           {doc.title}
         </h3>
 
         <div className="space-y-1.5 text-xs text-text-muted">
           <div className="flex items-center gap-2">
             <div
-              className="w-3 h-3 rounded-sm flex-shrink-0"
+              className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-sm flex-shrink-0"
               style={{ backgroundColor: doc.workspaceColor }}
             />
             <span className="truncate">{doc.workspaceName}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             <Clock className="w-3 h-3 flex-shrink-0" />
             <span>
               {t.documents_updated(
@@ -196,15 +195,16 @@ export default function AllDocumentsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <h1 className="text-2xl font-medium mb-2">{t.documents_title}</h1>
-          <p className="text-text-secondary text-sm">{t.documents_subtitle}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl md:text-2xl font-medium mb-1 md:mb-2">{t.documents_title}</h1>
+          <p className="text-text-secondary text-xs md:text-sm">{t.documents_subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Hide view toggle on mobile */}
+        <div className="hidden md:flex items-center gap-3">
           <div className="flex items-center gap-1 p-1 bg-surface border border-border">
             <button
               onClick={() => setViewMode('grid')}
@@ -233,7 +233,7 @@ export default function AllDocumentsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3">
+      <div className="flex flex-col md:flex-row gap-2 md:gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
@@ -248,7 +248,7 @@ export default function AllDocumentsPage() {
         <select
           value={selectedWorkspace}
           onChange={(e) => setSelectedWorkspace(e.target.value)}
-          className="px-4 py-2.5 bg-surface border border-border text-sm text-text-primary focus:outline-none focus:border-accent transition-colors min-w-[200px]"
+          className="px-4 py-2.5 bg-surface border border-border text-sm text-text-primary focus:outline-none focus:border-accent transition-colors md:min-w-[200px]"
         >
           <option value="all">{t.documents_filter_all_workspaces}</option>
           {workspaces.map((workspace) => (
@@ -261,74 +261,78 @@ export default function AllDocumentsPage() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="bg-card border border-border p-12">
+        <div className="bg-card border border-border p-8 md:p-12">
           <div className="flex flex-col items-center justify-center">
             <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-text-secondary text-sm">{t.documents_loading}</p>
+            <p className="text-text-secondary text-xs md:text-sm">{t.documents_loading}</p>
           </div>
         </div>
       )}
 
       {/* Empty State */}
       {!isLoading && documents.length === 0 && (
-        <div className="bg-card border border-border p-16 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 bg-accent/10 border border-accent flex items-center justify-center">
-            <FileText className="w-10 h-10 text-accent" />
+        <div className="bg-card border border-border p-8 md:p-16 text-center">
+          <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 bg-accent/10 border border-accent flex items-center justify-center">
+            <FileText className="w-8 h-8 md:w-10 md:h-10 text-accent" />
           </div>
-          <h3 className="text-xl font-medium mb-2">{t.documents_empty_title}</h3>
-          <p className="text-text-secondary text-sm mb-6">{t.documents_empty_desc}</p>
+          <h3 className="text-lg md:text-xl font-medium mb-2">{t.documents_empty_title}</h3>
+          <p className="text-text-secondary text-xs md:text-sm mb-4 md:mb-6">
+            {t.documents_empty_desc}
+          </p>
         </div>
       )}
 
       {/* No Results */}
       {!isLoading && documents.length > 0 && filteredDocuments.length === 0 && (
-        <div className="bg-card border border-border p-16 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-text-muted/10 border border-text-muted/30 flex items-center justify-center">
-            <Search className="w-8 h-8 text-text-muted" />
+        <div className="bg-card border border-border p-8 md:p-16 text-center">
+          <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-text-muted/10 border border-text-muted/30 flex items-center justify-center">
+            <Search className="w-6 h-6 md:w-8 md:h-8 text-text-muted" />
           </div>
-          <h3 className="text-lg font-medium mb-2">{t.documents_no_results_title}</h3>
-          <p className="text-text-secondary text-sm">{t.documents_no_results_desc}</p>
+          <h3 className="text-base md:text-lg font-medium mb-2">{t.documents_no_results_title}</h3>
+          <p className="text-text-secondary text-xs md:text-sm">{t.documents_no_results_desc}</p>
         </div>
       )}
 
       {/* Documents Grouped by Workspace */}
       {!isLoading && filteredDocuments.length > 0 && (
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           {Object.values(groupedByWorkspace).map(({ workspace, documents: workspaceDocs }) => (
             <div key={workspace.id}>
               {/* Workspace Header */}
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-3 md:mb-4">
                 <div
-                  className="w-10 h-10 flex items-center justify-center border"
+                  className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center border flex-shrink-0"
                   style={{
                     backgroundColor: `${workspace.color}15`,
                     color: workspace.color,
                     borderColor: `${workspace.color}40`,
                   }}
                 >
-                  <WorkspaceIcon icon={workspace.icon} className="w-5 h-5" />
+                  <WorkspaceIcon icon={workspace.icon} className="w-4 h-4 md:w-5 md:h-5" />
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-medium text-text-primary">{workspace.name}</h2>
-                  <p className="text-sm text-text-muted">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base md:text-lg font-medium text-text-primary truncate">
+                    {workspace.name}
+                  </h2>
+                  <p className="text-xs md:text-sm text-text-muted">
                     {t.documents_showing(workspaceDocs.length, workspaceDocs.length)}
                   </p>
                 </div>
                 <button
                   onClick={() => router.push(`/dashboard/workspaces/${workspace.id}/documents`)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-accent hover:bg-surface border border-transparent hover:border-border transition-all"
+                  className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-accent hover:bg-surface border border-transparent hover:border-border transition-all flex-shrink-0"
                 >
                   <span>{t.btn_back}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Documents Grid/List */}
+              {/* Documents Grid/List - Always grid on mobile, respect viewMode on desktop */}
               <div
                 className={
                   viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                    : 'space-y-2'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4'
+                    : 'grid grid-cols-1 sm:grid-cols-2 md:space-y-2 md:grid-cols-1 gap-3 md:gap-0'
                 }
               >
                 {workspaceDocs.map((doc) => (

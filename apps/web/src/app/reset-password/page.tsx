@@ -75,7 +75,6 @@ export default function ResetPasswordPage() {
         );
       }
     } catch (error) {
-      console.error('Error resetting password:', error);
       setStatus('error');
       setError('Error de conexión. Por favor intenta nuevamente.');
     } finally {

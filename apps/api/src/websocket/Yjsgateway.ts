@@ -10,24 +10,22 @@ interface AuthenticatedSocket extends Socket {
   userAvatar?: string;
 }
 
-/**
- * YjsGateway
- * Maneja sincronización de documentos Yjs en tiempo real
- *
- * SISTEMA DE GUARDADO:
- * - Cada 50 operaciones (SNAPSHOT_INTERVAL)
- * - Cada 5 minutos (SNAPSHOT_TIME)
- * - Al salir el último usuario (cleanupDocument)
- */
 export class YjsGateway {
   private docs = new Map<string, Y.Doc>();
   private io: SocketIOServer;
 
-  // Snapshots automáticos cada 50 operaciones o 5 minutos
-  private snapshotCounters = new Map<string, number>();
-  private snapshotTimers = new Map<string, NodeJS.Timeout>();
-  private readonly SNAPSHOT_INTERVAL = 50; // Guardar cada 50 cambios
-  private readonly SNAPSHOT_TIME = 5 * 60 * 1000; // Guardar cada 5 minutos
+  // Guardado con debounce después de cada cambio
+  private saveTimers = new Map<string, NodeJS.Timeout>();
+  private readonly SAVE_DEBOUNCE = 2000; // 2 segundos tras el último cambio
+
+  // Máximo de reintentos de guardado antes de rendirse
+  private readonly MAX_SAVE_RETRIES = 3;
+  private readonly RETRY_DELAY_MS = 1000;
+
+  // Rastreo de qué sockets están en qué documentos
+  // CRÍTICO: socket.rooms está vacío en el evento 'disconnect',
+  // por eso rastreamos esto manualmente antes de que ocurra
+  private socketToDocuments = new Map<string, Set<string>>(); // socketId → Set<documentId>
 
   constructor(io: SocketIOServer) {
     this.io = io;
@@ -43,7 +41,7 @@ export class YjsGateway {
       // ================================================================
       socket.on('document:join', async (data: { documentId: string; workspaceId: string }) => {
         try {
-          const { documentId, workspaceId } = data;
+          const { documentId } = data;
 
           // Verificar acceso
           const hasAccess = await documentService.checkDocumentAccess(
@@ -58,23 +56,30 @@ export class YjsGateway {
           // Unirse al room del documento
           socket.join(`document:${documentId}`);
 
-          // Obtener o crear documento Yjs
+          // CRÍTICO: Registrar manualmente qué documentos tiene este socket
+          if (!this.socketToDocuments.has(socket.id)) {
+            this.socketToDocuments.set(socket.id, new Set());
+          }
+          this.socketToDocuments.get(socket.id)!.add(documentId);
+
+          // Obtener o crear documento Yjs en memoria
           let doc = this.docs.get(documentId);
+
           if (!doc) {
             doc = new Y.Doc();
             this.docs.set(documentId, doc);
 
             // Cargar estado desde DB
             const yjsState = await documentService.getYjsState(documentId);
-            if (yjsState) {
-              Y.applyUpdate(doc, yjsState);
-            }
 
-            // Setup listeners
-            this.setupDocumentListeners(documentId, doc);
+            if (yjsState && yjsState.length > 0) {
+              // Marcar como 'load' para que el auto-save del cliente no reaccione
+              // a esta carga inicial y genere un guardado redundante
+              Y.applyUpdate(doc, yjsState, 'load');
+            }
           }
 
-          // Enviar estado actual al cliente
+          // Enviar estado completo al cliente que se acaba de unir
           const stateVector = Y.encodeStateAsUpdate(doc);
           socket.emit('document:sync', {
             documentId,
@@ -97,60 +102,60 @@ export class YjsGateway {
       });
 
       // ================================================================
-      // YJS UPDATE
+      // YJS UPDATE — Recibir cambio del cliente y persistir
       // ================================================================
       socket.on('document:yjs:update', async (data: { documentId: string; update: number[] }) => {
         try {
           const { documentId, update } = data;
 
-          const doc = this.docs.get(documentId);
+          let doc = this.docs.get(documentId);
           if (!doc) {
-            socket.emit('error', { message: 'Document not loaded' });
-            return;
+            // El documento no está en memoria — puede pasar si el servidor se reinició
+            // sin que el cliente lo supiera. Intentar recargar desde DB antes de pedir
+            // al cliente que vuelva a hacer join, para no perder el update recibido.
+            try {
+              const yjsState = await documentService.getYjsState(documentId);
+              doc = new Y.Doc();
+              if (yjsState && yjsState.length > 0) {
+                Y.applyUpdate(doc, yjsState, 'load');
+              }
+              this.docs.set(documentId, doc);
+
+              // Registrar el socket en este documento si no lo estaba
+              if (!this.socketToDocuments.has(socket.id)) {
+                this.socketToDocuments.set(socket.id, new Set());
+              }
+              this.socketToDocuments.get(socket.id)!.add(documentId);
+              socket.join(`document:${documentId}`);
+            } catch (reloadError) {
+              socket.emit('document:reload', { documentId });
+              return;
+            }
           }
 
-          // Aplicar update al documento Yjs
-          const updateArray = new Uint8Array(update);
-          Y.applyUpdate(doc, updateArray);
+          // Aplicar el update al documento Yjs en memoria
+          Y.applyUpdate(doc, new Uint8Array(update));
 
-          // Broadcast a otros usuarios (excepto el emisor)
+          // Hacer broadcast a los demás usuarios del mismo documento
           socket.to(`document:${documentId}`).emit('document:yjs:update', {
             documentId,
             update,
           });
 
-          // Incrementar contador de snapshots
-          const count = (this.snapshotCounters.get(documentId) || 0) + 1;
-          this.snapshotCounters.set(documentId, count);
-
-          // Crear snapshot si se alcanzó el límite de operaciones
-          if (count >= this.SNAPSHOT_INTERVAL) {
-            await this.createSnapshot(documentId, doc);
-            this.snapshotCounters.set(documentId, 0);
-
-            // Reiniciar timer después de snapshot por operaciones
-            this.resetSnapshotTimer(documentId, doc);
-          }
-        } catch (error) {
-          socket.emit('error', { message: 'Failed to apply update' });
-        }
+          // Programar guardado a DB con debounce
+          this.scheduleSave(documentId, doc);
+        } catch (error) {}
       });
 
       // ================================================================
-      // AWARENESS UPDATE (sincronizar cursores/selecciones)
+      // AWARENESS UPDATE (cursores y presencia)
       // ================================================================
       socket.on('document:awareness:update', (data: { documentId: string; update: number[] }) => {
-        const { documentId, update } = data;
-
-        // Broadcast awareness update a todos los otros usuarios en el documento
-        socket.to(`document:${documentId}`).emit('document:awareness:update', {
-          documentId,
-          update,
-        });
+        socket.to(`document:${data.documentId}`).emit('document:awareness:update', data);
       });
 
       // ================================================================
-      // LEAVE DOCUMENT
+      // LEAVE DOCUMENT (el cliente sale explícitamente)
       // ================================================================
       socket.on('document:leave', async (data: { documentId: string }) => {
         try {
@@ -158,40 +163,45 @@ export class YjsGateway {
 
           socket.leave(`document:${documentId}`);
 
-          // Notificar a otros usuarios
+          // Actualizar rastreo manual
+          this.socketToDocuments.get(socket.id)?.delete(documentId);
+
           socket.to(`document:${documentId}`).emit('document:user:left', {
             documentId,
             userId: authSocket.userId,
           });
 
-          // Limpiar documento si no hay usuarios
+          // Si no quedan usuarios, guardar y limpiar
           const room = this.io.sockets.adapter.rooms.get(`document:${documentId}`);
           if (!room || room.size === 0) {
-            await this.cleanupDocument(documentId);
+            await this.saveAndCleanup(documentId);
           }
         } catch (error) {}
       });
 
       // ================================================================
-      // DISCONNECT
+      // DISCONNECT — El socket se cierra (pestaña cerrada, red cortada, etc.)
+      // CRÍTICO: socket.rooms está VACÍO aquí, usamos socketToDocuments
       // ================================================================
-      socket.on('disconnect', async () => {
-        // Limpiar documentos donde el usuario estaba activo
-        const rooms = Array.from(socket.rooms);
-        for (const room of rooms) {
-          if (room.startsWith('document:')) {
-            const documentId = room.replace('document:', '');
+      socket.on('disconnect', async (reason) => {
+        // Obtener los documentos de este socket desde nuestro rastreo manual
+        const documents = this.socketToDocuments.get(socket.id);
+        this.socketToDocuments.delete(socket.id);
 
-            socket.to(room).emit('document:user:left', {
-              documentId,
-              userId: authSocket.userId,
-            });
+        if (!documents || documents.size === 0) {
+          return;
+        }
 
-            // Limpiar si no hay usuarios
-            const activeRoom = this.io.sockets.adapter.rooms.get(room);
-            if (!activeRoom || activeRoom.size === 0) {
-              await this.cleanupDocument(documentId);
-            }
+        for (const documentId of documents) {
+          socket.to(`document:${documentId}`).emit('document:user:left', {
+            documentId,
+            userId: authSocket.userId,
+          });
+
+          // Comprobar si quedan otros sockets en este documento
+          const room = this.io.sockets.adapter.rooms.get(`document:${documentId}`);
+          if (!room || room.size === 0) {
+            await this.saveAndCleanup(documentId);
           }
         }
       });
@@ -199,75 +209,121 @@ export class YjsGateway {
   }
 
   /**
-   * Setup listeners para el documento Yjs
+   * Programar guardado con debounce.
+   * Cada cambio reinicia el timer. El guardado ocurre 2s después del último cambio.
    */
-  private setupDocumentListeners(documentId: string, doc: Y.Doc) {
-    this.resetSnapshotTimer(documentId, doc);
-  }
+  private scheduleSave(documentId: string, doc: Y.Doc) {
+    const existing = this.saveTimers.get(documentId);
+    if (existing) clearTimeout(existing);
 
-  /**
-   * Reiniciar timer de snapshot periódico
-   */
-  private resetSnapshotTimer(documentId: string, doc: Y.Doc) {
-    // Limpiar timer anterior si existe
-    const existingTimer = this.snapshotTimers.get(documentId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
-
-    // Crear nuevo timer para snapshot automático por tiempo
     const timer = setTimeout(async () => {
-      await this.createSnapshot(documentId, doc);
-      this.snapshotCounters.set(documentId, 0);
+      this.saveTimers.delete(documentId);
+      await this.persistDocument(documentId, doc);
+    }, this.SAVE_DEBOUNCE);
 
-      // Reiniciar timer recursivamente
-      this.resetSnapshotTimer(documentId, doc);
-    }, this.SNAPSHOT_TIME);
-
-    this.snapshotTimers.set(documentId, timer);
+    this.saveTimers.set(documentId, timer);
   }
 
   /**
-   * Crear snapshot del documento
+   * Guardar el documento a la base de datos con reintentos automáticos.
    */
-  private async createSnapshot(documentId: string, doc: Y.Doc) {
+  private async persistDocument(documentId: string, doc: Y.Doc, attempt = 1): Promise<void> {
     try {
-      const stateVector = Y.encodeStateAsUpdate(doc);
-      await documentService.updateYjsState(documentId, stateVector);
-    } catch (error) {}
-  }
+      const state = Y.encodeStateAsUpdate(doc);
 
-  /**
-   * Limpiar documento de memoria
-   */
-  private async cleanupDocument(documentId: string) {
-    try {
-      const doc = this.docs.get(documentId);
-      if (!doc) return;
-
-      // Guardar estado final
-      const stateVector = Y.encodeStateAsUpdate(doc);
-      await documentService.updateYjsState(documentId, stateVector);
-
-      // Limpiar timers
-      const timer = this.snapshotTimers.get(documentId);
-      if (timer) {
-        clearTimeout(timer);
-        this.snapshotTimers.delete(documentId);
+      // PROTECCIÓN: nunca guardar un estado vacío (2 bytes = Y.Doc vacío)
+      if (state.length <= 2) {
+        return;
       }
 
-      // Limpiar contadores
-      this.snapshotCounters.delete(documentId);
+      await documentService.updateYjsState(documentId, state);
 
-      // Destruir documento
-      doc.destroy();
-      this.docs.delete(documentId);
-    } catch (error) {}
+      // Notificar a los clientes que el guardado fue exitoso
+      this.io.to(`document:${documentId}`).emit('document:saved', {
+        documentId,
+        timestamp: Date.now(),
+        size: state.length,
+      });
+    } catch (error) {
+      if (attempt < this.MAX_SAVE_RETRIES) {
+        const delay = this.RETRY_DELAY_MS * attempt;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        await this.persistDocument(documentId, doc, attempt + 1);
+      } else {
+        this.io.to(`document:${documentId}`).emit('document:save-error', {
+          documentId,
+          error: 'Failed to save after multiple retries',
+        });
+      }
+    }
   }
 
   /**
-   * Obtener color aleatorio para cursores
+   * Guardar inmediatamente y liberar el documento de memoria.
+   * Se llama cuando no quedan usuarios en el documento.
+   *
+   * IMPORTANTE: el doc solo se destruye si el guardado fue exitoso
+   * (o después de agotar reintentos). Nunca se destruye en el `finally`
+   * porque eso perdería datos si el save falló.
    */
+  private async saveAndCleanup(documentId: string): Promise<void> {
+    const doc = this.docs.get(documentId);
+    if (!doc) return;
+
+    // Cancelar cualquier guardado pendiente — haremos uno inmediato aquí
+    const timer = this.saveTimers.get(documentId);
+    if (timer) {
+      clearTimeout(timer);
+      this.saveTimers.delete(documentId);
+    }
+
+    const state = Y.encodeStateAsUpdate(doc);
+
+    if (state.length <= 2) {
+      // Nothing to save — clean up memory
+      doc.destroy();
+      this.docs.delete(documentId);
+      return;
+    }
+
+    let saved = false;
+
+    for (let attempt = 1; attempt <= this.MAX_SAVE_RETRIES; attempt++) {
+      try {
+        await documentService.updateYjsState(documentId, state);
+        saved = true;
+        break;
+      } catch (error) {
+        if (attempt < this.MAX_SAVE_RETRIES) {
+          await new Promise((resolve) => setTimeout(resolve, this.RETRY_DELAY_MS * attempt));
+        }
+      }
+    }
+
+    if (!saved) {
+      // No pudimos guardar — mantener el doc en memoria como último recurso
+      // y reprogramar un intento tardío en 30 segundos
+      const retryTimer = setTimeout(async () => {
+        this.saveTimers.delete(documentId);
+        const currentDoc = this.docs.get(documentId);
+        if (currentDoc) {
+          await this.persistDocument(documentId, currentDoc);
+          const room = this.io.sockets.adapter.rooms.get(`document:${documentId}`);
+          if (!room || room.size === 0) {
+            currentDoc.destroy();
+            this.docs.delete(documentId);
+          }
+        }
+      }, 30_000);
+      this.saveTimers.set(documentId, retryTimer);
+      return;
+    }
+
+    // Guardado exitoso — ahora sí liberar de memoria
+    doc.destroy();
+    this.docs.delete(documentId);
+  }
+
   private getRandomColor(): string {
     const colors = [
       '#FF6B6B',
@@ -275,44 +331,31 @@ export class YjsGateway {
       '#45B7D1',
       '#96CEB4',
       '#FFEAA7',
-      '#DFE6E9',
       '#74B9FF',
       '#A29BFE',
       '#FD79A8',
       '#FDCB6E',
+      '#55EFC4',
     ];
     return colors[Math.floor(Math.random() * colors.length)];
   }
 
-  /**
-   * Obtener documento activo
-   */
   public getDocument(documentId: string): Y.Doc | undefined {
     return this.docs.get(documentId);
   }
 
-  /**
-   * Broadcast evento a documento
-   */
   public broadcastToDocument(documentId: string, event: string, data: any) {
     this.io.to(`document:${documentId}`).emit(event, data);
   }
 
-  /**
-   * Broadcast evento a usuario específico en un documento
-   */
   public broadcastToUserInDocument(userId: string, event: string, data: any) {
-    // Buscar el socket del usuario y enviarle el evento
     const sockets = Array.from(this.io.sockets.sockets.values());
-    const userSocket = sockets.find((socket: any) => socket.userId === userId);
-
-    if (userSocket) {
-      userSocket.emit(event, data);
-    }
+    const userSocket = sockets.find((s: any) => s.userId === userId);
+    if (userSocket) userSocket.emit(event, data);
   }
 }
 
-// Export singleton
+// Singleton
 let yjsGatewayInstance: YjsGateway | null = null;
 
 export function initializeYjsGateway(io: SocketIOServer): YjsGateway {

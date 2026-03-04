@@ -57,9 +57,14 @@ export class ListService {
 
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId);
 
+      // Obtener título del board para el payload
+      const boardResult = await client.query('SELECT title FROM boards WHERE id = $1', [boardId]);
+      const boardTitle = boardResult.rows[0]?.title || 'Board desconocido';
+
       const payload: ListCreatedPayload = {
         listId: list.id as any,
         boardId: boardId as any,
+        boardTitle,
         name: list.name,
         position: list.position,
         createdBy: userId as any,

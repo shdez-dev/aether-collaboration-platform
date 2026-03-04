@@ -66,7 +66,6 @@ export class CommentService {
       if (author && card) {
         // Procesar menciones y crear notificaciones de mención
         if (data.mentions && data.mentions.length > 0) {
-
           for (const mentionedUserId of data.mentions) {
             try {
               await notificationService.createMentionNotification({
@@ -78,9 +77,7 @@ export class CommentService {
                 commentId: comment.id,
                 commentPreview: data.content,
               });
-
-            } catch (error) {
-            }
+            } catch (error) {}
           }
 
           for (const mentionedUserId of data.mentions) {
@@ -111,11 +108,8 @@ export class CommentService {
             commentPreview: data.content,
           });
         }
-      } else {
-        console.warn('[CommentService] Author or card not found for notifications');
       }
-    } catch (error) {
-    }
+    } catch (error) {}
 
     const commentWithUser = await this.commentRepository.findById(comment.id);
     if (!commentWithUser) {
@@ -194,7 +188,6 @@ export class CommentService {
 
     // Procesar menciones actualizadas
     if (data.mentions && data.mentions.length > 0) {
-
       try {
         const authorResult = await pool.query(`SELECT id, name, email FROM users WHERE id = $1`, [
           userId,
@@ -215,8 +208,7 @@ export class CommentService {
                 commentId: commentId,
                 commentPreview: updatedComment.content,
               });
-            } catch (error) {
-            }
+            } catch (error) {}
           }
 
           for (const mentionedUserId of data.mentions) {
@@ -233,8 +225,7 @@ export class CommentService {
             );
           }
         }
-      } catch (error) {
-      }
+      } catch (error) {}
     }
 
     const commentWithUser = await this.commentRepository.findById(commentId);

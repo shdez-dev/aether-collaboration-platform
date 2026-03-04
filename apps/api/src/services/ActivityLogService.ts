@@ -155,7 +155,7 @@ export class ActivityLogService {
         const entry: ActivityLogEntry = {
           id: row.id,
           eventType: row.event_type,
-          payload: row.payload,
+          payload: { ...row.payload }, // Create a copy of the payload
           userId: row.user_id,
           userName: row.user_name,
           userAvatar: row.user_avatar,
@@ -174,9 +174,7 @@ export class ActivityLogService {
             if (wsResult.rows.length > 0) {
               entry.workspaceName = wsResult.rows[0].name;
             }
-          } catch (error) {
-            console.error('[ActivityLogService] Error fetching workspace name:', error);
-          }
+          } catch (error) {}
         }
 
         // Extract board info from payload
@@ -189,9 +187,22 @@ export class ActivityLogService {
             if (boardResult.rows.length > 0) {
               entry.boardName = boardResult.rows[0].name;
             }
-          } catch (error) {
-            console.error('[ActivityLogService] Error fetching board name:', error);
-          }
+          } catch (error) {}
+        }
+
+        // Enrich workspace.member.invited events with invitee name if missing
+        if (row.event_type === 'workspace.member.invited' && !row.payload.inviteeName) {
+          try {
+            const inviteeId = row.payload.inviteeId || row.payload.invitee_id;
+            if (inviteeId) {
+              const userResult = await pool.query('SELECT name FROM users WHERE id = $1', [
+                inviteeId,
+              ]);
+              if (userResult.rows.length > 0) {
+                entry.payload.inviteeName = userResult.rows[0].name;
+              }
+            }
+          } catch (error) {}
         }
 
         // Extract target info based on event type

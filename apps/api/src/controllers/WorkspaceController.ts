@@ -29,6 +29,11 @@ const inviteMemberSchema = z.object({
   role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
 });
 
+const inviteMultipleMembersSchema = z.object({
+  emails: z.array(z.string().email()).min(1).max(20),
+  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
+});
+
 const changeMemberRoleSchema = z.object({
   role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
 });
@@ -348,6 +353,81 @@ class WorkspaceController {
   }
 
   /**
+   * POST /api/workspaces/:id/invite-multiple
+   * Invitar múltiples miembros a un workspace
+   */
+  async inviteMultipleMembers(req: WorkspaceRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const workspaceId = req.params.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+
+      // Validar datos
+      const validation = inviteMultipleMembersSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid invitation data',
+            details: validation.error.errors,
+          },
+        });
+      }
+
+      const { emails, role } = validation.data;
+      const results = {
+        success: [] as string[],
+        failed: [] as { email: string; reason: string }[],
+      };
+
+      // Procesar cada email
+      for (const email of emails) {
+        try {
+          await workspaceService.inviteMember(workspaceId, userId, email, role as WorkspaceRole);
+          results.success.push(email);
+        } catch (error: any) {
+          let reason = 'Unknown error';
+          if (error.message === 'User not found') {
+            reason = 'User does not exist';
+          } else if (error.message === 'User is already a member') {
+            reason = 'Already a member';
+          } else if (error.message === 'Insufficient permissions') {
+            reason = 'Insufficient permissions';
+          }
+          results.failed.push({ email, reason });
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          invited: results.success.length,
+          failed: results.failed.length,
+          details: results,
+        },
+      });
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to process invitations',
+        },
+      });
+    }
+  }
+
+  /**
    * GET /api/workspaces/:id/members
    * Obtener miembros del workspace
    */
@@ -562,30 +642,24 @@ class WorkspaceController {
       const userId = req.user?.id;
       const workspaceId = req.params.id;
       if (!userId)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-          });
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
 
       const workspace = await workspaceService.archiveWorkspace(workspaceId, userId);
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            error: { code: 'INSUFFICIENT_PERMISSIONS', message: error.message },
-          });
-      }
-      return res
-        .status(500)
-        .json({
+        return res.status(403).json({
           success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to archive workspace' },
+          error: { code: 'INSUFFICIENT_PERMISSIONS', message: error.message },
         });
+      }
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to archive workspace' },
+      });
     }
   }
 
@@ -598,30 +672,24 @@ class WorkspaceController {
       const userId = req.user?.id;
       const workspaceId = req.params.id;
       if (!userId)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-          });
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
 
       const workspace = await workspaceService.restoreWorkspace(workspaceId, userId);
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            error: { code: 'INSUFFICIENT_PERMISSIONS', message: error.message },
-          });
-      }
-      return res
-        .status(500)
-        .json({
+        return res.status(403).json({
           success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to restore workspace' },
+          error: { code: 'INSUFFICIENT_PERMISSIONS', message: error.message },
         });
+      }
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to restore workspace' },
+      });
     }
   }
 
@@ -634,25 +702,21 @@ class WorkspaceController {
       const userId = req.user?.id;
       const workspaceId = req.params.id;
       if (!userId)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-          });
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
 
       const validation = duplicateWorkspaceSchema.safeParse(req.body);
       if (!validation.success) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Invalid data',
-              details: validation.error.errors,
-            },
-          });
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid data',
+            details: validation.error.errors,
+          },
+        });
       }
 
       const workspace = await workspaceService.duplicateWorkspace(
@@ -662,12 +726,10 @@ class WorkspaceController {
       );
       return res.status(201).json({ success: true, data: { workspace } });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to duplicate workspace' },
-        });
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to duplicate workspace' },
+      });
     }
   }
 
@@ -681,12 +743,10 @@ class WorkspaceController {
       const stats = await workspaceService.getWorkspaceStats(workspaceId);
       return res.json({ success: true, data: { stats } });
     } catch (error) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch workspace stats' },
-        });
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch workspace stats' },
+      });
     }
   }
 
@@ -699,21 +759,17 @@ class WorkspaceController {
       const userId = req.user?.id;
       const workspaceId = req.params.id;
       if (!userId)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-          });
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
 
       const validation = visibilitySchema.safeParse(req.body);
       if (!validation.success) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: { code: 'VALIDATION_ERROR', message: 'Invalid visibility value' },
-          });
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid visibility value' },
+        });
       }
 
       const workspace = await workspaceService.updateVisibility(
@@ -724,19 +780,15 @@ class WorkspaceController {
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            error: { code: 'INSUFFICIENT_PERMISSIONS', message: error.message },
-          });
-      }
-      return res
-        .status(500)
-        .json({
+        return res.status(403).json({
           success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to update visibility' },
+          error: { code: 'INSUFFICIENT_PERMISSIONS', message: error.message },
         });
+      }
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to update visibility' },
+      });
     }
   }
 
@@ -749,30 +801,24 @@ class WorkspaceController {
       const userId = req.user?.id;
       const workspaceId = req.params.id;
       if (!userId)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-          });
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
 
       const token = await workspaceService.regenerateInviteToken(workspaceId, userId);
       return res.json({ success: true, data: { token } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            error: { code: 'INSUFFICIENT_PERMISSIONS', message: error.message },
-          });
-      }
-      return res
-        .status(500)
-        .json({
+        return res.status(403).json({
           success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to generate invite token' },
+          error: { code: 'INSUFFICIENT_PERMISSIONS', message: error.message },
         });
+      }
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to generate invite token' },
+      });
     }
   }
 
@@ -785,22 +831,18 @@ class WorkspaceController {
       const userId = req.user?.id;
       const workspaceId = req.params.id;
       if (!userId)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-          });
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
 
       await workspaceService.revokeInviteToken(workspaceId, userId);
       return res.json({ success: true, data: { message: 'Invite token revoked' } });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to revoke invite token' },
-        });
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to revoke invite token' },
+      });
     }
   }
 
@@ -813,12 +855,10 @@ class WorkspaceController {
       const userId = req.user?.id;
       const { token } = req.params;
       if (!userId)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-          });
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
 
       const workspace = await workspaceService.joinByInviteToken(token, userId);
       return res.json({ success: true, data: { workspace } });
@@ -833,12 +873,10 @@ class WorkspaceController {
           .status(409)
           .json({ success: false, error: { code: 'ALREADY_MEMBER', message: error.message } });
       }
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to join workspace' },
-        });
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to join workspace' },
+      });
     }
   }
 
@@ -850,25 +888,21 @@ class WorkspaceController {
     try {
       const userId = req.user?.id;
       if (!userId)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-          });
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
 
       const validation = createFromTemplateSchema.safeParse(req.body);
       if (!validation.success) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Invalid template data',
-              details: validation.error.errors,
-            },
-          });
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid template data',
+            details: validation.error.errors,
+          },
+        });
       }
 
       const workspace = await workspaceService.createFromTemplate(
@@ -883,12 +917,10 @@ class WorkspaceController {
           .status(404)
           .json({ success: false, error: { code: 'TEMPLATE_NOT_FOUND', message: error.message } });
       }
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to create workspace from template' },
-        });
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to create workspace from template' },
+      });
     }
   }
 }

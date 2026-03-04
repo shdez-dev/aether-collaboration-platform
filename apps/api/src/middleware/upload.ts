@@ -9,13 +9,9 @@ import fs from 'fs';
 // En desarrollo (tsx): __dirname = apps/api/src/middleware
 // En producción (node): __dirname = apps/api/dist/middleware
 const uploadDir = path.join(__dirname, '../../public/uploads/avatars');
-console.log('[Upload Middleware] Upload directory:', uploadDir);
 
 if (!fs.existsSync(uploadDir)) {
-  console.log('[Upload Middleware] Creating upload directory:', uploadDir);
   fs.mkdirSync(uploadDir, { recursive: true });
-} else {
-  console.log('[Upload Middleware] Upload directory exists');
 }
 
 // Configuración del almacenamiento
@@ -58,8 +54,6 @@ const multerUpload = multer({
 export const uploadAvatar = (req: Request, res: Response, next: NextFunction) => {
   multerUpload(req, res, (err: any) => {
     if (err instanceof multer.MulterError) {
-      // Error de Multer
-      console.error('[Upload Middleware] Multer error:', err);
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           success: false,
@@ -77,8 +71,6 @@ export const uploadAvatar = (req: Request, res: Response, next: NextFunction) =>
         },
       });
     } else if (err) {
-      // Otros errores (e.g., tipo de archivo inválido)
-      console.error('[Upload Middleware] Upload error:', err);
       return res.status(400).json({
         success: false,
         error: {

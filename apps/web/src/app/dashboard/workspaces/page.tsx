@@ -100,59 +100,44 @@ export default function WorkspacesPage() {
   const WorkspaceCard = ({ workspace, compact = false }: any) => {
     const isFavorite = favorites.has(workspace.id);
 
-    if (viewMode === 'list' || compact) {
+    // MOBILE: Simplified compact card
+    if (compact) {
       return (
         <Link
           href={`/dashboard/workspaces/${workspace.id}`}
-          className="group flex items-center gap-4 p-4 border border-border bg-card hover:border-accent hover:bg-surface transition-all"
+          className="group flex items-center gap-3 p-3 border border-border bg-card hover:border-accent hover:bg-surface transition-all rounded-lg active:scale-[0.98]"
         >
           <div
-            className="w-12 h-12 flex items-center justify-center flex-shrink-0 border"
+            className="w-10 h-10 flex items-center justify-center flex-shrink-0 border rounded-lg"
             style={{
               backgroundColor: `${workspace.color}15`,
               color: workspace.color,
               borderColor: `${workspace.color}40`,
             }}
           >
-            <WorkspaceIcon icon={workspace.icon} className="w-6 h-6" />
+            <WorkspaceIcon icon={workspace.icon} className="w-5 h-5" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-base font-medium text-text-primary truncate group-hover:text-accent transition-colors">
-                {workspace.name}
-              </h3>
-              <span
-                className={`text-xs px-2 py-0.5 border font-medium ${getRoleBadgeColor(
-                  workspace.userRole
-                )}`}
-              >
-                {getRoleLabel(workspace.userRole)}
+            <h3 className="text-sm font-semibold text-text-primary truncate group-hover:text-accent transition-colors mb-0.5">
+              {workspace.name}
+            </h3>
+            <div className="flex items-center gap-2 text-xs text-text-muted">
+              <span className="flex items-center gap-1">
+                <LayoutGrid className="w-3 h-3" />
+                {workspace.boardCount || 0}
               </span>
-            </div>
-            <p className="text-sm text-text-secondary truncate">
-              {workspace.description || t.no_description}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4 text-sm text-text-muted">
-            <div className="flex items-center gap-1.5">
-              <LayoutGrid className="w-4 h-4" />
-              <span>{workspace.boardCount || 0}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Users className="w-4 h-4" />
-              <span>{workspace.memberCount || 0}</span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {workspace.memberCount || 0}
+              </span>
             </div>
           </div>
 
           <button
             onClick={(e) => toggleFavorite(e, workspace.id)}
-            className={`p-2 transition-colors ${
-              isFavorite
-                ? 'text-warning hover:text-warning/70'
-                : 'text-text-muted hover:text-warning'
-            }`}
+            className={`p-2 transition-colors ${isFavorite ? 'text-warning' : 'text-text-muted'}`}
           >
             <Star className="w-4 h-4" fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
@@ -160,71 +145,223 @@ export default function WorkspacesPage() {
       );
     }
 
+    // MOBILE: Full workspace card (vertical layout)
     return (
-      <Link
-        href={`/dashboard/workspaces/${workspace.id}`}
-        className="group relative bg-card border border-border hover:border-accent transition-all p-5"
-      >
-        <button
-          onClick={(e) => toggleFavorite(e, workspace.id)}
-          className={`absolute top-4 right-4 p-1.5 transition-colors z-10 ${
-            isFavorite
-              ? 'text-warning hover:text-warning/70'
-              : 'text-text-muted hover:text-warning opacity-0 group-hover:opacity-100'
-          }`}
+      <>
+        {/* MOBILE Card */}
+        <Link
+          href={`/dashboard/workspaces/${workspace.id}`}
+          className="md:hidden group relative bg-card border border-border hover:border-accent transition-all p-4 rounded-lg active:scale-[0.98]"
         >
-          <Star className="w-4 h-4" fill={isFavorite ? 'currentColor' : 'none'} />
-        </button>
+          <div className="flex items-start gap-3 mb-3">
+            <div
+              className="w-12 h-12 flex items-center justify-center flex-shrink-0 border rounded-lg"
+              style={{
+                backgroundColor: `${workspace.color}15`,
+                color: workspace.color,
+                borderColor: `${workspace.color}40`,
+              }}
+            >
+              <WorkspaceIcon icon={workspace.icon} className="w-6 h-6" />
+            </div>
 
-        <div className="flex items-start gap-4 mb-4">
-          <div
-            className="w-14 h-14 flex items-center justify-center flex-shrink-0 border"
-            style={{
-              backgroundColor: `${workspace.color}15`,
-              color: workspace.color,
-              borderColor: `${workspace.color}40`,
-            }}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-text-primary mb-1 line-clamp-1">
+                {workspace.name}
+              </h3>
+              <p className="text-xs text-text-secondary line-clamp-2">
+                {workspace.description || t.no_description}
+              </p>
+            </div>
+
+            <button
+              onClick={(e) => toggleFavorite(e, workspace.id)}
+              className={`p-1.5 transition-colors ${
+                isFavorite ? 'text-warning' : 'text-text-muted'
+              }`}
+            >
+              <Star className="w-5 h-5" fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-xs text-text-muted">
+              <span className="flex items-center gap-1.5">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="font-medium">{workspace.boardCount || 0}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" />
+                <span className="font-medium">{workspace.memberCount || 0}</span>
+              </span>
+            </div>
+
+            <span
+              className={`text-[10px] px-2 py-1 border font-semibold rounded ${getRoleBadgeColor(
+                workspace.userRole
+              )}`}
+            >
+              {getRoleLabel(workspace.userRole)}
+            </span>
+          </div>
+        </Link>
+
+        {/* DESKTOP Card - Grid View */}
+        {viewMode === 'grid' && (
+          <Link
+            href={`/dashboard/workspaces/${workspace.id}`}
+            className="hidden md:block group relative bg-card border border-border hover:border-accent transition-all p-5"
           >
-            <WorkspaceIcon icon={workspace.icon} className="w-7 h-7" />
-          </div>
-          <div className="flex-1 min-w-0 pr-8">
-            <h3 className="text-lg font-medium text-text-primary truncate group-hover:text-accent transition-colors mb-1">
-              {workspace.name}
-            </h3>
-            <p className="text-sm text-text-secondary line-clamp-2">
-              {workspace.description || t.no_description}
-            </p>
-          </div>
-        </div>
+            <button
+              onClick={(e) => toggleFavorite(e, workspace.id)}
+              className={`absolute top-4 right-4 p-1.5 transition-colors z-10 ${
+                isFavorite
+                  ? 'text-warning hover:text-warning/70'
+                  : 'text-text-muted hover:text-warning opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              <Star className="w-4 h-4" fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
 
-        <div className="flex items-center gap-4 mb-4 text-sm text-text-muted">
-          <div className="flex items-center gap-1.5">
-            <LayoutGrid className="w-4 h-4" />
-            <span className="font-medium">{workspace.boardCount || 0}</span>
-            <span>{t.workspace_stat_boards}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Users className="w-4 h-4" />
-            <span className="font-medium">{workspace.memberCount || 0}</span>
-            <span>{t.workspace_stat_members}</span>
-          </div>
-        </div>
+            <div className="flex items-start gap-4 mb-4">
+              <div
+                className="w-14 h-14 flex items-center justify-center flex-shrink-0 border"
+                style={{
+                  backgroundColor: `${workspace.color}15`,
+                  color: workspace.color,
+                  borderColor: `${workspace.color}40`,
+                }}
+              >
+                <WorkspaceIcon icon={workspace.icon} className="w-7 h-7" />
+              </div>
+              <div className="flex-1 min-w-0 pr-8">
+                <h3 className="text-lg font-medium text-text-primary truncate group-hover:text-accent transition-colors mb-1">
+                  {workspace.name}
+                </h3>
+                <p className="text-sm text-text-secondary line-clamp-2">
+                  {workspace.description || t.no_description}
+                </p>
+              </div>
+            </div>
 
-        <span
-          className={`inline-flex items-center text-xs px-2 py-1 border font-medium ${getRoleBadgeColor(
-            workspace.userRole
-          )}`}
-        >
-          {getRoleLabel(workspace.userRole)}
-        </span>
-      </Link>
+            <div className="flex items-center gap-4 mb-4 text-sm text-text-muted">
+              <div className="flex items-center gap-1.5">
+                <LayoutGrid className="w-4 h-4" />
+                <span className="font-medium">{workspace.boardCount || 0}</span>
+                <span>{t.workspace_stat_boards}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Users className="w-4 h-4" />
+                <span className="font-medium">{workspace.memberCount || 0}</span>
+                <span>{t.workspace_stat_members}</span>
+              </div>
+            </div>
+
+            <span
+              className={`inline-flex items-center text-xs px-2 py-1 border font-medium ${getRoleBadgeColor(
+                workspace.userRole
+              )}`}
+            >
+              {getRoleLabel(workspace.userRole)}
+            </span>
+          </Link>
+        )}
+
+        {/* DESKTOP Card - List View */}
+        {viewMode === 'list' && (
+          <Link
+            href={`/dashboard/workspaces/${workspace.id}`}
+            className="hidden md:flex group items-center gap-4 p-4 border border-border bg-card hover:border-accent hover:bg-surface transition-all"
+          >
+            <div
+              className="w-12 h-12 flex items-center justify-center flex-shrink-0 border"
+              style={{
+                backgroundColor: `${workspace.color}15`,
+                color: workspace.color,
+                borderColor: `${workspace.color}40`,
+              }}
+            >
+              <WorkspaceIcon icon={workspace.icon} className="w-6 h-6" />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-base font-medium text-text-primary truncate group-hover:text-accent transition-colors">
+                  {workspace.name}
+                </h3>
+                <span
+                  className={`text-xs px-2 py-0.5 border font-medium ${getRoleBadgeColor(
+                    workspace.userRole
+                  )}`}
+                >
+                  {getRoleLabel(workspace.userRole)}
+                </span>
+              </div>
+              <p className="text-sm text-text-secondary truncate">
+                {workspace.description || t.no_description}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4 text-sm text-text-muted">
+              <div className="flex items-center gap-1.5">
+                <LayoutGrid className="w-4 h-4" />
+                <span>{workspace.boardCount || 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Users className="w-4 h-4" />
+                <span>{workspace.memberCount || 0}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={(e) => toggleFavorite(e, workspace.id)}
+              className={`p-2 transition-colors ${
+                isFavorite
+                  ? 'text-warning hover:text-warning/70'
+                  : 'text-text-muted hover:text-warning'
+              }`}
+            >
+              <Star className="w-4 h-4" fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+          </Link>
+        )}
+      </>
     );
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-4 md:space-y-6">
+      {/* MOBILE Header */}
+      <div className="md:hidden">
+        <h1 className="text-xl font-bold mb-1">{t.workspaces_title}</h1>
+        <p className="text-text-secondary text-xs mb-4">{t.workspaces_subtitle}</p>
+
+        {/* Mobile Actions Row */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex-1 flex items-center justify-center gap-2 py-3 bg-accent text-white font-semibold rounded-lg active:scale-95 transition-transform"
+            data-testid="create-workspace-button"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Crear</span>
+          </button>
+
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className={`px-4 py-3 border rounded-lg transition-colors ${
+              showArchived
+                ? 'border-warning bg-warning/10 text-warning'
+                : 'border-border bg-surface text-text-muted'
+            }`}
+          >
+            <Archive className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* DESKTOP Header */}
+      <div className="hidden md:flex items-start justify-between gap-4">
         <div className="flex-1">
           <h1 className="text-2xl font-medium mb-2">{t.workspaces_title}</h1>
           <p className="text-text-secondary text-sm">{t.workspaces_subtitle}</p>
@@ -294,12 +431,12 @@ export default function WorkspacesPage() {
           placeholder={t.workspaces_search_placeholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
+          className="w-full pl-10 pr-10 py-3 md:py-2.5 bg-surface border border-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors rounded-lg md:rounded-none"
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1"
           >
             ✕
           </button>
@@ -426,21 +563,17 @@ export default function WorkspacesPage() {
           {/* Favorites */}
           {favoriteWorkspaces.length > 0 && (
             <>
-              <div className="py-6">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="py-4 md:py-6">
+                <div className="flex items-center gap-2 mb-3 md:mb-4">
                   <Star className="w-4 h-4 text-warning" fill="currentColor" />
-                  <h2 className="text-sm font-medium text-text-primary uppercase tracking-wide">
+                  <h2 className="text-xs md:text-sm font-semibold md:font-medium text-text-primary uppercase tracking-wide">
                     {t.workspaces_section_favorites}
                   </h2>
-                  <span className="text-xs text-text-muted">({favoriteWorkspaces.length})</span>
+                  <span className="text-[10px] md:text-xs text-text-muted">
+                    ({favoriteWorkspaces.length})
+                  </span>
                 </div>
-                <div
-                  className={
-                    viewMode === 'grid'
-                      ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
-                      : 'space-y-3'
-                  }
-                >
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {favoriteWorkspaces.map((workspace) => (
                     <WorkspaceCard key={workspace.id} workspace={workspace} />
                   ))}
@@ -448,28 +581,24 @@ export default function WorkspacesPage() {
               </div>
 
               {/* Separator Line */}
-              <div className="border-t border-border my-8" />
+              <div className="border-t border-border my-6 md:my-8" />
             </>
           )}
 
           {/* My Workspaces */}
           {ownedWorkspaces.length > 0 && (
             <>
-              <div className="py-6">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="py-4 md:py-6">
+                <div className="flex items-center gap-2 mb-3 md:mb-4">
                   <LayoutGrid className="w-4 h-4 text-accent" />
-                  <h2 className="text-sm font-medium text-text-primary uppercase tracking-wide">
+                  <h2 className="text-xs md:text-sm font-semibold md:font-medium text-text-primary uppercase tracking-wide">
                     {t.workspaces_section_mine}
                   </h2>
-                  <span className="text-xs text-text-muted">({ownedWorkspaces.length})</span>
+                  <span className="text-[10px] md:text-xs text-text-muted">
+                    ({ownedWorkspaces.length})
+                  </span>
                 </div>
-                <div
-                  className={
-                    viewMode === 'grid'
-                      ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
-                      : 'space-y-3'
-                  }
-                >
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {ownedWorkspaces.map((workspace) => (
                     <WorkspaceCard key={workspace.id} workspace={workspace} />
                   ))}
@@ -477,27 +606,25 @@ export default function WorkspacesPage() {
               </div>
 
               {/* Separator Line - Solo si hay shared workspaces después */}
-              {sharedWorkspaces.length > 0 && <div className="border-t border-border my-8" />}
+              {sharedWorkspaces.length > 0 && (
+                <div className="border-t border-border my-6 md:my-8" />
+              )}
             </>
           )}
 
           {/* Shared With Me */}
           {sharedWorkspaces.length > 0 && (
-            <div className="py-6">
-              <div className="flex items-center gap-2 mb-4">
+            <div className="py-4 md:py-6">
+              <div className="flex items-center gap-2 mb-3 md:mb-4">
                 <Users className="w-4 h-4 text-success" />
-                <h2 className="text-sm font-medium text-text-primary uppercase tracking-wide">
+                <h2 className="text-xs md:text-sm font-semibold md:font-medium text-text-primary uppercase tracking-wide">
                   {t.workspaces_section_shared}
                 </h2>
-                <span className="text-xs text-text-muted">({sharedWorkspaces.length})</span>
+                <span className="text-[10px] md:text-xs text-text-muted">
+                  ({sharedWorkspaces.length})
+                </span>
               </div>
-              <div
-                className={
-                  viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
-                    : 'space-y-3'
-                }
-              >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {sharedWorkspaces.map((workspace) => (
                   <WorkspaceCard key={workspace.id} workspace={workspace} />
                 ))}

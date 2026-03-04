@@ -50,7 +50,6 @@ export default function VerifyEmailPage() {
         );
       }
     } catch (error) {
-      console.error('Error verifying email:', error);
       setStatus('error');
       setErrorMessage('Error al verificar el email');
     }

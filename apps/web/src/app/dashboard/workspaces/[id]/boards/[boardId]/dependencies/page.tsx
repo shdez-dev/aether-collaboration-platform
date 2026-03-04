@@ -21,6 +21,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useAuthStore } from '@/stores/authStore';
+import { useTheme } from '@/providers/ThemeProvider';
 import {
   ArrowLeft,
   RefreshCw,
@@ -55,7 +56,7 @@ interface GraphData {
   edges: GraphEdge[];
 }
 
-type CardNodeData = { card: GraphCard };
+type CardNodeData = { card: GraphCard; isLight: boolean };
 
 // ─── Constantes de layout ─────────────────────────────────────────────────────
 
@@ -67,13 +68,20 @@ const ROW_GAP = 40; // espacio vertical entre nodos del mismo nivel
 // ─── Nodo personalizado con Handles ──────────────────────────────────────────
 
 function CardNode({ data }: NodeProps) {
-  const { card } = data as CardNodeData;
+  const { card, isLight } = data as CardNodeData;
 
-  const priorityStyle: Record<string, string> = {
-    HIGH: 'text-red-400 border-red-400/40 bg-red-400/10',
-    MEDIUM: 'text-yellow-400 border-yellow-400/40 bg-yellow-400/10',
-    LOW: 'text-blue-400 border-blue-400/40 bg-blue-400/10',
-  };
+  const priorityStyle: Record<string, string> = isLight
+    ? {
+        HIGH: 'text-red-600 border-red-300 bg-red-50',
+        MEDIUM: 'text-amber-600 border-amber-300 bg-amber-50',
+        LOW: 'text-blue-600 border-blue-300 bg-blue-50',
+      }
+    : {
+        HIGH: 'text-red-400 border-red-400/40 bg-red-400/10',
+        MEDIUM: 'text-yellow-400 border-yellow-400/40 bg-yellow-400/10',
+        LOW: 'text-blue-400 border-blue-400/40 bg-blue-400/10',
+      };
+
   const priorityLabel: Record<string, string> = {
     HIGH: '▲ Alta',
     MEDIUM: '■ Media',
@@ -82,6 +90,20 @@ function CardNode({ data }: NodeProps) {
 
   const isBlocked = card.blockedByPendingCount > 0 && !card.completed;
 
+  const handleBorderColor = isLight ? '#c8d4e8' : '#18181b';
+
+  const cardClass = isLight
+    ? card.completed
+      ? 'bg-emerald-50 border-emerald-400'
+      : isBlocked
+        ? 'bg-amber-50 border-amber-400'
+        : 'bg-white border-slate-300 hover:border-slate-400'
+    : card.completed
+      ? 'bg-emerald-950/80 border-emerald-500/50'
+      : isBlocked
+        ? 'bg-amber-950/80 border-amber-500/60'
+        : 'bg-zinc-900 border-zinc-600 hover:border-zinc-400';
+
   return (
     <>
       {/* Handle izquierdo: donde llegan las flechas (target) */}
@@ -89,8 +111,14 @@ function CardNode({ data }: NodeProps) {
         type="target"
         position={Position.Left}
         style={{
-          background: isBlocked ? '#f59e0b' : card.completed ? '#22c55e' : '#71717a',
-          border: '2px solid #18181b',
+          background: isBlocked
+            ? '#f59e0b'
+            : card.completed
+              ? '#22c55e'
+              : isLight
+                ? '#94a3b8'
+                : '#71717a',
+          border: `2px solid ${handleBorderColor}`,
           width: 10,
           height: 10,
         }}
@@ -98,32 +126,26 @@ function CardNode({ data }: NodeProps) {
 
       <div
         style={{ width: NODE_W }}
-        className={`
-          rounded-lg border-2 p-3 shadow-xl font-mono text-sm
-          ${
-            card.completed
-              ? 'bg-emerald-950/80 border-emerald-500/50'
-              : isBlocked
-                ? 'bg-amber-950/80 border-amber-500/60'
-                : 'bg-zinc-900 border-zinc-600 hover:border-zinc-400'
-          }
-        `}
+        className={`rounded-lg border-2 p-3 shadow-md font-mono text-sm ${cardClass}`}
       >
         {/* Lista de origen */}
         <div className="flex items-center justify-between mb-1.5 gap-2">
-          <span className="text-[10px] text-zinc-500 truncate" title={card.listName}>
+          <span
+            className={`text-[10px] truncate ${isLight ? 'text-slate-500' : 'text-zinc-500'}`}
+            title={card.listName}
+          >
             {card.listName}
           </span>
           <div className="flex items-center gap-1 flex-shrink-0">
             {isBlocked && (
               <span title={`Bloqueada por ${card.blockedByPendingCount} dependencia(s)`}>
-                <Lock className="w-3 h-3 text-amber-400" />
+                <Lock className="w-3 h-3 text-amber-500" />
               </span>
             )}
             {card.completed ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
             ) : (
-              <Circle className="w-3.5 h-3.5 text-zinc-600" />
+              <Circle className={`w-3.5 h-3.5 ${isLight ? 'text-slate-400' : 'text-zinc-600'}`} />
             )}
           </div>
         </div>
@@ -131,7 +153,11 @@ function CardNode({ data }: NodeProps) {
         {/* Título */}
         <p
           className={`text-[13px] leading-snug mb-2 font-medium ${
-            card.completed ? 'line-through text-zinc-500' : 'text-zinc-100'
+            card.completed
+              ? `line-through ${isLight ? 'text-slate-400' : 'text-zinc-500'}`
+              : isLight
+                ? 'text-slate-800'
+                : 'text-zinc-100'
           }`}
         >
           {card.title}
@@ -147,12 +173,24 @@ function CardNode({ data }: NodeProps) {
             </span>
           )}
           {isBlocked && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300">
+            <span
+              className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                isLight
+                  ? 'border-amber-300 bg-amber-50 text-amber-600'
+                  : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+              }`}
+            >
               {card.blockedByPendingCount} bloqueante{card.blockedByPendingCount !== 1 ? 's' : ''}
             </span>
           )}
           {card.completed && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
+            <span
+              className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                isLight
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-600'
+                  : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+              }`}
+            >
               Completada
             </span>
           )}
@@ -164,8 +202,8 @@ function CardNode({ data }: NodeProps) {
         type="source"
         position={Position.Right}
         style={{
-          background: card.completed ? '#22c55e' : '#71717a',
-          border: '2px solid #18181b',
+          background: card.completed ? '#22c55e' : isLight ? '#94a3b8' : '#71717a',
+          border: `2px solid ${handleBorderColor}`,
           width: 10,
           height: 10,
         }}
@@ -182,7 +220,7 @@ const nodeTypes = { card: CardNode };
 // los nodos raíz (los que no tienen bloqueantes). Los nodos del mismo nivel
 // se distribuyen verticalmente de forma centrada.
 
-function computeLayout(cards: GraphCard[], apiEdges: GraphEdge[]): Node[] {
+function computeLayout(cards: GraphCard[], apiEdges: GraphEdge[], isLight = false): Node[] {
   if (cards.length === 0) return [];
 
   const ids = cards.map((c) => c.id);
@@ -249,7 +287,7 @@ function computeLayout(cards: GraphCard[], apiEdges: GraphEdge[]): Node[] {
           x: lv * (NODE_W + COL_GAP),
           y: startY + rowIdx * (NODE_H + ROW_GAP),
         },
-        data: { card },
+        data: { card, isLight },
         draggable: true,
       });
     });
@@ -260,8 +298,13 @@ function computeLayout(cards: GraphCard[], apiEdges: GraphEdge[]): Node[] {
 
 // ─── Edges ────────────────────────────────────────────────────────────────────
 
-function buildEdges(apiEdges: GraphEdge[], cards: GraphCard[]): Edge[] {
+function buildEdges(apiEdges: GraphEdge[], cards: GraphCard[], isLight = false): Edge[] {
   const cardMap = new Map(cards.map((c) => [c.id, c]));
+
+  // Colores de aristas según tema
+  const activeColor = isLight ? '#d97706' : '#f59e0b'; // amber más suave en claro
+  const resolvedColor = isLight ? '#16a34a' : '#22c55e'; // verde más suave en claro
+  const labelBgFill = isLight ? '#f8fafc' : '#18181b';
 
   return apiEdges.map((e) => {
     const blocking = cardMap.get(e.blockingCardId);
@@ -274,26 +317,26 @@ function buildEdges(apiEdges: GraphEdge[], cards: GraphCard[]): Edge[] {
       type: 'smoothstep',
       animated: !!isActive,
       style: {
-        stroke: isActive ? '#f59e0b' : '#22c55e',
+        stroke: isActive ? activeColor : resolvedColor,
         strokeWidth: isActive ? 2.5 : 1.5,
         strokeDasharray: isActive ? undefined : '6 3',
-        opacity: 0.9,
+        opacity: isLight ? 0.85 : 0.9,
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: isActive ? '#f59e0b' : '#22c55e',
+        color: isActive ? activeColor : resolvedColor,
         width: 20,
         height: 20,
       },
       label: isActive ? '' : '✓',
       labelStyle: {
-        fill: isActive ? '#f59e0b' : '#22c55e',
+        fill: isActive ? activeColor : resolvedColor,
         fontSize: 10,
         fontFamily: 'monospace',
         fontWeight: 600,
       },
       labelBgStyle: {
-        fill: '#18181b',
+        fill: labelBgFill,
         fillOpacity: 0.9,
       },
       labelBgPadding: [4, 6] as [number, number],
@@ -308,6 +351,8 @@ export default function DependencyMapPage() {
   const params = useParams();
   const router = useRouter();
   const { accessToken } = useAuthStore();
+  const { actualTheme } = useTheme();
+  const isLight = actualTheme === 'light';
 
   const workspaceId = params.id as string;
   const boardId = params.boardId as string;
@@ -353,14 +398,14 @@ export default function DependencyMapPage() {
     fetchGraph();
   }, [fetchGraph]);
 
-  // Recalcular layout cuando llegan datos
+  // Recalcular layout cuando llegan datos o cambia el tema
   useEffect(() => {
     if (!graph) return;
-    const computedNodes = computeLayout(graph.cards, graph.edges);
-    const computedEdges = buildEdges(graph.edges, graph.cards);
+    const computedNodes = computeLayout(graph.cards, graph.edges, isLight);
+    const computedEdges = buildEdges(graph.edges, graph.cards, isLight);
     setNodes(computedNodes);
     setEdges(computedEdges);
-  }, [graph, setNodes, setEdges]);
+  }, [graph, isLight, setNodes, setEdges]);
 
   // Stats
   const stats = useMemo(() => {
@@ -372,13 +417,27 @@ export default function DependencyMapPage() {
 
   const handleBack = () => router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
 
+  // Clases reutilizables según tema
+  const bg = isLight ? 'bg-slate-100' : 'bg-zinc-950';
+  const headerBg = isLight ? 'bg-white' : 'bg-zinc-900';
+  const headerBdr = isLight ? 'border-slate-200' : 'border-zinc-800';
+  const btnBase = isLight
+    ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-300'
+    : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border-transparent hover:border-zinc-700';
+  const divider = isLight ? 'bg-slate-200' : 'bg-zinc-700';
+  const titleText = isLight ? 'text-slate-700' : 'text-zinc-200';
+  const mutedText = isLight ? 'text-slate-400' : 'text-zinc-400';
+  const dimText = isLight ? 'text-slate-300' : 'text-zinc-500';
+
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-zinc-950">
+      <div className={`flex items-center justify-center h-screen ${bg}`}>
         <div className="text-center">
-          <div className="inline-block w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-zinc-400 font-mono text-sm">Cargando mapa de dependencias…</p>
+          <div
+            className={`inline-block w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-4`}
+          />
+          <p className={`${mutedText} font-mono text-sm`}>Cargando mapa de dependencias…</p>
         </div>
       </div>
     );
@@ -386,14 +445,20 @@ export default function DependencyMapPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-zinc-950">
+      <div className={`flex items-center justify-center h-screen ${bg}`}>
         <div className="text-center max-w-sm">
-          <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-4" />
-          <p className="text-zinc-200 font-mono mb-2">Error al cargar el grafo</p>
-          <p className="text-zinc-400 text-sm font-mono mb-4">{error}</p>
+          <AlertTriangle
+            className={`w-10 h-10 mx-auto mb-4 ${isLight ? 'text-red-500' : 'text-red-400'}`}
+          />
+          <p className={`${titleText} font-mono mb-2`}>Error al cargar el grafo</p>
+          <p className={`${mutedText} text-sm font-mono mb-4`}>{error}</p>
           <button
             onClick={fetchGraph}
-            className="px-4 py-2 bg-amber-500 text-black font-mono text-sm hover:bg-amber-400 transition-colors"
+            className={`px-4 py-2 font-mono text-sm transition-colors ${
+              isLight
+                ? 'bg-amber-500 text-white hover:bg-amber-600'
+                : 'bg-amber-500 text-black hover:bg-amber-400'
+            }`}
           >
             Reintentar
           </button>
@@ -405,34 +470,40 @@ export default function DependencyMapPage() {
   // ── Sin dependencias ───────────────────────────────────────────────────────
   if (!graph || graph.cards.length === 0) {
     return (
-      <div className="flex flex-col h-screen bg-zinc-950">
-        <header className="border-b border-zinc-800 px-6 py-4 flex items-center gap-4 bg-zinc-900">
+      <div className={`flex flex-col h-screen ${bg}`}>
+        <header className={`border-b ${headerBdr} px-6 py-4 flex items-center gap-4 ${headerBg}`}>
           <button
             onClick={handleBack}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-all font-mono"
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm border transition-all font-mono ${btnBase}`}
           >
             <ArrowLeft className="w-4 h-4" />
             Volver al tablero
           </button>
-          <div className="w-px h-6 bg-zinc-700" />
+          <div className={`w-px h-6 ${divider}`} />
           <div className="flex items-center gap-2">
-            <GitBranch className="w-4 h-4 text-amber-400" />
-            <span className="text-zinc-200 font-mono font-medium">
+            <GitBranch className="w-4 h-4 text-amber-500" />
+            <span className={`${titleText} font-mono font-medium`}>
               {boardName ? `${boardName} — ` : ''}Mapa de Dependencias
             </span>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-sm">
-            <GitBranch className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-            <p className="text-zinc-300 font-mono text-base mb-2">Sin dependencias</p>
-            <p className="text-zinc-500 font-mono text-sm">
+            <GitBranch
+              className={`w-12 h-12 mx-auto mb-4 ${isLight ? 'text-slate-300' : 'text-zinc-600'}`}
+            />
+            <p className={`${titleText} font-mono text-base mb-2`}>Sin dependencias</p>
+            <p className={`${mutedText} font-mono text-sm`}>
               Este tablero no tiene dependencias entre cards todavía. Abre una card y agrega una
               dependencia para verla aquí.
             </p>
             <button
               onClick={handleBack}
-              className="mt-6 px-4 py-2 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors font-mono text-sm"
+              className={`mt-6 px-4 py-2 border transition-colors font-mono text-sm ${
+                isLight
+                  ? 'border-slate-300 text-slate-600 hover:bg-slate-100'
+                  : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+              }`}
             >
               Volver al tablero
             </button>
@@ -442,23 +513,43 @@ export default function DependencyMapPage() {
     );
   }
 
+  // Colores del canvas según tema
+  const activeEdgeColor = isLight ? '#d97706' : '#f59e0b';
+  const resolvedEdgeColor = isLight ? '#16a34a' : '#22c55e';
+  const bgDotColor = isLight ? '#cbd5e1' : '#3f3f46';
+  const controlsBg = isLight ? '#ffffff' : '#27272a';
+  const controlsBdr = isLight ? '#e2e8f0' : '#3f3f46';
+  const minimapBg = isLight ? '#f1f5f9' : '#18181b';
+  const minimapBdr = isLight ? '#e2e8f0' : '#3f3f46';
+  const minimapMask = isLight ? 'rgba(241,245,249,0.6)' : 'rgba(0,0,0,0.45)';
+  const legendBg = isLight ? 'bg-white/80' : 'bg-zinc-900/60';
+  const legendBdr = isLight ? 'border-slate-200' : 'border-zinc-800';
+  const legendText = isLight ? 'text-slate-500' : 'text-zinc-400';
+  const legendTitle = isLight ? 'text-slate-600' : 'text-zinc-300';
+  const panelBg = isLight
+    ? 'bg-white/90 border-slate-200 text-slate-500'
+    : 'bg-zinc-900/90 border-zinc-700 text-zinc-400';
+  const panelDot = isLight ? 'text-slate-300' : 'text-zinc-600';
+
   // ── Mapa ───────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-zinc-950">
+    <div className={`flex flex-col h-screen ${bg}`}>
       {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between bg-zinc-900 flex-shrink-0">
+      <header
+        className={`border-b ${headerBdr} px-6 py-4 flex items-center justify-between ${headerBg} flex-shrink-0`}
+      >
         <div className="flex items-center gap-4">
           <button
             onClick={handleBack}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-all font-mono"
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm border transition-all font-mono ${btnBase}`}
           >
             <ArrowLeft className="w-4 h-4" />
             Volver al tablero
           </button>
-          <div className="w-px h-6 bg-zinc-700" />
+          <div className={`w-px h-6 ${divider}`} />
           <div className="flex items-center gap-2">
-            <GitBranch className="w-4 h-4 text-amber-400" />
-            <span className="text-zinc-200 font-mono font-medium">
+            <GitBranch className="w-4 h-4 text-amber-500" />
+            <span className={`${titleText} font-mono font-medium`}>
               {boardName ? `${boardName} — ` : ''}Mapa de Dependencias
             </span>
           </div>
@@ -467,25 +558,31 @@ export default function DependencyMapPage() {
         <div className="flex items-center gap-6">
           {stats && (
             <div className="flex items-center gap-5 font-mono text-xs">
-              <div className="flex items-center gap-1.5 text-zinc-400">
-                <span className="w-2 h-2 rounded-full bg-zinc-500" />
+              <div className={`flex items-center gap-1.5 ${mutedText}`}>
+                <span
+                  className={`w-2 h-2 rounded-full ${isLight ? 'bg-slate-400' : 'bg-zinc-500'}`}
+                />
                 <span>{stats.total} cards</span>
               </div>
               {stats.blocked > 0 && (
-                <div className="flex items-center gap-1.5 text-amber-400">
+                <div
+                  className={`flex items-center gap-1.5 ${isLight ? 'text-amber-600' : 'text-amber-400'}`}
+                >
                   <Lock className="w-3 h-3" />
                   <span>
                     {stats.blocked} bloqueada{stats.blocked !== 1 ? 's' : ''}
                   </span>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-emerald-400">
+              <div
+                className={`flex items-center gap-1.5 ${isLight ? 'text-emerald-600' : 'text-emerald-400'}`}
+              >
                 <CheckCircle2 className="w-3 h-3" />
                 <span>
                   {stats.completed} completada{stats.completed !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-zinc-500">
+              <div className={`flex items-center gap-1.5 ${dimText}`}>
                 <span>
                   {stats.deps} dependencia{stats.deps !== 1 ? 's' : ''}
                 </span>
@@ -494,7 +591,11 @@ export default function DependencyMapPage() {
           )}
           <button
             onClick={fetchGraph}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-500 transition-all font-mono"
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border transition-all font-mono ${
+              isLight
+                ? 'text-slate-500 hover:text-slate-800 border-slate-300 hover:border-slate-400'
+                : 'text-zinc-400 hover:text-zinc-100 border-zinc-700 hover:border-zinc-500'
+            }`}
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Actualizar
@@ -503,12 +604,14 @@ export default function DependencyMapPage() {
       </header>
 
       {/* Leyenda */}
-      <div className="px-6 py-2 flex items-center gap-5 border-b border-zinc-800 bg-zinc-900/60 font-mono text-xs text-zinc-400 flex-shrink-0 overflow-x-auto">
-        <span className="font-medium text-zinc-300 flex-shrink-0">Leyenda:</span>
+      <div
+        className={`px-6 py-2 flex items-center gap-5 border-b ${legendBdr} ${legendBg} font-mono text-xs ${legendText} flex-shrink-0 overflow-x-auto`}
+      >
+        <span className={`font-medium ${legendTitle} flex-shrink-0`}>Leyenda:</span>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <svg width="28" height="10" viewBox="0 0 28 10">
-            <line x1="0" y1="5" x2="28" y2="5" stroke="#f59e0b" strokeWidth="2.5" />
-            <polygon points="22,1 28,5 22,9" fill="#f59e0b" />
+            <line x1="0" y1="5" x2="28" y2="5" stroke={activeEdgeColor} strokeWidth="2.5" />
+            <polygon points="22,1 28,5 22,9" fill={activeEdgeColor} />
           </svg>
           <span>Dependencia activa</span>
         </div>
@@ -519,27 +622,33 @@ export default function DependencyMapPage() {
               y1="5"
               x2="28"
               y2="5"
-              stroke="#22c55e"
+              stroke={resolvedEdgeColor}
               strokeWidth="1.5"
               strokeDasharray="5 3"
             />
-            <polygon points="22,1 28,5 22,9" fill="#22c55e" />
+            <polygon points="22,1 28,5 22,9" fill={resolvedEdgeColor} />
           </svg>
           <span>Dependencia resuelta</span>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <div className="w-3 h-3 rounded border-2 border-amber-500/60 bg-amber-950/80" />
+          <div
+            className={`w-3 h-3 rounded border-2 ${isLight ? 'border-amber-400 bg-amber-50' : 'border-amber-500/60 bg-amber-950/80'}`}
+          />
           <span>Bloqueada</span>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <div className="w-3 h-3 rounded border-2 border-emerald-500/50 bg-emerald-950/80" />
+          <div
+            className={`w-3 h-3 rounded border-2 ${isLight ? 'border-emerald-400 bg-emerald-50' : 'border-emerald-500/50 bg-emerald-950/80'}`}
+          />
           <span>Completada</span>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <div className="w-3 h-3 rounded border-2 border-zinc-600 bg-zinc-900" />
+          <div
+            className={`w-3 h-3 rounded border-2 ${isLight ? 'border-slate-300 bg-white' : 'border-zinc-600 bg-zinc-900'}`}
+          />
           <span>Pendiente</span>
         </div>
-        <span className="text-zinc-600 flex-shrink-0">·</span>
+        <span className={`${isLight ? 'text-slate-300' : 'text-zinc-600'} flex-shrink-0`}>·</span>
         <span className="flex-shrink-0">Flujo: izquierda → derecha</span>
       </div>
 
@@ -556,28 +665,30 @@ export default function DependencyMapPage() {
           minZoom={0.15}
           maxZoom={2}
           proOptions={{ hideAttribution: true }}
-          colorMode="dark"
+          colorMode={isLight ? 'light' : 'dark'}
         >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#3f3f46" />
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={bgDotColor} />
           <Controls
-            style={{ background: '#27272a', border: '1px solid #3f3f46', borderRadius: 4 }}
+            style={{ background: controlsBg, border: `1px solid ${controlsBdr}`, borderRadius: 4 }}
           />
           <MiniMap
             nodeColor={(node) => {
               const card = (node.data as CardNodeData).card;
-              if (card.completed) return '#22c55e';
-              if (card.blockedByPendingCount > 0) return '#f59e0b';
-              return '#52525b';
+              if (card.completed) return isLight ? '#16a34a' : '#22c55e';
+              if (card.blockedByPendingCount > 0) return isLight ? '#d97706' : '#f59e0b';
+              return isLight ? '#94a3b8' : '#52525b';
             }}
-            style={{ background: '#18181b', border: '1px solid #3f3f46' }}
-            maskColor="rgba(0,0,0,0.45)"
+            style={{ background: minimapBg, border: `1px solid ${minimapBdr}` }}
+            maskColor={minimapMask}
           />
           <Panel position="bottom-center">
-            <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/90 border border-zinc-700 text-xs text-zinc-400 font-mono backdrop-blur rounded-md mb-2">
+            <div
+              className={`flex items-center gap-3 px-4 py-2 border text-xs font-mono backdrop-blur rounded-md mb-2 ${panelBg}`}
+            >
               <span>Arrastra nodos para reorganizar</span>
-              <span className="text-zinc-600">·</span>
+              <span className={panelDot}>·</span>
               <span>Rueda del ratón para zoom</span>
-              <span className="text-zinc-600">·</span>
+              <span className={panelDot}>·</span>
               <span>Clic y arrastra el fondo para navegar</span>
             </div>
           </Panel>

@@ -51,8 +51,7 @@ import { BoardCalendarView } from '@/components/BoardCalendarView';
 
 // Dynamic import para BoardTimelineView para evitar problemas con dependencias de Node.js
 const BoardTimelineView = dynamic(
-  () =>
-    import('@/components/BoardTimelineView').then((mod) => ({ default: mod.BoardTimelineView })),
+  () => import('@/components/BoardTimelineView').then((mod) => mod.BoardTimelineView),
   {
     ssr: false,
     loading: () => (
@@ -383,6 +382,17 @@ export default function BoardPage() {
       const cardId = active.id as string;
       const activeCard = activeData.card;
       const fromListId = activeCard.listId;
+
+      // Verificar si la card está bloqueada por dependencias pendientes
+      const blockedByPendingCount = activeCard.blockedByPendingCount ?? 0;
+      const isBlocked = blockedByPendingCount > 0 && !activeCard.completed;
+
+      if (isBlocked) {
+        toast.error(
+          `No se puede mover esta tarjeta porque está bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}. Completa las dependencias primero.`
+        );
+        return;
+      }
 
       let toListId = fromListId;
       let targetPosition = 0;

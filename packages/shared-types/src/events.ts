@@ -142,7 +142,9 @@ export type CardEventType =
   | 'card.comment.updated'
   | 'card.comment.deleted'
   | 'card.archived'
-  | 'card.unarchived';
+  | 'card.unarchived'
+  | 'card.dependency.added'
+  | 'card.dependency.removed';
 
 /**
  * Comment Events
@@ -296,6 +298,7 @@ export interface WorkspaceMemberInvitedPayload {
   inviterId: UserId;
   inviteeId: UserId;
   inviteeEmail: string;
+  inviteeName: string;
   role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
 }
 
@@ -399,6 +402,7 @@ export type BoardDeletedEvent = BaseEvent<'board.deleted', BoardDeletedPayload>;
 export interface ListCreatedPayload {
   listId: ListId;
   boardId: BoardId;
+  boardTitle?: string;
   name: string;
   position: number;
   createdBy: UserId;

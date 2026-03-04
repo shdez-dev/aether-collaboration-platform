@@ -59,8 +59,18 @@ export function Card({ card }: CardProps) {
   // OWNER y ADMIN: pueden editar campos (título, descripción, etc.)
   const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
 
+  // OWNER, ADMIN y MEMBER: pueden marcar cards como completadas
+  const canComplete = canEdit || userRole === 'MEMBER';
+
   // OWNER, ADMIN y MEMBER: pueden arrastrar cards
-  const canDrag = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
+  const canDragByRole = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
+
+  // Verificar si la card está bloqueada por dependencias pendientes
+  const blockedByPendingCount = card.blockedByPendingCount ?? 0;
+  const isBlocked = blockedByPendingCount > 0 && !card.completed;
+
+  // No se puede arrastrar si está bloqueada
+  const canDrag = canDragByRole && !isBlocked;
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -68,7 +78,7 @@ export function Card({ card }: CardProps) {
       type: 'card',
       card,
     },
-    disabled: !canDrag, // ✅ Cambiado de canEdit a canDrag
+    disabled: !canDrag, // ✅ Deshabilitado si no tiene permisos o está bloqueada
   });
 
   const style = {
@@ -86,7 +96,7 @@ export function Card({ card }: CardProps) {
   const handleToggleComplete = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!canEdit || isTogglingComplete || isBlocked) return;
+    if (!canComplete || isTogglingComplete || isBlocked) return;
 
     setIsTogglingComplete(true);
     const newCompletedState = !card.completed;
@@ -158,10 +168,8 @@ export function Card({ card }: CardProps) {
   const checklistDone = checklistItems.filter((i) => i.completed).length;
   const checklistPct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
 
-  // Dependencias (disponibles después de abrir la card al menos 1 vez)
-  const blockedByPendingCount = card.blockedByPendingCount ?? 0;
+  // Contador de cards que esta card está bloqueando
   const blockingCount = card.blockingCount ?? 0;
-  const isBlocked = blockedByPendingCount > 0 && !card.completed;
 
   return (
     <div
@@ -172,25 +180,32 @@ export function Card({ card }: CardProps) {
       onClick={handleClick}
       className={`
         bg-card border rounded-lg p-3
-        transition-all cursor-pointer
+        transition-all
         ${isDragging ? 'cursor-grabbing shadow-xl border-accent' : canDrag ? 'cursor-grab' : 'cursor-pointer'}
         ${
           card.completed
             ? 'border-success/30 bg-success/5'
-            : 'border-border hover:bg-surface hover:border-accent/50 hover:shadow-lg'
+            : isBlocked
+              ? 'border-warning/30 bg-warning/5 cursor-not-allowed'
+              : 'border-border hover:bg-surface hover:border-accent/50 hover:shadow-lg cursor-pointer'
         }
       `}
+      title={
+        isBlocked
+          ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}. No se puede mover hasta completar las dependencias.`
+          : ''
+      }
     >
       {/* Checkbox + Título */}
       <div className="pb-2 border-b border-border/30 flex items-start gap-2">
         {/* CHECKBOX DE COMPLETADO - Solo ADMIN y OWNER pueden completar; bloqueado si hay dependencias pendientes */}
         <button
           onClick={handleToggleComplete}
-          disabled={!canEdit || isTogglingComplete || isBlocked}
+          disabled={!canComplete || isTogglingComplete || isBlocked}
           title={
             isBlocked
               ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}`
-              : !canEdit
+              : !canComplete
                 ? 'Sin permisos para completar'
                 : card.completed
                   ? 'Marcar como pendiente'
@@ -205,7 +220,7 @@ export function Card({ card }: CardProps) {
                 ? 'border-warning/50 bg-warning/10 cursor-not-allowed'
                 : card.completed
                   ? 'bg-success border-success hover:bg-success/80 cursor-pointer'
-                  : canEdit
+                  : canComplete
                     ? 'border-border hover:border-accent cursor-pointer'
                     : 'border-border cursor-not-allowed opacity-50'
             }

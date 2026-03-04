@@ -81,7 +81,6 @@ export function AvatarCropModal({ imageSrc, onCropComplete, onClose }: AvatarCro
       const file = await getCroppedImage(imageSrc, croppedAreaPixels);
       onCropComplete(file);
     } catch (err) {
-      console.error('Error al recortar imagen:', err);
     } finally {
       setIsProcessing(false);
     }

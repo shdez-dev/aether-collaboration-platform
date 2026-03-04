@@ -31,6 +31,7 @@ import type { Document } from '@aether/types';
 import { useT } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
 import { useAuthStore } from '@/stores/authStore';
+import { apiService } from '@/services/apiService';
 
 // Helper para obtener el icono de Lucide por nombre
 const getIconByName = (iconName: string) => {
@@ -151,33 +152,24 @@ export default function DocumentsPage() {
       ];
 
       try {
-        const response = await fetch('/api/documents/templates', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
+        const response = await apiService.get<{ templates: any[] }>(
+          '/api/documents/templates',
+          true
+        );
 
-        if (response.ok) {
-          const data = await response.json();
-          const fetchedTemplates = data.data?.templates || [];
-
-          if (fetchedTemplates.length > 0) {
-            // Agregar opción "Blank" al inicio y mapear iconos del backend
-            const mappedTemplates = fetchedTemplates.map((t: any) => ({
-              ...t,
-              iconName: t.icon, // El backend ahora envía nombres de iconos, no emojis
-            }));
-            setTemplates([
-              fallbackTemplates[0], // Blank
-              ...mappedTemplates,
-            ]);
-          } else {
-            setTemplates(fallbackTemplates);
-          }
+        if (response.success && (response.data?.templates?.length ?? 0) > 0) {
+          const mappedTemplates = (response.data!.templates ?? []).map((t: any) => ({
+            ...t,
+            iconName: t.icon,
+          }));
+          setTemplates([
+            fallbackTemplates[0], // Blank siempre primero
+            ...mappedTemplates,
+          ]);
         } else {
           setTemplates(fallbackTemplates);
         }
-      } catch (error) {
+      } catch {
         setTemplates(fallbackTemplates);
       }
     };

@@ -25,13 +25,6 @@ export class EmailService {
   constructor() {
     const apiKey = process.env.RESEND_API_KEY;
 
-    console.log('[EmailService] Initializing...');
-    console.log('[EmailService] RESEND_API_KEY configured:', apiKey ? '✓ YES' : '✗ NO');
-    console.log(
-      '[EmailService] API Key preview:',
-      apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT SET'
-    );
-
     if (!apiKey) {
       throw new Error('RESEND_API_KEY is not configured in environment variables');
     }
@@ -39,41 +32,22 @@ export class EmailService {
     this.resend = new Resend(apiKey);
     this.fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
     this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-    console.log('[EmailService] From Email:', this.fromEmail);
-    console.log('[EmailService] Frontend URL:', this.frontendUrl);
-    console.log('[EmailService] Initialization complete ✓');
   }
 
   /**
    * Send a generic email
    */
   async sendEmail(options: EmailOptions): Promise<void> {
-    console.log('\n[EmailService] ========== SENDING EMAIL ==========');
-    console.log('[EmailService] To:', options.to);
-    console.log('[EmailService] From:', this.fromEmail);
-    console.log('[EmailService] Subject:', options.subject);
-
     try {
-      const result = await this.resend.emails.send({
+      await this.resend.emails.send({
         from: this.fromEmail,
         to: options.to,
         subject: options.subject,
         html: options.html,
         text: options.text,
       });
-
-      console.log('[EmailService] ✓ Email sent successfully!');
-      console.log('[EmailService] Result:', JSON.stringify(result, null, 2));
-      console.log('[EmailService] =====================================\n');
     } catch (error: any) {
-      console.error('\n[EmailService] ✗ ERROR SENDING EMAIL:');
-      console.error('[EmailService] Error type:', error.constructor.name);
-      console.error('[EmailService] Error message:', error.message);
-      console.error('[EmailService] Full error:', JSON.stringify(error, null, 2));
-      console.error('[EmailService] Stack:', error.stack);
-      console.error('[EmailService] =====================================\n');
-      throw error; // Re-throw the original error, not a generic one
+      throw error;
     }
   }
 
@@ -81,17 +55,10 @@ export class EmailService {
    * Send email verification email
    */
   async sendVerificationEmail(to: string, data: EmailVerificationData): Promise<void> {
-    console.log('[EmailService] sendVerificationEmail called');
-    console.log('[EmailService] To:', to);
-    console.log('[EmailService] User name:', data.userName);
-    console.log('[EmailService] Link:', data.verificationLink);
-
     const { userName, verificationLink } = data;
 
     const html = this.getVerificationEmailTemplate(userName, verificationLink);
     const text = `Hi ${userName},\n\nPlease verify your email address by clicking the following link:\n\n${verificationLink}\n\nThis link will expire in 24 hours.\n\nIf you didn't create an account with Aether, please ignore this email.\n\nBest regards,\nThe Aether Team`;
-
-    console.log('[EmailService] Template generated, calling sendEmail...');
 
     await this.sendEmail({
       to,
@@ -99,8 +66,6 @@ export class EmailService {
       html,
       text,
     });
-
-    console.log('[EmailService] sendVerificationEmail completed');
   }
 
   /**

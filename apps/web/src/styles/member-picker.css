@@ -297,3 +297,120 @@
     transform: rotate(360deg);
   }
 }
+
+/* ==================== TEMA CLARO - MEMBER PICKER ==================== */
+
+.light .assigned-members-section {
+  border-bottom-color: hsl(220 18% 88%);
+  scrollbar-color: hsl(220 18% 72%) transparent;
+}
+
+.light .assigned-members-section::-webkit-scrollbar-thumb {
+  background: hsl(220 18% 72%);
+}
+
+.light .assigned-member-chip {
+  background: hsl(220 20% 96%);
+  border-color: hsl(220 18% 86%);
+}
+
+.light .assigned-member-chip:hover {
+  border-color: hsl(221 75% 52%);
+  background: hsl(220 20% 94%);
+}
+
+.light .assigned-member-avatar {
+  background: hsl(221 75% 52%);
+}
+
+.light .assigned-member-name {
+  color: hsl(220 25% 18%);
+}
+
+.light .assigned-member-remove {
+  color: hsl(220 14% 52%);
+}
+
+.light .assigned-member-remove:hover {
+  color: hsl(0 65% 46%);
+}
+
+.light .member-search-input {
+  background: hsl(0 0% 100%);
+  border-color: hsl(220 18% 82%);
+  color: hsl(220 25% 18%);
+}
+
+.light .member-search-input:focus {
+  border-color: hsl(221 75% 52%);
+  box-shadow: 0 0 0 3px hsl(221 75% 52% / 0.12);
+}
+
+.light .member-search-input::placeholder {
+  color: hsl(220 14% 58%);
+}
+
+.light .member-content {
+  scrollbar-color: hsl(220 18% 72%) transparent;
+}
+
+.light .member-content::-webkit-scrollbar-thumb {
+  background: hsl(220 18% 72%);
+}
+
+.light .member-loading,
+.light .member-empty {
+  color: hsl(220 14% 52%);
+}
+
+.light .loading-spinner {
+  border-color: hsl(220 18% 80%);
+  border-top-color: hsl(221 75% 52%);
+}
+
+.light .member-section-label {
+  color: hsl(220 14% 52%);
+  border-bottom-color: hsl(220 18% 88%);
+  background: hsl(220 20% 97%);
+}
+
+.light .member-item {
+  border-bottom-color: hsl(220 18% 92%);
+}
+
+.light .member-item:hover {
+  background: hsl(220 20% 95%);
+}
+
+.light .member-avatar-unassigned {
+  background: hsl(221 75% 52% / 0.1);
+  color: hsl(221 75% 46%);
+  border-color: hsl(221 75% 52% / 0.22);
+}
+
+.light .member-avatar-assigned {
+  background: hsl(221 75% 52%);
+}
+
+.light .member-name {
+  color: hsl(220 25% 18%);
+}
+
+.light .member-email {
+  color: hsl(220 14% 52%);
+}
+
+.light .member-indicator {
+  border-color: hsl(220 18% 80%);
+  color: hsl(220 14% 56%);
+}
+
+.light .member-indicator-assigned {
+  background: hsl(221 75% 52%);
+  border-color: hsl(221 75% 52%);
+}
+
+.light .member-footer {
+  border-top-color: hsl(220 18% 88%);
+  color: hsl(220 14% 52%);
+}

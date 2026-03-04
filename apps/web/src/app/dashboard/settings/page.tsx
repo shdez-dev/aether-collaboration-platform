@@ -143,17 +143,19 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="container mx-auto max-w-7xl py-8 px-4">
-      <div className="space-y-6">
+    <div className="container mx-auto max-w-7xl py-4 md:py-8 px-3 md:px-4">
+      <div className="space-y-4 md:space-y-6">
         {/* Header con botón de guardar */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-0 md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t.settings_title}</h1>
-            <p className="text-muted-foreground mt-2">{t.settings_subtitle}</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t.settings_title}</h1>
+            <p className="text-muted-foreground text-sm md:text-base mt-1 md:mt-2">
+              {t.settings_subtitle}
+            </p>
           </div>
 
           {hasChanges && (
-            <Button onClick={handleSave} disabled={isSaving} size="lg">
+            <Button onClick={handleSave} disabled={isSaving} size="lg" className="hidden md:flex">
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -183,13 +185,13 @@ export default function SettingsPage() {
               <CardDescription>{t.settings_section_appearance_desc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2 md:gap-3">
                 {themeOptions.map(({ value, label, icon: Icon }) => (
                   <button
                     key={value}
                     onClick={() => handleThemeChange(value as any)}
                     className={`
-                      relative flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all
+                      relative flex flex-col items-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-lg border-2 transition-all
                       ${
                         localPrefs.theme === value
                           ? 'border-primary bg-primary/10'
@@ -198,15 +200,15 @@ export default function SettingsPage() {
                     `}
                   >
                     {localPrefs.theme === value && (
-                      <div className="absolute top-2 right-2">
-                        <Check className="h-4 w-4 text-primary" />
+                      <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2">
+                        <Check className="h-3 w-3 md:h-4 md:w-4 text-primary" />
                       </div>
                     )}
                     <Icon
-                      className={`h-6 w-6 ${localPrefs.theme === value ? 'text-primary' : 'text-muted-foreground'}`}
+                      className={`h-5 w-5 md:h-6 md:w-6 ${localPrefs.theme === value ? 'text-primary' : 'text-muted-foreground'}`}
                     />
                     <span
-                      className={`text-sm font-medium ${localPrefs.theme === value ? 'text-primary' : 'text-muted-foreground'}`}
+                      className={`text-xs md:text-sm font-medium text-center ${localPrefs.theme === value ? 'text-primary' : 'text-muted-foreground'}`}
                     >
                       {label}
                     </span>
@@ -262,7 +264,7 @@ export default function SettingsPage() {
                 <Separator />
 
                 <div className="space-y-2">
-                  <Label htmlFor="defaultBoardView" className="text-base">
+                  <Label htmlFor="defaultBoardView" className="text-sm md:text-base">
                     {t.settings_label_default_view}
                   </Label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
@@ -273,7 +275,7 @@ export default function SettingsPage() {
                           setLocalPrefs({ ...localPrefs, defaultBoardView: value as any })
                         }
                         className={`
-                          flex flex-col items-center gap-2 p-3 rounded-lg border transition-all
+                          flex flex-col items-center gap-1.5 md:gap-2 p-2.5 md:p-3 rounded-lg border transition-all
                           ${
                             localPrefs.defaultBoardView === value
                               ? 'border-primary bg-primary/10 text-primary'
@@ -281,8 +283,8 @@ export default function SettingsPage() {
                           }
                         `}
                       >
-                        <Icon className="w-6 h-6" />
-                        <span className="text-xs font-medium">{label}</span>
+                        <Icon className="w-5 h-5 md:w-6 md:h-6" />
+                        <span className="text-[10px] md:text-xs font-medium">{label}</span>
                       </button>
                     ))}
                   </div>
@@ -320,7 +322,18 @@ export default function SettingsPage() {
               </div>
               <CardDescription>{t.settings_section_notifications_desc}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative">
+              {/* En desarrollo overlay */}
+              <div className="absolute inset-0 z-10 rounded-b-lg backdrop-blur-[2px] bg-background/60 flex flex-col items-center justify-center gap-3 pointer-events-auto">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-card text-muted-foreground text-sm font-mono select-none">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500/80 animate-pulse shrink-0" />
+                  En desarrollo
+                </div>
+                <p className="text-xs text-muted-foreground/60 font-mono">
+                  próximamente disponible
+                </p>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Columna 1: Tipos de notificación */}
                 <div className="space-y-4">

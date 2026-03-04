@@ -9,6 +9,11 @@ import { checkWorkspaceMembership } from '../middleware/workspace';
 
 const router = Router();
 
+// GET DOCUMENT TEMPLATES - Public endpoint (no auth required)
+// MUST BE BEFORE router.use(authenticateJWT) and BEFORE /documents/:id
+router.get('/documents/templates', (req, res) => documentController.getTemplates(req, res));
+
+// Apply authentication to all routes below this point
 router.use(authenticateJWT);
 
 // CREATE - requires workspace membership
@@ -20,9 +25,6 @@ router.post('/workspaces/:workspaceId/documents', checkWorkspaceMembership, (req
 router.get('/workspaces/:workspaceId/documents', checkWorkspaceMembership, (req, res) =>
   documentController.list(req, res)
 );
-
-// GET DOCUMENT TEMPLATES - MUST BE BEFORE /documents/:id
-router.get('/documents/templates', (req, res) => documentController.getTemplates(req, res));
 
 // GET BY ID - NO middleware (verification inside controller)
 router.get('/documents/:id', (req, res) => documentController.getById(req, res));

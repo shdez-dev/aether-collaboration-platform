@@ -125,39 +125,42 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <HydrationBoundary>
               {/* Navigation Bar */}
               {!hideNav && (
-                <nav className="fixed top-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-sm border-b border-border">
+                <nav className="fixed top-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-sm border-b border-border safe-area-top">
                   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
+                    <div className="flex items-center justify-between h-14 sm:h-16">
                       {/* Logo */}
                       <Link
                         href="/"
-                        className="flex items-center gap-2 text-accent hover:text-accent-hover transition-colors"
+                        className="flex items-center gap-2 text-accent hover:text-accent-hover transition-colors touch-target-lg"
                       >
-                        <span className="text-xl font-bold font-mono">[ AETHER ]</span>
+                        <span className="text-lg sm:text-xl font-bold font-mono">[ AETHER ]</span>
                       </Link>
 
                       {/* Navigation Links */}
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 sm:gap-4">
                         {isAuthenticated ? (
                           <Link
                             href="/dashboard"
-                            className="px-5 py-2 bg-blue-600 text-white rounded-md font-medium text-sm hover:bg-blue-700 transition-colors"
+                            className="px-3 sm:px-5 py-2 bg-blue-600 text-white rounded-md font-medium text-xs sm:text-sm hover:bg-blue-700 transition-colors touch-target"
                           >
-                            Dashboard
+                            <span className="hidden xs:inline">Dashboard</span>
+                            <span className="xs:hidden">Panel</span>
                           </Link>
                         ) : (
                           <>
                             <Link
                               href="/login"
-                              className="px-4 py-2 text-sm font-medium text-text-primary hover:text-accent transition-colors"
+                              className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-text-primary hover:text-accent transition-colors touch-target"
                             >
-                              Iniciar Sesión
+                              <span className="hidden sm:inline">Iniciar Sesión</span>
+                              <span className="sm:hidden">Login</span>
                             </Link>
                             <Link
                               href="/register"
-                              className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition-all duration-300 text-sm"
+                              className="px-3 sm:px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition-all duration-300 text-xs sm:text-sm touch-target"
                             >
-                              Crear Cuenta
+                              <span className="hidden sm:inline">Crear Cuenta</span>
+                              <span className="sm:hidden">Registro</span>
                             </Link>
                           </>
                         )}
@@ -168,7 +171,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               )}
 
               {/* Main Content */}
-              <main className={hideNav ? '' : 'pt-16'}>{children}</main>
+              <main className={hideNav ? '' : 'pt-14 sm:pt-16'}>{children}</main>
             </HydrationBoundary>
           </ThemeProvider>
         </ErrorBoundary>

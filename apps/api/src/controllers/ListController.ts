@@ -74,7 +74,6 @@ class ListController {
         data: { list },
       });
     } catch (error) {
-      console.error('[ListController] Create error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -112,7 +111,6 @@ class ListController {
         data: { lists },
       });
     } catch (error) {
-      console.error('[ListController] List error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -187,7 +185,6 @@ class ListController {
         data: { list },
       });
     } catch (error) {
-      console.error('[ListController] Update error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -262,7 +259,6 @@ class ListController {
         data: { message: 'Lista reordenada exitosamente' },
       });
     } catch (error) {
-      console.error('[ListController] Reorder error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -324,8 +320,6 @@ class ListController {
         data: { message: 'Lista eliminada exitosamente' },
       });
     } catch (error: any) {
-      console.error('[ListController] Delete error:', error);
-
       if (error.message === 'Cannot delete list with cards. Move or delete cards first.') {
         return res.status(400).json({
           success: false,

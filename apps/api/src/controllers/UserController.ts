@@ -91,7 +91,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] SearchByEmail error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -161,7 +160,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] GetUserStats error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -207,7 +205,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] GetUserActivity error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -327,7 +324,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] GetUserCards error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -454,7 +450,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] UpdateProfile error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -550,7 +545,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] ChangePassword error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -634,7 +628,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] UploadAvatar error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -710,7 +703,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] GetPreferences error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -837,7 +829,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] UpdatePreferences error:', error);
       return res.status(500).json({
         success: false,
         error: {
@@ -849,7 +840,7 @@ class UserController {
   }
   /**
    * GET /api/users?search=xxx&page=1&limit=20
-   * Directorio de usuarios — lista paginada con búsqueda por nombre o email
+   * Contactos - Lista de usuarios con workspaces compartidos
    */
   async listUsers(req: Request, res: Response) {
     try {
@@ -868,20 +859,35 @@ class UserController {
 
       const searchParam = search ? `%${search.trim()}%` : '%';
 
+      // Solo traer usuarios que comparten al menos un workspace con el usuario actual
       const result = await pool.query(
-        `SELECT id, name, email, avatar, bio, position, location, created_at
-         FROM users
-         WHERE (LOWER(name) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1))
-         ORDER BY name ASC
-         LIMIT $2 OFFSET $3`,
-        [searchParam, limit, offset]
+        `SELECT DISTINCT u.id, u.name, u.email, u.avatar, u.bio, u.position, u.location, u.created_at,
+         COUNT(DISTINCT wm2.workspace_id) as shared_workspaces_count,
+         EXISTS(
+           SELECT 1 FROM user_favorite_contacts ufc 
+           WHERE ufc.user_id = $1 AND ufc.favorite_user_id = u.id
+         ) as is_favorite
+         FROM users u
+         INNER JOIN workspace_members wm1 ON wm1.user_id = $1
+         INNER JOIN workspace_members wm2 ON wm2.workspace_id = wm1.workspace_id
+         WHERE wm2.user_id = u.id
+         AND u.id != $1
+         AND (LOWER(u.name) LIKE LOWER($2) OR LOWER(u.email) LIKE LOWER($2))
+         GROUP BY u.id, u.name, u.email, u.avatar, u.bio, u.position, u.location, u.created_at
+         ORDER BY shared_workspaces_count DESC, u.name ASC
+         LIMIT $3 OFFSET $4`,
+        [requestingUserId, searchParam, limit, offset]
       );
 
       const countResult = await pool.query(
-        `SELECT COUNT(*) as total
-         FROM users
-         WHERE (LOWER(name) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1))`,
-        [searchParam]
+        `SELECT COUNT(DISTINCT u.id) as total
+         FROM users u
+         INNER JOIN workspace_members wm1 ON wm1.user_id = $1
+         INNER JOIN workspace_members wm2 ON wm2.workspace_id = wm1.workspace_id
+         WHERE wm2.user_id = u.id
+         AND u.id != $1
+         AND (LOWER(u.name) LIKE LOWER($2) OR LOWER(u.email) LIKE LOWER($2))`,
+        [requestingUserId, searchParam]
       );
 
       const users = result.rows.map((u) => ({
@@ -893,6 +899,8 @@ class UserController {
         position: u.position,
         location: u.location,
         createdAt: u.created_at,
+        sharedWorkspacesCount: parseInt(u.shared_workspaces_count),
+        isFavorite: u.is_favorite,
       }));
 
       return res.json({
@@ -905,7 +913,6 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] ListUsers error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Failed to list users' },
@@ -979,10 +986,150 @@ class UserController {
         },
       });
     } catch (error) {
-      console.error('[UserController] GetUserProfile error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Failed to get user profile' },
+      });
+    }
+  }
+
+  /**
+   * POST /api/users/favorites/:userId
+   * Agregar un usuario a favoritos
+   */
+  async addFavorite(req: Request, res: Response) {
+    try {
+      const requestingUserId = req.user?.id;
+      const { userId: favoriteUserId } = req.params;
+
+      if (!requestingUserId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      if (requestingUserId === favoriteUserId) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_REQUEST', message: 'Cannot add yourself as favorite' },
+        });
+      }
+
+      // Verificar que el usuario existe
+      const userExists = await pool.query('SELECT id FROM users WHERE id = $1', [favoriteUserId]);
+      if (userExists.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'USER_NOT_FOUND', message: 'User not found' },
+        });
+      }
+
+      // Agregar a favoritos (ignora si ya existe)
+      await pool.query(
+        `INSERT INTO user_favorite_contacts (user_id, favorite_user_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, favorite_user_id) DO NOTHING`,
+        [requestingUserId, favoriteUserId]
+      );
+
+      return res.json({
+        success: true,
+        data: { message: 'User added to favorites' },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to add favorite' },
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/users/favorites/:userId
+   * Quitar un usuario de favoritos
+   */
+  async removeFavorite(req: Request, res: Response) {
+    try {
+      const requestingUserId = req.user?.id;
+      const { userId: favoriteUserId } = req.params;
+
+      if (!requestingUserId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      await pool.query(
+        `DELETE FROM user_favorite_contacts
+         WHERE user_id = $1 AND favorite_user_id = $2`,
+        [requestingUserId, favoriteUserId]
+      );
+
+      return res.json({
+        success: true,
+        data: { message: 'User removed from favorites' },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to remove favorite' },
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/favorites
+   * Obtener lista de usuarios favoritos
+   */
+  async getFavorites(req: Request, res: Response) {
+    try {
+      const requestingUserId = req.user?.id;
+
+      if (!requestingUserId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      const result = await pool.query(
+        `SELECT 
+          u.id, u.name, u.email, u.avatar, u.bio, u.position, u.location, u.created_at,
+          ufc.created_at as favorited_at,
+          COUNT(DISTINCT wm2.workspace_id) as shared_workspaces_count
+         FROM user_favorite_contacts ufc
+         INNER JOIN users u ON ufc.favorite_user_id = u.id
+         LEFT JOIN workspace_members wm1 ON wm1.user_id = $1
+         LEFT JOIN workspace_members wm2 ON wm2.workspace_id = wm1.workspace_id AND wm2.user_id = u.id
+         WHERE ufc.user_id = $1
+         GROUP BY u.id, u.name, u.email, u.avatar, u.bio, u.position, u.location, u.created_at, ufc.created_at
+         ORDER BY ufc.created_at DESC`,
+        [requestingUserId]
+      );
+
+      const favorites = result.rows.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        avatar: u.avatar,
+        bio: u.bio,
+        position: u.position,
+        location: u.location,
+        createdAt: u.created_at,
+        favoritedAt: u.favorited_at,
+        sharedWorkspacesCount: parseInt(u.shared_workspaces_count) || 0,
+      }));
+
+      return res.json({
+        success: true,
+        data: { favorites },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to get favorites' },
       });
     }
   }

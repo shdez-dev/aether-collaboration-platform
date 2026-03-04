@@ -53,7 +53,6 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
     try {
       await onDelete(comment.id);
     } catch (error) {
-      console.error('[CommentItem] Error deleting:', error);
     } finally {
       setIsDeleting(false);
     }

@@ -182,7 +182,6 @@ export async function checkWorkspaceMembership(
 
     next();
   } catch (error) {
-    console.error('[Workspace Middleware] Error:', error);
     return res.status(500).json({
       success: false,
       error: {

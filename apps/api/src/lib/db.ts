@@ -36,10 +36,6 @@ export async function query<T extends QueryResultRow = any>(
     const result = await pool.query<T>(text, params);
     const duration = Date.now() - start;
 
-    if (duration > 1000) {
-      console.warn(`[DB] Slow query (${duration}ms):`, text);
-    }
-
     return result;
   } catch (error) {
     throw error;

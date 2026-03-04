@@ -49,35 +49,35 @@ export function getEventDescription(event: ActivityLogEntry): string {
   switch (eventType) {
     // Workspace events
     case 'workspace.created':
-      return `creó el workspace "${targetName || payload.name}"`;
+      return `creó el espacio de trabajo "${targetName || payload.name}"`;
     case 'workspace.updated':
-      return `actualizó el workspace "${targetName || payload.name}"`;
+      return `actualizó el espacio de trabajo "${targetName || payload.name}"`;
     case 'workspace.deleted':
-      return `eliminó el workspace "${targetName || payload.name}"`;
+      return `eliminó el espacio de trabajo "${targetName || payload.name}"`;
     case 'workspace.member.invited':
-      return `invitó a ${payload.email} al workspace`;
+      return `invitó a ${payload.inviteeName || 'un usuario'} al espacio de trabajo`;
     case 'workspace.member.joined':
-      return `se unió al workspace`;
+      return `se unió al espacio de trabajo`;
     case 'workspace.member.removed':
-      return `fue removido del workspace`;
+      return `fue removido del espacio de trabajo`;
     case 'workspace.member.roleChanged':
-      return `cambió el rol de ${payload.memberName || 'un miembro'} a ${payload.newRole}`;
+      return `cambió el rol de ${payload.memberName || 'un miembro'}`;
 
     // Board events
     case 'board.created':
-      return `creó el board "${targetName || payload.name}"`;
+      return `creó el tablero "${targetName || payload.name}"`;
     case 'board.updated':
-      return `actualizó el board "${targetName || payload.name}"`;
+      return `actualizó el tablero "${targetName || payload.name}"`;
     case 'board.deleted':
-      return `eliminó el board "${targetName || payload.name}"`;
+      return `eliminó el tablero "${targetName || payload.name}"`;
     case 'board.archived':
-      return `archivó el board "${targetName || payload.name}"`;
+      return `archivó el tablero "${targetName || payload.name}"`;
     case 'board.unarchived':
-      return `restauró el board "${targetName || payload.name}"`;
+      return `restauró el tablero "${targetName || payload.name}"`;
     case 'board.renamed':
-      return `renombró el board de "${payload.oldName}" a "${payload.newName}"`;
+      return `renombró el tablero a "${payload.newName || payload.name}"`;
     case 'board.description.changed':
-      return `cambió la descripción del board "${targetName || payload.boardName}"`;
+      return `actualizó la descripción del tablero "${targetName || payload.boardName}"`;
 
     // List events
     case 'list.created':
@@ -87,9 +87,9 @@ export function getEventDescription(event: ActivityLogEntry): string {
     case 'list.deleted':
       return `eliminó la lista "${targetName || payload.name}"`;
     case 'list.renamed':
-      return `renombró la lista de "${payload.oldName}" a "${payload.newName}"`;
+      return `renombró la lista a "${payload.newName || payload.name}"`;
     case 'list.reordered':
-      return `reordenó las listas`;
+      return `cambió el orden de las listas`;
     case 'list.archived':
       return `archivó la lista "${targetName || payload.name}"`;
 
@@ -101,35 +101,33 @@ export function getEventDescription(event: ActivityLogEntry): string {
     case 'card.deleted':
       return `eliminó la tarjeta "${targetName || payload.title}"`;
     case 'card.moved':
-      return `movió "${targetName || payload.title}" ${
-        payload.oldListName && payload.newListName
-          ? `de "${payload.oldListName}" a "${payload.newListName}"`
-          : 'a otra lista'
+      return `movió la tarjeta "${targetName || payload.title}" ${
+        payload.newListName ? `a la lista "${payload.newListName}"` : 'a otra lista'
       }`;
     case 'card.completed':
       return `completó la tarjeta "${targetName || payload.title}"`;
     case 'card.uncompleted':
-      return `marcó "${targetName || payload.title}" como incompleta`;
+      return `marcó como pendiente la tarjeta "${targetName || payload.title}"`;
     case 'card.renamed':
-      return `renombró la tarjeta de "${payload.oldTitle}" a "${payload.newTitle}"`;
+      return `renombró la tarjeta a "${payload.newTitle || payload.title}"`;
     case 'card.description.changed':
-      return `cambió la descripción de "${targetName || payload.title}"`;
+      return `actualizó la descripción de la tarjeta "${targetName || payload.title}"`;
     case 'card.duedate.set':
-      return `estableció fecha límite en "${targetName || payload.title}"`;
+      return `estableció una fecha límite para "${targetName || payload.title}"`;
     case 'card.duedate.changed':
       return `cambió la fecha límite de "${targetName || payload.title}"`;
     case 'card.duedate.removed':
-      return `eliminó la fecha límite de "${targetName || payload.title}"`;
+      return `quitó la fecha límite de "${targetName || payload.title}"`;
     case 'card.priority.changed':
-      return `cambió la prioridad de "${targetName || payload.title}" a ${payload.newPriority}`;
+      return `cambió la prioridad de "${targetName || payload.title}"`;
     case 'card.member.assigned':
-      return `asignó a ${payload.assignedUserName || 'alguien'} a "${targetName || payload.title}"`;
+      return `asignó a ${payload.assignedUserName || 'un miembro'} en la tarjeta "${targetName || payload.title}"`;
     case 'card.member.unassigned':
-      return `desasignó a ${payload.unassignedUserName || 'alguien'} de "${targetName || payload.title}"`;
+      return `quitó a ${payload.unassignedUserName || 'un miembro'} de la tarjeta "${targetName || payload.title}"`;
     case 'card.label.added':
       return `agregó la etiqueta "${payload.labelName}" a "${targetName || payload.title}"`;
     case 'card.label.removed':
-      return `eliminó la etiqueta "${payload.labelName}" de "${targetName || payload.title}"`;
+      return `quitó la etiqueta "${payload.labelName}" de "${targetName || payload.title}"`;
     case 'card.archived':
       return `archivó la tarjeta "${targetName || payload.title}"`;
     case 'card.unarchived':
@@ -138,7 +136,7 @@ export function getEventDescription(event: ActivityLogEntry): string {
     // Comment events
     case 'comment.created':
     case 'card.comment.added':
-      return `comentó en "${targetName || payload.cardTitle}"`;
+      return `agregó un comentario en "${targetName || payload.cardTitle}"`;
     case 'comment.updated':
     case 'card.comment.updated':
       return `editó un comentario en "${targetName || payload.cardTitle}"`;
@@ -156,19 +154,19 @@ export function getEventDescription(event: ActivityLogEntry): string {
     case 'document.deleted':
       return `eliminó el documento "${targetName || payload.title}"`;
     case 'document.title.changed':
-      return `renombró el documento de "${payload.oldTitle}" a "${payload.newTitle}"`;
+      return `renombró el documento a "${payload.newTitle || payload.title}"`;
     case 'document.version.created':
-      return `creó una nueva versión del documento "${targetName || payload.title}"`;
+      return `guardó una nueva versión del documento "${targetName || payload.title}"`;
     case 'document.version.restored':
-      return `restauró una versión anterior de "${targetName || payload.title}"`;
+      return `restauró una versión anterior del documento "${targetName || payload.title}"`;
     case 'document.exported':
-      return `exportó el documento "${targetName || payload.title}" a ${payload.format}`;
+      return `exportó el documento "${targetName || payload.title}"`;
     case 'document.comment.added':
-      return `comentó en el documento "${targetName || payload.documentTitle}"`;
+      return `agregó un comentario en el documento "${targetName || payload.documentTitle}"`;
     case 'document.comment.updated':
-      return `editó un comentario en "${targetName || payload.documentTitle}"`;
+      return `editó un comentario en el documento "${targetName || payload.documentTitle}"`;
     case 'document.comment.deleted':
-      return `eliminó un comentario de "${targetName || payload.documentTitle}"`;
+      return `eliminó un comentario del documento "${targetName || payload.documentTitle}"`;
 
     // Auth events
     case 'auth.user.registered':

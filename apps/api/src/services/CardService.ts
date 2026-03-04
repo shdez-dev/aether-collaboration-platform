@@ -51,7 +51,41 @@ export class CardService {
           'id', l.id,
           'name', l.name,
           'color', l.color
-        )) FILTER (WHERE l.id IS NOT NULL) as labels
+        )) FILTER (WHERE l.id IS NOT NULL) as labels,
+        COALESCE(
+          (
+            SELECT json_agg(
+              jsonb_build_object(
+                'id', ci.id,
+                'cardId', ci.card_id,
+                'title', ci.title,
+                'completed', ci.completed,
+                'position', ci.position,
+                'createdBy', ci.created_by,
+                'createdAt', ci.created_at,
+                'updatedAt', ci.updated_at
+              ) ORDER BY ci.position ASC, ci.created_at ASC
+            )
+            FROM card_checklist_items ci WHERE ci.card_id = c.id
+          ),
+          '[]'::json
+        ) as checklist_items,
+        (
+          SELECT COUNT(*)::int
+          FROM comments
+          WHERE card_id = c.id
+        ) as comment_count,
+        (
+          SELECT COUNT(*)::int
+          FROM card_dependencies cd
+          INNER JOIN cards bc ON cd.blocking_card_id = bc.id
+          WHERE cd.blocked_card_id = c.id AND bc.completed = FALSE
+        ) as blocked_by_pending_count,
+        (
+          SELECT COUNT(*)::int
+          FROM card_dependencies cd
+          WHERE cd.blocking_card_id = c.id
+        ) as blocking_count
        FROM cards c
        LEFT JOIN card_members cm ON c.id = cm.card_id
        LEFT JOIN users u ON cm.user_id = u.id
@@ -116,9 +150,14 @@ export class CardService {
       const boardId = await this.getBoardIdFromList(listId);
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
+      // Obtener nombre de la lista para el payload
+      const listResult = await client.query('SELECT name FROM lists WHERE id = $1', [listId]);
+      const listName = listResult.rows[0]?.name || 'Lista desconocida';
+
       const payload = {
         cardId: card.id as any,
         listId: card.listId as any,
+        listName,
         title: card.title,
         description: card.description,
         position: card.position,
@@ -334,10 +373,22 @@ export class CardService {
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
       if (data.listId && data.listId !== originalListId) {
+        // Obtener nombres de las listas para hacer el payload más legible
+        const fromListResult = await client.query('SELECT name FROM lists WHERE id = $1', [
+          originalListId,
+        ]);
+        const toListResult = await client.query('SELECT name FROM lists WHERE id = $1', [
+          data.listId,
+        ]);
+        const fromListName = fromListResult.rows[0]?.name || 'Lista desconocida';
+        const toListName = toListResult.rows[0]?.name || 'Lista desconocida';
+
         const movePayload = {
           cardId: card.id as any,
           fromListId: originalListId as any,
           toListId: data.listId as any,
+          oldListName: fromListName,
+          newListName: toListName,
           fromPosition: currentCard.position,
           toPosition: card.position,
           movedBy: userId as any,
@@ -487,10 +538,22 @@ export class CardService {
       const boardId = await this.getBoardIdFromList(data.toListId);
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
+      // Obtener nombres de las listas para hacer el payload más legible
+      const fromListResult = await client.query('SELECT name FROM lists WHERE id = $1', [
+        fromListId,
+      ]);
+      const toListResult = await client.query('SELECT name FROM lists WHERE id = $1', [
+        data.toListId,
+      ]);
+      const fromListName = fromListResult.rows[0]?.name || 'Lista desconocida';
+      const toListName = toListResult.rows[0]?.name || 'Lista desconocida';
+
       const payload = {
         cardId: card.id as any,
         fromListId: fromListId as any,
         toListId: data.toListId as any,
+        oldListName: fromListName,
+        newListName: toListName,
         fromPosition,
         toPosition: data.position,
         movedBy: userId as any,
@@ -699,9 +762,7 @@ export class CardService {
           cardTitle,
           boardId: boardId || '',
         });
-      } catch (notifError) {
-        console.error('[CardService] Error creating unassigned notification:', notifError);
-      }
+      } catch (notifError) {}
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -743,9 +804,21 @@ export class CardService {
       const boardId = await this.getBoardIdFromCard(cardId);
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
+      // Obtener título de la card y nombre de la label para el payload
+      const cardResult = await client.query('SELECT title FROM cards WHERE id = $1', [cardId]);
+      const labelResult = await client.query('SELECT name, color FROM labels WHERE id = $1', [
+        labelId,
+      ]);
+      const cardTitle = cardResult.rows[0]?.title || 'Card desconocida';
+      const labelName = labelResult.rows[0]?.name || 'Label desconocida';
+      const labelColor = labelResult.rows[0]?.color;
+
       const payload = {
         cardId: cardId as any,
         labelId: labelId as any,
+        cardTitle,
+        labelName,
+        labelColor,
         addedBy: userId as any,
         boardId,
         workspaceId,
@@ -780,6 +853,15 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
+      // Obtener info antes de eliminar
+      const cardResult = await client.query('SELECT title FROM cards WHERE id = $1', [cardId]);
+      const labelResult = await client.query('SELECT name, color FROM labels WHERE id = $1', [
+        labelId,
+      ]);
+      const cardTitle = cardResult.rows[0]?.title || 'Card desconocida';
+      const labelName = labelResult.rows[0]?.name || 'Label desconocida';
+      const labelColor = labelResult.rows[0]?.color;
+
       await client.query('DELETE FROM card_labels WHERE card_id = $1 AND label_id = $2', [
         cardId,
         labelId,
@@ -793,6 +875,9 @@ export class CardService {
       const payload = {
         cardId: cardId as any,
         labelId: labelId as any,
+        cardTitle,
+        labelName,
+        labelColor,
         removedBy: userId as any,
         boardId,
         workspaceId,
@@ -817,7 +902,7 @@ export class CardService {
    * Mapear card de base de datos a modelo
    */
   private static mapCard(row: any): Card {
-    return {
+    const card: any = {
       id: row.id,
       listId: row.list_id,
       title: row.title,
@@ -837,5 +922,14 @@ export class CardService {
       blockedByPendingCount: row.blocked_by_pending_count ?? 0,
       blockingCount: row.blocking_count ?? 0,
     };
+
+    // Agregar contadores si están disponibles
+    if (row.comment_count !== undefined) {
+      card._count = {
+        comments: row.comment_count,
+      };
+    }
+
+    return card;
   }
 }

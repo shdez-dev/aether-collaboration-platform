@@ -68,6 +68,93 @@ export const es = {
   dashboard_completed_n_days_ago: (n: number) => `Completada hace ${n} días`,
   dashboard_completed_on_date: (date: string) => `Completada el ${date}`,
   dashboard_completed_fallback: 'Finalizada',
+
+  // ── Dashboard – Stats tiles ───────────────────────────────────────────────
+  dashboard_stat_workspaces: 'Workspaces',
+  dashboard_stat_active_boards: 'Boards activos',
+  dashboard_stat_total_cards: 'Tarjetas totales',
+  dashboard_stat_collaborators: 'Colaboradores',
+
+  // ── Dashboard – Boards recientes ──────────────────────────────────────────
+  dashboard_recent_boards_title: 'Boards recientes',
+  dashboard_recent_boards_subtitle: 'Tus tableros con actividad',
+
+  // ── Dashboard – Feed de actividad ────────────────────────────────────────
+  dashboard_activity_title: 'Actividad reciente',
+  dashboard_activity_subtitle: 'Últimos eventos en tus proyectos',
+  dashboard_activity_empty: 'No hay actividad reciente por mostrar.',
+  dashboard_activity_just_now: 'ahora mismo',
+  dashboard_activity_minutes_ago: (n: number) => `hace ${n}min`,
+  dashboard_activity_hours_ago: (n: number) => `hace ${n}h`,
+  dashboard_activity_days_ago: (n: number) => `hace ${n}d`,
+
+  // Descripciones de eventos — workspace
+  dashboard_activity_workspace_created: (name: string) => `Creó el workspace "${name}"`,
+  dashboard_activity_workspace_updated: (name: string) => `Actualizó el workspace "${name}"`,
+  dashboard_activity_workspace_deleted: (name: string) => `Eliminó el workspace "${name}"`,
+  dashboard_activity_workspace_member_invited: (who: string) => `Invitó a ${who} al workspace`,
+  dashboard_activity_workspace_member_joined: 'Se unió al workspace',
+  dashboard_activity_workspace_member_removed: (who: string) => `Quitó a ${who} del workspace`,
+  dashboard_activity_workspace_member_role_changed: (who: string) => `Cambió el rol de ${who}`,
+
+  // Descripciones de eventos — board
+  dashboard_activity_board_created: (name: string) => `Creó el tablero "${name}"`,
+  dashboard_activity_board_updated: (name: string) => `Actualizó el tablero "${name}"`,
+  dashboard_activity_board_deleted: (name: string) => `Eliminó el tablero "${name}"`,
+  dashboard_activity_board_archived: (name: string) => `Archivó el tablero "${name}"`,
+  dashboard_activity_board_unarchived: (name: string) => `Restauró el tablero "${name}"`,
+  dashboard_activity_board_renamed: (from: string, to: string) =>
+    `Renombró el tablero de "${from}" a "${to}"`,
+
+  // Descripciones de eventos — lista
+  dashboard_activity_list_created: (name: string) => `Creó la lista "${name}"`,
+  dashboard_activity_list_deleted: (name: string) => `Eliminó la lista "${name}"`,
+  dashboard_activity_list_renamed: (from: string, to: string) =>
+    `Renombró la lista de "${from}" a "${to}"`,
+  dashboard_activity_list_archived: (name: string) => `Archivó la lista "${name}"`,
+
+  // Descripciones de eventos — tarjeta
+  dashboard_activity_card_created: (name: string) => `Creó la tarjeta "${name}"`,
+  dashboard_activity_card_updated: (name: string) => `Actualizó la tarjeta "${name}"`,
+  dashboard_activity_card_deleted: (name: string) => `Eliminó la tarjeta "${name}"`,
+  dashboard_activity_card_completed: (name: string) => `Completó la tarjeta "${name}"`,
+  dashboard_activity_card_uncompleted: (name: string) => `Reabrió la tarjeta "${name}"`,
+  dashboard_activity_card_moved: (name: string, list: string) =>
+    `Movió "${name}" a la lista "${list}"`,
+  dashboard_activity_card_renamed: (from: string, to: string) =>
+    `Renombró la tarjeta de "${from}" a "${to}"`,
+  dashboard_activity_card_due_set: (name: string) => `Estableció fecha límite para "${name}"`,
+  dashboard_activity_card_due_changed: (name: string) => `Cambió la fecha límite de "${name}"`,
+  dashboard_activity_card_due_removed: (name: string) => `Quitó la fecha límite de "${name}"`,
+  dashboard_activity_card_priority_changed: (name: string) => `Cambió la prioridad de "${name}"`,
+  dashboard_activity_card_member_assigned: (who: string, card: string) =>
+    `Asignó a ${who} en "${card}"`,
+  dashboard_activity_card_member_unassigned: (who: string, card: string) =>
+    `Quitó a ${who} de "${card}"`,
+  dashboard_activity_card_label_added: (label: string, card: string) =>
+    `Añadió la etiqueta "${label}" a "${card}"`,
+  dashboard_activity_card_label_removed: (label: string, card: string) =>
+    `Quitó la etiqueta "${label}" de "${card}"`,
+  dashboard_activity_card_archived: (name: string) => `Archivó la tarjeta "${name}"`,
+  dashboard_activity_card_unarchived: (name: string) => `Restauró la tarjeta "${name}"`,
+
+  // Descripciones de eventos — comentario
+  dashboard_activity_comment_added: (card: string) => `Comentó en "${card}"`,
+  dashboard_activity_comment_updated: (card: string) => `Editó un comentario en "${card}"`,
+  dashboard_activity_comment_deleted: (card: string) => `Eliminó un comentario de "${card}"`,
+
+  // Descripciones de eventos — documento
+  dashboard_activity_document_created: (name: string) => `Creó el documento "${name}"`,
+  dashboard_activity_document_updated: (name: string) => `Actualizó el documento "${name}"`,
+  dashboard_activity_document_deleted: (name: string) => `Eliminó el documento "${name}"`,
+  dashboard_activity_document_renamed: (from: string, to: string) =>
+    `Renombró el documento de "${from}" a "${to}"`,
+  dashboard_activity_document_version: (name: string) => `Guardó nueva versión de "${name}"`,
+  dashboard_activity_document_exported: (name: string) => `Exportó el documento "${name}"`,
+
+  // fallback
+  dashboard_activity_unknown: 'Actividad registrada',
+
   days_short: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
   days_long: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
   months_long: [

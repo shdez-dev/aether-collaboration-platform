@@ -163,6 +163,16 @@ export const useBoardStore = create<BoardState>()(
             const { cardId, changes } = event.payload as any;
             if (cardId && changes) {
               cardStore.updateCard(cardId, changes);
+
+              // Si cambió el estado de completado y esta card bloquea a otras,
+              // refrescar el board para actualizar los contadores
+              if ('completed' in changes) {
+                const currentBoard = get().currentBoard;
+                if (currentBoard) {
+                  // Refrescar el board para actualizar los contadores de dependencias
+                  get().fetchBoardById(currentBoard.id);
+                }
+              }
             }
             break;
           }
@@ -306,6 +316,79 @@ export const useBoardStore = create<BoardState>()(
                 if (cardStore.selectedCard?.id === cardId) {
                   cardStore.setSelectedCard({ ...currentCard, labels: updatedLabels });
                 }
+              }
+            }
+            break;
+          }
+
+          // ========== DEPENDENCY EVENTS ==========
+          case 'card.dependency.added': {
+            const { blockedCardId, blockingCardId } = event.payload as any;
+            if (blockedCardId) {
+              // Buscar la card bloqueada en todas las listas
+              const allCards = cardStore.cards;
+              for (const listId in allCards) {
+                const card = allCards[listId].find((c) => c.id === blockedCardId);
+                if (card) {
+                  // Incrementar el contador de dependencias bloqueantes
+                  const newCount = (card.blockedByPendingCount ?? 0) + 1;
+                  cardStore.updateCard(blockedCardId, { blockedByPendingCount: newCount });
+                  break;
+                }
+              }
+            }
+            if (blockingCardId) {
+              // Buscar la card bloqueante en todas las listas
+              const allCards = cardStore.cards;
+              for (const listId in allCards) {
+                const card = allCards[listId].find((c) => c.id === blockingCardId);
+                if (card) {
+                  // Incrementar el contador de cards que está bloqueando
+                  const newCount = (card.blockingCount ?? 0) + 1;
+                  cardStore.updateCard(blockingCardId, { blockingCount: newCount });
+                  break;
+                }
+              }
+            }
+            break;
+          }
+
+          case 'card.dependency.removed': {
+            const { blockedCardId, blockingCardId } = event.payload as any;
+
+            // Cuando se elimina una dependencia, necesitamos recalcular si la card bloqueante
+            // está completa o no para decrementar correctamente el contador
+            if (blockedCardId && blockingCardId) {
+              const allCards = cardStore.cards;
+
+              // Buscar la card bloqueante para ver si está completada
+              let blockingCard = null;
+              for (const listId in allCards) {
+                const found = allCards[listId].find((c) => c.id === blockingCardId);
+                if (found) {
+                  blockingCard = found;
+                  break;
+                }
+              }
+
+              // Buscar la card bloqueada para actualizar su contador
+              for (const listId in allCards) {
+                const card = allCards[listId].find((c) => c.id === blockedCardId);
+                if (card) {
+                  // Solo decrementar si la card bloqueante no estaba completada
+                  // (porque solo las incompletas cuentan para blockedByPendingCount)
+                  if (blockingCard && !blockingCard.completed) {
+                    const newCount = Math.max(0, (card.blockedByPendingCount ?? 0) - 1);
+                    cardStore.updateCard(blockedCardId, { blockedByPendingCount: newCount });
+                  }
+                  break;
+                }
+              }
+
+              // Actualizar contador de blocking en la card bloqueante
+              if (blockingCard) {
+                const newCount = Math.max(0, (blockingCard.blockingCount ?? 0) - 1);
+                cardStore.updateCard(blockingCardId, { blockingCount: newCount });
               }
             }
             break;

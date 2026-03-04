@@ -1082,3 +1082,270 @@ body:has(.card-detail-drawer-open) {
 .modal-sidebar::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 100, 100, 0.5);
 }
+
+/* ==================== TEMA CLARO - CARD DETAIL MODAL ==================== */
+
+.light .modal-backdrop {
+  background: rgba(30, 40, 70, 0.35);
+}
+
+.light .modal-backdrop-dark {
+  background: rgba(30, 40, 70, 0.55);
+}
+
+.light .modal-content {
+  background: hsl(0 0% 100%);
+  border-color: hsl(220 18% 84%);
+  box-shadow: 0 8px 32px rgba(30, 40, 70, 0.14);
+}
+
+.light .modal-sidebar {
+  background: hsl(220 20% 97%);
+  border-color: hsl(220 18% 84%);
+  box-shadow: 0 8px 32px rgba(30, 40, 70, 0.1);
+  scrollbar-color: hsl(220 18% 72%) transparent;
+}
+
+.light .modal-sidebar::-webkit-scrollbar-thumb {
+  background: hsl(220 18% 72%);
+}
+
+.light .modal-sidebar::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 18% 60%);
+}
+
+.light .sidebar-section-title {
+  color: hsl(221 60% 48%);
+  border-bottom-color: hsl(220 18% 86%);
+}
+
+.light .delete-modal {
+  background: hsl(0 0% 100%);
+  border-color: hsl(220 18% 84%);
+  box-shadow: 0 8px 32px rgba(30, 40, 70, 0.14);
+}
+
+.light .modal-header {
+  border-bottom-color: hsl(220 18% 88%);
+}
+
+.light .modal-title {
+  color: hsl(220 25% 16%);
+}
+
+.light .modal-subtitle {
+  color: hsl(221 55% 48%);
+}
+
+.light .modal-close {
+  color: hsl(220 14% 52%);
+}
+
+.light .modal-close:hover {
+  color: hsl(220 25% 20%);
+}
+
+.light .modal-body {
+  scrollbar-color: hsl(220 18% 72%) transparent;
+}
+
+.light .modal-body::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 180, 0.35);
+}
+
+.light .modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 140, 180, 0.55);
+}
+
+.light .modal-section-title {
+  color: hsl(221 55% 48%);
+}
+
+.light .description-box {
+  background: hsl(220 20% 97%);
+  border-color: hsl(220 18% 84%);
+}
+
+.light .description-box:hover {
+  border-color: hsl(220 18% 72%);
+  background: hsl(220 20% 95%);
+}
+
+.light .description-text {
+  color: hsl(220 22% 22%);
+}
+
+.light .description-placeholder {
+  color: hsl(220 14% 58%);
+}
+
+.light .info-button {
+  background: hsl(220 20% 96%);
+  border-color: hsl(220 18% 84%);
+  color: hsl(220 22% 28%);
+}
+
+.light .info-button:hover {
+  border-color: hsl(220 18% 70%);
+  background: hsl(220 20% 93%);
+}
+
+.light .date-input-button {
+  background: hsl(220 20% 96%);
+  border-color: hsl(220 18% 84%);
+  color: hsl(220 22% 28%);
+}
+
+.light .date-input-button:hover {
+  border-color: hsl(220 18% 70%);
+  background: hsl(220 20% 93%);
+}
+
+.light .date-input-button svg {
+  color: hsl(221 60% 52%);
+}
+
+.light .custom-calendar {
+  background: hsl(0 0% 100%);
+  border-color: hsl(220 18% 84%);
+  box-shadow: 0 8px 24px rgba(30, 40, 70, 0.12);
+}
+
+.light .calendar-header {
+  border-bottom-color: hsl(220 18% 88%);
+}
+
+.light .calendar-month-year {
+  color: hsl(220 25% 18%);
+}
+
+.light .calendar-nav-btn {
+  border-color: hsl(220 18% 84%);
+  color: hsl(221 60% 50%);
+}
+
+.light .calendar-nav-btn:hover {
+  background: hsl(220 20% 95%);
+  border-color: hsl(220 18% 72%);
+}
+
+.light .calendar-weekday {
+  color: hsl(220 14% 52%);
+}
+
+.light .calendar-day {
+  color: hsl(220 22% 26%);
+}
+
+.light .calendar-day:hover:not(:disabled) {
+  background: hsl(220 20% 94%);
+  border-color: hsl(220 18% 76%);
+}
+
+.light .calendar-day:disabled {
+  color: hsl(220 14% 72%);
+}
+
+.light .calendar-day-other {
+  color: hsl(220 14% 68%);
+}
+
+.light .calendar-day-today {
+  border-color: hsl(221 75% 52%);
+  color: hsl(221 75% 46%);
+}
+
+.light .calendar-day-selected {
+  background: hsl(221 75% 52%);
+  border-color: hsl(221 75% 52%);
+  color: hsl(0 0% 100%);
+}
+
+.light .calendar-day-selected:hover {
+  background: hsl(221 75% 44%);
+  border-color: hsl(221 75% 44%);
+}
+
+.light .calendar-footer {
+  border-top-color: hsl(220 18% 88%);
+}
+
+.light .calendar-btn-clear {
+  border-color: hsl(220 18% 78%);
+  color: hsl(220 22% 30%);
+}
+
+.light .calendar-btn-clear:hover {
+  background: hsl(220 20% 95%);
+  border-color: hsl(220 18% 66%);
+}
+
+.light .calendar-btn-today {
+  background: hsl(221 75% 52%);
+  border-color: hsl(221 75% 52%);
+  color: hsl(0 0% 100%);
+}
+
+.light .calendar-btn-today:hover {
+  background: hsl(221 75% 44%);
+  border-color: hsl(221 75% 44%);
+}
+
+.light .modal-footer {
+  border-top-color: hsl(220 18% 88%);
+}
+
+.light .btn-delete {
+  border-color: hsl(0 65% 52%);
+  color: hsl(0 65% 46%);
+}
+
+.light .btn-delete:hover {
+  background: hsl(0 65% 52% / 0.08);
+}
+
+.light .btn-cancel {
+  border-color: hsl(220 18% 78%);
+  color: hsl(220 22% 32%);
+}
+
+.light .btn-cancel:hover:not(:disabled) {
+  background: hsl(220 20% 95%);
+  border-color: hsl(220 18% 66%);
+}
+
+.light .btn-save,
+.light .btn-edit {
+  background: hsl(221 75% 52%);
+  border-color: hsl(221 75% 52%);
+  color: hsl(0 0% 100%);
+}
+
+.light .btn-save:hover:not(:disabled),
+.light .btn-edit:hover {
+  background: hsl(221 75% 44%);
+  border-color: hsl(221 75% 44%);
+}
+
+.light .btn-confirm-delete {
+  background: hsl(0 65% 52%);
+  border-color: hsl(0 65% 52%);
+  color: hsl(0 0% 100%);
+}
+
+.light .btn-confirm-delete:hover:not(:disabled) {
+  background: hsl(0 65% 44%);
+  border-color: hsl(0 65% 44%);
+}
+
+.light .custom-scrollbar {
+  scrollbar-color: rgba(120, 140, 180, 0.35) transparent;
+}
+
+.light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 180, 0.35);
+}
+
+.light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 140, 180, 0.55);
+}

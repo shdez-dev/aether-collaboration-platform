@@ -17,6 +17,7 @@ import { useT } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTimelineStore } from '@/stores/timelineStore';
+import { useCardStore } from '@/stores/cardStore';
 import type { CardDependency } from '@aether/types';
 
 interface CardDependenciesProps {
@@ -106,6 +107,7 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
   const { accessToken } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
   const invalidateTimeline = useTimelineStore((s) => s.invalidate);
+  const updateCard = useCardStore((s) => s.updateCard);
   const userRole = currentWorkspace?.userRole;
   const canEdit = userRole !== 'VIEWER';
 
@@ -225,7 +227,20 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
         return;
       }
 
-      setBlockedBy((prev) => [...prev, json.data.dependency]);
+      const newDep = json.data.dependency;
+      setBlockedBy((prev) => [...prev, newDep]);
+
+      // Calcular cuántas dependencias bloqueantes están incompletas
+      const pendingCount = [...blockedBy, newDep].filter(
+        (d) => d.relatedCard && !d.relatedCard.completed
+      ).length;
+
+      // Actualizar el contador en la card inmediatamente
+      updateCard(cardId, {
+        blockedByPendingCount: pendingCount,
+        blockedBy: [...blockedBy, newDep] as any,
+      });
+
       closePicker();
       invalidateTimeline();
     } finally {
@@ -239,8 +254,22 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
     const isBlockedBy = blockedBy.some((d) => d.id === depId);
 
     // Optimistic
-    if (isBlockedBy) setBlockedBy((prev) => prev.filter((d) => d.id !== depId));
-    else setBlocking((prev) => prev.filter((d) => d.id !== depId));
+    if (isBlockedBy) {
+      const newBlockedBy = blockedBy.filter((d) => d.id !== depId);
+      setBlockedBy(newBlockedBy);
+
+      // Actualizar el contador en la card inmediatamente
+      const pendingCount = newBlockedBy.filter(
+        (d) => d.relatedCard && !d.relatedCard.completed
+      ).length;
+
+      updateCard(cardId, {
+        blockedByPendingCount: pendingCount,
+        blockedBy: newBlockedBy as any,
+      });
+    } else {
+      setBlocking((prev) => prev.filter((d) => d.id !== depId));
+    }
 
     try {
       const res = await fetch(`${API}/api/cards/${cardId}/dependencies/${depId}`, {

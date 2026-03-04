@@ -4,9 +4,9 @@ import { motion } from 'framer-motion';
 
 export function Footer() {
   return (
-    <footer className="relative py-12 px-4 sm:px-6 lg:px-8 border-t border-border">
+    <footer className="relative py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 border-t border-border safe-area-bottom">
       <div className="max-w-7xl mx-auto">
-        <div className="grid md:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8">
           {/* Logo and description */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -14,8 +14,10 @@ export function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h3 className="text-2xl font-bold text-accent mb-3 font-mono">AETHER</h3>
-            <p className="text-text-muted text-sm leading-relaxed">
+            <h3 className="text-xl sm:text-2xl font-bold text-accent mb-2 sm:mb-3 font-mono">
+              AETHER
+            </h3>
+            <p className="text-text-muted text-xs sm:text-sm leading-relaxed">
               Plataforma de colaboración en tiempo real construida con tecnologías modernas y
               patrones de arquitectura avanzados.
             </p>
@@ -28,8 +30,10 @@ export function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            <h4 className="text-text-primary font-semibold mb-3">Arquitectura</h4>
-            <ul className="space-y-2 text-text-muted text-sm">
+            <h4 className="text-text-primary text-sm sm:text-base font-semibold mb-2 sm:mb-3">
+              Arquitectura
+            </h4>
+            <ul className="space-y-1.5 sm:space-y-2 text-text-muted text-xs sm:text-sm">
               <li className="flex items-center gap-2">
                 <span className="text-accent">→</span> Event Sourcing
               </li>
@@ -52,8 +56,10 @@ export function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <h4 className="text-text-primary font-semibold mb-3">Stack Principal</h4>
-            <ul className="space-y-2 text-text-muted text-sm">
+            <h4 className="text-text-primary text-sm sm:text-base font-semibold mb-2 sm:mb-3">
+              Stack Principal
+            </h4>
+            <ul className="space-y-1.5 sm:space-y-2 text-text-muted text-xs sm:text-sm">
               <li className="flex items-center gap-2">
                 <span className="text-accent">→</span> Next.js 14
               </li>
@@ -71,7 +77,7 @@ export function Footer() {
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-border mb-6" />
+        <div className="h-px bg-border mb-4 sm:mb-6" />
 
         {/* Bottom bar */}
         <motion.div
@@ -79,12 +85,14 @@ export function Footer() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex flex-col sm:flex-row justify-between items-center gap-4 text-text-muted text-sm"
+          className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4 text-text-muted text-xs sm:text-sm text-center sm:text-left"
         >
           <p className="font-mono">
             Build <span className="text-accent">2026.02.09</span> | Sistema Operacional
           </p>
-          <p className="italic">"Synchronization is an illusion. Only events exist in time."</p>
+          <p className="italic text-xs sm:text-sm">
+            "Synchronization is an illusion. Only events exist in time."
+          </p>
         </motion.div>
 
         {/* Decorative elements */}

@@ -420,3 +420,135 @@
 .label-picker-permanent *::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 100, 100, 0.5);
 }
+
+/* ==================== TEMA CLARO - LABEL PICKER ==================== */
+
+.light .assigned-labels-section {
+  border-bottom-color: hsl(220 18% 88%);
+  scrollbar-color: rgba(120, 140, 180, 0.35) transparent;
+}
+
+.light .assigned-labels-section::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 180, 0.35);
+}
+
+.light .label-search-input {
+  background: hsl(0 0% 100%);
+  border-color: hsl(220 18% 82%);
+  color: hsl(220 25% 18%);
+}
+
+.light .label-search-input:focus {
+  border-color: hsl(221 75% 52%);
+  background: hsl(0 0% 100%);
+  box-shadow: 0 0 0 3px hsl(221 75% 52% / 0.12);
+}
+
+.light .label-search-input::placeholder {
+  color: hsl(220 14% 58%);
+}
+
+.light .label-content {
+  scrollbar-color: rgba(120, 140, 180, 0.35) transparent;
+}
+
+.light .label-content::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 180, 0.35);
+}
+
+.light .label-item {
+  border-color: hsl(220 18% 88%);
+}
+
+.light .label-item:hover {
+  background: hsl(220 20% 95%);
+  border-color: hsl(220 18% 78%);
+}
+
+.light .label-item-name {
+  color: hsl(220 22% 24%);
+}
+
+.light .label-checkbox {
+  border-color: hsl(220 18% 76%);
+}
+
+.light .label-checkbox-checked {
+  background: hsl(221 75% 52%);
+  border-color: hsl(221 75% 52%);
+}
+
+.light .empty-state p {
+  color: hsl(220 14% 52%);
+}
+
+.light .btn-new-label {
+  border-color: hsl(220 18% 76%);
+  color: hsl(221 60% 50%);
+}
+
+.light .btn-new-label:hover {
+  background: hsl(220 20% 95%);
+  border-color: hsl(221 75% 52%);
+  color: hsl(221 75% 44%);
+}
+
+.light .create-label-form {
+  scrollbar-color: rgba(120, 140, 180, 0.35) transparent;
+}
+
+.light .create-label-form::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 180, 0.35);
+}
+
+.light .form-group label {
+  color: hsl(221 55% 46%);
+}
+
+.light .label-name-input {
+  background: hsl(0 0% 100%);
+  border-color: hsl(220 18% 82%);
+  color: hsl(220 25% 18%);
+}
+
+.light .label-name-input:focus {
+  border-color: hsl(221 75% 52%);
+  background: hsl(0 0% 100%);
+  box-shadow: 0 0 0 3px hsl(221 75% 52% / 0.12);
+}
+
+.light .color-badge-option.color-badge-selected {
+  border-color: rgba(30, 50, 100, 0.35);
+  box-shadow: 0 0 0 3px hsl(221 75% 52% / 0.22);
+}
+
+.light .btn-cancel-create {
+  border-color: hsl(220 18% 78%);
+  color: hsl(220 22% 32%);
+}
+
+.light .btn-cancel-create:hover {
+  background: hsl(220 20% 95%);
+  border-color: hsl(220 18% 66%);
+}
+
+.light .btn-create-label {
+  background: hsl(221 75% 52%);
+  color: hsl(0 0% 100%);
+}
+
+.light .btn-create-label:hover:not(:disabled) {
+  background: hsl(221 75% 44%);
+}
+
+.light .label-picker-permanent * {
+  scrollbar-color: rgba(120, 140, 180, 0.35) transparent;
+}
+
+.light .label-picker-permanent *::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 180, 0.35);
+}
+
+.light .label-picker-permanent *::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 140, 180, 0.55);
+}

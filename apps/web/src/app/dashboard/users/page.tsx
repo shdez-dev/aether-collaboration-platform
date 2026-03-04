@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Search, MapPin, Briefcase, UserPlus, Users, Calendar } from 'lucide-react';
+import { Search, MapPin, Briefcase, UserPlus, Users, Calendar, Star } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { getAvatarUrl, getInitials } from '@/lib/utils/avatar';
@@ -22,6 +22,8 @@ interface PublicUser {
   position?: string;
   location?: string;
   createdAt: string;
+  sharedWorkspacesCount?: number;
+  isFavorite?: boolean;
 }
 
 interface UserProfile extends PublicUser {
@@ -34,7 +36,96 @@ interface UserProfile extends PublicUser {
   }[];
 }
 
-// ── Panel de detalle (columna derecha) ───────────────────────────────────────
+// ── Panel de favoritos (columna derecha) ────────────────────────────────────
+
+function FavoriteContactsList({
+  favorites,
+  isLoading,
+  onSelectUser,
+  selectedUserId,
+}: {
+  favorites: PublicUser[];
+  isLoading: boolean;
+  onSelectUser: (userId: string) => void;
+  selectedUserId: string | null;
+}) {
+  const t = useT();
+
+  if (isLoading) {
+    return (
+      <div className="w-64 flex-shrink-0 flex flex-col border-l border-border bg-surface">
+        <div className="px-4 pt-4 pb-3 border-b border-border">
+          <h3 className="text-text-primary font-medium text-sm">Favoritos</h3>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-64 flex-shrink-0 flex flex-col border-l border-border bg-surface">
+      <div className="px-4 pt-4 pb-3 border-b border-border">
+        <h3 className="text-text-primary font-medium text-sm">
+          Favoritos
+          {favorites.length > 0 && (
+            <span className="ml-2 text-text-muted font-normal">{favorites.length}</span>
+          )}
+        </h3>
+      </div>
+
+      <div className="flex-1 overflow-y-auto py-1">
+        {favorites.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+            <Star className="h-8 w-8 text-text-muted mb-2" />
+            <p className="text-text-muted text-sm font-medium">Sin favoritos</p>
+            <p className="text-text-secondary text-xs mt-1">
+              Marca contactos como favoritos para acceder rápidamente
+            </p>
+          </div>
+        ) : (
+          favorites.map((user) => {
+            const isSelected = user.id === selectedUserId;
+            const avatarUrl = getAvatarUrl(user.avatar);
+            return (
+              <button
+                key={user.id}
+                onClick={() => onSelectUser(user.id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 mx-1 rounded-terminal transition-colors ${
+                  isSelected
+                    ? 'bg-accent/20 text-text-primary'
+                    : 'text-text-secondary hover:bg-card hover:text-text-primary'
+                }`}
+                style={{ width: 'calc(100% - 8px)' }}
+              >
+                <Avatar className="h-8 w-8 flex-shrink-0 border border-border">
+                  {avatarUrl && (
+                    <AvatarImage src={avatarUrl} alt={user.name} crossOrigin="anonymous" />
+                  )}
+                  <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                    {getInitials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-sm font-medium truncate leading-tight">{user.name}</p>
+                  {user.position && (
+                    <p className="text-xs text-text-muted truncate leading-tight">
+                      {user.position}
+                    </p>
+                  )}
+                </div>
+                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />}
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Panel de detalle (columna central) ───────────────────────────────────────
 
 function UserDetailPanel({ userId }: { userId: string | null }) {
   const t = useT();
@@ -115,8 +206,10 @@ function UserDetailPanel({ userId }: { userId: string | null }) {
         <div className="w-20 h-20 rounded-full bg-surface border border-border flex items-center justify-center mb-4">
           <Users className="h-9 w-9 text-text-muted" />
         </div>
-        <p className="text-text-secondary font-medium">{t.users_select_title}</p>
-        <p className="text-text-muted text-sm mt-1">{t.users_select_desc}</p>
+        <p className="text-text-secondary font-medium">Selecciona un contacto</p>
+        <p className="text-text-muted text-sm mt-1">
+          Busca y selecciona un contacto para ver su perfil
+        </p>
       </div>
     );
   }
@@ -285,6 +378,8 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [favoriteUsers, setFavoriteUsers] = useState<PublicUser[]>([]);
+  const [isFavoritesLoading, setIsFavoritesLoading] = useState(true);
 
   // Cargar todos los usuarios de una vez (hasta 200), en segundo plano
   useEffect(() => {
@@ -298,6 +393,46 @@ export default function UsersPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
+  // Cargar favoritos
+  const loadFavorites = useCallback(() => {
+    setIsFavoritesLoading(true);
+    apiService
+      .get<{ favorites: PublicUser[] }>('/api/users/favorites', true)
+      .then((res) => {
+        if (res.success && res.data) {
+          setFavoriteUsers(res.data.favorites);
+        }
+      })
+      .finally(() => setIsFavoritesLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadFavorites();
+  }, [loadFavorites]);
+
+  // Toggle favorito
+  const handleToggleFavorite = async (userId: string, isFavorite: boolean) => {
+    try {
+      if (isFavorite) {
+        await apiService.delete(`/api/users/favorites/${userId}`, true);
+        toast.success('Contacto eliminado de favoritos');
+      } else {
+        await apiService.post(`/api/users/favorites/${userId}`, {}, true);
+        toast.success('Contacto agregado a favoritos');
+      }
+
+      // Actualizar estado local
+      setAllUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, isFavorite: !isFavorite } : u))
+      );
+
+      // Recargar lista de favoritos
+      loadFavorites();
+    } catch (error) {
+      toast.error('Error al actualizar favorito');
+    }
+  };
+
   // Filtrado en memoria — instantáneo
   // Require minimum 3 characters for search
   const filteredUsers = useMemo(() => {
@@ -309,10 +444,10 @@ export default function UsersPage() {
     );
   }, [allUsers, search]);
 
-  // Si el usuario seleccionado queda fuera del filtro, seleccionar el primero visible
+  // Si el usuario seleccionado queda fuera del filtro de búsqueda, seleccionar el primero visible
   useEffect(() => {
+    // Solo aplicar esta lógica si hay búsqueda activa
     if (!search.trim()) {
-      setSelectedUserId(null);
       return;
     }
     if (filteredUsers.length === 0) {
@@ -345,7 +480,7 @@ export default function UsersPage() {
         <div className="px-4 pt-4 pb-3 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-text-primary font-medium text-sm">
-              {t.users_title}
+              Contactos
               {search.trim() && !isLoading && (
                 <span className="ml-2 text-text-muted font-normal">{filteredUsers.length}</span>
               )}
@@ -358,7 +493,7 @@ export default function UsersPage() {
             <input
               ref={searchRef}
               type="text"
-              placeholder={t.users_search_placeholder}
+              placeholder="Buscar contactos por nombre o email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input-terminal w-full pl-8 pr-3 py-1.5 text-sm"
@@ -370,8 +505,11 @@ export default function UsersPage() {
         <div className="flex-1 overflow-y-auto py-1">
           {!search.trim() ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-              <Search className="h-8 w-8 text-text-muted mb-2" />
-              <p className="text-text-muted text-sm">{t.users_empty_search}</p>
+              <Users className="h-8 w-8 text-text-muted mb-2" />
+              <p className="text-text-muted text-sm font-medium">Busca tus contactos</p>
+              <p className="text-text-secondary text-xs mt-1">
+                Usuarios con los que compartes workspaces
+              </p>
             </div>
           ) : isLoading ? (
             <div className="space-y-1 px-2 pt-2">
@@ -405,44 +543,87 @@ export default function UsersPage() {
               const isSelected = u.id === selectedUserId;
               const avatarUrl = getAvatarUrl(u.avatar);
               return (
-                <button
+                <div
                   key={u.id}
-                  onClick={() => setSelectedUserId(u.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 mx-1 rounded-terminal transition-colors text-left ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 mx-1 rounded-terminal transition-colors group ${
                     isSelected
                       ? 'bg-accent/20 text-text-primary'
                       : 'text-text-secondary hover:bg-card hover:text-text-primary'
                   }`}
                   style={{ width: 'calc(100% - 8px)' }}
                 >
-                  <Avatar className="h-8 w-8 flex-shrink-0 border border-border">
-                    {avatarUrl && (
-                      <AvatarImage src={avatarUrl} alt={u.name} crossOrigin="anonymous" />
-                    )}
-                    <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                      {getInitials(u.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate leading-tight">{u.name}</p>
-                    {u.position ? (
-                      <p className="text-xs text-text-muted truncate leading-tight">{u.position}</p>
-                    ) : (
-                      <p className="text-xs text-text-muted truncate leading-tight">{u.email}</p>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => setSelectedUserId(u.id)}
+                    className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                  >
+                    <Avatar className="h-8 w-8 flex-shrink-0 border border-border">
+                      {avatarUrl && (
+                        <AvatarImage src={avatarUrl} alt={u.name} crossOrigin="anonymous" />
+                      )}
+                      <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                        {getInitials(u.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate leading-tight">{u.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        {u.sharedWorkspacesCount && u.sharedWorkspacesCount > 0 && (
+                          <span className="text-xs text-accent font-medium">
+                            {u.sharedWorkspacesCount}{' '}
+                            {u.sharedWorkspacesCount === 1 ? 'workspace' : 'workspaces'}
+                          </span>
+                        )}
+                        {u.position && (
+                          <>
+                            {u.sharedWorkspacesCount && u.sharedWorkspacesCount > 0 && (
+                              <span className="text-xs text-text-muted">•</span>
+                            )}
+                            <p className="text-xs text-text-muted truncate leading-tight">
+                              {u.position}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleFavorite(u.id, u.isFavorite || false);
+                    }}
+                    className={`flex-shrink-0 p-1 rounded transition-colors ${
+                      u.isFavorite
+                        ? 'text-yellow-500 hover:text-yellow-600'
+                        : 'text-text-muted hover:text-yellow-500 opacity-0 group-hover:opacity-100'
+                    }`}
+                    title={u.isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                  >
+                    <Star
+                      className="h-4 w-4"
+                      fill={u.isFavorite ? 'currentColor' : 'none'}
+                      strokeWidth={2}
+                    />
+                  </button>
                   {isSelected && (
                     <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
                   )}
-                </button>
+                </div>
               );
             })
           )}
         </div>
       </div>
 
-      {/* ── Panel de detalle (columna derecha) ── */}
+      {/* ── Panel de detalle (columna central) ── */}
       <UserDetailPanel userId={selectedUserId} />
+
+      {/* ── Panel de favoritos (columna derecha) ── */}
+      <FavoriteContactsList
+        favorites={favoriteUsers}
+        isLoading={isFavoritesLoading}
+        onSelectUser={setSelectedUserId}
+        selectedUserId={selectedUserId}
+      />
     </div>
   );
 }

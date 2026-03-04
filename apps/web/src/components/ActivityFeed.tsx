@@ -52,7 +52,6 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
 
       setActivities(response.data.events || []);
     } catch (err: any) {
-      console.error('Error loading activity:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);

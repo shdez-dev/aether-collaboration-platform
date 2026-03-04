@@ -569,6 +569,19 @@ CREATE TRIGGER trigger_update_board_sprints_timestamp
   WHEN (OLD.* IS DISTINCT FROM NEW.*)
   EXECUTE FUNCTION update_board_sprints_updated_at();
 
+-- User Favorite Contacts (contactos favoritos)
+CREATE TABLE IF NOT EXISTS user_favorite_contacts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  favorite_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, favorite_user_id),
+  CHECK (user_id != favorite_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_favorite_contacts_user_id ON user_favorite_contacts(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_favorite_contacts_favorite_user_id ON user_favorite_contacts(favorite_user_id);
+
 -- Success message
 SELECT 'Database schema created successfully!' as message;
 

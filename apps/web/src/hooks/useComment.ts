@@ -154,7 +154,6 @@ export function useComments(cardId: string) {
         await updateComment(commentId, content.trim(), mentions);
         toast.success('Comentario actualizado');
       } catch (error: any) {
-        console.error('[useComments] Error updating comment:', error);
         const errorMessage = error.message || error.toString() || 'Error al actualizar comentario';
         toast.error(errorMessage);
       }
@@ -171,7 +170,6 @@ export function useComments(cardId: string) {
         await deleteComment(commentId, cardId);
         toast.success('Comentario eliminado');
       } catch (error: any) {
-        console.error('[useComments] Error deleting comment:', error);
         const errorMessage = error.message || error.toString() || 'Error al eliminar comentario';
         toast.error(errorMessage);
       }
