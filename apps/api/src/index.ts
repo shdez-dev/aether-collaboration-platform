@@ -41,8 +41,12 @@ import { initializeYjsGateway } from './websocket/Yjsgateway';
 // ENVIRONMENT VALIDATION
 // ============================================================================
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from .env file
+// When running with tsx, the --env-file flag handles this
+// But we keep this for backwards compatibility
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+}
 
 // Validate environment variables (exits if invalid)
 const env = validateEnv();

@@ -109,136 +109,249 @@ export class EmailService {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Your Email</title>
+  <title>Verify Your Email - AETHER</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body {
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background-color: #f5f5f5;
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      color: #e0e0e0;
       line-height: 1.6;
     }
-    .container {
+    .email-wrapper {
       max-width: 600px;
       margin: 40px auto;
-      background-color: #ffffff;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      background: #121212;
+      border: 2px solid #3b82f6;
+      position: relative;
     }
-    .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 40px 20px;
-      text-align: center;
-      color: #ffffff;
+    .scanline {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        to bottom,
+        transparent 50%,
+        rgba(59, 130, 246, 0.03) 50%
+      );
+      background-size: 100% 4px;
+      pointer-events: none;
     }
-    .header h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 600;
+    .terminal-header {
+      background: #1a1a1a;
+      border-bottom: 2px solid #3b82f6;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .terminal-dots {
+      display: flex;
+      gap: 8px;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid;
+    }
+    .dot.red { background: #ef4444; border-color: #dc2626; }
+    .dot.yellow { background: #f59e0b; border-color: #d97706; }
+    .dot.green { background: #10b981; border-color: #059669; }
+    .terminal-title {
+      font-size: 13px;
+      color: #9ca3af;
+      font-weight: 500;
+      letter-spacing: 0.05em;
     }
     .content {
-      padding: 40px 30px;
-      color: #333333;
+      padding: 32px 24px;
+      position: relative;
     }
-    .content h2 {
-      margin: 0 0 20px 0;
-      font-size: 22px;
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      color: #3b82f6;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+    }
+    .prompt {
+      color: #3b82f6;
       font-weight: 600;
-      color: #1a1a1a;
+      margin-bottom: 16px;
+      font-size: 14px;
     }
-    .content p {
-      margin: 0 0 20px 0;
-      font-size: 16px;
-      color: #555555;
+    .prompt::before {
+      content: "❯ ";
+      color: #10b981;
+      margin-right: 8px;
+    }
+    .message {
+      color: #d1d5db;
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+    .command-block {
+      background: #0a0a0a;
+      border: 1px solid #3b82f6;
+      padding: 16px;
+      margin: 24px 0;
+      font-size: 13px;
+      position: relative;
+    }
+    .command-block::before {
+      content: "$ ";
+      color: #10b981;
+      font-weight: 600;
     }
     .button {
       display: inline-block;
-      padding: 14px 32px;
-      margin: 20px 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #3b82f6;
       color: #ffffff !important;
+      padding: 14px 32px;
       text-decoration: none;
-      border-radius: 6px;
       font-weight: 600;
-      font-size: 16px;
-      transition: transform 0.2s;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: 2px solid #3b82f6;
+      margin: 24px 0;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
     }
     .button:hover {
-      transform: translateY(-1px);
+      background: transparent;
+      color: #3b82f6 !important;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
     }
-    .footer {
-      padding: 30px;
-      text-align: center;
-      background-color: #f9f9f9;
-      border-top: 1px solid #e5e5e5;
+    .button::before {
+      content: ">";
+      position: absolute;
+      left: 12px;
+      transition: all 0.2s;
     }
-    .footer p {
-      margin: 5px 0;
-      font-size: 13px;
-      color: #888888;
-    }
-    .link {
-      color: #667eea;
-      text-decoration: none;
+    .button:hover::before {
+      left: calc(100% - 24px);
     }
     .divider {
-      margin: 30px 0;
-      border: none;
-      border-top: 1px solid #e5e5e5;
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        transparent,
+        #3b82f6,
+        transparent
+      );
+      margin: 32px 0;
+    }
+    .link-box {
+      background: #1a1a1a;
+      border: 1px solid #374151;
+      padding: 12px;
+      margin: 16px 0;
+      font-size: 11px;
+      color: #3b82f6;
+      word-break: break-all;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .info-box {
+      background: rgba(59, 130, 246, 0.1);
+      border-left: 3px solid #3b82f6;
+      padding: 12px 16px;
+      margin: 24px 0;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .footer {
+      background: #0a0a0a;
+      border-top: 2px solid #3b82f6;
+      padding: 24px;
+      text-align: center;
+    }
+    .footer-text {
+      font-size: 11px;
+      color: #6b7280;
+      margin: 8px 0;
+      letter-spacing: 0.05em;
+    }
+    .footer-link {
+      color: #3b82f6;
+      text-decoration: none;
+      margin: 0 8px;
+      transition: all 0.2s;
+    }
+    .footer-link:hover {
+      color: #60a5fa;
+      text-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
     }
     @media only screen and (max-width: 600px) {
-      .container {
-        margin: 20px;
-      }
-      .content {
-        padding: 30px 20px;
-      }
-      .header {
-        padding: 30px 20px;
-      }
-      .header h1 {
-        font-size: 24px;
-      }
+      .email-wrapper { margin: 20px; border-width: 1px; }
+      .content { padding: 24px 16px; }
+      .logo { font-size: 20px; }
+      .button { padding: 12px 24px; font-size: 12px; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>Aether</h1>
+  <div class="email-wrapper">
+    <div class="scanline"></div>
+    
+    <div class="terminal-header">
+      <div class="terminal-dots">
+        <div class="dot red"></div>
+        <div class="dot yellow"></div>
+        <div class="dot green"></div>
+      </div>
+      <div class="terminal-title">AETHER://VERIFICATION</div>
     </div>
+    
     <div class="content">
-      <h2>Hi ${userName},</h2>
-      <p>Thanks for signing up for Aether Collaboration Platform! We're excited to have you on board.</p>
-      <p>To get started, please verify your email address by clicking the button below:</p>
+      <div class="logo">AETHER</div>
       
-      <div style="text-align: center;">
-        <a href="${verificationLink}" class="button">Verify Email Address</a>
+      <div class="prompt">SYSTEM MESSAGE</div>
+      <div class="message">
+        Welcome, <strong>${userName}</strong>.<br><br>
+        Your account has been successfully created in the AETHER network.<br>
+        To activate your credentials and gain full access, verify your identity.
       </div>
       
-      <hr class="divider">
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${verificationLink}" class="button">
+          VERIFY IDENTITY
+        </a>
+      </div>
       
-      <p style="font-size: 14px; color: #777777;">
-        If the button doesn't work, copy and paste this link into your browser:
-      </p>
-      <p style="font-size: 13px; color: #667eea; word-break: break-all;">
-        ${verificationLink}
-      </p>
+      <div class="divider"></div>
       
-      <p style="font-size: 14px; color: #999999; margin-top: 30px;">
-        This link will expire in 24 hours.
-      </p>
+      <div class="command-block">
+        Or execute manual verification:<br>
+        <div class="link-box">${verificationLink}</div>
+      </div>
+      
+      <div class="info-box">
+        [!] SECURITY NOTICE<br>
+        - Link expires in 24 hours<br>
+        - Single use only<br>
+        - If you didn't request this, ignore this transmission
+      </div>
     </div>
+    
     <div class="footer">
-      <p>If you didn't create an account with Aether, please ignore this email.</p>
-      <p style="margin-top: 15px;">
-        <a href="${this.frontendUrl}" class="link">Visit Aether</a> • 
-        <a href="${this.frontendUrl}/support" class="link">Support</a>
-      </p>
-      <p style="margin-top: 15px; color: #aaaaaa;">
-        © ${new Date().getFullYear()} Aether Collaboration Platform. All rights reserved.
-      </p>
+      <div class="footer-text">
+        [ <a href="${this.frontendUrl}" class="footer-link">AETHER.PLATFORM</a> ]
+        [ <a href="${this.frontendUrl}/support" class="footer-link">SUPPORT</a> ]
+      </div>
+      <div class="footer-text" style="margin-top: 16px;">
+        © ${new Date().getFullYear()} AETHER COLLABORATION PLATFORM<br>
+        ALL SYSTEMS OPERATIONAL
+      </div>
     </div>
   </div>
 </body>
@@ -256,152 +369,264 @@ export class EmailService {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Your Password</title>
+  <title>Password Reset - AETHER</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body {
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background-color: #f5f5f5;
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      color: #e0e0e0;
       line-height: 1.6;
     }
-    .container {
+    .email-wrapper {
       max-width: 600px;
       margin: 40px auto;
-      background-color: #ffffff;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      background: #121212;
+      border: 2px solid #f59e0b;
+      position: relative;
     }
-    .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 40px 20px;
-      text-align: center;
-      color: #ffffff;
+    .scanline {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        to bottom,
+        transparent 50%,
+        rgba(245, 158, 11, 0.03) 50%
+      );
+      background-size: 100% 4px;
+      pointer-events: none;
     }
-    .header h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 600;
+    .terminal-header {
+      background: #1a1a1a;
+      border-bottom: 2px solid #f59e0b;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .terminal-dots {
+      display: flex;
+      gap: 8px;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid;
+    }
+    .dot.red { background: #ef4444; border-color: #dc2626; }
+    .dot.yellow { background: #f59e0b; border-color: #d97706; }
+    .dot.green { background: #10b981; border-color: #059669; }
+    .terminal-title {
+      font-size: 13px;
+      color: #9ca3af;
+      font-weight: 500;
+      letter-spacing: 0.05em;
     }
     .content {
-      padding: 40px 30px;
-      color: #333333;
+      padding: 32px 24px;
+      position: relative;
     }
-    .content h2 {
-      margin: 0 0 20px 0;
-      font-size: 22px;
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      color: #f59e0b;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    }
+    .prompt {
+      color: #f59e0b;
       font-weight: 600;
-      color: #1a1a1a;
-    }
-    .content p {
-      margin: 0 0 20px 0;
-      font-size: 16px;
-      color: #555555;
-    }
-    .alert-box {
-      background-color: #fff3cd;
-      border-left: 4px solid #ffc107;
-      padding: 15px;
-      margin: 20px 0;
-      border-radius: 4px;
-    }
-    .alert-box p {
-      margin: 0;
+      margin-bottom: 16px;
       font-size: 14px;
-      color: #856404;
+    }
+    .prompt::before {
+      content: "[!] ";
+      color: #ef4444;
+      margin-right: 8px;
+    }
+    .message {
+      color: #d1d5db;
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+    .command-block {
+      background: #0a0a0a;
+      border: 1px solid #f59e0b;
+      padding: 16px;
+      margin: 24px 0;
+      font-size: 13px;
+      position: relative;
+    }
+    .command-block::before {
+      content: "$ ";
+      color: #10b981;
+      font-weight: 600;
     }
     .button {
       display: inline-block;
-      padding: 14px 32px;
-      margin: 20px 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #f59e0b;
       color: #ffffff !important;
+      padding: 14px 32px;
       text-decoration: none;
-      border-radius: 6px;
       font-weight: 600;
-      font-size: 16px;
-      transition: transform 0.2s;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: 2px solid #f59e0b;
+      margin: 24px 0;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
     }
     .button:hover {
-      transform: translateY(-1px);
+      background: transparent;
+      color: #f59e0b !important;
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
     }
-    .footer {
-      padding: 30px;
-      text-align: center;
-      background-color: #f9f9f9;
-      border-top: 1px solid #e5e5e5;
+    .button::before {
+      content: ">";
+      position: absolute;
+      left: 12px;
+      transition: all 0.2s;
     }
-    .footer p {
-      margin: 5px 0;
-      font-size: 13px;
-      color: #888888;
-    }
-    .link {
-      color: #667eea;
-      text-decoration: none;
+    .button:hover::before {
+      left: calc(100% - 24px);
     }
     .divider {
-      margin: 30px 0;
-      border: none;
-      border-top: 1px solid #e5e5e5;
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        transparent,
+        #f59e0b,
+        transparent
+      );
+      margin: 32px 0;
+    }
+    .link-box {
+      background: #1a1a1a;
+      border: 1px solid #374151;
+      padding: 12px;
+      margin: 16px 0;
+      font-size: 11px;
+      color: #f59e0b;
+      word-break: break-all;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .warning-box {
+      background: rgba(245, 158, 11, 0.1);
+      border-left: 3px solid #f59e0b;
+      padding: 12px 16px;
+      margin: 24px 0;
+      font-size: 12px;
+      color: #fbbf24;
+    }
+    .info-box {
+      background: rgba(59, 130, 246, 0.1);
+      border-left: 3px solid #3b82f6;
+      padding: 12px 16px;
+      margin: 24px 0;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .footer {
+      background: #0a0a0a;
+      border-top: 2px solid #f59e0b;
+      padding: 24px;
+      text-align: center;
+    }
+    .footer-text {
+      font-size: 11px;
+      color: #6b7280;
+      margin: 8px 0;
+      letter-spacing: 0.05em;
+    }
+    .footer-link {
+      color: #f59e0b;
+      text-decoration: none;
+      margin: 0 8px;
+      transition: all 0.2s;
+    }
+    .footer-link:hover {
+      color: #fbbf24;
+      text-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
     }
     @media only screen and (max-width: 600px) {
-      .container {
-        margin: 20px;
-      }
-      .content {
-        padding: 30px 20px;
-      }
-      .header {
-        padding: 30px 20px;
-      }
-      .header h1 {
-        font-size: 24px;
-      }
+      .email-wrapper { margin: 20px; border-width: 1px; }
+      .content { padding: 24px 16px; }
+      .logo { font-size: 20px; }
+      .button { padding: 12px 24px; font-size: 12px; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>Aether</h1>
+  <div class="email-wrapper">
+    <div class="scanline"></div>
+    
+    <div class="terminal-header">
+      <div class="terminal-dots">
+        <div class="dot red"></div>
+        <div class="dot yellow"></div>
+        <div class="dot green"></div>
+      </div>
+      <div class="terminal-title">AETHER://SECURITY_ALERT</div>
     </div>
+    
     <div class="content">
-      <h2>Hi ${userName},</h2>
-      <p>We received a request to reset your password for your Aether account.</p>
-      <p>Click the button below to create a new password:</p>
+      <div class="logo">AETHER</div>
       
-      <div style="text-align: center;">
-        <a href="${resetLink}" class="button">Reset Password</a>
+      <div class="prompt">SECURITY PROTOCOL INITIATED</div>
+      <div class="message">
+        Alert, <strong>${userName}</strong>.<br><br>
+        A password reset request has been detected for your AETHER account.<br>
+        If you initiated this request, proceed with the reset sequence below.
       </div>
       
-      <hr class="divider">
-      
-      <p style="font-size: 14px; color: #777777;">
-        If the button doesn't work, copy and paste this link into your browser:
-      </p>
-      <p style="font-size: 13px; color: #667eea; word-break: break-all;">
-        ${resetLink}
-      </p>
-      
-      <div class="alert-box">
-        <p><strong>Security Notice:</strong> This link will expire in 1 hour for your protection.</p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${resetLink}" class="button">
+          RESET PASSWORD
+        </a>
       </div>
       
-      <p style="font-size: 14px; color: #999999; margin-top: 20px;">
-        If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
-      </p>
+      <div class="divider"></div>
+      
+      <div class="command-block">
+        Or execute manual reset:<br>
+        <div class="link-box">${resetLink}</div>
+      </div>
+      
+      <div class="warning-box">
+        [!] CRITICAL SECURITY NOTICE<br>
+        - Link expires in 1 hour<br>
+        - Single use authentication token<br>
+        - Immediate expiration upon use
+      </div>
+      
+      <div class="info-box">
+        [?] DID NOT REQUEST THIS?<br>
+        If you did not initiate this reset, your account may be at risk.<br>
+        Ignore this message and your credentials will remain unchanged.<br>
+        Consider enabling two-factor authentication.
+      </div>
     </div>
+    
     <div class="footer">
-      <p>If you have any questions, please contact our support team.</p>
-      <p style="margin-top: 15px;">
-        <a href="${this.frontendUrl}" class="link">Visit Aether</a> • 
-        <a href="${this.frontendUrl}/support" class="link">Support</a>
-      </p>
-      <p style="margin-top: 15px; color: #aaaaaa;">
-        © ${new Date().getFullYear()} Aether Collaboration Platform. All rights reserved.
-      </p>
+      <div class="footer-text">
+        [ <a href="${this.frontendUrl}" class="footer-link">AETHER.PLATFORM</a> ]
+        [ <a href="${this.frontendUrl}/support" class="footer-link">SUPPORT</a> ]
+      </div>
+      <div class="footer-text" style="margin-top: 16px;">
+        © ${new Date().getFullYear()} AETHER COLLABORATION PLATFORM<br>
+        SECURITY SYSTEMS ACTIVE
+      </div>
     </div>
   </div>
 </body>

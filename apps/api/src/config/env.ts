@@ -17,6 +17,7 @@ const envSchema = z.object({
   DB_NAME: z.string().min(1, 'DB_NAME is required'),
   DB_USER: z.string().min(1, 'DB_USER is required'),
   DB_PASSWORD: z.string().min(1, 'DB_PASSWORD is required'),
+  DATABASE_URL: z.string().url('DATABASE_URL must be a valid PostgreSQL connection string'),
 
   // Redis
   REDIS_URL: z.string().url('REDIS_URL must be a valid URL'),
@@ -40,11 +41,16 @@ const envSchema = z.object({
   ALLOWED_ORIGINS: z.string().min(1, 'ALLOWED_ORIGINS is required'),
   FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid URL'),
 
-  // Email
-  RESEND_API_KEY: z
+  // Email - Brevo
+  BREVO_API_KEY: z
     .string()
-    .startsWith('re_', 'RESEND_API_KEY must start with re_')
-    .min(10, 'RESEND_API_KEY appears to be invalid'),
+    .startsWith('xkeysib-', 'BREVO_API_KEY must start with xkeysib-')
+    .min(20, 'BREVO_API_KEY appears to be invalid'),
+  EMAIL_FROM: z
+    .string()
+    .email('EMAIL_FROM must be a valid email address')
+    .default('aether.notifications@gmail.com'),
+  EMAIL_FROM_NAME: z.string().min(1, 'EMAIL_FROM_NAME is required').default('Aether Platform'),
 });
 
 export type Env = z.infer<typeof envSchema>;
