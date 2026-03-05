@@ -58,6 +58,11 @@ const PORT = env.API_PORT || 4000;
 // MIDDLEWARE
 // ============================================================================
 
+// Trust proxy - Required for Render and other cloud platforms
+// This allows Express to correctly identify the client's IP address
+// when behind a reverse proxy/load balancer
+app.set('trust proxy', 1);
+
 // ============================================================================
 // SECURITY HEADERS (Helmet)
 // ============================================================================
