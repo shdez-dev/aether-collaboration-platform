@@ -62,14 +62,15 @@ services:
     dockerfilePath: ./apps/web/Dockerfile
     dockerContext: .
     healthCheckPath: /
+    dockerCommand: pnpm start -p ${PORT:-3001} -H 0.0.0.0
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3001
       - key: NEXT_PUBLIC_API_URL
-        sync: false
+        value: https://aether-api-qjkz.onrender.com
       - key: NEXT_PUBLIC_WS_URL
-        sync: false
+        value: wss://aether-api-qjkz.onrender.com
       - key: NEXT_TELEMETRY_DISABLED
         value: 1
