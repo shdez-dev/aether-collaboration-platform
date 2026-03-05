@@ -4,46 +4,26 @@
 # This file defines all services needed for deploying to Render
 # Render will automatically detect and deploy all services defined here
 
+databases:
+  # ===========================================================================
+  # DATABASE - PostgreSQL (Native Render Service)
+  # ===========================================================================
+  - name: aether-postgres
+    databaseName: aether_production
+    user: aether
+    plan: free # Change to 'starter' or higher for production
+    region: oregon
+
 services:
   # ===========================================================================
-  # DATABASE - PostgreSQL
+  # CACHE - Redis (Native Render Service)
   # ===========================================================================
-  - type: pserv
-    name: aether-postgres
-    env: docker
-    plan: starter # Change to 'standard' or higher for production
-    region: oregon # Change to your preferred region
-    image:
-      url: postgres:16-alpine
-    envVars:
-      - key: POSTGRES_DB
-        value: aether_production
-      - key: POSTGRES_USER
-        value: aether
-      - key: POSTGRES_PASSWORD
-        generateValue: true # Render will auto-generate a secure password
-    disk:
-      name: postgres-data
-      mountPath: /var/lib/postgresql/data
-      sizeGB: 10
-
-  # ===========================================================================
-  # CACHE - Redis
-  # ===========================================================================
-  - type: pserv
+  - type: redis
     name: aether-redis
-    env: docker
-    plan: starter
+    plan: free # Change to 'starter' or higher for production
     region: oregon
-    image:
-      url: redis:7-alpine
-    envVars:
-      - key: REDIS_PASSWORD
-        generateValue: true
-    disk:
-      name: redis-data
-      mountPath: /data
-      sizeGB: 1
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # Allow all IPs
 
   # ===========================================================================
   # API - Backend Service
@@ -61,26 +41,15 @@ services:
         value: production
       - key: API_PORT
         value: 3000
-      - key: DB_HOST
-        fromService:
-          type: pserv
-          name: aether-postgres
-          property: host
-      - key: DB_PORT
-        value: 5432
-      - key: DB_NAME
-        value: aether_production
-      - key: DB_USER
-        value: aether
-      - key: DB_PASSWORD
-        fromService:
-          type: pserv
-          name: aether-postgres
-          envVarKey: POSTGRES_PASSWORD
       - key: DATABASE_URL
-        sync: false # Constructed from DB variables above
+        fromDatabase:
+          name: aether-postgres
+          property: connectionString
       - key: REDIS_URL
-        sync: false # Will be set manually
+        fromService:
+          type: redis
+          name: aether-redis
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: REFRESH_TOKEN_SECRET
