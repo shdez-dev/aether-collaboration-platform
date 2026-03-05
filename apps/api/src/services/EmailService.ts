@@ -145,28 +145,12 @@ export class EmailService {
       background: #1a1a1a;
       border-bottom: 2px solid #3b82f6;
       padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
     }
-    .terminal-dots {
-      display: flex;
-      gap: 8px;
-    }
-    .dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 1px solid;
-    }
-    .dot.red { background: #ef4444; border-color: #dc2626; }
-    .dot.yellow { background: #f59e0b; border-color: #d97706; }
-    .dot.green { background: #10b981; border-color: #059669; }
     .terminal-title {
       font-size: 13px;
-      color: #9ca3af;
+      color: #60a5fa;
       font-weight: 500;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.1em;
     }
     .content {
       padding: 32px 24px;
@@ -188,8 +172,8 @@ export class EmailService {
       font-size: 14px;
     }
     .prompt::before {
-      content: "❯ ";
-      color: #10b981;
+      content: "> ";
+      color: #60a5fa;
       margin-right: 8px;
     }
     .message {
@@ -208,7 +192,7 @@ export class EmailService {
     }
     .command-block::before {
       content: "$ ";
-      color: #10b981;
+      color: #60a5fa;
       font-weight: 600;
     }
     .button {
@@ -304,11 +288,6 @@ export class EmailService {
     <div class="scanline"></div>
     
     <div class="terminal-header">
-      <div class="terminal-dots">
-        <div class="dot red"></div>
-        <div class="dot yellow"></div>
-        <div class="dot green"></div>
-      </div>
       <div class="terminal-title">AETHER://VERIFICATION</div>
     </div>
     
@@ -384,7 +363,7 @@ export class EmailService {
       max-width: 600px;
       margin: 40px auto;
       background: #121212;
-      border: 2px solid #f59e0b;
+      border: 2px solid #3b82f6;
       position: relative;
     }
     .scanline {
@@ -396,18 +375,15 @@ export class EmailService {
       background: linear-gradient(
         to bottom,
         transparent 50%,
-        rgba(245, 158, 11, 0.03) 50%
+        rgba(59, 130, 246, 0.03) 50%
       );
       background-size: 100% 4px;
       pointer-events: none;
     }
     .terminal-header {
       background: #1a1a1a;
-      border-bottom: 2px solid #f59e0b;
+      border-bottom: 2px solid #3b82f6;
       padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
     }
     .terminal-dots {
       display: flex;
@@ -435,21 +411,21 @@ export class EmailService {
     .logo {
       font-size: 24px;
       font-weight: 700;
-      color: #f59e0b;
+      color: #3b82f6;
       margin-bottom: 24px;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+      text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
     }
     .prompt {
-      color: #f59e0b;
+      color: #3b82f6;
       font-weight: 600;
       margin-bottom: 16px;
       font-size: 14px;
     }
     .prompt::before {
-      content: "[!] ";
-      color: #ef4444;
+      content: "> ";
+      color: #60a5fa;
       margin-right: 8px;
     }
     .message {
@@ -460,7 +436,7 @@ export class EmailService {
     }
     .command-block {
       background: #0a0a0a;
-      border: 1px solid #f59e0b;
+      border: 1px solid #3b82f6;
       padding: 16px;
       margin: 24px 0;
       font-size: 13px;
@@ -468,12 +444,12 @@ export class EmailService {
     }
     .command-block::before {
       content: "$ ";
-      color: #10b981;
+      color: #60a5fa;
       font-weight: 600;
     }
     .button {
       display: inline-block;
-      background: #f59e0b;
+      background: #3b82f6;
       color: #ffffff !important;
       padding: 14px 32px;
       text-decoration: none;
@@ -481,7 +457,7 @@ export class EmailService {
       font-size: 14px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      border: 2px solid #f59e0b;
+      border: 2px solid #3b82f6;
       margin: 24px 0;
       transition: all 0.2s;
       position: relative;
@@ -489,8 +465,8 @@ export class EmailService {
     }
     .button:hover {
       background: transparent;
-      color: #f59e0b !important;
-      box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+      color: #3b82f6 !important;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
     }
     .button::before {
       content: ">";
@@ -506,7 +482,7 @@ export class EmailService {
       background: linear-gradient(
         to right,
         transparent,
-        #f59e0b,
+        #3b82f6,
         transparent
       );
       margin: 32px 0;
@@ -517,17 +493,17 @@ export class EmailService {
       padding: 12px;
       margin: 16px 0;
       font-size: 11px;
-      color: #f59e0b;
+      color: #3b82f6;
       word-break: break-all;
       font-family: 'JetBrains Mono', monospace;
     }
     .warning-box {
-      background: rgba(245, 158, 11, 0.1);
-      border-left: 3px solid #f59e0b;
+      background: rgba(59, 130, 246, 0.1);
+      border-left: 3px solid #3b82f6;
       padding: 12px 16px;
       margin: 24px 0;
       font-size: 12px;
-      color: #fbbf24;
+      color: #93c5fd;
     }
     .info-box {
       background: rgba(59, 130, 246, 0.1);
@@ -539,7 +515,7 @@ export class EmailService {
     }
     .footer {
       background: #0a0a0a;
-      border-top: 2px solid #f59e0b;
+      border-top: 2px solid #3b82f6;
       padding: 24px;
       text-align: center;
     }
@@ -550,14 +526,14 @@ export class EmailService {
       letter-spacing: 0.05em;
     }
     .footer-link {
-      color: #f59e0b;
+      color: #3b82f6;
       text-decoration: none;
       margin: 0 8px;
       transition: all 0.2s;
     }
     .footer-link:hover {
-      color: #fbbf24;
-      text-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+      color: #60a5fa;
+      text-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
     }
     @media only screen and (max-width: 600px) {
       .email-wrapper { margin: 20px; border-width: 1px; }
@@ -572,11 +548,6 @@ export class EmailService {
     <div class="scanline"></div>
     
     <div class="terminal-header">
-      <div class="terminal-dots">
-        <div class="dot red"></div>
-        <div class="dot yellow"></div>
-        <div class="dot green"></div>
-      </div>
       <div class="terminal-title">AETHER://SECURITY_ALERT</div>
     </div>
     
