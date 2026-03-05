@@ -53,13 +53,17 @@ ENV API_PORT=3000
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 aether
 
+# Copy package files for production install
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared-types/package.json ./packages/shared-types/
+
+# Install production dependencies only
+RUN pnpm install --frozen-lockfile --prod
+
 # Copy built application
 COPY --from=builder --chown=aether:nodejs /app/apps/api/dist ./apps/api/dist
-COPY --from=builder --chown=aether:nodejs /app/apps/api/package.json ./apps/api/
-COPY --from=builder --chown=aether:nodejs /app/packages ./packages
-COPY --from=builder --chown=aether:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=aether:nodejs /app/package.json ./
-COPY --from=builder --chown=aether:nodejs /app/pnpm-workspace.yaml ./
+COPY --from=builder --chown=aether:nodejs /app/packages/shared-types/dist ./packages/shared-types/dist
 
 # Create uploads directory
 RUN mkdir -p /app/apps/api/public/uploads/avatars && \
