@@ -32,8 +32,8 @@ COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 # Copy source code
 COPY . .
 
-# Generate Prisma Client
-RUN cd apps/api && npx prisma generate
+# Build shared types package first
+RUN cd packages/shared-types && pnpm build
 
 # Build the application
 RUN pnpm --filter @aether/api build
