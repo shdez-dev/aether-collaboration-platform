@@ -48,6 +48,13 @@ const nextConfig = {
   transpilePackages: ['@aether/types'],
   // Enable standalone output for Docker/production deployment
   output: 'standalone',
+  // Disable ESLint and TypeScript checks during build (run separately in CI)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
     NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000',

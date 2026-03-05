@@ -32,6 +32,9 @@ COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 # Copy source
 COPY . .
 
+# Build shared types package first
+RUN cd packages/shared-types && pnpm build
+
 # Build Next.js app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @aether/web build
