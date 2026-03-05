@@ -112,10 +112,14 @@ CREATE TABLE IF NOT EXISTS lists (
   board_id UUID NOT NULL,
   name VARCHAR(255) NOT NULL,
   position INTEGER NOT NULL,
+  created_by UUID,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_lists_board FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
+  CONSTRAINT fk_lists_board FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
+  CONSTRAINT fk_lists_creator FOREIGN KEY (created_by) REFERENCES users(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_lists_created_by ON lists(created_by);
 
 CREATE TABLE IF NOT EXISTS cards (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

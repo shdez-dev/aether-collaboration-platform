@@ -30,7 +30,32 @@ export async function runMigrations() {
         CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(email_verification_token);
       `);
 
-      console.log('✅ Migrations completed successfully');
+      console.log('  ✓ Migration 001: Email verification columns');
+
+      // Migration 002: Add created_by to lists table
+      await client.query(`
+        -- Add created_by column to lists
+        ALTER TABLE lists 
+        ADD COLUMN IF NOT EXISTS created_by UUID;
+        
+        -- Add foreign key constraint
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'fk_lists_creator'
+          ) THEN
+            ALTER TABLE lists 
+            ADD CONSTRAINT fk_lists_creator 
+            FOREIGN KEY (created_by) REFERENCES users(id);
+          END IF;
+        END $$;
+        
+        -- Create index for faster lookups
+        CREATE INDEX IF NOT EXISTS idx_lists_created_by ON lists(created_by);
+      `);
+
+      console.log('  ✓ Migration 002: Add created_by to lists');
+      console.log('✅ All migrations completed successfully');
     } finally {
       client.release();
     }
