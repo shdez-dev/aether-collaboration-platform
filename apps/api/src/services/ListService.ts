@@ -45,10 +45,10 @@ export class ListService {
       const nextPosition = positionResult.rows[0].max_position + 1;
 
       const listResult = await client.query(
-        `INSERT INTO lists (board_id, name, position)
-         VALUES ($1, $2, $3)
+        `INSERT INTO lists (board_id, name, position, created_by)
+         VALUES ($1, $2, $3, $4)
          RETURNING *`,
-        [boardId, data.name, nextPosition]
+        [boardId, data.name, nextPosition, userId]
       );
 
       const list = listResult.rows[0];
@@ -57,9 +57,9 @@ export class ListService {
 
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId);
 
-      // Obtener título del board para el payload
-      const boardResult = await client.query('SELECT title FROM boards WHERE id = $1', [boardId]);
-      const boardTitle = boardResult.rows[0]?.title || 'Board desconocido';
+      // Obtener nombre del board para el payload
+      const boardResult = await client.query('SELECT name FROM boards WHERE id = $1', [boardId]);
+      const boardTitle = boardResult.rows[0]?.name || 'Board desconocido';
 
       const payload: ListCreatedPayload = {
         listId: list.id as any,
