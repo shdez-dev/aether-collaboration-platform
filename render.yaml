@@ -26,7 +26,6 @@ services:
       name: postgres-data
       mountPath: /var/lib/postgresql/data
       sizeGB: 10
-    healthCheckPath: /
 
   # ===========================================================================
   # CACHE - Redis
@@ -142,7 +141,7 @@ services:
 #      - NEXT_PUBLIC_API_URL: https://aether-api-xxxxx.onrender.com
 #      - NEXT_PUBLIC_WS_URL: wss://aether-api-xxxxx.onrender.com
 #
-# 3. Add your Resend API key to aether-api service
+# 3. Add your Brevo API key to aether-api service
 # 4. Run database migrations manually from Render shell:
 #    - Go to aether-api service dashboard
 #    - Click "Shell" button
