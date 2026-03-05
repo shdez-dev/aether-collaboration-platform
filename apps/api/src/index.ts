@@ -36,6 +36,7 @@ import { validateEnv } from './config/env';
 import { initializeRedis, closeRedisConnections } from './lib/redis';
 import { initializeRealtimeGateway } from './websocket/RealtimeGateway';
 import { initializeYjsGateway } from './websocket/Yjsgateway';
+import { runMigrations } from './migrations/run-migrations';
 
 // ============================================================================
 // ENVIRONMENT VALIDATION
@@ -211,6 +212,9 @@ const httpServer = createServer(app);
 
 async function startServer() {
   try {
+    // 0. Run database migrations
+    await runMigrations();
+
     // 1. Initialize Redis
     await initializeRedis();
 

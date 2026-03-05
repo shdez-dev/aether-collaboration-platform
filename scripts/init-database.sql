@@ -33,9 +33,15 @@ CREATE TABLE IF NOT EXISTS users (
   language VARCHAR(10) DEFAULT 'en', -- Idioma preferido: 'en', 'es', etc.
   phone VARCHAR(50),
   location VARCHAR(255),
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  email_verification_token VARCHAR(255),
+  email_verification_expires TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Index for email verification token lookups
+CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(email_verification_token);
 
 -- User Preferences (configuración y preferencias de usuario)
 CREATE TABLE IF NOT EXISTS user_preferences (
