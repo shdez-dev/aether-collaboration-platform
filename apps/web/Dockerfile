@@ -36,7 +36,17 @@ COPY . .
 RUN cd packages/shared-types && pnpm build
 
 # Build Next.js app
+# Accept build-time environment variables
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Debug: print the values (will be visible in build logs)
+RUN echo "Building with NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}"
+RUN echo "Building with NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}"
+
 RUN pnpm --filter @aether/web build
 
 # Stage 3: Production
