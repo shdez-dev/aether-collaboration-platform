@@ -2,15 +2,24 @@ databases:
   - name: aether-postgres
     databaseName: aether_production
     user: aether
+    region: oregon
+    plan: free
 
 services:
   - type: redis
     name: aether-redis
-    ipAllowList: []
+    region: oregon
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow all
 
   - type: web
     name: aether-api
     runtime: docker
+    region: oregon
+    plan: free
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -48,6 +57,8 @@ services:
   - type: web
     name: aether-web
     runtime: docker
+    region: oregon
+    plan: free
     dockerfilePath: ./apps/web/Dockerfile
     dockerContext: .
     healthCheckPath: /
