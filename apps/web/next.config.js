@@ -46,8 +46,6 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@aether/types'],
-  // Enable standalone output for Docker/production deployment
-  output: 'standalone',
   // Disable ESLint and TypeScript checks during build (run separately in CI)
   eslint: {
     ignoreDuringBuilds: true,
