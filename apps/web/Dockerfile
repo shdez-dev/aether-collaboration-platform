@@ -79,4 +79,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 
 # Start Next.js server
 WORKDIR /app/apps/web
-CMD ["pnpm", "start", "-p", "${PORT:-3001}", "-H", "0.0.0.0"]
+CMD pnpm start -p ${PORT:-3001} -H 0.0.0.0
