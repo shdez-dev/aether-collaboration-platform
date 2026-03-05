@@ -13,8 +13,7 @@ RUN npm install -g pnpm@8
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
-COPY packages/types/package.json ./packages/types/
-COPY packages/shared/package.json ./packages/shared/
+COPY packages/shared-types/package.json ./packages/shared-types/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile --prod=false
@@ -38,8 +37,6 @@ RUN cd apps/api && npx prisma generate
 
 # Build the application
 RUN pnpm --filter @aether/api build
-RUN pnpm --filter @aether/types build
-RUN pnpm --filter @aether/shared build
 
 # Stage 3: Production
 FROM node:20-alpine AS runner

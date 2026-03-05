@@ -13,8 +13,7 @@ RUN npm install -g pnpm@8
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
-COPY packages/types/package.json ./packages/types/
-COPY packages/shared/package.json ./packages/shared/
+COPY packages/shared-types/package.json ./packages/shared-types/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -32,10 +31,6 @@ COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 
 # Copy source
 COPY . .
-
-# Build packages first
-RUN pnpm --filter @aether/types build
-RUN pnpm --filter @aether/shared build
 
 # Build Next.js app
 ENV NEXT_TELEMETRY_DISABLED=1
