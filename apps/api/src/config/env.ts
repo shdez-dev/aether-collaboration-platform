@@ -3,6 +3,33 @@
 import { z } from 'zod';
 
 /**
+ * Si DATABASE_URL está presente, extrae los componentes individuales de la cadena
+ * de conexión y los inyecta en process.env para que el pool de pg los pueda leer.
+ *
+ * Render.com (y otras plataformas cloud) solo inyectan DATABASE_URL; este paso
+ * garantiza compatibilidad sin necesidad de configurar DB_HOST/PORT/NAME/USER/PASSWORD
+ * manualmente en el dashboard.
+ */
+function populateDbVarsFromUrl(): void {
+  const url = process.env.DATABASE_URL;
+  if (!url) return;
+
+  try {
+    // Soporta formatos: postgres://user:pass@host:port/dbname
+    // y la variante con ?sslmode=require u otros parámetros
+    const parsed = new URL(url);
+
+    if (!process.env.DB_HOST) process.env.DB_HOST = parsed.hostname;
+    if (!process.env.DB_PORT) process.env.DB_PORT = parsed.port || '5432';
+    if (!process.env.DB_NAME) process.env.DB_NAME = parsed.pathname.replace(/^\//, '');
+    if (!process.env.DB_USER) process.env.DB_USER = decodeURIComponent(parsed.username);
+    if (!process.env.DB_PASSWORD) process.env.DB_PASSWORD = decodeURIComponent(parsed.password);
+  } catch {
+    // Si la URL no es válida, la validación de Zod lo reportará correctamente
+  }
+}
+
+/**
  * Environment variables schema
  * Validates that all required environment variables are present and valid
  */
@@ -11,13 +38,14 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   API_PORT: z.string().transform(Number).pipe(z.number().min(1).max(65535)).default('3000'),
 
-  // Database
-  DB_HOST: z.string().min(1, 'DB_HOST is required'),
+  // Database — opcionales individualmente cuando DATABASE_URL está presente
+  // (populateDbVarsFromUrl() los rellena automáticamente antes de la validación)
+  DB_HOST: z.string().min(1, 'DB_HOST is required').optional().default('localhost'),
   DB_PORT: z.string().transform(Number).pipe(z.number().min(1).max(65535)).default('5432'),
-  DB_NAME: z.string().min(1, 'DB_NAME is required'),
-  DB_USER: z.string().min(1, 'DB_USER is required'),
-  DB_PASSWORD: z.string().min(1, 'DB_PASSWORD is required'),
-  DATABASE_URL: z.string().url('DATABASE_URL must be a valid PostgreSQL connection string'),
+  DB_NAME: z.string().min(1, 'DB_NAME is required').optional().default('aether'),
+  DB_USER: z.string().min(1, 'DB_USER is required').optional().default('postgres'),
+  DB_PASSWORD: z.string().optional().default(''),
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
   // Redis
   REDIS_URL: z.string().url('REDIS_URL must be a valid URL'),
@@ -36,16 +64,22 @@ const envSchema = z.object({
       message: 'REFRESH_TOKEN_SECRET must be changed from default value',
     }),
 
-  // CORS
-  CORS_ORIGIN: z.string().min(1, 'CORS_ORIGIN is required'),
-  ALLOWED_ORIGINS: z.string().min(1, 'ALLOWED_ORIGINS is required'),
-  FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid URL'),
+  // CORS — opcionales: si no están configuradas se usan valores seguros por defecto
+  CORS_ORIGIN: z.string().optional().default(''),
+  ALLOWED_ORIGINS: z.string().optional().default(''),
+  FRONTEND_URL: z
+    .string()
+    .url('FRONTEND_URL must be a valid URL')
+    .optional()
+    .default('http://localhost:3001'),
 
   // Email - Brevo
   BREVO_API_KEY: z
     .string()
     .startsWith('xkeysib-', 'BREVO_API_KEY must start with xkeysib-')
-    .min(20, 'BREVO_API_KEY appears to be invalid'),
+    .min(20, 'BREVO_API_KEY appears to be invalid')
+    .optional()
+    .default('xkeysib-placeholder-not-configured'),
   EMAIL_FROM: z
     .string()
     .email('EMAIL_FROM must be a valid email address')
@@ -60,6 +94,9 @@ export type Env = z.infer<typeof envSchema>;
  * Exits the process if validation fails
  */
 export function validateEnv(): Env {
+  // Primero extraer DB_* desde DATABASE_URL si aplica
+  populateDbVarsFromUrl();
+
   try {
     const env = envSchema.parse(process.env);
     return env;

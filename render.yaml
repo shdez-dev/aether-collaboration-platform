@@ -42,11 +42,11 @@ services:
       - key: REFRESH_TOKEN_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        sync: false
+        value: https://aether-web-1yk3.onrender.com
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: https://aether-web-1yk3.onrender.com
       - key: FRONTEND_URL
-        sync: false
+        value: https://aether-web-1yk3.onrender.com
       - key: BREVO_API_KEY
         sync: false
       - key: EMAIL_FROM

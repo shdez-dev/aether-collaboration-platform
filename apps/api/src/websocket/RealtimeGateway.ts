@@ -32,12 +32,36 @@ export class RealtimeGateway {
   private presenceService = getPresenceService(redisClient);
 
   constructor(httpServer: HTTPServer) {
+    // Construir lista de orígenes permitidos combinando FRONTEND_URL y ALLOWED_ORIGINS.
+    // Render.com inyecta solo ALLOWED_ORIGINS/FRONTEND_URL, por eso se aceptan ambas fuentes.
+    const allowedOrigins: string[] = [];
+
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
+
+    if (process.env.ALLOWED_ORIGINS) {
+      const extras = process.env.ALLOWED_ORIGINS.split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+      extras.forEach((o) => {
+        if (!allowedOrigins.includes(o)) allowedOrigins.push(o);
+      });
+    }
+
+    // Fallback para desarrollo local
+    if (allowedOrigins.length === 0) {
+      allowedOrigins.push('http://localhost:3001', 'http://localhost:3000');
+    }
+
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+        origin: allowedOrigins,
         credentials: true,
       },
-      transports: ['websocket', 'polling'],
+      // polling primero para garantizar la conexión inicial en entornos cloud
+      // (Render free tier puede rechazar upgrades WebSocket en el handshake inicial)
+      transports: ['polling', 'websocket'],
     });
 
     this.setupMiddleware();

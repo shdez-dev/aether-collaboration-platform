@@ -17,6 +17,10 @@ class SocketService {
   private isConnecting = false;
   private connectListeners: Array<() => void> = [];
 
+  // Cola de listeners que se registraron antes de que el socket existiera.
+  // Se aplican en cuanto el socket se crea (dentro de connect()).
+  private pendingListeners: Array<{ event: string; callback: (data: any) => void }> = [];
+
   /** Suscribirse al evento de conexión/reconexión establecida */
   onConnect(cb: () => void): void {
     this.connectListeners.push(cb);
@@ -42,15 +46,25 @@ class SocketService {
     }
 
     this.isConnecting = true;
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000';
+    // Normalizar la URL: socket.io-client acepta tanto https:// como wss://, pero
+    // cuando el primer transporte es polling (HTTP), la URL debe ser https://.
+    // Convertimos wss:// → https:// y ws:// → http:// para que el polling funcione.
+    const rawUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000';
+    const wsUrl = rawUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
 
     this.socket = io(wsUrl, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      // polling primero: garantiza la conexión inicial en entornos cloud (Render, etc.)
+      // donde el upgrade WebSocket puede fallar en el handshake. Una vez establecida
+      // la conexión vía polling, socket.io-client hará upgrade automático a WebSocket.
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: this.reconnectDelay,
       reconnectionAttempts: this.maxReconnectAttempts,
     });
+
+    // Aplicar listeners que se registraron antes de que existiera el socket
+    this.flushPendingListeners();
 
     this.setupEventHandlers();
   }
@@ -110,6 +124,7 @@ class SocketService {
     this.socket.disconnect();
     this.socket = null;
     this.eventQueue = [];
+    this.pendingListeners = [];
     this.isConnecting = false;
     this.connectListeners = [];
   }
@@ -150,10 +165,14 @@ class SocketService {
   }
 
   /**
-   * Escuchar un evento del servidor
+   * Escuchar un evento del servidor.
+   * Si el socket todavía no existe (conexión pendiente), el listener se encola
+   * y se registrará en cuanto el socket sea creado.
    */
   on(event: string, callback: (data: any) => void): void {
     if (!this.socket) {
+      // Guardar en cola para aplicar cuando el socket esté disponible
+      this.pendingListeners.push({ event, callback });
       return;
     }
 
@@ -161,9 +180,19 @@ class SocketService {
   }
 
   /**
-   * Dejar de escuchar un evento
+   * Dejar de escuchar un evento.
+   * También elimina el listener de la cola pendiente si aún no se aplicó.
    */
   off(event: string, callback?: (data: any) => void): void {
+    // Limpiar de la cola pendiente también
+    if (callback) {
+      this.pendingListeners = this.pendingListeners.filter(
+        (l) => !(l.event === event && l.callback === callback)
+      );
+    } else {
+      this.pendingListeners = this.pendingListeners.filter((l) => l.event !== event);
+    }
+
     if (!this.socket) return;
 
     if (callback) {
@@ -260,6 +289,19 @@ class SocketService {
     while (this.eventQueue.length > 0) {
       const { event, data } = this.eventQueue.shift()!;
       this.socket?.emit(event, data);
+    }
+  }
+
+  /**
+   * Registrar en el socket los listeners que se encolaron antes de su creación.
+   * Se llama justo después de crear el socket en connect().
+   */
+  private flushPendingListeners(): void {
+    if (!this.socket || this.pendingListeners.length === 0) return;
+
+    while (this.pendingListeners.length > 0) {
+      const { event, callback } = this.pendingListeners.shift()!;
+      this.socket.on(event, callback);
     }
   }
 
