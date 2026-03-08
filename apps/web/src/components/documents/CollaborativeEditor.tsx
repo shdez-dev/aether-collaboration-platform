@@ -1450,79 +1450,101 @@ export default function CollaborativeEditor({
   }, [yjsDoc]); // Solo recrear si cambia yjsDoc, no el color del usuario
 
   useEffect(() => {
-    if (isJoinedRef.current) return;
+    // ── Estado de la sesión de sync actual ────────────────────────────────────
+    // `isMounted` evita procesar respuestas después del desmontaje.
+    // `joinedOnce` distingue la primera conexión de reconexiones posteriores.
+    let isMounted = true;
+    let joinedOnce = false;
+    let syncTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    const startTime = performance.now();
+    // ── Función principal: join + espera del document:sync ────────────────────
+    // Se llama al montar (primera vez) y en cada reconexión del socket.
+    const doJoinAndWaitSync = () => {
+      if (!isMounted) return;
 
+      // Cancelar timeout anterior si se está reintentando
+      if (syncTimeoutId) {
+        clearTimeout(syncTimeoutId);
+        syncTimeoutId = null;
+      }
+
+      // Emitir join al servidor.
+      // Si el socket aún no está conectado, socketService lo encola internamente
+      // y lo enviará en cuanto el socket establezca conexión.
+      socketService.joinDocument(documentId, workspaceId);
+      isJoinedRef.current = true;
+      joinedOnce = true;
+
+      // Timeout de seguridad: si el document:sync no llega en 10s, abrir el
+      // editor de todas formas para no bloquear al usuario. En Render free tier
+      // el cold start puede tardar hasta ~30s, pero con polling + websocket
+      // la conexión debería establecerse mucho antes.
+      syncTimeoutId = setTimeout(() => {
+        if (!isMounted || initialSyncReceivedRef.current) return;
+        initialSyncReceivedRef.current = true;
+        setIsDocumentReady(true);
+        setSyncError(null);
+      }, 10000);
+    };
+
+    // ── Handler del document:sync enviado por el servidor ─────────────────────
     const handleInitialSync = (data: { documentId: string; update: number[] }) => {
-      if (data.documentId === documentId && !initialSyncReceivedRef.current) {
-        try {
-          const update = new Uint8Array(data.update);
-          const loadStartTime = performance.now();
-          Y.applyUpdate(yjsDoc, update, 'server');
-          const loadTime = performance.now() - loadStartTime;
+      if (!isMounted || data.documentId !== documentId) return;
 
-          // Guardar snapshot del estado completo recibido del servidor como fallback.
-          // Si el desmontaje ocurre con el doc local vacío o corrupto, usamos este snapshot.
-          lastServerSnapshotRef.current = update;
+      if (syncTimeoutId) {
+        clearTimeout(syncTimeoutId);
+        syncTimeoutId = null;
+      }
 
-          initialSyncReceivedRef.current = true;
-          setIsDocumentReady(true);
-          setSyncError(null);
-          retryCountRef.current = 0;
-          socketService.off('document:sync', handleInitialSync);
-        } catch (error) {
-          setSyncError('Error al cargar el contenido del documento');
-        }
+      try {
+        const update = new Uint8Array(data.update);
+        Y.applyUpdate(yjsDoc, update, 'server');
+        lastServerSnapshotRef.current = update;
+        initialSyncReceivedRef.current = true;
+        setIsDocumentReady(true);
+        setSyncError(null);
+      } catch {
+        setSyncError('Error al cargar el contenido del documento');
       }
     };
 
-    const handleError = (error: any) => {
-      setSyncError('Error de conexión con el servidor');
+    // ── Handler de reconexión del socket ──────────────────────────────────────
+    // socket.io reconecta automáticamente, pero el servidor pierde el room del
+    // documento. Este callback rehace el join para volver a recibir el sync.
+    // Solo actúa si ya se hizo el join una vez (joinedOnce) para no duplicar
+    // el join inicial (que ya hace doJoinAndWaitSync() al final de este efecto).
+    const handleSocketReconnect = () => {
+      if (!isMounted || !joinedOnce) return;
+      // Resetear estado: el servidor ya no nos tiene en el room
+      initialSyncReceivedRef.current = false;
+      setIsDocumentReady(false);
+      doJoinAndWaitSync();
     };
 
+    // Registrar listeners ANTES de hacer join para no perder document:sync
     socketService.onYjsSync(handleInitialSync);
-    socketService.on('error', handleError);
-    socketService.joinDocument(documentId, workspaceId);
-    isJoinedRef.current = true;
+    socketService.onConnect(handleSocketReconnect);
 
-    // Timeout de 8 segundos con retry logic (usando refs para no re-ejecutar el efecto)
-    const syncTimeout = setTimeout(() => {
-      if (!initialSyncReceivedRef.current) {
-        if (retryCountRef.current < 2) {
-          retryCountRef.current += 1;
-          socketService.leaveDocument(documentId);
-          isJoinedRef.current = false;
-          setTimeout(() => {
-            if (!initialSyncReceivedRef.current) {
-              socketService.joinDocument(documentId, workspaceId);
-              isJoinedRef.current = true;
-            }
-          }, 1000);
-        } else {
-          // Después de 2 reintentos, aceptar documento vacío
-          initialSyncReceivedRef.current = true;
-          setIsDocumentReady(true);
-          setSyncError(null);
-          socketService.off('document:sync', handleInitialSync);
-        }
-      }
-    }, 8000);
+    // Join inicial — ocurre inmediatamente si el socket está conectado,
+    // o se encola si el socket aún está en fase de handshake
+    doJoinAndWaitSync();
 
     return () => {
-      clearTimeout(syncTimeout);
-      if (isJoinedRef.current) {
-        socketService.leaveDocument(documentId);
-        socketService.off('document:sync', handleInitialSync);
-        socketService.off('error', handleError);
-        isJoinedRef.current = false;
-        initialSyncReceivedRef.current = false;
-        retryCountRef.current = 0;
-        setIsDocumentReady(false);
-        setSyncError(null);
+      isMounted = false;
+      if (syncTimeoutId) {
+        clearTimeout(syncTimeoutId);
+        syncTimeoutId = null;
       }
+      socketService.off('document:sync', handleInitialSync);
+      socketService.offConnect(handleSocketReconnect);
+      socketService.leaveDocument(documentId);
+      isJoinedRef.current = false;
+      initialSyncReceivedRef.current = false;
+      retryCountRef.current = 0;
+      setIsDocumentReady(false);
+      setSyncError(null);
     };
-  }, [documentId, workspaceId, yjsDoc]); // Sin retryCount: el retry ocurre internamente sin re-ejecutar el efecto
+  }, [documentId, workspaceId, yjsDoc]);
 
   // Memoizar extensions para evitar recreaciones innecesarias
   const extensions = useMemo(

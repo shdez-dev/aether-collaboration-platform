@@ -40,13 +40,18 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Callback que dispara cuando la conexión TCP se establece (o reconecta)
+    // Callback para conexión/reconexión
     const onConnected = () => setIsSocketConnected(true);
 
-    // Suscribirse ANTES de llamar connect() para no perder el evento
-    socketService.onConnect(onConnected);
+    // Callback para desconexión — actualizar estado para que los componentes
+    // sepan que el socket perdió la conexión temporalmente
+    const onDisconnect = () => setIsSocketConnected(false);
 
-    // Si ya está conectado, no volver a conectar
+    // Suscribirse ANTES de llamar connect() para no perder el primer evento
+    socketService.onConnect(onConnected);
+    socketService.on('disconnect', onDisconnect);
+
+    // Conectar solo si no hay conexión activa
     if (!(hasConnectedRef.current && socketService.isConnected())) {
       socketService.connect(accessToken);
       hasConnectedRef.current = true;
@@ -54,6 +59,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       socketService.offConnect(onConnected);
+      socketService.off('disconnect', onDisconnect);
       // No desconectar aquí: puede ser un remount temporal (Strict Mode, HMR)
     };
   }, [accessToken, user]);
