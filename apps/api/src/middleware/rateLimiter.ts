@@ -40,7 +40,7 @@ export const apiLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 login requests per windowMs
+  max: isDevelopment ? 1000 : 5,
   message: {
     success: false,
     error: {
@@ -60,7 +60,7 @@ export const authLimiter = rateLimit({
  */
 export const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // Limit each IP to 3 account creations per hour
+  max: isDevelopment ? 1000 : 3,
   message: {
     success: false,
     error: {
@@ -78,7 +78,7 @@ export const registerLimiter = rateLimit({
  */
 export const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // Limit each IP to 3 password reset requests per hour
+  max: isDevelopment ? 1000 : 3,
   message: {
     success: false,
     error: {

@@ -75,7 +75,7 @@ class DocumentCommentService {
   /** POST /api/documents/:documentId/comments */
   async create(
     documentId: string,
-    payload: { content: string; position: DocumentCommentPosition; parentId?: string | null }
+    payload: { content: string; position: DocumentCommentPosition; parentId?: string | null; mentions?: string[] }
   ): Promise<DocumentCommentData> {
     const res = await fetch(`${this.baseUrl}/api/documents/${documentId}/comments`, {
       method: 'POST',

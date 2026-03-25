@@ -13,6 +13,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:ci": "turbo run test:ci",
     "test:watch": "turbo run test:watch",
     "test:coverage": "turbo run test:coverage",
     "test:integration": "turbo run test:integration",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.1.1",
     "turbo": "^1.11.2",
     "typescript": "^5.3.3"

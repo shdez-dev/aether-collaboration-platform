@@ -17,7 +17,7 @@ export class CardService {
   /**
    * Helper: Obtener boardId desde cardId
    */
-  private static async getBoardIdFromCard(cardId: string): Promise<string | null> {
+  static async getBoardIdFromCard(cardId: string): Promise<string | null> {
     const result = await pool.query(
       `SELECT l.board_id FROM cards c
        INNER JOIN lists l ON c.list_id = l.id
@@ -30,7 +30,7 @@ export class CardService {
   /**
    * Helper: Obtener workspaceId desde boardId
    */
-  private static async getWorkspaceIdFromBoard(boardId: string): Promise<string | null> {
+  static async getWorkspaceIdFromBoard(boardId: string): Promise<string | null> {
     const result = await pool.query('SELECT workspace_id FROM boards WHERE id = $1', [boardId]);
     return result.rows[0]?.workspace_id || null;
   }
@@ -692,6 +692,7 @@ export class CardService {
         cardId,
         cardTitle,
         boardId: boardId || '',
+        workspaceId: workspaceId || undefined,
       });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -761,6 +762,7 @@ export class CardService {
           cardId,
           cardTitle,
           boardId: boardId || '',
+          workspaceId: workspaceId || undefined,
         });
       } catch (notifError) {}
     } catch (error) {

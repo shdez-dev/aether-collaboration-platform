@@ -45,6 +45,8 @@ export function CommentForm({
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStart, setMentionStart] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
+  // Track mention IDs as they are inserted (avoids re-parsing text at submit time)
+  const mentionIdsRef = useRef<Set<string>>(new Set());
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuthStore();
@@ -104,6 +106,10 @@ export function CommentForm({
 
   // ── Insert mention ─────────────────────────────────────────────────────────
   const insertMention = (name: string) => {
+    // Capture the user ID now (while members is definitely loaded)
+    const member = members.find((mb) => mb.name === name);
+    if (member) mentionIdsRef.current.add(member.id);
+
     const el = textareaRef.current;
     const cursorPos = el ? (el.selectionStart ?? mentionStart) : mentionStart;
     const before = content.slice(0, mentionStart);
@@ -181,12 +187,13 @@ export function CommentForm({
     if (!content.trim() || isSubmitting || isLoading) return;
 
     setIsSubmitting(true);
+    const mentionIds = Array.from(mentionIdsRef.current);
     try {
-      const mentionIds = extractMentionIds(content);
       await onSubmit(content, mentionIds.length > 0 ? mentionIds : undefined);
       if (!isEditing) {
         setContent('');
         setMentionQuery(null);
+        mentionIdsRef.current = new Set();
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
       }
     } finally {

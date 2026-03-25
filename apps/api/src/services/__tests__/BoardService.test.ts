@@ -82,7 +82,10 @@ describe('BoardService', () => {
           name: boardData.name,
         }),
         userId,
-        'board-new'
+        'board-new',
+        undefined,
+        undefined,
+        workspaceId
       );
     });
 
@@ -322,7 +325,10 @@ describe('BoardService', () => {
           changes: updates,
         }),
         userId,
-        boardId
+        boardId,
+        undefined,
+        undefined,
+        'ws-123'
       );
     });
 
@@ -374,7 +380,10 @@ describe('BoardService', () => {
           boardId,
         }),
         userId,
-        boardId
+        boardId,
+        undefined,
+        undefined,
+        'ws-123'
       );
     });
 
@@ -420,7 +429,11 @@ describe('BoardService', () => {
         expect.objectContaining({
           boardId,
         }),
-        userId
+        userId,
+        undefined,
+        undefined,
+        undefined,
+        'ws-123'
       );
     });
 

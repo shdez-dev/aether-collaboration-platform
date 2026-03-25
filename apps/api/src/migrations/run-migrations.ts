@@ -55,6 +55,74 @@ export async function runMigrations() {
       `);
 
       console.log('  ✓ Migration 002: Add created_by to lists');
+
+      // Migration 003: Default language to Spanish
+      await client.query(`
+        ALTER TABLE users ALTER COLUMN language SET DEFAULT 'es';
+        UPDATE users SET language = 'es' WHERE language = 'en' OR language IS NULL;
+      `);
+
+      console.log('  ✓ Migration 003: Default language set to Spanish');
+
+      // Migration 004: Add start_date column to cards
+      await client.query(`
+        ALTER TABLE cards
+        ADD COLUMN IF NOT EXISTS start_date TIMESTAMP WITH TIME ZONE;
+      `);
+
+      console.log('  ✓ Migration 004: Add start_date to cards');
+
+      // Migration 005: Create card_checklist_items table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS card_checklist_items (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          card_id UUID NOT NULL,
+          title VARCHAR(500) NOT NULL,
+          completed BOOLEAN DEFAULT FALSE NOT NULL,
+          position INTEGER NOT NULL DEFAULT 0,
+          created_by UUID,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT fk_checklist_card FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_checklist_card ON card_checklist_items(card_id);
+        CREATE INDEX IF NOT EXISTS idx_checklist_card_position ON card_checklist_items(card_id, position);
+      `);
+
+      console.log('  ✓ Migration 005: Create card_checklist_items table');
+
+      // Migration 006: Create card_dependencies table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS card_dependencies (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          blocking_card_id UUID NOT NULL,
+          blocked_card_id UUID NOT NULL,
+          created_by UUID NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT fk_dep_blocking FOREIGN KEY (blocking_card_id) REFERENCES cards(id) ON DELETE CASCADE,
+          CONSTRAINT fk_dep_blocked FOREIGN KEY (blocked_card_id) REFERENCES cards(id) ON DELETE CASCADE,
+          CONSTRAINT no_self_dep CHECK (blocking_card_id <> blocked_card_id),
+          CONSTRAINT unique_dep UNIQUE (blocking_card_id, blocked_card_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_dep_blocking ON card_dependencies(blocking_card_id);
+        CREATE INDEX IF NOT EXISTS idx_dep_blocked ON card_dependencies(blocked_card_id);
+      `);
+
+      console.log('  ✓ Migration 006: Create card_dependencies table');
+
+      // Migration 007: Add archived columns to workspaces and boards
+      await client.query(`
+        ALTER TABLE workspaces
+        ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
+
+        ALTER TABLE workspaces
+        ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;
+
+        ALTER TABLE boards
+        ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
+      `);
+
+      console.log('  ✓ Migration 007: Add archived columns to workspaces and boards');
       console.log('✅ All migrations completed successfully');
     } finally {
       client.release();

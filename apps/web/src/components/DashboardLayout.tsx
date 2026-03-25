@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -286,6 +287,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
               <span className="text-xs text-text-muted">CONECTADO</span>
             </div>
+
+            {/* Language switcher */}
+            <LanguageSwitcher />
 
             {/* User Avatar - Mobile: Just avatar, Desktop: with name */}
             <Link

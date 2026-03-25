@@ -4,8 +4,22 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 
-// Mock multer
-jest.mock('multer');
+// Mock multer with a factory so module-level code doesn't fail
+jest.mock('multer', () => {
+  class MulterError extends Error {
+    code: string;
+    field?: string;
+    constructor(code: string, field?: string) {
+      super(code);
+      this.code = code;
+      this.field = field;
+    }
+  }
+  const m = jest.fn(() => ({ single: jest.fn(() => jest.fn()) })) as any;
+  m.diskStorage = jest.fn(() => ({}));
+  m.MulterError = MulterError;
+  return m;
+});
 
 describe('Upload Middleware', () => {
   let mockRequest: Partial<Request>;

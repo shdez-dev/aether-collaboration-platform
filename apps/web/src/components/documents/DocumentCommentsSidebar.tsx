@@ -155,6 +155,7 @@ interface MentionTextareaProps {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
+  onMentionSelected?: (memberId: string) => void;
   placeholder?: string;
   autoFocus?: boolean;
   members?: { id: string; name: string; avatar?: string | null }[];
@@ -164,6 +165,7 @@ function MentionTextarea({
   value,
   onChange,
   onSubmit,
+  onMentionSelected,
   placeholder,
   autoFocus,
   members = [],
@@ -204,6 +206,10 @@ function MentionTextarea({
 
   // Insertar la mención con formato @[Nombre Completo] para soportar espacios
   const insertMention = (name: string) => {
+    // Capturar el ID ahora mientras members está garantizado cargado
+    const member = members.find((mb) => mb.name === name);
+    if (member) onMentionSelected?.(member.id);
+
     const el = ref.current;
     const cursorPos = el
       ? (el.selectionStart ?? mentionStart + name.length + 1)
@@ -314,7 +320,7 @@ function MentionTextarea({
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface CommentFormProps {
-  onSubmit: (content: string) => Promise<void>;
+  onSubmit: (content: string, mentions: string[]) => Promise<void>;
   onCancel?: () => void;
   placeholder?: string;
   submitLabel?: string;
@@ -331,19 +337,22 @@ function CommentForm({
   submitLabel = 'Comentar',
   autoFocus,
   initialValue = '',
-  members,
+  members = [],
   t: translations,
 }: CommentFormProps) {
   const [content, setContent] = useState(initialValue);
   const [submitting, setSubmitting] = useState(false);
+  const mentionIdsRef = useRef<Set<string>>(new Set());
 
   const handle = async () => {
     const t = content.trim();
     if (!t) return;
     setSubmitting(true);
     try {
-      await onSubmit(t);
+      const mentionIds = Array.from(mentionIdsRef.current);
+      await onSubmit(t, mentionIds);
       setContent('');
+      mentionIdsRef.current = new Set();
     } finally {
       setSubmitting(false);
     }
@@ -355,6 +364,7 @@ function CommentForm({
         value={content}
         onChange={setContent}
         onSubmit={handle}
+        onMentionSelected={(id) => mentionIdsRef.current.add(id)}
         placeholder={placeholder}
         autoFocus={autoFocus}
         members={members}
@@ -441,7 +451,7 @@ function ReplyItem({
             submitLabel={t.btn_save}
             autoFocus
             members={members}
-            onSubmit={async (c) => {
+            onSubmit={async (c, _mentions) => {
               await editComment(reply.id, c);
               setEditing(false);
             }}
@@ -584,7 +594,7 @@ function CommentThread({
                 submitLabel={t.btn_save}
                 autoFocus
                 members={members}
-                onSubmit={async (c) => {
+                onSubmit={async (c, _mentions) => {
                   await editComment(comment.id, c);
                   setEditing(false);
                 }}
@@ -642,8 +652,8 @@ function CommentThread({
                 submitLabel={t.editor_comment_btn_reply}
                 autoFocus
                 members={members}
-                onSubmit={async (c) => {
-                  await addComment(documentId, c, comment.position, comment.id);
+                onSubmit={async (c, mentions) => {
+                  await addComment(documentId, c, comment.position, comment.id, mentions);
                   setReplying(false);
                 }}
                 onCancel={() => setReplying(false)}
@@ -713,8 +723,8 @@ function NewCommentPanel({
             placeholder={t.editor_comment_new_placeholder}
             autoFocus
             members={members}
-            onSubmit={async (content) => {
-              await addComment(documentId, content, position, null);
+            onSubmit={async (content, mentions) => {
+              await addComment(documentId, content, position, null, mentions);
               onDone();
             }}
             onCancel={onDone}

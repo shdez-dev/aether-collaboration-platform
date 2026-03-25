@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Filter, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Filter } from 'lucide-react';
 import { EVENT_CATEGORIES } from '@/lib/utils/activityLog';
 import { DatePicker } from '@/components/ui/date-picker';
+import { useT } from '@/lib/i18n';
 
 export interface ActivityFilters {
   eventTypes: string[];
@@ -20,19 +20,26 @@ interface ActivityFiltersProps {
   boards?: Array<{ id: string; name: string }>;
 }
 
+// Map category keys to their i18n translation key
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  workspace: 'activity_cat_workspace',
+  board: 'activity_cat_board',
+  card: 'activity_cat_card',
+  document: 'activity_cat_document',
+  comment: 'activity_cat_comment',
+};
+
 export function ActivityFiltersComponent({
   filters,
   onChange,
   users = [],
   boards = [],
 }: ActivityFiltersProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const t = useT();
 
   const handleCategoryChange = (category: string) => {
     const categoryEvents =
       EVENT_CATEGORIES[category as keyof typeof EVENT_CATEGORIES]?.events || [];
-
-    // Toggle: if all events in category are selected, deselect them; otherwise select all
     const allSelected = categoryEvents.every((e) => filters.eventTypes.includes(e));
 
     if (allSelected) {
@@ -73,7 +80,7 @@ export function ActivityFiltersComponent({
           <div className="p-1.5 bg-accent/10 border border-accent/30">
             <Filter className="h-4 w-4 text-accent" />
           </div>
-          <h3 className="text-sm font-bold text-text-primary">Filtros</h3>
+          <h3 className="text-sm font-bold text-text-primary">{t.activity_filter_title}</h3>
         </div>
 
         {hasActiveFilters && (
@@ -82,22 +89,24 @@ export function ActivityFiltersComponent({
             className="px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10 transition-colors flex items-center gap-1 border border-error/30 hover:border-error"
           >
             <X className="h-3 w-3" />
-            Limpiar
+            {t.activity_filter_clear}
           </button>
         )}
       </div>
 
-      {/* Categories */}
       <div className="space-y-4">
+        {/* Categories */}
         <div>
           <p className="text-xs font-medium text-text-muted mb-3 uppercase tracking-wide">
-            Categorías
+            {t.activity_filter_categories}
           </p>
           <div className="flex flex-wrap gap-2">
             {Object.entries(EVENT_CATEGORIES).map(([key, category]) => {
               const categoryEvents = category.events;
               const isSelected = categoryEvents.some((e) => filters.eventTypes.includes(e));
               const allSelected = categoryEvents.every((e) => filters.eventTypes.includes(e));
+              const labelKey = CATEGORY_LABEL_KEYS[key];
+              const label = labelKey ? ((t as unknown as Record<string, string>)[labelKey]) : category.label;
 
               return (
                 <button
@@ -111,7 +120,7 @@ export function ActivityFiltersComponent({
                         : 'bg-surface text-text-secondary border-border hover:bg-card hover:text-text-primary'
                   }`}
                 >
-                  {category.label}
+                  {label}
                 </button>
               );
             })}
@@ -121,12 +130,12 @@ export function ActivityFiltersComponent({
         {/* Date Range */}
         <div>
           <p className="text-xs font-medium text-text-muted mb-3 uppercase tracking-wide">
-            Rango de fechas
+            {t.activity_filter_date_range}
           </p>
           <div className="space-y-3">
             <div>
               <label htmlFor="startDate" className="text-xs text-text-muted block mb-1.5">
-                Desde
+                {t.activity_filter_date_from}
               </label>
               <DatePicker
                 date={filters.startDate ? new Date(filters.startDate) : undefined}
@@ -136,13 +145,13 @@ export function ActivityFiltersComponent({
                     startDate: date ? date.toISOString().split('T')[0] : undefined,
                   })
                 }
-                placeholder="Seleccionar fecha inicial"
+                placeholder={t.activity_filter_date_from_placeholder}
                 maxDate={filters.endDate ? new Date(filters.endDate) : undefined}
               />
             </div>
             <div>
               <label htmlFor="endDate" className="text-xs text-text-muted block mb-1.5">
-                Hasta
+                {t.activity_filter_date_to}
               </label>
               <DatePicker
                 date={filters.endDate ? new Date(filters.endDate) : undefined}
@@ -152,7 +161,7 @@ export function ActivityFiltersComponent({
                     endDate: date ? date.toISOString().split('T')[0] : undefined,
                   })
                 }
-                placeholder="Seleccionar fecha final"
+                placeholder={t.activity_filter_date_to_placeholder}
                 minDate={filters.startDate ? new Date(filters.startDate) : undefined}
               />
             </div>
@@ -166,7 +175,7 @@ export function ActivityFiltersComponent({
               htmlFor="userId"
               className="text-xs font-medium text-text-muted block mb-3 uppercase tracking-wide"
             >
-              Usuario
+              {t.activity_filter_user}
             </label>
             <select
               id="userId"
@@ -174,7 +183,7 @@ export function ActivityFiltersComponent({
               onChange={(e) => onChange({ ...filters, userId: e.target.value || undefined })}
               className="input-terminal text-xs w-full"
             >
-              <option value="">Todos los usuarios</option>
+              <option value="">{t.activity_filter_user_all}</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.name}
@@ -199,7 +208,7 @@ export function ActivityFiltersComponent({
               onChange={(e) => onChange({ ...filters, boardId: e.target.value || undefined })}
               className="input-terminal text-xs w-full"
             >
-              <option value="">Todos los boards</option>
+              <option value="">{t.activity_filter_board_all}</option>
               {boards.map((board) => (
                 <option key={board.id} value={board.id}>
                   {board.name}
@@ -210,24 +219,24 @@ export function ActivityFiltersComponent({
         )}
       </div>
 
-      {/* Active filters count */}
+      {/* Active filters summary */}
       {hasActiveFilters && (
         <div className="mt-4 pt-4 border-t border-border">
-          <p className="text-xs text-text-muted mb-2">Filtros activos:</p>
+          <p className="text-xs text-text-muted mb-2">{t.activity_filter_active}</p>
           <div className="flex flex-wrap gap-1.5">
             {filters.eventTypes.length > 0 && (
               <span className="inline-flex items-center px-2 py-0.5 bg-accent/10 border border-accent/30 text-accent text-xs font-medium">
-                {filters.eventTypes.length} tipos
+                {t.activity_filter_types(filters.eventTypes.length)}
               </span>
             )}
             {(filters.startDate || filters.endDate) && (
               <span className="inline-flex items-center px-2 py-0.5 bg-success/10 border border-success/30 text-success text-xs font-medium">
-                Fechas
+                {t.activity_filter_dates}
               </span>
             )}
             {filters.userId && (
               <span className="inline-flex items-center px-2 py-0.5 bg-warning/10 border border-warning/30 text-warning text-xs font-medium">
-                Usuario
+                {t.activity_filter_user}
               </span>
             )}
             {filters.boardId && (

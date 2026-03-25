@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getAvatarUrl, getInitials } from '@/lib/utils/avatar';
+import { useT } from '@/lib/i18n';
 import {
   getEventDescription,
   getEventIcon,
@@ -1417,10 +1418,11 @@ function formatFieldName(key: string): string {
 
 export function ActivityEventCard({ event }: ActivityEventCardProps) {
   const [showPayload, setShowPayload] = useState(false);
+  const t = useT();
 
   const Icon = getEventIcon(event.eventType);
   const avatarUrl = getAvatarUrl(event.userAvatar);
-  const description = getEventDescription(event);
+  const description = getEventDescription(event, t);
   const colorClass = getEventColor(event.eventType);
 
   return (
@@ -1453,7 +1455,7 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
 
               {/* Context info */}
               <div className="flex items-center gap-2 mt-1 text-xs text-text-muted flex-wrap">
-                <span>{formatRelativeTime(event.createdAt)}</span>
+                <span>{formatRelativeTime(event.createdAt, t)}</span>
 
                 {event.boardName && (
                   <>

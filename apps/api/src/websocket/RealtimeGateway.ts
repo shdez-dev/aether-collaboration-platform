@@ -194,6 +194,34 @@ export class RealtimeGateway {
       });
 
       // ========================================================================
+      // JOIN WORKSPACE (para recibir eventos de boards en tiempo real)
+      // ========================================================================
+      socket.on('join:workspace', async (data: { workspaceId: string }) => {
+        try {
+          const { workspaceId } = data;
+          const hasAccess = await this.checkWorkspaceAccess(authSocket.userId, workspaceId);
+          if (!hasAccess) {
+            socket.emit('error', { message: 'No access to this workspace' });
+            return;
+          }
+          await socket.join(`workspace:${workspaceId}`);
+          socket.emit('joined:workspace', { workspaceId });
+        } catch (error) {
+          socket.emit('error', { message: 'Failed to join workspace' });
+        }
+      });
+
+      // ========================================================================
+      // LEAVE WORKSPACE
+      // ========================================================================
+      socket.on('leave:workspace', async (data: { workspaceId: string }) => {
+        try {
+          const { workspaceId } = data;
+          await socket.leave(`workspace:${workspaceId}`);
+        } catch (error) {}
+      });
+
+      // ========================================================================
       // TYPING INDICATORS
       // ========================================================================
       socket.on('typing:start', async (data: TypingStartCommand) => {
@@ -287,6 +315,13 @@ export class RealtimeGateway {
   }
 
   /**
+   * Broadcast de evento a todos los usuarios en un workspace
+   */
+  public broadcastToWorkspace(workspaceId: string, event: Event): void {
+    this.io.to(`workspace:${workspaceId}`).emit('event', event);
+  }
+
+  /**
    * Enviar evento a un usuario específico (usando room personal)
    */
   public sendToUser(userId: string, event: Event): void {
@@ -323,6 +358,21 @@ export class RealtimeGateway {
   // ============================================================================
   // HELPERS
   // ============================================================================
+
+  /**
+   * Verificar si un usuario tiene acceso a un workspace
+   */
+  private async checkWorkspaceAccess(userId: string, workspaceId: string): Promise<boolean> {
+    try {
+      const result = await query(
+        `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+        [workspaceId, userId]
+      );
+      return result.rows.length > 0;
+    } catch (error) {
+      return false;
+    }
+  }
 
   /**
    * Verificar si un usuario tiene acceso a un board

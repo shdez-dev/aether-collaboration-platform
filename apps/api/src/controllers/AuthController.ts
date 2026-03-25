@@ -101,14 +101,18 @@ export class AuthController {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
-      emailService
-        .sendVerificationEmail(user.email, {
-          userName: user.name,
-          verificationLink,
-        })
-        .catch(() => {
-          // Don't fail registration if email fails
-        });
+      try {
+        emailService
+          .sendVerificationEmail(user.email, {
+            userName: user.name,
+            verificationLink,
+          })
+          .catch(() => {
+            // Don't fail registration if email fails
+          });
+      } catch {
+        // Don't fail registration if email service is not configured
+      }
 
       // 9. Retornar usuario creado (SIN password)
       return res.status(201).json({
@@ -140,6 +144,7 @@ export class AuthController {
         });
       }
 
+      console.error('[register] ERROR:', error);
       return res.status(500).json({
         success: false,
         error: {

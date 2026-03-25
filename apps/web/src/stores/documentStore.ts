@@ -48,6 +48,7 @@ interface DocumentState {
   destroyYjsDoc: () => void;
   clearError: () => void;
   selectDocument: (document: DocumentWithDetails | null) => void;
+  reset: () => void;
 }
 
 interface CreateDocumentData {
@@ -279,6 +280,17 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       clearError: () => set({ error: null }),
+
+      reset: () => {
+        set({
+          documents: [],
+          currentDocument: null,
+          isLoading: false,
+          error: null,
+          yjsDoc: null,
+          activeUsers: [],
+        });
+      },
     }),
     {
       name: 'aether-document-storage',

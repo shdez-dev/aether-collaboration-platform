@@ -390,7 +390,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     if (diffDays === 1) return t.activity_time_yesterday;
     if (diffDays < 7) return t.activity_time_days(diffDays);
 
-    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString(t.locale || 'es-ES', { day: 'numeric', month: 'short' });
   };
 
   if (isLoading) {

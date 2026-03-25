@@ -62,7 +62,7 @@ export class BoardService {
         position: board.position,
       };
 
-      await eventStore.emit('board.created', payload, userId as any, board.id);
+      await eventStore.emit('board.created', payload, userId as any, board.id, undefined, undefined, workspaceId);
 
       return this.formatBoard(board);
     } catch (error) {
@@ -220,7 +220,7 @@ export class BoardService {
         workspaceId: board.workspace_id,
       };
 
-      await eventStore.emit('board.updated', payload, userId as any, boardId);
+      await eventStore.emit('board.updated', payload, userId as any, boardId, undefined, undefined, board.workspace_id);
 
       return this.formatBoard(board);
     } catch (error) {
@@ -259,7 +259,7 @@ export class BoardService {
         workspaceId,
       };
 
-      await eventStore.emit('board.archived', payload, userId as any, boardId);
+      await eventStore.emit('board.archived', payload, userId as any, boardId, undefined, undefined, workspaceId);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -311,7 +311,7 @@ export class BoardService {
         workspaceId,
       };
 
-      await eventStore.emit('board.deleted', payload, userId as any);
+      await eventStore.emit('board.deleted', payload, userId as any, undefined, undefined, undefined, workspaceId);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

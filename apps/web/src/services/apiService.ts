@@ -1,5 +1,7 @@
 // apps/web/src/services/apiService.ts
 
+import { socketService } from './socketService';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface ApiResponse<T> {
@@ -103,6 +105,12 @@ export const apiService = {
 
     if (useAuth && accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    // Include socket ID so the backend can exclude the caller from broadcast
+    const socketId = socketService.getSocketId();
+    if (socketId) {
+      headers['x-socket-id'] = socketId;
     }
 
     try {

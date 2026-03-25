@@ -124,7 +124,8 @@ describe('CardService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}); // COMMIT
+        .mockResolvedValueOnce({}) // COMMIT
+        .mockResolvedValueOnce({ rows: [{ name: 'To Do' }] }); // SELECT list name
 
       // Mock helper queries
       (pool.query as jest.Mock)
@@ -164,7 +165,8 @@ describe('CardService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}); // COMMIT
+        .mockResolvedValueOnce({}) // COMMIT
+        .mockResolvedValueOnce({ rows: [{ name: 'Backlog' }] }); // SELECT list name
 
       (pool.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })
@@ -392,7 +394,9 @@ describe('CardService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}); // COMMIT
+        .mockResolvedValueOnce({}) // COMMIT
+        .mockResolvedValueOnce({ rows: [{ name: 'Source List' }] }) // SELECT from list name
+        .mockResolvedValueOnce({ rows: [{ name: 'Target List' }] }); // SELECT to list name
 
       (pool.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })

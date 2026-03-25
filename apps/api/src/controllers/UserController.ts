@@ -120,7 +120,10 @@ class UserController {
       }
 
       const workspaceCount = await pool.query(
-        `SELECT COUNT(*) as count FROM workspace_members WHERE user_id = $1`,
+        `SELECT COUNT(*) as count
+         FROM workspace_members wm
+         JOIN workspaces w ON w.id = wm.workspace_id
+         WHERE wm.user_id = $1 AND w.archived = false`,
         [userId]
       );
 

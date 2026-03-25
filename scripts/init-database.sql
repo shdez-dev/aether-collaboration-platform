@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
   bio TEXT,
   position VARCHAR(255), -- Cargo o puesto
   timezone VARCHAR(100) DEFAULT 'UTC',
-  language VARCHAR(10) DEFAULT 'en', -- Idioma preferido: 'en', 'es', etc.
+  language VARCHAR(10) DEFAULT 'es', -- Idioma preferido: 'es', 'en', etc.
   phone VARCHAR(50),
   location VARCHAR(255),
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,

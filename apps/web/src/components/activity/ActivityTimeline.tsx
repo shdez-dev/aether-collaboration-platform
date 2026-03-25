@@ -3,6 +3,7 @@
 import React, { useRef, useEffect } from 'react';
 import { ActivityEventCard } from './ActivityEventCard';
 import { groupEventsByDate, type ActivityLogEntry } from '@/lib/utils/activityLog';
+import { useT } from '@/lib/i18n';
 import { Loader2 } from 'lucide-react';
 
 interface ActivityTimelineProps {
@@ -20,6 +21,7 @@ export function ActivityTimeline({
   isLoading = false,
   isLoadingMore = false,
 }: ActivityTimelineProps) {
+  const t = useT();
   const observerTarget = useRef<HTMLDivElement>(null);
 
   // Infinite scroll observer
@@ -36,15 +38,8 @@ export function ActivityTimeline({
     );
 
     const currentTarget = observerTarget.current;
-    if (currentTarget) {
-      observer.observe(currentTarget);
-    }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
-      }
-    };
+    if (currentTarget) observer.observe(currentTarget);
+    return () => { if (currentTarget) observer.unobserve(currentTarget); };
   }, [onLoadMore, hasMore, isLoadingMore]);
 
   // Loading skeleton
@@ -84,24 +79,23 @@ export function ActivityTimeline({
             />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-text-primary mb-2">No hay actividad</h3>
+        <h3 className="text-lg font-semibold text-text-primary mb-2">
+          {t.activity_timeline_no_activity_title}
+        </h3>
         <p className="text-sm text-text-secondary max-w-sm">
-          No se encontraron eventos con los filtros seleccionados. Intenta ajustar los filtros o
-          verifica más tarde.
+          {t.activity_timeline_no_activity_desc}
         </p>
       </div>
     );
   }
 
-  // Group events by date
-  const groupedEvents = groupEventsByDate(events);
+  const groupedEvents = groupEventsByDate(events, t);
 
   return (
     <div className="space-y-6">
       {groupedEvents.map((group) => (
         <div key={group.date}>
           {group.isMonthHeader ? (
-            /* Month Header */
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 h-px bg-border" />
               <h2 className="text-lg font-bold text-text-primary px-4 py-2 bg-accent/10 border border-accent/30">
@@ -111,16 +105,14 @@ export function ActivityTimeline({
             </div>
           ) : (
             <div className="space-y-3 mb-6">
-              {/* Date Header */}
               <div className="flex items-center gap-3 px-3 py-2 bg-surface border-b border-border">
                 <h3 className="text-sm font-semibold text-text-primary">{group.label}</h3>
                 <div className="flex-1 h-px bg-border" />
                 <span className="text-xs text-text-muted font-medium">
-                  {group.events.length} {group.events.length === 1 ? 'evento' : 'eventos'}
+                  {t.activity_timeline_events(group.events.length)}
                 </span>
               </div>
 
-              {/* Events List */}
               <div className="space-y-2">
                 {group.events.map((event) => (
                   <ActivityEventCard key={event.id} event={event} />
@@ -137,7 +129,7 @@ export function ActivityTimeline({
           {isLoadingMore && (
             <div className="flex items-center gap-2 text-sm text-text-muted px-4 py-2 bg-surface border border-border">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Cargando más eventos...</span>
+              <span>{t.activity_timeline_loading_more}</span>
             </div>
           )}
         </div>
@@ -147,7 +139,7 @@ export function ActivityTimeline({
       {!hasMore && events.length > 0 && (
         <div className="flex justify-center py-4">
           <p className="text-sm text-text-muted px-4 py-2 bg-surface border border-border">
-            Has llegado al final del historial
+            {t.activity_timeline_end}
           </p>
         </div>
       )}

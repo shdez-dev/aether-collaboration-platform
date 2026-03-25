@@ -474,8 +474,28 @@ export default function WorkspacesPage() {
         </div>
       )}
 
+      {/* All workspaces are archived but we have memberships */}
+      {!isLoading && workspaces.length > 0 && activeWorkspaces.length === 0 && !showArchived && (
+        <div className="bg-card border border-border p-16 text-center">
+          <div className="w-20 h-20 mx-auto mb-6 bg-warning/10 border border-warning flex items-center justify-center">
+            <Archive className="w-10 h-10 text-warning" />
+          </div>
+          <h3 className="text-xl font-medium mb-2">{t.ws_list_tab_archived}</h3>
+          <p className="text-text-secondary text-sm mb-6">{t.ws_list_empty_archived}</p>
+          <button
+            onClick={() => setShowArchived(true)}
+            className="btn-primary"
+          >
+            <span className="flex items-center gap-2">
+              <Archive className="w-4 h-4" />
+              <span>{t.ws_list_tab_archived}</span>
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Workspaces Content */}
-      {workspaces.length > 0 && (
+      {workspaces.length > 0 && activeWorkspaces.length > 0 && (
         <div className="space-y-0">
           {/* Recent Workspaces */}
           {!searchQuery && recentWorkspaces.length > 0 && (

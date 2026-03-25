@@ -18,8 +18,10 @@ const dictionaries = { es, en } as const;
  *   <p>{t('dashboard_cards_total', 5)}</p>   // para funciones con argumentos
  */
 export function useT() {
-  const language = useAuthStore((state) => state.user?.language) as Language | undefined;
-  const lang: Language = language === 'en' ? 'en' : 'es';
+  const userLanguage = useAuthStore((state) => state.user?.language);
+  const uiLanguage = useAuthStore((state) => state.uiLanguage);
+  const raw = userLanguage ?? uiLanguage;
+  const lang: Language = raw === 'en' ? 'en' : 'es';
   return dictionaries[lang];
 }
 

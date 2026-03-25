@@ -31,15 +31,7 @@ export async function query<T extends QueryResultRow = any>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {
-  const start = Date.now();
-  try {
-    const result = await pool.query<T>(text, params);
-    const duration = Date.now() - start;
-
-    return result;
-  } catch (error) {
-    throw error;
-  }
+  return await pool.query<T>(text, params);
 }
 
 /**

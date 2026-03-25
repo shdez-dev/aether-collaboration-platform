@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useBoardStore } from '@/stores/boardStore';
+import { socketService } from '@/services/socketService';
 import InviteMemberModal from '@/components/InviteMemberModal';
 import ConfirmRemoveMemberModal from '@/components/ConfirmRemoveMemberModal';
 import CreateBoardModal from '@/components/CreateBoardModal';
@@ -61,7 +62,7 @@ export default function WorkspaceDetailPage() {
     changeMemberRole,
   } = useWorkspaceStore();
 
-  const { boards, fetchBoards } = useBoardStore();
+  const { boards, fetchBoards, handleEvent } = useBoardStore();
 
   const [activeTab, setActiveTab] = useState<'stats' | 'boards'>('stats');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -81,6 +82,28 @@ export default function WorkspaceDetailPage() {
       fetchStats(workspaceId);
     }
   }, [workspaceId, fetchWorkspaceById, fetchMembers, fetchBoards, fetchStats]);
+
+  // Suscribirse al workspace room para recibir eventos de boards en tiempo real
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    const join = () => socketService.joinWorkspace(workspaceId);
+
+    // Unirse ahora si ya está conectado, o cuando se conecte
+    join();
+    socketService.onConnect(join);
+
+    const handleSocketEvent = (event: any) => {
+      handleEvent(event);
+    };
+    socketService.on('event', handleSocketEvent);
+
+    return () => {
+      socketService.leaveWorkspace(workspaceId);
+      socketService.offConnect(join);
+      socketService.off('event', handleSocketEvent);
+    };
+  }, [workspaceId, handleEvent]);
 
   if (isLoading && !currentWorkspace) {
     return (

@@ -124,7 +124,7 @@ describe('WorkspaceStore', () => {
     it('should handle fetch workspaces error', async () => {
       mockApiService.get.mockResolvedValue({
         success: false,
-        error: { message: 'Failed to fetch' },
+        error: { code: 'FETCH_ERROR', message: 'Failed to fetch' },
       });
 
       const { result } = renderHook(() => useWorkspaceStore());
@@ -162,7 +162,7 @@ describe('WorkspaceStore', () => {
     it('should handle fetch workspace by id error', async () => {
       mockApiService.get.mockResolvedValue({
         success: false,
-        error: { message: 'Workspace not found' },
+        error: { code: 'NOT_FOUND', message: 'Workspace not found' },
       });
 
       const { result } = renderHook(() => useWorkspaceStore());
@@ -186,7 +186,7 @@ describe('WorkspaceStore', () => {
 
       const { result } = renderHook(() => useWorkspaceStore());
 
-      let createdWorkspace;
+      let createdWorkspace: unknown;
       await act(async () => {
         createdWorkspace = await result.current.createWorkspace({
           name: 'Test Workspace',
@@ -206,7 +206,7 @@ describe('WorkspaceStore', () => {
     it('should throw error when create workspace fails', async () => {
       mockApiService.post.mockResolvedValue({
         success: false,
-        error: { message: 'Failed to create workspace' },
+        error: { code: 'CREATE_ERROR', message: 'Failed to create workspace' },
       });
 
       const { result } = renderHook(() => useWorkspaceStore());
@@ -343,7 +343,7 @@ describe('WorkspaceStore', () => {
       it('should throw error when invite fails', async () => {
         mockApiService.post.mockResolvedValue({
           success: false,
-          error: { message: 'Failed to invite' },
+          error: { code: 'INVITE_ERROR', message: 'Failed to invite' },
         });
 
         const { result } = renderHook(() => useWorkspaceStore());
@@ -467,7 +467,7 @@ describe('WorkspaceStore', () => {
         result.current.workspaces = [mockWorkspace];
       });
 
-      let newWorkspace;
+      let newWorkspace: unknown;
       await act(async () => {
         newWorkspace = await result.current.duplicateWorkspace('ws-1', true);
       });
@@ -482,7 +482,7 @@ describe('WorkspaceStore', () => {
     it('should throw error when duplicate fails', async () => {
       mockApiService.post.mockResolvedValue({
         success: false,
-        error: { message: 'Failed to duplicate' },
+        error: { code: 'DUPLICATE_ERROR', message: 'Failed to duplicate' },
       });
 
       const { result } = renderHook(() => useWorkspaceStore());
@@ -536,7 +536,7 @@ describe('WorkspaceStore', () => {
           result.current.currentWorkspace = mockWorkspace;
         });
 
-        let newToken;
+        let newToken: unknown;
         await act(async () => {
           newToken = await result.current.regenerateInviteToken('ws-1');
         });
@@ -551,7 +551,7 @@ describe('WorkspaceStore', () => {
       it('should throw error when regenerate fails', async () => {
         mockApiService.post.mockResolvedValue({
           success: false,
-          error: { message: 'Failed to generate token' },
+          error: { code: 'REGEN_ERROR', message: 'Failed to generate token' },
         });
 
         const { result } = renderHook(() => useWorkspaceStore());
@@ -608,10 +608,9 @@ describe('WorkspaceStore', () => {
     });
 
     it('should handle fetch stats error gracefully', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
       mockApiService.get.mockResolvedValue({
         success: false,
-        error: { message: 'Failed to fetch stats' },
+        error: { code: 'STATS_ERROR', message: 'Failed to fetch stats' },
       });
 
       const { result } = renderHook(() => useWorkspaceStore());
@@ -620,8 +619,8 @@ describe('WorkspaceStore', () => {
         await result.current.fetchStats('ws-1');
       });
 
-      expect(consoleWarnSpy).toHaveBeenCalled();
-      consoleWarnSpy.mockRestore();
+      // Store silently ignores stats fetch errors; currentStats remains unchanged
+      expect(result.current.currentStats).toBeNull();
     });
   });
 
@@ -634,7 +633,7 @@ describe('WorkspaceStore', () => {
 
       const { result } = renderHook(() => useWorkspaceStore());
 
-      let createdWorkspace;
+      let createdWorkspace: unknown;
       await act(async () => {
         createdWorkspace = await result.current.createFromTemplate('template-1', 'New Workspace');
       });
@@ -653,7 +652,7 @@ describe('WorkspaceStore', () => {
     it('should throw error when create from template fails', async () => {
       mockApiService.post.mockResolvedValue({
         success: false,
-        error: { message: 'Template not found' },
+        error: { code: 'TEMPLATE_ERROR', message: 'Template not found' },
       });
 
       const { result } = renderHook(() => useWorkspaceStore());

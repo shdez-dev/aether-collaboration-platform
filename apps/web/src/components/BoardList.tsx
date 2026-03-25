@@ -12,6 +12,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card } from './Card';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useT } from '@/lib/i18n';
+import { socketService } from '@/services/socketService';
 
 interface List {
   id: string;
@@ -145,6 +146,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
+            ...(socketService.getSocketId() ? { 'x-socket-id': socketService.getSocketId()! } : {}),
           },
           body: JSON.stringify({ title: cardTitle.trim() }),
         }

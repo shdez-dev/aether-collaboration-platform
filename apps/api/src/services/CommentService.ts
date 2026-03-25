@@ -64,6 +64,10 @@ export class CommentService {
       const card = await CardService.getCardById(data.cardId);
 
       if (author && card) {
+        // Obtener boardId y workspaceId para incluir en notificaciones
+        const boardId = await CardService.getBoardIdFromCard(card.id) || undefined;
+        const workspaceId = boardId ? await CardService.getWorkspaceIdFromBoard(boardId) || undefined : undefined;
+
         // Procesar menciones y crear notificaciones de mención
         if (data.mentions && data.mentions.length > 0) {
           for (const mentionedUserId of data.mentions) {
@@ -76,6 +80,8 @@ export class CommentService {
                 cardTitle: card.title,
                 commentId: comment.id,
                 commentPreview: data.content,
+                boardId,
+                workspaceId,
               });
             } catch (error) {}
           }
@@ -106,6 +112,8 @@ export class CommentService {
             cardTitle: card.title,
             commentId: comment.id,
             commentPreview: data.content,
+            boardId,
+            workspaceId,
           });
         }
       }
@@ -197,6 +205,9 @@ export class CommentService {
         const card = await CardService.getCardById(cardId);
 
         if (author && card) {
+          const boardId2 = await CardService.getBoardIdFromCard(card.id) || undefined;
+          const workspaceId2 = boardId2 ? await CardService.getWorkspaceIdFromBoard(boardId2) || undefined : undefined;
+
           for (const mentionedUserId of data.mentions) {
             try {
               await notificationService.createMentionNotification({
@@ -207,6 +218,8 @@ export class CommentService {
                 cardTitle: card.title,
                 commentId: commentId,
                 commentPreview: updatedComment.content,
+                boardId: boardId2,
+                workspaceId: workspaceId2,
               });
             } catch (error) {}
           }

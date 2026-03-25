@@ -38,7 +38,8 @@ interface DocumentCommentActions {
     documentId: string,
     content: string,
     position: DocumentCommentPosition,
-    parentId?: string | null
+    parentId?: string | null,
+    mentions?: string[]
   ) => Promise<DocumentCommentData | null>;
   editComment: (commentId: string, content: string) => Promise<void>;
   removeComment: (commentId: string, documentId: string) => Promise<void>;
@@ -139,7 +140,7 @@ export const useDocumentCommentStore = create<DocumentCommentState & DocumentCom
       },
 
       // ── Add comment ────────────────────────────────────────────────────────
-      addComment: async (documentId, content, position, parentId) => {
+      addComment: async (documentId, content, position, parentId, mentions) => {
         const user = useAuthStore.getState().user;
         if (!user) return null;
 
@@ -170,6 +171,7 @@ export const useDocumentCommentStore = create<DocumentCommentState & DocumentCom
             content,
             position,
             parentId: parentId ?? null,
+            mentions: mentions && mentions.length > 0 ? mentions : undefined,
           });
           // Replace optimistic with real
           set((s) => ({

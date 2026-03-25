@@ -4,6 +4,8 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { getDocumentCommentRepository } from '../repositories/DocumentCommentRepository';
 import { documentService } from '../services/DocumentService';
+import { notificationService } from '../services/NotificationService';
+import { pool } from '../lib/db';
 import { Server as SocketIOServer } from 'socket.io';
 
 // ── Validation schemas ───────────────────────────────────────────────────────
@@ -15,6 +17,7 @@ const createCommentSchema = z.object({
     to: z.number().int().min(0),
   }),
   parentId: z.string().uuid().nullable().optional(),
+  mentions: z.array(z.string().uuid()).optional().default([]),
 });
 
 const updateCommentSchema = z.object({
@@ -106,13 +109,15 @@ class DocumentCommentController {
         });
       }
 
+      const { content, position, parentId, mentions } = validation.data;
+
       const repo = getDocumentCommentRepository();
       const comment = await repo.create({
         documentId,
         userId,
-        content: validation.data.content,
-        position: validation.data.position,
-        parentId: validation.data.parentId ?? null,
+        content,
+        position,
+        parentId: parentId ?? null,
       });
 
       // Leer con datos del usuario para devolverlo completo
@@ -120,6 +125,30 @@ class DocumentCommentController {
 
       // Emitir evento realtime a todos los usuarios en el documento
       this.emit(documentId, 'document:comment:added', { documentId, comment: commentWithUser });
+
+      // Crear notificaciones para usuarios mencionados
+      if (mentions && mentions.length > 0) {
+        try {
+          const authorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+          const authorName = authorResult.rows[0]?.name ?? 'Alguien';
+          const document = await documentService.getDocumentById(documentId);
+          const documentTitle = (document as any)?.title ?? 'Documento';
+
+          for (const mentionedUserId of mentions) {
+            try {
+              await notificationService.createDocumentMentionNotification({
+                mentionedUserId,
+                authorId: userId,
+                authorName,
+                documentId,
+                documentTitle,
+                commentId: comment.id,
+                commentPreview: content,
+              });
+            } catch {}
+          }
+        } catch {}
+      }
 
       return res.status(201).json({ success: true, data: { comment: commentWithUser } });
     } catch (error) {

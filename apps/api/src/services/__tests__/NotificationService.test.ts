@@ -161,7 +161,8 @@ describe('NotificationService', () => {
         }),
         userId,
         undefined,
-        undefined
+        undefined,
+        userId
       );
     });
   });
@@ -182,7 +183,8 @@ describe('NotificationService', () => {
         }),
         userId,
         undefined,
-        undefined
+        undefined,
+        userId
       );
     });
   });
@@ -219,7 +221,8 @@ describe('NotificationService', () => {
         }),
         userId,
         undefined,
-        undefined
+        undefined,
+        userId
       );
     });
   });

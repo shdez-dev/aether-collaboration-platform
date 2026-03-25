@@ -4,6 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { useBoardStore } from '../boardStore';
 import { apiService } from '@/services/apiService';
 import { socketService } from '@/services/socketService';
+import type { Board } from '@aether/types';
 
 jest.mock('@/services/apiService');
 jest.mock('@/services/socketService');
@@ -119,7 +120,7 @@ describe('BoardStore', () => {
 
       const { result } = renderHook(() => useBoardStore());
 
-      let createdBoard;
+      let createdBoard: Board | undefined;
       await act(async () => {
         createdBoard = await result.current.createBoard('ws-1', {
           name: 'New Board',
@@ -184,6 +185,7 @@ describe('BoardStore', () => {
         description: 'Old Description',
         position: 1,
         archived: false,
+        createdBy: 'user-1',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -228,6 +230,7 @@ describe('BoardStore', () => {
         name: 'Test Board',
         position: 1,
         archived: false,
+        createdBy: 'user-1',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -248,6 +251,7 @@ describe('BoardStore', () => {
         name: 'Test Board',
         position: 1,
         archived: false,
+        createdBy: 'user-1',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

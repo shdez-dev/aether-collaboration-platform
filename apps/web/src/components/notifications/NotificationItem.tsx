@@ -82,24 +82,32 @@ export function NotificationItem({
     }
 
     // Navegar según el tipo de notificación
-    if (notification.type === 'COMMENT_MENTION' && notification.data.cardId) {
-      // TODO: Navegar a la card modal
-      // Por ahora cerramos el dropdown
-      onClose?.();
-    }
+    const { workspaceId, boardId } = notification.data as any;
 
-    if (notification.type === 'CARD_ASSIGNED' && notification.data.cardId) {
-      onClose?.();
-    }
-
-    if (notification.type === 'BOARD_INVITE' && notification.data.boardId) {
-      router.push(`/boards/${notification.data.boardId}`);
-      onClose?.();
-    }
-
-    if (notification.type === 'WORKSPACE_INVITE' && notification.data.workspaceId) {
-      router.push(`/workspaces/${notification.data.workspaceId}`);
-      onClose?.();
+    if (
+      notification.type === 'WORKSPACE_INVITE' ||
+      notification.type === 'WORKSPACE_REMOVED'
+    ) {
+      if (workspaceId) {
+        router.push(`/dashboard/workspaces/${workspaceId}`);
+        onClose?.();
+      }
+    } else if (
+      notification.type === 'CARD_ASSIGNED' ||
+      notification.type === 'CARD_UNASSIGNED' ||
+      notification.type === 'CARD_DUE_SOON' ||
+      notification.type === 'CARD_OVERDUE' ||
+      notification.type === 'COMMENT_MENTION' ||
+      notification.type === 'COMMENT_ADDED' ||
+      notification.type === 'BOARD_INVITE'
+    ) {
+      if (workspaceId && boardId) {
+        router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
+        onClose?.();
+      } else if (workspaceId) {
+        router.push(`/dashboard/workspaces/${workspaceId}`);
+        onClose?.();
+      }
     }
   };
 

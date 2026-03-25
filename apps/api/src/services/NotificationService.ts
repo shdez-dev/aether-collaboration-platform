@@ -16,6 +16,8 @@ export class NotificationService {
     cardTitle: string;
     commentId: string;
     commentPreview: string;
+    boardId?: string;
+    workspaceId?: string;
   }): Promise<Notification | null> {
     // Evitar notificarse a sí mismo
     if (data.mentionedUserId === data.authorId) {
@@ -47,6 +49,8 @@ export class NotificationService {
         commentPreview: data.commentPreview.substring(0, 100),
         authorId: data.authorId,
         authorName: data.authorName,
+        boardId: data.boardId,
+        workspaceId: data.workspaceId,
       },
     });
 
@@ -66,6 +70,68 @@ export class NotificationService {
         undefined, // boardId: no aplica
         undefined, // socketId: no aplica
         data.mentionedUserId as any // targetUserId: quien recibe la notificación
+      );
+    } catch (error) {}
+
+    return notification;
+  }
+
+  /**
+   * Crear notificación para mención en comentario de documento
+   */
+  async createDocumentMentionNotification(data: {
+    mentionedUserId: string;
+    authorId: string;
+    authorName: string;
+    documentId: string;
+    documentTitle: string;
+    commentId: string;
+    commentPreview: string;
+  }): Promise<Notification | null> {
+    if (data.mentionedUserId === data.authorId) {
+      return null;
+    }
+
+    const isDuplicate = await notificationRepository.existsRecent({
+      userId: data.mentionedUserId,
+      type: 'DOCUMENT_MENTION',
+      commentId: data.commentId,
+    });
+
+    if (isDuplicate) {
+      return null;
+    }
+
+    const notification = await notificationRepository.create({
+      userId: data.mentionedUserId,
+      type: 'DOCUMENT_MENTION',
+      title: 'Te mencionaron en un documento',
+      message: `${data.authorName} te mencionó en "${data.documentTitle}"`,
+      data: {
+        documentId: data.documentId,
+        documentTitle: data.documentTitle,
+        commentId: data.commentId,
+        commentPreview: data.commentPreview.substring(0, 100),
+        authorId: data.authorId,
+        authorName: data.authorName,
+      },
+    });
+
+    try {
+      await eventStore.emit(
+        'notification.created',
+        {
+          notificationId: notification.id,
+          userId: data.mentionedUserId,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+        },
+        data.authorId as any,
+        undefined,
+        undefined,
+        data.mentionedUserId as any
       );
     } catch (error) {}
 
@@ -94,13 +160,11 @@ export class NotificationService {
     try {
       await eventStore.emit(
         'notification.read',
-        {
-          notificationId,
-          unreadCount,
-        },
+        { notificationId, unreadCount },
         userId as any,
         undefined,
-        undefined
+        undefined,
+        userId as any // targetUserId: enviar solo al usuario que marcó la notificación
       );
     } catch (error) {}
   }
@@ -115,12 +179,11 @@ export class NotificationService {
     try {
       await eventStore.emit(
         'notification.read_all' as any,
-        {
-          unreadCount: 0,
-        },
+        { unreadCount: 0 },
         userId as any,
         undefined,
-        undefined
+        undefined,
+        userId as any // targetUserId
       );
     } catch (error) {}
   }
@@ -144,13 +207,11 @@ export class NotificationService {
     try {
       await eventStore.emit(
         'notification.deleted',
-        {
-          notificationId,
-          unreadCount,
-        },
+        { notificationId, unreadCount },
         userId as any,
         undefined,
-        undefined
+        undefined,
+        userId as any // targetUserId
       );
     } catch (error) {}
   }
@@ -209,6 +270,7 @@ export class NotificationService {
     cardId: string;
     cardTitle: string;
     boardId: string;
+    workspaceId?: string;
   }): Promise<Notification | null> {
     // Evitar notificarse a sí mismo
     if (data.assignedUserId === data.assignerId) {
@@ -235,6 +297,7 @@ export class NotificationService {
         cardId: data.cardId,
         cardTitle: data.cardTitle,
         boardId: data.boardId,
+        workspaceId: data.workspaceId,
         assignerId: data.assignerId,
         assignerName: data.assignerName,
       },
@@ -385,6 +448,8 @@ export class NotificationService {
     cardTitle: string;
     commentId: string;
     commentPreview: string;
+    boardId?: string;
+    workspaceId?: string;
   }): Promise<void> {
     // Notificar a todos los miembros de la tarjeta excepto el autor
     const membersToNotify = data.cardMembers.filter((memberId) => memberId !== data.authorId);
@@ -414,6 +479,8 @@ export class NotificationService {
           commentPreview: data.commentPreview.substring(0, 100),
           authorId: data.authorId,
           authorName: data.authorName,
+          boardId: data.boardId,
+          workspaceId: data.workspaceId,
         },
       });
 
@@ -447,6 +514,7 @@ export class NotificationService {
     cardId: string;
     cardTitle: string;
     boardId: string;
+    workspaceId?: string;
   }): Promise<Notification | null> {
     // No notificarse a uno mismo
     if (data.unassignedUserId === data.removerId) {
@@ -472,6 +540,7 @@ export class NotificationService {
         cardId: data.cardId,
         cardTitle: data.cardTitle,
         boardId: data.boardId,
+        workspaceId: data.workspaceId,
         removerId: data.removerId,
         removerName: data.removerName,
       },

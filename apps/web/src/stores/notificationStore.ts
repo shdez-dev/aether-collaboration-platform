@@ -22,6 +22,7 @@ interface NotificationActions {
   deleteNotification: (notificationId: string) => Promise<void>;
   toggleDropdown: () => void;
   closeDropdown: () => void;
+  reset: () => void;
   addNotification: (notification: Notification) => void;
   updateUnreadCount: (count: number) => void;
   /** Llamar una sola vez cuando el socket se conecta */
@@ -37,7 +38,6 @@ const initialState: NotificationState = {
 
 // Guardamos la referencia del handler fuera del store para poder hacer off exacto
 let _socketHandler: ((event: any) => void) | null = null;
-let _listenerRegistered = false;
 
 function getNotificationIcon(type: string): string {
   switch (type) {
@@ -119,6 +119,14 @@ export const useNotificationStore = create<NotificationState & NotificationActio
         } catch {}
       },
 
+      reset: () => {
+        set({ notifications: [], unreadCount: 0, isLoading: false, isOpen: false });
+        if (_socketHandler) {
+          socketService.off('event', _socketHandler);
+          _socketHandler = null;
+        }
+      },
+
       toggleDropdown: () => set((s) => ({ isOpen: !s.isOpen })),
       closeDropdown: () => set({ isOpen: false }),
 
@@ -136,9 +144,13 @@ export const useNotificationStore = create<NotificationState & NotificationActio
 
       // ── Listener único de socket ─────────────────────────────────────────────
       initSocketListener: () => {
-        // Garantizar una sola instancia del listener en toda la vida de la app
-        if (_listenerRegistered) return;
-        _listenerRegistered = true;
+        // Quitar handler anterior (si existe) antes de registrar el nuevo.
+        // Esto cubre el caso de logout/login donde el socket es reemplazado:
+        // el off es inofensivo si el socket ya cambió, y el on se registra
+        // sobre el socket actual correctamente.
+        if (_socketHandler) {
+          socketService.off('event', _socketHandler);
+        }
 
         _socketHandler = (event: any) => {
           if (event.type === 'notification.created') {

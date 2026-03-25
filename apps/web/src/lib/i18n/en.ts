@@ -152,6 +152,26 @@ export const en = {
   dashboard_activity_document_version: (name: string) => `Saved new version of "${name}"`,
   dashboard_activity_document_exported: (name: string) => `Exported document "${name}"`,
 
+  // Additional event types
+  dashboard_activity_board_description_changed: (name: string) =>
+    `Updated the description of board "${name}"`,
+  dashboard_activity_list_updated: (name: string) => `Updated list "${name}"`,
+  dashboard_activity_list_reordered: 'Reordered the lists',
+  dashboard_activity_card_description_changed: (name: string) =>
+    `Updated the description of card "${name}"`,
+  dashboard_activity_document_version_restored: (name: string) =>
+    `Restored a version of document "${name}"`,
+  dashboard_activity_document_comment_added: (name: string) =>
+    `Commented on document "${name}"`,
+  dashboard_activity_document_comment_updated: (name: string) =>
+    `Edited a comment on document "${name}"`,
+  dashboard_activity_document_comment_deleted: (name: string) =>
+    `Deleted a comment on document "${name}"`,
+  dashboard_activity_comment_mentioned: 'Mentioned you in a comment',
+  dashboard_activity_auth_registered: 'Joined the platform',
+  dashboard_activity_auth_logged_in: 'Signed in',
+  dashboard_activity_auth_logged_out: 'Signed out',
+
   // fallback
   dashboard_activity_unknown: 'Activity recorded',
 
@@ -635,6 +655,33 @@ export const en = {
   activity_time_hours: (n: number) => `${n}h ago`,
   activity_time_yesterday: 'Yesterday',
   activity_time_days: (n: number) => `${n}d ago`,
+  activity_today: 'Today',
+  activity_filter_title: 'Filters',
+  activity_filter_clear: 'Clear',
+  activity_filter_categories: 'Categories',
+  activity_filter_date_range: 'Date range',
+  activity_filter_date_from: 'From',
+  activity_filter_date_to: 'To',
+  activity_filter_date_from_placeholder: 'Select start date',
+  activity_filter_date_to_placeholder: 'Select end date',
+  activity_filter_user: 'User',
+  activity_filter_user_all: 'All users',
+  activity_filter_board_all: 'All boards',
+  activity_filter_active: 'Active filters:',
+  activity_filter_types: (n: number) => `${n} type${n !== 1 ? 's' : ''}`,
+  activity_filter_dates: 'Dates',
+  activity_cat_workspace: 'Workspace',
+  activity_cat_board: 'Boards',
+  activity_cat_card: 'Cards',
+  activity_cat_document: 'Documents',
+  activity_cat_comment: 'Comments',
+  activity_timeline_no_activity_title: 'No activity',
+  activity_timeline_no_activity_desc:
+    'No events found with the applied filters. Try adjusting them.',
+  activity_timeline_events: (n: number) => `${n} event${n !== 1 ? 's' : ''}`,
+  activity_timeline_loading_more: 'Loading more events...',
+  activity_timeline_end: "You've reached the end of the history",
+  locale: 'en-US',
 
   // ── Active Users ──────────────────────────────────────────────────────────
   active_users_title: 'Active users',
@@ -792,6 +839,14 @@ export const en = {
   login_forgot_password: 'Forgot your password?',
   login_link_recover: 'Recover',
   login_btn_back_to_login: 'Back to Login',
+  login_subtitle: 'Sign in to your account',
+  login_label_email: 'Email',
+  login_label_password: 'Password',
+  login_btn_submit: 'Sign in',
+  login_btn_submitting: 'Signing in...',
+  login_validation_email_required: 'Email is required',
+  login_validation_email_invalid: 'Enter a valid email address',
+  login_validation_password_required: 'Password is required',
   register_btn_back: 'Back to home',
   register_placeholder_name: 'Your full name',
   register_placeholder_password: 'Minimum 8 characters',
@@ -802,6 +857,77 @@ export const en = {
   register_validation_passwords: 'Passwords do not match',
   register_validation_password_short: 'Password must be at least 8 characters',
   register_validation_name_short: 'Name must be at least 2 characters',
+  register_validation_name_required: 'Name is required',
+  register_validation_email_required: 'Email is required',
+  register_validation_email_invalid: 'Enter a valid email address',
+  register_validation_password_required: 'Password is required',
+  register_validation_confirm_required: 'Please confirm your password',
+  register_label_name: 'Name',
+  register_label_email: 'Email',
+  register_label_password: 'Password',
+  register_label_confirm: 'Confirm password',
+  register_btn_submit: 'Create account',
+  register_btn_submitting: 'Creating account...',
+
+  // ── Home page ─────────────────────────────────────────────────────────────
+  home_hero_tagline: 'Your team, in one place.',
+  home_hero_description:
+    'Boards, documents and live presence. Everything your team needs, synced instantly — no friction.',
+  home_hero_cta_start: 'Get started free',
+  home_hero_cta_login: 'Sign in',
+  home_hero_cta_dashboard: 'Go to Dashboard',
+
+  home_features_heading: 'Built for teams that move fast.',
+  home_feat1_title: 'Always in sync',
+  home_feat1_body:
+    'Every change reaches all team members instantly. No page refresh, no waiting, no conflicts.',
+  home_feat2_title: 'See your team',
+  home_feat2_body:
+    'Know exactly who is connected and what they are editing. The implicit visibility teams need to move together.',
+  home_feat3_title: 'Nothing gets lost',
+  home_feat3_body:
+    'Every action is recorded. Browse the history of any board or document and go back to any point in time.',
+  home_feat4_title: 'No interruptions',
+  home_feat4_body:
+    'Keep working even when you lose your connection. When you come back, everything merges automatically. Your work is always safe.',
+
+  home_showcase_heading: 'Everything your team needs. Nothing more.',
+  home_mod1_name: 'Workspaces',
+  home_mod1_tagline: 'Your space, your team.',
+  home_mod1_desc:
+    'Create a workspace, invite your team and start collaborating in seconds. Each person sees exactly what they need.',
+  home_mod1_i1: 'Multi-board',
+  home_mod1_i2: 'Email invitations',
+  home_mod1_i3: 'Per-member roles',
+  home_mod2_name: 'Kanban Boards',
+  home_mod2_tagline: 'Move tasks. Everyone sees it.',
+  home_mod2_desc:
+    'Boards with lists and cards you can drag in real time. When you move something, your team sees it instantly.',
+  home_mod2_i1: 'Live drag & drop',
+  home_mod2_i2: 'Labels and due dates',
+  home_mod2_i3: 'Real-time activity',
+  home_mod3_name: 'Collaborative Editor',
+  home_mod3_tagline: 'Write alongside your team.',
+  home_mod3_desc:
+    'Documents where multiple people edit at the same time. Named cursors, full history, no duplicate versions.',
+  home_mod3_i1: 'Live cursors',
+  home_mod3_i2: 'Markdown + rich text',
+  home_mod3_i3: 'Full history',
+  home_mod4_name: 'Global Presence',
+  home_mod4_tagline: 'Nobody works in the dark.',
+  home_mod4_desc:
+    'See who is connected, which board they are viewing and when they are typing. The implicit communication teams need.',
+  home_mod4_i1: 'Real-time status',
+  home_mod4_i2: 'Typing indicators',
+  home_mod4_i3: 'Activity per workspace',
+  home_showcase_prev: '← Previous',
+  home_showcase_next: 'Next →',
+
+  home_footer_desc: 'Real-time collaboration platform. Your team, synced instantly.',
+  home_footer_access: 'Access',
+  home_footer_create_account: 'Create account',
+  home_footer_sign_in: 'Sign in',
+  home_footer_copyright: '© 2026 Aether. All rights reserved.',
 
   // ── Forgot Password ───────────────────────────────────────────────────────
   forgot_title: 'Forgot your password?',

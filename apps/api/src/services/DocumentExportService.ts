@@ -191,9 +191,10 @@ export class DocumentExportService {
       case 'taskList':
         return `<ul class="task-list">${content}</ul>`;
 
-      case 'taskItem':
+      case 'taskItem': {
         const checked = node.attrs?.checked ? ' checked' : '';
         return `<li class="task-item"><input type="checkbox"${checked} disabled> ${content}</li>`;
+      }
 
       case 'codeBlock': {
         const language = node.attrs?.language || '';

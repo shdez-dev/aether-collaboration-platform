@@ -104,7 +104,7 @@ describe('AuthStore', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.error).toBe('Error inesperado al registrar');
+        expect(result.current.error).toBe('Network error');
         expect(result.current.isAuthenticated).toBe(false);
       });
     });

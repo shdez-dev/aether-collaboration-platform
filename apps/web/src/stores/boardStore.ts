@@ -56,6 +56,7 @@ interface BoardState {
   // Helpers
   clearError: () => void;
   selectBoard: (board: Board | null) => void;
+  reset: () => void;
 }
 
 interface CreateBoardData {
@@ -69,6 +70,10 @@ interface UpdateBoardData {
 }
 
 // ==================== STORE ====================
+
+// Module-level flag: prevents registering duplicate socket event handlers
+// when connectSocket() is called multiple times (e.g. React StrictMode double-invocation)
+let _socketHandlersRegistered = false;
 
 export const useBoardStore = create<BoardState>()(
   persist(
@@ -90,10 +95,16 @@ export const useBoardStore = create<BoardState>()(
           return;
         }
 
-        if (socketService.isConnected()) {
+        // Prevent duplicate event handler registration
+        if (_socketHandlersRegistered) {
+          // Still ensure the socket is connected/connecting
+          if (!socketService.isConnected()) {
+            socketService.connect(accessToken);
+          }
           return;
         }
 
+        _socketHandlersRegistered = true;
         socketService.connect(accessToken);
 
         // Configurar event listeners
@@ -129,6 +140,7 @@ export const useBoardStore = create<BoardState>()(
 
       // ==================== WEBSOCKET - DISCONNECT ====================
       disconnectSocket: () => {
+        _socketHandlersRegistered = false;
         socketService.removeAllListeners();
         socketService.disconnect();
         set({ isSocketConnected: false, activeUsers: [] });
@@ -152,9 +164,25 @@ export const useBoardStore = create<BoardState>()(
         switch (event.type) {
           // ========== CARD EVENTS ==========
           case 'card.created': {
-            const { card } = event.payload as any;
-            if (card) {
-              cardStore.addCard(card.listId, card);
+            const payload = event.payload as any;
+            // Payload is flat: { cardId, listId, title, description, position, createdBy, boardId, workspaceId }
+            const cardData = payload.card ?? {
+              id: payload.cardId,
+              listId: payload.listId,
+              title: payload.title,
+              description: payload.description,
+              position: payload.position,
+              priority: payload.priority ?? null,
+              dueDate: payload.dueDate ?? null,
+              startDate: payload.startDate ?? null,
+              completed: payload.completed ?? false,
+              members: payload.members ?? [],
+              labels: payload.labels ?? [],
+              createdAt: payload.createdAt ?? new Date().toISOString(),
+              updatedAt: payload.updatedAt ?? new Date().toISOString(),
+            };
+            if (cardData.listId) {
+              cardStore.addCard(cardData.listId, cardData);
             }
             break;
           }
@@ -396,11 +424,24 @@ export const useBoardStore = create<BoardState>()(
 
           // ========== LIST EVENTS ==========
           case 'list.created': {
-            const { list } = event.payload as any;
-            if (list) {
-              set((state) => ({
-                lists: [...state.lists, list],
-              }));
+            const payload = event.payload as any;
+            // Payload is flat: { listId, boardId, name, position, createdBy, workspaceId }
+            const listData = payload.list ?? {
+              id: payload.listId,
+              boardId: payload.boardId,
+              name: payload.name,
+              position: payload.position,
+              createdAt: payload.createdAt ?? new Date().toISOString(),
+              updatedAt: payload.updatedAt ?? new Date().toISOString(),
+              cards: [],
+            };
+            if (listData.id) {
+              const already = get().lists.some((l) => l.id === listData.id);
+              if (!already) {
+                set((state) => ({
+                  lists: [...state.lists, listData],
+                }));
+              }
             }
             break;
           }
@@ -436,6 +477,33 @@ export const useBoardStore = create<BoardState>()(
           }
 
           // ========== BOARD EVENTS ==========
+          case 'board.created': {
+            const { boardId, name, description, createdBy, position, workspaceId } = event.payload as any;
+            if (boardId) {
+              // Solo agregar si no existe ya (evitar duplicado del creador)
+              const already = get().boards.some((b) => b.id === boardId);
+              if (!already) {
+                set((state) => ({
+                  boards: [
+                    ...state.boards,
+                    {
+                      id: boardId,
+                      workspaceId,
+                      name,
+                      description: description || null,
+                      archived: false,
+                      position: position ?? 0,
+                      createdBy,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any,
+                  ],
+                }));
+              }
+            }
+            break;
+          }
+
           case 'board.updated': {
             const { boardId, changes } = event.payload as any;
             if (boardId && changes) {
@@ -445,6 +513,34 @@ export const useBoardStore = create<BoardState>()(
                     ? { ...state.currentBoard, ...changes }
                     : state.currentBoard,
                 boards: state.boards.map((b) => (b.id === boardId ? { ...b, ...changes } : b)),
+              }));
+            }
+            break;
+          }
+
+          case 'board.archived': {
+            const { boardId } = event.payload as any;
+            if (boardId) {
+              set((state) => ({
+                boards: state.boards.map((b) =>
+                  b.id === boardId ? { ...b, archived: true } : b
+                ),
+                currentBoard:
+                  state.currentBoard?.id === boardId
+                    ? ({ ...state.currentBoard, archived: true } as Board)
+                    : state.currentBoard,
+              }));
+            }
+            break;
+          }
+
+          case 'board.deleted': {
+            const { boardId } = event.payload as any;
+            if (boardId) {
+              set((state) => ({
+                boards: state.boards.filter((b) => b.id !== boardId),
+                currentBoard:
+                  state.currentBoard?.id === boardId ? null : state.currentBoard,
               }));
             }
             break;
@@ -796,6 +892,18 @@ export const useBoardStore = create<BoardState>()(
       // ==================== CLEAR ERROR ====================
       clearError: () => {
         set({ error: null });
+      },
+
+      reset: () => {
+        set({
+          boards: [],
+          currentBoard: null,
+          lists: [],
+          isLoading: false,
+          error: null,
+          isSocketConnected: false,
+          activeUsers: [],
+        });
       },
     }),
     {

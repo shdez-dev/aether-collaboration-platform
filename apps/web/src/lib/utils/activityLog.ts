@@ -41,143 +41,156 @@ export interface ActivityLogEntry {
 }
 
 /**
- * Get human-readable description for an event
+ * Get human-readable description for an event using the i18n translations object.
  */
-export function getEventDescription(event: ActivityLogEntry): string {
-  const { eventType, payload, targetName, userName } = event;
+export function getEventDescription(event: ActivityLogEntry, t: Record<string, any>): string {
+  const { eventType, payload, targetName } = event;
+  const name = targetName || payload?.name || payload?.title || '';
+  const newName = payload?.newName || payload?.newTitle || '';
+  const oldName = payload?.oldName || payload?.oldTitle || name;
 
   switch (eventType) {
-    // Workspace events
+    // Workspace
     case 'workspace.created':
-      return `creó el espacio de trabajo "${targetName || payload.name}"`;
+      return t.dashboard_activity_workspace_created(name);
     case 'workspace.updated':
-      return `actualizó el espacio de trabajo "${targetName || payload.name}"`;
+      return t.dashboard_activity_workspace_updated(name);
     case 'workspace.deleted':
-      return `eliminó el espacio de trabajo "${targetName || payload.name}"`;
+      return t.dashboard_activity_workspace_deleted(name);
     case 'workspace.member.invited':
-      return `invitó a ${payload.inviteeName || 'un usuario'} al espacio de trabajo`;
+      return t.dashboard_activity_workspace_member_invited(payload?.inviteeName || '');
     case 'workspace.member.joined':
-      return `se unió al espacio de trabajo`;
+      return t.dashboard_activity_workspace_member_joined;
     case 'workspace.member.removed':
-      return `fue removido del espacio de trabajo`;
+      return t.dashboard_activity_workspace_member_removed(payload?.memberName || '');
     case 'workspace.member.roleChanged':
-      return `cambió el rol de ${payload.memberName || 'un miembro'}`;
+      return t.dashboard_activity_workspace_member_role_changed(payload?.memberName || '');
 
-    // Board events
+    // Board
     case 'board.created':
-      return `creó el tablero "${targetName || payload.name}"`;
+      return t.dashboard_activity_board_created(name);
     case 'board.updated':
-      return `actualizó el tablero "${targetName || payload.name}"`;
+      return t.dashboard_activity_board_updated(name);
     case 'board.deleted':
-      return `eliminó el tablero "${targetName || payload.name}"`;
+      return t.dashboard_activity_board_deleted(name);
     case 'board.archived':
-      return `archivó el tablero "${targetName || payload.name}"`;
+      return t.dashboard_activity_board_archived(name);
     case 'board.unarchived':
-      return `restauró el tablero "${targetName || payload.name}"`;
+      return t.dashboard_activity_board_unarchived(name);
     case 'board.renamed':
-      return `renombró el tablero a "${payload.newName || payload.name}"`;
+      return t.dashboard_activity_board_renamed(oldName, newName);
     case 'board.description.changed':
-      return `actualizó la descripción del tablero "${targetName || payload.boardName}"`;
+      return t.dashboard_activity_board_description_changed(name);
 
-    // List events
+    // List
     case 'list.created':
-      return `creó la lista "${targetName || payload.name}"`;
+      return t.dashboard_activity_list_created(name);
     case 'list.updated':
-      return `actualizó la lista "${targetName || payload.name}"`;
+      return t.dashboard_activity_list_updated(name);
     case 'list.deleted':
-      return `eliminó la lista "${targetName || payload.name}"`;
+      return t.dashboard_activity_list_deleted(name);
     case 'list.renamed':
-      return `renombró la lista a "${payload.newName || payload.name}"`;
+      return t.dashboard_activity_list_renamed(oldName, newName);
     case 'list.reordered':
-      return `cambió el orden de las listas`;
+      return t.dashboard_activity_list_reordered;
     case 'list.archived':
-      return `archivó la lista "${targetName || payload.name}"`;
+      return t.dashboard_activity_list_archived(name);
 
-    // Card events
+    // Card
     case 'card.created':
-      return `creó la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_created(name);
     case 'card.updated':
-      return `actualizó la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_updated(name);
     case 'card.deleted':
-      return `eliminó la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_deleted(name);
     case 'card.moved':
-      return `movió la tarjeta "${targetName || payload.title}" ${
-        payload.newListName ? `a la lista "${payload.newListName}"` : 'a otra lista'
-      }`;
+      return t.dashboard_activity_card_moved(name, payload?.newListName || '');
     case 'card.completed':
-      return `completó la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_completed(name);
     case 'card.uncompleted':
-      return `marcó como pendiente la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_uncompleted(name);
     case 'card.renamed':
-      return `renombró la tarjeta a "${payload.newTitle || payload.title}"`;
+      return t.dashboard_activity_card_renamed(oldName, newName);
     case 'card.description.changed':
-      return `actualizó la descripción de la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_description_changed(name);
     case 'card.duedate.set':
-      return `estableció una fecha límite para "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_due_set(name);
     case 'card.duedate.changed':
-      return `cambió la fecha límite de "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_due_changed(name);
     case 'card.duedate.removed':
-      return `quitó la fecha límite de "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_due_removed(name);
     case 'card.priority.changed':
-      return `cambió la prioridad de "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_priority_changed(name);
     case 'card.member.assigned':
-      return `asignó a ${payload.assignedUserName || 'un miembro'} en la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_member_assigned(
+        payload?.assignedUserName || '',
+        name
+      );
     case 'card.member.unassigned':
-      return `quitó a ${payload.unassignedUserName || 'un miembro'} de la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_member_unassigned(
+        payload?.unassignedUserName || '',
+        name
+      );
     case 'card.label.added':
-      return `agregó la etiqueta "${payload.labelName}" a "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_label_added(payload?.labelName || '', name);
     case 'card.label.removed':
-      return `quitó la etiqueta "${payload.labelName}" de "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_label_removed(payload?.labelName || '', name);
     case 'card.archived':
-      return `archivó la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_archived(name);
     case 'card.unarchived':
-      return `restauró la tarjeta "${targetName || payload.title}"`;
+      return t.dashboard_activity_card_unarchived(name);
 
-    // Comment events
+    // Comment
     case 'comment.created':
     case 'card.comment.added':
-      return `agregó un comentario en "${targetName || payload.cardTitle}"`;
+      return t.dashboard_activity_comment_added(targetName || payload?.cardTitle || '');
     case 'comment.updated':
     case 'card.comment.updated':
-      return `editó un comentario en "${targetName || payload.cardTitle}"`;
+      return t.dashboard_activity_comment_updated(targetName || payload?.cardTitle || '');
     case 'comment.deleted':
     case 'card.comment.deleted':
-      return `eliminó un comentario de "${targetName || payload.cardTitle}"`;
+      return t.dashboard_activity_comment_deleted(targetName || payload?.cardTitle || '');
     case 'comment.mentioned':
-      return `te mencionó en un comentario`;
+      return t.dashboard_activity_comment_mentioned;
 
-    // Document events
+    // Document
     case 'document.created':
-      return `creó el documento "${targetName || payload.title}"`;
+      return t.dashboard_activity_document_created(name);
     case 'document.updated':
-      return `actualizó el documento "${targetName || payload.title}"`;
+      return t.dashboard_activity_document_updated(name);
     case 'document.deleted':
-      return `eliminó el documento "${targetName || payload.title}"`;
+      return t.dashboard_activity_document_deleted(name);
     case 'document.title.changed':
-      return `renombró el documento a "${payload.newTitle || payload.title}"`;
+      return t.dashboard_activity_document_renamed(oldName, newName);
     case 'document.version.created':
-      return `guardó una nueva versión del documento "${targetName || payload.title}"`;
+      return t.dashboard_activity_document_version(name);
     case 'document.version.restored':
-      return `restauró una versión anterior del documento "${targetName || payload.title}"`;
+      return t.dashboard_activity_document_version_restored(name);
     case 'document.exported':
-      return `exportó el documento "${targetName || payload.title}"`;
+      return t.dashboard_activity_document_exported(name);
     case 'document.comment.added':
-      return `agregó un comentario en el documento "${targetName || payload.documentTitle}"`;
+      return t.dashboard_activity_document_comment_added(
+        targetName || payload?.documentTitle || ''
+      );
     case 'document.comment.updated':
-      return `editó un comentario en el documento "${targetName || payload.documentTitle}"`;
+      return t.dashboard_activity_document_comment_updated(
+        targetName || payload?.documentTitle || ''
+      );
     case 'document.comment.deleted':
-      return `eliminó un comentario del documento "${targetName || payload.documentTitle}"`;
+      return t.dashboard_activity_document_comment_deleted(
+        targetName || payload?.documentTitle || ''
+      );
 
-    // Auth events
+    // Auth
     case 'auth.user.registered':
-      return `se registró en la plataforma`;
+      return t.dashboard_activity_auth_registered;
     case 'auth.user.loggedIn':
-      return `inició sesión`;
+      return t.dashboard_activity_auth_logged_in;
     case 'auth.user.loggedOut':
-      return `cerró sesión`;
+      return t.dashboard_activity_auth_logged_out;
 
     default:
-      return eventType.replace(/\./g, ' ').replace(/_/g, ' ');
+      return t.dashboard_activity_unknown;
   }
 }
 
@@ -185,7 +198,6 @@ export function getEventDescription(event: ActivityLogEntry): string {
  * Get icon for event type
  */
 export function getEventIcon(eventType: EventType): LucideIcon {
-  // Board events
   if (eventType.startsWith('board.')) {
     if (eventType.includes('archived')) return Archive;
     if (eventType.includes('unarchived')) return ArchiveRestore;
@@ -193,13 +205,11 @@ export function getEventIcon(eventType: EventType): LucideIcon {
     return Layout;
   }
 
-  // List events
   if (eventType.startsWith('list.')) {
     if (eventType.includes('archived')) return Archive;
     return List;
   }
 
-  // Card events
   if (eventType.startsWith('card.')) {
     if (eventType.includes('moved')) return ArrowRight;
     if (eventType.includes('completed')) return CheckCircle;
@@ -216,18 +226,13 @@ export function getEventIcon(eventType: EventType): LucideIcon {
     return SquareKanban;
   }
 
-  // Comment events
-  if (eventType.includes('comment')) {
-    return MessageSquare;
-  }
+  if (eventType.includes('comment')) return MessageSquare;
 
-  // Document events
   if (eventType.startsWith('document.')) {
     if (eventType.includes('deleted')) return Trash2;
     return FileText;
   }
 
-  // Workspace events
   if (eventType.startsWith('workspace.')) {
     if (eventType.includes('member')) return Users;
     return Layout;
@@ -256,26 +261,28 @@ export function getEventColor(eventType: EventType): string {
 }
 
 /**
- * Group events by date with month separators
+ * Group events by date with month separators.
+ * Requires translations object `t` for localized labels.
  */
 export function groupEventsByDate(
-  events: ActivityLogEntry[]
+  events: ActivityLogEntry[],
+  t: Record<string, any>
 ): Array<{ date: string; label: string; events: ActivityLogEntry[]; isMonthHeader?: boolean }> {
   const groups = new Map<string, ActivityLogEntry[]>();
 
   events.forEach((event) => {
     const date = new Date(event.createdAt);
-    const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
-
-    if (!groups.has(dateKey)) {
-      groups.set(dateKey, []);
-    }
+    const dateKey = date.toISOString().split('T')[0];
+    if (!groups.has(dateKey)) groups.set(dateKey, []);
     groups.get(dateKey)!.push(event);
   });
 
+  const locale: string = t.locale || 'es-ES';
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
+  const todayKey = today.toISOString().split('T')[0];
+  const yesterdayKey = yesterday.toISOString().split('T')[0];
 
   const result: Array<{
     date: string;
@@ -286,53 +293,42 @@ export function groupEventsByDate(
   let lastMonth = '';
 
   Array.from(groups.entries())
-    .sort(([a], [b]) => b.localeCompare(a)) // Sort by date desc
-    .forEach(([dateKey, events]) => {
+    .sort(([a], [b]) => b.localeCompare(a))
+    .forEach(([dateKey, dateEvents]) => {
       const date = new Date(dateKey);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-      // Add month header if it's a new month
       if (monthKey !== lastMonth) {
-        const monthLabel = date.toLocaleDateString('es-ES', {
-          month: 'long',
-          year: 'numeric',
-        });
-        const formattedMonthLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
-
+        const monthLabel = date.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
         result.push({
           date: monthKey,
-          label: formattedMonthLabel,
+          label: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
           events: [],
           isMonthHeader: true,
         });
         lastMonth = monthKey;
       }
 
-      let label = '';
-
-      if (dateKey === today.toISOString().split('T')[0]) {
-        label = 'Hoy';
-      } else if (dateKey === yesterday.toISOString().split('T')[0]) {
-        label = 'Ayer';
+      let label: string;
+      if (dateKey === todayKey) {
+        label = t.activity_today;
+      } else if (dateKey === yesterdayKey) {
+        label = t.activity_time_yesterday;
       } else {
-        // Format: "Lunes 24"
-        label = date.toLocaleDateString('es-ES', {
-          weekday: 'long',
-          day: 'numeric',
-        });
+        label = date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric' });
         label = label.charAt(0).toUpperCase() + label.slice(1);
       }
 
-      result.push({ date: dateKey, label, events });
+      result.push({ date: dateKey, label, events: dateEvents });
     });
 
   return result;
 }
 
 /**
- * Format relative time
+ * Format relative time using i18n translations.
  */
-export function formatRelativeTime(date: Date | string): string {
+export function formatRelativeTime(date: Date | string, t: Record<string, any>): string {
   const now = new Date();
   const eventDate = typeof date === 'string' ? new Date(date) : date;
   const diffMs = now.getTime() - eventDate.getTime();
@@ -341,12 +337,13 @@ export function formatRelativeTime(date: Date | string): string {
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffSec < 60) return 'justo ahora';
-  if (diffMin < 60) return `hace ${diffMin} minuto${diffMin !== 1 ? 's' : ''}`;
-  if (diffHour < 24) return `hace ${diffHour} hora${diffHour !== 1 ? 's' : ''}`;
-  if (diffDay < 7) return `hace ${diffDay} día${diffDay !== 1 ? 's' : ''}`;
+  if (diffSec < 60) return t.activity_time_just_now;
+  if (diffMin < 60) return t.activity_time_minutes(diffMin);
+  if (diffHour < 24) return t.activity_time_hours(diffHour);
+  if (diffDay < 7) return t.activity_time_days(diffDay);
 
-  return eventDate.toLocaleDateString('es-ES', {
+  const locale: string = t.locale || 'es-ES';
+  return eventDate.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: eventDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
@@ -382,7 +379,7 @@ export const EVENT_CATEGORIES = {
     ],
   },
   card: {
-    label: 'Tarjetas',
+    label: 'Cards',
     events: [
       'card.created',
       'card.updated',
@@ -405,7 +402,7 @@ export const EVENT_CATEGORIES = {
     ],
   },
   document: {
-    label: 'Documentos',
+    label: 'Documents',
     events: [
       'document.created',
       'document.updated',
@@ -417,7 +414,7 @@ export const EVENT_CATEGORIES = {
     ],
   },
   comment: {
-    label: 'Comentarios',
+    label: 'Comments',
     events: ['comment.created', 'comment.updated', 'comment.deleted', 'comment.mentioned'],
   },
 };

@@ -30,7 +30,8 @@ export class EventStoreService {
     userId: UserId,
     boardId?: string,
     socketId?: string,
-    targetUserId?: string
+    targetUserId?: string,
+    workspaceId?: string
   ): Promise<Event> {
     const eventId = uuidv7() as EventId;
     const timestamp = Date.now();
@@ -103,6 +104,11 @@ export class EventStoreService {
           gateway.broadcastToBoard(boardId, event);
         }
       }
+
+      // Si hay workspaceId, broadcast al workspace (eventos de nivel workspace)
+      if (workspaceId) {
+        gateway.broadcastToWorkspace(workspaceId, event);
+      }
     } catch (error) {
       // No fallar si WebSocket no está disponible
     }
@@ -114,7 +120,12 @@ export class EventStoreService {
    * Determina si un evento es efímero (no se persiste)
    */
   private isEphemeralEvent(eventType: EventType): boolean {
-    return eventType.startsWith('presence.');
+    const t = eventType as string;
+    // Los eventos de presencia y notificaciones son efímeros:
+    // - presence.*: actualizaciones de presencia en tiempo real
+    // - notification.*: las notificaciones ya se persisten en su propia tabla,
+    //   no deben duplicarse en la tabla events (y evita fallos de FK con userId='system')
+    return t.startsWith('presence.') || t.startsWith('notification.');
   }
 
   /**

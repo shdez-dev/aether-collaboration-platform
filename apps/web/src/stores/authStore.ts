@@ -37,6 +37,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   isHydrated: boolean; // Nuevo flag para saber si ya se hidrató desde localStorage
+  uiLanguage: 'es' | 'en'; // Language preference for unauthenticated users
 
   // Acciones
   register: (name: string, email: string, password: string) => Promise<void>;
@@ -50,6 +51,7 @@ interface AuthState {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   clearError: () => void;
   setHydrated: (hydrated: boolean) => void;
+  setUiLanguage: (lang: 'es' | 'en') => void;
 
   // Helpers internos
   setAuth: (user: User, tokens: AuthTokens) => void;
@@ -69,6 +71,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       isHydrated: false,
+      uiLanguage: 'es',
 
       // ==================== REGISTER ====================
       register: async (name: string, email: string, password: string) => {
@@ -171,7 +174,24 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('aether-card-storage');
         localStorage.removeItem('aether-document-storage');
 
-        // 4. Limpiar estado local
+        // 4. Resetear estado en memoria de todos los stores (evitar data leak entre usuarios)
+        try {
+          const [{ useWorkspaceStore }, { useBoardStore }, { useCardStore }, { useDocumentStore }, { useNotificationStore }] =
+            await Promise.all([
+              import('./workspaceStore'),
+              import('./boardStore'),
+              import('./cardStore'),
+              import('./documentStore'),
+              import('./notificationStore'),
+            ]);
+          useWorkspaceStore.getState().reset();
+          useBoardStore.getState().reset();
+          useCardStore.getState().reset();
+          useDocumentStore.getState().reset();
+          useNotificationStore.getState().reset();
+        } catch {}
+
+        // 5. Limpiar estado local
         get().clearAuth();
       },
 
@@ -247,6 +267,10 @@ export const useAuthStore = create<AuthState>()(
 
       setHydrated: (hydrated: boolean) => {
         set({ isHydrated: hydrated });
+      },
+
+      setUiLanguage: (lang: 'es' | 'en') => {
+        set({ uiLanguage: lang });
       },
 
       // ==================== UPDATE PROFILE ====================
@@ -367,6 +391,7 @@ export const useAuthStore = create<AuthState>()(
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
+        uiLanguage: state.uiLanguage,
       }),
       onRehydrateStorage: () => (state) => {
         // Cuando termina de hidratar, marcar como hidratado

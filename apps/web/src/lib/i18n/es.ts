@@ -1,6 +1,66 @@
 // apps/web/src/lib/i18n/es.ts
 
 export const es = {
+  // ── Home page ─────────────────────────────────────────────────────────────
+  home_hero_tagline: 'Tu equipo, en un solo lugar.',
+  home_hero_description:
+    'Boards, documentos y presencia en vivo. Todo lo que tu equipo necesita, sincronizado al instante — sin fricción.',
+  home_hero_cta_start: 'Empezar gratis',
+  home_hero_cta_login: 'Iniciar sesión',
+  home_hero_cta_dashboard: 'Ir al Dashboard',
+
+  home_features_heading: 'Construido para equipos que no esperan.',
+  home_feat1_title: 'Siempre sincronizados',
+  home_feat1_body:
+    'Cada cambio llega al instante a todos los miembros del equipo. Sin refrescar la página, sin esperar, sin conflictos.',
+  home_feat2_title: 'Ve a tu equipo',
+  home_feat2_body:
+    'Sabe exactamente quién está conectado y qué está editando. La visibilidad implícita que los equipos necesitan para moverse juntos.',
+  home_feat3_title: 'Nada se pierde',
+  home_feat3_body:
+    'Cada acción queda registrada. Navega el historial de cualquier board o documento y vuelve a cualquier momento.',
+  home_feat4_title: 'Sin interrupciones',
+  home_feat4_body:
+    'Trabaja aunque pierdas la conexión. Cuando vuelves, todo se fusiona automáticamente. Tu trabajo siempre está a salvo.',
+
+  home_showcase_heading: 'Todo lo que tu equipo necesita. Nada más.',
+  home_mod1_name: 'Workspaces',
+  home_mod1_tagline: 'Tu espacio, tu equipo.',
+  home_mod1_desc:
+    'Crea un workspace, invita a tu equipo y empieza a colaborar en segundos. Cada persona ve exactamente lo que necesita.',
+  home_mod1_i1: 'Multi-board',
+  home_mod1_i2: 'Invitaciones por email',
+  home_mod1_i3: 'Roles por miembro',
+  home_mod2_name: 'Boards Kanban',
+  home_mod2_tagline: 'Mueve tareas. Todos lo ven.',
+  home_mod2_desc:
+    'Tableros con listas y tarjetas que se arrastran en tiempo real. Cuando tú mueves algo, tu equipo lo ve al instante.',
+  home_mod2_i1: 'Drag & drop en vivo',
+  home_mod2_i2: 'Etiquetas y fechas',
+  home_mod2_i3: 'Actividad en tiempo real',
+  home_mod3_name: 'Editor Colaborativo',
+  home_mod3_tagline: 'Escribe junto a tu equipo.',
+  home_mod3_desc:
+    'Documentos donde múltiples personas editan al mismo tiempo. Cursores nombrados, historial completo, sin versiones duplicadas.',
+  home_mod3_i1: 'Cursores en vivo',
+  home_mod3_i2: 'Markdown + rich text',
+  home_mod3_i3: 'Historial completo',
+  home_mod4_name: 'Presencia Global',
+  home_mod4_tagline: 'Nadie trabaja en la oscuridad.',
+  home_mod4_desc:
+    'Ve quién está conectado, qué board está mirando y cuándo está escribiendo. La comunicación implícita que los equipos necesitan.',
+  home_mod4_i1: 'Estado en tiempo real',
+  home_mod4_i2: 'Indicadores de escritura',
+  home_mod4_i3: 'Actividad por workspace',
+  home_showcase_prev: '← Anterior',
+  home_showcase_next: 'Siguiente →',
+
+  home_footer_desc: 'Plataforma de colaboración en tiempo real. Tu equipo, sincronizado al instante.',
+  home_footer_access: 'Acceso',
+  home_footer_create_account: 'Crear cuenta',
+  home_footer_sign_in: 'Iniciar sesión',
+  home_footer_copyright: '© 2026 Aether. Todos los derechos reservados.',
+
   // ── Layout / Navegación ───────────────────────────────────────────────────
   nav_home: 'Home',
   nav_dashboard: 'Dashboard',
@@ -151,6 +211,26 @@ export const es = {
     `Renombró el documento de "${from}" a "${to}"`,
   dashboard_activity_document_version: (name: string) => `Guardó nueva versión de "${name}"`,
   dashboard_activity_document_exported: (name: string) => `Exportó el documento "${name}"`,
+
+  // Eventos adicionales
+  dashboard_activity_board_description_changed: (name: string) =>
+    `Actualizó la descripción del tablero "${name}"`,
+  dashboard_activity_list_updated: (name: string) => `Actualizó la lista "${name}"`,
+  dashboard_activity_list_reordered: 'Reordenó las listas',
+  dashboard_activity_card_description_changed: (name: string) =>
+    `Actualizó la descripción de la tarjeta "${name}"`,
+  dashboard_activity_document_version_restored: (name: string) =>
+    `Restauró una versión del documento "${name}"`,
+  dashboard_activity_document_comment_added: (name: string) =>
+    `Comentó en el documento "${name}"`,
+  dashboard_activity_document_comment_updated: (name: string) =>
+    `Editó un comentario en el documento "${name}"`,
+  dashboard_activity_document_comment_deleted: (name: string) =>
+    `Eliminó un comentario del documento "${name}"`,
+  dashboard_activity_comment_mentioned: 'Te mencionó en un comentario',
+  dashboard_activity_auth_registered: 'Se registró en la plataforma',
+  dashboard_activity_auth_logged_in: 'Inició sesión',
+  dashboard_activity_auth_logged_out: 'Cerró sesión',
 
   // fallback
   dashboard_activity_unknown: 'Actividad registrada',
@@ -637,6 +717,33 @@ export const es = {
   activity_time_hours: (n: number) => `Hace ${n}h`,
   activity_time_yesterday: 'Ayer',
   activity_time_days: (n: number) => `Hace ${n}d`,
+  activity_today: 'Hoy',
+  activity_filter_title: 'Filtros',
+  activity_filter_clear: 'Limpiar',
+  activity_filter_categories: 'Categorías',
+  activity_filter_date_range: 'Rango de fechas',
+  activity_filter_date_from: 'Desde',
+  activity_filter_date_to: 'Hasta',
+  activity_filter_date_from_placeholder: 'Seleccionar fecha inicial',
+  activity_filter_date_to_placeholder: 'Seleccionar fecha final',
+  activity_filter_user: 'Usuario',
+  activity_filter_user_all: 'Todos los usuarios',
+  activity_filter_board_all: 'Todos los boards',
+  activity_filter_active: 'Filtros activos:',
+  activity_filter_types: (n: number) => `${n} tipo${n !== 1 ? 's' : ''}`,
+  activity_filter_dates: 'Fechas',
+  activity_cat_workspace: 'Workspace',
+  activity_cat_board: 'Boards',
+  activity_cat_card: 'Tarjetas',
+  activity_cat_document: 'Documentos',
+  activity_cat_comment: 'Comentarios',
+  activity_timeline_no_activity_title: 'No hay actividad',
+  activity_timeline_no_activity_desc:
+    'No se encontraron eventos con los filtros aplicados. Intenta ajustarlos.',
+  activity_timeline_events: (n: number) => `${n} evento${n !== 1 ? 's' : ''}`,
+  activity_timeline_loading_more: 'Cargando más eventos...',
+  activity_timeline_end: 'Has llegado al final del historial',
+  locale: 'es-ES',
 
   // ── Usuarios activos ──────────────────────────────────────────────────────
   active_users_title: 'Usuarios activos',
@@ -795,6 +902,14 @@ export const es = {
   login_forgot_password: '¿Olvidaste tu contraseña?',
   login_link_recover: 'Recuperar',
   login_btn_back_to_login: 'Volver a Iniciar Sesión',
+  login_subtitle: 'Inicia sesión en tu cuenta',
+  login_label_email: 'Correo electrónico',
+  login_label_password: 'Contraseña',
+  login_btn_submit: 'Iniciar sesión',
+  login_btn_submitting: 'Iniciando sesión...',
+  login_validation_email_required: 'El correo electrónico es requerido',
+  login_validation_email_invalid: 'Ingresa un correo electrónico válido',
+  login_validation_password_required: 'La contraseña es requerida',
   register_btn_back: 'Volver al inicio',
   register_placeholder_name: 'Tu nombre completo',
   register_placeholder_password: 'Mínimo 8 caracteres',
@@ -805,6 +920,17 @@ export const es = {
   register_validation_passwords: 'Las contraseñas no coinciden',
   register_validation_password_short: 'La contraseña debe tener al menos 8 caracteres',
   register_validation_name_short: 'El nombre debe tener al menos 2 caracteres',
+  register_validation_name_required: 'El nombre es requerido',
+  register_validation_email_required: 'El correo electrónico es requerido',
+  register_validation_email_invalid: 'Ingresa un correo electrónico válido',
+  register_validation_password_required: 'La contraseña es requerida',
+  register_validation_confirm_required: 'Confirma tu contraseña',
+  register_label_name: 'Nombre',
+  register_label_email: 'Correo electrónico',
+  register_label_password: 'Contraseña',
+  register_label_confirm: 'Confirmar contraseña',
+  register_btn_submit: 'Crear cuenta',
+  register_btn_submitting: 'Creando cuenta...',
 
   // ── Forgot Password ───────────────────────────────────────────────────────
   forgot_title: '¿Olvidaste tu contraseña?',

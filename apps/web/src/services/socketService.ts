@@ -202,6 +202,21 @@ class SocketService {
     this.socket?.removeAllListeners();
   }
 
+  // ─── Workspaces ───────────────────────────────────────────────────────────
+
+  joinWorkspace(workspaceId: string): void {
+    if (!this.isConnected()) {
+      this.eventQueue.push({ event: 'join:workspace', data: { workspaceId } });
+      return;
+    }
+    this.socket?.emit('join:workspace', { workspaceId });
+  }
+
+  leaveWorkspace(workspaceId: string): void {
+    if (!this.isConnected()) return;
+    this.socket?.emit('leave:workspace', { workspaceId });
+  }
+
   // ─── Boards ───────────────────────────────────────────────────────────────
 
   joinBoard(boardId: string): void {

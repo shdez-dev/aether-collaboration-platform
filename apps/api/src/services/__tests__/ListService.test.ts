@@ -49,7 +49,8 @@ describe('ListService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}); // COMMIT
+        .mockResolvedValueOnce({}) // COMMIT
+        .mockResolvedValueOnce({ rows: [{ name: 'Test Board' }] }); // SELECT board name
 
       (pool.query as jest.Mock).mockResolvedValueOnce({
         rows: [{ workspace_id: 'ws-123' }],
@@ -88,7 +89,8 @@ describe('ListService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}); // COMMIT
+        .mockResolvedValueOnce({}) // COMMIT
+        .mockResolvedValueOnce({ rows: [{ name: 'Test Board' }] }); // SELECT board name
 
       (pool.query as jest.Mock).mockResolvedValueOnce({
         rows: [{ workspace_id: 'ws-1' }],

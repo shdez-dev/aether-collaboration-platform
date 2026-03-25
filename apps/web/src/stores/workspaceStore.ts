@@ -87,6 +87,7 @@ interface WorkspaceState {
 
   // Helpers
   clearError: () => void;
+  reset: () => void;
 }
 
 interface CreateWorkspaceData {
@@ -637,6 +638,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       // ==================== CLEAR ERROR ====================
       clearError: () => {
         set({ error: null });
+      },
+
+      reset: () => {
+        set({
+          workspaces: [],
+          currentWorkspace: null,
+          currentMembers: [],
+          currentStats: null,
+          isLoading: false,
+          error: null,
+        });
       },
     }),
     {

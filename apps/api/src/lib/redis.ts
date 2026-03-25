@@ -56,20 +56,16 @@ redisSubClient.on('connect', () => {
  * Call this on server startup
  */
 export async function initializeRedis(): Promise<void> {
-  try {
-    await Promise.all([redisClient.connect(), redisPubClient.connect(), redisSubClient.connect()]);
+  await Promise.all([redisClient.connect(), redisPubClient.connect(), redisSubClient.connect()]);
 
-    // Subscribe to event stream
-    await redisSubClient.subscribe('aether:events');
+  // Subscribe to event stream
+  await redisSubClient.subscribe('aether:events');
 
-    redisSubClient.on('message', (channel, message) => {
-      if (channel === 'aether:events') {
-        // Handle event broadcasting (future use)
-      }
-    });
-  } catch (error) {
-    throw error;
-  }
+  redisSubClient.on('message', (channel, _message) => {
+    if (channel === 'aether:events') {
+      // Handle event broadcasting (future use)
+    }
+  });
 }
 
 /**
