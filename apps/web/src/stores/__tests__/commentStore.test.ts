@@ -316,22 +316,11 @@ describe('CommentStore', () => {
 
       const { result } = renderHook(() => useCommentStore());
 
-      // Ensure clean state
-      act(() => {
-        result.current.resetStore();
-      });
-
-      // Clear any previous mocks
-      mockCommentService.getCommentsByCard.mockClear();
-      mockCommentService.getCommentsByCard.mockResolvedValue([mockComment, comment2]);
-
       await act(async () => {
         await result.current.fetchCommentCount('card-1');
       });
 
-      await waitFor(() => {
-        expect(result.current.countsByCard['card-1']).toBe(2);
-      });
+      expect(result.current.countsByCard['card-1']).toBe(2);
     });
 
     it('should not fetch when not authenticated', async () => {
