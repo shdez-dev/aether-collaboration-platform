@@ -40,7 +40,7 @@ describe('CommentStore', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
 
     // Mock auth state
     mockUseAuthStore.getState.mockReturnValue({
