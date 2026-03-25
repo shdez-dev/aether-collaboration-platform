@@ -123,3 +123,7 @@ $RECYCLE.BIN/
 *.swo
 *.bak
 *.orig
+
+# Claude Code
+.claude/
+claude.exe
