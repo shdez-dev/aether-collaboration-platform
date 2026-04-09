@@ -45,8 +45,8 @@ export class ListService {
       const nextPosition = positionResult.rows[0].max_position + 1;
 
       const listResult = await client.query(
-        `INSERT INTO lists (board_id, name, position, created_by)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO lists (id, board_id, name, position, created_by, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, CURRENT_TIMESTAMP)
          RETURNING *`,
         [boardId, data.name, nextPosition, userId]
       );

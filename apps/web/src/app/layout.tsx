@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useIsAuthenticated } from '@/stores/authStore';
+import { useT } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { HydrationBoundary } from '@/components/HydrationBoundary';
 import { ThemeProvider } from '@/providers/ThemeProvider';
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }, []);
   const pathname = usePathname();
   const isAuthenticated = useIsAuthenticated();
+  const t = useT();
 
   // No mostrar navegación en páginas de auth o dashboard (tienen su propio layout)
   const hideNav =
@@ -153,15 +155,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                               href="/login"
                               className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-text-primary hover:text-accent transition-colors touch-target"
                             >
-                              <span className="hidden sm:inline">Iniciar Sesión</span>
-                              <span className="sm:hidden">Login</span>
+                              {t.nav_login}
                             </Link>
                             <Link
                               href="/register"
                               className="px-3 sm:px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition-all duration-300 text-xs sm:text-sm touch-target"
                             >
-                              <span className="hidden sm:inline">Crear Cuenta</span>
-                              <span className="sm:hidden">Registro</span>
+                              {t.nav_register}
                             </Link>
                           </>
                         )}

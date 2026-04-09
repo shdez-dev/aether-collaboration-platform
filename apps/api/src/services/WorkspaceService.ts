@@ -34,8 +34,8 @@ export class WorkspaceService {
 
       // 1. Crear el workspace
       const workspaceResult = await client.query(
-        `INSERT INTO workspaces (name, description, owner_id, icon, color)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO workspaces (id, name, description, owner_id, icon, color, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
          RETURNING *`,
         [data.name, data.description || null, userId, data.icon || null, data.color || null]
       );
@@ -44,8 +44,8 @@ export class WorkspaceService {
 
       // 2. Agregar al creador como miembro con rol OWNER
       await client.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role)
-         VALUES ($1, $2, $3)`,
+        `INSERT INTO workspace_members (id, workspace_id, user_id, role)
+         VALUES (uuid_generate_v4(), $1, $2, $3)`,
         [workspace.id, userId, 'OWNER']
       );
 
@@ -295,8 +295,8 @@ export class WorkspaceService {
       }
 
       await client.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role)
-         VALUES ($1, $2, $3)`,
+        `INSERT INTO workspace_members (id, workspace_id, user_id, role)
+         VALUES (uuid_generate_v4(), $1, $2, $3)`,
         [workspaceId, inviteeId, role]
       );
 
@@ -605,8 +605,8 @@ export class WorkspaceService {
 
       // Crear copia
       const newWorkspaceResult = await client.query(
-        `INSERT INTO workspaces (name, description, owner_id, icon, color)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO workspaces (id, name, description, owner_id, icon, color, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
          RETURNING *`,
         [`${source.name} (copia)`, source.description, userId, source.icon, source.color]
       );
@@ -614,7 +614,7 @@ export class WorkspaceService {
 
       // Añadir al creador como OWNER
       await client.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'OWNER')`,
+        `INSERT INTO workspace_members (id, workspace_id, user_id, role) VALUES (uuid_generate_v4(), $1, $2, 'OWNER')`,
         [newWorkspace.id, userId]
       );
 
@@ -627,7 +627,7 @@ export class WorkspaceService {
         for (let i = 0; i < boardsResult.rows.length; i++) {
           const board = boardsResult.rows[i];
           await client.query(
-            `INSERT INTO boards (workspace_id, name, description, position, created_by) VALUES ($1, $2, $3, $4, $5)`,
+            `INSERT INTO boards (id, workspace_id, name, description, position, created_by, updated_at) VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
             [newWorkspace.id, board.name, board.description, i, userId]
           );
         }
@@ -895,7 +895,7 @@ export class WorkspaceService {
       }
 
       await client.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'MEMBER')`,
+        `INSERT INTO workspace_members (id, workspace_id, user_id, role) VALUES (uuid_generate_v4(), $1, $2, 'MEMBER')`,
         [workspace.id, userId]
       );
 
@@ -986,15 +986,15 @@ export class WorkspaceService {
 
       // Crear workspace
       const wsResult = await client.query(
-        `INSERT INTO workspaces (name, description, owner_id, icon, color)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        `INSERT INTO workspaces (id, name, description, owner_id, icon, color, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING *`,
         [name, template.description, userId, template.icon, template.color]
       );
       const workspace = wsResult.rows[0];
 
       // Añadir como OWNER
       await client.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'OWNER')`,
+        `INSERT INTO workspace_members (id, workspace_id, user_id, role) VALUES (uuid_generate_v4(), $1, $2, 'OWNER')`,
         [workspace.id, userId]
       );
 
@@ -1002,13 +1002,13 @@ export class WorkspaceService {
       for (let boardIndex = 0; boardIndex < template.boards.length; boardIndex++) {
         const boardTemplate = template.boards[boardIndex];
         const boardResult = await client.query(
-          `INSERT INTO boards (workspace_id, name, position, created_by) VALUES ($1, $2, $3, $4) RETURNING id`,
+          `INSERT INTO boards (id, workspace_id, name, position, created_by, updated_at) VALUES (uuid_generate_v4(), $1, $2, $3, $4, CURRENT_TIMESTAMP) RETURNING id`,
           [workspace.id, boardTemplate.name, boardIndex, userId]
         );
         const boardId = boardResult.rows[0].id;
 
         for (let i = 0; i < boardTemplate.lists.length; i++) {
-          await client.query(`INSERT INTO lists (board_id, name, position) VALUES ($1, $2, $3)`, [
+          await client.query(`INSERT INTO lists (id, board_id, name, position, updated_at) VALUES (uuid_generate_v4(), $1, $2, $3, CURRENT_TIMESTAMP)`, [
             boardId,
             boardTemplate.lists[i],
             i,

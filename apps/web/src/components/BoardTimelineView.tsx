@@ -85,14 +85,17 @@ const MONTHS_SHORT = [
 ];
 
 function toISO(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function parseDate(iso: string) {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
   return new Date(y, m - 1, d);
 }
+function toMidnightLocal(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
 function daysBetween(a: Date, b: Date) {
-  return Math.round((b.getTime() - a.getTime()) / 86400000);
+  return Math.round((toMidnightLocal(b).getTime() - toMidnightLocal(a).getTime()) / 86400000);
 }
 function addDays(d: Date, n: number) {
   const r = new Date(d);

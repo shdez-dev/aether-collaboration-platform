@@ -4,7 +4,7 @@
   "private": true,
   "description": "AETHER frontend application with Next.js",
   "scripts": {
-    "dev": "next dev -p 3001 -H localhost",
+    "dev": "next dev -p 3002 -H localhost",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

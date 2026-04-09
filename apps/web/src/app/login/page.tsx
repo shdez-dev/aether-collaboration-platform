@@ -136,7 +136,7 @@ export default function LoginPage() {
                 onChange={(e) => handleEmailChange(e.target.value)}
                 onBlur={() => handleBlur('email')}
                 className={`input-terminal ${touched.email && errors.email ? 'border-error focus:border-error' : ''}`}
-                placeholder="usuario@ejemplo.com"
+                placeholder={t.login_placeholder_email}
                 disabled={isLoading}
                 autoComplete="email"
               />

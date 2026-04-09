@@ -8,6 +8,7 @@ on:
 
 env:
   PNPM_VERSION: 8
+  NODE_VERSION: '20'
 
 jobs:
   # ===========================================================================
@@ -24,18 +25,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v3
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Get pnpm store directory
         id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -68,12 +67,24 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v3
         with:
           version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -82,12 +93,22 @@ jobs:
         run: pnpm test:ci
         env:
           CI: true
+          NODE_ENV: test
+          # Dummy values so Zod env validation passes if env.ts is imported during tests.
+          # Real DB/Redis are never used because jest.setup.ts mocks src/lib/db and src/lib/redis.
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key-for-ci-testing-only-32c
+          REFRESH_TOKEN_SECRET: test-refresh-secret-key-for-ci-testing-only
+          FRONTEND_URL: http://localhost:3000
+          CORS_ORIGIN: http://localhost:3000
+          ALLOWED_ORIGINS: http://localhost:3000
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         if: always()
         with:
-          files: ./coverage/lcov.info
+          files: apps/api/coverage/lcov.info,apps/web/coverage/lcov.info
           flags: unittests
           fail_ci_if_error: false
 
@@ -106,18 +127,36 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v3
         with:
           version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages
+      - name: Build all packages
         run: pnpm build
+        env:
+          NODE_ENV: production
+          # Placeholder URLs so Next.js NEXT_PUBLIC_* vars are defined at build time.
+          # Real values are injected by Railway at runtime via environment variables.
+          NEXT_PUBLIC_API_URL: https://placeholder.example.com
+          NEXT_PUBLIC_WS_URL: https://placeholder.example.com
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -143,21 +182,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level=moderate
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         continue-on-error: true
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: trivy-results.sarif

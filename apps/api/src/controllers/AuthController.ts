@@ -715,11 +715,14 @@ export class AuthController {
         });
       }
 
+      console.error('forgotPassword error:', error);
       return res.status(500).json({
         success: false,
         error: {
           code: 'INTERNAL_ERROR',
-          message: 'Error al procesar solicitud',
+          message: process.env.NODE_ENV === 'development'
+            ? (error instanceof Error ? error.message : String(error))
+            : 'Error al procesar solicitud',
         },
       });
     } finally {

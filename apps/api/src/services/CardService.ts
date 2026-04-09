@@ -128,8 +128,8 @@ export class CardService {
       const newPosition = maxPosResult.rows[0].max_pos + 1;
 
       const result = await client.query(
-        `INSERT INTO cards (list_id, title, description, position, start_date, due_date, priority, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO cards (id, list_id, title, description, position, start_date, due_date, priority, created_by, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
          RETURNING *`,
         [
           listId,
@@ -361,7 +361,23 @@ export class CardService {
       values.push(cardId);
 
       const result = await client.query(
-        `UPDATE cards SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+        `WITH updated AS (
+           UPDATE cards SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *
+         )
+         SELECT
+           u.*,
+           (
+             SELECT COUNT(*)::int
+             FROM card_dependencies cd
+             INNER JOIN cards bc ON cd.blocking_card_id = bc.id
+             WHERE cd.blocked_card_id = u.id AND bc.completed = FALSE
+           ) as blocked_by_pending_count,
+           (
+             SELECT COUNT(*)::int
+             FROM card_dependencies cd
+             WHERE cd.blocking_card_id = u.id
+           ) as blocking_count
+         FROM updated u`,
         values
       );
 
@@ -524,10 +540,26 @@ export class CardService {
       );
 
       const result = await client.query(
-        `UPDATE cards 
-         SET list_id = $1, position = $2, updated_at = NOW()
-         WHERE id = $3
-         RETURNING *`,
+        `WITH updated AS (
+           UPDATE cards
+           SET list_id = $1, position = $2, updated_at = NOW()
+           WHERE id = $3
+           RETURNING *
+         )
+         SELECT
+           u.*,
+           (
+             SELECT COUNT(*)::int
+             FROM card_dependencies cd
+             INNER JOIN cards bc ON cd.blocking_card_id = bc.id
+             WHERE cd.blocked_card_id = u.id AND bc.completed = FALSE
+           ) as blocked_by_pending_count,
+           (
+             SELECT COUNT(*)::int
+             FROM card_dependencies cd
+             WHERE cd.blocking_card_id = u.id
+           ) as blocking_count
+         FROM updated u`,
         [data.toListId, data.position, cardId]
       );
 

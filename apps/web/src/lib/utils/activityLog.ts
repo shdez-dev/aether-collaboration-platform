@@ -270,9 +270,12 @@ export function groupEventsByDate(
 ): Array<{ date: string; label: string; events: ActivityLogEntry[]; isMonthHeader?: boolean }> {
   const groups = new Map<string, ActivityLogEntry[]>();
 
+  const toLocalDateKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   events.forEach((event) => {
     const date = new Date(event.createdAt);
-    const dateKey = date.toISOString().split('T')[0];
+    const dateKey = toLocalDateKey(date);
     if (!groups.has(dateKey)) groups.set(dateKey, []);
     groups.get(dateKey)!.push(event);
   });
@@ -281,8 +284,8 @@ export function groupEventsByDate(
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const todayKey = today.toISOString().split('T')[0];
-  const yesterdayKey = yesterday.toISOString().split('T')[0];
+  const todayKey = toLocalDateKey(today);
+  const yesterdayKey = toLocalDateKey(yesterday);
 
   const result: Array<{
     date: string;
@@ -295,7 +298,8 @@ export function groupEventsByDate(
   Array.from(groups.entries())
     .sort(([a], [b]) => b.localeCompare(a))
     .forEach(([dateKey, dateEvents]) => {
-      const date = new Date(dateKey);
+      const [y, m, d] = dateKey.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
       if (monthKey !== lastMonth) {

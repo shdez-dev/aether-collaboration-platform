@@ -666,7 +666,7 @@ class UserController {
       // Si no existen preferencias, crearlas con valores por defecto
       if (result.rows.length === 0) {
         const createResult = await pool.query(
-          `INSERT INTO user_preferences (user_id) VALUES ($1) RETURNING *`,
+          `INSERT INTO user_preferences (id, user_id, updated_at) VALUES (uuid_generate_v4(), $1, CURRENT_TIMESTAMP) RETURNING *`,
           [userId]
         );
 
@@ -752,7 +752,7 @@ class UserController {
 
       if (checkResult.rows.length === 0) {
         // Crear preferencias por defecto
-        await pool.query('INSERT INTO user_preferences (user_id) VALUES ($1)', [userId]);
+        await pool.query('INSERT INTO user_preferences (id, user_id, updated_at) VALUES (uuid_generate_v4(), $1, CURRENT_TIMESTAMP)', [userId]);
       }
 
       // Construir query dinámicamente

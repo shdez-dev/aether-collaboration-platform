@@ -19,9 +19,12 @@ const LOCALES: Record<SupportedLanguage, Locale> = {
  * @param language - idioma del usuario ('es' | 'en')
  * @param formatStr - formato de date-fns (por defecto: 'dd MMM yyyy, HH:mm')
  */
+const getBrowserTimezone = () =>
+  typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+
 export function formatDate(
   date: string | Date | number | null | undefined,
-  timezone: string = 'UTC',
+  timezone: string = getBrowserTimezone(),
   language: SupportedLanguage = 'es',
   formatStr: string = 'dd MMM yyyy, HH:mm'
 ): string {
@@ -85,7 +88,7 @@ export function formatRelative(
  */
 export function formatShort(
   date: string | Date | number | null | undefined,
-  timezone: string = 'UTC',
+  timezone: string = getBrowserTimezone(),
   language: SupportedLanguage = 'es'
 ): string {
   return formatDate(date, timezone, language, language === 'en' ? 'MMM d, yyyy' : 'dd MMM yyyy');
@@ -96,7 +99,7 @@ export function formatShort(
  */
 export function formatTime(
   date: string | Date | number | null | undefined,
-  timezone: string = 'UTC',
+  timezone: string = getBrowserTimezone(),
   language: SupportedLanguage = 'es'
 ): string {
   return formatDate(date, timezone, language, 'HH:mm');

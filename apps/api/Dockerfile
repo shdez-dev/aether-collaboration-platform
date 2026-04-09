@@ -47,7 +47,6 @@ RUN npm install -g pnpm@8
 
 # Set environment
 ENV NODE_ENV=production
-ENV API_PORT=3000
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs

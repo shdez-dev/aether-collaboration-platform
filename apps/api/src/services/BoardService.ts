@@ -37,8 +37,8 @@ export class BoardService {
       const nextPosition = positionResult.rows[0].max_position + 1;
 
       const boardResult = await client.query(
-        `INSERT INTO boards (workspace_id, name, description, position, created_by)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO boards (id, workspace_id, name, description, position, created_by, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
          RETURNING *`,
         [workspaceId, data.name, data.description || null, nextPosition, userId]
       );
@@ -46,8 +46,8 @@ export class BoardService {
       const board = boardResult.rows[0];
 
       await client.query(
-        `INSERT INTO lists (board_id, name, position, created_by)
-         VALUES ($1, $2, $3, $4)`,
+        `INSERT INTO lists (id, board_id, name, position, created_by, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, CURRENT_TIMESTAMP)`,
         [board.id, 'Backlog', 1, userId]
       );
 
@@ -119,7 +119,20 @@ export class BoardService {
       );
 
       const cardsResult = await client.query(
-        `SELECT c.*, l.id as list_id
+        `SELECT
+           c.*,
+           l.id as list_id,
+           (
+             SELECT COUNT(*)::int
+             FROM card_dependencies cd
+             INNER JOIN cards bc ON cd.blocking_card_id = bc.id
+             WHERE cd.blocked_card_id = c.id AND bc.completed = FALSE
+           ) as blocked_by_pending_count,
+           (
+             SELECT COUNT(*)::int
+             FROM card_dependencies cd
+             WHERE cd.blocking_card_id = c.id
+           ) as blocking_count
          FROM cards c
          INNER JOIN lists l ON c.list_id = l.id
          WHERE l.board_id = $1
@@ -142,6 +155,8 @@ export class BoardService {
           priority: card.priority,
           createdAt: card.created_at,
           updatedAt: card.updated_at,
+          blockedByPendingCount: card.blocked_by_pending_count ?? 0,
+          blockingCount: card.blocking_count ?? 0,
         });
       });
 

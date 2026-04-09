@@ -15,8 +15,8 @@ export class LabelService {
     }
   ): Promise<Label> {
     const result = await pool.query(
-      `INSERT INTO labels (workspace_id, name, color)
-       VALUES ($1, $2, $3)
+      `INSERT INTO labels (id, workspace_id, name, color)
+       VALUES (uuid_generate_v4(), $1, $2, $3)
        RETURNING *`,
       [workspaceId, data.name, data.color]
     );

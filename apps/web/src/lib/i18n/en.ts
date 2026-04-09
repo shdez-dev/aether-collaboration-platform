@@ -833,6 +833,9 @@ export const en = {
   editor_comment_new_placeholder: 'Add a comment...',
 
   // ── Login / Register ──────────────────────────────────────────────────────
+  nav_login: 'Sign In',
+  nav_register: 'Create Account',
+  login_placeholder_email: 'user@example.com',
   login_btn_back: 'Back to home',
   login_no_account: "Don't have an account?",
   login_link_create: 'Create account',

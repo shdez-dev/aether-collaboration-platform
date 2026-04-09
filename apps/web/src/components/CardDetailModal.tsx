@@ -30,8 +30,19 @@ function CustomCalendar({
   onClose: () => void;
 }) {
   const t = useT();
+
+  // Parse ISO string using only the date part to avoid UTC midnight timezone shift
+  const parseLocalDate = (iso: string) => {
+    const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  // Store dates as noon UTC so the date never shifts across any timezone (±11h)
+  const toNoonUTC = (y: number, m: number, d: number) =>
+    `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}T12:00:00.000Z`;
+
   const [currentDate, setCurrentDate] = useState(() => {
-    if (value) return new Date(value);
+    if (value) return parseLocalDate(value);
     return new Date();
   });
 
@@ -40,17 +51,17 @@ function CustomCalendar({
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
-  const selectedDate = value ? new Date(value) : null;
+  const selectedDate = value ? parseLocalDate(value) : null;
 
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const handleDateSelect = (day: number) => {
-    const selected = new Date(year, month, day);
-    onChange(selected.toISOString());
+    onChange(toNoonUTC(year, month, day));
     onClose();
   };
   const handleToday = () => {
-    onChange(new Date().toISOString());
+    const today = new Date();
+    onChange(toNoonUTC(today.getFullYear(), today.getMonth(), today.getDate()));
     onClose();
   };
   const handleClear = () => {
@@ -505,7 +516,7 @@ export function CardDetailModal() {
   };
 
   const formatDate = (dateString: string) =>
-    formatShort(dateString, user?.timezone, user?.language as 'es' | 'en');
+    formatShort(dateString, user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone, user?.language as 'es' | 'en');
 
   const currentPriority = priorityOptions.find((p) => p.value === editedPriority);
 

@@ -97,6 +97,11 @@ export function validateEnv(): Env {
   // Primero extraer DB_* desde DATABASE_URL si aplica
   populateDbVarsFromUrl();
 
+  // Railway inyecta PORT; mapearlo a API_PORT si no está definido
+  if (process.env.PORT && !process.env.API_PORT) {
+    process.env.API_PORT = process.env.PORT;
+  }
+
   try {
     const env = envSchema.parse(process.env);
     return env;
