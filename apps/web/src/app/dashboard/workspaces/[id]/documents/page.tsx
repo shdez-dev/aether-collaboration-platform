@@ -243,28 +243,28 @@ export default function DocumentsPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+        <div className="px-3 py-3 md:px-6 md:py-4">
+          <div className="flex items-center justify-between gap-2 md:gap-4">
+            <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
               <button
                 onClick={handleBack}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all"
+                className="flex items-center gap-1.5 px-2 py-1.5 md:px-3 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all flex-shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>{t.btn_back}</span>
+                <span className="hidden sm:inline">{t.btn_back}</span>
               </button>
 
-              <div className="w-px h-6 bg-border" />
+              <div className="hidden sm:block w-px h-6 bg-border flex-shrink-0" />
 
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent/10 border border-accent/30">
-                  <FileText className="w-5 h-5 text-accent" />
+              <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                <div className="hidden sm:flex p-2 bg-accent/10 border border-accent/30 flex-shrink-0">
+                  <FileText className="w-4 h-4 md:w-5 md:h-5 text-accent" />
                 </div>
-                <div>
-                  <h1 className="text-xl font-medium text-text-primary">
+                <div className="min-w-0">
+                  <h1 className="text-base md:text-xl font-medium text-text-primary truncate">
                     {t.documents_section_title}
                   </h1>
-                  <p className="text-sm text-text-secondary">
+                  <p className="text-xs md:text-sm text-text-secondary truncate hidden sm:block">
                     {currentWorkspace?.name || 'Workspace'}
                   </p>
                 </div>
@@ -274,28 +274,28 @@ export default function DocumentsPage() {
             {canCreateDocument && (
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors"
+                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors flex-shrink-0"
               >
                 <Plus className="w-4 h-4" />
-                <span>{t.documents_btn_new}</span>
+                <span className="hidden sm:inline">{t.documents_btn_new}</span>
               </button>
             )}
           </div>
 
-          <div className="mt-4 relative">
+          <div className="mt-3 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               type="text"
               placeholder={t.documents_search_placeholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+              className="w-full pl-10 pr-4 py-2 bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent text-sm"
             />
           </div>
         </div>
       </header>
 
-      <main className="p-6">
+      <main className="p-3 md:p-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">

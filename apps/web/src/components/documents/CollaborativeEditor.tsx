@@ -2080,11 +2080,11 @@ export default function CollaborativeEditor({
       <div className="flex flex-1 overflow-hidden">
         {/* Editor scroll area */}
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-          <div className="min-h-full py-12 px-4">
+          <div className="min-h-full py-4 md:py-12 px-2 md:px-4">
             <div
               className={`max-w-4xl mx-auto bg-card border border-border shadow-lg transition-all duration-300 ${isTransitioning ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}
             >
-              <div ref={editorWrapRef} className="px-16 py-12 relative">
+              <div ref={editorWrapRef} className="px-4 py-6 md:px-16 md:py-12 relative">
                 {!canEdit && (
                   <div className="mb-4 px-4 py-2 bg-warning/10 border-l-4 border-warning text-warning text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
                     <Eye className="w-4 h-4" />
@@ -2185,10 +2185,20 @@ export default function CollaborativeEditor({
           </div>
         </div>
 
-        {/* Comments sidebar */}
+        {/* Backdrop for mobile comment sidebar */}
+        {commentSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Comments sidebar — overlay on mobile, inline on desktop */}
         <div
           className={`flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${
-            commentSidebarOpen ? 'w-96' : 'w-0'
+            commentSidebarOpen
+              ? 'fixed inset-y-0 right-0 w-[min(100vw,24rem)] z-40 md:relative md:inset-auto md:w-96'
+              : 'w-0'
           }`}
         >
           <DocumentCommentsSidebar

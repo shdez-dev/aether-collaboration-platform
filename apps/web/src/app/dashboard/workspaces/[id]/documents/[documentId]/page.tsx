@@ -351,18 +351,18 @@ export default function DocumentEditorPage() {
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card flex-shrink-0">
-        <div className="px-6 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="px-3 py-2 md:px-6 md:py-3">
+          <div className="flex items-center justify-between gap-2 md:gap-4">
+            <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
               <button
                 onClick={handleBack}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all"
+                className="flex items-center gap-1.5 px-2 py-1.5 md:px-3 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all flex-shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>{t.btn_back}</span>
+                <span className="hidden sm:inline">{t.btn_back}</span>
               </button>
 
-              <div className="w-px h-6 bg-border" />
+              <div className="hidden sm:block w-px h-6 bg-border flex-shrink-0" />
 
               <div className="flex-1 min-w-0">
                 <input
@@ -371,45 +371,46 @@ export default function DocumentEditorPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   onBlur={handleTitleBlur}
                   disabled={!canEdit || isSavingTitle}
-                  className="text-xl font-medium text-text-primary bg-transparent border-none focus:outline-none w-full disabled:cursor-not-allowed"
+                  className="text-base md:text-xl font-medium text-text-primary bg-transparent border-none focus:outline-none w-full disabled:cursor-not-allowed truncate"
                   placeholder="Título del documento"
                 />
-                <div className="flex items-center gap-4 mt-1 text-xs text-text-muted">
+                <div className="hidden sm:flex items-center gap-2 md:gap-4 mt-1 text-xs text-text-muted">
                   <div className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     <span>Actualizado {formatDate(currentDocument.updatedAt)}</span>
                   </div>
-                  <span>•</span>
-                  <span>Creado por {currentDocument.creator?.name}</span>
+                  <span className="hidden md:inline">•</span>
+                  <span className="hidden md:inline">Creado por {currentDocument.creator?.name}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="hidden sm:flex items-center gap-2">
                 <Users className="w-4 h-4 text-text-muted" />
                 <div className="flex -space-x-2">
-                  {activeUsers.slice(0, 5).map((user) => (
+                  {activeUsers.slice(0, 3).map((user) => (
                     <div
                       key={user.id}
-                      className="w-8 h-8 rounded-full border-2 border-card flex items-center justify-center text-xs font-medium text-white"
+                      className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-card flex items-center justify-center text-xs font-medium text-white"
                       style={{ backgroundColor: user.color }}
                       title={user.name}
                     >
                       {user.name.charAt(0).toUpperCase()}
                     </div>
                   ))}
-                  {activeUsers.length > 5 && (
-                    <div className="w-8 h-8 rounded-full border-2 border-card bg-surface flex items-center justify-center text-xs text-text-muted">
-                      +{activeUsers.length - 5}
+                  {activeUsers.length > 3 && (
+                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-card bg-surface flex items-center justify-center text-xs text-text-muted">
+                      +{activeUsers.length - 3}
                     </div>
                   )}
                 </div>
               </div>
 
               {!canEdit && (
-                <div className="px-3 py-1 bg-warning/10 border border-warning/30 text-warning text-xs">
-                  Solo lectura
+                <div className="px-2 py-1 md:px-3 bg-warning/10 border border-warning/30 text-warning text-xs">
+                  <span className="hidden sm:inline">Solo lectura</span>
+                  <span className="sm:hidden">👁</span>
                 </div>
               )}
 
