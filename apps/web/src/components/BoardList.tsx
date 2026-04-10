@@ -45,6 +45,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(list.name);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Estado para añadir card
   const [isAddingCard, setIsAddingCard] = useState(false);
@@ -228,20 +229,26 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
 
             {/* Menu - Solo OWNER y ADMIN */}
             {canEdit && (
-              <div className="relative group">
+              <div className="relative">
                 <button
-                  className="text-text-muted hover:text-text-primary transition-colors px-2"
-                  onClick={(e) => e.stopPropagation()}
+                  className="text-text-muted hover:text-text-primary transition-colors px-2 py-1"
+                  onClick={(e) => { e.stopPropagation(); setIsMenuOpen((v) => !v); }}
                 >
                   ⋮
                 </button>
 
+                {/* Backdrop */}
+                {isMenuOpen && (
+                  <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
+                )}
+
                 {/* Dropdown */}
-                <div className="absolute right-0 top-full mt-1 w-40 card-terminal opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                <div className={`absolute right-0 top-full mt-1 w-40 card-terminal z-20 transition-all ${isMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setIsEditing(true);
+                      setIsMenuOpen(false);
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors"
                   >
@@ -251,6 +258,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowDeleteConfirm(true);
+                      setIsMenuOpen(false);
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors text-error"
                   >
@@ -264,7 +272,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
           {/* Cards Area - Droppable con Scrollbar Personalizada + Performance */}
           <div
             ref={setDroppableNodeRef}
-            className="overflow-y-auto overflow-x-hidden min-h-[150px] max-h-[500px] cards-scrollbar pr-2 contain-layout"
+            className="overflow-y-auto overflow-x-hidden min-h-[120px] max-h-[55vh] md:max-h-[500px] cards-scrollbar pr-2 contain-layout"
           >
             <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">

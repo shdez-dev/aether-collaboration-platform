@@ -493,25 +493,25 @@ export default function BoardPage() {
       {/* Header */}
       <header className="border-b border-border bg-card flex-shrink-0">
         {/* Top Row - Navigation & Title */}
-        <div className="px-6 py-4 border-b border-border">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="px-3 py-3 md:px-6 md:py-4 border-b border-border">
+          <div className="flex items-center justify-between gap-2 md:gap-4">
+            <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
               <button
                 onClick={handleBack}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all"
+                className="flex items-center gap-1.5 px-2 py-1.5 md:px-3 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all flex-shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>{t.btn_back}</span>
+                <span className="hidden sm:inline">{t.btn_back}</span>
               </button>
 
-              <div className="w-px h-6 bg-border" />
+              <div className="hidden sm:block w-px h-6 bg-border flex-shrink-0" />
 
               <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-medium text-text-primary truncate mb-1">
+                <h1 className="text-base md:text-xl font-medium text-text-primary truncate">
                   {currentBoard.name}
                 </h1>
                 {currentBoard.description && (
-                  <p className="text-sm text-text-secondary truncate">{currentBoard.description}</p>
+                  <p className="text-xs md:text-sm text-text-secondary truncate hidden sm:block">{currentBoard.description}</p>
                 )}
               </div>
             </div>
@@ -521,7 +521,7 @@ export default function BoardPage() {
               onClick={() =>
                 router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}/dependencies`)
               }
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all flex-shrink-0"
+              className="flex items-center gap-1.5 px-2 py-1.5 md:px-3 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all flex-shrink-0"
               title="Ver mapa de dependencias"
             >
               <GitBranch className="w-4 h-4" />
@@ -530,28 +530,28 @@ export default function BoardPage() {
           </div>
         </div>
 
-        {/* Middle Row - Stats & Users */}
-        <div className="px-6 py-3 flex items-center justify-between border-b border-border">
-          <div className="flex items-center gap-6">
+        {/* Middle Row - Stats & View Toggle */}
+        <div className="px-3 py-2 md:px-6 md:py-3 flex flex-wrap items-center justify-between gap-2 border-b border-border">
+          <div className="flex items-center gap-3 md:gap-6 flex-wrap">
             {/* Lists Count */}
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-accent/10 border border-accent/30">
-                <LayoutGrid className="w-4 h-4 text-accent" />
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="p-1 md:p-1.5 bg-accent/10 border border-accent/30">
+                <LayoutGrid className="w-3.5 h-3.5 md:w-4 md:h-4 text-accent" />
               </div>
               <div>
-                <p className="text-xs text-text-muted">{t.board_stat_lists}</p>
-                <p className="text-sm font-medium text-text-primary">{lists.length}</p>
+                <p className="text-[10px] md:text-xs text-text-muted">{t.board_stat_lists}</p>
+                <p className="text-xs md:text-sm font-medium text-text-primary">{lists.length}</p>
               </div>
             </div>
 
             {/* Cards Count */}
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-success/10 border border-success/30">
-                <FileText className="w-4 h-4 text-success" />
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="p-1 md:p-1.5 bg-success/10 border border-success/30">
+                <FileText className="w-3.5 h-3.5 md:w-4 md:h-4 text-success" />
               </div>
               <div>
-                <p className="text-xs text-text-muted">{t.board_stat_cards}</p>
-                <p className="text-sm font-medium text-text-primary">
+                <p className="text-[10px] md:text-xs text-text-muted">{t.board_stat_cards}</p>
+                <p className="text-xs md:text-sm font-medium text-text-primary">
                   {filteredCardsByList ? (
                     <>
                       <span className="text-accent">{filteredTotal}</span>
@@ -565,21 +565,21 @@ export default function BoardPage() {
             </div>
 
             {/* Active Users */}
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-warning/10 border border-warning/30">
-                <Users className="w-4 h-4 text-warning" />
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="p-1 md:p-1.5 bg-warning/10 border border-warning/30">
+                <Users className="w-3.5 h-3.5 md:w-4 md:h-4 text-warning" />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 md:gap-2">
                 <div>
-                  <p className="text-xs text-text-muted">{t.board_stat_active}</p>
-                  <p className="text-sm font-medium text-text-primary">{activeUsers.length}</p>
+                  <p className="text-[10px] md:text-xs text-text-muted">{t.board_stat_active}</p>
+                  <p className="text-xs md:text-sm font-medium text-text-primary">{activeUsers.length}</p>
                 </div>
-                <ActiveUsers users={activeUsers} maxVisible={5} showCount={false} size="sm" />
+                <ActiveUsers users={activeUsers} maxVisible={3} showCount={false} size="sm" />
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
             {/* View Toggle */}
             <div className="flex items-center border border-border bg-surface">
               {(
@@ -594,7 +594,7 @@ export default function BoardPage() {
                   key={view}
                   onClick={() => handleViewChange(view)}
                   title={label}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono transition-colors ${
+                  className={`flex items-center gap-1 px-2 py-2 md:px-2.5 md:py-1.5 text-xs font-mono transition-colors ${
                     currentView === view
                       ? 'bg-accent text-white'
                       : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
@@ -609,7 +609,7 @@ export default function BoardPage() {
         </div>
 
         {/* Bottom Row - Filters */}
-        <div className="px-6 py-3">
+        <div className="px-3 py-2 md:px-6 md:py-3">
           <BoardFilters
             filters={filters}
             onChange={setFilters}

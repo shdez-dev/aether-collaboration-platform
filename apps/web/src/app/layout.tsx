@@ -130,21 +130,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {!hideNav && (
                 <nav className="fixed top-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-sm border-b border-border safe-area-top">
                   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-14 sm:h-16">
+                    <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
                       {/* Logo */}
                       <Link
                         href="/"
-                        className="flex items-center gap-2 text-accent hover:text-accent-hover transition-colors touch-target-lg"
+                        className="flex items-center gap-2 text-accent hover:text-accent-hover transition-colors flex-shrink-0 min-h-[44px]"
                       >
-                        <span className="text-lg sm:text-xl font-bold font-mono">[ AETHER ]</span>
+                        <span className="text-lg sm:text-xl font-bold font-mono whitespace-nowrap">[ AETHER ]</span>
                       </Link>
 
                       {/* Navigation Links */}
-                      <div className="flex items-center gap-2 sm:gap-4">
+                      <div className="flex items-center gap-1.5 sm:gap-4 flex-shrink-0">
                         {isAuthenticated ? (
                           <Link
                             href="/dashboard"
-                            className="px-3 sm:px-5 py-2 bg-blue-600 text-white rounded-md font-medium text-xs sm:text-sm hover:bg-blue-700 transition-colors touch-target"
+                            className="px-3 sm:px-5 py-2 bg-blue-600 text-white rounded-md font-medium text-xs sm:text-sm hover:bg-blue-700 transition-colors whitespace-nowrap min-h-[44px] flex items-center"
                           >
                             <span className="hidden xs:inline">Dashboard</span>
                             <span className="xs:hidden">Panel</span>
@@ -153,15 +153,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                           <>
                             <Link
                               href="/login"
-                              className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-text-primary hover:text-accent transition-colors touch-target"
+                              className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-text-primary hover:text-accent transition-colors whitespace-nowrap min-h-[44px] flex items-center"
                             >
-                              {t.nav_login}
+                              <span className="hidden xs:inline">{t.nav_login}</span>
+                              <span className="xs:hidden">Login</span>
                             </Link>
                             <Link
                               href="/register"
-                              className="px-3 sm:px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition-all duration-300 text-xs sm:text-sm touch-target"
+                              className="px-2.5 sm:px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition-all duration-300 text-xs sm:text-sm whitespace-nowrap min-h-[44px] flex items-center"
                             >
-                              {t.nav_register}
+                              <span className="hidden xs:inline">{t.nav_register}</span>
+                              <span className="xs:hidden">Reg.</span>
                             </Link>
                           </>
                         )}

@@ -305,15 +305,15 @@ export function HeroSection() {
             className="flex flex-col gap-3 w-full max-w-xs"
           >
             {isAuthenticated ? (
-              <Link href="/dashboard" className="w-full py-4 bg-accent text-white font-semibold text-center rounded-lg active:scale-95 transition-transform">
+              <Link href="/dashboard" className="w-full py-3.5 bg-accent text-white font-semibold text-center rounded-lg active:scale-95 transition-transform text-sm whitespace-nowrap px-4">
                 {t.home_hero_cta_dashboard}
               </Link>
             ) : (
               <>
-                <Link href="/register" className="w-full py-4 bg-accent text-white font-semibold text-center rounded-lg active:scale-95 transition-transform">
+                <Link href="/register" className="w-full py-3.5 bg-accent text-white font-semibold text-center rounded-lg active:scale-95 transition-transform text-sm whitespace-nowrap px-4">
                   {t.home_hero_cta_start}
                 </Link>
-                <Link href="/login" className="w-full py-4 bg-background border border-border text-text-primary font-medium text-center rounded-lg active:scale-95 transition-transform">
+                <Link href="/login" className="w-full py-3.5 bg-background border border-border text-text-primary font-medium text-center rounded-lg active:scale-95 transition-transform text-sm whitespace-nowrap px-4">
                   {t.home_hero_cta_login}
                 </Link>
               </>
