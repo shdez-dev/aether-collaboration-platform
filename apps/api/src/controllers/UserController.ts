@@ -641,6 +641,7 @@ class UserController {
         },
       });
     } catch (error) {
+      console.error('[uploadAvatar] error:', error);
       return res.status(500).json({
         success: false,
         error: {
