@@ -393,9 +393,11 @@ export const useAuthStore = create<AuthState>()(
           const formData = new FormData();
           formData.append('avatar', file);
 
+          const { accessToken } = get();
           const response = await apiService.uploadForm<{ user: any; avatarUrl: string }>(
             '/api/users/me/avatar',
-            formData
+            formData,
+            accessToken ?? undefined
           );
 
           if (!response.success || !response.data) {

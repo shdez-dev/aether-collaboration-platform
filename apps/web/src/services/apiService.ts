@@ -281,19 +281,10 @@ export const apiService = {
 
   /**
    * Subida de FormData (avatars, archivos) — no toca Content-Type para que el
-   * browser lo establezca automáticamente con el boundary correcto
+   * browser lo establezca automáticamente con el boundary correcto.
+   * El token se pasa explícitamente para evitar problemas de lectura desde localStorage.
    */
-  async uploadForm<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
-    const getAuthStore = () => {
-      if (typeof window === 'undefined') return null;
-      const stored = localStorage.getItem('aether-auth-storage');
-      if (!stored) return null;
-      try { return JSON.parse(stored); } catch { return null; }
-    };
-
-    const authData = getAuthStore();
-    const accessToken = authData?.state?.accessToken;
-
+  async uploadForm<T>(endpoint: string, formData: FormData, accessToken?: string): Promise<ApiResponse<T>> {
     const headers: Record<string, string> = {};
     if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
     const socketId = socketService.getSocketId();
