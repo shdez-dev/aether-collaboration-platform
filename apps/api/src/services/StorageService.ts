@@ -1,7 +1,6 @@
 // apps/api/src/services/StorageService.ts
 
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { Upload } from '@aws-sdk/lib-storage';
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID!;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID!;
@@ -27,17 +26,14 @@ export class StorageService {
     buffer: Buffer,
     mimeType: string
   ): Promise<string> {
-    const upload = new Upload({
-      client,
-      params: {
+    await client.send(
+      new PutObjectCommand({
         Bucket: R2_BUCKET_NAME,
         Key: key,
         Body: buffer,
         ContentType: mimeType,
-      },
-    });
-
-    await upload.done();
+      })
+    );
     return `${R2_PUBLIC_URL}/${key}`;
   }
 

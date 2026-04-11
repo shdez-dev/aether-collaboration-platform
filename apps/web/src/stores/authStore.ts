@@ -393,25 +393,10 @@ export const useAuthStore = create<AuthState>()(
           const formData = new FormData();
           formData.append('avatar', file);
 
-          const { accessToken } = get();
-          if (!accessToken) {
-            set({
-              isLoading: false,
-              error: 'No estás autenticado',
-            });
-            return;
-          }
-
-          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-          const res = await fetch(`${API_URL}/api/users/me/avatar`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: formData,
-          });
-
-          const response = await res.json();
+          const response = await apiService.uploadForm<{ user: any; avatarUrl: string }>(
+            '/api/users/me/avatar',
+            formData
+          );
 
           if (!response.success || !response.data) {
             set({

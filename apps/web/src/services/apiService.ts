@@ -278,4 +278,49 @@ export const apiService = {
       useAuth
     );
   },
+
+  /**
+   * Subida de FormData (avatars, archivos) — no toca Content-Type para que el
+   * browser lo establezca automáticamente con el boundary correcto
+   */
+  async uploadForm<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+    const getAuthStore = () => {
+      if (typeof window === 'undefined') return null;
+      const stored = localStorage.getItem('aether-auth-storage');
+      if (!stored) return null;
+      try { return JSON.parse(stored); } catch { return null; }
+    };
+
+    const authData = getAuthStore();
+    const accessToken = authData?.state?.accessToken;
+
+    const headers: Record<string, string> = {};
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const socketId = socketService.getSocketId();
+    if (socketId) headers['x-socket-id'] = socketId;
+
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || { code: 'UNKNOWN_ERROR', message: 'Ocurrió un error desconocido' },
+        };
+      }
+
+      return data;
+    } catch {
+      return {
+        success: false,
+        error: { code: 'NETWORK_ERROR', message: 'Error de conexión.' },
+      };
+    }
+  },
 };
