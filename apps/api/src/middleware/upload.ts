@@ -1,85 +1,79 @@
 // apps/api/src/middleware/upload.ts
 
 import multer from 'multer';
-import path from 'path';
 import { Request, Response, NextFunction } from 'express';
-import fs from 'fs';
 
-// Asegurar que el directorio existe
-// En desarrollo (tsx): __dirname = apps/api/src/middleware
-// En producción (node): __dirname = apps/api/dist/middleware
-const uploadDir = path.join(__dirname, '../../public/uploads/avatars');
+// Usar memoria en vez de disco — el buffer se sube directamente a R2
+const storage = multer.memoryStorage();
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configuración del almacenamiento
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Guardar en la carpeta public/uploads/avatars
-    // __dirname = apps/api/src in tsx dev, so ../public = apps/api/public
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    // Generar nombre único: userId-timestamp.extension
-    const userId = (req as any).user?.id;
-    const ext = path.extname(file.originalname);
-    const filename = `${userId}-${Date.now()}${ext}`;
-    cb(null, filename);
-  },
-});
-
-// Filtro para solo permitir imágenes
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'));
+    cb(new Error('Tipo de archivo no permitido. Solo se aceptan JPEG, PNG, GIF y WebP.'));
   }
 };
 
-// Configuración de multer
 const multerUpload = multer({
   storage,
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB máximo
   },
-}).single('avatar'); // Campo 'avatar' en el form-data
+}).single('avatar');
 
-// Middleware wrapper con manejo de errores
 export const uploadAvatar = (req: Request, res: Response, next: NextFunction) => {
   multerUpload(req, res, (err: any) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           success: false,
-          error: {
-            code: 'FILE_TOO_LARGE',
-            message: 'File size exceeds 5MB limit',
-          },
+          error: { code: 'FILE_TOO_LARGE', message: 'El archivo supera el límite de 5MB' },
         });
       }
       return res.status(400).json({
         success: false,
-        error: {
-          code: 'UPLOAD_ERROR',
-          message: err.message,
-        },
+        error: { code: 'UPLOAD_ERROR', message: err.message },
       });
     } else if (err) {
       return res.status(400).json({
         success: false,
-        error: {
-          code: 'INVALID_FILE',
-          message: err.message,
-        },
+        error: { code: 'INVALID_FILE', message: err.message },
       });
     }
-    // Sin errores, continuar
+    next();
+  });
+};
+
+// Middleware genérico para subir cualquier tipo de archivo (PDFs, imágenes, etc.)
+const multerFileUpload = multer({
+  storage,
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB máximo
+  },
+}).single('file');
+
+export const uploadFile = (req: Request, res: Response, next: NextFunction) => {
+  multerFileUpload(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'FILE_TOO_LARGE', message: 'El archivo supera el límite de 20MB' },
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        error: { code: 'UPLOAD_ERROR', message: err.message },
+      });
+    } else if (err) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_FILE', message: err.message },
+      });
+    }
     next();
   });
 };

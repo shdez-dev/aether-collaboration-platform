@@ -3,6 +3,8 @@
 import { Request, Response } from 'express';
 import { pool } from '../lib/db';
 import { userActivityService } from '../services/UserActivityService';
+import { storageService } from '../services/StorageService';
+import path from 'path';
 import bcrypt from 'bcrypt';
 
 class UserController {
@@ -586,8 +588,16 @@ class UserController {
         });
       }
 
-      // Construir URL pública del avatar
-      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      // Subir a Cloudflare R2
+      const ext = path.extname(req.file.originalname) || '.jpg';
+      const key = `avatars/${userId}-${Date.now()}${ext}`;
+      const avatarUrl = await storageService.upload(key, req.file.buffer, req.file.mimetype);
+
+      // Eliminar avatar anterior si existe y está en R2
+      const prevResult = await pool.query('SELECT avatar FROM users WHERE id = $1', [userId]);
+      if (prevResult.rows[0]?.avatar) {
+        await storageService.deleteByUrl(prevResult.rows[0].avatar).catch(() => {});
+      }
 
       // Actualizar el avatar en la base de datos
       const result = await pool.query(
