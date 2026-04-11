@@ -638,7 +638,7 @@ export default function WorkspaceDetailPage() {
             <div className="bg-card border border-border">
               <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-success/10 border border-success/30">
+                  <div className="p-1.5 bg-success/10 border border-success/30 flex items-center justify-center">
                     <Users className="w-4 h-4 text-success" />
                   </div>
                   <div>
@@ -653,7 +653,7 @@ export default function WorkspaceDetailPage() {
                 {isOwnerOrAdmin && (
                   <button
                     onClick={() => setShowInviteModal(true)}
-                    className="p-1.5 border border-border hover:border-accent hover:bg-accent/10 transition-all"
+                    className="p-1.5 border border-border hover:border-accent hover:bg-accent/10 transition-all flex items-center justify-center"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -731,7 +731,7 @@ export default function WorkspaceDetailPage() {
             {/* ACTIVITY */}
             <div className="bg-card border border-border max-h-[300px] flex flex-col">
               <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-border flex items-center gap-2">
-                <div className="p-1.5 bg-warning/10 border border-warning/30">
+                <div className="p-1.5 bg-warning/10 border border-warning/30 flex items-center justify-center">
                   <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-warning" />
                 </div>
                 <div>

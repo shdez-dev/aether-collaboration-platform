@@ -3,8 +3,8 @@
 
 import { Card as CardType } from '@aether/types';
 import { useCardStore } from '@/stores/cardStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, memo } from 'react';
@@ -50,7 +50,6 @@ export function Card({ card }: CardProps) {
   // Optimización: Solo extraer lo que necesitamos del store
   const updateCard = useCardStore((state) => state.updateCard);
   const setSelectedCard = useCardStore((state) => state.setSelectedCard);
-  const accessToken = useAuthStore((state) => state.accessToken);
   const userRole = useWorkspaceStore((state) => state.currentWorkspace?.userRole);
 
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
@@ -107,32 +106,20 @@ export function Card({ card }: CardProps) {
     });
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cards/${card.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          completed: newCompletedState,
-          completedAt: newCompletedState ? new Date().toISOString() : null,
-        }),
-      });
+      const response = await apiService.put<{ card: any }>(
+        `/api/cards/${card.id}`,
+        { completed: newCompletedState, completedAt: newCompletedState ? new Date().toISOString() : null },
+        true
+      );
 
-      if (!response.ok) {
-        const json = await response.json().catch(() => ({}));
-        // Rollback optimistic update
+      if (!response.success) {
         updateCard(card.id, { completed: card.completed, completedAt: card.completedAt });
         return;
       }
 
-      const { data } = await response.json();
-      updateCard(card.id, data.card);
-    } catch (error) {
-      updateCard(card.id, {
-        completed: card.completed,
-        completedAt: card.completedAt,
-      });
+      updateCard(card.id, response.data!.card);
+    } catch {
+      updateCard(card.id, { completed: card.completed, completedAt: card.completedAt });
     } finally {
       setIsTogglingComplete(false);
     }

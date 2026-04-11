@@ -6,8 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useRealtimeBoard } from '@/hooks/useRealTimeBoard';
 import { useRealtimeToast } from '@/hooks/useRealtimeToast';
@@ -103,7 +103,6 @@ export default function BoardPage() {
   // Stores
   const { reorderList } = useBoardStore();
   const { cards, setCards, moveCard, setCurrentWorkspaceId, clearAllCards } = useCardStore();
-  const { accessToken } = useAuthStore();
   const { preferences, loadPreferences, updatePreferences } = usePreferencesStore();
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -272,24 +271,14 @@ export default function BoardPage() {
   }, [workspaceId, setCurrentWorkspaceId, clearAllCards, fetchWorkspaceById, currentWorkspace?.id]);
 
   useEffect(() => {
-    if (lists.length === 0 || !accessToken) return;
+    if (lists.length === 0) return;
 
     const loadCards = async () => {
       const cardPromises = lists.map(async (list) => {
         try {
-          const cardsRes = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/lists/${list.id}/cards`,
-            {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            }
-          );
-
-          if (cardsRes.ok) {
-            const { data: cardsData } = await cardsRes.json();
-            return { listId: list.id, cards: cardsData.cards || [] };
-          }
-          return { listId: list.id, cards: [] };
-        } catch (error) {
+          const res = await apiService.get<{ cards: any[] }>(`/api/lists/${list.id}/cards`, true);
+          return { listId: list.id, cards: res.success ? (res.data?.cards || []) : [] };
+        } catch {
           return { listId: list.id, cards: [] };
         }
       });
@@ -301,7 +290,7 @@ export default function BoardPage() {
     };
 
     loadCards();
-  }, [lists, accessToken, setCards]);
+  }, [lists, setCards]);
 
   const handleBack = () => {
     router.push(`/dashboard/workspaces/${workspaceId}`);
@@ -430,27 +419,15 @@ export default function BoardPage() {
       try {
         // ✅ PASO 2: PERSISTIR EN BASE DE DATOS
         // ⚠️ IMPORTANTE: Usar endpoint correcto /api/cards/:id/move
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${cardId}/move`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              toListId,
-              position: targetPosition + 1, // Backend usa posiciones 1-indexed
-            }),
-          }
+        const response = await apiService.put(
+          `/api/cards/${cardId}/move`,
+          { toListId, position: targetPosition + 1 }, // Backend usa posiciones 1-indexed
+          true
         );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'Error al mover card');
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Error al mover card');
         }
-
-        const { data } = await response.json();
 
         toast.moved('Tarjeta', activeCard.title);
       } catch (error: any) {

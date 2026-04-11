@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { socketService } from '@/services/socketService';
+import { apiService } from '@/services/apiService';
 import {
   Loader2,
   Calendar,
@@ -99,7 +100,7 @@ const itemFade = {
 export default function DashboardPage() {
   const t = useT();
   const router = useRouter();
-  const { user, accessToken } = useAuthStore();
+  const { user } = useAuthStore();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -128,57 +129,50 @@ export default function DashboardPage() {
   // ─── Fetch helpers ───────────────────────────────────────────────────────
 
   const fetchDashboardStats = useCallback(async () => {
-    if (!accessToken) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/me/stats`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (response.ok) {
-        const { data } = await response.json();
-        setStats(data);
+      const response = await apiService.get<DashboardStats>('/api/users/me/stats', true);
+      if (response.success && response.data) {
+        setStats(response.data);
       }
     } catch {}
-  }, [accessToken]);
+  }, []);
 
   const fetchUserCards = useCallback(async () => {
-    if (!accessToken || isRefreshingRef.current) return;
+    if (isRefreshingRef.current) return;
     try {
       isRefreshingRef.current = true;
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/me/cards`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (response.ok) {
-        const { data } = await response.json();
+      const response = await apiService.get<CardsResponse>('/api/users/me/cards', true);
+      if (response.success && response.data) {
         setUserCards({
-          pending: data.pending || [],
-          overdue: data.overdue || [],
-          completed: data.completed || [],
+          pending: response.data.pending || [],
+          overdue: response.data.overdue || [],
+          completed: response.data.completed || [],
         });
       }
     } catch {
     } finally {
       isRefreshingRef.current = false;
     }
-  }, [accessToken]);
+  }, []);
 
   const fetchActivityFeed = useCallback(async () => {
-    if (!accessToken) return;
     setIsLoadingActivity(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/me/activity`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (response.ok) {
-        const { data } = await response.json();
-        // La API devuelve { events: [...] } con campos: id, type, payload, timestamp, createdBy
-        const rawEvents: RawActivityEvent[] = Array.isArray(data) ? data : (data.events ?? []);
+      const response = await apiService.get<RawActivityEvent[] | { events: RawActivityEvent[] }>(
+        '/api/users/me/activity',
+        true
+      );
+      if (response.success && response.data) {
+        const rawEvents: RawActivityEvent[] = Array.isArray(response.data)
+          ? response.data
+          : (response.data as any).events ?? [];
         setActivityFeed(rawEvents.slice(0, 12));
       }
     } catch {
     } finally {
       setIsLoadingActivity(false);
     }
-  }, [accessToken]);
+  }, []);
 
   // ─── Boards recientes (derivados de las cards del usuario) ───────────────
 

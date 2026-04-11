@@ -615,9 +615,9 @@ class DocumentController {
         });
       }
 
-      // Verificar permisos (al menos VIEW)
-      const permission = await documentService.getUserPermission(documentId, userId);
-      if (!permission) {
+      // Verificar acceso al documento (cualquier miembro del workspace puede exportar)
+      const hasAccess = await documentService.checkDocumentAccess(documentId, userId);
+      if (!hasAccess) {
         return res.status(403).json({
           success: false,
           error: { code: 'FORBIDDEN', message: 'No access to document' },

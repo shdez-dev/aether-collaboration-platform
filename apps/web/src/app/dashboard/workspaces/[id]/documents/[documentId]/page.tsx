@@ -70,7 +70,7 @@ export default function DocumentEditorPage() {
     leaveDocument,
   } = useDocumentStore();
   const { currentWorkspace, fetchMembers } = useWorkspaceStore();
-  const { user } = useAuthStore();
+  const { user, accessToken } = useAuthStore();
   const { toast } = useToast();
 
   const [title, setTitle] = useState('');
@@ -259,8 +259,6 @@ export default function DocumentEditorPage() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-      const token = localStorage.getItem('aether-auth-storage');
-      const accessToken = token ? JSON.parse(token).state.accessToken : null;
 
       const response = await fetch(
         `${apiUrl}/api/documents/${documentId}/export?format=${format}`,
@@ -272,7 +270,14 @@ export default function DocumentEditorPage() {
       );
 
       if (!response.ok) {
-        throw new Error('Error al exportar documento');
+        let errorMsg = 'No se pudo exportar el documento.';
+        try {
+          const errData = await response.json();
+          if (response.status === 403) errorMsg = 'Sin permiso para exportar este documento.';
+          else if (response.status === 404) errorMsg = 'El documento no tiene contenido para exportar.';
+          else if (errData?.error?.message) errorMsg = errData.error.message;
+        } catch {}
+        throw new Error(errorMsg);
       }
 
       const blob = await response.blob();
@@ -292,12 +297,12 @@ export default function DocumentEditorPage() {
 
       toast({
         title: '✅ Documento exportado',
-        description: `El documento se ha exportado correctamente en formato ${format.toUpperCase()}`,
+        description: `El documento se ha exportado en formato ${format.toUpperCase()}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Error al exportar',
-        description: 'No se pudo exportar el documento. Por favor intenta de nuevo.',
+        description: error?.message || 'No se pudo exportar el documento. Por favor intenta de nuevo.',
         variant: 'destructive',
       });
     } finally {
@@ -305,7 +310,10 @@ export default function DocumentEditorPage() {
     }
   };
 
-  if (documentError && !currentDocument) {
+  // Document is ready only when it matches the requested ID
+  const documentReady = !isLoading && currentDocument?.id === documentId && user;
+
+  if (documentError && !documentReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center space-y-4">
@@ -325,7 +333,7 @@ export default function DocumentEditorPage() {
     );
   }
 
-  if (isLoading || !currentDocument || !user) {
+  if (!documentReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center space-y-4">
@@ -342,6 +350,9 @@ export default function DocumentEditorPage() {
       </div>
     );
   }
+
+  // TypeScript narrowing — documentReady guarantees these are set
+  if (!currentDocument || !user) return null;
 
   const userPermission = currentDocument.userPermission || 'VIEW';
   const canEdit = userPermission === 'EDIT';

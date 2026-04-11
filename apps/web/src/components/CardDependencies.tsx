@@ -14,8 +14,8 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
-import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useCardStore } from '@/stores/cardStore';
 import type { CardDependency } from '@aether/types';
@@ -34,7 +34,6 @@ interface SearchResult {
   listName: string;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL;
 
 // ── Sub-componente: ítem de dependencia ──────────────────────────────────────
 function DepItem({
@@ -104,7 +103,6 @@ function DepItem({
 // ── Componente principal ─────────────────────────────────────────────────────
 export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps) {
   const t = useT();
-  const { accessToken } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
   const invalidateTimeline = useTimelineStore((s) => s.invalidate);
   const updateCard = useCardStore((s) => s.updateCard);
@@ -133,18 +131,18 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
   // ── Cargar dependencias ──────────────────────────────────────────────────
   const fetchDeps = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/cards/${cardId}/dependencies`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (res.ok) {
-        const { data } = await res.json();
-        setBlockedBy(data.blockedBy ?? []);
-        setBlocking(data.blocking ?? []);
+      const res = await apiService.get<{ blockedBy: any[]; blocking: any[] }>(
+        `/api/cards/${cardId}/dependencies`,
+        true
+      );
+      if (res.success && res.data) {
+        setBlockedBy(res.data.blockedBy ?? []);
+        setBlocking(res.data.blocking ?? []);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [cardId, accessToken]);
+  }, [cardId]);
 
   useEffect(() => {
     fetchDeps();
@@ -178,20 +176,19 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(
-          `${API}/api/cards/${cardId}/dependencies/search?q=${encodeURIComponent(searchQuery)}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
+        const res = await apiService.get<{ cards: any[] }>(
+          `/api/cards/${cardId}/dependencies/search?q=${encodeURIComponent(searchQuery)}`,
+          true
         );
-        if (res.ok) {
-          const { data } = await res.json();
-          setSearchResults(data.cards ?? []);
+        if (res.success && res.data) {
+          setSearchResults(res.data.cards ?? []);
         }
       } finally {
         setIsSearching(false);
       }
     }, 250);
     return () => clearTimeout(timer);
-  }, [searchQuery, showPicker, cardId, accessToken]);
+  }, [searchQuery, showPicker, cardId]);
 
   const closePicker = () => {
     setShowPicker(null);
@@ -207,27 +204,22 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
     setErrorMsg(null);
 
     try {
-      const res = await fetch(`${API}/api/cards/${cardId}/dependencies`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ blockingCardId }),
-      });
+      const res = await apiService.post<{ dependency: any }>(
+        `/api/cards/${cardId}/dependencies`,
+        { blockingCardId },
+        true
+      );
 
-      const json = await res.json();
-
-      if (!res.ok) {
-        if (json.error?.code === 'CIRCULAR_DEPENDENCY') {
+      if (!res.success) {
+        if (res.error?.code === 'CIRCULAR_DEPENDENCY') {
           setErrorMsg(t.dep_circular_error);
         } else {
-          setErrorMsg(json.error?.message ?? 'Error');
+          setErrorMsg(res.error?.message ?? 'Error');
         }
         return;
       }
 
-      const newDep = json.data.dependency;
+      const newDep = res.data!.dependency;
       setBlockedBy((prev) => [...prev, newDep]);
 
       // Calcular cuántas dependencias bloqueantes están incompletas
@@ -272,11 +264,8 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
     }
 
     try {
-      const res = await fetch(`${API}/api/cards/${cardId}/dependencies/${depId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!res.ok) {
+      const res = await apiService.delete(`/api/cards/${cardId}/dependencies/${depId}`, true);
+      if (!res.success) {
         await fetchDeps(); // rollback
       } else {
         invalidateTimeline();

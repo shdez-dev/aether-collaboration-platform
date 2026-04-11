@@ -4,15 +4,14 @@
 import { useState } from 'react';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
 import { useSortable } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from './Card';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useT } from '@/lib/i18n';
-import { socketService } from '@/services/socketService';
 
 interface List {
   id: string;
@@ -36,8 +35,6 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
   const { updateList, deleteList } = useBoardStore();
   const { cards, addCard } = useCardStore();
   const setSelectedCard = useCardStore((state) => state.setSelectedCard);
-  const { accessToken } = useAuthStore();
-
   // Obtener rol del usuario
   const { currentWorkspace } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
@@ -140,27 +137,18 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
     setIsCreatingCard(true);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/lists/${list.id}/cards`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-            ...(socketService.getSocketId() ? { 'x-socket-id': socketService.getSocketId()! } : {}),
-          },
-          body: JSON.stringify({ title: cardTitle.trim() }),
-        }
+      const response = await apiService.post<{ card: any }>(
+        `/api/lists/${list.id}/cards`,
+        { title: cardTitle.trim() },
+        true
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Error al crear la tarjeta');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Error al crear la tarjeta');
       }
 
-      const { data } = await response.json();
-      addCard(list.id, data.card);
-      setSelectedCard(data.card);
+      addCard(list.id, response.data!.card);
+      setSelectedCard(response.data!.card);
 
       // Reset
       setCardTitle('');

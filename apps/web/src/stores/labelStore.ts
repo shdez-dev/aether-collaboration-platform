@@ -1,5 +1,6 @@
 // apps/web/src/stores/labelStore.ts
 import { create } from 'zustand';
+import { apiService } from '@/services/apiService';
 
 export interface Label {
   id: string;
@@ -48,29 +49,16 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const authData = localStorage.getItem('aether-auth-storage');
-      let token = null;
-
-      if (authData) {
-        const parsed = JSON.parse(authData);
-        token = parsed.state?.accessToken || parsed.accessToken;
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}/labels`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const response = await apiService.get<{ labels: Label[] }>(
+        `/api/workspaces/${workspaceId}/labels`,
+        true
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch labels');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch labels');
       }
 
-      const { data } = await response.json();
-      const labels = data.labels || [];
+      const labels = response.data?.labels || [];
 
       set((state) => ({
         labels: {
@@ -86,127 +74,72 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
 
   // Crear label
   createLabel: async (workspaceId: string, data: CreateLabelDto) => {
-    try {
-      const authData = localStorage.getItem('aether-auth-storage');
-      let token = null;
+    const response = await apiService.post<{ label: Label }>(
+      `/api/workspaces/${workspaceId}/labels`,
+      data,
+      true
+    );
 
-      if (authData) {
-        const parsed = JSON.parse(authData);
-        token = parsed.state?.accessToken || parsed.accessToken;
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}/labels`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(data),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to create label');
-      }
-
-      const { data: responseData } = await response.json();
-      const newLabel = responseData.label;
-
-      // Agregar al store
-      set((state) => ({
-        labels: {
-          ...state.labels,
-          [workspaceId]: [...(state.labels[workspaceId] || []), newLabel],
-        },
-      }));
-
-      return newLabel;
-    } catch (error: any) {
-      throw error;
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to create label');
     }
+
+    const newLabel = response.data.label;
+
+    set((state) => ({
+      labels: {
+        ...state.labels,
+        [workspaceId]: [...(state.labels[workspaceId] || []), newLabel],
+      },
+    }));
+
+    return newLabel;
   },
 
   // Actualizar label
   updateLabel: async (labelId: string, data: UpdateLabelDto) => {
-    try {
-      const authData = localStorage.getItem('aether-auth-storage');
-      let token = null;
+    const response = await apiService.put<{ label: Label }>(
+      `/api/labels/${labelId}`,
+      data,
+      true
+    );
 
-      if (authData) {
-        const parsed = JSON.parse(authData);
-        token = parsed.state?.accessToken || parsed.accessToken;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/labels/${labelId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update label');
-      }
-
-      const { data: responseData } = await response.json();
-      const updatedLabel = responseData.label;
-
-      // Actualizar en store
-      set((state) => {
-        const newLabels = { ...state.labels };
-
-        Object.keys(newLabels).forEach((workspaceId) => {
-          newLabels[workspaceId] = newLabels[workspaceId].map((label) =>
-            label.id === labelId ? updatedLabel : label
-          );
-        });
-
-        return { labels: newLabels };
-      });
-    } catch (error: any) {
-      throw error;
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to update label');
     }
+
+    const updatedLabel = response.data.label;
+
+    set((state) => {
+      const newLabels = { ...state.labels };
+
+      Object.keys(newLabels).forEach((workspaceId) => {
+        newLabels[workspaceId] = newLabels[workspaceId].map((label) =>
+          label.id === labelId ? updatedLabel : label
+        );
+      });
+
+      return { labels: newLabels };
+    });
   },
 
   // Eliminar label
   deleteLabel: async (labelId: string) => {
-    try {
-      const authData = localStorage.getItem('aether-auth-storage');
-      let token = null;
+    const response = await apiService.delete(`/api/labels/${labelId}`, true);
 
-      if (authData) {
-        const parsed = JSON.parse(authData);
-        token = parsed.state?.accessToken || parsed.accessToken;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/labels/${labelId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete label');
-      }
-
-      // Eliminar del store
-      set((state) => {
-        const newLabels = { ...state.labels };
-
-        Object.keys(newLabels).forEach((workspaceId) => {
-          newLabels[workspaceId] = newLabels[workspaceId].filter((label) => label.id !== labelId);
-        });
-
-        return { labels: newLabels };
-      });
-    } catch (error: any) {
-      throw error;
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to delete label');
     }
+
+    set((state) => {
+      const newLabels = { ...state.labels };
+
+      Object.keys(newLabels).forEach((workspaceId) => {
+        newLabels[workspaceId] = newLabels[workspaceId].filter((label) => label.id !== labelId);
+      });
+
+      return { labels: newLabels };
+    });
   },
 
   // Helper: obtener labels de un workspace

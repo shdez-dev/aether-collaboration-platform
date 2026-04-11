@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCardStore } from '@/stores/cardStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
 import { useBoardStore } from '@/stores/boardStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useTypingIndicator, useTypingListeners } from '@/hooks/useTypingIndicator';
@@ -188,7 +188,7 @@ export function CardDetailModal() {
   const t = useT();
   const { selectedCard, setSelectedCard, updateCard, removeCard, currentWorkspaceId } =
     useCardStore();
-  const { accessToken, user } = useAuthStore();
+  const { user } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
   const { currentBoard } = useBoardStore();
   const invalidateTimeline = useTimelineStore((s) => s.invalidate);
@@ -286,22 +286,15 @@ export function CardDetailModal() {
       // ✅ REFRESCAR CARD COMPLETA DESDE EL SERVIDOR
       const fetchFreshCard = async () => {
         try {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${selectedCard.id}`,
-            {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            }
+          const response = await apiService.get<{ card: any }>(
+            `/api/cards/${selectedCard.id}`,
+            true
           );
-
-          if (response.ok) {
-            const { data } = await response.json();
-            // Actualizar card con datos frescos del servidor
-            setSelectedCard(data.card);
-            updateCard(selectedCard.id, data.card);
+          if (response.success && response.data) {
+            setSelectedCard(response.data.card);
+            updateCard(selectedCard.id, response.data.card);
           }
-        } catch (error) {
+        } catch {
           // Error al refrescar card
         }
       };
@@ -315,7 +308,7 @@ export function CardDetailModal() {
     return () => {
       document.body.classList.remove('card-detail-drawer-open');
     };
-  }, [selectedCard?.id, accessToken]);
+  }, [selectedCard?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -335,24 +328,20 @@ export function CardDetailModal() {
 
   // Fetch board sprints when modal opens
   useEffect(() => {
-    if (!selectedCard || !currentBoard?.id || !accessToken) return;
+    if (!selectedCard || !currentBoard?.id) return;
     const boardId = currentBoard.id;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/boards/${boardId}/sprints`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return;
-        const sprints: Sprint[] = d.data.sprints;
+    apiService.get<{ sprints: Sprint[] }>(`/api/boards/${boardId}/sprints`, true)
+      .then((res) => {
+        if (!res.success || !res.data) return;
+        const sprints = res.data.sprints;
         setBoardSprints(sprints);
-        // Find which sprint this card is in
         const found = sprints.find((s) =>
           (s.cards ?? []).some((c: any) => c.id === selectedCard.id)
         );
         setCardSprintId(found?.id ?? null);
       })
       .catch(() => {});
-  }, [selectedCard?.id, currentBoard?.id, accessToken]);
+  }, [selectedCard?.id, currentBoard?.id]);
 
   // ── Auto-save a single date field immediately ────────────────────────────
   const handleDateChange = async (field: 'startDate' | 'dueDate', value: string) => {
@@ -362,23 +351,16 @@ export function CardDetailModal() {
     else setEditedDueDate(value);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${selectedCard.id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ [field]: value || null }),
-        }
+      const response = await apiService.put<{ card: any }>(
+        `/api/cards/${selectedCard.id}`,
+        { [field]: value || null },
+        true
       );
-      if (response.ok) {
-        const { data } = await response.json();
-        updateCard(selectedCard.id, data.card);
-        setSelectedCard(data.card);
+      if (response.success && response.data) {
+        updateCard(selectedCard.id, response.data.card);
+        setSelectedCard(response.data.card);
       }
-    } catch (error) {
+    } catch {
       // Error saving date
     }
   };
@@ -387,24 +369,15 @@ export function CardDetailModal() {
     if (!selectedCard || sprintUpdating) return;
     setSprintUpdating(true);
     try {
-      // Remove from current sprint first
       if (cardSprintId) {
-        await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/sprints/${cardSprintId}/cards/${selectedCard.id}`,
-          { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
-        );
+        await apiService.delete(`/api/sprints/${cardSprintId}/cards/${selectedCard.id}`, true);
       }
-      // Add to new sprint
       if (newSprintId) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sprints/${newSprintId}/cards`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ cardId: selectedCard.id }),
-        });
+        await apiService.post(`/api/sprints/${newSprintId}/cards`, { cardId: selectedCard.id }, true);
       }
       setCardSprintId(newSprintId);
       invalidateTimeline();
-    } catch (e) {
+    } catch {
       // Error updating sprint
     } finally {
       setSprintUpdating(false);
@@ -444,23 +417,16 @@ export function CardDetailModal() {
         return;
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${selectedCard.id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(updates),
-        }
+      const response = await apiService.put<{ card: any }>(
+        `/api/cards/${selectedCard.id}`,
+        updates,
+        true
       );
 
-      if (!response.ok) throw new Error('Error al actualizar');
+      if (!response.success) throw new Error(response.error?.message || 'Error al actualizar');
 
-      const { data } = await response.json();
-      updateCard(selectedCard.id, data.card);
-      setSelectedCard(data.card);
+      updateCard(selectedCard.id, response.data!.card);
+      setSelectedCard(response.data!.card);
       setIsEditing(false);
       setIsDescriptionFocused(false);
     } catch (error: any) {
@@ -475,12 +441,9 @@ export function CardDetailModal() {
     setIsDeleting(true);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${selectedCard.id}`,
-        { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+      const response = await apiService.delete(`/api/cards/${selectedCard.id}`, true);
 
-      if (!response.ok) throw new Error('Error al eliminar');
+      if (!response.success) throw new Error(response.error?.message || 'Error al eliminar');
 
       removeCard(selectedCard.id, selectedCard.listId);
       handleClose();

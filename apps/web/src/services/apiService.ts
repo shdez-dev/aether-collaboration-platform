@@ -187,6 +187,9 @@ export const apiService = {
           processQueue(null, refreshData.accessToken);
           isRefreshing = false;
 
+          // Reconectar socket con el nuevo token
+          socketService.updateToken(refreshData.accessToken);
+
           // Reintentar la petición original con el nuevo token
           return this.request<T>(endpoint, options, useAuth);
         } catch (error) {

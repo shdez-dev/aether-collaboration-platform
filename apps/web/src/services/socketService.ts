@@ -119,6 +119,19 @@ class SocketService {
     });
   }
 
+  /**
+   * Actualizar el token y reconectar el socket.
+   * Se llama automáticamente desde apiService cuando renueva el access token.
+   */
+  updateToken(newToken: string): void {
+    if (!this.socket) return;
+    this.socket.auth = { token: newToken };
+    if (this.socket.connected) {
+      this.socket.disconnect();
+      this.socket.connect();
+    }
+  }
+
   disconnect(): void {
     if (!this.socket) return;
     this.socket.disconnect();

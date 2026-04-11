@@ -15,8 +15,8 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { useCardStore } from '@/stores/cardStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useT } from '@/lib/i18n';
 import {
@@ -540,7 +540,6 @@ function MilestoneForm({ initial, onSave, onCancel, saving }: MilestoneFormProps
 // ─── Main component ───────────────────────────────────────────────────────────
 export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }: Props) {
   const t = useT();
-  const { accessToken } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
   const cards = useCardStore((s) => s.cards);
   const timelineVersion = useTimelineStore((s) => s.version);
@@ -567,8 +566,6 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
   const [draggingCard, setDraggingCard] = useState<any | null>(null);
   const [draggingMilestone, setDraggingMilestone] = useState<Milestone | null>(null);
 
-  const API = process.env.NEXT_PUBLIC_API_URL;
-
   // Mobile-optimized drag sensors for timeline
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -582,22 +579,16 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
 
   // ── Fetch helpers ─────────────────────────────────────────────────────────
   const loadRemoteData = useCallback(async () => {
-    if (!accessToken || !boardId) return;
+    if (!boardId) return;
     const [sRes, mRes, dRes] = await Promise.all([
-      fetch(`${API}/api/boards/${boardId}/sprints`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }),
-      fetch(`${API}/api/boards/${boardId}/milestones`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }),
-      fetch(`${API}/api/boards/${boardId}/dependency-graph`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }),
+      apiService.get<{ sprints: any[] }>(`/api/boards/${boardId}/sprints`, true),
+      apiService.get<{ milestones: any[] }>(`/api/boards/${boardId}/milestones`, true),
+      apiService.get<{ graph: { edges: any[] } }>(`/api/boards/${boardId}/dependency-graph`, true),
     ]);
-    if (sRes.ok) setSprints((await sRes.json()).data.sprints);
-    if (mRes.ok) setMilestones((await mRes.json()).data.milestones);
-    if (dRes.ok) setDepEdges((await dRes.json()).data.graph.edges ?? []);
-  }, [accessToken, boardId, API]);
+    if (sRes.success && sRes.data) setSprints(sRes.data.sprints);
+    if (mRes.success && mRes.data) setMilestones(mRes.data.milestones);
+    if (dRes.success && dRes.data) setDepEdges(dRes.data.graph.edges ?? []);
+  }, [boardId]);
 
   // Initial load — shows spinner
   const fetchData = useCallback(async () => {
@@ -729,14 +720,9 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
   async function createSprint(data: any) {
     setSaving(true);
     try {
-      const r = await fetch(`${API}/api/boards/${boardId}/sprints`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify(data),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setSprints((p) => [...p, d.data.sprint]);
+      const r = await apiService.post<{ sprint: any }>(`/api/boards/${boardId}/sprints`, data, true);
+      if (r.success && r.data) {
+        setSprints((p) => [...p, r.data!.sprint]);
         setShowSprintForm(false);
       }
     } finally {
@@ -746,14 +732,9 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
   async function updateSprint(sprintId: string, data: any) {
     setSaving(true);
     try {
-      const r = await fetch(`${API}/api/sprints/${sprintId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify(data),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setSprints((p) => p.map((s) => (s.id === sprintId ? d.data.sprint : s)));
+      const r = await apiService.put<{ sprint: any }>(`/api/sprints/${sprintId}`, data, true);
+      if (r.success && r.data) {
+        setSprints((p) => p.map((s) => (s.id === sprintId ? r.data!.sprint : s)));
         setEditingSprint(null);
       }
     } finally {
@@ -762,10 +743,7 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
   }
   async function deleteSprint(sprintId: string) {
     if (!confirm('¿Eliminar este sprint? Las cards no se eliminan.')) return;
-    await fetch(`${API}/api/sprints/${sprintId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    await apiService.delete(`/api/sprints/${sprintId}`, true);
     setSprints((p) => p.filter((s) => s.id !== sprintId));
   }
   async function addCardToSprint(sprintId: string, cardId: string) {
@@ -780,17 +758,11 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
         )
       );
     }
-    // Persist to server — await and check HTTP status
+    // Persist to server
     try {
-      const r = await fetch(`${API}/api/sprints/${sprintId}/cards`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ cardId }),
-      });
-      if (!r.ok) {
-        fetchData(); // revert
-      }
-    } catch (e) {
+      const r = await apiService.post(`/api/sprints/${sprintId}/cards`, { cardId }, true);
+      if (!r.success) fetchData(); // revert
+    } catch {
       fetchData(); // revert
     }
   }
@@ -802,37 +774,23 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
       )
     );
     try {
-      const r = await fetch(`${API}/api/sprints/${sprintId}/cards/${cardId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!r.ok) {
-        fetchData(); // revert
-      }
-    } catch (e) {
+      const r = await apiService.delete(`/api/sprints/${sprintId}/cards/${cardId}`, true);
+      if (!r.success) fetchData(); // revert
+    } catch {
       fetchData(); // revert
     }
   }
   function removeMilestoneFromSprint(milestoneId: string) {
     setMilestones((p) => p.map((m) => (m.id === milestoneId ? { ...m, sprintId: undefined } : m)));
-    fetch(`${API}/api/milestones/${milestoneId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ sprintId: null }),
-    }).catch(() => fetchData());
+    apiService.put(`/api/milestones/${milestoneId}`, { sprintId: null }, true).catch(() => fetchData());
   }
 
   async function createMilestone(data: any) {
     setSaving(true);
     try {
-      const r = await fetch(`${API}/api/boards/${boardId}/milestones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify(data),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setMilestones((p) => [...p, d.data.milestone]);
+      const r = await apiService.post<{ milestone: any }>(`/api/boards/${boardId}/milestones`, data, true);
+      if (r.success && r.data) {
+        setMilestones((p) => [...p, r.data!.milestone]);
         setShowMilestoneForm(false);
       }
     } finally {
@@ -842,14 +800,9 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
   async function updateMilestone(milestoneId: string, data: any) {
     setSaving(true);
     try {
-      const r = await fetch(`${API}/api/milestones/${milestoneId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify(data),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setMilestones((p) => p.map((m) => (m.id === milestoneId ? d.data.milestone : m)));
+      const r = await apiService.put<{ milestone: any }>(`/api/milestones/${milestoneId}`, data, true);
+      if (r.success && r.data) {
+        setMilestones((p) => p.map((m) => (m.id === milestoneId ? r.data!.milestone : m)));
         setEditingMilestone(null);
       }
     } finally {
@@ -858,10 +811,7 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
   }
   async function deleteMilestone(milestoneId: string) {
     if (!confirm('¿Eliminar este hito?')) return;
-    await fetch(`${API}/api/milestones/${milestoneId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    await apiService.delete(`/api/milestones/${milestoneId}`, true);
     setMilestones((p) => p.filter((m) => m.id !== milestoneId));
   }
 
@@ -901,13 +851,9 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
           p.map((m) => (m.id === milestoneId ? { ...m, sprintId: toSprintId } : m))
         );
         try {
-          const r = await fetch(`${API}/api/milestones/${milestoneId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-            body: JSON.stringify({ sprintId: toSprintId }),
-          });
-          if (!r.ok) throw new Error(`PUT milestone failed: ${r.status}`);
-        } catch (e) {
+          const r = await apiService.put(`/api/milestones/${milestoneId}`, { sprintId: toSprintId }, true);
+          if (!r.success) throw new Error('PUT milestone failed');
+        } catch {
           fetchData();
         }
       }
@@ -916,13 +862,9 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
           p.map((m) => (m.id === milestoneId ? { ...m, sprintId: undefined } : m))
         );
         try {
-          const r = await fetch(`${API}/api/milestones/${milestoneId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-            body: JSON.stringify({ sprintId: null }),
-          });
-          if (!r.ok) throw new Error(`PUT milestone (unassign) failed: ${r.status}`);
-        } catch (e) {
+          const r = await apiService.put(`/api/milestones/${milestoneId}`, { sprintId: null }, true);
+          if (!r.success) throw new Error('PUT milestone (unassign) failed');
+        } catch {
           fetchData();
         }
       }
@@ -959,19 +901,12 @@ export function BoardTimelineView({ boardId, lists, filteredCards, onCardClick }
       // Persist: remove from old sprint, then add to new sprint
       try {
         if (fromSprintId) {
-          const delRes = await fetch(`${API}/api/sprints/${fromSprintId}/cards/${cardId}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (!delRes.ok) throw new Error(`DELETE failed: ${delRes.status}`);
+          const delRes = await apiService.delete(`/api/sprints/${fromSprintId}/cards/${cardId}`, true);
+          if (!delRes.success) throw new Error('DELETE failed');
         }
-        const addRes = await fetch(`${API}/api/sprints/${toSprintId}/cards`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ cardId }),
-        });
-        if (!addRes.ok) throw new Error(`POST failed: ${addRes.status}`);
-      } catch (e) {
+        const addRes = await apiService.post(`/api/sprints/${toSprintId}/cards`, { cardId }, true);
+        if (!addRes.success) throw new Error('POST failed');
+      } catch {
         fetchData(); // revert optimistic update
       }
     }

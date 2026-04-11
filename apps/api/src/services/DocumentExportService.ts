@@ -524,7 +524,7 @@ export class DocumentExportService {
   }
 
   /**
-   * Exportar a PDF
+   * Exportar a PDF (requiere Puppeteer/Chromium instalado)
    */
   async exportToPdf(yjsState: Uint8Array, documentTitle: string): Promise<Buffer> {
     let html: string;
@@ -548,7 +548,13 @@ export class DocumentExportService {
           '--disable-gpu',
         ],
       });
+    } catch (error: any) {
+      throw new Error(
+        'PDF export requires Chromium which is not available on this server. Use HTML or Markdown export instead.'
+      );
+    }
 
+    try {
       const page = await browser.newPage();
 
       await page.setContent(html, {
@@ -572,12 +578,10 @@ export class DocumentExportService {
     } catch (error: any) {
       throw new Error(`Failed to generate PDF: ${error?.message || 'Unknown error'}`);
     } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch {
-          // ignore close errors
-        }
+      try {
+        await browser.close();
+      } catch {
+        // ignore close errors
       }
     }
   }

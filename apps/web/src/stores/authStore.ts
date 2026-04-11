@@ -58,6 +58,74 @@ interface AuthState {
   clearAuth: () => void;
 }
 
+// ==================== HELPERS ====================
+
+/** Decodifica el claim exp de un JWT sin verificar la firma */
+function getTokenExpiry(token: string): number | null {
+  try {
+    const payload = token.split('.')[1];
+    const decoded = JSON.parse(atob(payload));
+    return typeof decoded.exp === 'number' ? decoded.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Timer de refresh proactivo (módulo-level para sobrevivir re-renders) */
+let proactiveRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearProactiveRefresh(): void {
+  if (proactiveRefreshTimer !== null) {
+    clearTimeout(proactiveRefreshTimer);
+    proactiveRefreshTimer = null;
+  }
+}
+
+function scheduleProactiveRefresh(accessToken: string, refreshToken: string): void {
+  clearProactiveRefresh();
+  const exp = getTokenExpiry(accessToken);
+  if (!exp) return;
+
+  // Refrescar 5 minutos antes de que expire
+  const msUntilRefresh = exp * 1000 - Date.now() - 5 * 60 * 1000;
+  if (msUntilRefresh <= 0) return; // ya expiró o está a punto de expirar
+
+  proactiveRefreshTimer = setTimeout(async () => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.data) {
+        const { accessToken: newToken, refreshToken: newRefresh, user } = data.data;
+        useAuthStore.setState({ accessToken: newToken, refreshToken: newRefresh, user });
+        // Actualizar localStorage manualmente ya que Zustand persist lo hará,
+        // pero también hay que actualizar el socket
+        const { socketService } = await import('../services/socketService');
+        socketService.updateToken(newToken);
+        scheduleProactiveRefresh(newToken, newRefresh);
+      }
+    } catch {
+      // Si falla el refresh proactivo, el reactivo (401) se encargará
+    }
+  }, msUntilRefresh);
+}
+
+function setSessionCookie(): void {
+  if (typeof document !== 'undefined') {
+    document.cookie = 'aether_session=1; path=/; SameSite=Lax';
+  }
+}
+
+function clearSessionCookie(): void {
+  if (typeof document !== 'undefined') {
+    document.cookie = 'aether_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+  }
+}
+
 // ==================== STORE ====================
 
 export const useAuthStore = create<AuthState>()(
@@ -141,6 +209,12 @@ export const useAuthStore = create<AuthState>()(
           if (socketService && accessToken) {
             socketService.connect(accessToken);
           }
+
+          // Cookie de sesión para Next.js middleware
+          setSessionCookie();
+
+          // Programar refresh proactivo antes de que expire el token
+          scheduleProactiveRefresh(accessToken, refreshToken);
         } catch (error) {
           set({
             isLoading: false,
@@ -191,7 +265,11 @@ export const useAuthStore = create<AuthState>()(
           useNotificationStore.getState().reset();
         } catch {}
 
-        // 5. Limpiar estado local
+        // 5. Limpiar timer proactivo y cookie de sesión
+        clearProactiveRefresh();
+        clearSessionCookie();
+
+        // 6. Limpiar estado local
         get().clearAuth();
       },
 
@@ -249,9 +327,13 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           error: null,
         });
+        setSessionCookie();
+        scheduleProactiveRefresh(tokens.accessToken, tokens.refreshToken);
       },
 
       clearAuth: () => {
+        clearProactiveRefresh();
+        clearSessionCookie();
         set({
           user: null,
           accessToken: null,
@@ -396,6 +478,11 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         // Cuando termina de hidratar, marcar como hidratado
         state?.setHydrated(true);
+        // Reanudar el refresh proactivo si había sesión activa
+        if (state?.accessToken && state?.refreshToken) {
+          setSessionCookie();
+          scheduleProactiveRefresh(state.accessToken, state.refreshToken);
+        }
       },
     }
   )

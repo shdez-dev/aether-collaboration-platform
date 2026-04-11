@@ -1,7 +1,7 @@
 // apps/web/src/hooks/useWorkspaceMembers.ts
 
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/stores/authStore';
+import { apiService } from '@/services/apiService';
 
 export interface WorkspaceMember {
   id: string;
@@ -12,18 +12,14 @@ export interface WorkspaceMember {
 
 /**
  * Hook para obtener miembros del workspace actual
- * Usa la misma lógica que MemberPicker (que sí funciona)
  */
 export function useWorkspaceMembers(workspaceId?: string) {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { accessToken } = useAuthStore();
-
   useEffect(() => {
-    // No hacer fetch si no hay workspaceId o accessToken
-    if (!workspaceId || !accessToken) {
+    if (!workspaceId) {
       setMembers([]);
       return;
     }
@@ -33,36 +29,21 @@ export function useWorkspaceMembers(workspaceId?: string) {
       setError(null);
 
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}/members`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
+        const response = await apiService.get<{ members: any[] }>(
+          `/api/workspaces/${workspaceId}/members`,
+          true
         );
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch workspace members');
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Failed to fetch workspace members');
         }
 
-        const { data } = await response.json();
-
-        // Usar la misma lógica de transformación que MemberPicker
-        const membersData = data.members || data || [];
+        const membersData = response.data?.members || [];
 
         const transformedMembers: WorkspaceMember[] = membersData.map((item: any) => {
-          // Si ya tiene la estructura correcta
           if (item.name && item.email) {
-            return {
-              id: item.id,
-              name: item.name,
-              email: item.email,
-              avatar: item.avatar || null,
-            };
+            return { id: item.id, name: item.name, email: item.email, avatar: item.avatar || null };
           }
-
-          // Si viene con estructura { user: {...} }
           if (item.user) {
             return {
               id: item.user.id || item.userId,
@@ -71,8 +52,6 @@ export function useWorkspaceMembers(workspaceId?: string) {
               avatar: item.user.avatar || null,
             };
           }
-
-          // Fallback
           return item;
         });
 
@@ -86,7 +65,7 @@ export function useWorkspaceMembers(workspaceId?: string) {
     };
 
     fetchMembers();
-  }, [workspaceId, accessToken]);
+  }, [workspaceId]);
 
   return { members, isLoading, error };
 }

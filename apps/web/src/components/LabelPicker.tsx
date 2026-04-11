@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useEffect, memo, useCallback } from 'react';
-import { useAuthStore } from '@/stores/authStore';
 import { useLabelStore, Label } from '@/stores/labelStore';
+import { apiService } from '@/services/apiService';
 import '../styles/label-picker.css';
 
 interface LabelPickerProps {
@@ -86,7 +86,6 @@ export function LabelPicker({
   onLabelAssigned,
   onLabelRemoved,
 }: LabelPickerProps) {
-  const { accessToken } = useAuthStore();
   const { getWorkspaceLabels, fetchLabels, createLabel } = useLabelStore();
 
   const [isCreating, setIsCreating] = useState(false);
@@ -115,31 +114,22 @@ export function LabelPicker({
       }
 
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${cardId}/labels`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({ labelId: label.id }),
-          }
+        const response = await apiService.post(
+          `/api/cards/${cardId}/labels`,
+          { labelId: label.id },
+          true
         );
 
-        // ✅ VALIDACIÓN 2: Manejar 409 Conflict (ya existe en BD)
-        if (response.status === 409) {
-          // Simplemente ignorar, la label ya está asignada
-          // Opcionalmente, actualizar el estado local si no está sincronizado
+        // Manejar 409 Conflict (ya existe en BD) - la API devuelve error con code
+        if (!response.success && response.error?.code === 'CONFLICT') {
           if (!assignedLabelIds.has(label.id)) {
             onLabelAssigned(label);
           }
           return;
         }
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'Error al asignar etiqueta');
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Error al asignar etiqueta');
         }
 
         onLabelAssigned(label);
@@ -147,29 +137,24 @@ export function LabelPicker({
         alert(`Error al asignar etiqueta: ${error.message}`);
       }
     },
-    [cardId, accessToken, onLabelAssigned, assignedLabelIds]
+    [cardId, onLabelAssigned, assignedLabelIds]
   );
 
   const handleRemoveLabel = useCallback(
     async (labelId: string) => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${cardId}/labels/${labelId}`,
-          {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
+        const response = await apiService.delete(
+          `/api/cards/${cardId}/labels/${labelId}`,
+          true
         );
 
-        if (!response.ok) throw new Error('Error al remover etiqueta');
+        if (!response.success) throw new Error(response.error?.message || 'Error al remover etiqueta');
         onLabelRemoved(labelId);
       } catch (error: any) {
         alert(`Error al remover etiqueta: ${error.message}`);
       }
     },
-    [cardId, accessToken, onLabelRemoved]
+    [cardId, onLabelRemoved]
   );
 
   const handleToggleLabel = (label: Label) => {

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, memo, useCallback, useMemo } from 'react';
-import { useAuthStore } from '@/stores/authStore';
+import { apiService } from '@/services/apiService';
 import '../styles/member-picker.css';
 
 interface Member {
@@ -80,7 +80,6 @@ export function MemberPicker({
   onMemberAssigned,
   onMemberRemoved,
 }: MemberPickerProps) {
-  const { accessToken } = useAuthStore();
   const [workspaceMembers, setWorkspaceMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,38 +98,27 @@ export function MemberPicker({
   const fetchWorkspaceMembers = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/workspaces/${workspaceId}/members`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+      const response = await apiService.get<{ members: any[] }>(
+        `/api/workspaces/${workspaceId}/members`,
+        true
       );
 
-      if (!response.ok) {
-        throw new Error('Error al obtener miembros del workspace');
-      }
+      if (!response.success) throw new Error('Error al obtener miembros del workspace');
 
-      const { data } = await response.json();
-      const members = data.members || data || [];
+      const members = response.data?.members || [];
 
       const transformedMembers = members.map((item: any) => {
         if (item.name && item.email) {
           return { id: item.id, name: item.name, email: item.email };
         }
         if (item.user) {
-          return {
-            id: item.user.id || item.userId,
-            name: item.user.name,
-            email: item.user.email,
-          };
+          return { id: item.user.id || item.userId, name: item.user.name, email: item.user.email };
         }
         return item;
       });
 
       setWorkspaceMembers(transformedMembers);
-    } catch (error) {
+    } catch {
       setWorkspaceMembers([]);
     } finally {
       setIsLoading(false);
@@ -145,21 +133,14 @@ export function MemberPicker({
       }
 
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${cardId}/members`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({ userId: member.id }),
-          }
+        const response = await apiService.post(
+          `/api/cards/${cardId}/members`,
+          { userId: member.id },
+          true
         );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'Error al asignar miembro');
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Error al asignar miembro');
         }
 
         onMemberAssigned(member);
@@ -167,25 +148,19 @@ export function MemberPicker({
         alert(`Error al asignar miembro: ${error.message}`);
       }
     },
-    [cardId, accessToken, onMemberAssigned, assignedMemberIds]
+    [cardId, onMemberAssigned, assignedMemberIds]
   );
 
   const handleRemoveMember = useCallback(
     async (memberId: string) => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/cards/${cardId}/members/${memberId}`,
-          {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
+        const response = await apiService.delete(
+          `/api/cards/${cardId}/members/${memberId}`,
+          true
         );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'Error al remover miembro');
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Error al remover miembro');
         }
 
         onMemberRemoved(memberId);
@@ -193,7 +168,7 @@ export function MemberPicker({
         alert(`Error al remover miembro: ${error.message}`);
       }
     },
-    [cardId, accessToken, onMemberRemoved]
+    [cardId, onMemberRemoved]
   );
 
   // FIX: Usar useMemo para filtrado

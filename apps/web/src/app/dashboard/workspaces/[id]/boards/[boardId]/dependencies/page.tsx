@@ -20,7 +20,7 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useAuthStore } from '@/stores/authStore';
+import { apiService } from '@/services/apiService';
 import { useTheme } from '@/providers/ThemeProvider';
 import {
   ArrowLeft,
@@ -350,7 +350,6 @@ function buildEdges(apiEdges: GraphEdge[], cards: GraphCard[], isLight = false):
 export default function DependencyMapPage() {
   const params = useParams();
   const router = useRouter();
-  const { accessToken } = useAuthStore();
   const { actualTheme } = useTheme();
   const isLight = actualTheme === 'light';
 
@@ -366,33 +365,27 @@ export default function DependencyMapPage() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   const fetchGraph = useCallback(async () => {
-    if (!accessToken || !boardId) return;
+    if (!boardId) return;
     setIsLoading(true);
     setError(null);
     try {
       const [graphRes, boardRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/boards/${boardId}/dependency-graph`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/boards/${boardId}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }),
+        apiService.get<{ graph: any }>(`/api/boards/${boardId}/dependency-graph`, true),
+        apiService.get<{ board: any }>(`/api/boards/${boardId}`, true),
       ]);
 
-      if (!graphRes.ok) throw new Error('Error al cargar el grafo');
-      const { data } = await graphRes.json();
-      setGraph(data.graph);
+      if (!graphRes.success) throw new Error('Error al cargar el grafo');
+      setGraph(graphRes.data!.graph);
 
-      if (boardRes.ok) {
-        const boardData = await boardRes.json();
-        setBoardName(boardData.data?.board?.name ?? '');
+      if (boardRes.success && boardRes.data) {
+        setBoardName(boardRes.data.board?.name ?? '');
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, boardId]);
+  }, [boardId]);
 
   useEffect(() => {
     fetchGraph();

@@ -141,7 +141,8 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       fetchDocumentById: async (documentId: string) => {
-        set({ isLoading: true, error: null });
+        // Clear stale document so the page doesn't render the wrong one while loading
+        set({ isLoading: true, error: null, currentDocument: null });
         try {
           const response = await apiService.get<{ document: DocumentWithDetails }>(
             `/api/documents/${documentId}`,

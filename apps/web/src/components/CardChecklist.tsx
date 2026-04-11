@@ -4,9 +4,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckSquare, Square, Plus, Trash2, Pencil, X, Check } from 'lucide-react';
 import { useT } from '@/lib/i18n';
-import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useCardStore } from '@/stores/cardStore';
+import { apiService } from '@/services/apiService';
 import type { ChecklistItem } from '@aether/types';
 
 interface CardChecklistProps {
@@ -15,11 +15,8 @@ interface CardChecklistProps {
   onProgressChange?: (done: number, total: number) => void;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL;
-
 export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) {
   const t = useT();
-  const { accessToken } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
   const updateCard = useCardStore((state) => state.updateCard);
@@ -44,19 +41,19 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
 
   const fetchItems = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/cards/${cardId}/checklist`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (res.ok) {
-        const { data } = await res.json();
-        setItems(data.items ?? []);
+      const response = await apiService.get<{ items: ChecklistItem[] }>(
+        `/api/cards/${cardId}/checklist`,
+        true
+      );
+      if (response.success) {
+        setItems(response.data?.items ?? []);
       }
     } catch {
       // silencioso
     } finally {
       setIsLoading(false);
     }
-  }, [cardId, accessToken]);
+  }, [cardId]);
 
   useEffect(() => {
     fetchItems();
@@ -95,17 +92,13 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, completed: !i.completed } : i)));
 
     try {
-      const res = await fetch(`${API}/api/cards/${cardId}/checklist/${item.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ completed: !item.completed }),
-      });
-      if (!res.ok) throw new Error('Error al actualizar');
-      const { data } = await res.json();
-      setItems((prev) => prev.map((i) => (i.id === item.id ? data.item : i)));
+      const response = await apiService.put<{ item: ChecklistItem }>(
+        `/api/cards/${cardId}/checklist/${item.id}`,
+        { completed: !item.completed },
+        true
+      );
+      if (!response.success) throw new Error('Error al actualizar');
+      setItems((prev) => prev.map((i) => (i.id === item.id ? response.data!.item : i)));
     } catch {
       // Rollback
       setItems((prev) =>
@@ -121,17 +114,13 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
     setIsAdding(true);
 
     try {
-      const res = await fetch(`${API}/api/cards/${cardId}/checklist`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ title: newTitle.trim() }),
-      });
-      if (!res.ok) throw new Error('Error al crear');
-      const { data } = await res.json();
-      setItems((prev) => [...prev, data.item]);
+      const response = await apiService.post<{ item: ChecklistItem }>(
+        `/api/cards/${cardId}/checklist`,
+        { title: newTitle.trim() },
+        true
+      );
+      if (!response.success) throw new Error('Error al crear');
+      setItems((prev) => [...prev, response.data!.item]);
       setNewTitle('');
       // Mantiene el input abierto para añadir más
       inputRef.current?.focus();
@@ -171,17 +160,13 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
     setEditingId(null);
 
     try {
-      const res = await fetch(`${API}/api/cards/${cardId}/checklist/${item.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ title: editingTitle.trim() }),
-      });
-      if (!res.ok) throw new Error('Error al editar');
-      const { data } = await res.json();
-      setItems((prev) => prev.map((i) => (i.id === item.id ? data.item : i)));
+      const response = await apiService.put<{ item: ChecklistItem }>(
+        `/api/cards/${cardId}/checklist/${item.id}`,
+        { title: editingTitle.trim() },
+        true
+      );
+      if (!response.success) throw new Error('Error al editar');
+      setItems((prev) => prev.map((i) => (i.id === item.id ? response.data!.item : i)));
     } catch {
       // Rollback
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, title: oldTitle } : i)));
@@ -201,11 +186,11 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
     setItems((prev) => prev.filter((i) => i.id !== item.id));
 
     try {
-      const res = await fetch(`${API}/api/cards/${cardId}/checklist/${item.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!res.ok) throw new Error('Error al eliminar');
+      const response = await apiService.delete(
+        `/api/cards/${cardId}/checklist/${item.id}`,
+        true
+      );
+      if (!response.success) throw new Error('Error al eliminar');
     } catch {
       // Rollback
       setItems((prev) => {
