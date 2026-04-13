@@ -97,6 +97,11 @@ export default function LoginPage() {
     if (!validateAll()) return;
 
     await login(email, password);
+
+    const { isAuthenticated: authenticated } = useAuthStore.getState();
+    if (authenticated) {
+      router.push('/dashboard');
+    }
   };
 
   return (

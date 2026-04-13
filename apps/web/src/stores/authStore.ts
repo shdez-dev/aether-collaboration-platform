@@ -196,6 +196,9 @@ export const useAuthStore = create<AuthState>()(
 
           const { user, accessToken, refreshToken } = response.data;
 
+          // Cookie ANTES del set para que el middleware la vea cuando router.push se ejecute
+          setSessionCookie();
+
           set({
             user,
             accessToken,
@@ -209,9 +212,6 @@ export const useAuthStore = create<AuthState>()(
           if (socketService && accessToken) {
             socketService.connect(accessToken);
           }
-
-          // Cookie de sesión para Next.js middleware
-          setSessionCookie();
 
           // Programar refresh proactivo antes de que expire el token
           scheduleProactiveRefresh(accessToken, refreshToken);
