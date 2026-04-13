@@ -873,9 +873,9 @@ export const en = {
   register_btn_submitting: 'Creating account...',
 
   // ── Home page ─────────────────────────────────────────────────────────────
-  home_hero_tagline: 'Your team, in one place.',
+  home_hero_tagline: 'Real-time project management for teams.',
   home_hero_description:
-    'Boards, documents and live presence. Everything your team needs, synced instantly — no friction.',
+    'Aether is the platform where your team organizes work, collaborates on documents and maintains full visibility over everything happening — all synced instantly, no friction.',
   home_hero_cta_start: 'Get started free',
   home_hero_cta_login: 'Sign in',
   home_hero_cta_dashboard: 'Go to Dashboard',
@@ -887,9 +887,9 @@ export const en = {
   home_feat2_title: 'See your team',
   home_feat2_body:
     'Know exactly who is connected and what they are editing. The implicit visibility teams need to move together.',
-  home_feat3_title: 'Nothing gets lost',
+  home_feat3_title: 'Full audit trail',
   home_feat3_body:
-    'Every action is recorded. Browse the history of any board or document and go back to any point in time.',
+    'Every action by every member is recorded: who created what, when they moved it, what they commented. Complete workspace traceability with zero configuration.',
   home_feat4_title: 'No interruptions',
   home_feat4_body:
     'Keep working even when you lose your connection. When you come back, everything merges automatically. Your work is always safe.',
@@ -923,6 +923,13 @@ export const en = {
   home_mod4_i1: 'Real-time status',
   home_mod4_i2: 'Typing indicators',
   home_mod4_i3: 'Activity per workspace',
+  home_mod5_name: 'Workspace Audit',
+  home_mod5_tagline: 'Know exactly what happened and who did it.',
+  home_mod5_desc:
+    'Every action inside the workspace is automatically logged: card creation, moves, assignments, comments and status changes. A complete, filterable log that keeps the team accountable with no extra setup.',
+  home_mod5_i1: 'Activity log per member',
+  home_mod5_i2: 'History per board and card',
+  home_mod5_i3: 'Traceability out of the box',
   home_showcase_prev: '← Previous',
   home_showcase_next: 'Next →',
 

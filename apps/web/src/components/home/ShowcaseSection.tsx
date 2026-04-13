@@ -37,6 +37,13 @@ export function ShowcaseSection() {
       description: t.home_mod4_desc,
       indicators: [t.home_mod4_i1, t.home_mod4_i2, t.home_mod4_i3],
     },
+    {
+      id: '05',
+      name: t.home_mod5_name,
+      tagline: t.home_mod5_tagline,
+      description: t.home_mod5_desc,
+      indicators: [t.home_mod5_i1, t.home_mod5_i2, t.home_mod5_i3],
+    },
   ];
 
   return (

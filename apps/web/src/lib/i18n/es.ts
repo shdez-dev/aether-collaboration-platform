@@ -2,9 +2,9 @@
 
 export const es = {
   // ── Home page ─────────────────────────────────────────────────────────────
-  home_hero_tagline: 'Tu equipo, en un solo lugar.',
+  home_hero_tagline: 'Gestión de proyectos en tiempo real para equipos.',
   home_hero_description:
-    'Boards, documentos y presencia en vivo. Todo lo que tu equipo necesita, sincronizado al instante — sin fricción.',
+    'Aether es la plataforma donde tu equipo organiza el trabajo, colabora en documentos y mantiene visibilidad total sobre lo que ocurre — todo sincronizado al instante, sin fricción.',
   home_hero_cta_start: 'Empezar gratis',
   home_hero_cta_login: 'Iniciar sesión',
   home_hero_cta_dashboard: 'Ir al Dashboard',
@@ -16,9 +16,9 @@ export const es = {
   home_feat2_title: 'Ve a tu equipo',
   home_feat2_body:
     'Sabe exactamente quién está conectado y qué está editando. La visibilidad implícita que los equipos necesitan para moverse juntos.',
-  home_feat3_title: 'Nada se pierde',
+  home_feat3_title: 'Auditoría total',
   home_feat3_body:
-    'Cada acción queda registrada. Navega el historial de cualquier board o documento y vuelve a cualquier momento.',
+    'Cada acción de cada miembro queda registrada: quién creó qué, cuándo lo movió, qué comentó. Trazabilidad completa del workspace sin configurar nada.',
   home_feat4_title: 'Sin interrupciones',
   home_feat4_body:
     'Trabaja aunque pierdas la conexión. Cuando vuelves, todo se fusiona automáticamente. Tu trabajo siempre está a salvo.',
@@ -52,6 +52,13 @@ export const es = {
   home_mod4_i1: 'Estado en tiempo real',
   home_mod4_i2: 'Indicadores de escritura',
   home_mod4_i3: 'Actividad por workspace',
+  home_mod5_name: 'Auditoría de Workspace',
+  home_mod5_tagline: 'Sabe exactamente qué pasó y quién lo hizo.',
+  home_mod5_desc:
+    'Cada acción dentro del workspace queda registrada automáticamente: creación de cards, movimientos, asignaciones, comentarios y cambios de estado. Un log completo y filtrable para mantener accountability en el equipo sin esfuerzo extra.',
+  home_mod5_i1: 'Log de actividad por miembro',
+  home_mod5_i2: 'Historial por board y card',
+  home_mod5_i3: 'Trazabilidad sin configuración',
   home_showcase_prev: '← Anterior',
   home_showcase_next: 'Siguiente →',
 
