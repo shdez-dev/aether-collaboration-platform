@@ -45,12 +45,16 @@ export const useCardStore = create<CardState>()(
         })),
 
       addCard: (listId, card) =>
-        set((state) => ({
-          cards: {
-            ...state.cards,
-            [listId]: [...(state.cards[listId] || []), card],
-          },
-        })),
+        set((state) => {
+          const existing = (state.cards[listId] || []).some((c) => c.id === card.id);
+          if (existing) return state;
+          return {
+            cards: {
+              ...state.cards,
+              [listId]: [...(state.cards[listId] || []), card],
+            },
+          };
+        }),
 
       updateCard: (cardId, updates) =>
         set((state) => {

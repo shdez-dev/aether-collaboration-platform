@@ -733,11 +733,8 @@ export const useBoardStore = create<BoardState>()(
           const response = await apiService.delete(`/api/boards/${boardId}`, true);
 
           if (!response.success) {
-            set({
-              error: response.error?.message || 'Failed to delete board',
-              isLoading: false,
-            });
-            return;
+            set({ isLoading: false });
+            throw { code: response.error?.code, message: response.error?.message };
           }
 
           set((state) => ({
@@ -746,10 +743,8 @@ export const useBoardStore = create<BoardState>()(
             isLoading: false,
           }));
         } catch (error) {
-          set({
-            error: 'Error al eliminar board',
-            isLoading: false,
-          });
+          set({ isLoading: false });
+          throw error;
         }
       },
 
@@ -772,10 +767,13 @@ export const useBoardStore = create<BoardState>()(
             return;
           }
 
-          set((state) => ({
-            lists: [...state.lists, response.data!.list],
-            isLoading: false,
-          }));
+          set((state) => {
+            const alreadyAdded = state.lists.some((l) => l.id === response.data!.list.id);
+            return {
+              lists: alreadyAdded ? state.lists : [...state.lists, response.data!.list],
+              isLoading: false,
+            };
+          });
         } catch (error) {
           set({
             error: 'Error al crear lista',

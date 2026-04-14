@@ -27,6 +27,7 @@ import {
   Sparkles,
   UserMinus,
   ChevronRight,
+  Trash2,
   BarChart2,
   CheckSquare,
   TrendingUp,
@@ -39,6 +40,7 @@ import {
 import { useT } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
 import { useAuthStore } from '@/stores/authStore';
+import { useRealtimeToast } from '@/hooks/useRealtimeToast';
 import { getAvatarUrl } from '@/lib/utils/avatar';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 
@@ -62,7 +64,7 @@ export default function WorkspaceDetailPage() {
     changeMemberRole,
   } = useWorkspaceStore();
 
-  const { boards, fetchBoards, handleEvent } = useBoardStore();
+  const { boards, fetchBoards, handleEvent, deleteBoard } = useBoardStore();
 
   const [activeTab, setActiveTab] = useState<'stats' | 'boards'>('stats');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -73,6 +75,9 @@ export default function WorkspaceDetailPage() {
   } | null>(null);
   const [removingMember, setRemovingMember] = useState(false);
   const [changingRoleMemberId, setChangingRoleMemberId] = useState<string | null>(null);
+  const [boardToDelete, setBoardToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingBoard, setIsDeletingBoard] = useState(false);
+  const toast = useRealtimeToast();
 
   useEffect(() => {
     if (workspaceId) {
@@ -175,6 +180,27 @@ export default function WorkspaceDetailPage() {
 
   const handleBoardCreated = (_boardId: string) => {
     setShowCreateBoardModal(false);
+  };
+
+  const handleDeleteBoard = async () => {
+    if (!boardToDelete) return;
+    setIsDeletingBoard(true);
+    try {
+      await deleteBoard(boardToDelete.id);
+      toast.deleted('Board', boardToDelete.name);
+      setBoardToDelete(null);
+    } catch (err: any) {
+      const code = err?.code;
+      if (code === 'BOARD_NOT_ARCHIVED') {
+        toast.error('El board debe archivarse antes de eliminarlo');
+      } else if (code === 'BOARD_HAS_LISTS') {
+        toast.error('Elimina todas las listas del board primero');
+      } else {
+        toast.error(err?.message || 'Error al eliminar el board');
+      }
+    } finally {
+      setIsDeletingBoard(false);
+    }
   };
 
   const getRoleIcon = (role: string) => {
@@ -587,12 +613,14 @@ export default function WorkspaceDetailPage() {
                 ) : (
                   <div className="p-2 md:p-4 space-y-2">
                     {boards.map((board) => (
-                      <button
+                      <div
                         key={board.id}
-                        onClick={() => handleGoToBoard(board.id)}
-                        className="group w-full text-left p-3 md:p-4 border border-border bg-surface hover:bg-card hover:border-accent transition-all flex items-center justify-between rounded-lg md:rounded-none"
+                        className="group w-full border border-border bg-surface hover:bg-card hover:border-accent transition-all flex items-center rounded-lg md:rounded-none"
                       >
-                        <div className="flex-1 min-w-0">
+                        <button
+                          onClick={() => handleGoToBoard(board.id)}
+                          className="flex-1 min-w-0 text-left p-3 md:p-4"
+                        >
                           <div className="flex items-center gap-2 mb-1.5 md:mb-2">
                             <h4 className="text-base md:text-xl font-medium group-hover:text-accent transition-colors truncate">
                               {board.name}
@@ -620,10 +648,21 @@ export default function WorkspaceDetailPage() {
                               <span className="font-medium">{board.cardCount || 0}</span>
                             </div>
                           </div>
-                        </div>
+                        </button>
 
-                        <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all flex-shrink-0 ml-2" />
-                      </button>
+                        <div className="flex items-center gap-1 pr-3 md:pr-4 flex-shrink-0">
+                          {isOwnerOrAdmin && (
+                            <button
+                              onClick={() => setBoardToDelete({ id: board.id, name: board.name })}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded"
+                              title="Eliminar board"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            </button>
+                          )}
+                          <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all" />
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -772,6 +811,45 @@ export default function WorkspaceDetailPage() {
         onClose={() => setShowCreateBoardModal(false)}
         onSuccess={handleBoardCreated}
       />
+
+      {boardToDelete && (
+        <>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-card border border-border w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-error/10 border border-error flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5 text-error" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base">Eliminar board</h3>
+                  <p className="text-text-muted text-sm">{boardToDelete.name}</p>
+                </div>
+              </div>
+              <p className="text-sm text-text-secondary">
+                Esta acción es permanente. El board y todo su historial serán eliminados.
+              </p>
+              <div className="flex gap-3 justify-end pt-1">
+                <button
+                  onClick={() => setBoardToDelete(null)}
+                  disabled={isDeletingBoard}
+                  className="btn-ghost text-sm px-4 py-2"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteBoard}
+                  disabled={isDeletingBoard}
+                  className="btn-error text-sm px-4 py-2 flex items-center gap-2"
+                >
+                  {isDeletingBoard && <div className="loading-sm" />}
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
