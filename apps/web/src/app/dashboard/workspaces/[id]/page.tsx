@@ -173,9 +173,8 @@ export default function WorkspaceDetailPage() {
     router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
   };
 
-  const handleBoardCreated = (boardId: string) => {
+  const handleBoardCreated = (_boardId: string) => {
     setShowCreateBoardModal(false);
-    router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
   };
 
   const getRoleIcon = (role: string) => {

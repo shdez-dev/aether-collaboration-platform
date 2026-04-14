@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
 const isDevelopment = process.env.NODE_ENV === 'development';
 const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10); // 15 minutes
 const RATE_LIMIT_MAX_REQUESTS = parseInt(
-  process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '1000' : '100'),
+  process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '5000' : '500'),
   10
 );
 

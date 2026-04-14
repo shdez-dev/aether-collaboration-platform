@@ -648,10 +648,13 @@ export const useBoardStore = create<BoardState>()(
             throw new Error(response.error?.message);
           }
 
-          set((state) => ({
-            boards: [...state.boards, response.data!.board],
-            isLoading: false,
-          }));
+          set((state) => {
+            const alreadyAdded = state.boards.some((b) => b.id === response.data!.board.id);
+            return {
+              boards: alreadyAdded ? state.boards : [...state.boards, response.data!.board],
+              isLoading: false,
+            };
+          });
 
           return response.data.board;
         } catch (error: any) {
