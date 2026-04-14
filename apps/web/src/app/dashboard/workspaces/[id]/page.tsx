@@ -80,6 +80,16 @@ export default function WorkspaceDetailPage() {
   const toast = useRealtimeToast();
 
   useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && boardToDelete && !isDeletingBoard) {
+        setBoardToDelete(null);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [boardToDelete, isDeletingBoard]);
+
+  useEffect(() => {
     if (workspaceId) {
       fetchWorkspaceById(workspaceId);
       fetchMembers(workspaceId);
@@ -814,36 +824,68 @@ export default function WorkspaceDetailPage() {
 
       {boardToDelete && (
         <>
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border w-full max-w-md p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-error/10 border border-error flex items-center justify-center flex-shrink-0">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-fade-in"
+            onClick={!isDeletingBoard ? () => setBoardToDelete(null) : undefined}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div
+              className="card-terminal max-w-md w-full pointer-events-auto animate-scale-in border-error/50 bg-error/5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 rounded-terminal bg-error/20 flex items-center justify-center flex-shrink-0 border border-error/50">
                   <Trash2 className="w-5 h-5 text-error" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-base">Eliminar board</h3>
-                  <p className="text-text-muted text-sm">{boardToDelete.name}</p>
+                <div className="flex-1">
+                  <h2 className="text-xl font-normal text-error mb-1">Eliminar board</h2>
+                  <p className="text-text-secondary text-sm">Esta acción no se puede deshacer</p>
                 </div>
               </div>
-              <p className="text-sm text-text-secondary">
-                Esta acción es permanente. El board y todo su historial serán eliminados.
-              </p>
-              <div className="flex gap-3 justify-end pt-1">
+
+              {/* Content */}
+              <div className="mb-6 p-4 bg-background rounded-terminal border border-border">
+                <p className="text-text-primary mb-3">
+                  ¿Eliminar{' '}
+                  <span className="text-accent font-medium">{boardToDelete.name}</span>?
+                </p>
+                <div className="space-y-2 text-sm text-text-secondary">
+                  <p className="flex items-start gap-2">
+                    <span className="text-error mt-0.5">•</span>
+                    Todas las listas y cards del board serán eliminadas
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="text-error mt-0.5">•</span>
+                    El historial de actividad se perderá permanentemente
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setBoardToDelete(null)}
                   disabled={isDeletingBoard}
-                  className="btn-ghost text-sm px-4 py-2"
+                  className="btn-secondary flex-1"
                 >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={handleDeleteBoard}
                   disabled={isDeletingBoard}
-                  className="btn-error text-sm px-4 py-2 flex items-center gap-2"
+                  className="btn-primary flex-1 bg-error hover:bg-error/80 border-error disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isDeletingBoard && <div className="loading-sm" />}
-                  Eliminar
+                  {isDeletingBoard ? (
+                    <>
+                      <span className="inline-block animate-spin mr-2">◌</span>
+                      Eliminando...
+                    </>
+                  ) : (
+                    'Sí, eliminar board'
+                  )}
                 </button>
               </div>
             </div>

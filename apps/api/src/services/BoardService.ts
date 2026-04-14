@@ -301,20 +301,7 @@ export class BoardService {
         throw new Error('Board not found');
       }
 
-      if (!boardResult.rows[0].archived) {
-        throw new Error('Board must be archived before deleting');
-      }
-
       const workspaceId = boardResult.rows[0].workspace_id;
-
-      const listsResult = await client.query(
-        `SELECT COUNT(*) as count FROM lists WHERE board_id = $1`,
-        [boardId]
-      );
-
-      if (parseInt(listsResult.rows[0].count) > 0) {
-        throw new Error('Cannot delete board with lists. Delete lists first.');
-      }
 
       await client.query(`DELETE FROM boards WHERE id = $1`, [boardId]);
 
