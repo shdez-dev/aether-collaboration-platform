@@ -98,7 +98,7 @@ export class AuthController {
       );
 
       // 8. Send verification email (don't block on this)
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
       const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
       try {
@@ -515,7 +515,7 @@ export class AuthController {
       );
 
       // Send verification email
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
       const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
       await emailService.sendVerificationEmail(user.email, {
@@ -679,7 +679,7 @@ export class AuthController {
       );
 
       // Send password reset email
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
       const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
       await emailService.sendPasswordResetEmail(user.email, {

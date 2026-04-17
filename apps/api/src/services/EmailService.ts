@@ -37,7 +37,7 @@ export class EmailService {
 
     this.fromEmail = process.env.EMAIL_FROM || 'aether.notifications@gmail.com';
     this.fromName = process.env.EMAIL_FROM_NAME || 'Aether Platform';
-    this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    this.frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
   }
 
   /**
