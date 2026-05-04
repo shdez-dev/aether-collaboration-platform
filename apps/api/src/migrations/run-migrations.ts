@@ -630,7 +630,51 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 017: Create teams and team_members tables');
 
-      // Migration 018: Create project_teams pivot table
+      // Migration 018: Create projects, project_milestones and project_boards tables
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS projects (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name        VARCHAR(255) NOT NULL,
+          description TEXT,
+          icon        TEXT,
+          color       TEXT,
+          status      VARCHAR(20) NOT NULL DEFAULT 'PLANNING',
+          start_date  TIMESTAMPTZ,
+          end_date    TIMESTAMPTZ,
+          owner_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_projects_owner     ON projects(owner_id);
+
+        CREATE TABLE IF NOT EXISTS project_milestones (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          project_id  UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          name        VARCHAR(255) NOT NULL,
+          description TEXT,
+          date        TIMESTAMPTZ,
+          status      VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+          color       TEXT,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_milestones_project ON project_milestones(project_id);
+
+        CREATE TABLE IF NOT EXISTS project_boards (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          board_id   UUID NOT NULL REFERENCES boards(id)   ON DELETE CASCADE,
+          added_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CONSTRAINT uq_project_board UNIQUE (project_id, board_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_boards_project ON project_boards(project_id);
+        CREATE INDEX IF NOT EXISTS idx_project_boards_board   ON project_boards(board_id);
+      `);
+      console.log('  ✓ Migration 018: Create projects, project_milestones and project_boards tables');
+
+      // Migration 019: Create project_teams pivot table
       await client.query(`
         CREATE TABLE IF NOT EXISTS project_teams (
           id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -643,13 +687,13 @@ export async function runMigrations() {
         CREATE INDEX IF NOT EXISTS idx_project_teams_project ON project_teams(project_id);
         CREATE INDEX IF NOT EXISTS idx_project_teams_team    ON project_teams(team_id);
       `);
-      console.log('  ✓ Migration 018: Create project_teams pivot table');
+      console.log('  ✓ Migration 019: Create project_teams pivot table');
 
-      // Migration 019: Add ai_planner_credits to users
+      // Migration 020: Add ai_planner_credits to users
       await client.query(`
         ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_planner_credits INTEGER NOT NULL DEFAULT 3;
       `);
-      console.log('  ✓ Migration 019: Add ai_planner_credits to users');
+      console.log('  ✓ Migration 020: Add ai_planner_credits to users');
 
       console.log('✅ All migrations completed successfully');
     } finally {
