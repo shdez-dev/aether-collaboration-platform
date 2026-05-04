@@ -35,6 +35,14 @@ router.get('/workspaces/:workspaceId/boards', checkWorkspaceMembership, (req, re
 );
 
 /**
+ * GET /api/workspaces/:workspaceId/boards/orphaned
+ * Boards sin proyecto asociado
+ */
+router.get('/workspaces/:workspaceId/boards/orphaned', checkWorkspaceMembership, (req, res) =>
+  boardController.listOrphaned(req, res)
+);
+
+/**
  * GET /api/boards/:id
  * Obtener un board específico con todas sus listas y cards
  * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)

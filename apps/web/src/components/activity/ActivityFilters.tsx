@@ -18,6 +18,7 @@ interface ActivityFiltersProps {
   onChange: (filters: ActivityFilters) => void;
   users?: Array<{ id: string; name: string }>;
   boards?: Array<{ id: string; name: string }>;
+  accentColor?: string;
 }
 
 // Map category keys to their i18n translation key
@@ -29,11 +30,30 @@ const CATEGORY_LABEL_KEYS: Record<string, string> = {
   comment: 'activity_cat_comment',
 };
 
+const C = {
+  bg:      '#0b0d10',
+  bg2:     '#0f1217',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  amber:   '#f59e0b',
+  red:     '#ef4444',
+  purple:  '#a855f7',
+};
+
 export function ActivityFiltersComponent({
   filters,
   onChange,
   users = [],
   boards = [],
+  accentColor = '#3b82f6',
 }: ActivityFiltersProps) {
   const t = useT();
 
@@ -72,23 +92,45 @@ export function ActivityFiltersComponent({
     filters.userId ||
     filters.boardId;
 
+  const selectStyle: React.CSSProperties = {
+    background: C.bg2,
+    border: `1px solid ${C.border}`,
+    color: C.text,
+    borderRadius: '6px',
+    padding: '7px 10px',
+    width: '100%',
+    fontSize: '12px',
+    outline: 'none',
+  };
+
   return (
-    <div className="bg-card border border-border p-5">
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '16px' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5 pb-4 border-b border-border">
+      <div className="flex items-center justify-between mb-5 pb-4" style={{ borderBottom: `1px solid ${C.border}` }}>
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent/10 border border-accent/30">
-            <Filter className="h-4 w-4 text-accent" />
+          <div style={{ padding: '6px', background: `${accentColor}18`, border: `1px solid ${accentColor}44`, borderRadius: '6px' }}>
+            <Filter style={{ width: '14px', height: '14px', color: accentColor }} />
           </div>
-          <h3 className="text-sm font-bold text-text-primary">{t.activity_filter_title}</h3>
+          <h3 style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>{t.activity_filter_title}</h3>
         </div>
 
         {hasActiveFilters && (
           <button
             onClick={handleClearFilters}
-            className="px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10 transition-colors flex items-center gap-1 border border-error/30 hover:border-error"
+            className="flex items-center gap-1"
+            style={{
+              padding: '4px 10px',
+              fontSize: '11px',
+              fontWeight: 500,
+              color: C.red,
+              background: `${C.red}12`,
+              border: `1px solid ${C.red}44`,
+              borderRadius: '5px',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
           >
-            <X className="h-3 w-3" />
+            <X style={{ width: '11px', height: '11px' }} />
             {t.activity_filter_clear}
           </button>
         )}
@@ -97,7 +139,10 @@ export function ActivityFiltersComponent({
       <div className="space-y-4">
         {/* Categories */}
         <div>
-          <p className="text-xs font-medium text-text-muted mb-3 uppercase tracking-wide">
+          <p
+            className="uppercase tracking-wide mb-3"
+            style={{ fontSize: '10px', fontWeight: 600, color: C.text3 }}
+          >
             {t.activity_filter_categories}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -108,17 +153,40 @@ export function ActivityFiltersComponent({
               const labelKey = CATEGORY_LABEL_KEYS[key];
               const label = labelKey ? ((t as unknown as Record<string, string>)[labelKey]) : category.label;
 
+              let pillStyle: React.CSSProperties;
+              if (allSelected) {
+                pillStyle = {
+                  background: `${accentColor}22`,
+                  color: accentColor,
+                  border: `1px solid ${accentColor}44`,
+                };
+              } else if (isSelected) {
+                pillStyle = {
+                  background: `${accentColor}14`,
+                  color: accentColor,
+                  border: `1px solid ${accentColor}33`,
+                };
+              } else {
+                pillStyle = {
+                  background: C.hover,
+                  color: C.text2,
+                  border: `1px solid ${C.border}`,
+                };
+              }
+
               return (
                 <button
                   key={key}
                   onClick={() => handleCategoryChange(key)}
-                  className={`px-3 py-2 text-xs font-medium transition-colors border ${
-                    allSelected
-                      ? 'bg-accent text-white border-accent'
-                      : isSelected
-                        ? 'bg-accent/20 text-accent border-accent/50'
-                        : 'bg-surface text-text-secondary border-border hover:bg-card hover:text-text-primary'
-                  }`}
+                  style={{
+                    ...pillStyle,
+                    padding: '5px 12px',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
                 >
                   {label}
                 </button>
@@ -129,12 +197,19 @@ export function ActivityFiltersComponent({
 
         {/* Date Range */}
         <div>
-          <p className="text-xs font-medium text-text-muted mb-3 uppercase tracking-wide">
+          <p
+            className="uppercase tracking-wide mb-3"
+            style={{ fontSize: '10px', fontWeight: 600, color: C.text3 }}
+          >
             {t.activity_filter_date_range}
           </p>
           <div className="space-y-3">
             <div>
-              <label htmlFor="startDate" className="text-xs text-text-muted block mb-1.5">
+              <label
+                htmlFor="startDate"
+                className="block mb-1.5"
+                style={{ fontSize: '11px', color: C.text3 }}
+              >
                 {t.activity_filter_date_from}
               </label>
               <DatePicker
@@ -150,7 +225,11 @@ export function ActivityFiltersComponent({
               />
             </div>
             <div>
-              <label htmlFor="endDate" className="text-xs text-text-muted block mb-1.5">
+              <label
+                htmlFor="endDate"
+                className="block mb-1.5"
+                style={{ fontSize: '11px', color: C.text3 }}
+              >
                 {t.activity_filter_date_to}
               </label>
               <DatePicker
@@ -173,7 +252,8 @@ export function ActivityFiltersComponent({
           <div>
             <label
               htmlFor="userId"
-              className="text-xs font-medium text-text-muted block mb-3 uppercase tracking-wide"
+              className="block mb-3 uppercase tracking-wide"
+              style={{ fontSize: '10px', fontWeight: 600, color: C.text3 }}
             >
               {t.activity_filter_user}
             </label>
@@ -181,7 +261,7 @@ export function ActivityFiltersComponent({
               id="userId"
               value={filters.userId || ''}
               onChange={(e) => onChange({ ...filters, userId: e.target.value || undefined })}
-              className="input-terminal text-xs w-full"
+              style={selectStyle}
             >
               <option value="">{t.activity_filter_user_all}</option>
               {users.map((user) => (
@@ -198,7 +278,8 @@ export function ActivityFiltersComponent({
           <div>
             <label
               htmlFor="boardId"
-              className="text-xs font-medium text-text-muted block mb-3 uppercase tracking-wide"
+              className="block mb-3 uppercase tracking-wide"
+              style={{ fontSize: '10px', fontWeight: 600, color: C.text3 }}
             >
               Board
             </label>
@@ -206,7 +287,7 @@ export function ActivityFiltersComponent({
               id="boardId"
               value={filters.boardId || ''}
               onChange={(e) => onChange({ ...filters, boardId: e.target.value || undefined })}
-              className="input-terminal text-xs w-full"
+              style={selectStyle}
             >
               <option value="">{t.activity_filter_board_all}</option>
               {boards.map((board) => (
@@ -221,26 +302,72 @@ export function ActivityFiltersComponent({
 
       {/* Active filters summary */}
       {hasActiveFilters && (
-        <div className="mt-4 pt-4 border-t border-border">
-          <p className="text-xs text-text-muted mb-2">{t.activity_filter_active}</p>
+        <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${C.border}` }}>
+          <p className="mb-2" style={{ fontSize: '11px', color: C.text3 }}>
+            {t.activity_filter_active}
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {filters.eventTypes.length > 0 && (
-              <span className="inline-flex items-center px-2 py-0.5 bg-accent/10 border border-accent/30 text-accent text-xs font-medium">
+              <span
+                className="inline-flex items-center"
+                style={{
+                  padding: '2px 8px',
+                  background: `${accentColor}18`,
+                  border: `1px solid ${accentColor}33`,
+                  color: accentColor,
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  borderRadius: '4px',
+                }}
+              >
                 {t.activity_filter_types(filters.eventTypes.length)}
               </span>
             )}
             {(filters.startDate || filters.endDate) && (
-              <span className="inline-flex items-center px-2 py-0.5 bg-success/10 border border-success/30 text-success text-xs font-medium">
+              <span
+                className="inline-flex items-center"
+                style={{
+                  padding: '2px 8px',
+                  background: `${C.green}18`,
+                  border: `1px solid ${C.green}33`,
+                  color: C.green,
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  borderRadius: '4px',
+                }}
+              >
                 {t.activity_filter_dates}
               </span>
             )}
             {filters.userId && (
-              <span className="inline-flex items-center px-2 py-0.5 bg-warning/10 border border-warning/30 text-warning text-xs font-medium">
+              <span
+                className="inline-flex items-center"
+                style={{
+                  padding: '2px 8px',
+                  background: `${C.amber}18`,
+                  border: `1px solid ${C.amber}33`,
+                  color: C.amber,
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  borderRadius: '4px',
+                }}
+              >
                 {t.activity_filter_user}
               </span>
             )}
             {filters.boardId && (
-              <span className="inline-flex items-center px-2 py-0.5 bg-info/10 border border-info/30 text-info text-xs font-medium">
+              <span
+                className="inline-flex items-center"
+                style={{
+                  padding: '2px 8px',
+                  background: `${C.purple}18`,
+                  border: `1px solid ${C.purple}33`,
+                  color: C.purple,
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  borderRadius: '4px',
+                }}
+              >
                 Board
               </span>
             )}

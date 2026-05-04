@@ -1,195 +1,323 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useBoardStore } from '@/stores/boardStore';
+import { useProjectStore, type Project } from '@/stores/projectStore';
 import { socketService } from '@/services/socketService';
 import InviteMemberModal from '@/components/InviteMemberModal';
 import ConfirmRemoveMemberModal from '@/components/ConfirmRemoveMemberModal';
-import CreateBoardModal from '@/components/CreateBoardModal';
+import CreateProjectModal from '@/components/CreateProjectModal';
 import ActivityFeed from '@/components/ActivityFeed';
 import DocumentsSection from '@/components/workspace/DocumentsSection';
-import {
-  Settings,
-  ArrowLeft,
-  Users,
-  Activity,
-  LayoutGrid,
-  Plus,
-  Calendar,
-  Archive,
-  Crown,
-  Shield,
-  Eye,
-  UserCircle,
-  Sparkles,
-  UserMinus,
-  ChevronRight,
-  Trash2,
-  BarChart2,
-  CheckSquare,
-  TrendingUp,
-  TrendingDown,
-  AlertCircle,
-  UserX,
-  Zap,
-  ScrollText,
-} from 'lucide-react';
+import { ActivityTimeline } from '@/components/activity/ActivityTimeline';
+import { ActivityFiltersComponent, type ActivityFilters } from '@/components/activity/ActivityFilters';
 import { useT } from '@/lib/i18n';
-import { formatShort } from '@/lib/utils/date';
-import { useAuthStore } from '@/stores/authStore';
+type T = ReturnType<typeof useT>;
+import { apiService } from '@/services/apiService';
 import { useRealtimeToast } from '@/hooks/useRealtimeToast';
 import { getAvatarUrl } from '@/lib/utils/avatar';
-import { WorkspaceIcon } from '@/components/WorkspaceIcon';
+import {
+  Plus, Archive, UserMinus, Trash2,
+  LayoutGrid, Activity, AlertCircle, FileText,
+  TrendingUp, TrendingDown, ChevronDown, FolderOpen,
+  UserX, Zap, Users, LayoutDashboard,
+} from 'lucide-react';
 
+// ── Color tokens ──────────────────────────────────────────────────────────────
+const C = {
+  bg:      '#0b0d10',
+  bg2:     '#0f1217',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  amber:   '#f59e0b',
+  red:     '#ef4444',
+};
+
+type TabKey = 'overview' | 'projects' | 'docs' | 'members' | 'activity';
+
+// ── Avatar color palette (deterministic per user) ─────────────────────────────
+const AVATAR_PALETTE = [
+  '#3b82f6', '#10b981', '#f97316', '#a855f7', '#ec4899',
+  '#06b6d4', '#f43f5e', '#84cc16', '#f59e0b', '#8b5cf6',
+];
+function hashColor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getRoleBadge(role: string, t: T) {
+  if (role === 'OWNER')  return { label: t.role_owner,  bg: 'rgba(161,167,176,0.10)', color: '#a1a7b0', border: 'rgba(161,167,176,0.22)', dot: '#a1a7b0' };
+  if (role === 'ADMIN')  return { label: t.role_admin,  bg: 'rgba(16,185,129,0.14)',  color: '#10b981', border: 'rgba(16,185,129,0.3)',  dot: '#10b981' };
+  if (role === 'VIEWER') return { label: t.role_viewer, bg: 'rgba(107,114,128,0.14)', color: '#6b7280', border: 'rgba(107,114,128,0.3)', dot: '#6b7280' };
+  return                        { label: t.role_member, bg: 'rgba(139,92,246,0.13)',  color: '#a78bfa', border: 'rgba(139,92,246,0.28)', dot: '#8b5cf6' };
+}
+
+function getStatusBadge(status: string, t: T) {
+  switch (status) {
+    case 'ACTIVE':    return { label: t.projects_status_active,    color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.25)' };
+    case 'PLANNING':  return { label: t.projects_status_planning,  color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.25)' };
+    case 'ON_HOLD':   return { label: t.projects_status_on_hold,   color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.25)' };
+    case 'COMPLETED': return { label: t.projects_status_completed, color: '#a1a7b0', bg: 'rgba(161,167,176,0.1)',  border: 'rgba(161,167,176,0.2)' };
+    default:          return { label: status,                       color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.2)' };
+  }
+}
+
+function getHealthBadge(pct: number, t: T) {
+  if (pct >= 60) return { label: t.ws_health_healthy,          color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)' };
+  if (pct >= 30) return { label: t.projects_health_at_risk,    color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)' };
+  return               { label: t.ws_health_critical,          color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.25)' };
+}
+
+function getBoardStatus(updatedAt: string, isLive: boolean, t: T) {
+  if (isLive) return { label: t.ws_board_status_active,  color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.25)' };
+  const days = (Date.now() - new Date(updatedAt).getTime()) / 86400000;
+  if (days < 4)  return { label: t.ws_board_status_active,  color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.25)' };
+  if (days < 14) return { label: t.ws_board_status_review,  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)' };
+  return               { label: t.ws_board_status_backlog, color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.2)' };
+}
+
+function timeAgo(dateStr: string, t: T): string {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(ms / 60000);
+  const hours = Math.floor(ms / 3600000);
+  const days = Math.floor(ms / 86400000);
+  if (mins < 1)   return t.projects_time_ago_now;
+  if (mins < 60)  return t.projects_time_ago_min(mins);
+  if (hours < 24) return t.projects_time_ago_h(hours);
+  if (days < 30)  return t.projects_time_ago_d(days);
+  return t.projects_time_ago_d(Math.floor(days / 30));
+}
+
+function daysLabel(dateStr: string | null | undefined, t: T): { text: string; overdue: boolean } | null {
+  if (!dateStr) return null;
+  const d = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+  if (d < -60 || d > 90) return null;
+  if (d < 0)  return { text: t.projects_time_ago_overdue(Math.abs(d)), overdue: true };
+  if (d === 0) return { text: t.projects_time_ago_due_today, overdue: false };
+  return { text: t.projects_time_ago_days_left(d), overdue: false };
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function WorkspaceDetailPage() {
   const t = useT();
+  const ago = (d: string) => timeAgo(d, t);
+  const makeDl = (d?: string | null) => daysLabel(d, t);
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const workspaceId = params.id as string;
 
-  const { user } = useAuthStore();
-
   const {
-    currentWorkspace,
-    currentStats,
-    fetchWorkspaceById,
-    fetchMembers,
-    fetchStats,
-    currentMembers,
-    isLoading,
-    removeMember,
-    changeMemberRole,
+    currentWorkspace, currentStats,
+    fetchWorkspaceById, fetchMembers, fetchStats,
+    currentMembers, isLoading, removeMember, changeMemberRole,
   } = useWorkspaceStore();
 
   const { boards, fetchBoards, handleEvent, deleteBoard } = useBoardStore();
-
-  const [activeTab, setActiveTab] = useState<'stats' | 'boards'>('stats');
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<{
-    userId: string;
-    name: string;
-  } | null>(null);
-  const [removingMember, setRemovingMember] = useState(false);
-  const [changingRoleMemberId, setChangingRoleMemberId] = useState<string | null>(null);
-  const [boardToDelete, setBoardToDelete] = useState<{ id: string; name: string } | null>(null);
-  const [isDeletingBoard, setIsDeletingBoard] = useState(false);
+  const { fetchProjectsByWorkspace } = useProjectStore();
   const toast = useRealtimeToast();
 
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const initialTab = (searchParams.get('tab') as TabKey | null) ?? 'overview';
+  const [activeTab,            setActiveTab]            = useState<TabKey>(initialTab);
+  const [showInviteModal,        setShowInviteModal]        = useState(false);
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
+  const [memberToRemove,       setMemberToRemove]       = useState<{ userId: string; name: string } | null>(null);
+  const [removingMember,       setRemovingMember]       = useState(false);
+  const [roleMenuOpen,         setRoleMenuOpen]         = useState<string | null>(null); // userId con menú abierto
+  const [changingRole,         setChangingRole]         = useState(false);
+  const [boardToDelete,        setBoardToDelete]        = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingBoard,      setIsDeletingBoard]      = useState(false);
+  const [boardActiveUsers,     setBoardActiveUsers]     = useState<Record<string, { count: number; users: any[] }>>({});
+  const [wsProjects,           setWsProjects]           = useState<Project[]>([]);
+  const [orphanBoards,         setOrphanBoards]         = useState<any[]>([]);
+  const [orphanOpen,           setOrphanOpen]           = useState(true);
+  const [planningOpen,         setPlanningOpen]         = useState(false);
+  const [assigningBoardId,     setAssigningBoardId]     = useState<string | null>(null);
+  const [sideProjects,         setSideProjects]         = useState(true);
+  const [sideMembers,          setSideMembers]          = useState(true);
+  const [wsTeams,              setWsTeams]              = useState<{ id: string; name: string; color: string | null; members: any[] }[]>([]);
+  const [sideActivity,         setSideActivity]         = useState(false);
+
+  // ── Activity tab ──────────────────────────────────────────────────────────
+  const EVENTS_PER_PAGE = 20;
+  const [activityEvents,      setActivityEvents]      = useState<any[]>([]);
+  const [activityLoading,     setActivityLoading]     = useState(false);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
+  const [activityError,       setActivityError]       = useState<string | null>(null);
+  const [activityHasMore,     setActivityHasMore]     = useState(true);
+  const [activityOffset,      setActivityOffset]      = useState(0);
+  const [activityBoards,      setActivityBoards]      = useState<Array<{ id: string; name: string }>>([]);
+  const [activityFilters,     setActivityFilters]     = useState<ActivityFilters>({
+    eventTypes: [], startDate: undefined, endDate: undefined, userId: undefined, boardId: undefined,
+  });
+
+  const fetchActivityTab = useCallback(async (reset = false) => {
+    try {
+      if (reset) { setActivityLoading(true); setActivityOffset(0); setActivityEvents([]); }
+      else        { setActivityLoadingMore(true); }
+      setActivityError(null);
+      const qp = new URLSearchParams();
+      qp.append('limit', EVENTS_PER_PAGE.toString());
+      qp.append('offset', (reset ? 0 : activityOffset).toString());
+      if (activityFilters.eventTypes.length > 0) qp.append('eventTypes', activityFilters.eventTypes.join(','));
+      if (activityFilters.startDate) qp.append('startDate', activityFilters.startDate);
+      if (activityFilters.endDate)   qp.append('endDate',   activityFilters.endDate);
+      if (activityFilters.userId)    qp.append('userId',    activityFilters.userId);
+      if (activityFilters.boardId)   qp.append('boardId',   activityFilters.boardId);
+      const r = await apiService.get<{ events: any[]; pagination: any }>(
+        `/api/workspaces/${workspaceId}/activity?${qp}`, true
+      );
+      if (!r.success || !r.data) throw new Error(r.error?.message || 'Error');
+      const newEvents = r.data.events || [];
+      if (reset) setActivityEvents(newEvents);
+      else       setActivityEvents((prev) => [...prev, ...newEvents]);
+      setActivityHasMore(newEvents.length === EVENTS_PER_PAGE);
+      setActivityOffset(reset ? EVENTS_PER_PAGE : activityOffset + EVENTS_PER_PAGE);
+    } catch {
+      setActivityError(t.ws_activity_error);
+    } finally {
+      setActivityLoading(false);
+      setActivityLoadingMore(false);
+    }
+  }, [workspaceId, activityOffset, activityFilters]);
+
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && boardToDelete && !isDeletingBoard) {
-        setBoardToDelete(null);
-      }
+    if (activeTab === 'activity') fetchActivityTab(true);
+  }, [activeTab, workspaceId, activityFilters]);
+
+  useEffect(() => {
+    if (activeTab !== 'activity' || activityBoards.length > 0) return;
+    apiService.get<{ boards: Array<{ id: string; name: string }> }>(
+      `/api/workspaces/${workspaceId}/boards`, true
+    ).then((r) => { if (r.success && r.data) setActivityBoards(r.data.boards || []); });
+  }, [activeTab, workspaceId]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && boardToDelete && !isDeletingBoard) setBoardToDelete(null);
+      if (e.key === 'Escape') setRoleMenuOpen(null);
     };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    const onClick = () => setRoleMenuOpen(null);
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('click', onClick);
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('click', onClick); };
   }, [boardToDelete, isDeletingBoard]);
 
   useEffect(() => {
-    if (workspaceId) {
-      fetchWorkspaceById(workspaceId);
-      fetchMembers(workspaceId);
-      fetchBoards(workspaceId);
-      fetchStats(workspaceId);
-    }
-  }, [workspaceId, fetchWorkspaceById, fetchMembers, fetchBoards, fetchStats]);
+    if (!workspaceId) return;
+    fetchWorkspaceById(workspaceId);
+    fetchMembers(workspaceId);
+    fetchBoards(workspaceId);
+    fetchStats(workspaceId);
+    fetchProjectsByWorkspace(workspaceId).then(setWsProjects);
+    apiService.get<{ boards: any[] }>(`/api/workspaces/${workspaceId}/boards/orphaned`, true)
+      .then((r) => { if (r.success && r.data) setOrphanBoards(r.data.boards || []); });
+    apiService.get<{ teams: any[] }>(`/api/workspaces/${workspaceId}/teams`, true)
+      .then((r) => { if (r.success && r.data) setWsTeams(r.data.teams || []); });
+  }, [workspaceId, fetchWorkspaceById, fetchMembers, fetchBoards, fetchStats, fetchProjectsByWorkspace]);
 
-  // Suscribirse al workspace room para recibir eventos de boards en tiempo real
+  useEffect(() => {
+    if (boards.length === 0) return;
+    Promise.allSettled(
+      boards.filter((b) => !b.archived).map(async (board) => {
+        const r = await apiService.get<{ users: any[] }>(
+          `/api/presence/boards/${board.id}/active-users`, true
+        );
+        const users = r.success ? (r.data?.users ?? []) : [];
+        return { boardId: board.id, count: users.length, users };
+      })
+    ).then((results) => {
+      const map: Record<string, { count: number; users: any[] }> = {};
+      for (const r of results) {
+        if (r.status === 'fulfilled') map[r.value.boardId] = r.value;
+      }
+      setBoardActiveUsers(map);
+    });
+  }, [boards]);
+
   useEffect(() => {
     if (!workspaceId) return;
-
     const join = () => socketService.joinWorkspace(workspaceId);
-
-    // Unirse ahora si ya está conectado, o cuando se conecte
     join();
     socketService.onConnect(join);
-
-    const handleSocketEvent = (event: any) => {
-      handleEvent(event);
-    };
-    socketService.on('event', handleSocketEvent);
-
+    socketService.on('event', handleEvent);
     return () => {
       socketService.leaveWorkspace(workspaceId);
       socketService.offConnect(join);
-      socketService.off('event', handleSocketEvent);
+      socketService.off('event', handleEvent);
     };
   }, [workspaceId, handleEvent]);
 
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading && !currentWorkspace) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="loading-lg" />
-          <p className="text-sm text-text-muted">{t.workspace_loading}</p>
-        </div>
+        <div className="w-7 h-7 rounded-full border-2 animate-spin"
+          style={{ borderColor: `${C.accent} transparent transparent transparent` }} />
       </div>
     );
   }
-
   if (!currentWorkspace) {
     return (
-      <div className="max-w-2xl mx-auto mt-20">
-        <div className="bg-card border border-border p-16 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 bg-error/10 border border-error flex items-center justify-center">
-            <span className="text-4xl">⚠</span>
-          </div>
-          <h3 className="text-2xl font-medium mb-2">{t.workspace_not_found_title}</h3>
-          <p className="text-text-secondary mb-8">{t.workspace_not_found_desc}</p>
-          <Link
-            href="/dashboard/workspaces"
-            className="btn-secondary inline-flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>{t.workspace_btn_back}</span>
-          </Link>
-        </div>
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
+        <p style={{ fontSize: '15px', color: C.text2 }}>{t.workspace_not_found_title}</p>
+        <Link href="/dashboard/workspaces" style={{ fontSize: '13px', color: C.accent }}>{t.workspace_btn_back}</Link>
       </div>
     );
   }
 
-  const isOwnerOrAdmin = ['OWNER', 'ADMIN'].includes(currentWorkspace.userRole || '');
-  const isOwner = currentWorkspace.userRole === 'OWNER';
-  const activeBoards = boards.filter((b) => !b.archived).length;
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const isOwnerOrAdmin   = ['OWNER', 'ADMIN'].includes(currentWorkspace.userRole || '');
+  const isOwner          = currentWorkspace.userRole === 'OWNER';
+  const activeBoards     = boards.filter((b) => !b.archived);
+  const archivedBoards   = boards.filter((b) =>  b.archived);
+  const accentColor      = currentWorkspace.color || C.accent;
+  const initial          = (currentWorkspace.name || '?')[0].toUpperCase();
+  const roleBadge        = getRoleBadge(currentWorkspace.userRole || 'MEMBER', t);
+  const completionPct    = currentStats && currentStats.totalCards > 0
+    ? Math.round((currentStats.completedCards / currentStats.totalCards) * 100) : 0;
+  const boardProgressMap = new Map(
+    (currentStats?.boardProgress ?? []).map((bp) => [bp.boardId, bp])
+  );
+  const atRiskCount = wsProjects.filter((p) => p.status === 'ACTIVE' && (p.progressPercent ?? 100) < 50).length;
+  const showSidebar = activeTab !== 'members' && activeTab !== 'activity';
 
-  const handleRemoveClick = (userId: string, memberName: string) => {
-    setMemberToRemove({ userId, name: memberName });
-  };
+  // boardId → project (for PROYECTO column)
+  const projectBoardMap = new Map<string, { id: string; name: string; color?: string }>();
+  for (const proj of wsProjects) {
+    for (const b of (proj.boards as any[]) ?? []) {
+      projectBoardMap.set(b.id, { id: proj.id, name: proj.name, color: proj.color ?? undefined });
+    }
+  }
 
+  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleConfirmRemove = async () => {
     if (!memberToRemove) return;
     setRemovingMember(true);
-    try {
-      await removeMember(workspaceId, memberToRemove.userId);
-      setMemberToRemove(null);
-    } catch (error) {
-      alert(t.workspace_error_removing_member);
-    } finally {
-      setRemovingMember(false);
-    }
+    try { await removeMember(workspaceId, memberToRemove.userId); setMemberToRemove(null); }
+    catch { alert(t.workspace_error_removing_member); }
+    finally { setRemovingMember(false); }
   };
 
-  const handleChangeRole = async (userId: string, newRole: string) => {
-    setChangingRoleMemberId(userId);
-    try {
-      await changeMemberRole(workspaceId, userId, newRole);
-    } catch (error) {
-      alert(t.workspace_error_changing_role);
-    } finally {
-      setChangingRoleMemberId(null);
-    }
-  };
-
-  const handleGoToBoard = (boardId: string) => {
-    router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
-  };
-
-  const handleBoardCreated = (_boardId: string) => {
-    setShowCreateBoardModal(false);
+  const handleChangeRole = async (userId: string, role: string) => {
+    setChangingRole(true);
+    try { await changeMemberRole(workspaceId, userId, role); }
+    catch { /* silencio */ }
+    finally { setChangingRole(false); setRoleMenuOpen(null); }
   };
 
   const handleDeleteBoard = async () => {
@@ -201,612 +329,1087 @@ export default function WorkspaceDetailPage() {
       setBoardToDelete(null);
     } catch (err: any) {
       const code = err?.code;
-      if (code === 'BOARD_NOT_ARCHIVED') {
-        toast.error('El board debe archivarse antes de eliminarlo');
-      } else if (code === 'BOARD_HAS_LISTS') {
-        toast.error('Elimina todas las listas del board primero');
-      } else {
-        toast.error(err?.message || 'Error al eliminar el board');
-      }
-    } finally {
-      setIsDeletingBoard(false);
-    }
+      if (code === 'BOARD_NOT_ARCHIVED')  toast.error(t.ws_board_error_not_archived);
+      else if (code === 'BOARD_HAS_LISTS') toast.error(t.ws_board_error_has_lists);
+      else toast.error(err?.message || t.ws_board_error_delete);
+    } finally { setIsDeletingBoard(false); }
   };
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'OWNER':
-        return <Crown className="w-3 h-3" />;
-      case 'ADMIN':
-        return <Shield className="w-3 h-3" />;
-      case 'MEMBER':
-        return <UserCircle className="w-3 h-3" />;
-      case 'VIEWER':
-        return <Eye className="w-3 h-3" />;
-      default:
-        return null;
-    }
-  };
+  // ── Icon size shorthand ───────────────────────────────────────────────────
+  const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'OWNER':
-        return 'bg-accent/20 border-accent/50 text-accent';
-      case 'ADMIN':
-        return 'bg-success/20 border-success/50 text-success';
-      case 'MEMBER':
-        return 'bg-surface border-border text-text-secondary';
-      case 'VIEWER':
-        return 'bg-text-muted/10 border-text-muted/30 text-text-muted';
-      default:
-        return 'bg-surface border-border text-text-secondary';
-    }
-  };
+  // ── Tab definitions ───────────────────────────────────────────────────────
+  const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode; count?: number }> = [
+    { key: 'overview',  label: 'Overview',                icon: <LayoutDashboard style={ic(11)} />,  count: undefined },
+    { key: 'projects',  label: t.projects_title,          icon: <FolderOpen      style={ic(11)} />,  count: wsProjects.length || undefined },
+    { key: 'docs',      label: 'Docs',                    icon: <FileText        style={ic(11)} />,  count: undefined },
+    { key: 'members',   label: t.workspace_section_members, icon: <Users         style={ic(11)} />,  count: currentMembers.length || undefined },
+    { key: 'activity',  label: t.workspace_section_activity, icon: <Activity     style={ic(11)} />,  count: undefined },
+  ];
 
-  const completionPct =
-    currentStats && currentStats.totalCards > 0
-      ? Math.round((currentStats.completedCards / currentStats.totalCards) * 100)
-      : 0;
-
-  const getRoleLabel = (role: string) => {
-    const labels: Record<string, string> = {
-      OWNER: t.role_owner,
-      ADMIN: t.role_admin,
-      MEMBER: t.role_member,
-      VIEWER: t.role_viewer,
-    };
-    return labels[role] || role;
-  };
-
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
-      <div className="space-y-4 md:space-y-6">
-        {/* Header Navigation */}
-        <div className="flex items-center justify-between gap-2">
-          <Link
-            href="/dashboard/workspaces"
-            className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-text-muted hover:text-text-primary transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            <span>{t.workspace_btn_back}</span>
-          </Link>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg, overflow: 'hidden' }}>
 
-          <div className="flex items-center gap-1.5 md:gap-2">
-            <Link
-              href={`/dashboard/workspaces/${workspaceId}/activity`}
-              className="px-2 md:px-4 py-1.5 md:py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2"
+        {/* ══ HEADER ══════════════════════════════════════════════════════ */}
+        <header style={{ background: C.bg2, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+
+          {/* Breadcrumb row + top-right actions */}
+          <div style={{
+            padding: '7px 20px',
+            borderBottom: `1px solid ${C.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <button
+              onClick={() => router.push('/dashboard/workspaces')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: C.text3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.1s' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = C.text)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = C.text3)}
             >
-              <ScrollText className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              <span className="hidden sm:inline">{t.workspace_section_activity}</span>
-            </Link>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" width="13" height="13">
+                <path d="M10 3L5 8l5 5" />
+              </svg>
+              {t.btn_back}
+            </button>
 
-            {isOwnerOrAdmin && (
-              <Link
-                href={`/dashboard/workspaces/${workspaceId}/settings`}
-                className="px-2 md:px-4 py-1.5 md:py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2"
-              >
-                <Settings className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                <span className="hidden sm:inline">{t.workspace_btn_settings}</span>
-              </Link>
-            )}
-          </div>
-        </div>
-
-        {/* Workspace Info Header */}
-        <div className="bg-card border border-border p-4 md:p-6">
-          <div className="flex items-start gap-3 md:gap-6">
-            <div
-              className="w-14 h-14 md:w-20 md:h-20 flex items-center justify-center flex-shrink-0 border"
-              style={{
-                backgroundColor: `${currentWorkspace.color}15`,
-                color: currentWorkspace.color,
-                borderColor: `${currentWorkspace.color}40`,
-              }}
-            >
-              <WorkspaceIcon icon={currentWorkspace.icon} className="w-7 h-7 md:w-10 md:h-10" />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                <h1 className="text-lg md:text-2xl font-medium text-text-primary truncate">
-                  {currentWorkspace.name}
-                </h1>
-                <span
-                  className={`inline-flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-0.5 md:py-1 text-[10px] md:text-xs font-medium border ${getRoleColor(
-                    currentWorkspace.userRole || 'MEMBER'
-                  )} w-fit`}
-                >
-                  {getRoleIcon(currentWorkspace.userRole || 'MEMBER')}
-                  <span>{getRoleLabel(currentWorkspace.userRole || 'MEMBER')}</span>
-                </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {/* Member avatars stacked */}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {currentMembers.slice(0, 4).map((m, idx) => {
+                  const avatarUrl = getAvatarUrl(m.user?.avatar ?? null);
+                  const mColor    = hashColor(m.userId);
+                  return (
+                    <div key={m.id} title={m.user?.name} style={{
+                      width: '26px', height: '26px', borderRadius: '50%',
+                      marginLeft: idx === 0 ? 0 : '-8px',
+                      background: `linear-gradient(135deg, ${mColor}dd, ${mColor}88)`,
+                      border: `2px solid ${C.bg2}`, zIndex: 4 - idx, position: 'relative',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '10px', fontWeight: 700, color: '#fff', overflow: 'hidden',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                    }}>
+                      {avatarUrl
+                        ? <img src={avatarUrl} alt={m.user?.name} crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : (m.user?.name || '?').slice(0, 2).toUpperCase()
+                      }
+                    </div>
+                  );
+                })}
+                {currentMembers.length > 4 && (
+                  <div style={{
+                    width: '26px', height: '26px', borderRadius: '50%',
+                    marginLeft: '-8px', zIndex: 0, position: 'relative',
+                    background: C.hover, border: `2px solid ${C.bg2}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '9px', fontWeight: 700, color: C.text3,
+                  }}>
+                    +{currentMembers.length - 4}
+                  </div>
+                )}
               </div>
 
-              <p className="text-text-secondary text-xs md:text-sm mb-3 md:mb-4 line-clamp-2">
-                {currentWorkspace.description || t.no_description}
-              </p>
-
-              <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 md:gap-6 text-xs md:text-sm">
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <LayoutGrid className="w-3.5 h-3.5 md:w-4 md:h-4 text-accent flex-shrink-0" />
-                  <span className="text-text-primary font-medium">{activeBoards}</span>
-                  <span className="text-text-muted hidden xs:inline">
-                    {t.workspace_stat_boards}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4 text-success flex-shrink-0" />
-                  <span className="text-text-primary font-medium">
-                    {currentWorkspace.memberCount || 0}
-                  </span>
-                  <span className="text-text-muted hidden xs:inline">
-                    {t.workspace_stat_members}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-warning flex-shrink-0" />
-                  <span className="text-text-primary font-medium">
-                    {boards.reduce((sum, b) => sum + (b.cardCount || 0), 0)}
-                  </span>
-                  <span className="text-text-muted hidden xs:inline">{t.workspace_stat_tasks}</span>
-                </div>
-
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-text-muted flex-shrink-0" />
-                  <span className="text-text-muted text-[10px] md:text-xs">
-                    {formatShort(
-                      new Date(currentWorkspace.createdAt),
-                      user?.timezone,
-                      user?.language as 'es' | 'en'
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Grid de 3 columnas */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-          {/* PANEL PRINCIPAL (tabs) - 2 columnas */}
-          <div className="lg:col-span-2 space-y-3 md:space-y-4">
-            {/* Tab switcher */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 sm:justify-between">
-              <div className="flex border border-border overflow-hidden">
-                <button
-                  onClick={() => setActiveTab('stats')}
-                  className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium transition-colors ${
-                    activeTab === 'stats'
-                      ? 'bg-accent text-white'
-                      : 'bg-surface text-text-secondary hover:text-text-primary hover:bg-card'
-                  }`}
+              {isOwnerOrAdmin && (
+                <button onClick={() => setShowInviteModal(true)}
+                  style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: C.surface, color: C.text2, border: `1px solid ${C.border2}`, cursor: 'pointer', transition: 'border-color 0.1s, color 0.1s' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.text4; e.currentTarget.style.color = C.text; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2; }}
                 >
-                  <BarChart2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  <span>{t.ws_tab_stats}</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('boards')}
-                  className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium transition-colors border-l border-border ${
-                    activeTab === 'boards'
-                      ? 'bg-accent text-white'
-                      : 'bg-surface text-text-secondary hover:text-text-primary hover:bg-card'
-                  }`}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  <span>{t.ws_tab_boards}</span>
-                  {activeBoards > 0 && (
-                    <span
-                      className={`text-[10px] md:text-xs px-1.5 py-0.5 font-mono ${
-                        activeTab === 'boards'
-                          ? 'bg-white/20 text-white'
-                          : 'bg-accent/10 text-accent'
-                      }`}
-                    >
-                      {activeBoards}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {/* Acción contextual según tab */}
-              {activeTab === 'boards' && isOwnerOrAdmin && (
-                <button
-                  className="w-full sm:w-auto px-3 md:px-4 py-2 bg-accent text-white hover:bg-accent/90 transition-colors text-xs md:text-sm font-medium flex items-center justify-center gap-1.5 md:gap-2"
-                  onClick={() => setShowCreateBoardModal(true)}
-                >
-                  <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  <span>{t.workspace_btn_new_board}</span>
+                  {t.ws_btn_invite}
                 </button>
               )}
             </div>
-
-            {/* ── TAB: ESTADÍSTICAS ── */}
-            {activeTab === 'stats' && (
-              <div className="bg-card border border-border">
-                {!currentStats ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="loading" />
-                  </div>
-                ) : currentStats.totalCards === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <BarChart2 className="w-10 h-10 text-text-muted opacity-30" />
-                    <p className="text-sm text-text-muted">{t.ws_stats_no_data}</p>
-                  </div>
-                ) : (
-                  <div className="p-3 md:p-5 space-y-4 md:space-y-5">
-                    {/* ── Fila 1: métricas de estado ── */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {/* Progreso global */}
-                      <div className="p-2.5 md:p-3 bg-surface border border-border col-span-2 sm:col-span-2 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <CheckSquare className="w-3.5 h-3.5 text-success" />
-                            <span className="text-xs font-medium text-text-primary">
-                              {t.ws_stats_completion_rate}
-                            </span>
-                          </div>
-                          <span className="text-lg font-bold text-success">{completionPct}%</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-border overflow-hidden">
-                          <div
-                            className="h-full bg-success transition-all duration-500"
-                            style={{ width: `${completionPct}%` }}
-                          />
-                        </div>
-                        <p className="text-[11px] text-text-muted">
-                          {currentStats.completedCards} {t.ws_stats_of} {currentStats.totalCards}{' '}
-                          {t.ws_stats_cards_done}
-                        </p>
-                      </div>
-
-                      {/* Vencidas */}
-                      <div
-                        className={`p-2.5 md:p-3 border space-y-1 ${currentStats.overdueCards > 0 ? 'bg-error/5 border-error/30' : 'bg-surface border-border'}`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <AlertCircle
-                            className={`w-3 h-3 md:w-3.5 md:h-3.5 ${currentStats.overdueCards > 0 ? 'text-error' : 'text-text-muted'}`}
-                          />
-                          <span className="text-[10px] md:text-[11px] text-text-secondary">
-                            {t.ws_stats_overdue}
-                          </span>
-                        </div>
-                        <p
-                          className={`text-xl md:text-2xl font-bold ${currentStats.overdueCards > 0 ? 'text-error' : 'text-text-muted'}`}
-                        >
-                          {currentStats.overdueCards}
-                        </p>
-                        <p className="text-[10px] md:text-[11px] text-text-muted hidden sm:block">
-                          {t.ws_stats_overdue_desc}
-                        </p>
-                      </div>
-
-                      {/* Sin asignar */}
-                      <div
-                        className={`p-2.5 md:p-3 border space-y-1 ${currentStats.unassignedCards > 0 ? 'bg-warning/5 border-warning/30' : 'bg-surface border-border'}`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <UserX
-                            className={`w-3 h-3 md:w-3.5 md:h-3.5 ${currentStats.unassignedCards > 0 ? 'text-warning' : 'text-text-muted'}`}
-                          />
-                          <span className="text-[10px] md:text-[11px] text-text-secondary">
-                            {t.ws_stats_unassigned}
-                          </span>
-                        </div>
-                        <p
-                          className={`text-xl md:text-2xl font-bold ${currentStats.unassignedCards > 0 ? 'text-warning' : 'text-text-muted'}`}
-                        >
-                          {currentStats.unassignedCards}
-                        </p>
-                        <p className="text-[10px] md:text-[11px] text-text-muted hidden sm:block">
-                          {t.ws_stats_unassigned_desc}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* ── Fila 2: velocidad + progreso por board ── */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-border">
-                      {/* Velocidad semanal */}
-                      <div className="p-2.5 md:p-3 bg-surface border border-border space-y-2">
-                        <div className="flex items-center gap-1.5">
-                          <Zap className="w-3.5 h-3.5 text-accent" />
-                          <span className="text-xs font-medium text-text-primary">
-                            {t.ws_stats_velocity}
-                          </span>
-                        </div>
-                        <div className="flex items-end gap-3">
-                          <div>
-                            <p className="text-2xl font-bold text-accent">
-                              {currentStats.completedThisWeek}
-                            </p>
-                            <p className="text-[11px] text-text-muted">{t.ws_stats_this_week}</p>
-                          </div>
-                          <div className="pb-1">
-                            {currentStats.completedThisWeek > currentStats.completedLastWeek ? (
-                              <div className="flex items-center gap-1 text-success text-[11px]">
-                                <TrendingUp className="w-3 h-3" />
-                                <span>
-                                  +{currentStats.completedThisWeek - currentStats.completedLastWeek}{' '}
-                                  {t.ws_stats_vs_last_week}
-                                </span>
-                              </div>
-                            ) : currentStats.completedThisWeek < currentStats.completedLastWeek ? (
-                              <div className="flex items-center gap-1 text-error text-[11px]">
-                                <TrendingDown className="w-3 h-3" />
-                                <span>
-                                  {currentStats.completedThisWeek - currentStats.completedLastWeek}{' '}
-                                  {t.ws_stats_vs_last_week}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-text-muted">
-                                {t.ws_stats_same_as_last_week}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Progreso por board */}
-                      <div className="p-2.5 md:p-3 bg-surface border border-border space-y-2">
-                        <div className="flex items-center gap-1.5">
-                          <Activity className="w-3.5 h-3.5 text-accent" />
-                          <span className="text-xs font-medium text-text-primary">
-                            {t.ws_stats_board_progress}
-                          </span>
-                        </div>
-                        <div className="space-y-2 max-h-[90px] overflow-y-auto pr-1">
-                          {currentStats.boardProgress
-                            .filter((b) => b.total > 0)
-                            .map((board) => {
-                              const pct =
-                                board.total > 0
-                                  ? Math.round((board.completed / board.total) * 100)
-                                  : 0;
-                              return (
-                                <div key={board.boardId} className="space-y-0.5">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-text-secondary truncate max-w-[120px]">
-                                      {board.name}
-                                    </span>
-                                    <span className="text-[11px] font-medium text-text-primary flex-shrink-0">
-                                      {pct}%
-                                    </span>
-                                  </div>
-                                  <div className="w-full h-1 bg-border overflow-hidden">
-                                    <div
-                                      className="h-full bg-accent transition-all"
-                                      style={{ width: `${pct}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          {currentStats.boardProgress.every((b) => b.total === 0) && (
-                            <p className="text-[11px] text-text-muted">{t.ws_stats_no_cards_yet}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── TAB: BOARDS ── */}
-            {activeTab === 'boards' && (
-              <div className="bg-card border border-border">
-                {boards.length === 0 ? (
-                  <div className="text-center py-12 md:py-16 px-4">
-                    <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-accent/10 border border-accent flex items-center justify-center">
-                      <LayoutGrid className="w-6 h-6 md:w-8 md:h-8 text-accent" />
-                    </div>
-                    <h3 className="text-sm md:text-base font-medium mb-2">
-                      {t.workspace_empty_boards_title}
-                    </h3>
-                    <p className="text-text-secondary text-xs md:text-sm mb-4 md:mb-6">
-                      {isOwnerOrAdmin
-                        ? t.workspace_empty_boards_desc_owner
-                        : t.workspace_empty_boards_desc_member}
-                    </p>
-                    {isOwnerOrAdmin && (
-                      <button
-                        className="px-3 md:px-4 py-2 bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-1.5 md:gap-2 text-xs md:text-sm"
-                        onClick={() => setShowCreateBoardModal(true)}
-                      >
-                        <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                        <span>{t.workspace_btn_create_board}</span>
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-2 md:p-4 space-y-2">
-                    {boards.map((board) => (
-                      <div
-                        key={board.id}
-                        className="group w-full border border-border bg-surface hover:bg-card hover:border-accent transition-all flex items-center rounded-lg md:rounded-none"
-                      >
-                        <button
-                          onClick={() => handleGoToBoard(board.id)}
-                          className="flex-1 min-w-0 text-left p-3 md:p-4"
-                        >
-                          <div className="flex items-center gap-2 mb-1.5 md:mb-2">
-                            <h4 className="text-base md:text-xl font-medium group-hover:text-accent transition-colors truncate">
-                              {board.name}
-                            </h4>
-                            {board.archived && (
-                              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-warning/10 border border-warning text-[10px] md:text-xs flex-shrink-0">
-                                <Archive className="w-2.5 h-2.5 md:w-3 md:h-3 text-warning" />
-                              </div>
-                            )}
-                          </div>
-
-                          {board.description && (
-                            <p className="text-text-secondary text-[10px] md:text-xs mb-1.5 md:mb-2 line-clamp-1">
-                              {board.description}
-                            </p>
-                          )}
-
-                          <div className="flex items-center gap-3 md:gap-4 text-[10px] md:text-xs text-text-muted">
-                            <div className="flex items-center gap-1 md:gap-1.5">
-                              <div className="w-0.5 md:w-1 h-3 md:h-4 bg-accent" />
-                              <span className="font-medium">{board.listCount || 0}</span>
-                            </div>
-                            <div className="flex items-center gap-1 md:gap-1.5">
-                              <Sparkles className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                              <span className="font-medium">{board.cardCount || 0}</span>
-                            </div>
-                          </div>
-                        </button>
-
-                        <div className="flex items-center gap-1 pr-3 md:pr-4 flex-shrink-0">
-                          {isOwnerOrAdmin && (
-                            <button
-                              onClick={() => setBoardToDelete({ id: board.id, name: board.name })}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded"
-                              title="Eliminar board"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                            </button>
-                          )}
-                          <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* SIDEBAR - 1 columna con Members y Activity */}
-          <div className="space-y-4 md:space-y-6">
-            {/* MEMBERS - MÁS COMPACTO */}
-            <div className="bg-card border border-border">
-              <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-success/10 border border-success/30 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-success" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-text-primary">
-                      {t.workspace_section_members}
-                    </h3>
-                    <p className="text-xs text-text-muted">
-                      {t.workspace_members_total(currentMembers.length)}
-                    </p>
-                  </div>
-                </div>
-                {isOwnerOrAdmin && (
-                  <button
-                    onClick={() => setShowInviteModal(true)}
-                    className="p-1.5 border border-border hover:border-accent hover:bg-accent/10 transition-all flex items-center justify-center"
+          {/* Identity + description + stats */}
+          <div style={{
+            padding: '14px 20px 12px',
+            display: 'flex', alignItems: 'flex-start', gap: '14px',
+            background: `linear-gradient(to bottom, ${accentColor}07, transparent)`,
+          }}>
+            {/* Letter avatar */}
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '12px', flexShrink: 0,
+              background: accentColor,
+              boxShadow: `0 0 0 1px ${accentColor}66, 0 4px 12px ${accentColor}33`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '22px', fontWeight: 800, color: '#fff',
+            }}>
+              {initial}
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                <span style={{ fontSize: '17px', fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
+                  {currentWorkspace.name}
+                </span>
+                <span style={{
+                  fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em',
+                  padding: '2px 7px', borderRadius: '4px',
+                  background: roleBadge.bg, color: roleBadge.color, border: `1px solid ${roleBadge.border}`,
+                }}>
+                  {roleBadge.label.toUpperCase()}
+                </span>
+              </div>
+
+              {currentWorkspace.description && (
+                <p style={{ fontSize: '12.5px', color: C.text3, marginBottom: '9px', lineHeight: 1.45, maxWidth: '560px' }}>
+                  {currentWorkspace.description}
+                </p>
+              )}
+
+              {/* Stats row — clickable */}
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0' }}>
+                {([
+                  { icon: <LayoutGrid style={ic(11)} />, label: `${activeBoards.length} board${activeBoards.length !== 1 ? 's' : ''}`,           tab: 'projects' as TabKey },
+                  { icon: <FolderOpen style={ic(11)} />, label: t.projects_count(wsProjects.length),           tab: 'projects' as TabKey },
+                  { icon: <Users      style={ic(11)} />, label: t.ws_members_team(currentMembers.length),       tab: 'members'  as TabKey },
+                ] as const).map(({ icon, label, tab }, i) => (
+                  <button key={i} onClick={() => setActiveTab(tab)} style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    fontSize: '12px', color: C.text3, background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '0', transition: 'color 0.1s',
+                  }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = C.text3)}
                   >
-                    <Plus className="w-4 h-4" />
+                    {i > 0 && <span style={{ color: C.text4, margin: '0 8px' }}>·</span>}
+                    {icon}
+                    <span>{label}</span>
+                  </button>
+                ))}
+                {atRiskCount > 0 && (
+                  <button onClick={() => setActiveTab('projects')} style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    fontSize: '12px', color: C.amber, background: 'none', border: 'none', cursor: 'pointer',
+                    marginLeft: '10px', padding: '0', transition: 'opacity 0.1s',
+                  }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                  >
+                    <AlertCircle style={ic(11)} />
+                    <span>{t.ws_projects_at_risk(atRiskCount)}</span>
                   </button>
                 )}
               </div>
+            </div>
+          </div>
 
-              <div className="p-2 md:p-3">
-                {currentMembers.length === 0 ? (
-                  <div className="text-center py-6 md:py-8">
-                    <Users className="w-8 h-8 md:w-10 md:h-10 mx-auto mb-2 text-text-muted opacity-50" />
-                    <p className="text-[10px] md:text-xs text-text-secondary">{t.no_description}</p>
+          {/* Tab bar */}
+          <div style={{ padding: '0 20px', display: 'flex', alignItems: 'center', borderTop: `1px solid ${C.border}` }}>
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    padding: '10px 13px',
+                    fontSize: '12.5px', fontWeight: isActive ? 600 : 400,
+                    color: isActive ? C.text : C.text3,
+                    background: 'transparent', border: 'none',
+                    borderBottom: isActive ? `2px solid ${accentColor}` : '2px solid transparent',
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    marginBottom: '-1px', transition: 'color 0.1s',
+                  }}
+                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = C.text2; }}
+                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = C.text3; }}
+                >
+                  <span style={{ opacity: isActive ? 1 : 0.6 }}>{tab.icon}</span>
+                  {tab.label}
+                  {tab.count !== undefined && (
+                    <span style={{
+                      fontSize: '10.5px', fontWeight: 600,
+                      padding: '0 5px', borderRadius: '8px',
+                      background: isActive ? `${accentColor}22` : C.hover,
+                      color: isActive ? accentColor : C.text4,
+                      border: `1px solid ${isActive ? accentColor + '33' : C.border}`,
+                      lineHeight: '16px',
+                    }}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            <div style={{ flex: 1 }} />
+            <Link href={`/dashboard/workspaces/${workspaceId}/settings`}
+              style={{ padding: '10px 13px', fontSize: '12.5px', color: C.text4, textDecoration: 'none', borderBottom: '2px solid transparent', marginBottom: '-1px', display: 'flex', alignItems: 'center', gap: '5px', transition: 'color 0.1s' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text2; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.text4; }}
+            >
+              {t.workspace_btn_settings}
+            </Link>
+          </div>
+
+          {/* Accent gradient line */}
+          <div style={{ height: '2px', background: `linear-gradient(90deg, ${accentColor}cc, ${accentColor}44, transparent)` }} />
+        </header>
+
+        {/* ══ MAIN LAYOUT ═════════════════════════════════════════════════ */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+          {/* Content area */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '22px' }}>
+
+            {/* ── OVERVIEW ────────────────────────────────────────────── */}
+            {activeTab === 'overview' && (
+              <>
+                {/* Projects mini-grid */}
+                <section>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FolderOpen style={{ ...ic(13), color: accentColor }} />
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>{t.projects_title}</span>
+                      {wsProjects.length > 0 && (
+                        <span style={{ fontSize: '11px', padding: '0 6px', borderRadius: '10px', background: C.hover, color: C.text3, border: `1px solid ${C.border2}`, lineHeight: '18px' }}>
+                          {wsProjects.length}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={() => setActiveTab('projects')}
+                      style={{ fontSize: '11.5px', color: C.text4, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.1s' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = accentColor)}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+                    >
+                      {t.ws_view_all}
+                    </button>
                   </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2 md:gap-3 max-h-[300px] overflow-y-auto">
-                    {currentMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="group relative flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 bg-surface border border-border hover:border-accent transition-all rounded-lg md:rounded-none"
-                      >
-                        <div
-                          className="w-8 h-8 md:w-9 md:h-9 flex-shrink-0 border overflow-hidden"
-                          style={{ borderColor: `${currentWorkspace.color}40` }}
-                        >
-                          {member.user?.avatar && getAvatarUrl(member.user.avatar) ? (
-                            <img
-                              src={getAvatarUrl(member.user.avatar)!}
-                              alt={member.user.name}
-                              crossOrigin="anonymous"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
+                  {(() => {
+                    const overviewProjects = wsProjects.filter((p) => p.status === 'ACTIVE');
+                    return overviewProjects.length === 0 ? (
+                    <div style={{ padding: '24px', borderRadius: '8px', border: `1px dashed ${C.border2}`, textAlign: 'center' }}>
+                      <p style={{ fontSize: '13px', color: C.text3 }}>{t.ws_no_active_projects_in_ws}</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                      {overviewProjects.slice(0, 3).map((proj) => {
+                        const pct       = proj.progressPercent ?? 0;
+                        const st        = getStatusBadge(proj.status, t);
+                        const projColor = proj.color || accentColor;
+                        const boardList = (proj.boards as any[]) ?? [];
+                        const showHealth = proj.status !== 'PLANNING' && boardList.length > 0;
+                        const hb        = showHealth ? getHealthBadge(pct, t) : null;
+                        return (
+                          <Link key={proj.id} href={`/dashboard/projects/${proj.id}`} style={{ textDecoration: 'none', display: 'block' }}>
                             <div
-                              className="w-full h-full flex items-center justify-center text-sm font-bold"
-                              style={{
-                                backgroundColor: `${currentWorkspace.color}15`,
-                                color: currentWorkspace.color,
+                              style={{ background: C.surface, borderRadius: '9px', border: `1px solid ${C.border}`, overflow: 'hidden', transition: 'border-color 0.15s, transform 0.15s, box-shadow 0.15s', height: '100%' }}
+                              onMouseEnter={(e) => {
+                                const el = e.currentTarget as HTMLElement;
+                                el.style.borderColor = projColor + '55';
+                                el.style.transform = 'translateY(-1px)';
+                                el.style.boxShadow = `0 4px 16px ${projColor}18`;
+                              }}
+                              onMouseLeave={(e) => {
+                                const el = e.currentTarget as HTMLElement;
+                                el.style.borderColor = C.border;
+                                el.style.transform = 'translateY(0)';
+                                el.style.boxShadow = 'none';
                               }}
                             >
-                              {member.user?.name.charAt(0).toUpperCase()}
+                              {/* Color stripe — gradient */}
+                              <div style={{ height: '3px', background: `linear-gradient(to right, ${projColor}, ${projColor}55)` }} />
+                              <div style={{ padding: '12px 14px 13px' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '5px' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, lineHeight: 1.3 }}>
+                                    {proj.name}
+                                  </span>
+                                  <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: st.bg, color: st.color, border: `1px solid ${st.border}`, flexShrink: 0, lineHeight: '16px' }}>
+                                    {st.label}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                  <span style={{ fontSize: '11px', color: C.text4 }}>
+                                    {boardList.length} board{boardList.length !== 1 ? 's' : ''}
+                                  </span>
+                                  {hb && (
+                                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 5px', borderRadius: '3px', background: hb.bg, color: hb.color, border: `1px solid ${hb.border}` }}>
+                                      {hb.label}
+                                    </span>
+                                  )}
+                                </div>
+                                {/* Progress bar */}
+                                <div style={{ height: '3px', background: C.border2, borderRadius: '2px', overflow: 'hidden', marginBottom: '5px' }}>
+                                  <div style={{ height: '100%', width: `${pct}%`, borderRadius: '2px', background: pct === 100 ? C.green : `linear-gradient(to right, ${projColor}, ${projColor}bb)`, transition: 'width 0.4s ease' }} />
+                                </div>
+                                <span style={{ fontSize: '11px', color: C.text4 }}>{pct}% completado</span>
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+
+                      {/* Card: Nuevo proyecto */}
+                      <button
+                        onClick={() => setShowCreateProjectModal(true)}
+                        style={{ background: 'none', border: `1.5px dashed ${C.border2}`, borderRadius: '9px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '20px 14px', transition: 'border-color 0.15s, background 0.15s', minHeight: '110px', width: '100%' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = accentColor + '88';
+                          e.currentTarget.style.background = accentColor + '08';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = C.border2;
+                          e.currentTarget.style.background = 'none';
+                        }}
+                      >
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: accentColor + '18', border: `1px solid ${accentColor}44`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Plus style={{ ...ic(13), color: accentColor }} />
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 500, color: C.text3 }}>{t.projects_btn_create}</span>
+                      </button>
+                    </div>
+                  );
+                  })()}
+                </section>
+
+                {/* Stats panel */}
+                {currentStats && currentStats.totalCards > 0 && (
+                  <section>
+                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '9px', padding: '16px 18px' }}>
+                      <p style={{ fontSize: '12.5px', fontWeight: 600, color: C.text, marginBottom: '14px' }}>{t.ws_stats_title}</p>
+                      <div style={{ marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '12px', color: C.text3 }}>Completado</span>
+                          <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.green }}>{completionPct}%</span>
+                        </div>
+                        <div style={{ height: '5px', borderRadius: '4px', background: C.hover, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: '4px', width: `${completionPct}%`, background: `linear-gradient(to right, ${accentColor}, ${C.green})`, transition: 'width 0.5s' }} />
+                        </div>
+                        <div style={{ fontSize: '11px', color: C.text4, marginTop: '5px' }}>
+                          {currentStats.completedCards} {t.ws_stats_of} {currentStats.totalCards} {t.ws_stats_cards_done}
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                        {[
+                          { label: t.ws_stats_overdue,    value: currentStats.overdueCards,      color: currentStats.overdueCards > 0 ? C.red : C.text4,     Icon: AlertCircle },
+                          { label: t.ws_stats_unassigned, value: currentStats.unassignedCards,   color: currentStats.unassignedCards > 0 ? C.amber : C.text4, Icon: UserX },
+                          { label: t.ws_stats_this_week,  value: currentStats.completedThisWeek, color: accentColor,                                           Icon: Zap },
+                        ].map(({ label, value, color, Icon }) => (
+                          <div key={label} style={{ padding: '10px', background: C.hover, border: `1px solid ${C.border}`, borderRadius: '7px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            <Icon style={{ ...ic(13), color }} />
+                            <span style={{ fontSize: '19px', fontWeight: 700, color, lineHeight: 1 }}>{value}</span>
+                            <span style={{ fontSize: '10.5px', color: C.text4 }}>{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {currentStats.completedThisWeek !== currentStats.completedLastWeek && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${C.border}` }}>
+                          {currentStats.completedThisWeek > currentStats.completedLastWeek
+                            ? <TrendingUp  style={{ ...ic(13), color: C.green }} />
+                            : <TrendingDown style={{ ...ic(13), color: C.red }} />
+                          }
+                          <span style={{ fontSize: '12px', color: C.text3 }}>
+                            {Math.abs(currentStats.completedThisWeek - currentStats.completedLastWeek)} {t.board_stat_cards}{' '}
+                            {currentStats.completedThisWeek > currentStats.completedLastWeek ? t.ws_more_last_week : t.ws_less_last_week}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+
+            {/* ── PROJECTS tab ────────────────────────────────────────── */}
+            {activeTab === 'projects' && (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+                {/* Barra superior */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>{t.projects_title} — {currentWorkspace?.name}</span>
+                    {wsProjects.length > 0 && (
+                      <span style={{ fontSize: '11px', padding: '0 6px', borderRadius: '10px', background: C.hover, color: C.text3, border: `1px solid ${C.border2}`, lineHeight: '18px' }}>
+                        {wsProjects.length}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      onClick={() => setShowCreateProjectModal(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: accentColor, color: '#fff', border: 'none', cursor: 'pointer', transition: 'opacity 0.1s' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                    >
+                      <Plus style={ic(12)} /> {t.projects_btn_create}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Empty state */}
+                {wsProjects.length === 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '56px 0', borderRadius: '10px', border: `1px dashed ${C.border2}` }}>
+                    <FolderOpen style={{ width: '28px', height: '28px', color: C.text4 }} />
+                    <p style={{ margin: 0, fontSize: '13px', color: C.text3 }}>{t.ws_no_projects_in_ws}</p>
+                  </div>
+                )}
+
+                {/* Cards — separar ACTIVE/ON_HOLD/COMPLETED de PLANNING */}
+                {(() => {
+                  const activeProjects  = wsProjects.filter((p) => p.status !== 'PLANNING');
+                  const planningProjects = wsProjects.filter((p) => p.status === 'PLANNING');
+
+                  const renderCard = (proj: typeof wsProjects[0]) => {
+                  const pct        = proj.progressPercent ?? 0;
+                  const st         = getStatusBadge(proj.status, t);
+                  const projColor  = proj.color || accentColor;
+                  const projBoards = (proj.boards as any[]) ?? [];
+                  const projDl     = proj.endDate ? makeDl(proj.endDate) : null;
+                  const initial    = proj.name.trim()[0]?.toUpperCase() ?? '?';
+                  const totalTasks = projBoards.reduce((acc: number, b: any) => {
+                    const bp = boardProgressMap.get(b.id);
+                    return acc + (bp?.total ?? 0);
+                  }, 0);
+
+                  return (
+                    <div key={proj.id} style={{ background: C.surface, borderRadius: '10px', border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+
+                      {/* Barra de progreso a ancho completo */}
+                      <div style={{ height: '5px', background: C.border2, position: 'relative' }}>
+                        <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: pct === 100 ? C.green : `linear-gradient(to right, ${projColor}, ${projColor}99)`, transition: 'width 0.5s ease' }} />
+                      </div>
+
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '13px 16px' }}>
+
+                        {/* Icono con inicial */}
+                        <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: projColor + '20', border: `1.5px solid ${projColor}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <span style={{ fontSize: '18px', fontWeight: 700, color: projColor, lineHeight: 1 }}>{initial}</span>
+                        </div>
+
+                        {/* Nombre + descripción */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 600, color: C.text }}>{proj.name}</span>
+                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 7px', borderRadius: '4px', background: st.bg, color: st.color, border: `1px solid ${st.border}`, letterSpacing: '0.04em' }}>{st.label}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '11.5px', color: C.text4 }}>{projBoards.length} board{projBoards.length !== 1 ? 's' : ''}</span>
+                            {totalTasks > 0 && <span style={{ fontSize: '11.5px', color: C.text4 }}>· {totalTasks} {t.board_stat_cards}</span>}
+                            {projDl && <span style={{ fontSize: '11.5px', color: pct < 50 ? C.amber : C.text4 }}>· {projDl.text}</span>}
+                          </div>
+                        </div>
+
+                        {/* % + link */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: C.text3 }}>{pct}%</span>
+                          <Link href={`/dashboard/projects/${proj.id}`}
+                            style={{ fontSize: '12px', color: accentColor, textDecoration: 'none', whiteSpace: 'nowrap', padding: '5px 11px', borderRadius: '6px', border: `1px solid ${accentColor}44`, background: accentColor + '0d', transition: 'background 0.1s' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = accentColor + '22'; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = accentColor + '0d'; }}
+                          >
+                            {t.ws_view_project}
+                          </Link>
+                        </div>
+                      </div>
+
+                      {/* Boards sub-lista */}
+                      {projBoards.length > 0 && (
+                        <div style={{ borderTop: `1px solid ${C.border}` }}>
+                          {projBoards.slice(0, 5).map((b: any, bIdx: number) => {
+                            const bp       = boardProgressMap.get(b.id);
+                            const bPct     = bp && bp.total > 0 ? Math.round((bp.completed / bp.total) * 100) : 0;
+                            const bColor   = b.color || projColor;
+                            const isLive   = (boardActiveUsers[b.id]?.count ?? 0) > 0;
+                            const boardObj = boards.find((bd) => bd.id === b.id);
+                            const bStatus  = boardObj ? getBoardStatus(boardObj.updatedAt, isLive, t) : null;
+                            return (
+                              <div key={b.id}
+                                onClick={() => router.push(`/dashboard/workspaces/${workspaceId}/boards/${b.id}`)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 16px 7px 72px', cursor: 'pointer', borderTop: bIdx > 0 ? `1px solid ${C.border}` : 'none', transition: 'background 0.1s' }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                              >
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: bColor, flexShrink: 0, boxShadow: isLive ? `0 0 5px ${bColor}99` : 'none' }} />
+                                <span style={{ fontSize: '12.5px', color: C.text2, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
+                                {/* Pills */}
+                                {bStatus && (
+                                  <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: bStatus.bg, color: bStatus.color, border: `1px solid ${bStatus.border}`, flexShrink: 0 }}>{bStatus.label}</span>
+                                )}
+                                {bp && bp.total > 0 && (
+                                  <span style={{ fontSize: '10.5px', color: C.text4, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: '4px', padding: '1px 6px', flexShrink: 0 }}>{bp.completed}/{bp.total}</span>
+                                )}
+                                {boardObj && (
+                                  <span style={{ fontSize: '10.5px', color: C.text4, flexShrink: 0 }}>{ago(boardObj.updatedAt)}</span>
+                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', width: '60px', flexShrink: 0 }}>
+                                  <div style={{ flex: 1, height: '2px', background: C.border2, borderRadius: '1px', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${bPct}%`, background: bPct === 100 ? C.green : `linear-gradient(to right, ${bColor}, ${C.green})` }} />
+                                  </div>
+                                  <span style={{ fontSize: '10px', color: C.text4 }}>{bPct}%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {projBoards.length > 5 && (
+                            <div style={{ padding: '5px 72px', borderTop: `1px solid ${C.border}` }}>
+                              <span style={{ fontSize: '11px', color: C.text4 }}>+{projBoards.length - 5} boards más</span>
                             </div>
                           )}
                         </div>
+                      )}
+                    </div>
+                  );
+                  }; // fin renderCard
 
-                        <div className="flex flex-col min-w-0">
-                          <p className="text-[10px] md:text-xs font-medium text-text-primary truncate max-w-[80px] md:max-w-[110px]">
-                            {member.user?.name}
-                          </p>
-                          <span
-                            className={`inline-flex items-center gap-0.5 md:gap-1 px-1 md:px-1.5 py-0.5 text-[9px] md:text-[11px] border ${getRoleColor(
-                              member.role
-                            )}`}
-                          >
-                            {getRoleIcon(member.role)}
-                            <span className="hidden sm:inline">{getRoleLabel(member.role)}</span>
-                          </span>
+                  return (
+                    <>
+                      {/* Proyectos activos / en pausa / completados */}
+                      {activeProjects.length === 0 && planningProjects.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '40px 0', borderRadius: '10px', border: `1px dashed ${C.border2}` }}>
+                          <FolderOpen style={{ width: '24px', height: '24px', color: C.text4 }} />
+                          <p style={{ margin: 0, fontSize: '13px', color: C.text3 }}>{t.ws_no_active_projects}</p>
+                          <p style={{ margin: 0, fontSize: '12px', color: C.text4 }}>{t.ws_planning_below}</p>
                         </div>
+                      )}
+                      {activeProjects.map(renderCard)}
 
-                        {isOwnerOrAdmin && member.role !== 'OWNER' && (
+                      {/* ── En planificación (colapsable) ─────────────────── */}
+                      {planningProjects.length > 0 && (
+                        <div style={{ borderRadius: '10px', border: `1px solid ${C.border}`, overflow: 'hidden' }}>
                           <button
-                            onClick={() =>
-                              handleRemoveClick(member.userId, member.user?.name || '')
-                            }
-                            className="absolute -top-1 -right-1 p-0.5 bg-error text-white hover:bg-error/80 border border-error transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            onClick={() => setPlanningOpen(!planningOpen)}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                           >
-                            <UserMinus className="w-3 h-3" />
+                            <ChevronDown style={{ ...ic(11), color: C.text4, transform: planningOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s', flexShrink: 0 }} />
+                            <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text3 }}>{t.projects_status_planning}</span>
+                            <span style={{ fontSize: '11px', padding: '0 6px', borderRadius: '10px', background: C.hover, color: C.text4, border: `1px solid ${C.border2}`, lineHeight: '18px' }}>
+                              {planningProjects.length}
+                            </span>
+                            <span style={{ fontSize: '11.5px', color: C.text4, marginLeft: 'auto' }}>{t.projects_status_planning}</span>
                           </button>
-                        )}
+                          {planningOpen && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                              {planningProjects.map((proj, idx) => (
+                                <div key={proj.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                                  {renderCard(proj)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {/* ── Sin proyecto ─────────────────────────────────────── */}
+                {orphanBoards.length > 0 && (
+                  <div style={{ background: C.surface, borderRadius: '10px', border: `1px solid ${C.border}`, overflow: 'hidden', opacity: 0.9 }}>
+                    {/* Cabecera colapsable */}
+                    <button
+                      onClick={() => setOrphanOpen(!orphanOpen)}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                    >
+                      <ChevronDown style={{ ...ic(11), color: C.text4, transform: orphanOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s', flexShrink: 0 }} />
+                      <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text3 }}>{t.ws_no_project_label}</span>
+                      <span style={{ fontSize: '11px', padding: '0 6px', borderRadius: '10px', background: C.hover, color: C.text4, border: `1px solid ${C.border2}`, lineHeight: '18px' }}>
+                        {orphanBoards.length}
+                      </span>
+                      <span style={{ fontSize: '11.5px', color: C.text4, marginLeft: 'auto' }}>{t.ws_boards_unassigned}</span>
+                    </button>
+
+                    {/* Filas */}
+                    {orphanOpen && orphanBoards.map((board: any, idx: number) => {
+                      const bColor = board.color || accentColor;
+                      return (
+                        <div key={board.id}
+                          style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '9px 16px 9px 38px', borderTop: `1px solid ${C.border}` }}
+                        >
+                          {/* Icono */}
+                          <div style={{ width: '32px', height: '32px', borderRadius: '7px', flexShrink: 0, background: `${bColor}18`, border: `1.5px solid ${bColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: bColor }}>
+                            {board.name[0].toUpperCase()}
+                          </div>
+                          {/* Nombre */}
+                          <div
+                            style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                            onClick={() => router.push(`/dashboard/workspaces/${workspaceId}/boards/${board.id}`)}
+                          >
+                            <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{board.name}</p>
+                            <p style={{ margin: 0, fontSize: '11px', color: C.text4, marginTop: '1px' }}>{board.cardCount || 0} cards · {ago(board.updatedAt)}</p>
+                          </div>
+                          {/* Asignar a proyecto */}
+                          {wsProjects.length > 0 && (
+                            <select
+                              value=""
+                              onChange={async (e) => {
+                                const projectId = e.target.value;
+                                if (!projectId) return;
+                                setAssigningBoardId(board.id);
+                                try {
+                                  await apiService.post(`/api/projects/${projectId}/boards`, { boardId: board.id }, true);
+                                  setOrphanBoards((prev) => prev.filter((b) => b.id !== board.id));
+                                  fetchProjectsByWorkspace(workspaceId).then(setWsProjects);
+                                } catch {
+                                  // silently fail
+                                } finally {
+                                  setAssigningBoardId(null);
+                                }
+                              }}
+                              disabled={assigningBoardId === board.id}
+                              style={{ fontSize: '11.5px', padding: '4px 8px', borderRadius: '6px', background: C.hover, border: `1px solid ${C.border2}`, color: C.text3, cursor: 'pointer', outline: 'none' }}
+                            >
+                              <option value="">{t.ws_assign_to_project}</option>
+                              {wsProjects.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ── DOCS tab ────────────────────────────────────────────── */}
+            {activeTab === 'docs' && (
+              <DocumentsSection workspaceId={workspaceId} isOwnerOrAdmin={isOwnerOrAdmin} accentColor={accentColor} />
+            )}
+
+            {/* ── MEMBERS tab ─────────────────────────────────────────── */}
+            {activeTab === 'members' && (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: C.text }}>
+                    {t.workspace_section_members} · {currentMembers.length}
+                  </span>
+                  {isOwnerOrAdmin && (
+                    <button onClick={() => setShowInviteModal(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 13px', borderRadius: '6px', fontSize: '12.5px', fontWeight: 500, background: accentColor, color: '#fff', border: 'none', cursor: 'pointer', transition: 'opacity 0.1s' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                    >
+                      <Plus style={ic(13)} /> {t.ws_btn_invite}
+                    </button>
+                  )}
+                </div>
+
+                {/* Equipos con sus miembros */}
+                {wsTeams.length > 0 && wsTeams.map((team) => {
+                  const teamColor = team.color || accentColor;
+                  return (
+                    <div key={team.id}>
+                      {/* Team header */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: teamColor, flexShrink: 0 }} />
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: C.text2 }}>{team.name}</span>
+                        <span style={{ fontSize: '11px', color: C.text4 }}>· {t.ws_members_team(team.members.length)}</span>
+                        <div style={{ flex: 1, height: '1px', background: C.border }} />
                       </div>
-                    ))}
+                      {/* Members table */}
+                      <div style={{ background: C.surface, borderRadius: '9px', border: `1px solid ${C.border}`, overflow: 'hidden', marginBottom: '4px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: `1fr 110px 100px${isOwner ? ' 90px' : ''}`, padding: '7px 18px', borderBottom: `1px solid ${C.border}`, background: C.bg2 }}>
+                          {(['MEMBER', 'WS ROLE', 'TEAM ROLE', ...(isOwner ? ['ACTIONS'] : [])] as string[]).map((col) => (
+                            <span key={col} style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: C.text4 }}>{col}</span>
+                          ))}
+                        </div>
+                        {team.members.map((member: any, idx: number) => {
+                          const wsMember = currentMembers.find((m) => m.userId === member.id);
+                          const mb = getRoleBadge(wsMember?.role || 'MEMBER', t);
+                          const avatarUrl = getAvatarUrl(member.avatar ?? null);
+                          const mColor = hashColor(member.id);
+                          const isMenuOpen = roleMenuOpen === member.id;
+                          const canActOn = isOwner && wsMember?.role !== 'OWNER';
+                          return (
+                            <div key={member.id}
+                              style={{ display: 'grid', gridTemplateColumns: `1fr 110px 100px${isOwner ? ' 90px' : ''}`, padding: '11px 18px', alignItems: 'center', borderTop: idx > 0 ? `1px solid ${C.border}` : 'none', transition: 'background 0.1s' }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg, ${mColor}ee, ${mColor}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#fff', overflow: 'hidden', boxShadow: `0 0 0 1px ${mColor}44` }}>
+                                  {avatarUrl ? <img src={avatarUrl} alt={member.name} crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (member.name || '?').slice(0, 2).toUpperCase()}
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</p>
+                                  <p style={{ margin: 0, fontSize: '11px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.email}</p>
+                                </div>
+                              </div>
+                              {/* Rol workspace */}
+                              <div>
+                                <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '2px 8px', borderRadius: '5px', background: mb.bg, color: mb.color, border: `1px solid ${mb.border}` }}>
+                                  {mb.label.toUpperCase()}
+                                </span>
+                              </div>
+                              {/* Rol equipo */}
+                              <div>
+                                <span style={{ fontSize: '11px', color: member.teamRole === 'LEAD' ? teamColor : C.text4 }}>
+                                  {member.teamRole === 'LEAD' ? t.teams_role_lead : t.teams_role_member}
+                                </span>
+                              </div>
+                              {/* Acciones */}
+                              {isOwner && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {canActOn && wsMember ? (
+                                    <>
+                                      <div style={{ position: 'relative' }}>
+                                        <button onClick={() => setRoleMenuOpen(isMenuOpen ? null : member.id)} disabled={changingRole}
+                                          style={{ width: '26px', height: '26px', borderRadius: '5px', background: 'none', border: `1px solid ${C.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text3, transition: 'all 0.1s' }}
+                                          onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; e.currentTarget.style.borderColor = C.border2; }}
+                                          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; e.currentTarget.style.borderColor = C.border; }}
+                                        >
+                                          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12"><path d="M7 2a2 2 0 100 4 2 2 0 000-4zM3 11c0-2.2 1.8-4 4-4s4 1.8 4 4" /><path d="M10.5 8.5l1.5 1.5-1.5 1.5" /></svg>
+                                        </button>
+                                        {isMenuOpen && (
+                                          <div style={{ position: 'absolute', right: 0, top: '30px', zIndex: 100, background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '7px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: '130px', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+                                                              <div style={{ padding: '6px 10px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, borderBottom: `1px solid ${C.border}` }}>CHANGE ROLE</div>
+                                            {(['ADMIN', 'MEMBER', 'VIEWER'] as const).map((r) => {
+                                              const rb = getRoleBadge(r, t); const isCurrent = wsMember.role === r;
+                                              return (
+                                                <button key={r} onClick={() => handleChangeRole(wsMember.userId, r)} disabled={isCurrent || changingRole}
+                                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 10px', background: 'none', border: 'none', cursor: isCurrent ? 'default' : 'pointer', color: isCurrent ? C.text3 : C.text2, fontSize: '13px', transition: 'background 0.1s' }}
+                                                  onMouseEnter={(e) => { if (!isCurrent) (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                                                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+                                                >
+                                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: rb.dot, flexShrink: 0 }} />
+                                                  {rb.label}
+                                                  {isCurrent && <span style={{ marginLeft: 'auto', fontSize: '10px', color: C.text4 }}>actual</span>}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button onClick={() => setMemberToRemove({ userId: wsMember.userId, name: member.name || '' })}
+                                        style={{ width: '26px', height: '26px', borderRadius: '5px', background: 'none', border: `1px solid ${C.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text3, transition: 'all 0.1s' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = `${C.red}15`; e.currentTarget.style.color = C.red; e.currentTarget.style.borderColor = `${C.red}40`; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; e.currentTarget.style.borderColor = C.border; }}
+                                      ><UserMinus style={ic(12)} /></button>
+                                    </>
+                                  ) : null}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Miembros sin equipo */}
+                {(() => {
+                  const teamMemberIds = new Set(wsTeams.flatMap((t) => t.members.map((m: any) => m.id)));
+                  const standalone = currentMembers.filter((m) => !teamMemberIds.has(m.userId));
+                  if (standalone.length === 0 && wsTeams.length > 0) return null;
+                  return (
+                    <div>
+                      {wsTeams.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: C.text3 }}>{t.teams_no_lead}</span>
+                          <div style={{ flex: 1, height: '1px', background: C.border }} />
+                        </div>
+                      )}
+                      <div style={{ background: C.surface, borderRadius: '9px', border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: `1fr 110px${isOwner ? ' 90px' : ''}`, padding: '8px 18px', borderBottom: `1px solid ${C.border}`, background: C.bg2 }}>
+                          {(['MEMBER', 'ROLE', ...(isOwner ? ['ACTIONS'] : [])] as string[]).map((col) => (
+                            <span key={col} style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: C.text4 }}>{col}</span>
+                          ))}
+                        </div>
+                        {standalone.map((member, idx) => {
+                          const mb = getRoleBadge(member.role, t);
+                          const avatarUrl = getAvatarUrl(member.user?.avatar ?? null);
+                          const mColor = hashColor(member.userId);
+                          const isMenuOpen = roleMenuOpen === member.userId;
+                          const canActOn = isOwner && member.role !== 'OWNER';
+                          return (
+                            <div key={member.id}
+                              style={{ display: 'grid', gridTemplateColumns: `1fr 110px${isOwner ? ' 90px' : ''}`, padding: '13px 18px', alignItems: 'center', borderTop: idx > 0 ? `1px solid ${C.border}` : 'none', transition: 'background 0.1s' }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ flexShrink: 0 }}>
+                                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: `linear-gradient(135deg, ${mColor}ee, ${mColor}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#fff', overflow: 'hidden', boxShadow: `0 0 0 1px ${mColor}44` }}>
+                                    {avatarUrl ? <img src={avatarUrl} alt={member.user?.name} crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (member.user?.name || '?').slice(0, 2).toUpperCase()}
+                                  </div>
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                  <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.user?.name}</p>
+                                  <p style={{ margin: 0, fontSize: '11.5px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.user?.email || ''}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '2px 8px', borderRadius: '5px', background: mb.bg, color: mb.color, border: `1px solid ${mb.border}` }}>
+                                  {mb.label.toUpperCase()}
+                                </span>
+                              </div>
+                              {isOwner && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {canActOn ? (
+                                    <>
+                                      <div style={{ position: 'relative' }}>
+                                        <button onClick={() => setRoleMenuOpen(isMenuOpen ? null : member.userId)} disabled={changingRole}
+                                          style={{ width: '26px', height: '26px', borderRadius: '5px', background: 'none', border: `1px solid ${C.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text3, transition: 'all 0.1s' }}
+                                          onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; e.currentTarget.style.borderColor = C.border2; }}
+                                          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; e.currentTarget.style.borderColor = C.border; }}
+                                        >
+                                          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12"><path d="M7 2a2 2 0 100 4 2 2 0 000-4zM3 11c0-2.2 1.8-4 4-4s4 1.8 4 4" /><path d="M10.5 8.5l1.5 1.5-1.5 1.5" /></svg>
+                                        </button>
+                                        {isMenuOpen && (
+                                          <div style={{ position: 'absolute', right: 0, top: '30px', zIndex: 100, background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '7px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: '130px', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+                                            <div style={{ padding: '6px 10px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, borderBottom: `1px solid ${C.border}` }}>CHANGE ROLE</div>
+                                            {(['ADMIN', 'MEMBER', 'VIEWER'] as const).map((r) => {
+                                              const rb = getRoleBadge(r, t); const isCurrent = member.role === r;
+                                              return (
+                                                <button key={r} onClick={() => handleChangeRole(member.userId, r)} disabled={isCurrent || changingRole}
+                                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 10px', background: 'none', border: 'none', cursor: isCurrent ? 'default' : 'pointer', color: isCurrent ? C.text3 : C.text2, fontSize: '13px', transition: 'background 0.1s' }}
+                                                  onMouseEnter={(e) => { if (!isCurrent) (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                                                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+                                                >
+                                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: rb.dot, flexShrink: 0 }} />
+                                                  {rb.label}
+                                                  {isCurrent && <span style={{ marginLeft: 'auto', fontSize: '10px', color: C.text4 }}>actual</span>}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button onClick={() => setMemberToRemove({ userId: member.userId, name: member.user?.name || '' })}
+                                        style={{ width: '26px', height: '26px', borderRadius: '5px', background: 'none', border: `1px solid ${C.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text3, transition: 'all 0.1s' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = `${C.red}15`; e.currentTarget.style.color = C.red; e.currentTarget.style.borderColor = `${C.red}40`; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; e.currentTarget.style.borderColor = C.border; }}
+                                      ><UserMinus style={ic(12)} /></button>
+                                    </>
+                                  ) : null}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </section>
+            )}
+
+            {/* ── ACTIVITY tab ────────────────────────────────────────── */}
+            {activeTab === 'activity' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '16px', alignItems: 'start' }}>
+                <div style={{ position: 'sticky', top: '0' }}>
+                  <ActivityFiltersComponent
+                    filters={activityFilters}
+                    onChange={(f) => { setActivityFilters(f); setActivityOffset(0); setActivityEvents([]); }}
+                    users={currentMembers.map((m) => ({ id: m.userId, name: m.user?.name || '' }))}
+                    boards={activityBoards}
+                    accentColor={accentColor}
+                  />
+                </div>
+                <div>
+                  {activityError && (
+                    <div style={{ padding: '12px 14px', borderRadius: '8px', marginBottom: '12px', background: `${C.red}12`, border: `1px solid ${C.red}33`, color: C.red, fontSize: '13px' }}>
+                      {activityError}
+                      <button onClick={() => fetchActivityTab(true)} style={{ marginLeft: '10px', textDecoration: 'underline', fontSize: '12px', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>
+                        Reintentar
+                      </button>
+                    </div>
+                  )}
+                  <ActivityTimeline
+                    events={activityEvents}
+                    onLoadMore={() => { if (!activityLoadingMore && activityHasMore) fetchActivityTab(false); }}
+                    hasMore={activityHasMore}
+                    isLoading={activityLoading}
+                    isLoadingMore={activityLoadingMore}
+                    accentColor={accentColor}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Right sidebar ───────────────────────────────────────────── */}
+          {showSidebar && (
+            <aside style={{
+              width: '256px', flexShrink: 0,
+              borderLeft: `1px solid ${C.border}`,
+              background: C.bg2,
+              display: 'flex', flexDirection: 'column',
+              overflowY: 'auto',
+            }}>
+
+              {/* Proyectos panel */}
+              <div style={{ borderBottom: `1px solid ${C.border}` }}>
+                <button onClick={() => setSideProjects(!sideProjects)}
+                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <FolderOpen style={{ ...ic(12), color: accentColor }} />
+                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.projects_title}</span>
+                    <span style={{ fontSize: '10px', padding: '0 5px', borderRadius: '8px', background: C.hover, color: C.text3, border: `1px solid ${C.border2}`, lineHeight: '16px' }}>
+                      {wsProjects.length}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setActiveTab('projects'); }}
+                      style={{ fontSize: '11px', color: C.text4, background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.1s' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = accentColor)}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+                    >
+                      {t.ws_view_all_sidebar}
+                    </button>
+                    <ChevronDown style={{ ...ic(11), color: C.text4, transform: sideProjects ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
+                  </div>
+                </button>
+                {sideProjects && (
+                  <div style={{ padding: '0 8px 8px' }}>
+                    {(() => {
+                      const sideActiveProjects = wsProjects.filter((p) => p.status === 'ACTIVE');
+                      return sideActiveProjects.length === 0
+                      ? <p style={{ fontSize: '12px', color: C.text4, textAlign: 'center', padding: '14px 0' }}>{t.ws_no_active_projects}</p>
+                      : sideActiveProjects.slice(0, 5).map((proj) => {
+                          const pct       = proj.progressPercent ?? 0;
+                          const projColor = proj.color || accentColor;
+                          const sideDl    = makeDl(proj.endDate);
+                          const bCount    = ((proj.boards as any[]) ?? []).length;
+                          const showHealth = proj.status !== 'PLANNING' && bCount > 0;
+                          const hb        = showHealth ? getHealthBadge(pct, t) : null;
+                          return (
+                            <Link key={proj.id} href={`/dashboard/projects/${proj.id}`}
+                              style={{ textDecoration: 'none', display: 'block', padding: '7px 7px', borderRadius: '7px', transition: 'background 0.1s' }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', flex: 1 }}>
+                                  <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: projColor, flexShrink: 0 }} />
+                                  <span style={{ fontSize: '12px', fontWeight: 500, color: C.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {proj.name}
+                                  </span>
+                                </div>
+                                {hb && (
+                                  <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 5px', borderRadius: '4px', background: hb.bg, color: hb.color, border: `1px solid ${hb.border}`, flexShrink: 0, marginLeft: '5px' }}>
+                                    {hb.label}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Progress bar */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                                <div style={{ flex: 1, height: '3px', background: C.border2, borderRadius: '2px', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? C.green : `linear-gradient(to right, ${projColor}, ${projColor}88)` }} />
+                                </div>
+                                <span style={{ fontSize: '10px', color: C.text4, fontWeight: 500 }}>{pct}%</span>
+                              </div>
+                              {/* Context: boards count + days label */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '10.5px', color: C.text4 }}>{bCount} board{bCount !== 1 ? 's' : ''}</span>
+                                {sideDl && (
+                                  <span style={{ fontSize: '10.5px', color: pct < 50 && sideDl.overdue ? C.red : C.text4 }}>· {sideDl.text}</span>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        });
+                      })()}
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* ACTIVITY */}
-            <div className="bg-card border border-border max-h-[300px] flex flex-col">
-              <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-border flex items-center gap-2">
-                <div className="p-1.5 bg-warning/10 border border-warning/30 flex items-center justify-center">
-                  <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-warning" />
-                </div>
-                <div>
-                  <h3 className="text-xs md:text-sm font-medium text-text-primary">
-                    {t.workspace_section_activity}
-                  </h3>
-                  <p className="text-[10px] md:text-xs text-text-muted">
-                    {t.workspace_activity_last_7_days}
-                  </p>
-                </div>
+              {/* Miembros panel */}
+              <div style={{ borderBottom: `1px solid ${C.border}` }}>
+                <button onClick={() => setSideMembers(!sideMembers)}
+                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <Users style={{ ...ic(12), color: C.green }} />
+                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.workspace_section_members}</span>
+                    <span style={{ fontSize: '10px', padding: '0 5px', borderRadius: '8px', background: C.hover, color: C.text3, border: `1px solid ${C.border2}`, lineHeight: '16px' }}>
+                      {currentMembers.length}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setActiveTab('members'); }}
+                      style={{ fontSize: '11px', color: C.text4, background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.1s' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = accentColor)}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+                    >
+                      Ver todos ({currentMembers.length})
+                    </button>
+                    <ChevronDown style={{ ...ic(11), color: C.text4, transform: sideMembers ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
+                  </div>
+                </button>
+                {sideMembers && (
+                  <div style={{ padding: '0 8px 8px' }}>
+                    {currentMembers.slice(0, 5).map((member) => {
+                      const mb        = getRoleBadge(member.role, t);
+                      const avatarUrl = getAvatarUrl(member.user?.avatar ?? null);
+                      const mColor    = hashColor(member.userId);
+                      return (
+                        <div key={member.id}
+                          style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '5px 7px', borderRadius: '6px', transition: 'background 0.1s' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                        >
+                          <div style={{ position: 'relative', flexShrink: 0 }}>
+                            <div style={{
+                              width: '28px', height: '28px', borderRadius: '50%',
+                              background: `linear-gradient(135deg, ${mColor}ee, ${mColor}88)`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '10px', fontWeight: 700, color: '#fff', overflow: 'hidden',
+                            }}>
+                              {avatarUrl
+                                ? <img src={avatarUrl} alt={member.user?.name} crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : (member.user?.name || '?').slice(0, 2).toUpperCase()
+                              }
+                            </div>
+                            <div style={{
+                              position: 'absolute', bottom: '0', right: '0',
+                              width: '8px', height: '8px', borderRadius: '50%',
+                              background: mb.dot, border: `1.5px solid ${C.bg2}`,
+                            }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: '12px', fontWeight: 500, color: C.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {member.user?.name}
+                            </p>
+                            <p style={{ fontSize: '10.5px', color: mb.color }}>{mb.label}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <ActivityFeed workspaceId={workspaceId} />
-            </div>
 
-            {/* DOCUMENTS */}
-            <DocumentsSection workspaceId={workspaceId} isOwnerOrAdmin={isOwnerOrAdmin} />
-          </div>
+              {/* Actividad panel */}
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <button onClick={() => setSideActivity(!sideActivity)}
+                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <Activity style={{ ...ic(12), color: C.amber }} />
+                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.workspace_section_activity}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setActiveTab('activity'); }}
+                      style={{ fontSize: '11px', color: C.text4, background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.1s' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = accentColor)}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+                    >
+                      {t.ws_view_all_sidebar}
+                    </button>
+                    <ChevronDown style={{ ...ic(11), color: C.text4, transform: sideActivity ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
+                  </div>
+                </button>
+                {sideActivity && (
+                  <div style={{ flex: 1, overflowY: 'auto' }}>
+                    <ActivityFeed workspaceId={workspaceId} />
+                  </div>
+                )}
+              </div>
+            </aside>
+          )}
         </div>
       </div>
 
-      {/* Modals */}
-      <InviteMemberModal
-        workspaceId={workspaceId}
-        isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-      />
-
+      {/* ── Modals ─────────────────────────────────────────────────────────── */}
+      <InviteMemberModal workspaceId={workspaceId} isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} />
       <ConfirmRemoveMemberModal
         isOpen={!!memberToRemove}
         memberName={memberToRemove?.name || ''}
@@ -814,78 +1417,59 @@ export default function WorkspaceDetailPage() {
         onCancel={() => setMemberToRemove(null)}
         isRemoving={removingMember}
       />
+      {showCreateProjectModal && (
+        <CreateProjectModal
+          onClose={() => setShowCreateProjectModal(false)}
+          defaultWorkspaceId={workspaceId}
+          onCreated={() => {
+            setShowCreateProjectModal(false);
+            fetchProjectsByWorkspace(workspaceId).then(setWsProjects);
+          }}
+        />
+      )}
 
-      <CreateBoardModal
-        workspaceId={workspaceId}
-        isOpen={showCreateBoardModal}
-        onClose={() => setShowCreateBoardModal(false)}
-        onSuccess={handleBoardCreated}
-      />
-
+      {/* Delete board confirm */}
       {boardToDelete && (
         <>
-          <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-fade-in"
+          <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
             onClick={!isDeletingBoard ? () => setBoardToDelete(null) : undefined}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div
-              className="card-terminal max-w-md w-full pointer-events-auto animate-scale-in border-error/50 bg-error/5"
+            <div className="pointer-events-auto rounded-[10px] overflow-hidden w-full"
+              style={{ maxWidth: '420px', background: '#13161b', border: `1px solid ${C.red}44`, boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 rounded-terminal bg-error/20 flex items-center justify-center flex-shrink-0 border border-error/50">
-                  <Trash2 className="w-5 h-5 text-error" />
+              <div style={{ padding: '20px 20px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: `${C.red}18`, border: `1px solid ${C.red}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Trash2 style={{ ...ic(16), color: C.red }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: C.text }}>{t.workspace_section_boards}</p>
+                    <p style={{ fontSize: '12px', color: C.text3 }}>{t.ws_settings_confirm_delete}</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-xl font-normal text-error mb-1">Eliminar board</h2>
-                  <p className="text-text-secondary text-sm">Esta acción no se puede deshacer</p>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="mb-6 p-4 bg-background rounded-terminal border border-border">
-                <p className="text-text-primary mb-3">
-                  ¿Eliminar{' '}
-                  <span className="text-accent font-medium">{boardToDelete.name}</span>?
-                </p>
-                <div className="space-y-2 text-sm text-text-secondary">
-                  <p className="flex items-start gap-2">
-                    <span className="text-error mt-0.5">•</span>
-                    Todas las listas y cards del board serán eliminadas
-                  </p>
-                  <p className="flex items-start gap-2">
-                    <span className="text-error mt-0.5">•</span>
-                    El historial de actividad se perderá permanentemente
-                  </p>
+                <div style={{ padding: '11px 14px', marginBottom: '16px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '7px', fontSize: '13px', color: C.text2 }}>
+                  {t.btn_delete} <span style={{ color: C.text, fontWeight: 600 }}>{boardToDelete.name}</span>?
                 </div>
               </div>
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setBoardToDelete(null)}
-                  disabled={isDeletingBoard}
-                  className="btn-secondary flex-1"
+              <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: '8px' }}>
+                <button onClick={() => setBoardToDelete(null)} disabled={isDeletingBoard}
+                  style={{ flex: 1, padding: '8px 0', borderRadius: '7px', fontSize: '13px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.text4)}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.border2)}
                 >
-                  Cancelar
+                  {t.btn_cancel}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteBoard}
-                  disabled={isDeletingBoard}
-                  className="btn-primary flex-1 bg-error hover:bg-error/80 border-error disabled:opacity-50 disabled:cursor-not-allowed"
+                <button onClick={handleDeleteBoard} disabled={isDeletingBoard}
+                  style={{ flex: 1, padding: '8px 0', borderRadius: '7px', fontSize: '13px', fontWeight: 500, background: C.red, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                 >
-                  {isDeletingBoard ? (
-                    <>
-                      <span className="inline-block animate-spin mr-2">◌</span>
-                      Eliminando...
-                    </>
-                  ) : (
-                    'Sí, eliminar board'
-                  )}
+                  {isDeletingBoard
+                    ? <><svg className="animate-spin" viewBox="0 0 16 16" fill="none" width="13" height="13"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="28" strokeDashoffset="10" /></svg> {t.btn_deleting}</>
+                    : t.btn_delete
+                  }
                 </button>
               </div>
             </div>

@@ -1,38 +1,60 @@
 // apps/web/src/app/dashboard/workspaces/[id]/settings/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import {
-  ArrowLeft,
-  Save,
-  Trash2,
-  AlertTriangle,
-  CheckCircle,
-  Archive,
-  ArchiveRestore,
-  Copy,
-  Globe,
-  Lock,
-  Link2,
-  RefreshCw,
-  X,
+  Save, Trash2, AlertTriangle, CheckCircle, Archive, ArchiveRestore,
+  Copy, Globe, Lock, Link2, RefreshCw, X, Github, Unlink,
+  ChevronDown, ChevronUp, ExternalLink, Settings, Eye, EyeOff,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { WorkspaceIcon, WORKSPACE_ICON_KEYS } from '@/components/WorkspaceIcon';
+import { apiService } from '@/services/apiService';
+
+const C = {
+  bg:      '#0b0d10',
+  bg2:     '#0f1217',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  amber:   '#f59e0b',
+  red:     '#ef4444',
+};
 
 const COLORS = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#06b6d4',
-  '#f97316',
+  '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7',
+  '#ec4899', '#f43f5e', '#ef4444', '#f97316',
+  '#f59e0b', '#eab308', '#84cc16', '#10b981',
+  '#14b8a6', '#06b6d4', '#0ea5e9', '#64748b',
 ];
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', overflow: 'hidden' }}>
+      {children}
+    </div>
+  );
+}
+
+function CardHeader({ icon, title, right }: { icon: React.ReactNode; title: string; right?: React.ReactNode }) {
+  return (
+    <div style={{ padding: '11px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{ color: C.text3, display: 'flex', flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontSize: '13px', fontWeight: 600, color: C.text, flex: 1 }}>{title}</span>
+      {right}
+    </div>
+  );
+}
 
 export default function WorkspaceSettingsPage() {
   const t = useT();
@@ -41,581 +63,562 @@ export default function WorkspaceSettingsPage() {
   const workspaceId = params.id as string;
 
   const {
-    currentWorkspace,
-    fetchWorkspaceById,
-    updateWorkspace,
-    deleteWorkspace,
-    archiveWorkspace,
-    restoreWorkspace,
-    duplicateWorkspace,
-    updateVisibility,
-    regenerateInviteToken,
-    revokeInviteToken,
-    fetchMembers,
-    isLoading,
+    currentWorkspace, fetchWorkspaceById, updateWorkspace, deleteWorkspace,
+    archiveWorkspace, restoreWorkspace, duplicateWorkspace, updateVisibility,
+    regenerateInviteToken, revokeInviteToken, fetchMembers, isLoading,
   } = useWorkspaceStore();
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState(WORKSPACE_ICON_KEYS[0]);
-  const [selectedColor, setSelectedColor] = useState(COLORS[0]);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [name,               setName]               = useState('');
+  const [description,        setDescription]        = useState('');
+  const [selectedIcon,       setSelectedIcon]       = useState(WORKSPACE_ICON_KEYS[0]!);
+  const [selectedColor,      setSelectedColor]      = useState(COLORS[0]!);
+  const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [duplicateIncludeBoards, setDuplicateIncludeBoards] = useState(true);
-  const [isDuplicating, setIsDuplicating] = useState(false);
-  const [duplicateSuccess, setDuplicateSuccess] = useState(false);
-  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [showSuccess,        setShowSuccess]        = useState(false);
+  const [duplicateBoards,    setDuplicateBoards]    = useState(true);
+  const [isDuplicating,      setIsDuplicating]      = useState(false);
+  const [duplicateSuccess,   setDuplicateSuccess]   = useState(false);
+  const [inviteCopied,       setInviteCopied]       = useState(false);
+
+  interface GithubConnection { githubLogin: string; repos: string[]; connectedAt: string }
+  interface GithubRepo { fullName: string; private: boolean; url: string }
+
+  const [ghConnection,    setGhConnection]    = useState<GithubConnection | null | undefined>(undefined);
+  const [ghToken,         setGhToken]         = useState('');
+  const [ghTokenVisible,  setGhTokenVisible]  = useState(false);
+  const [ghRepos,         setGhRepos]         = useState<GithubRepo[]>([]);
+  const [ghReposLoading,  setGhReposLoading]  = useState(false);
+  const [ghSelected,      setGhSelected]      = useState<string[]>([]);
+  const [ghConnecting,    setGhConnecting]    = useState(false);
+  const [ghDisconnecting, setGhDisconnecting] = useState(false);
+  const [ghError,         setGhError]         = useState('');
+  const [ghSuccess,       setGhSuccess]       = useState('');
+  const [ghTutorialOpen,  setGhTutorialOpen]  = useState(false);
+
+  const fetchGhConnection = useCallback(async () => {
+    if (!workspaceId) return;
+    const r = await apiService.get<GithubConnection | null>(`/api/workspaces/${workspaceId}/github`, true);
+    setGhConnection(r.success ? (r.data ?? null) : null);
+  }, [workspaceId]);
+
+  const fetchGhRepos = useCallback(async (token: string) => {
+    if (!token.trim()) return;
+    setGhReposLoading(true); setGhError('');
+    try {
+      const r = await apiService.get<GithubRepo[]>(`/api/workspaces/${workspaceId}/github/repos?token=${encodeURIComponent(token)}`, true);
+      if (r.success && r.data) setGhRepos(r.data);
+      else setGhError('Token inválido o sin acceso a repos.');
+    } catch { setGhError('Error al conectar con GitHub.'); }
+    finally { setGhReposLoading(false); }
+  }, [workspaceId]);
+
+  const handleGhConnect = async () => {
+    if (!ghToken.trim() || ghSelected.length === 0 || ghConnecting) return;
+    setGhConnecting(true); setGhError('');
+    try {
+      const r = await apiService.post<GithubConnection>(`/api/workspaces/${workspaceId}/github`, { githubToken: ghToken.trim(), repos: ghSelected }, true);
+      if (r.success && r.data) {
+        setGhConnection(r.data); setGhToken(''); setGhRepos([]); setGhSelected([]);
+        setGhSuccess(`Conectado como @${r.data.githubLogin}`);
+        setTimeout(() => setGhSuccess(''), 4000);
+      } else { setGhError((r as any).error?.message ?? 'Error al conectar'); }
+    } catch { setGhError('Error inesperado.'); }
+    finally { setGhConnecting(false); }
+  };
+
+  const handleGhDisconnect = async () => {
+    if (ghDisconnecting) return;
+    setGhDisconnecting(true);
+    try {
+      await apiService.delete(`/api/workspaces/${workspaceId}/github`, true);
+      setGhConnection(null); setGhSuccess('GitHub desconectado.');
+      setTimeout(() => setGhSuccess(''), 3000);
+    } catch { setGhError('Error al desconectar.'); }
+    finally { setGhDisconnecting(false); }
+  };
 
   useEffect(() => {
-    if (workspaceId) {
-      fetchWorkspaceById(workspaceId);
-      fetchMembers(workspaceId);
-    }
-  }, [workspaceId, fetchWorkspaceById, fetchMembers]);
+    if (workspaceId) { fetchWorkspaceById(workspaceId); fetchMembers(workspaceId); fetchGhConnection(); }
+  }, [workspaceId, fetchWorkspaceById, fetchMembers, fetchGhConnection]);
 
   useEffect(() => {
     if (currentWorkspace) {
       setName(currentWorkspace.name);
       setDescription(currentWorkspace.description || '');
-      setSelectedIcon(currentWorkspace.icon || WORKSPACE_ICON_KEYS[0]);
-      setSelectedColor(currentWorkspace.color || COLORS[0]);
+      setSelectedIcon(currentWorkspace.icon || WORKSPACE_ICON_KEYS[0]!);
+      setSelectedColor(currentWorkspace.color || COLORS[0]!);
     }
   }, [currentWorkspace]);
 
   if (!currentWorkspace) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="loading-lg" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px', color: C.text3 }}>
+        <div className="w-6 h-6 rounded-full border-2 animate-spin" style={{ borderColor: `${C.accent} transparent transparent transparent` }} />
       </div>
     );
   }
 
   const isOwner = currentWorkspace.userRole === 'OWNER';
   const isAdmin = currentWorkspace.userRole === 'ADMIN';
+  const accentColor = currentWorkspace.color || C.accent;
 
   if (!isOwner && !isAdmin) {
     return (
-      <div className="bg-card border border-border p-16 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 bg-error/10 border border-error flex items-center justify-center">
-          <AlertTriangle className="w-8 h-8 text-error" />
-        </div>
-        <h3 className="text-xl font-medium mb-2">{t.ws_settings_no_permission_title}</h3>
-        <p className="text-error mb-6">{t.ws_settings_no_permission_desc}</p>
-        <Link
-          href={`/dashboard/workspaces/${workspaceId}`}
-          className="btn-secondary inline-flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{t.ws_settings_btn_back}</span>
-        </Link>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px', textAlign: 'center', gap: '12px' }}>
+        <AlertTriangle style={{ width: '20px', height: '20px', color: C.red }} />
+        <p style={{ fontSize: '14px', fontWeight: 600, color: C.text }}>{t.ws_settings_no_permission_title}</p>
+        <p style={{ fontSize: '12.5px', color: C.text3 }}>{t.ws_settings_no_permission_desc}</p>
+        <Link href={`/dashboard/workspaces/${workspaceId}`} style={{ fontSize: '12px', color: C.accent }}>← Volver al workspace</Link>
       </div>
     );
   }
 
   const handleSave = async () => {
     try {
-      await updateWorkspace(workspaceId, {
-        name,
-        description,
-        icon: selectedIcon,
-        color: selectedColor,
-      });
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error) {}
+      await updateWorkspace(workspaceId, { name, description, icon: selectedIcon, color: selectedColor });
+      setShowSuccess(true); setTimeout(() => setShowSuccess(false), 3000);
+    } catch {}
   };
 
-  const handleDelete = async () => {
-    await deleteWorkspace(workspaceId);
-    router.push('/dashboard/workspaces');
-  };
-
-  const handleArchive = async () => {
-    await archiveWorkspace(workspaceId);
-    setShowArchiveConfirm(false);
-    router.push('/dashboard/workspaces');
-  };
-
-  const handleRestore = async () => {
-    await restoreWorkspace(workspaceId);
-    router.push(`/dashboard/workspaces/${workspaceId}`);
-  };
+  const handleDelete  = async () => { await deleteWorkspace(workspaceId); router.push('/dashboard/workspaces'); };
+  const handleArchive = async () => { await archiveWorkspace(workspaceId); setShowArchiveConfirm(false); router.push('/dashboard/workspaces'); };
+  const handleRestore = async () => { await restoreWorkspace(workspaceId); router.push(`/dashboard/workspaces/${workspaceId}`); };
 
   const handleDuplicate = async () => {
     setIsDuplicating(true);
     try {
-      const newWs = await duplicateWorkspace(workspaceId, duplicateIncludeBoards);
+      const newWs = await duplicateWorkspace(workspaceId, duplicateBoards);
       setDuplicateSuccess(true);
-      setTimeout(() => {
-        setDuplicateSuccess(false);
-        router.push(`/dashboard/workspaces/${newWs.id}`);
-      }, 1500);
-    } catch {
-      // handled by store
-    } finally {
-      setIsDuplicating(false);
-    }
+      setTimeout(() => { setDuplicateSuccess(false); router.push(`/dashboard/workspaces/${newWs.id}`); }, 1500);
+    } catch {} finally { setIsDuplicating(false); }
   };
 
-  const handleVisibilityChange = async (visibility: 'private' | 'public') => {
-    await updateVisibility(workspaceId, visibility);
-  };
-
-  const handleGenerateInviteLink = async () => {
-    await regenerateInviteToken(workspaceId);
-  };
-
-  const handleRevokeInviteLink = async () => {
-    await revokeInviteToken(workspaceId);
-  };
-
-  const handleCopyInviteLink = () => {
+  const handleCopyInvite = () => {
     if (!currentWorkspace?.inviteToken) return;
     navigator.clipboard.writeText(`${window.location.origin}/join/${currentWorkspace.inviteToken}`);
-    setInviteLinkCopied(true);
-    setTimeout(() => setInviteLinkCopied(false), 2000);
+    setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000);
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '7px 10px', borderRadius: '6px',
+    background: C.bg2, border: `1px solid ${C.border}`,
+    color: C.text, fontSize: '13px', outline: 'none', boxSizing: 'border-box',
+  };
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '11px', fontWeight: 500, color: C.text4, marginBottom: '5px', letterSpacing: '0.02em',
+  };
+  const btnSecondary: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '6px',
+    fontSize: '12px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`,
+    color: C.text2, cursor: 'pointer',
   };
 
   return (
-    <div className="space-y-4">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-medium mb-0.5">{t.ws_settings_title}</h1>
-          <p className="text-text-secondary text-xs">{t.ws_settings_subtitle}</p>
+    <div style={{ display: 'flex', flexDirection: 'column', background: C.bg, minHeight: '100%' }}>
+
+      {/* Header */}
+      <div style={{ padding: '12px 22px', borderBottom: `1px solid ${C.border}`, background: C.bg2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '30px', height: '30px', borderRadius: '7px', background: `linear-gradient(135deg, ${accentColor}cc, ${accentColor}55)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <WorkspaceIcon icon={currentWorkspace.icon} className="w-3.5 h-3.5" style={{ color: '#fff' } as any} />
+          </div>
+          <div>
+            <p style={{ fontSize: '13.5px', fontWeight: 700, color: C.text, lineHeight: 1 }}>{currentWorkspace.name}</p>
+            <p style={{ fontSize: '11px', color: C.text4, marginTop: '2px' }}>Configuración</p>
+          </div>
         </div>
         <Link
           href={`/dashboard/workspaces/${workspaceId}`}
-          className="px-3 py-1.5 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card transition-colors flex items-center gap-1.5"
+          style={{ fontSize: '12px', padding: '5px 11px', borderRadius: '6px', background: C.surface, border: `1px solid ${C.border2}`, color: C.text3, display: 'flex', alignItems: 'center', gap: '4px' }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text2; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.text3; }}
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>{t.btn_back}</span>
+          ← Volver
         </Link>
       </div>
 
-      {/* ── Success banner ─────────────────────────────────────────────── */}
+      {/* Success banner */}
       {showSuccess && (
-        <div className="bg-success/10 border border-success p-3 flex items-center gap-2 animate-fade-in">
-          <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-          <p className="text-success font-medium text-xs">{t.ws_settings_success_title}</p>
+        <div style={{ margin: '14px 22px 0', padding: '8px 12px', borderRadius: '7px', background: `${C.green}15`, border: `1px solid ${C.green}40`, display: 'flex', alignItems: 'center', gap: '7px' }}>
+          <CheckCircle style={{ width: '13px', height: '13px', color: C.green, flexShrink: 0 }} />
+          <span style={{ fontSize: '12px', color: C.green }}>{t.ws_settings_success_title}</span>
         </div>
       )}
 
-      {/* ── Main 2-column grid ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 items-start">
-        {/* ════ LEFT COLUMN (3/5) ════════════════════════════════════════ */}
-        <div className="xl:col-span-3 space-y-4">
-          {/* General Settings card */}
-          <div className="bg-card border border-border">
-            {/* Card header */}
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-border">
-              <div className="p-1 bg-accent/10 border border-accent/30">
-                <Save className="w-3.5 h-3.5 text-accent" />
-              </div>
-              <h2 className="text-sm font-medium text-text-primary">
-                {t.ws_settings_section_general}
-              </h2>
-            </div>
+      {/* ── Main: 3 columnas iguales ── */}
+      <div style={{ padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', alignItems: 'start' }}>
 
-            <div className="p-5 space-y-4">
-              {/* Name + Description row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* ── Col 1: Ajustes generales ── */}
+          <Card>
+            <CardHeader icon={<Settings style={{ width: '13px', height: '13px' }} />} title="Ajustes generales" />
+            <div style={{ padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+              {/* Nombre + Descripción en la misma fila */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <div>
-                  <label className="block text-xs font-medium text-text-primary mb-1.5">
-                    {t.ws_settings_label_name}
-                  </label>
+                  <label style={labelStyle}>{t.ws_settings_label_name}</label>
                   <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface border border-border text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
-                    placeholder={t.ws_settings_placeholder_name}
-                    maxLength={255}
+                    type="text" value={name} onChange={(e) => setName(e.target.value)}
+                    placeholder={t.ws_settings_placeholder_name} maxLength={255}
+                    style={inputStyle}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-text-primary mb-1.5">
-                    {t.ws_settings_label_description}
-                  </label>
+                  <label style={labelStyle}>{t.ws_settings_label_description}</label>
                   <input
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface border border-border text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
-                    placeholder={t.ws_settings_placeholder_description}
-                    maxLength={255}
+                    type="text" value={description} onChange={(e) => setDescription(e.target.value)}
+                    placeholder={t.ws_settings_placeholder_description} maxLength={255}
+                    style={inputStyle}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
                   />
                 </div>
               </div>
 
-              {/* Icon + Color + Preview row */}
-              <div className="grid grid-cols-3 gap-4">
-                {/* Icon */}
+              {/* Iconos + Colores — mismo grid 1fr/1fr que nombre/descripción */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {/* Iconos — auto-fill 26px */}
                 <div>
-                  <label className="block text-xs font-medium text-text-primary mb-1.5">
-                    {t.ws_settings_label_icon}
-                  </label>
-                  <div className="grid grid-cols-4 gap-1 max-h-[120px] overflow-y-auto pr-0.5">
+                  <label style={labelStyle}>{t.ws_settings_label_icon}</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 26px)', gap: '2px' }}>
                     {WORKSPACE_ICON_KEYS.map((key) => (
                       <button
-                        key={key}
-                        type="button"
-                        title={key}
-                        onClick={() => setSelectedIcon(key)}
-                        className={`aspect-square p-1.5 border transition-all flex items-center justify-center ${
-                          selectedIcon === key
-                            ? 'border-accent bg-accent/10 text-accent'
-                            : 'border-border hover:border-accent/50 text-text-secondary hover:bg-surface'
-                        }`}
+                        key={key} type="button" title={key} onClick={() => setSelectedIcon(key)}
+                        style={{
+                          width: '26px', height: '26px', borderRadius: '5px', padding: 0,
+                          border: `1px solid ${selectedIcon === key ? accentColor + '55' : C.border}`,
+                          background: selectedIcon === key ? `${accentColor}15` : 'transparent',
+                          color: selectedIcon === key ? accentColor : C.text4,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', transition: 'all 0.1s',
+                        }}
+                        onMouseEnter={(e) => { if (selectedIcon !== key) { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3; }}}
+                        onMouseLeave={(e) => { if (selectedIcon !== key) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.text4; }}}
                       >
-                        <WorkspaceIcon icon={key} className="w-4 h-4" />
+                        <WorkspaceIcon icon={key} style={{ width: '13px', height: '13px' }} />
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Color */}
+                {/* Colores — dots 20px, flex-wrap para llenar el ancho */}
                 <div>
-                  <label className="block text-xs font-medium text-text-primary mb-1.5">
-                    {t.ws_settings_label_color}
-                  </label>
-                  <div className="grid grid-cols-4 gap-1">
+                  <label style={labelStyle}>{t.ws_settings_label_color}</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                     {COLORS.map((color) => (
                       <button
-                        key={color}
-                        type="button"
-                        onClick={() => setSelectedColor(color)}
-                        className={`aspect-square border-2 transition-all rounded-sm ${
-                          selectedColor === color
-                            ? 'border-white scale-110 shadow-md'
-                            : 'border-border/40 hover:scale-105'
-                        }`}
-                        style={{ backgroundColor: color }}
+                        key={color} type="button" onClick={() => setSelectedColor(color)}
+                        style={{
+                          width: '20px', height: '20px', borderRadius: '50%', background: color,
+                          cursor: 'pointer', padding: 0, flexShrink: 0,
+                          border: selectedColor === color ? `2px solid rgba(255,255,255,0.65)` : `2px solid transparent`,
+                          outline: selectedColor === color ? `1px solid ${color}55` : 'none',
+                          outlineOffset: '1px',
+                          transform: selectedColor === color ? 'scale(1.12)' : 'scale(1)',
+                          transition: 'transform 0.1s',
+                        }}
                       />
                     ))}
                   </div>
                 </div>
-
-                {/* Preview */}
-                <div>
-                  <label className="block text-xs font-medium text-text-primary mb-1.5">
-                    {t.ws_settings_label_preview}
-                  </label>
-                  <div className="flex items-center gap-2 p-3 border border-border bg-surface h-[calc(100%-22px)]">
-                    <div
-                      className="w-10 h-10 flex-shrink-0 flex items-center justify-center border"
-                      style={{
-                        backgroundColor: `${selectedColor}15`,
-                        color: selectedColor,
-                        borderColor: `${selectedColor}40`,
-                      }}
-                    >
-                      <WorkspaceIcon icon={selectedIcon} className="w-5 h-5" />
-                    </div>
-                    <p className="text-xs font-medium text-text-primary truncate">
-                      {name || t.ws_settings_placeholder_name}
-                    </p>
-                  </div>
-                </div>
               </div>
 
-              {/* Save row */}
-              <div className="flex items-center gap-2 pt-2 border-t border-border">
-                <button
-                  onClick={handleSave}
-                  disabled={isLoading || !name.trim()}
-                  className="px-4 py-2 bg-accent text-white text-xs font-medium hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{isLoading ? t.btn_saving : t.btn_save}</span>
-                </button>
-                <Link
-                  href={`/dashboard/workspaces/${workspaceId}`}
-                  className="px-4 py-2 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card transition-colors"
-                >
-                  {t.btn_cancel}
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Danger Zone card — only for owner */}
-          {isOwner && (
-            <div className="bg-card border border-error/50">
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-error/30">
-                <div className="p-1 bg-error/10 border border-error/30">
-                  <AlertTriangle className="w-3.5 h-3.5 text-error" />
+              {/* Vista previa — debajo */}
+              <div style={{
+                padding: '6px 10px', borderRadius: '6px',
+                border: `1px solid ${selectedColor}28`,
+                background: `linear-gradient(135deg, ${selectedColor}12, transparent)`,
+                display: 'flex', alignItems: 'center', gap: '7px',
+              }}>
+                <div style={{
+                  width: '22px', height: '22px', borderRadius: '5px', flexShrink: 0,
+                  background: `linear-gradient(135deg, ${selectedColor}cc, ${selectedColor}55)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <WorkspaceIcon icon={selectedIcon} style={{ width: '11px', height: '11px', color: '#fff' } as any} />
                 </div>
-                <h2 className="text-sm font-medium text-error">{t.ws_settings_danger_zone}</h2>
-              </div>
-
-              <div className="p-5 space-y-3">
-                {/* Archive / Restore row */}
-                <div className="flex items-start justify-between gap-4 p-3 bg-surface border border-border">
-                  <div className="flex items-start gap-2 min-w-0">
-                    {currentWorkspace.archived ? (
-                      <ArchiveRestore className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                    ) : (
-                      <Archive className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-text-primary">
-                        {currentWorkspace.archived
-                          ? t.ws_settings_restore_title
-                          : t.ws_settings_archive_title}
-                      </p>
-                      <p className="text-[11px] text-text-secondary mt-0.5 leading-relaxed">
-                        {currentWorkspace.archived
-                          ? t.ws_settings_restore_desc
-                          : t.ws_settings_archive_desc}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex-shrink-0">
-                    {currentWorkspace.archived ? (
-                      <button
-                        onClick={handleRestore}
-                        className="px-3 py-1.5 border border-warning bg-warning/10 text-warning text-xs font-medium hover:bg-warning hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                      >
-                        <ArchiveRestore className="w-3.5 h-3.5" />
-                        <span>{t.ws_settings_btn_restore}</span>
-                      </button>
-                    ) : !showArchiveConfirm ? (
-                      <button
-                        onClick={() => setShowArchiveConfirm(true)}
-                        className="px-3 py-1.5 border border-warning/50 bg-warning/5 text-warning text-xs font-medium hover:bg-warning hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                      >
-                        <Archive className="w-3.5 h-3.5" />
-                        <span>{t.ws_settings_btn_archive}</span>
-                      </button>
-                    ) : (
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={handleArchive}
-                          className="px-2.5 py-1.5 bg-warning text-white text-xs font-medium hover:bg-warning/80 transition-colors flex items-center gap-1 whitespace-nowrap"
-                        >
-                          <Archive className="w-3 h-3" />
-                          <span>{t.ws_settings_btn_confirm_archive}</span>
-                        </button>
-                        <button
-                          onClick={() => setShowArchiveConfirm(false)}
-                          className="px-2.5 py-1.5 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card transition-colors"
-                        >
-                          {t.btn_cancel}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Delete row */}
-                <div className="flex items-start justify-between gap-4 p-3 bg-surface border border-border">
-                  <div className="flex items-start gap-2 min-w-0">
-                    <Trash2 className="w-4 h-4 text-error flex-shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-text-primary">
-                        {t.ws_settings_delete_title}
-                      </p>
-                      <p className="text-[11px] text-text-secondary mt-0.5 leading-relaxed">
-                        {t.ws_settings_delete_desc}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex-shrink-0">
-                    {!showDeleteConfirm ? (
-                      <button
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="px-3 py-1.5 border border-error/50 bg-error/5 text-error text-xs font-medium hover:bg-error hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>{t.ws_settings_btn_delete}</span>
-                      </button>
-                    ) : (
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={handleDelete}
-                          className="px-2.5 py-1.5 bg-error text-white text-xs font-medium hover:bg-error/80 transition-colors flex items-center gap-1 whitespace-nowrap"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          <span>{t.ws_settings_btn_confirm_delete}</span>
-                        </button>
-                        <button
-                          onClick={() => setShowDeleteConfirm(false)}
-                          className="px-2.5 py-1.5 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card transition-colors"
-                        >
-                          {t.btn_cancel}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ════ RIGHT COLUMN (2/5) ═══════════════════════════════════════ */}
-        <div className="xl:col-span-2 space-y-4">
-          {/* Visibility & Invite Link card */}
-          {(isOwner || isAdmin) && (
-            <div className="bg-card border border-border">
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-border">
-                <div className="p-1 bg-accent/10 border border-accent/30">
-                  <Globe className="w-3.5 h-3.5 text-accent" />
-                </div>
-                <h2 className="text-sm font-medium text-text-primary">
-                  {t.ws_settings_visibility_title}
-                </h2>
-              </div>
-
-              <div className="p-4 space-y-4">
-                {/* Visibility toggle */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleVisibilityChange('private')}
-                    className={`flex flex-col items-center gap-1 p-3 border text-center transition-colors ${
-                      currentWorkspace.visibility !== 'public'
-                        ? 'border-accent bg-accent/10 text-accent'
-                        : 'border-border bg-surface text-text-secondary hover:border-accent/40'
-                    }`}
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span className="text-xs font-medium">{t.ws_settings_visibility_private}</span>
-                    <span className="text-[10px] opacity-70 leading-tight">
-                      {t.ws_settings_visibility_private_desc}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: name ? C.text : C.text4, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {name || 'Nombre del workspace'}
+                  </span>
+                  {description && (
+                    <span style={{ fontSize: '10.5px', color: C.text4, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                      {description}
                     </span>
-                  </button>
-                  <button
-                    onClick={() => handleVisibilityChange('public')}
-                    className={`flex flex-col items-center gap-1 p-3 border text-center transition-colors ${
-                      currentWorkspace.visibility === 'public'
-                        ? 'border-accent bg-accent/10 text-accent'
-                        : 'border-border bg-surface text-text-secondary hover:border-accent/40'
-                    }`}
-                  >
-                    <Globe className="w-4 h-4" />
-                    <span className="text-xs font-medium">{t.ws_settings_visibility_public}</span>
-                    <span className="text-[10px] opacity-70 leading-tight">
-                      {t.ws_settings_visibility_public_desc}
-                    </span>
-                  </button>
-                </div>
-
-                {/* Invite link */}
-                <div className="pt-3 border-t border-border space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <Link2 className="w-3 h-3 text-text-muted" />
-                    <p className="text-xs font-medium text-text-primary">
-                      {t.ws_settings_invite_link_title}
-                    </p>
-                  </div>
-
-                  {currentWorkspace.inviteToken ? (
-                    <>
-                      <div className="px-2.5 py-1.5 bg-surface border border-border">
-                        <code className="text-[10px] text-text-muted break-all leading-relaxed">
-                          {typeof window !== 'undefined'
-                            ? `${window.location.origin}/join/${currentWorkspace.inviteToken}`
-                            : `/join/${currentWorkspace.inviteToken}`}
-                        </code>
-                      </div>
-                      <div className="flex gap-1.5 flex-wrap">
-                        <button
-                          onClick={handleCopyInviteLink}
-                          className="flex items-center gap-1 px-2.5 py-1.5 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card transition-colors"
-                        >
-                          {inviteLinkCopied ? (
-                            <CheckCircle className="w-3 h-3 text-success" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                          <span>
-                            {inviteLinkCopied
-                              ? t.ws_settings_link_copied
-                              : t.ws_settings_btn_copy_link}
-                          </span>
-                        </button>
-                        <button
-                          onClick={handleGenerateInviteLink}
-                          className="flex items-center gap-1 px-2.5 py-1.5 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card transition-colors"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          <span>{t.ws_settings_btn_generate_link}</span>
-                        </button>
-                        <button
-                          onClick={handleRevokeInviteLink}
-                          className="flex items-center gap-1 px-2.5 py-1.5 border border-error/40 bg-error/5 text-error text-xs font-medium hover:bg-error/10 transition-colors"
-                        >
-                          <X className="w-3 h-3" />
-                          <span>{t.ws_settings_btn_revoke_link}</span>
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <button
-                      onClick={handleGenerateInviteLink}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-accent/40 bg-accent/5 text-accent text-xs font-medium hover:bg-accent/10 transition-colors"
-                    >
-                      <Link2 className="w-3.5 h-3.5" />
-                      <span>{t.ws_settings_btn_generate_link}</span>
-                    </button>
                   )}
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Duplicate card */}
-          {(isOwner || isAdmin) && (
-            <div className="bg-card border border-border">
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-border">
-                <div className="p-1 bg-accent/10 border border-accent/30">
-                  <Copy className="w-3.5 h-3.5 text-accent" />
-                </div>
-                <h2 className="text-sm font-medium text-text-primary">
-                  {t.ws_settings_duplicate_title}
-                </h2>
-              </div>
+              {/* Guardar + acciones de peligro inline */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '8px', borderTop: `1px solid ${C.border}` }}>
+                <button
+                  onClick={handleSave} disabled={isLoading || !name.trim()}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 13px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, background: accentColor, color: '#fff', border: 'none', cursor: 'pointer', opacity: !name.trim() ? 0.5 : 1 }}
+                >
+                  <Save style={{ width: '11px', height: '11px' }} />
+                  {isLoading ? t.btn_saving : t.btn_save}
+                </button>
+                <Link href={`/dashboard/workspaces/${workspaceId}`} style={btnSecondary as any}>
+                  {t.btn_cancel}
+                </Link>
 
-              <div className="p-4 space-y-3">
-                <p className="text-[11px] text-text-secondary leading-relaxed">
-                  {t.ws_settings_duplicate_desc}
-                </p>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={duplicateIncludeBoards}
-                    onChange={(e) => setDuplicateIncludeBoards(e.target.checked)}
-                    className="w-3.5 h-3.5 accent-accent"
-                  />
-                  <span className="text-xs text-text-primary">
-                    {t.ws_settings_duplicate_include_boards}
-                  </span>
-                </label>
-
-                {duplicateSuccess ? (
-                  <div className="flex items-center gap-1.5 px-3 py-2 bg-success/10 border border-success text-success text-xs font-medium">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>{t.ws_settings_duplicate_success}</span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleDuplicate}
-                    disabled={isDuplicating}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-border bg-surface text-text-primary text-xs font-medium hover:bg-card disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>{isDuplicating ? '...' : t.ws_settings_btn_duplicate}</span>
-                  </button>
+                {isOwner && (
+                  <>
+                    <div style={{ flex: 1 }} />
+                    {/* Archivar */}
+                    {currentWorkspace.archived ? (
+                      <button onClick={handleRestore} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, background: 'transparent', border: `1px solid ${C.amber}30`, color: C.amber, cursor: 'pointer' }}>
+                        <ArchiveRestore style={{ width: '11px', height: '11px' }} /> {t.ws_settings_btn_restore}
+                      </button>
+                    ) : !showArchiveConfirm ? (
+                      <button onClick={() => { setShowArchiveConfirm(true); setShowDeleteConfirm(false); }} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, background: 'transparent', border: `1px solid ${C.border}`, color: C.text3, cursor: 'pointer' }}>
+                        <Archive style={{ width: '11px', height: '11px' }} /> Archivar
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={handleArchive} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '5px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: C.amber, color: '#fff', border: 'none', cursor: 'pointer' }}>
+                          <Archive style={{ width: '10px', height: '10px' }} /> {t.ws_settings_btn_confirm_archive}
+                        </button>
+                        <button onClick={() => setShowArchiveConfirm(false)} style={{ ...btnSecondary, padding: '5px 8px', fontSize: '11px' }}>{t.btn_cancel}</button>
+                      </div>
+                    )}
+                    {/* Eliminar */}
+                    {!showDeleteConfirm ? (
+                      <button onClick={() => { setShowDeleteConfirm(true); setShowArchiveConfirm(false); }} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, background: 'transparent', border: `1px solid ${C.border}`, color: C.text3, cursor: 'pointer' }}>
+                        <Trash2 style={{ width: '11px', height: '11px' }} /> Eliminar
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={handleDelete} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '5px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: C.red, color: '#fff', border: 'none', cursor: 'pointer' }}>
+                          <Trash2 style={{ width: '10px', height: '10px' }} /> {t.ws_settings_btn_confirm_delete}
+                        </button>
+                        <button onClick={() => setShowDeleteConfirm(false)} style={{ ...btnSecondary, padding: '5px 8px', fontSize: '11px' }}>{t.btn_cancel}</button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
+          </Card>
+
+          {/* ── Col 2: Visibilidad + Duplicar ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {(isOwner || isAdmin) && (
+              <Card>
+                <CardHeader icon={<Globe style={{ width: '13px', height: '13px' }} />} title={t.ws_settings_visibility_title} />
+                <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {[
+                      { value: 'private' as const, icon: <Lock style={{ width: '11px', height: '11px' }} />, label: t.ws_settings_visibility_private },
+                      { value: 'public'  as const, icon: <Globe style={{ width: '11px', height: '11px' }} />, label: t.ws_settings_visibility_public  },
+                    ].map(({ value, icon, label }) => {
+                      const active = value === 'public' ? currentWorkspace.visibility === 'public' : currentWorkspace.visibility !== 'public';
+                      return (
+                        <button key={value} onClick={() => updateVisibility(workspaceId, value)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '7px 6px', borderRadius: '6px', cursor: 'pointer', border: `1px solid ${active ? accentColor + '50' : C.border}`, background: active ? `${accentColor}12` : C.bg2, color: active ? accentColor : C.text3, fontSize: '11.5px', fontWeight: active ? 600 : 400, transition: 'all 0.12s' }}>
+                          {icon} {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ paddingTop: '8px', borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+                      <Link2 style={{ width: '10px', height: '10px', color: C.text4 }} />
+                      <span style={{ fontSize: '11px', fontWeight: 500, color: C.text3 }}>{t.ws_settings_invite_link_title}</span>
+                    </div>
+                    {currentWorkspace.inviteToken ? (
+                      <>
+                        <div style={{ padding: '5px 8px', borderRadius: '5px', background: C.bg2, border: `1px solid ${C.border}`, marginBottom: '6px' }}>
+                          <code style={{ fontSize: '9.5px', color: C.text4, wordBreak: 'break-all', lineHeight: 1.5 }}>
+                            {typeof window !== 'undefined'
+                              ? `${window.location.origin}/join/${currentWorkspace.inviteToken}`
+                              : `/join/${currentWorkspace.inviteToken}`}
+                          </code>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          <button onClick={handleCopyInvite} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '4px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`, color: inviteCopied ? C.green : C.text2, cursor: 'pointer' }}>
+                            {inviteCopied ? <CheckCircle style={{ width: '10px', height: '10px' }} /> : <Copy style={{ width: '10px', height: '10px' }} />}
+                            {inviteCopied ? t.ws_settings_link_copied : t.ws_settings_btn_copy_link}
+                          </button>
+                          <button onClick={() => regenerateInviteToken(workspaceId)} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '4px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer' }}>
+                            <RefreshCw style={{ width: '10px', height: '10px' }} /> {t.ws_settings_btn_generate_link}
+                          </button>
+                          <button onClick={() => revokeInviteToken(workspaceId)} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '4px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, background: `${C.red}10`, border: `1px solid ${C.red}28`, color: C.red, cursor: 'pointer' }}>
+                            <X style={{ width: '10px', height: '10px' }} /> {t.ws_settings_btn_revoke_link}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button onClick={() => regenerateInviteToken(workspaceId)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, background: `${C.accent}10`, border: `1px solid ${C.accent}28`, color: C.accent, cursor: 'pointer' }}>
+                        <Link2 style={{ width: '11px', height: '11px' }} /> {t.ws_settings_btn_generate_link}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {(isOwner || isAdmin) && (
+              <Card>
+                <CardHeader icon={<Copy style={{ width: '13px', height: '13px' }} />} title={t.ws_settings_duplicate_title} />
+                <div style={{ padding: '11px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <p style={{ fontSize: '11px', color: C.text4, lineHeight: 1.5 }}>{t.ws_settings_duplicate_desc}</p>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={duplicateBoards} onChange={(e) => setDuplicateBoards(e.target.checked)} style={{ accentColor: accentColor, width: '12px', height: '12px' }} />
+                    <span style={{ fontSize: '11.5px', color: C.text2 }}>{t.ws_settings_duplicate_include_boards}</span>
+                  </label>
+                  {duplicateSuccess ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 10px', borderRadius: '6px', background: `${C.green}12`, border: `1px solid ${C.green}28` }}>
+                      <CheckCircle style={{ width: '12px', height: '12px', color: C.green }} />
+                      <span style={{ fontSize: '11.5px', color: C.green, fontWeight: 500 }}>{t.ws_settings_duplicate_success}</span>
+                    </div>
+                  ) : (
+                    <button onClick={handleDuplicate} disabled={isDuplicating} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '6px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer', opacity: isDuplicating ? 0.6 : 1 }}>
+                      <Copy style={{ width: '11px', height: '11px' }} />
+                      {isDuplicating ? '…' : t.ws_settings_btn_duplicate}
+                    </button>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* ── Col 3: GitHub ── */}
+          {(isOwner || isAdmin) && (
+            <Card>
+              <CardHeader
+                icon={<Github style={{ width: '13px', height: '13px' }} />}
+                title="GitHub"
+                right={ghConnection
+                  ? <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '4px', background: `${C.green}15`, border: `1px solid ${C.green}30`, color: C.green }}>@{ghConnection.githubLogin}</span>
+                  : undefined
+                }
+              />
+              <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {ghSuccess && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', borderRadius: '6px', background: `${C.green}12`, border: `1px solid ${C.green}28` }}>
+                    <CheckCircle style={{ width: '11px', height: '11px', color: C.green, flexShrink: 0 }} />
+                    <span style={{ fontSize: '11px', color: C.green }}>{ghSuccess}</span>
+                  </div>
+                )}
+                {ghError && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', borderRadius: '6px', background: `${C.red}10`, border: `1px solid ${C.red}28` }}>
+                    <AlertTriangle style={{ width: '11px', height: '11px', color: C.red, flexShrink: 0 }} />
+                    <span style={{ fontSize: '11px', color: C.red, flex: 1 }}>{ghError}</span>
+                    <button onClick={() => setGhError('')} style={{ color: C.red, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}><X style={{ width: '11px', height: '11px' }} /></button>
+                  </div>
+                )}
+
+                {ghConnection ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <p style={{ fontSize: '11px', color: C.text4, lineHeight: 1.5 }}>Eventos de push, PR y review de repos vinculados.</p>
+                    <div>
+                      <p style={{ fontSize: '10.5px', fontWeight: 500, color: C.text4, marginBottom: '4px' }}>Repos vinculados</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {ghConnection.repos.map((repo) => (
+                          <div key={repo} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 8px', borderRadius: '5px', background: C.bg2, border: `1px solid ${C.border}` }}>
+                            <Github style={{ width: '10px', height: '10px', color: C.text4, flexShrink: 0 }} />
+                            <span style={{ fontSize: '10.5px', fontFamily: 'monospace', color: C.text2, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{repo}</span>
+                            <a href={`https://github.com/${repo}`} target="_blank" rel="noopener noreferrer"><ExternalLink style={{ width: '10px', height: '10px', color: C.text4 }} /></a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={handleGhDisconnect} disabled={ghDisconnecting} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, background: `${C.red}10`, border: `1px solid ${C.red}28`, color: C.red, cursor: 'pointer' }}>
+                      <Unlink style={{ width: '11px', height: '11px' }} />
+                      {ghDisconnecting ? 'Desconectando…' : 'Desconectar GitHub'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                    <div style={{ borderRadius: '6px', border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                      <button onClick={() => setGhTutorialOpen(v => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: C.bg2, border: 'none', cursor: 'pointer' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 500, color: C.text3 }}>
+                          <span style={{ width: '13px', height: '13px', borderRadius: '50%', background: `${C.accent}18`, border: `1px solid ${C.accent}33`, color: C.accent, fontSize: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>?</span>
+                          ¿Cómo genero el token?
+                        </span>
+                        {ghTutorialOpen ? <ChevronUp style={{ width: '11px', height: '11px', color: C.text4 }} /> : <ChevronDown style={{ width: '11px', height: '11px', color: C.text4 }} />}
+                      </button>
+                      {ghTutorialOpen && (
+                        <div style={{ padding: '8px 10px 10px', borderTop: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            {[
+                              'GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic).',
+                              'Generate new token (classic).',
+                              'Scopes: repo y read:org.',
+                              'Genera, copia el token (ghp_...) y pégalo abajo.',
+                            ].map((step, i) => (
+                              <li key={i} style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: C.text4, lineHeight: 1.5 }}>
+                                <span style={{ width: '13px', height: '13px', borderRadius: '50%', background: `${C.accent}12`, border: `1px solid ${C.accent}28`, color: C.accent, fontSize: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>{i + 1}</span>
+                                <span>{step}</span>
+                              </li>
+                            ))}
+                          </ol>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 8px', borderRadius: '4px', background: `${C.amber}08`, border: `1px solid ${C.amber}20` }}>
+                            <AlertTriangle style={{ width: '10px', height: '10px', color: C.amber, flexShrink: 0 }} />
+                            <span style={{ fontSize: '10px', color: C.amber }}>Token almacenado cifrado.</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Personal Access Token</label>
+                      <div style={{ display: 'flex', gap: '5px' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                          <input
+                            type={ghTokenVisible ? 'text' : 'password'}
+                            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                            value={ghToken}
+                            autoComplete="new-password"
+                            onChange={(e) => { setGhToken(e.target.value); setGhRepos([]); setGhSelected([]); setGhError(''); }}
+                            style={{ ...inputStyle, fontFamily: 'monospace', paddingRight: '28px' }}
+                            onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
+                            onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
+                          />
+                          <button type="button" onClick={() => setGhTokenVisible(v => !v)} style={{ position: 'absolute', right: '7px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.text4, padding: 0, display: 'flex' }}>
+                            {ghTokenVisible ? <EyeOff style={{ width: '11px', height: '11px' }} /> : <Eye style={{ width: '11px', height: '11px' }} />}
+                          </button>
+                        </div>
+                        <button onClick={() => fetchGhRepos(ghToken)} disabled={!ghToken.trim() || ghReposLoading} style={{ display: 'flex', alignItems: 'center', padding: '7px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer', whiteSpace: 'nowrap', opacity: !ghToken.trim() ? 0.5 : 1 }}>
+                          {ghReposLoading ? '…' : 'Cargar'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {ghRepos.length > 0 && (
+                      <div>
+                        <label style={labelStyle}>Repos <span style={{ color: C.text4 }}>({ghSelected.length} sel.)</span></label>
+                        <div style={{ maxHeight: '130px', overflowY: 'auto', borderRadius: '5px', border: `1px solid ${C.border}`, background: C.bg2 }}>
+                          {ghRepos.map((repo) => {
+                            const sel = ghSelected.includes(repo.fullName);
+                            return (
+                              <label key={repo.fullName} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', cursor: 'pointer', borderBottom: `1px solid ${C.border}`, background: sel ? `${C.accent}08` : 'transparent' }}>
+                                <input type="checkbox" checked={sel} onChange={() => setGhSelected(prev => sel ? prev.filter(r => r !== repo.fullName) : [...prev, repo.fullName])} style={{ accentColor: C.accent, width: '11px', height: '11px' }} />
+                                <span style={{ fontFamily: 'monospace', fontSize: '10.5px', color: sel ? C.text : C.text2, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{repo.fullName}</span>
+                                {repo.private && <span style={{ fontSize: '8px', fontWeight: 600, padding: '1px 4px', borderRadius: '3px', background: C.hover, border: `1px solid ${C.border2}`, color: C.text4 }}>PRIV</span>}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <button onClick={handleGhConnect} disabled={!ghToken.trim() || ghSelected.length === 0 || ghConnecting} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '7px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600, background: '#24292e', color: '#fff', border: 'none', cursor: 'pointer', opacity: (!ghToken.trim() || ghSelected.length === 0) ? 0.45 : 1 }}>
+                      <Github style={{ width: '12px', height: '12px' }} />
+                      {ghConnecting ? 'Conectando…' : 'Conectar con GitHub'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </Card>
           )}
         </div>
+
       </div>
     </div>
   );

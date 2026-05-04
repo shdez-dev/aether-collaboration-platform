@@ -1,194 +1,240 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import Link from 'next/link';
+import { useIsAuthenticated } from '@/stores/authStore';
 import { useT } from '@/lib/i18n';
 
-export function ShowcaseSection() {
-  const [activeModule, setActiveModule] = useState(0);
-  const t = useT();
+// ── Metrics strip ─────────────────────────────────────────────────────────────
 
-  const modules = [
-    {
-      id: '01',
-      name: t.home_mod1_name,
-      tagline: t.home_mod1_tagline,
-      description: t.home_mod1_desc,
-      indicators: [t.home_mod1_i1, t.home_mod1_i2, t.home_mod1_i3],
-    },
-    {
-      id: '02',
-      name: t.home_mod2_name,
-      tagline: t.home_mod2_tagline,
-      description: t.home_mod2_desc,
-      indicators: [t.home_mod2_i1, t.home_mod2_i2, t.home_mod2_i3],
-    },
-    {
-      id: '03',
-      name: t.home_mod3_name,
-      tagline: t.home_mod3_tagline,
-      description: t.home_mod3_desc,
-      indicators: [t.home_mod3_i1, t.home_mod3_i2, t.home_mod3_i3],
-    },
-    {
-      id: '04',
-      name: t.home_mod4_name,
-      tagline: t.home_mod4_tagline,
-      description: t.home_mod4_desc,
-      indicators: [t.home_mod4_i1, t.home_mod4_i2, t.home_mod4_i3],
-    },
-    {
-      id: '05',
-      name: t.home_mod5_name,
-      tagline: t.home_mod5_tagline,
-      description: t.home_mod5_desc,
-      indicators: [t.home_mod5_i1, t.home_mod5_i2, t.home_mod5_i3],
-    },
+function MetricsStrip() {
+  const t = useT();
+  const metrics = [
+    { value: '38', unit: 'ms', label: t.home_metrics_sync },
+    { value: '99.99', unit: '%', label: t.home_metrics_uptime },
+    { value: '140', unit: '+', label: t.home_metrics_shortcuts },
+    { value: '0', unit: '', label: t.home_metrics_deps },
   ];
 
   return (
-    <section className="relative py-12 md:py-28 px-4 md:px-6 lg:px-8 bg-gradient-to-b from-background to-surface/20">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
+    <div
+      className="grid grid-cols-2 md:grid-cols-4"
+      style={{
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      {metrics.map((m, i) => (
+        <div
+          key={m.label}
+          className="px-6 py-8"
+          style={{
+            borderRight: i < metrics.length - 1 ? '1px solid rgba(255,255,255,0.06)' : undefined,
+          }}
+        >
+          <div
+            className="font-bold font-sans mb-1.5"
+            style={{ fontSize: '36px', letterSpacing: '-0.02em', color: 'rgba(255,255,255,0.9)', fontVariantNumeric: 'tabular-nums' }}
+          >
+            {m.value}
+            <span style={{ fontSize: '22px', color: 'rgba(255,255,255,0.3)' }}>{m.unit}</span>
+          </div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.05em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            {m.label}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Activity feed section ─────────────────────────────────────────────────────
+
+const FEED_ROWS = [
+  { ts: '14:32', who: 'ana', action: 'movió', obj: 'AET-240', tail: 'a In Review' },
+  { ts: '14:31', who: 'rafa', action: 'comentó en', obj: 'AET-237', tail: '' },
+  { ts: '14:29', who: 'sofi', action: 'publicó RFC', obj: 'AET-231', tail: '' },
+  { ts: '14:27', who: 'ci-bot', action: 'cerró', obj: 'AET-226', tail: 'vía deploy' },
+  { ts: '14:24', who: 'jl', action: 'asignó', obj: 'AET-233', tail: 'a rafa' },
+  { ts: '14:20', who: 'ana', action: 'editó', obj: 'doc/arquitectura', tail: '' },
+];
+
+function ActivitySection() {
+  const t = useT();
+
+  return (
+    <section className="py-16 px-4 md:px-8" id="activity">
+      <div className="max-w-[1240px] mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-20 items-center">
+          {/* Feed mock */}
+          <motion.div
+            initial={{ opacity: 0, x: -16 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55 }}
+            className="rounded-xl overflow-hidden"
+            style={{ background: 'hsl(0 0% 13%)', border: '1px solid rgba(255,255,255,0.14)' }}
+          >
+            <div
+              className="flex items-center justify-between px-5 py-3.5 font-mono text-[11px] uppercase tracking-[0.05em]"
+              style={{
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                background: 'hsl(0 0% 10%)',
+                color: 'rgba(255,255,255,0.4)',
+              }}
+            >
+              <span>ACTIVIDAD · platform-team</span>
+              <span style={{ color: '#22c55e' }}>EN VIVO ●</span>
+            </div>
+            {FEED_ROWS.map((row, i) => (
+              <div
+                key={i}
+                className="flex gap-3.5 items-start px-5 py-3 text-[13px]"
+                style={{
+                  borderBottom: i < FEED_ROWS.length - 1 ? '1px solid rgba(255,255,255,0.06)' : undefined,
+                }}
+              >
+                <span className="font-mono text-[11px] pt-0.5 min-w-[42px]" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                  {row.ts}
+                </span>
+                <div style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.88)' }}>{row.who}</span>
+                  {' '}{row.action}{' '}
+                  <span
+                    className="font-mono text-[12px] px-1.5 py-0.5 rounded"
+                    style={{ color: '#93c5fd', background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}
+                  >
+                    {row.obj}
+                  </span>
+                  {row.tail && <> {row.tail}</>}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Text */}
+          <motion.div
+            initial={{ opacity: 0, x: 16 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55, delay: 0.1 }}
+          >
+            <div
+              className="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.1em] mb-4"
+              style={{ color: '#3b82f6' }}
+            >
+              <span className="w-5 h-px" style={{ background: '#3b82f6', opacity: 0.6 }} />
+              {t.home_activity_label}
+            </div>
+            <h2
+              className="font-bold leading-[1.08] mb-5 max-w-[540px]"
+              style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', letterSpacing: '-0.025em', color: 'rgba(255,255,255,0.95)' }}
+            >
+              {t.home_activity_title}
+            </h2>
+            <p className="text-[17px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.48)', maxWidth: '480px' }}>
+              {t.home_activity_sub}
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── CTA box ───────────────────────────────────────────────────────────────────
+
+function CtaBox() {
+  const isAuthenticated = useIsAuthenticated();
+  const t = useT();
+
+  return (
+    <section className="py-20 px-4 md:px-8" id="signup">
+      <div className="max-w-[1240px] mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="mb-8 md:mb-20"
+          transition={{ duration: 0.55 }}
+          className="relative text-center rounded-2xl overflow-hidden px-12 py-16"
+          style={{
+            background: 'radial-gradient(ellipse 80% 70% at 50% 0%, rgba(59,130,246,0.22), transparent 70%), hsl(0 0% 11%)',
+            border: '1px solid rgba(59,130,246,0.25)',
+          }}
         >
-          <h2 className="text-2xl md:text-5xl font-bold text-text-primary leading-tight">
-            {t.home_showcase_heading}
-          </h2>
-        </motion.div>
-
-        {/* MOBILE: Card carousel */}
-        <div className="md:hidden">
-          <motion.div
-            key={activeModule}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-surface/50 border border-border rounded-lg p-5 mb-4"
+          {/* Top glow line */}
+          <span
+            className="absolute top-0 left-1/2 -translate-x-1/2 h-px"
+            style={{ width: '280px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.9), transparent)' }}
+          />
+          <h2
+            className="font-bold mb-3.5 mx-auto"
+            style={{
+              fontSize: 'clamp(26px, 3.5vw, 42px)',
+              letterSpacing: '-0.025em',
+              color: 'rgba(255,255,255,0.95)',
+              maxWidth: '680px',
+            }}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="text-4xl font-bold text-accent/20 font-mono">
-                {modules[activeModule].id}
-              </div>
-              <div className="text-xs text-text-muted">
-                {activeModule + 1} / {modules.length}
-              </div>
-            </div>
-
-            <h3 className="text-xl font-bold text-text-primary mb-1">
-              {modules[activeModule].name}
-            </h3>
-            <p className="text-xs text-accent italic mb-3">{modules[activeModule].tagline}</p>
-            <p className="text-text-secondary text-sm leading-relaxed mb-4">
-              {modules[activeModule].description}
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              {modules[activeModule].indicators.map((ind) => (
-                <span
-                  key={ind}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent/10 border border-accent/30 rounded-full text-[10px] text-accent font-medium"
+            {t.home_cta_title}
+          </h2>
+          <p className="text-[17px] mb-7 mx-auto" style={{ color: 'rgba(255,255,255,0.48)', maxWidth: '460px' }}>
+            {t.home_cta_sub}
+          </p>
+          <div className="flex items-center justify-center gap-2.5 flex-wrap">
+            {isAuthenticated ? (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center font-medium text-white text-[15px] px-5 py-3 rounded-[10px] transition-all hover:-translate-y-px"
+                style={{
+                  background: '#3b82f6',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.2) inset, 0 10px 28px -6px rgba(59,130,246,0.7)',
+                }}
+              >
+                {t.home_hero_cta_dashboard}
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center font-medium text-white text-[15px] px-5 py-3 rounded-[10px] transition-all hover:-translate-y-px"
+                  style={{
+                    background: '#3b82f6',
+                    boxShadow: '0 1px 0 rgba(255,255,255,0.2) inset, 0 10px 28px -6px rgba(59,130,246,0.7)',
+                  }}
                 >
-                  <span>→</span>
-                  {ind}
-                </span>
-              ))}
-            </div>
-          </motion.div>
-
-          <div className="flex items-center justify-center gap-2 mb-4">
-            {modules.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveModule(i)}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === activeModule ? 'w-6 bg-accent' : 'w-1.5 bg-border'
-                }`}
-                aria-label={`Module ${i + 1}`}
-              />
-            ))}
+                  {t.home_cta_primary}
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center text-[15px] font-medium px-5 py-3 rounded-[10px] transition-all"
+                  style={{
+                    color: 'rgba(255,255,255,0.8)',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                  }}
+                >
+                  {t.home_cta_secondary}
+                </Link>
+              </>
+            )}
           </div>
-
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <button
-              onClick={() => setActiveModule((prev) => (prev > 0 ? prev - 1 : modules.length - 1))}
-              className="px-4 py-2 border border-border rounded-lg text-sm text-text-secondary hover:border-accent/50 hover:text-accent transition-all active:scale-95"
-            >
-              {t.home_showcase_prev}
-            </button>
-            <button
-              onClick={() => setActiveModule((prev) => (prev < modules.length - 1 ? prev + 1 : 0))}
-              className="px-4 py-2 bg-accent/10 border border-accent/30 rounded-lg text-sm text-accent hover:bg-accent/20 transition-all active:scale-95"
-            >
-              {t.home_showcase_next}
-            </button>
-          </div>
-        </div>
-
-        {/* DESKTOP: List view */}
-        <div className="space-y-2 hidden md:block">
-          {modules.map((mod, i) => (
-            <motion.div
-              key={mod.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.08 }}
-              className="group border border-border hover:border-accent/40 rounded bg-background hover:bg-surface/40 transition-all duration-300"
-            >
-              <div className="flex items-start gap-6 p-8">
-                <div className="shrink-0">
-                  <span className="font-mono text-4xl font-bold text-border group-hover:text-accent/30 transition-colors duration-300 select-none">
-                    {mod.id}
-                  </span>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-4 mb-3">
-                    <h3 className="text-xl font-bold text-text-primary group-hover:text-accent transition-colors duration-200">
-                      {mod.name}
-                    </h3>
-                    <p className="text-sm text-text-secondary italic">{mod.tagline}</p>
-                  </div>
-                  <p className="text-text-secondary text-sm leading-relaxed mb-5">
-                    {mod.description}
-                  </p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {mod.indicators.map((ind) => (
-                      <span
-                        key={ind}
-                        className="inline-flex items-center gap-1.5 text-[11px] text-text-muted border border-border rounded px-2.5 py-1 group-hover:border-accent/20 group-hover:text-accent/70 transition-all duration-300"
-                      >
-                        <span className="text-accent/50">→</span>
-                        {ind}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center self-center shrink-0 text-border group-hover:text-accent/40 transition-colors duration-300">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        </motion.div>
       </div>
     </section>
+  );
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+export function ShowcaseSection() {
+  return (
+    <>
+      <div className="max-w-[1240px] mx-auto px-4 md:px-8">
+        <MetricsStrip />
+      </div>
+      <ActivitySection />
+      <CtaBox />
+    </>
   );
 }

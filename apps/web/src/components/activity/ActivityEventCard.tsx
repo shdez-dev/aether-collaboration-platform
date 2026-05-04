@@ -1278,6 +1278,99 @@ function organizeEventDetails(
     }
   }
 
+  // Eventos de Proyecto
+  if (eventType.startsWith('project.')) {
+    if (eventType === 'project.status.changed') {
+      if (payload.oldStatus && payload.newStatus) {
+        sections.push({
+          title: 'Cambio de estado',
+          items: [{
+            label: 'Estado',
+            value: '',
+            type: 'change' as const,
+            oldValue: formatValue('status', payload.oldStatus),
+            newValue: formatValue('status', payload.newStatus),
+          }],
+        });
+      }
+      return sections.length > 0 ? { sections } : null;
+    }
+
+    if (eventType === 'project.board.assigned' || eventType === 'project.board.removed') {
+      const items = [];
+      if (payload.boardName) {
+        items.push({ label: 'Board', value: payload.boardName, type: 'info' as const });
+      }
+      if (payload.projectName) {
+        items.push({ label: 'Proyecto', value: payload.projectName, type: 'info' as const });
+      }
+      if (items.length > 0) {
+        sections.push({
+          title: eventType === 'project.board.assigned' ? 'Board asignado' : 'Board quitado',
+          items,
+        });
+      }
+      return sections.length > 0 ? { sections } : null;
+    }
+
+    if (eventType === 'project.milestone.created' || eventType === 'project.milestone.completed') {
+      const items = [];
+      if (payload.milestoneName) {
+        items.push({ label: 'Hito', value: payload.milestoneName, type: 'info' as const });
+      }
+      if (payload.milestoneDate) {
+        items.push({ label: 'Fecha', value: formatValue('milestoneDate', payload.milestoneDate), type: 'date' as const });
+      }
+      if (payload.projectName) {
+        items.push({ label: 'Proyecto', value: payload.projectName, type: 'info' as const });
+      }
+      if (items.length > 0) {
+        sections.push({
+          title: eventType === 'project.milestone.created' ? 'Nuevo hito' : 'Hito alcanzado',
+          items,
+        });
+      }
+      return sections.length > 0 ? { sections } : null;
+    }
+  }
+
+  // Eventos de Equipo
+  if (eventType.startsWith('team.')) {
+    if (eventType === 'team.member.added' || eventType === 'team.member.removed') {
+      const items = [];
+      if (payload.memberName) {
+        items.push({ label: 'Miembro', value: payload.memberName, type: 'user' as const });
+      }
+      if (payload.teamName) {
+        items.push({ label: 'Equipo', value: payload.teamName, type: 'info' as const });
+      }
+      if (items.length > 0) {
+        sections.push({
+          title: eventType === 'team.member.added' ? 'Miembro añadido' : 'Miembro quitado',
+          items,
+        });
+      }
+      return sections.length > 0 ? { sections } : null;
+    }
+
+    if (eventType === 'team.member.roleChanged') {
+      const items = [];
+      if (payload.memberName) {
+        items.push({ label: 'Miembro', value: payload.memberName, type: 'user' as const });
+      }
+      if (payload.newRole) {
+        items.push({ label: 'Nuevo rol', value: formatValue('role', payload.newRole), type: 'info' as const });
+      }
+      if (payload.teamName) {
+        items.push({ label: 'Equipo', value: payload.teamName, type: 'info' as const });
+      }
+      if (items.length > 0) {
+        sections.push({ title: 'Cambio de rol', items });
+      }
+      return sections.length > 0 ? { sections } : null;
+    }
+  }
+
   return sections.length > 0 ? { sections } : null;
 }
 
@@ -1416,6 +1509,32 @@ function formatFieldName(key: string): string {
   return translations[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
 }
 
+const C = {
+  bg2:     '#0f1217',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  amber:   '#f59e0b',
+  red:     '#ef4444',
+  purple:  '#a855f7',
+};
+
+// Map getEventColor string class → actual token color
+function resolveEventColor(colorClass: string): string {
+  if (colorClass.includes('green')) return C.green;
+  if (colorClass.includes('blue')) return C.accent;
+  if (colorClass.includes('red')) return C.red;
+  if (colorClass.includes('amber') || colorClass.includes('yellow')) return C.amber;
+  if (colorClass.includes('purple')) return C.purple;
+  return C.text3;
+}
+
 export function ActivityEventCard({ event }: ActivityEventCardProps) {
   const [showPayload, setShowPayload] = useState(false);
   const t = useT();
@@ -1424,16 +1543,41 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
   const avatarUrl = getAvatarUrl(event.userAvatar);
   const description = getEventDescription(event, t);
   const colorClass = getEventColor(event.eventType);
+  const iconColor = resolveEventColor(colorClass);
 
   return (
-    <div className="bg-card border border-border rounded-terminal p-4 hover:bg-accent/5 transition-colors">
+    <div
+      style={{
+        background: showPayload ? C.hover : C.surface,
+        border: `1px solid ${C.border}`,
+        borderRadius: '8px',
+        padding: '12px 14px',
+        transition: 'background 0.15s',
+        cursor: 'default',
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = C.hover; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = showPayload ? C.hover : C.surface; }}
+    >
       <div className="flex items-start gap-3">
         {/* Avatar */}
-        <Avatar className="h-10 w-10 flex-shrink-0">
+        <Avatar className="flex-shrink-0" style={{ width: '32px', height: '32px' }}>
           {avatarUrl && (
             <AvatarImage src={avatarUrl} alt={event.userName} crossOrigin="anonymous" />
           )}
-          <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+          <AvatarFallback
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`,
+              color: '#fff',
+              fontSize: '11px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             {getInitials(event.userName)}
           </AvatarFallback>
         </Avatar>
@@ -1441,32 +1585,35 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-2">
-            {/* Icon */}
-            <div className={`mt-0.5 ${colorClass}`}>
-              <Icon className="h-4 w-4" />
+            {/* Event icon */}
+            <div style={{ marginTop: '2px', color: iconColor, flexShrink: 0 }}>
+              <Icon style={{ width: '13px', height: '13px' }} />
             </div>
 
             {/* Description */}
             <div className="flex-1 min-w-0">
-              <p className="text-text-primary text-sm">
-                <span className="font-medium">{event.userName}</span>{' '}
-                <span className="text-text-secondary">{description}</span>
+              <p style={{ fontSize: '13px', color: C.text, lineHeight: '1.4' }}>
+                <span style={{ fontWeight: 600 }}>{event.userName}</span>{' '}
+                <span style={{ color: C.text3 }}>{description}</span>
               </p>
 
-              {/* Context info */}
-              <div className="flex items-center gap-2 mt-1 text-xs text-text-muted flex-wrap">
+              {/* Info row */}
+              <div
+                className="flex items-center gap-2 mt-1 flex-wrap"
+                style={{ fontSize: '11px', color: C.text4 }}
+              >
                 <span>{formatRelativeTime(event.createdAt, t)}</span>
 
                 {event.boardName && (
                   <>
-                    <span>•</span>
+                    <span>·</span>
                     <span>Board: {event.boardName}</span>
                   </>
                 )}
 
                 {event.workspaceName && (
                   <>
-                    <span>•</span>
+                    <span>·</span>
                     <span>Workspace: {event.workspaceName}</span>
                   </>
                 )}
@@ -1480,69 +1627,121 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
                     <>
                       <button
                         onClick={() => setShowPayload(!showPayload)}
-                        className="mt-2 flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors"
+                        className="flex items-center gap-1 mt-2"
+                        style={{
+                          fontSize: '11px',
+                          color: C.text4,
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: 0,
+                          transition: 'color 0.15s',
+                        }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = C.text3; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = C.text4; }}
                       >
                         {showPayload ? (
-                          <ChevronUp className="h-3 w-3" />
+                          <ChevronUp style={{ width: '11px', height: '11px' }} />
                         ) : (
-                          <ChevronDown className="h-3 w-3" />
+                          <ChevronDown style={{ width: '11px', height: '11px' }} />
                         )}
                         {showPayload ? 'Ocultar' : 'Ver'} detalles
                       </button>
 
-                      {/* Payload */}
+                      {/* Expanded details panel */}
                       {showPayload && (
-                        <div className="mt-2 p-3 bg-surface rounded-terminal border border-border space-y-3">
+                        <div
+                          className="mt-2 space-y-3"
+                          style={{
+                            background: C.bg2,
+                            border: `1px solid ${C.border}`,
+                            borderRadius: '6px',
+                            padding: '10px 12px',
+                          }}
+                        >
                           {relevantInfo.sections.map((section, sectionIdx) => (
                             <div key={sectionIdx}>
-                              <p className="text-xs text-text-muted mb-2 font-medium">
+                              <p
+                                className="mb-2"
+                                style={{ fontSize: '10px', fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                              >
                                 {section.title}
                               </p>
                               <dl className="space-y-2">
                                 {section.items.map((item, itemIdx) => (
                                   <div
                                     key={itemIdx}
-                                    className="flex flex-col gap-1 text-xs border-b border-border/50 pb-2 last:border-b-0 last:pb-0"
+                                    className="flex flex-col gap-1"
+                                    style={{
+                                      fontSize: '12px',
+                                      paddingBottom: itemIdx < section.items.length - 1 ? '8px' : '0',
+                                      borderBottom: itemIdx < section.items.length - 1 ? `1px solid ${C.border}` : 'none',
+                                    }}
                                   >
                                     {item.type === 'change' ? (
-                                      // Mostrar cambios de "antes → después" de forma visual
+                                      // Diff-style: - old value / + new value
                                       <>
-                                        <dt className="font-medium text-text-secondary">
+                                        <dt style={{ fontWeight: 500, color: C.text3 }}>
                                           {item.label}
                                         </dt>
                                         <dd className="space-y-1">
                                           <div className="flex items-start gap-2">
-                                            <span className="text-red-500 font-mono text-[10px] mt-0.5">
+                                            <span
+                                              style={{
+                                                color: C.red,
+                                                fontFamily: 'monospace',
+                                                fontSize: '10px',
+                                                marginTop: '1px',
+                                                userSelect: 'none',
+                                              }}
+                                            >
                                               -
                                             </span>
-                                            <span className="text-text-muted line-through flex-1 break-words">
+                                            <span
+                                              className="flex-1 break-words"
+                                              style={{ color: C.text3, textDecoration: 'line-through' }}
+                                            >
                                               {item.oldValue}
                                             </span>
                                           </div>
                                           <div className="flex items-start gap-2">
-                                            <span className="text-green-500 font-mono text-[10px] mt-0.5">
+                                            <span
+                                              style={{
+                                                color: C.green,
+                                                fontFamily: 'monospace',
+                                                fontSize: '10px',
+                                                marginTop: '1px',
+                                                userSelect: 'none',
+                                              }}
+                                            >
                                               +
                                             </span>
-                                            <span className="text-text-primary font-medium flex-1 break-words">
+                                            <span
+                                              className="flex-1 break-words"
+                                              style={{ color: C.text, fontWeight: 500 }}
+                                            >
                                               {item.newValue}
                                             </span>
                                           </div>
                                         </dd>
                                       </>
                                     ) : (
-                                      // Mostrar información simple
+                                      // Simple info: label + value
                                       <>
-                                        <dt className="font-medium text-text-secondary">
+                                        <dt style={{ fontWeight: 500, color: C.text3 }}>
                                           {item.label}
                                         </dt>
                                         <dd
-                                          className={`flex-1 break-words ${
-                                            item.type === 'user'
-                                              ? 'text-blue-500 font-medium'
-                                              : item.type === 'date'
-                                                ? 'text-purple-500'
-                                                : 'text-text-primary'
-                                          }`}
+                                          className="flex-1 break-words"
+                                          style={{
+                                            color:
+                                              item.type === 'user'
+                                                ? C.accent
+                                                : item.type === 'date'
+                                                  ? C.purple
+                                                  : C.text2,
+                                            fontWeight: item.type === 'user' ? 500 : 400,
+                                          }}
                                         >
                                           {item.value}
                                         </dd>

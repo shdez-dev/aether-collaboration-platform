@@ -80,6 +80,9 @@ const envSchema = z.object({
   R2_BUCKET_NAME: z.string().min(1, 'R2_BUCKET_NAME is required'),
   R2_PUBLIC_URL: z.string().url('R2_PUBLIC_URL must be a valid URL'),
 
+  // Groq AI
+  GROQ_API_KEY: z.string().optional().default(''),
+
   // Email - Brevo
   BREVO_API_KEY: z
     .string()

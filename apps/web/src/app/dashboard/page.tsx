@@ -1,56 +1,39 @@
-// apps/web/src/app/dashboard/page.tsx
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { socketService } from '@/services/socketService';
 import { apiService } from '@/services/apiService';
-import {
-  Loader2,
-  Calendar,
-  CheckCircle2,
-  Layout,
-  ArrowRight,
-  Activity,
-  ExternalLink,
-} from 'lucide-react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
+import { AlertTriangle, CheckCircle2, Clock, Users, Send, ExternalLink } from 'lucide-react';
 import { useT } from '@/lib/i18n';
-import { getEventIcon } from '@/lib/utils/activityLog';
 
-// Estructura real que devuelve GET /api/users/me/activity
-interface RawActivityEvent {
-  id: string;
-  type: string;
-  payload: Record<string, any>;
-  timestamp: string;
-  createdBy: string;
-}
+// ── Color tokens ──────────────────────────────────────────────────────────────
+const C = {
+  bg:      '#0b0d10',
+  bg2:     '#0f1217',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  amber:   '#f59e0b',
+  red:     '#ef4444',
+};
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
-
-interface DashboardStats {
-  workspaceCount: number;
-  activeBoardCount: number;
-  totalCardCount: number;
-  totalMemberCount: number;
-}
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface UserCard {
   id: string;
   title: string;
-  description: string | null;
   dueDate: string | null;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | null;
-  position: number;
   completed: boolean;
-  completedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  listId: string;
   listName: string;
   boardId: string;
   boardName: string;
@@ -58,1015 +41,467 @@ interface UserCard {
   workspaceName: string;
 }
 
-interface CardsResponse {
-  pending: UserCard[];
-  overdue: UserCard[];
-  completed: UserCard[];
+interface Teammate {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+  totalCards: number;
+  overdueCards: number;
+  completedThisWeek: number;
+  lastActivity: string | null;
 }
 
-interface RecentBoard {
-  boardId: string;
-  boardName: string;
-  workspaceId: string;
-  workspaceName: string;
-  cardCount: number;
-  overdueCount: number;
-  workspaceColor?: string;
+interface TeamStandup {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string | null;
+  todayItems: { id: string; text: string }[];
+  blockers: { id: string; text: string }[];
+  publishedAt: string;
 }
 
-// ─── Animación helpers ────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.06, duration: 0.35, ease: 'easeOut' },
-  }),
-};
+function timeAgo(date: string | null | undefined, t: Record<string, any>): string {
+  if (!date) return '';
+  const diff = Date.now() - new Date(date).getTime();
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  const d = Math.floor(diff / 86400000);
+  if (m < 1)   return t.activity_time_just_now;
+  if (m < 60)  return t.activity_time_minutes(m);
+  if (h < 24)  return t.activity_time_hours(h);
+  if (d < 30)  return t.activity_time_days(d);
+  return t.activity_time_days(Math.floor(d / 30) * 30);
+}
 
-const staggerList = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
-};
+function greeting(name: string, t: ReturnType<typeof useT>): string {
+  const h = new Date().getHours();
+  const firstName = name.split(' ')[0];
+  if (h < 12) return `${t.dashboard_greeting_morning}, ${firstName}.`;
+  if (h < 19) return `${t.dashboard_greeting_afternoon}, ${firstName}.`;
+  return `${t.dashboard_greeting_evening}, ${firstName}.`;
+}
 
-const itemFade = {
-  hidden: { opacity: 0, x: -8 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.25 } },
-};
+function dueSoon(dueDate: string | null): boolean {
+  if (!dueDate) return false;
+  const d = Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000);
+  return d >= 0 && d <= 2;
+}
 
-// ─── Componente principal ─────────────────────────────────────────────────────
+const AVATAR_PALETTE = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#fb923c'];
+function hashColor(str: string): string {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
+}
 
-export default function DashboardPage() {
-  const t = useT();
-  const router = useRouter();
-  const { user } = useAuthStore();
-  const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+function MiniAvatar({ name, size = 24 }: { name: string; size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: hashColor(name),
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size < 28 ? '10px' : '12px', fontWeight: 700, color: '#fff', flexShrink: 0,
+    }}>
+      {name.trim()[0]?.toUpperCase() ?? '?'}
+    </div>
+  );
+}
 
-  const [stats, setStats] = useState<DashboardStats>({
-    workspaceCount: 0,
-    activeBoardCount: 0,
-    totalCardCount: 0,
-    totalMemberCount: 0,
-  });
+// ── Card item row ─────────────────────────────────────────────────────────────
 
-  const [userCards, setUserCards] = useState<CardsResponse>({
-    pending: [],
-    overdue: [],
-    completed: [],
-  });
-
-  const [activityFeed, setActivityFeed] = useState<RawActivityEvent[]>([]);
-  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentDate, setCurrentDate] = useState('');
-  const [activeTab, setActiveTab] = useState<'pending' | 'overdue' | 'completed'>('pending');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  const isRefreshingRef = useRef(false);
-
-  // ─── Fetch helpers ───────────────────────────────────────────────────────
-
-  const fetchDashboardStats = useCallback(async () => {
-    try {
-      const response = await apiService.get<DashboardStats>('/api/users/me/stats', true);
-      if (response.success && response.data) {
-        setStats(response.data);
-      }
-    } catch {}
-  }, []);
-
-  const fetchUserCards = useCallback(async () => {
-    if (isRefreshingRef.current) return;
-    try {
-      isRefreshingRef.current = true;
-      const response = await apiService.get<CardsResponse>('/api/users/me/cards', true);
-      if (response.success && response.data) {
-        setUserCards({
-          pending: response.data.pending || [],
-          overdue: response.data.overdue || [],
-          completed: response.data.completed || [],
-        });
-      }
-    } catch {
-    } finally {
-      isRefreshingRef.current = false;
-    }
-  }, []);
-
-  const fetchActivityFeed = useCallback(async () => {
-    setIsLoadingActivity(true);
-    try {
-      const response = await apiService.get<RawActivityEvent[] | { events: RawActivityEvent[] }>(
-        '/api/users/me/activity',
-        true
-      );
-      if (response.success && response.data) {
-        const rawEvents: RawActivityEvent[] = Array.isArray(response.data)
-          ? response.data
-          : (response.data as any).events ?? [];
-        setActivityFeed(rawEvents.slice(0, 12));
-      }
-    } catch {
-    } finally {
-      setIsLoadingActivity(false);
-    }
-  }, []);
-
-  // ─── Boards recientes (derivados de las cards del usuario) ───────────────
-
-  const recentBoards = useCallback((): RecentBoard[] => {
-    const boardMap = new Map<string, RecentBoard>();
-
-    const allCards = [...userCards.pending, ...userCards.overdue, ...userCards.completed];
-    allCards.forEach((card) => {
-      if (!boardMap.has(card.boardId)) {
-        // Intentar obtener el color del workspace desde el store
-        const ws = workspaces.find((w) => w.id === card.workspaceId);
-        boardMap.set(card.boardId, {
-          boardId: card.boardId,
-          boardName: card.boardName,
-          workspaceId: card.workspaceId,
-          workspaceName: card.workspaceName,
-          cardCount: 0,
-          overdueCount: 0,
-          workspaceColor: ws?.color,
-        });
-      }
-      const entry = boardMap.get(card.boardId)!;
-      if (!card.completed) entry.cardCount++;
-      if (userCards.overdue.some((c) => c.id === card.id)) entry.overdueCount++;
-    });
-
-    return Array.from(boardMap.values()).slice(0, 6);
-  }, [userCards, workspaces]);
-
-  // ─── Helpers de actividad ────────────────────────────────────────────────
-
-  /** Tiempo relativo localizado usando las claves i18n del dashboard */
-  const getRelativeTime = (timestamp: string): string => {
-    const now = new Date();
-    const date = new Date(timestamp);
-    const diffMs = now.getTime() - date.getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHour = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHour / 24);
-
-    if (diffSec < 60) return t.dashboard_activity_just_now;
-    if (diffMin < 60) return t.dashboard_activity_minutes_ago(diffMin);
-    if (diffHour < 24) return t.dashboard_activity_hours_ago(diffHour);
-    return t.dashboard_activity_days_ago(diffDay);
-  };
-
-  /** Descripción legible del evento usando las claves i18n del dashboard */
-  const getActivityText = (event: RawActivityEvent): string => {
-    const p = event.payload ?? {};
-    const name: string = p.title || p.name || p.boardName || p.cardTitle || p.documentTitle || '';
-    const newName: string = p.newTitle || p.newName || '';
-    const who: string =
-      p.inviteeName || p.memberName || p.assignedUserName || p.unassignedUserName || '';
-    const list: string = p.newListName || p.listName || '';
-    const label: string = p.labelName || '';
-    const card: string = p.cardTitle || p.title || '';
-
-    switch (event.type) {
-      // Workspace
-      case 'workspace.created':
-        return t.dashboard_activity_workspace_created(name);
-      case 'workspace.updated':
-        return t.dashboard_activity_workspace_updated(name);
-      case 'workspace.deleted':
-        return t.dashboard_activity_workspace_deleted(name);
-      case 'workspace.member.invited':
-        return t.dashboard_activity_workspace_member_invited(who || '—');
-      case 'workspace.member.joined':
-        return t.dashboard_activity_workspace_member_joined;
-      case 'workspace.member.removed':
-        return t.dashboard_activity_workspace_member_removed(who || '—');
-      case 'workspace.member.roleChanged':
-        return t.dashboard_activity_workspace_member_role_changed(who || '—');
-
-      // Board
-      case 'board.created':
-        return t.dashboard_activity_board_created(name);
-      case 'board.updated':
-        return t.dashboard_activity_board_updated(name);
-      case 'board.deleted':
-        return t.dashboard_activity_board_deleted(name);
-      case 'board.archived':
-        return t.dashboard_activity_board_archived(name);
-      case 'board.unarchived':
-        return t.dashboard_activity_board_unarchived(name);
-      case 'board.renamed':
-        return t.dashboard_activity_board_renamed(name, newName || name);
-      case 'board.description.changed':
-        return t.dashboard_activity_board_updated(name);
-
-      // List
-      case 'list.created':
-        return t.dashboard_activity_list_created(name);
-      case 'list.deleted':
-        return t.dashboard_activity_list_deleted(name);
-      case 'list.renamed':
-        return t.dashboard_activity_list_renamed(name, newName || name);
-      case 'list.updated':
-        return t.dashboard_activity_list_created(name);
-      case 'list.archived':
-        return t.dashboard_activity_list_archived(name);
-
-      // Card
-      case 'card.created':
-        return t.dashboard_activity_card_created(name);
-      case 'card.updated':
-        return t.dashboard_activity_card_updated(name);
-      case 'card.deleted':
-        return t.dashboard_activity_card_deleted(name);
-      case 'card.completed':
-        return t.dashboard_activity_card_completed(name);
-      case 'card.uncompleted':
-        return t.dashboard_activity_card_uncompleted(name);
-      case 'card.moved':
-        return t.dashboard_activity_card_moved(name, list || '—');
-      case 'card.renamed':
-        return t.dashboard_activity_card_renamed(name, newName || name);
-      case 'card.description.changed':
-        return t.dashboard_activity_card_updated(name);
-      case 'card.duedate.set':
-        return t.dashboard_activity_card_due_set(name);
-      case 'card.duedate.changed':
-        return t.dashboard_activity_card_due_changed(name);
-      case 'card.duedate.removed':
-        return t.dashboard_activity_card_due_removed(name);
-      case 'card.priority.changed':
-        return t.dashboard_activity_card_priority_changed(name);
-      case 'card.member.assigned':
-        return t.dashboard_activity_card_member_assigned(who || '—', card);
-      case 'card.member.unassigned':
-        return t.dashboard_activity_card_member_unassigned(who || '—', card);
-      case 'card.label.added':
-        return t.dashboard_activity_card_label_added(label || '—', card);
-      case 'card.label.removed':
-        return t.dashboard_activity_card_label_removed(label || '—', card);
-      case 'card.archived':
-        return t.dashboard_activity_card_archived(name);
-      case 'card.unarchived':
-        return t.dashboard_activity_card_unarchived(name);
-
-      // Comment
-      case 'comment.created':
-      case 'card.comment.added':
-        return t.dashboard_activity_comment_added(card || name);
-      case 'comment.updated':
-      case 'card.comment.updated':
-        return t.dashboard_activity_comment_updated(card || name);
-      case 'comment.deleted':
-      case 'card.comment.deleted':
-        return t.dashboard_activity_comment_deleted(card || name);
-
-      // Document
-      case 'document.created':
-        return t.dashboard_activity_document_created(name);
-      case 'document.updated':
-        return t.dashboard_activity_document_updated(name);
-      case 'document.deleted':
-        return t.dashboard_activity_document_deleted(name);
-      case 'document.title.changed':
-        return t.dashboard_activity_document_renamed(name, newName || name);
-      case 'document.version.created':
-        return t.dashboard_activity_document_version(name);
-      case 'document.exported':
-        return t.dashboard_activity_document_exported(name);
-
-      default:
-        return t.dashboard_activity_unknown;
-    }
-  };
-
-  // ─── Formatters ──────────────────────────────────────────────────────────
-
-  const getPriorityColor = (priority: string | null) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'text-error';
-      case 'MEDIUM':
-        return 'text-warning';
-      case 'LOW':
-        return 'text-success';
-      default:
-        return 'text-text-muted';
-    }
-  };
-
-  const getPriorityBg = (priority: string | null) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'bg-error/10';
-      case 'MEDIUM':
-        return 'bg-warning/10';
-      case 'LOW':
-        return 'bg-success/10';
-      default:
-        return 'bg-surface';
-    }
-  };
-
-  const formatDueDate = (dueDate: string | null) => {
-    if (!dueDate) return null;
-    const date = new Date(dueDate);
-    const now = new Date();
-    const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0)
-      return { text: t.dashboard_due_overdue(Math.abs(diffDays)), color: 'text-error' };
-    if (diffDays === 0) return { text: t.dashboard_due_today, color: 'text-warning' };
-    if (diffDays === 1) return { text: t.dashboard_due_tomorrow, color: 'text-warning' };
-    if (diffDays <= 7)
-      return { text: t.dashboard_due_in_days(diffDays), color: 'text-text-secondary' };
-    return {
-      text: date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
-      color: 'text-text-muted',
-    };
-  };
-
-  const formatCompletedDate = (completedAt: string | null) => {
-    if (!completedAt) return t.dashboard_completed_fallback;
-    const date = new Date(completedAt);
-    const diffDays = Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return t.dashboard_completed_today;
-    if (diffDays === 1) return t.dashboard_completed_yesterday;
-    if (diffDays < 7) return t.dashboard_completed_n_days_ago(diffDays);
-    return t.dashboard_completed_on_date(
-      date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-    );
-  };
-
-  const handleCardClick = (card: UserCard) => {
-    router.push(`/dashboard/workspaces/${card.workspaceId}/boards/${card.boardId}`);
-  };
-
-  // ─── Effects ─────────────────────────────────────────────────────────────
-
-  // Configurar fecha
-  useEffect(() => {
-    const days = t.days_long as readonly string[];
-    const months = t.months_long as readonly string[];
-    const now = new Date();
-    setCurrentDate(`${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`);
-  }, [t]);
-
-  // Cargar datos iniciales
-  useEffect(() => {
-    const loadDashboard = async () => {
-      setIsLoading(true);
-      await Promise.all([fetchDashboardStats(), fetchUserCards(), fetchActivityFeed()]);
-      setIsLoading(false);
-    };
-    loadDashboard();
-    // fetchWorkspaces se omite aquí intencionalmente: los datos persisten
-    // en el store (localStorage) y se recargan en la página de workspaces.
-    // Llamarlo aquí causaba un warning de setState-during-render.
-  }, [fetchDashboardStats, fetchUserCards, fetchActivityFeed]);
-
-  // Listeners de tiempo real
-  useEffect(() => {
-    if (!socketService.isConnected()) return;
-
-    const handleRealtimeEvent = (event: any) => {
-      const extractUserId = (payload: any): string | null =>
-        payload?.member?.userId ||
-        payload?.member?.id ||
-        payload?.memberId ||
-        payload?.userId ||
-        payload?.user?.id ||
-        null;
-
-      const isRelevantForCurrentUser = (): boolean => {
-        const { type, payload } = event;
-        if (type === 'card.member.assigned' || type === 'card.member.unassigned') {
-          return extractUserId(payload) === user?.id;
-        }
-        const cardId = payload?.cardId || payload?.card?.id;
-        if (cardId) {
-          const all = [...userCards.pending, ...userCards.overdue, ...userCards.completed];
-          return all.some((c) => c.id === cardId);
-        }
-        return false;
-      };
-
-      const relevantEvents = [
-        'card.member.assigned',
-        'card.member.unassigned',
-        'card.updated',
-        'card.deleted',
-        'card.completed',
-        'card.uncompleted',
-      ];
-
-      if (relevantEvents.includes(event.type) && isRelevantForCurrentUser()) {
-        setTimeout(() => {
-          fetchDashboardStats();
-          fetchUserCards();
-          fetchActivityFeed();
-        }, 100);
-      }
-    };
-
-    socketService.onEvent(handleRealtimeEvent);
-    return () => {
-      socketService.off('event', handleRealtimeEvent);
-    };
-  }, [user?.id, userCards, fetchDashboardStats, fetchUserCards, fetchActivityFeed]);
-
-  // ─── Loading state ────────────────────────────────────────────────────────
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-text-muted" />
-          <p className="text-sm text-text-muted">{t.dashboard_loading}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Render helpers ───────────────────────────────────────────────────────
-
-  const renderCardList = (cards: UserCard[], type: 'pending' | 'overdue' | 'completed') => {
-    if (cards.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
-            {type === 'completed' ? (
-              <Calendar className="h-8 w-8 text-text-muted" />
-            ) : (
-              <CheckCircle2 className="h-8 w-8 text-success" />
-            )}
-          </div>
-          <h3 className="text-base font-medium text-text-primary mb-1">
-            {type === 'pending' && t.dashboard_empty_pending_title}
-            {type === 'overdue' && t.dashboard_empty_overdue_title}
-            {type === 'completed' && t.dashboard_empty_completed_title}
-          </h3>
-          <p className="text-sm text-text-secondary">
-            {type === 'pending' && t.dashboard_empty_pending_desc}
-            {type === 'overdue' && t.dashboard_empty_overdue_desc}
-            {type === 'completed' && t.dashboard_empty_completed_desc}
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <motion.div variants={staggerList} initial="hidden" animate="visible" className="space-y-3">
-        {cards.map((card) => {
-          const dueInfo = formatDueDate(card.dueDate);
-          const isOverdue = type === 'overdue';
-          const isCompleted = type === 'completed';
-          const completedInfo = isCompleted ? formatCompletedDate(card.completedAt) : null;
-
-          return (
-            <motion.div
-              key={card.id}
-              variants={itemFade}
-              onClick={() => handleCardClick(card)}
-              className={`group p-4 border rounded-lg transition-all cursor-pointer ${
-                isCompleted
-                  ? 'bg-success/5 border-success/30 hover:border-success/50 opacity-75'
-                  : isOverdue
-                    ? 'bg-error/5 border-error/30 hover:border-error/50'
-                    : 'bg-surface border-border hover:border-accent/50 hover:shadow-md'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`w-5 h-5 mt-0.5 rounded border-2 flex-shrink-0 flex items-center justify-center ${
-                    isCompleted
-                      ? 'border-success bg-success'
-                      : isOverdue
-                        ? 'border-error/50'
-                        : 'border-border'
-                  }`}
-                >
-                  {isCompleted && (
-                    <svg
-                      className="w-3 h-3 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={3}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={`text-sm font-medium mb-2 transition-colors ${
-                      isCompleted
-                        ? 'text-text-primary line-through'
-                        : isOverdue
-                          ? 'text-text-primary group-hover:text-error'
-                          : 'text-text-primary group-hover:text-accent'
-                    }`}
-                  >
-                    {card.title}
-                  </p>
-
-                  <div className="flex items-center gap-3 text-xs text-text-muted flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <span>▣</span>
-                      <span>{card.workspaceName}</span>
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <span>▦</span>
-                      <span>{card.boardName}</span>
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <span>▨</span>
-                      <span>{card.listName}</span>
-                    </span>
-
-                    {isCompleted && completedInfo && (
-                      <>
-                        <span>•</span>
-                        <span className="flex items-center gap-1 text-success">
-                          <CheckCircle2 className="h-3 w-3" />
-                          <span>{completedInfo}</span>
-                        </span>
-                      </>
-                    )}
-
-                    {!isCompleted && dueInfo && (
-                      <>
-                        <span>•</span>
-                        <span className={`flex items-center gap-1 ${dueInfo.color}`}>
-                          <Calendar className="h-3 w-3" />
-                          <span>{dueInfo.text}</span>
-                        </span>
-                      </>
-                    )}
-
-                    {card.priority && (
-                      <>
-                        <span>•</span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-xs font-medium ${getPriorityColor(card.priority)} ${getPriorityBg(card.priority)}`}
-                        >
-                          {card.priority}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
-      </motion.div>
-    );
-  };
-
-  const boards = recentBoards();
-
-  // ─── Render principal ─────────────────────────────────────────────────────
+function CardRow({ card, router, t }: { card: UserCard; router: ReturnType<typeof useRouter>; t: Record<string, any> }) {
+  const [hov, setHov] = useState(false);
+  const isOverdue = !card.completed && card.dueDate && new Date(card.dueDate) < new Date();
+  const soon = dueSoon(card.dueDate);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-6 sm:mb-8"
-        >
-          <p className="text-[10px] sm:text-xs text-text-muted mb-1">{currentDate}</p>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-normal mb-1 sm:mb-2">
-            {t.dashboard_greeting_morning}, <span className="text-accent">{user?.name}</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-text-secondary">{t.dashboard_greeting_subtitle}</p>
-        </motion.div>
+    <div
+      onClick={() => router.push(`/dashboard/workspaces/${card.workspaceId}/boards/${card.boardId}`)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '8px 10px', borderRadius: '7px', cursor: 'pointer',
+        background: hov ? C.hover : 'transparent',
+        transition: 'background 0.1s',
+      }}
+    >
+      {/* Priority dot */}
+      <div style={{
+        width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+        background: card.priority === 'HIGH' ? C.red : card.priority === 'MEDIUM' ? C.amber : C.border2,
+      }} />
 
-        {/* Fila de stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          {[
-            {
-              label: t.dashboard_stat_workspaces,
-              value: stats.workspaceCount,
-              icon: '▣',
-              gradient: 'from-accent/20 to-accent/5',
-              border: 'border-accent/30',
-              text: 'text-accent',
-            },
-            {
-              label: t.dashboard_stat_active_boards,
-              value: stats.activeBoardCount,
-              icon: '▦',
-              gradient: 'from-blue-500/20 to-blue-500/5',
-              border: 'border-blue-500/30',
-              text: 'text-blue-400',
-            },
-            {
-              label: t.dashboard_stat_total_cards,
-              value: stats.totalCardCount,
-              icon: '▨',
-              gradient: 'from-purple-500/20 to-purple-500/5',
-              border: 'border-purple-500/30',
-              text: 'text-purple-400',
-            },
-            {
-              label: t.dashboard_stat_collaborators,
-              value: stats.totalMemberCount,
-              icon: '◉',
-              gradient: 'from-emerald-500/20 to-emerald-500/5',
-              border: 'border-emerald-500/30',
-              text: 'text-emerald-400',
-            },
-          ].map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              custom={i}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-              className={`card-terminal border ${stat.border} bg-gradient-to-br ${stat.gradient} relative overflow-hidden`}
-            >
-              <div className="flex items-start justify-between mb-2 sm:mb-3">
-                <span className={`text-xl sm:text-2xl ${stat.text}`}>{stat.icon}</span>
-              </div>
-              <p className={`text-2xl sm:text-3xl font-semibold ${stat.text} tabular-nums`}>
-                {stat.value}
-              </p>
-              <p className="text-[10px] sm:text-xs text-text-muted mt-0.5 sm:mt-1">{stat.label}</p>
-              {/* Decoración de fondo */}
-              <span
-                className={`absolute -right-2 sm:-right-3 -bottom-2 sm:-bottom-3 text-4xl sm:text-6xl opacity-5 ${stat.text} select-none pointer-events-none`}
-              >
-                {stat.icon}
-              </span>
-            </motion.div>
-          ))}
+      {/* Title + context */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '13px', color: C.text, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {card.title}
         </div>
+        <div style={{ fontSize: '11px', color: C.text4, marginTop: '1px' }}>
+          {card.boardName} · {card.workspaceName}
+        </div>
+      </div>
 
-        {/* Layout principal: 3 columnas */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Columna izquierda: Workspaces + Boards recientes */}
-          <div className="space-y-4 sm:space-y-6">
-            {/* Quick access workspaces */}
-            <motion.div
-              custom={0}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-              className="card-terminal"
-            >
-              <h2 className="text-sm sm:text-base font-medium text-text-primary mb-1 sm:mb-2">
-                {t.dashboard_section_workspaces}
-              </h2>
-              <p className="text-[10px] sm:text-xs text-text-muted mb-3 sm:mb-4 uppercase tracking-wide">
-                {t.dashboard_quick_access}
-              </p>
+      {/* Due date */}
+      {card.dueDate && (
+        <div style={{
+          fontSize: '11px', fontWeight: 600, flexShrink: 0,
+          color: isOverdue ? C.red : soon ? C.amber : C.text4,
+        }}>
+          {isOverdue
+            ? t.dashboard_card_overdue_days(Math.abs(Math.ceil((new Date(card.dueDate).getTime() - Date.now()) / 86400000)))
+            : soon
+            ? `${Math.ceil((new Date(card.dueDate).getTime() - Date.now()) / 86400000)}d`
+            : new Date(card.dueDate).toLocaleDateString(t.locale, { day: 'numeric', month: 'short' })
+          }
+        </div>
+      )}
 
-              <button
-                className="w-full h-20 sm:h-24 border-2 border-dashed border-border rounded-terminal hover:border-accent/50 hover:bg-card/50 transition-all flex flex-col items-center justify-center gap-1.5 sm:gap-2 text-text-muted hover:text-accent touch-target"
-                onClick={() => setIsCreateModalOpen(true)}
-              >
-                <span className="text-xl sm:text-2xl">+</span>
-                <span className="text-[10px] sm:text-xs">{t.dashboard_btn_create_workspace}</span>
-              </button>
+      {hov && (
+        <ExternalLink style={{ width: '11px', height: '11px', color: C.text4, flexShrink: 0 }} />
+      )}
+    </div>
+  );
+}
 
-              <div className="mt-3 sm:mt-4">
-                <button
-                  onClick={() => router.push('/dashboard/workspaces')}
-                  className="w-full py-2 text-[10px] sm:text-xs text-text-secondary hover:text-accent transition-colors touch-target"
-                >
-                  {t.dashboard_btn_view_all_workspaces}
-                </button>
-              </div>
-            </motion.div>
+// ── Section label ─────────────────────────────────────────────────────────────
 
-            {/* Boards recientes */}
-            {boards.length > 0 && (
-              <motion.div
-                custom={1}
-                variants={fadeUp}
-                initial="hidden"
-                animate="visible"
-                className="card-terminal"
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 flex items-center justify-center">
-                    <Layout className="h-4 w-4 text-purple-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-text-primary">
-                      {t.dashboard_recent_boards_title}
-                    </h2>
-                    <p className="text-xs text-text-muted">{t.dashboard_recent_boards_subtitle}</p>
-                  </div>
-                </div>
+function SectionLabel({ children, count }: { children: React.ReactNode; count?: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 10px', marginBottom: '4px' }}>
+      <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text4 }}>
+        {children}
+      </span>
+      {count !== undefined && (
+        <span style={{ fontSize: '10px', color: C.text4 }}>({count})</span>
+      )}
+    </div>
+  );
+}
 
-                <div className="space-y-2">
-                  {boards.map((board, i) => {
-                    // Color del workspace o fallback
-                    const accentColor = board.workspaceColor || '#6366f1';
-                    return (
-                      <motion.button
-                        key={board.boardId}
-                        custom={i}
-                        variants={fadeUp}
-                        initial="hidden"
-                        animate="visible"
-                        onClick={() =>
-                          router.push(
-                            `/dashboard/workspaces/${board.workspaceId}/boards/${board.boardId}`
-                          )
-                        }
-                        className="w-full group flex items-center gap-3 p-3 rounded-lg border border-border hover:border-accent/40 hover:bg-surface/60 transition-all text-left"
-                      >
-                        {/* Indicador de color */}
-                        <div
-                          className="w-1.5 h-8 rounded-full flex-shrink-0 transition-all group-hover:h-10"
-                          style={{ backgroundColor: accentColor }}
-                        />
+// ── Page ──────────────────────────────────────────────────────────────────────
 
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-text-primary group-hover:text-accent transition-colors truncate">
-                            {board.boardName}
-                          </p>
-                          <p className="text-xs text-text-muted truncate">{board.workspaceName}</p>
-                        </div>
+export default function DashboardPage() {
+  const router   = useRouter();
+  const { user } = useAuthStore();
+  const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const t = useT();
 
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {board.overdueCount > 0 && (
-                            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-error/10 text-error">
-                              {board.overdueCount}
-                            </span>
-                          )}
-                          {board.cardCount > 0 && (
-                            <span className="text-xs text-text-muted">{board.cardCount}</span>
-                          )}
-                          <ExternalLink className="h-3 w-3 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
+  // Cards
+  const [overdue,  setOverdue]  = useState<UserCard[]>([]);
+  const [today,    setToday]    = useState<UserCard[]>([]);
+  const [upcoming, setUpcoming] = useState<UserCard[]>([]);
+  const [noDate,   setNoDate]   = useState<UserCard[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(true);
+
+  // Team
+  const [teammates,     setTeammates]     = useState<Teammate[]>([]);
+  const [teamStandups,  setTeamStandups]  = useState<TeamStandup[]>([]);
+  const [teamLoading,   setTeamLoading]   = useState(true);
+
+  // My standup
+  const [standupText,    setStandupText]    = useState('');
+  const [standupPublished, setStandupPublished] = useState(false);
+  const [standupSaving,  setStandupSaving]  = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // First workspace for standup API
+  const firstWsId = workspaces[0]?.id ?? null;
+
+  // ── Fetch data ──────────────────────────────────────────────────────────────
+
+  useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
+
+  useEffect(() => {
+    setCardsLoading(true);
+    apiService.get<{ pending: UserCard[]; overdue: UserCard[] }>('/api/users/me/cards', true)
+      .then((res) => {
+        if (!res.success || !res.data) return;
+        const { pending = [], overdue: ov = [] } = res.data;
+
+        const now = new Date();
+        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+        const weekEnd  = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
+
+        const todayCards    = pending.filter((c) => c.dueDate && new Date(c.dueDate) <= todayEnd);
+        const upcomingCards = pending.filter((c) => c.dueDate && new Date(c.dueDate) > todayEnd && new Date(c.dueDate) <= weekEnd);
+        const noDateCards   = pending.filter((c) => !c.dueDate);
+
+        setOverdue(ov);
+        setToday(todayCards);
+        setUpcoming(upcomingCards);
+        setNoDate(noDateCards);
+      })
+      .finally(() => setCardsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setTeamLoading(true);
+    Promise.all([
+      apiService.get<{ teammates: Teammate[] }>('/api/users/me/teammates', true),
+      apiService.get<{ standups: TeamStandup[] }>('/api/users/me/team-standups', true),
+    ]).then(([tmRes, sdRes]) => {
+      if (tmRes.success && tmRes.data) setTeammates(tmRes.data.teammates);
+      if (sdRes.success && sdRes.data) setTeamStandups(sdRes.data.standups);
+    }).finally(() => setTeamLoading(false));
+  }, []);
+
+  // Load my standup
+  useEffect(() => {
+    if (!firstWsId) return;
+    apiService.get<{ todayItems: { text: string }[]; publishedAt: string | null }>(
+      `/api/users/me/standup?workspaceId=${firstWsId}`, true
+    ).then((res) => {
+      if (res.success && res.data) {
+        const text = (res.data.todayItems ?? []).map((i) => i.text).join(', ');
+        setStandupText(text);
+        setStandupPublished(!!res.data.publishedAt);
+      }
+    });
+  }, [firstWsId]);
+
+  // Autosave standup con debounce
+  const saveStandup = useCallback((text: string) => {
+    if (!firstWsId || !text.trim()) return;
+    setStandupSaving(true);
+    apiService.put('/api/users/me/standup', {
+      workspaceId:   firstWsId,
+      todayItems:    [{ text }],
+      yesterdayItems: [],
+      blockers:      [],
+    }, true).finally(() => setStandupSaving(false));
+  }, [firstWsId]);
+
+  function handleStandupChange(val: string) {
+    setStandupText(val);
+    setStandupPublished(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => saveStandup(val), 1200);
+  }
+
+  async function publishStandup() {
+    if (!firstWsId || !standupText.trim()) return;
+    await saveStandup(standupText);
+    const res = await apiService.post('/api/users/me/standup/publish', { workspaceId: firstWsId }, true);
+    if (res.success) setStandupPublished(true);
+  }
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
+
+  const totalPending  = overdue.length + today.length + upcoming.length + noDate.length;
+  const summaryLine   = overdue.length > 0
+    ? t.dashboard_summary_overdue_today(overdue.length, today.length)
+    : today.length > 0
+    ? t.dashboard_summary_today(today.length)
+    : totalPending > 0
+    ? t.dashboard_summary_week(totalPending)
+    : t.dashboard_summary_all_done;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <div style={{ height: '100%', overflow: 'auto', background: C.bg }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+
+        {/* ── GREETING + SUMMARY + STANDUP ─────────────────────────────── */}
+        <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+
+          {/* Greeting row */}
+          <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: C.text, marginBottom: '4px' }}>
+              {greeting(user?.name ?? t.sidebar_unknown_user, t)}
+            </div>
+            <div style={{ fontSize: '13px', color: overdue.length > 0 ? C.red : C.text3 }}>
+              {summaryLine}
+            </div>
           </div>
 
-          {/* Columna central: Mis cards */}
-          <motion.div
-            custom={2}
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            className="lg:col-span-1"
-          >
-            <div className="card-terminal h-[500px] sm:h-[600px] flex flex-col">
-              <div className="flex items-center gap-2 mb-4 sm:mb-6 flex-shrink-0">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-accent/20 to-accent/5 border border-accent/30 flex items-center justify-center">
-                  <span className="text-base sm:text-lg text-accent">▤</span>
-                </div>
-                <div>
-                  <h2 className="text-base sm:text-lg font-medium text-text-primary">
-                    {t.dashboard_section_my_cards}
-                  </h2>
-                  <p className="text-[10px] sm:text-xs text-text-muted">
-                    {t.dashboard_cards_total(
-                      userCards.pending.length +
-                        userCards.overdue.length +
-                        userCards.completed.length
-                    )}
-                  </p>
-                </div>
+          {/* Standup input */}
+          <div style={{ padding: '14px 24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <MiniAvatar name={user?.name ?? 'U'} size={28} />
+            <input
+              value={standupText}
+              onChange={(e) => handleStandupChange(e.target.value)}
+              placeholder={t.dashboard_standup_placeholder}
+              disabled={standupPublished}
+              style={{
+                flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                fontSize: '13.5px', color: standupPublished ? C.text3 : C.text,
+                fontStyle: standupPublished ? 'italic' : 'normal',
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') publishStandup(); }}
+            />
+            {standupPublished ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: C.green }}>
+                <CheckCircle2 style={{ width: '13px', height: '13px' }} />
+                {t.dashboard_standup_published}
               </div>
-
-              <div className="flex gap-0.5 sm:gap-1 mb-4 sm:mb-6 border-b border-border flex-shrink-0 overflow-x-auto">
-                {(['pending', 'overdue', 'completed'] as const).map((tab) => {
-                  const count = userCards[tab].length;
-                  const isActive = activeTab === tab;
-                  const borderColor =
-                    tab === 'overdue'
-                      ? 'border-error'
-                      : tab === 'completed'
-                        ? 'border-success'
-                        : 'border-accent';
-                  const badgeColor =
-                    tab === 'overdue'
-                      ? 'bg-error/10 text-error'
-                      : tab === 'completed'
-                        ? 'bg-success/10 text-success'
-                        : 'bg-accent/10 text-accent';
-                  const label =
-                    tab === 'pending'
-                      ? t.dashboard_tab_pending
-                      : tab === 'overdue'
-                        ? t.dashboard_tab_overdue
-                        : t.dashboard_tab_completed;
-
-                  return (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                        isActive
-                          ? `text-text-primary ${borderColor}`
-                          : 'text-text-muted border-transparent hover:text-text-primary hover:border-border'
-                      }`}
-                    >
-                      {label}
-                      {count > 0 && (
-                        <span
-                          className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs ${badgeColor} rounded-full`}
-                        >
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex-1 overflow-y-auto activity-scroll pr-2">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeTab}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {activeTab === 'pending' && renderCardList(userCards.pending, 'pending')}
-                    {activeTab === 'overdue' && renderCardList(userCards.overdue, 'overdue')}
-                    {activeTab === 'completed' && renderCardList(userCards.completed, 'completed')}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Columna derecha: Feed de actividad */}
-          <motion.div custom={3} variants={fadeUp} initial="hidden" animate="visible">
-            <div className="card-terminal flex flex-col h-[500px] sm:h-[600px]">
-              {/* Header fijo */}
-              <div className="flex items-center justify-between mb-4 sm:mb-5 pb-3 sm:pb-4 border-b border-border/50 flex-shrink-0">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/30 flex items-center justify-center">
-                    <Activity className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm sm:text-base font-semibold text-text-primary font-mono tracking-tight">
-                      {t.dashboard_activity_title}
-                    </h2>
-                    <p className="text-[10px] sm:text-xs text-text-muted font-mono">
-                      {t.dashboard_activity_subtitle}
-                    </p>
-                  </div>
-                </div>
-                {activityFeed.length > 0 && (
-                  <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-accent/10 text-accent text-[10px] sm:text-xs font-mono font-semibold">
-                    {activityFeed.length}
-                  </span>
-                )}
-              </div>
-
-              {/* Contenido scrollable */}
-              <div className="flex-1 overflow-hidden relative">
-                <div className="absolute inset-0 overflow-y-auto activity-scroll pr-2">
-                  {isLoadingActivity ? (
-                    <div className="flex items-center justify-center py-20">
-                      <div className="flex flex-col items-center gap-3">
-                        <Loader2 className="h-6 w-6 animate-spin text-accent" />
-                        <p className="text-xs text-text-muted font-mono">Cargando actividad...</p>
-                      </div>
-                    </div>
-                  ) : activityFeed.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20">
-                      <div className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center mb-4">
-                        <Activity className="h-8 w-8 text-text-muted" />
-                      </div>
-                      <p className="text-sm text-text-secondary text-center font-mono">
-                        {t.dashboard_activity_empty}
-                      </p>
-                      <p className="text-xs text-text-muted text-center mt-2 max-w-[220px]">
-                        Tu actividad reciente aparecerá aquí
-                      </p>
-                    </div>
-                  ) : (
-                    <motion.div
-                      variants={staggerList}
-                      initial="hidden"
-                      animate="visible"
-                      className="space-y-0 pb-2"
-                    >
-                      {activityFeed.map((event, i) => {
-                        const safeType = event.type || 'unknown';
-                        const Icon = getEventIcon(safeType as any);
-                        const relTime = getRelativeTime(event.timestamp);
-                        const description = getActivityText(event);
-
-                        // Color del icono según tipo de evento
-                        const iconColor = safeType.includes('created')
-                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-                          : safeType.includes('deleted')
-                            ? 'text-error bg-error/10 border-error/30'
-                            : safeType.includes('completed')
-                              ? 'text-blue-400 bg-blue-500/10 border-blue-500/30'
-                              : safeType.includes('archived')
-                                ? 'text-orange-400 bg-orange-500/10 border-orange-500/30'
-                                : safeType.includes('moved')
-                                  ? 'text-purple-400 bg-purple-500/10 border-purple-500/30'
-                                  : 'text-text-muted bg-surface/50 border-border';
-
-                        // Etiquetas de contexto desde el payload
-                        const p = event.payload ?? {};
-                        const workspaceName: string | undefined = p.workspaceName;
-                        const boardName: string | undefined = p.boardName;
-
-                        const isLast = i === activityFeed.length - 1;
-
-                        return (
-                          <motion.div
-                            key={event.id}
-                            variants={itemFade}
-                            className="flex gap-3 relative group"
-                          >
-                            {/* Línea vertical conectora */}
-                            {!isLast && (
-                              <div className="absolute left-[15px] top-9 bottom-0 w-px bg-gradient-to-b from-border via-border/50 to-transparent" />
-                            )}
-
-                            {/* Icono */}
-                            <div
-                              className={`w-[30px] h-[30px] mt-1.5 rounded-full border flex-shrink-0 flex items-center justify-center z-10 transition-all duration-200 ${iconColor} group-hover:scale-110`}
-                            >
-                              <Icon className="h-3.5 w-3.5" />
-                            </div>
-
-                            {/* Contenido */}
-                            <div className="flex-1 pb-5 min-w-0">
-                              {/* Descripción y tiempo */}
-                              <div className="flex items-start justify-between gap-3 mb-1.5">
-                                <p className="text-sm text-text-primary leading-snug font-mono">
-                                  {description}
-                                </p>
-                                <span className="text-[11px] text-text-muted flex-shrink-0 mt-0.5 whitespace-nowrap font-mono bg-surface/50 px-1.5 py-0.5 rounded border border-border/50">
-                                  {relTime}
-                                </span>
-                              </div>
-
-                              {/* Etiquetas de contexto */}
-                              {(workspaceName || boardName) && (
-                                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                                  {workspaceName && (
-                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] bg-surface border border-border/60 text-text-muted font-mono">
-                                      <span className="text-accent">▣</span>
-                                      <span className="truncate max-w-[100px]">
-                                        {workspaceName}
-                                      </span>
-                                    </span>
-                                  )}
-                                  {boardName && (
-                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] bg-surface border border-border/60 text-text-muted font-mono">
-                                      <ArrowRight className="h-2.5 w-2.5 text-accent/70" />
-                                      <span className="truncate max-w-[100px]">{boardName}</span>
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </div>
-
-                {/* Fade overlay en el bottom para indicar más contenido */}
-                {activityFeed.length > 5 && (
-                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
-                )}
-              </div>
-            </div>
-          </motion.div>
+            ) : standupText.trim() ? (
+              <button
+                onClick={publishStandup}
+                disabled={standupSaving}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, background: C.accent, color: '#fff', border: 'none', cursor: 'pointer', opacity: standupSaving ? 0.7 : 1 }}
+              >
+                <Send style={{ width: '11px', height: '11px' }} />
+                {standupSaving ? t.btn_saving : t.btn_save}
+              </button>
+            ) : (
+              <span style={{ fontSize: '11px', color: C.text4 }}>{t.dashboard_standup_hint}</span>
+            )}
+          </div>
         </div>
 
-        <CreateWorkspaceModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-        />
+        {/* ── MAIN GRID ────────────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
+
+          {/* ── MIS TAREAS ───────────────────────────────────────────── */}
+          <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>{t.dashboard_section_my_cards}</span>
+              {totalPending > 0 && (
+                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', background: C.hover, color: C.text3, border: `1px solid ${C.border2}` }}>
+                  {totalPending}
+                </span>
+              )}
+            </div>
+
+            <div style={{ padding: '12px 10px' }}>
+              {cardsLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+                  <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
+                </div>
+              ) : totalPending === 0 && overdue.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '36px 0', color: C.text4, fontSize: '13px' }}>
+                  {t.dashboard_empty_pending_title}
+                </div>
+              ) : (
+                <>
+                  {/* Vencidas */}
+                  {overdue.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <SectionLabel count={overdue.length}>
+                        <span style={{ color: C.red }}>⚠ {t.dashboard_tab_overdue}</span>
+                      </SectionLabel>
+                      {overdue.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
+                    </div>
+                  )}
+
+                  {/* Hoy */}
+                  {today.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <SectionLabel count={today.length}>{t.dashboard_due_today}</SectionLabel>
+                      {today.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
+                    </div>
+                  )}
+
+                  {/* Esta semana */}
+                  {upcoming.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <SectionLabel count={upcoming.length}>{t.dashboard_this_week}</SectionLabel>
+                      {upcoming.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
+                    </div>
+                  )}
+
+                  {/* Sin fecha */}
+                  {noDate.length > 0 && (
+                    <div>
+                      <SectionLabel count={noDate.length}>{t.board_filter_date_none}</SectionLabel>
+                      {noDate.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ── COLUMNA DERECHA ──────────────────────────────────────── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            {/* MI EQUIPO */}
+            <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <Users style={{ width: '13px', height: '13px', color: C.text4 }} />
+                <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.teams_title}</span>
+              </div>
+
+              <div style={{ padding: '8px 0' }}>
+                {teamLoading ? (
+                  <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                    <div className="w-4 h-4 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
+                  </div>
+                ) : teammates.length === 0 ? (
+                  <div style={{ padding: '18px 16px', fontSize: '12px', color: C.text4, textAlign: 'center' }}>
+                    {t.teams_empty_title}
+                  </div>
+                ) : (
+                  teammates.map((tm) => (
+                    <div
+                      key={tm.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 16px' }}
+                    >
+                      <MiniAvatar name={tm.name} size={26} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: 500, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {tm.name.split(' ')[0]}
+                        </div>
+                        <div style={{ fontSize: '11px', color: tm.overdueCards > 0 ? C.red : C.text4 }}>
+                          {tm.totalCards} cards{tm.overdueCards > 0 ? ` · ${tm.overdueCards} ${t.dashboard_overdue_label(tm.overdueCards)}` : ''}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '10.5px', color: C.text4, flexShrink: 0 }}>
+                        {timeAgo(tm.lastActivity, t)}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* HOY EN EL EQUIPO (standups) */}
+            {(teamStandups.length > 0 || !teamLoading) && (
+              <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.dashboard_activity_title}</span>
+                </div>
+
+                <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {teamStandups.length === 0 ? (
+                    <div style={{ fontSize: '12px', color: C.text4, textAlign: 'center', padding: '10px 0' }}>
+                      {t.dashboard_activity_empty}
+                    </div>
+                  ) : (
+                    teamStandups.map((sd) => (
+                      <div key={sd.id} style={{ display: 'flex', gap: '9px' }}>
+                        <MiniAvatar name={sd.userName} size={24} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '11.5px', fontWeight: 600, color: C.text2, marginBottom: '3px' }}>
+                            {sd.userName.split(' ')[0]}
+                          </div>
+                          <div style={{ fontSize: '12px', color: C.text3, lineHeight: 1.5 }}>
+                            {sd.todayItems.map((i) => i.text).join(' · ')}
+                          </div>
+                          {sd.blockers.length > 0 && (
+                            <div style={{ fontSize: '11.5px', color: C.amber, marginTop: '4px', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                              <AlertTriangle style={{ width: '11px', height: '11px', marginTop: '2px', flexShrink: 0 }} />
+                              {sd.blockers.map((b) => b.text).join(', ')}
+                            </div>
+                          )}
+                          <div style={{ fontSize: '10.5px', color: C.text4, marginTop: '4px' }}>
+                            {timeAgo(sd.publishedAt, t)}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

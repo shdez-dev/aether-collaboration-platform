@@ -20,6 +20,7 @@ export class BoardService {
     data: {
       name: string;
       description?: string;
+      color?: string;
     }
   ): Promise<Board> {
     const client = await pool.connect();
@@ -28,8 +29,8 @@ export class BoardService {
       await client.query('BEGIN');
 
       const positionResult = await client.query(
-        `SELECT COALESCE(MAX(position), 0) as max_position 
-         FROM boards 
+        `SELECT COALESCE(MAX(position), 0) as max_position
+         FROM boards
          WHERE workspace_id = $1 AND archived = false`,
         [workspaceId]
       );
@@ -37,10 +38,10 @@ export class BoardService {
       const nextPosition = positionResult.rows[0].max_position + 1;
 
       const boardResult = await client.query(
-        `INSERT INTO boards (id, workspace_id, name, description, position, created_by, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        `INSERT INTO boards (id, workspace_id, name, description, color, position, created_by, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
          RETURNING *`,
-        [workspaceId, data.name, data.description || null, nextPosition, userId]
+        [workspaceId, data.name, data.description || null, data.color || '#3b82f6', nextPosition, userId]
       );
 
       const board = boardResult.rows[0];
@@ -188,6 +189,7 @@ export class BoardService {
     data: {
       name?: string;
       description?: string;
+      color?: string;
     }
   ): Promise<Board> {
     const client = await pool.connect();
@@ -206,6 +208,10 @@ export class BoardService {
       if (data.description !== undefined) {
         updates.push(`description = $${paramIndex++}`);
         values.push(data.description);
+      }
+      if (data.color !== undefined) {
+        updates.push(`color = $${paramIndex++}`);
+        values.push(data.color);
       }
 
       updates.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -236,6 +242,15 @@ export class BoardService {
       };
 
       await eventStore.emit('board.updated', payload, userId as any, boardId, undefined, undefined, board.workspace_id);
+
+      // Evento específico cuando se renombra el tablero
+      if (data.name !== undefined) {
+        await eventStore.emit('board.renamed' as any, {
+          boardId: board.id as any,
+          name: board.name,
+          workspaceId: board.workspace_id,
+        }, userId as any, boardId, undefined, undefined, board.workspace_id);
+      }
 
       return this.formatBoard(board);
     } catch (error) {
@@ -346,6 +361,7 @@ export class BoardService {
       workspaceId: row.workspace_id,
       name: row.name,
       description: row.description,
+      color: row.color || '#3b82f6',
       position: row.position,
       archived: row.archived,
       createdBy: row.created_by,

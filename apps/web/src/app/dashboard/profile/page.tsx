@@ -1,21 +1,226 @@
-// apps/web/src/app/dashboard/profile/page.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { AvatarUpload } from '@/components/profile/AvatarUpload';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Key, User, MapPin, Phone, Globe, Languages } from 'lucide-react';
+import { Loader2, Save, Key, User, MapPin, Phone, Globe, Languages, Mail, Briefcase } from 'lucide-react';
 import { formatPhoneDisplay, cleanPhoneValue, validatePhone } from '@/lib/utils/phone';
 import { useT } from '@/lib/i18n';
 
+// ── Color tokens ──────────────────────────────────────────────────────────────
+const C = {
+  bg:      '#0b0d10',
+  bg2:     '#0f1217',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  red:     '#ef4444',
+  green:   '#10b981',
+};
+
+// ── Shared input style ────────────────────────────────────────────────────────
+function FieldInput({
+  id,
+  type = 'text',
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  required,
+  minLength,
+  hasError,
+}: {
+  id?: string;
+  type?: string;
+  value: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  required?: boolean;
+  minLength?: number;
+  hasError?: boolean;
+}) {
+  return (
+    <input
+      id={id}
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      required={required}
+      minLength={minLength}
+      className="w-full text-[13px] rounded-[6px] px-3 py-2 outline-none transition-colors"
+      style={{
+        background: disabled ? C.bg2 : C.bg,
+        border: `1px solid ${hasError ? C.red : C.border}`,
+        color: disabled ? C.text3 : C.text,
+        cursor: disabled ? 'not-allowed' : 'text',
+        opacity: disabled ? 0.7 : 1,
+      }}
+      onFocus={(e) => {
+        if (!disabled) e.currentTarget.style.borderColor = hasError ? C.red : C.border2;
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = hasError ? C.red : C.border;
+      }}
+    />
+  );
+}
+
+function FieldTextarea({
+  id,
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+}: {
+  id?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <textarea
+      id={id}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={rows}
+      className="w-full text-[13px] rounded-[6px] px-3 py-2 outline-none transition-colors resize-none"
+      style={{
+        background: C.bg,
+        border: `1px solid ${C.border}`,
+        color: C.text,
+        fontFamily: 'inherit',
+      }}
+      onFocus={(e) => (e.currentTarget.style.borderColor = C.border2)}
+      onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
+    />
+  );
+}
+
+function FieldSelect({
+  id,
+  value,
+  onChange,
+  children,
+}: {
+  id?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      onChange={onChange}
+      className="w-full text-[13px] rounded-[6px] px-3 py-2 outline-none"
+      style={{
+        background: C.bg,
+        border: `1px solid ${C.border}`,
+        color: C.text,
+        cursor: 'pointer',
+      }}
+    >
+      {children}
+    </select>
+  );
+}
+
+function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="block text-[12px] font-medium mb-1.5" style={{ color: C.text3 }}>
+      {children}
+    </label>
+  );
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  icon,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-[10px] p-5"
+      style={{ background: C.surface, border: `1px solid ${C.border}` }}
+    >
+      <div className="flex items-start gap-3 mb-5 pb-4" style={{ borderBottom: `1px solid ${C.border}` }}>
+        {icon && (
+          <div
+            className="w-7 h-7 rounded-[6px] flex items-center justify-center flex-shrink-0 mt-0.5"
+            style={{ background: C.hover }}
+          >
+            <span style={{ color: C.text3 }}>{icon}</span>
+          </div>
+        )}
+        <div>
+          <h2 className="text-[14px] font-semibold" style={{ color: C.text }}>{title}</h2>
+          {subtitle && <p className="text-[12px] mt-0.5" style={{ color: C.text3 }}>{subtitle}</p>}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SubmitButton({
+  loading,
+  disabled,
+  loadingLabel,
+  label,
+  icon,
+}: {
+  loading: boolean;
+  disabled?: boolean;
+  loadingLabel: string;
+  label: string;
+  icon: React.ReactNode;
+}) {
+  const isDisabled = loading || disabled;
+  return (
+    <button
+      type="submit"
+      disabled={isDisabled}
+      className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-[13px] font-medium transition-all"
+      style={{
+        background: isDisabled ? C.border : C.accent,
+        color: isDisabled ? C.text3 : '#fff',
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+      }}
+    >
+      {loading ? (
+        <>
+          <Loader2 size={14} className="animate-spin" />
+          {loadingLabel}
+        </>
+      ) : (
+        <>
+          {icon}
+          {label}
+        </>
+      )}
+    </button>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const t = useT();
   const { user, isLoading, updateProfile, uploadAvatar, changePassword } = useAuthStore();
@@ -44,14 +249,12 @@ export default function ProfilePage() {
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    // Si el usuario borra todo, limpiar
     if (!raw) {
       setPhoneDisplay('');
       setProfileForm((f) => ({ ...f, phone: '' }));
       setPhoneError(undefined);
       return;
     }
-    // Asegurar que empiece con '+'
     const withPlus = raw.startsWith('+') ? raw : `+${raw}`;
     const clean = cleanPhoneValue(withPlus);
     const display = formatPhoneDisplay(clean);
@@ -61,15 +264,9 @@ export default function ProfilePage() {
     if (!valid) {
       const lang = profileForm.language === 'en' ? 'en' : 'es';
       const msgs: Record<string, Record<string, string>> = {
-        no_prefix: {
-          es: 'Debe comenzar con el código de país (ej: +56)',
-          en: 'Must start with country code (e.g. +1)',
-        },
+        no_prefix: { es: 'Debe comenzar con el código de país (ej: +56)', en: 'Must start with country code (e.g. +1)' },
         too_short: { es: 'Número demasiado corto', en: 'Number too short' },
-        too_long: {
-          es: 'Número demasiado largo (máx. 15 dígitos)',
-          en: 'Number too long (max. 15 digits)',
-        },
+        too_long: { es: 'Número demasiado largo (máx. 15 dígitos)', en: 'Number too long (max. 15 digits)' },
         invalid_chars: { es: 'Solo se permiten números', en: 'Only numbers are allowed' },
       };
       setPhoneError(msgs[error!]?.[lang] ?? error);
@@ -99,16 +296,9 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       await updateProfile(profileForm);
-      toast({
-        title: t.profile_toast_updated_title,
-        description: t.profile_toast_updated_desc,
-      });
+      toast({ title: t.profile_toast_updated_title, description: t.profile_toast_updated_desc });
     } catch {
-      toast({
-        title: t.error_title,
-        description: t.profile_toast_error_desc,
-        variant: 'destructive',
-      });
+      toast({ title: t.error_title, description: t.profile_toast_error_desc, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -117,54 +307,29 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (file: File) => {
     try {
       await uploadAvatar(file);
-      toast({
-        title: t.profile_toast_avatar_title,
-        description: t.profile_toast_avatar_desc,
-      });
+      toast({ title: t.profile_toast_avatar_title, description: t.profile_toast_avatar_desc });
     } catch {
-      toast({
-        title: t.error_title,
-        description: t.profile_toast_avatar_error,
-        variant: 'destructive',
-      });
+      toast({ title: t.error_title, description: t.profile_toast_avatar_error, variant: 'destructive' });
     }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast({
-        title: t.error_title,
-        description: t.profile_toast_passwords_no_match,
-        variant: 'destructive',
-      });
+      toast({ title: t.error_title, description: t.profile_toast_passwords_no_match, variant: 'destructive' });
       return;
     }
-
     if (passwordForm.newPassword.length < 6) {
-      toast({
-        title: t.error_title,
-        description: t.profile_toast_password_too_short,
-        variant: 'destructive',
-      });
+      toast({ title: t.error_title, description: t.profile_toast_password_too_short, variant: 'destructive' });
       return;
     }
-
     setIsChangingPassword(true);
     try {
       await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-      toast({
-        title: t.profile_toast_password_title,
-        description: t.profile_toast_password_desc,
-      });
+      toast({ title: t.profile_toast_password_title, description: t.profile_toast_password_desc });
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch {
-      toast({
-        title: t.error_title,
-        description: t.profile_toast_password_error,
-        variant: 'destructive',
-      });
+      toast({ title: t.error_title, description: t.profile_toast_password_error, variant: 'destructive' });
     } finally {
       setIsChangingPassword(false);
     }
@@ -172,286 +337,255 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+      <div className="flex h-full items-center justify-center" style={{ background: C.bg }}>
+        <Loader2 size={24} className="animate-spin" style={{ color: C.text3 }} />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto max-w-6xl py-6 px-4">
+    <div className="min-h-screen" style={{ background: C.bg, color: C.text }}>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">{t.profile_title}</h1>
-        <p className="text-zinc-500 text-sm mt-1">{t.profile_subtitle}</p>
+      <div className="px-8 py-5" style={{ borderBottom: `1px solid ${C.border}` }}>
+        <h1 className="text-[16px] font-semibold" style={{ color: C.text }}>{t.profile_title}</h1>
+        <p className="text-[12px] mt-0.5" style={{ color: C.text3 }}>{t.profile_subtitle}</p>
       </div>
 
-      {/* Main layout: 2 columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN: Avatar + quick info */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-          {/* Avatar card */}
-          <Card>
-            <CardContent className="pt-6">
+      <div className="px-8 py-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+          {/* LEFT — Avatar + quick summary */}
+          <div className="flex flex-col gap-4">
+            {/* Avatar */}
+            <div
+              className="rounded-[10px] p-5 flex flex-col items-center"
+              style={{ background: C.surface, border: `1px solid ${C.border}` }}
+            >
               <AvatarUpload
                 currentAvatar={user.avatar}
                 userName={user.name}
                 onUpload={handleAvatarUpload}
                 isLoading={isLoading}
               />
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Quick info summary */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+            {/* Quick info */}
+            <div
+              className="rounded-[10px] p-4"
+              style={{ background: C.surface, border: `1px solid ${C.border}` }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.text4 }}>
                 {t.profile_section_summary}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-zinc-500 shrink-0" />
-                <span className="truncate text-zinc-300">{user.name}</span>
+              </p>
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <User size={13} style={{ color: C.text4, flexShrink: 0 }} />
+                  <span className="text-[12px] truncate" style={{ color: C.text2 }}>{user.name}</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Mail size={13} style={{ color: C.text4, flexShrink: 0 }} />
+                  <span className="text-[12px] truncate" style={{ color: C.text3 }}>{user.email}</span>
+                </div>
+                {profileForm.position && (
+                  <div className="flex items-center gap-2.5">
+                    <Briefcase size={13} style={{ color: C.text4, flexShrink: 0 }} />
+                    <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.position}</span>
+                  </div>
+                )}
+                {profileForm.location && (
+                  <div className="flex items-center gap-2.5">
+                    <MapPin size={13} style={{ color: C.text4, flexShrink: 0 }} />
+                    <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.location}</span>
+                  </div>
+                )}
+                {profileForm.phone && (
+                  <div className="flex items-center gap-2.5">
+                    <Phone size={13} style={{ color: C.text4, flexShrink: 0 }} />
+                    <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.phone}</span>
+                  </div>
+                )}
+                {profileForm.timezone && (
+                  <div className="flex items-center gap-2.5">
+                    <Globe size={13} style={{ color: C.text4, flexShrink: 0 }} />
+                    <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.timezone}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Globe className="h-4 w-4 text-zinc-500 shrink-0" />
-                <span className="truncate text-zinc-400">{user.email}</span>
-              </div>
-              {profileForm.position && (
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-zinc-500 shrink-0" />
-                  <span className="truncate text-zinc-400">{profileForm.position}</span>
-                </div>
-              )}
-              {profileForm.location && (
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-zinc-500 shrink-0" />
-                  <span className="truncate text-zinc-400">{profileForm.location}</span>
-                </div>
-              )}
-              {profileForm.phone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-zinc-500 shrink-0" />
-                  <span className="truncate text-zinc-400">{profileForm.phone}</span>
-                </div>
-              )}
-              {profileForm.timezone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Globe className="h-4 w-4 text-zinc-500 shrink-0" />
-                  <span className="truncate text-zinc-400">{profileForm.timezone}</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
 
-        {/* RIGHT COLUMN: Forms */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Personal Info */}
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                {t.profile_section_personal_title}
-              </CardTitle>
-              <CardDescription>{t.profile_section_personal_desc}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleProfileSubmit} className="space-y-4">
-                {/* Row 1: Name + Email */}
+          {/* RIGHT — Forms */}
+          <div className="lg:col-span-2 flex flex-col gap-4">
+
+            {/* Personal info */}
+            <SectionCard
+              title={t.profile_section_personal_title}
+              subtitle={t.profile_section_personal_desc}
+              icon={<User size={14} />}
+            >
+              <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="name">{t.profile_label_name}</Label>
-                    <Input
+                  <div>
+                    <FieldLabel htmlFor="name">{t.profile_label_name}</FieldLabel>
+                    <FieldInput
                       id="name"
                       value={profileForm.name}
                       onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                       required
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email">{t.profile_label_email}</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={user.email}
-                      disabled
-                      className="bg-zinc-900/50 opacity-60"
-                    />
+                  <div>
+                    <FieldLabel htmlFor="email">{t.profile_label_email}</FieldLabel>
+                    <FieldInput id="email" type="email" value={user.email} disabled />
                   </div>
                 </div>
 
-                {/* Row 2: Position + Phone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="position">{t.profile_label_position}</Label>
-                    <Input
+                  <div>
+                    <FieldLabel htmlFor="position">{t.profile_label_position}</FieldLabel>
+                    <FieldInput
                       id="position"
                       value={profileForm.position}
                       onChange={(e) => setProfileForm({ ...profileForm, position: e.target.value })}
                       placeholder={t.profile_placeholder_position}
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phone">{t.profile_label_phone}</Label>
-                    <Input
+                  <div>
+                    <FieldLabel htmlFor="phone">{t.profile_label_phone}</FieldLabel>
+                    <FieldInput
                       id="phone"
                       type="tel"
                       value={phoneDisplay}
                       onChange={handlePhoneChange}
                       placeholder="+56 9 1234 5678"
-                      className={phoneError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                      hasError={!!phoneError}
                     />
-                    {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
+                    {phoneError && (
+                      <p className="text-[11px] mt-1" style={{ color: C.red }}>{phoneError}</p>
+                    )}
                   </div>
                 </div>
 
-                {/* Row 3: Location + Timezone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="location">{t.profile_label_location}</Label>
-                    <Input
+                  <div>
+                    <FieldLabel htmlFor="location">{t.profile_label_location}</FieldLabel>
+                    <FieldInput
                       id="location"
                       value={profileForm.location}
                       onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })}
                       placeholder={t.profile_placeholder_location}
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="timezone">{t.profile_label_timezone}</Label>
-                    <Input
+                  <div>
+                    <FieldLabel htmlFor="timezone">{t.profile_label_timezone}</FieldLabel>
+                    <FieldInput
                       id="timezone"
                       value={Intl.DateTimeFormat().resolvedOptions().timeZone}
                       disabled
-                      className="bg-zinc-900/50 opacity-60"
                     />
-                    <p className="text-xs text-zinc-500">
-                      {t.profile_lang_es === 'Español'
-                        ? 'Detectada automáticamente de tu navegador'
-                        : 'Automatically detected from your browser'}
+                    <p className="text-[11px] mt-1" style={{ color: C.text4 }}>
+                      {profileForm.language === 'en'
+                        ? 'Automatically detected from your browser'
+                        : 'Detectada automáticamente de tu navegador'}
                     </p>
                   </div>
                 </div>
 
-                {/* Row 4: Language + Bio */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="language">
-                      <Languages className="h-3.5 w-3.5 inline mr-1" />
-                      {t.profile_label_language}
-                    </Label>
-                    <Select
+                  <div>
+                    <FieldLabel htmlFor="language">
+                      <span className="flex items-center gap-1.5">
+                        <Languages size={12} />
+                        {t.profile_label_language}
+                      </span>
+                    </FieldLabel>
+                    <FieldSelect
                       id="language"
                       value={profileForm.language}
                       onChange={(e) => setProfileForm({ ...profileForm, language: e.target.value })}
                     >
                       <option value="es">{t.profile_lang_es}</option>
                       <option value="en">{t.profile_lang_en}</option>
-                    </Select>
+                    </FieldSelect>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bio">{t.profile_label_bio}</Label>
-                    <Textarea
+                  <div>
+                    <FieldLabel htmlFor="bio">{t.profile_label_bio}</FieldLabel>
+                    <FieldTextarea
                       id="bio"
                       value={profileForm.bio}
                       onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
                       placeholder={t.profile_placeholder_bio}
                       rows={3}
-                      className="resize-none"
                     />
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  <Button type="submit" disabled={isSaving || !!phoneError} className="gap-2">
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {t.profile_btn_saving}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4" />
-                        {t.profile_btn_save}
-                      </>
-                    )}
-                  </Button>
+                <div className="flex justify-end pt-1">
+                  <SubmitButton
+                    loading={isSaving}
+                    disabled={!!phoneError}
+                    loadingLabel={t.profile_btn_saving}
+                    label={t.profile_btn_save}
+                    icon={<Save size={13} />}
+                  />
                 </div>
               </form>
-            </CardContent>
-          </Card>
+            </SectionCard>
 
-          {/* Password */}
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2">
-                <Key className="h-4 w-4" />
-                {t.profile_section_password_title}
-              </CardTitle>
-              <CardDescription>{t.profile_section_password_desc}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            {/* Password */}
+            <SectionCard
+              title={t.profile_section_password_title}
+              subtitle={t.profile_section_password_desc}
+              icon={<Key size={14} />}
+            >
+              <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="currentPassword">{t.profile_label_current_password}</Label>
-                    <Input
+                  <div>
+                    <FieldLabel htmlFor="currentPassword">{t.profile_label_current_password}</FieldLabel>
+                    <FieldInput
                       id="currentPassword"
                       type="password"
                       value={passwordForm.currentPassword}
-                      onChange={(e) =>
-                        setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
-                      }
+                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                       required
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="newPassword">{t.profile_label_new_password}</Label>
-                    <Input
+                  <div>
+                    <FieldLabel htmlFor="newPassword">{t.profile_label_new_password}</FieldLabel>
+                    <FieldInput
                       id="newPassword"
                       type="password"
                       value={passwordForm.newPassword}
-                      onChange={(e) =>
-                        setPasswordForm({ ...passwordForm, newPassword: e.target.value })
-                      }
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                       required
                       minLength={6}
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="confirmPassword">{t.profile_label_confirm_password}</Label>
-                    <Input
+                  <div>
+                    <FieldLabel htmlFor="confirmPassword">{t.profile_label_confirm_password}</FieldLabel>
+                    <FieldInput
                       id="confirmPassword"
                       type="password"
                       value={passwordForm.confirmPassword}
-                      onChange={(e) =>
-                        setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
-                      }
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                       required
                       minLength={6}
                     />
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  <Button type="submit" disabled={isChangingPassword} className="gap-2">
-                    {isChangingPassword ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {t.profile_btn_changing_password}
-                      </>
-                    ) : (
-                      <>
-                        <Key className="h-4 w-4" />
-                        {t.profile_btn_change_password}
-                      </>
-                    )}
-                  </Button>
+                <div className="flex justify-end pt-1">
+                  <SubmitButton
+                    loading={isChangingPassword}
+                    loadingLabel={t.profile_btn_changing_password}
+                    label={t.profile_btn_change_password}
+                    icon={<Key size={13} />}
+                  />
                 </div>
               </form>
-            </CardContent>
-          </Card>
+            </SectionCard>
+
+          </div>
         </div>
       </div>
     </div>

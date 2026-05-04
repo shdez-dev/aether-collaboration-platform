@@ -113,6 +113,7 @@ export interface Board {
   workspaceId: string;
   name: string;
   description?: string;
+  color?: string;
   position: number;
   archived: boolean;
   createdBy: string;
@@ -948,4 +949,91 @@ export interface NotificationFilters {
   type?: NotificationType;
   limit?: number;
   offset?: number;
+}
+
+// ============================================================================
+// PROJECT
+// ============================================================================
+
+export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+export type ProjectMilestoneStatus = 'PENDING' | 'REACHED' | 'MISSED';
+
+export interface Project {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  status: ProjectStatus;
+  startDate?: string;
+  endDate?: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+  // Relaciones opcionales
+  boards?: Board[];
+  milestones?: ProjectMilestone[];
+  stats?: ProjectStats;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  date: string;
+  status: ProjectMilestoneStatus;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectStats {
+  totalBoards: number;
+  totalCards: number;
+  completedCards: number;
+  overdueCards: number;
+  totalDocuments: number;
+  progressPercent: number;
+  healthScore: number;
+  bottleneckBoardId?: string | null;
+  bottleneckBoardName?: string | null;
+}
+
+export interface CreateProjectData {
+  workspaceId: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  status?: ProjectStatus;
+  startDate?: string;
+  endDate?: string;
+  boardIds?: string[];
+}
+
+export interface UpdateProjectData {
+  name?: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  status?: ProjectStatus;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CreateProjectMilestoneData {
+  name: string;
+  description?: string;
+  date: string;
+  color?: string;
+}
+
+export interface UpdateProjectMilestoneData {
+  name?: string;
+  description?: string;
+  date?: string;
+  status?: ProjectMilestoneStatus;
+  color?: string;
 }

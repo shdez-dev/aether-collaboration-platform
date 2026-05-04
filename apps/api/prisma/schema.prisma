@@ -83,9 +83,10 @@ model Workspace {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  members WorkspaceMember[]
-  boards  Board[]
-  labels  Label[]
+  members  WorkspaceMember[]
+  boards   Board[]
+  labels   Label[]
+  projects Project[]
 
   @@map("workspaces")
 }
@@ -155,6 +156,58 @@ model Card {
   list List @relation(fields: [listId], references: [id], onDelete: Cascade)
 
   @@map("cards")
+}
+
+// Project (belongs to a Workspace)
+model Project {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  description String?
+  icon        String?
+  color       String?
+  status      String    @default("PLANNING") @db.VarChar(20)
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  ownerId     String    @map("owner_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  boards     ProjectBoard[]
+  milestones ProjectMilestone[]
+
+  @@map("projects")
+}
+
+// Project <-> Board pivot
+model ProjectBoard {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  boardId   String   @map("board_id") @db.Uuid
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, boardId])
+  @@map("project_boards")
+}
+
+// Project Milestone
+model ProjectMilestone {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  name        String
+  description String?
+  date        DateTime
+  status      String   @default("PENDING") @db.VarChar(20)
+  color       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_milestones")
 }
 
 // Label

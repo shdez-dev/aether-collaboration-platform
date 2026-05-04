@@ -36,7 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   // No mostrar navegación en páginas de auth o dashboard (tienen su propio layout)
   const hideNav =
-    pathname === '/login' || pathname === '/register' || pathname?.startsWith('/dashboard');
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname?.startsWith('/dashboard');
 
   return (
     <html lang="es">

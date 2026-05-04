@@ -198,6 +198,14 @@ export type PresenceEventType =
   | 'presence.user.typing.stopped'
   | 'presence.cursor.moved';
 
+export type GithubEventType =
+  | 'github.push'
+  | 'github.pr.opened'
+  | 'github.pr.closed'
+  | 'github.pr.merged'
+  | 'github.pr.review.submitted'
+  | 'github.pr.review_requested';
+
 /**
  * All possible event types
  */
@@ -210,7 +218,8 @@ export type EventType =
   | CommentEventType
   | DocumentEventType
   | NotificationEventType
-  | PresenceEventType;
+  | PresenceEventType
+  | GithubEventType;
 
 // ============================================================================
 // AUTH EVENT PAYLOADS

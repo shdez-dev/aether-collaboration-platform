@@ -15,7 +15,9 @@ export class UserActivityService {
     workspaceId?: string
   ): Promise<void> {
     try {
-      const isDeletionEvent = activityType.includes('.deleted');
+      // Para workspace.deleted limpiamos workspaceId (la workspace ya no existe).
+      // Para el resto siempre guardamos workspaceId para que aparezca en el feed del equipo.
+      const isWorkspaceDeletion = activityType === 'workspace.deleted';
 
       await pool.query(
         `INSERT INTO user_activity_log (user_id, activity_type, metadata, board_id, workspace_id, created_at)
@@ -24,8 +26,8 @@ export class UserActivityService {
           userId,
           activityType,
           metadata ? JSON.stringify(metadata) : null,
-          isDeletionEvent ? null : boardId || null,
-          isDeletionEvent ? null : workspaceId || null,
+          boardId || null,
+          isWorkspaceDeletion ? null : workspaceId || null,
         ]
       );
     } catch (error) {}
@@ -36,28 +38,80 @@ export class UserActivityService {
    */
   shouldLogActivity(eventType: string): boolean {
     const relevantEvents = [
+      // Workspace
       'workspace.created',
       'workspace.updated',
       'workspace.deleted',
+      'workspace.member.invited',
+      'workspace.member.joined',
+      'workspace.member.removed',
+      'workspace.member.roleChanged',
+      // Board
       'board.created',
       'board.updated',
+      'board.renamed',
       'board.archived',
+      'board.unarchived',
       'board.deleted',
+      // List
       'list.created',
-      'list.updated',
-      'list.reordered',
+      'list.renamed',
       'list.deleted',
+      // Card
       'card.created',
-      'card.updated',
       'card.moved',
+      'card.completed',
+      'card.uncompleted',
+      'card.renamed',
+      'card.description.changed',
+      'card.duedate.set',
+      'card.duedate.changed',
+      'card.duedate.removed',
+      'card.priority.changed',
+      'card.archived',
+      'card.unarchived',
       'card.deleted',
-      'comment.created',
-      'comment.updated',
-      'comment.deleted',
       'card.member.assigned',
       'card.member.unassigned',
       'card.label.added',
       'card.label.removed',
+      'card.dependency.added',
+      'card.dependency.removed',
+      // Checklist
+      'checklist.item.created',
+      'checklist.item.deleted',
+      // Comment
+      'comment.created',
+      'comment.mentioned',
+      // Document
+      'document.created',
+      'document.deleted',
+      'document.version.created',
+      'document.version.restored',
+      'document.permission.updated',
+      // GitHub
+      'github.push',
+      'github.pr.opened',
+      'github.pr.closed',
+      'github.pr.merged',
+      'github.pr.review.submitted',
+      'github.pr.review_requested',
+      // Project
+      'project.created',
+      'project.updated',
+      'project.status.changed',
+      'project.deleted',
+      'project.board.assigned',
+      'project.board.removed',
+      'project.milestone.created',
+      'project.milestone.completed',
+      // Team
+      'team.created',
+      'team.updated',
+      'team.deleted',
+      'team.member.added',
+      'team.member.removed',
+      'team.member.roleChanged',
     ];
 
     return relevantEvents.includes(eventType);
@@ -136,13 +190,18 @@ export class UserActivityService {
     }
   }
 
-  private async getBoardTitle(boardId: string): Promise<string | undefined> {
+  private async getBoardName(boardId: string): Promise<string | undefined> {
     try {
-      const result = await pool.query('SELECT title FROM boards WHERE id = $1', [boardId]);
-      return result.rows[0]?.title;
+      const result = await pool.query('SELECT name FROM boards WHERE id = $1', [boardId]);
+      return result.rows[0]?.name;
     } catch (error) {
       return undefined;
     }
+  }
+
+  /** @deprecated usa getBoardName */
+  private async getBoardTitle(boardId: string): Promise<string | undefined> {
+    return this.getBoardName(boardId);
   }
 
   private async getListName(listId: string): Promise<string | undefined> {
@@ -150,6 +209,42 @@ export class UserActivityService {
       const result = await pool.query('SELECT name FROM lists WHERE id = $1', [listId]);
       return result.rows[0]?.name;
     } catch (error) {
+      return undefined;
+    }
+  }
+
+  private async getDocumentTitle(documentId: string): Promise<string | undefined> {
+    try {
+      const result = await pool.query('SELECT title FROM documents WHERE id = $1', [documentId]);
+      return result.rows[0]?.title;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  private async getWorkspaceName(workspaceId: string): Promise<string | undefined> {
+    try {
+      const result = await pool.query('SELECT name FROM workspaces WHERE id = $1', [workspaceId]);
+      return result.rows[0]?.name;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  private async getProjectName(projectId: string): Promise<string | undefined> {
+    try {
+      const result = await pool.query('SELECT name FROM projects WHERE id = $1', [projectId]);
+      return result.rows[0]?.name;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async getTeamName(teamId: string): Promise<string | undefined> {
+    try {
+      const result = await pool.query('SELECT name FROM teams WHERE id = $1', [teamId]);
+      return result.rows[0]?.name;
+    } catch {
       return undefined;
     }
   }
@@ -183,6 +278,18 @@ export class UserActivityService {
         metadata.deletedBy = payload.deletedBy;
         break;
 
+      case 'workspace.member.invited':
+        metadata.workspaceId = payload.workspaceId;
+        metadata.inviteeId = payload.inviteeId || payload.userId;
+        if (metadata.inviteeId) {
+          metadata.inviteeName = await this.getMemberName(metadata.inviteeId);
+        }
+        break;
+
+      case 'workspace.member.joined':
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
       case 'board.created':
         metadata.title = payload.title || payload.name;
         metadata.name = payload.title || payload.name;
@@ -203,13 +310,51 @@ export class UserActivityService {
         metadata.deletedBy = payload.deletedBy;
         break;
 
+      case 'board.renamed':
+        metadata.boardId = payload.boardId;
+        metadata.name = payload.name || payload.title;
+        metadata.newName = payload.newName || payload.newTitle;
+        break;
+
       case 'board.archived':
         metadata.boardId = payload.boardId;
-        metadata.title = payload.title;
-        metadata.archivedBy = payload.archivedBy;
-        // Obtener título del board si no está en el payload
-        if (!metadata.title && payload.boardId) {
-          metadata.title = await this.getBoardTitle(payload.boardId);
+        metadata.name = payload.name || payload.title;
+        metadata.workspaceId = payload.workspaceId;
+        if (!metadata.name && payload.boardId) {
+          metadata.name = await this.getBoardName(payload.boardId);
+        }
+        break;
+
+      case 'board.unarchived':
+        metadata.boardId = payload.boardId;
+        metadata.name = payload.name || payload.title;
+        metadata.workspaceId = payload.workspaceId;
+        if (!metadata.name && payload.boardId) {
+          metadata.name = await this.getBoardName(payload.boardId);
+        }
+        break;
+
+      case 'workspace.member.removed':
+        metadata.workspaceId = payload.workspaceId;
+        metadata.memberId = payload.userId;
+        if (metadata.memberId) {
+          metadata.memberName = await this.getMemberName(metadata.memberId);
+        }
+        if (payload.workspaceId) {
+          metadata.workspaceName = await this.getWorkspaceName(payload.workspaceId);
+        }
+        break;
+
+      case 'workspace.member.roleChanged':
+        metadata.workspaceId = payload.workspaceId;
+        metadata.memberId = payload.userId;
+        metadata.oldRole = payload.oldRole;
+        metadata.newRole = payload.newRole;
+        if (metadata.memberId) {
+          metadata.memberName = await this.getMemberName(metadata.memberId);
+        }
+        if (payload.workspaceId) {
+          metadata.workspaceName = await this.getWorkspaceName(payload.workspaceId);
         }
         break;
 
@@ -224,6 +369,13 @@ export class UserActivityService {
           // Fallback: consultar título del board
           metadata.boardTitle = await this.getBoardTitle(payload.boardId);
         }
+        break;
+
+      case 'list.renamed':
+        metadata.listId = payload.listId;
+        metadata.name = payload.name;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'list.updated':
@@ -276,6 +428,28 @@ export class UserActivityService {
         metadata.deletedBy = payload.deletedBy;
         break;
 
+      case 'card.completed':
+        metadata.cardId = payload.cardId;
+        metadata.title = payload.title;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        metadata.completedAt = payload.completedAt;
+        break;
+
+      case 'card.uncompleted':
+        metadata.cardId = payload.cardId;
+        metadata.title = payload.title;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'card.archived':
+        metadata.cardId = payload.cardId;
+        metadata.title = payload.title;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
       case 'card.moved':
         metadata.title = payload.title;
         metadata.cardId = payload.cardId;
@@ -297,6 +471,159 @@ export class UserActivityService {
             metadata.fromListName = listNames.fromList;
           if (!metadata.toListName && listNames.toList) metadata.toListName = listNames.toList;
           if (!metadata.newListName && listNames.toList) metadata.newListName = listNames.toList;
+        }
+        break;
+
+      case 'card.renamed':
+        metadata.cardId = payload.cardId;
+        metadata.title = payload.title;       // nombre anterior
+        metadata.newTitle = payload.newTitle; // nombre nuevo
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'card.description.changed':
+        metadata.cardId = payload.cardId;
+        metadata.title = payload.title;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'card.duedate.set':
+      case 'card.duedate.changed':
+      case 'card.duedate.removed':
+        metadata.cardId = payload.cardId;
+        metadata.title = payload.title;
+        metadata.dueDate = payload.dueDate || null;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'card.priority.changed':
+        metadata.cardId = payload.cardId;
+        metadata.title = payload.title;
+        metadata.oldPriority = payload.oldPriority;
+        metadata.newPriority = payload.newPriority;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'card.unarchived':
+        metadata.cardId = payload.cardId;
+        metadata.title = payload.title;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'card.dependency.added':
+        metadata.blockingCardId = payload.blockingCardId;
+        metadata.blockedCardId  = payload.blockedCardId;
+        metadata.workspaceId    = payload.workspaceId || payload.dependency?.workspaceId;
+        metadata.boardId        = payload.boardId     || payload.dependency?.boardId;
+        // Resolver nombres de ambas tarjetas
+        const [blockingTitle, blockedTitle] = await Promise.all([
+          this.getCardTitle(payload.blockingCardId),
+          this.getCardTitle(payload.blockedCardId),
+        ]);
+        metadata.blockingCardTitle = blockingTitle;
+        metadata.blockedCardTitle  = blockedTitle;
+        break;
+
+      case 'card.dependency.removed':
+        metadata.cardId         = payload.cardId;
+        metadata.blockingCardId = payload.blockingCardId;
+        metadata.workspaceId    = payload.workspaceId;
+        metadata.boardId        = payload.boardId;
+        const [ct1, ct2] = await Promise.all([
+          this.getCardTitle(payload.cardId),
+          payload.blockingCardId ? this.getCardTitle(payload.blockingCardId) : Promise.resolve(undefined),
+        ]);
+        metadata.cardTitle         = ct1;
+        metadata.blockingCardTitle = ct2;
+        break;
+
+      case 'checklist.item.created':
+        metadata.cardId    = payload.cardId;
+        metadata.itemId    = payload.item?.id || payload.itemId;
+        metadata.itemTitle = payload.item?.title || payload.title || '';
+        metadata.workspaceId = payload.workspaceId;
+        metadata.boardId   = payload.boardId;
+        if (payload.cardId) {
+          metadata.cardTitle = await this.getCardTitle(payload.cardId);
+        }
+        break;
+
+      case 'checklist.item.deleted':
+        metadata.cardId    = payload.cardId;
+        metadata.itemId    = payload.itemId;
+        metadata.itemTitle = payload.title || '';
+        metadata.workspaceId = payload.workspaceId;
+        metadata.boardId   = payload.boardId;
+        if (payload.cardId) {
+          metadata.cardTitle = await this.getCardTitle(payload.cardId);
+        }
+        break;
+
+      case 'document.created':
+        metadata.documentId  = payload.documentId;
+        metadata.title       = payload.title;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'document.deleted':
+        metadata.documentId  = payload.documentId;
+        metadata.workspaceId = payload.workspaceId;
+        // Intentar recuperar título antes de que se elimine (puede no estar disponible)
+        if (payload.title) {
+          metadata.title = payload.title;
+        } else if (payload.documentId) {
+          metadata.title = await this.getDocumentTitle(payload.documentId);
+        }
+        break;
+
+      case 'document.version.created':
+        metadata.documentId  = payload.documentId;
+        metadata.versionId   = payload.versionId;
+        metadata.workspaceId = payload.workspaceId;
+        if (payload.documentId) {
+          metadata.title = await this.getDocumentTitle(payload.documentId);
+        }
+        break;
+
+      case 'document.version.restored':
+        metadata.documentId  = payload.documentId;
+        metadata.versionId   = payload.versionId;
+        metadata.workspaceId = payload.workspaceId;
+        if (payload.documentId) {
+          metadata.title = await this.getDocumentTitle(payload.documentId);
+        }
+        break;
+
+      case 'document.permission.updated':
+        metadata.documentId  = payload.documentId;
+        metadata.workspaceId = payload.workspaceId;
+        metadata.targetUserId = payload.targetUserId;
+        metadata.permission  = payload.permission;
+        if (payload.documentId) {
+          metadata.title = await this.getDocumentTitle(payload.documentId);
+        }
+        if (payload.targetUserId) {
+          metadata.targetUserName = await this.getMemberName(payload.targetUserId);
+        }
+        break;
+
+      case 'comment.mentioned':
+        metadata.commentId   = payload.commentId;
+        metadata.cardId      = payload.cardId;
+        metadata.workspaceId = payload.workspaceId;
+        metadata.boardId     = payload.boardId;
+        metadata.mentionedUserId   = payload.mentionedUserId;
+        metadata.mentionedByUserId = payload.mentionedByUserId;
+        if (payload.cardId) {
+          metadata.cardTitle = await this.getCardTitle(payload.cardId);
+        }
+        if (payload.mentionedUserId) {
+          metadata.mentionedUserName = await this.getMemberName(payload.mentionedUserId);
         }
         break;
 
@@ -396,6 +723,139 @@ export class UserActivityService {
         }
         break;
 
+      case 'github.push':
+        metadata.workspaceId = payload.workspaceId;
+        metadata.repo        = payload.repo;
+        metadata.branch      = payload.branch;
+        metadata.commits     = payload.commits;
+        metadata.pusher      = payload.pusher;
+        metadata.compareUrl  = payload.compareUrl;
+        break;
+
+      case 'github.pr.opened':
+      case 'github.pr.closed':
+      case 'github.pr.merged':
+      case 'github.pr.review_requested':
+        metadata.workspaceId  = payload.workspaceId;
+        metadata.repo         = payload.repo;
+        metadata.prNumber     = payload.prNumber;
+        metadata.title        = payload.title;
+        metadata.url          = payload.url;
+        metadata.author       = payload.author;
+        metadata.authorAvatar = payload.authorAvatar;
+        metadata.draft        = payload.draft;
+        metadata.mergedBy     = payload.mergedBy;
+        metadata.reviewer     = payload.reviewer;
+        break;
+
+      case 'github.pr.review.submitted':
+        metadata.workspaceId   = payload.workspaceId;
+        metadata.repo          = payload.repo;
+        metadata.prNumber      = payload.prNumber;
+        metadata.title         = payload.title;
+        metadata.url           = payload.url;
+        metadata.prAuthor      = payload.prAuthor;
+        metadata.reviewer      = payload.reviewer;
+        metadata.reviewerAvatar = payload.reviewerAvatar;
+        metadata.state         = payload.state;
+        metadata.body          = payload.body;
+        break;
+
+      case 'project.created':
+        metadata.projectId  = payload.projectId;
+        metadata.name       = payload.name;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'project.updated':
+        metadata.projectId  = payload.projectId;
+        metadata.name       = payload.name || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'project.status.changed':
+        metadata.projectId  = payload.projectId;
+        metadata.name       = payload.name || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
+        metadata.oldStatus  = payload.oldStatus;
+        metadata.newStatus  = payload.newStatus;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'project.deleted':
+        metadata.projectId  = payload.projectId;
+        metadata.name       = payload.name;
+        metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'project.board.assigned':
+      case 'project.board.removed':
+        metadata.projectId   = payload.projectId;
+        metadata.projectName = payload.projectName || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
+        metadata.boardId     = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        if (payload.boardId) {
+          metadata.boardName = await this.getBoardName(payload.boardId);
+        }
+        break;
+
+      case 'project.milestone.created':
+        metadata.projectId    = payload.projectId;
+        metadata.projectName  = payload.projectName || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
+        metadata.milestoneName = payload.milestoneName;
+        metadata.milestoneDate = payload.milestoneDate;
+        metadata.workspaceId  = payload.workspaceId;
+        break;
+
+      case 'project.milestone.completed':
+        metadata.projectId    = payload.projectId;
+        metadata.projectName  = payload.projectName || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
+        metadata.milestoneName = payload.milestoneName;
+        metadata.workspaceId  = payload.workspaceId;
+        break;
+
+      case 'team.created':
+        metadata.teamId  = payload.teamId;
+        metadata.name    = payload.name || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        break;
+
+      case 'team.updated':
+        metadata.teamId  = payload.teamId;
+        metadata.name    = payload.name || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        break;
+
+      case 'team.deleted':
+        metadata.teamId  = payload.teamId;
+        metadata.name    = payload.name;
+        break;
+
+      case 'team.member.added':
+        metadata.teamId   = payload.teamId;
+        metadata.teamName = payload.teamName || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        metadata.memberId = payload.memberId;
+        if (payload.memberId) {
+          metadata.memberName = await this.getMemberName(payload.memberId);
+        }
+        break;
+
+      case 'team.member.removed':
+        metadata.teamId   = payload.teamId;
+        metadata.teamName = payload.teamName || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        metadata.memberId = payload.memberId;
+        if (payload.memberId) {
+          metadata.memberName = await this.getMemberName(payload.memberId);
+        }
+        break;
+
+      case 'team.member.roleChanged':
+        metadata.teamId   = payload.teamId;
+        metadata.teamName = payload.teamName || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        metadata.memberId = payload.memberId;
+        metadata.newRole  = payload.newRole;
+        if (payload.memberId) {
+          metadata.memberName = await this.getMemberName(payload.memberId);
+        }
+        break;
+
       default:
         return payload;
     }
@@ -404,24 +864,63 @@ export class UserActivityService {
   }
 
   /**
-   * Obtener actividad reciente del usuario
+   * Obtener actividad reciente del equipo (todos los workspaces del usuario)
    */
-  async getUserActivity(userId: UserId, limit = 20): Promise<any[]> {
+  async getUserActivity(
+    userId: UserId,
+    limit = 50,
+    options?: { workspaceIds?: string[]; range?: 'today' | '24h' | 'week' }
+  ): Promise<any[]> {
     try {
+      const params: any[] = [userId];
+      const conditions: string[] = [
+        `(
+           (ual.workspace_id IS NOT NULL AND ual.workspace_id IN (
+             SELECT workspace_id FROM workspace_members WHERE user_id = $1
+           ))
+           OR (ual.workspace_id IS NULL AND ual.user_id = $1)
+         )`,
+      ];
+
+      // Date filter done entirely in SQL to avoid JS timezone issues
+      if (options?.range === 'today') {
+        conditions.push(`ual.created_at >= DATE_TRUNC('day', NOW())`);
+      } else if (options?.range === 'week') {
+        conditions.push(`ual.created_at >= NOW() - INTERVAL '7 days'`);
+      } else {
+        // '24h' is the default
+        conditions.push(`ual.created_at >= NOW() - INTERVAL '24 hours'`);
+      }
+
+      if (options?.workspaceIds && options.workspaceIds.length > 0) {
+        params.push(options.workspaceIds);
+        conditions.push(`ual.workspace_id = ANY($${params.length})`);
+      }
+
+      params.push(limit);
+      const limitParam = `$${params.length}`;
+
       const result = await pool.query(
-        `SELECT 
-          id,
-          user_id,
-          activity_type,
-          metadata,
-          board_id,
-          workspace_id,
-          created_at
-         FROM user_activity_log
-         WHERE user_id = $1
-         ORDER BY created_at DESC
-         LIMIT $2`,
-        [userId, limit]
+        `SELECT
+          ual.id,
+          ual.user_id,
+          ual.activity_type,
+          ual.metadata,
+          ual.board_id,
+          ual.workspace_id,
+          ual.created_at,
+          u.name   AS user_name,
+          u.avatar AS user_avatar,
+          w.name   AS workspace_name,
+          b.name   AS board_name
+         FROM user_activity_log ual
+         LEFT JOIN users u ON u.id = ual.user_id
+         LEFT JOIN workspaces w ON w.id = ual.workspace_id
+         LEFT JOIN boards b ON b.id = ual.board_id
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY ual.created_at DESC
+         LIMIT ${limitParam}`,
+        params
       );
 
       return result.rows;

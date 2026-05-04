@@ -473,6 +473,33 @@ export class CardService {
           }
         }
 
+        // Eventos específicos según qué cambió (para el activity feed)
+        if (data.title !== undefined && data.title !== currentCard.title) {
+          await eventStore.emit('card.renamed' as any, {
+            cardId: card.id as any, title: currentCard.title, newTitle: card.title, boardId, workspaceId,
+          }, userId as any, boardId || undefined, socketId);
+        }
+        if (data.description !== undefined && data.description !== currentCard.description) {
+          await eventStore.emit('card.description.changed' as any, {
+            cardId: card.id as any, title: card.title, boardId, workspaceId,
+          }, userId as any, boardId || undefined, socketId);
+        }
+        if (data.dueDate !== undefined && data.dueDate !== currentCard.due_date) {
+          const dueDateEvent = !currentCard.due_date && data.dueDate ? 'card.duedate.set'
+            : currentCard.due_date && !data.dueDate ? 'card.duedate.removed'
+            : 'card.duedate.changed';
+          await eventStore.emit(dueDateEvent as any, {
+            cardId: card.id as any, title: card.title, dueDate: data.dueDate, boardId, workspaceId,
+          }, userId as any, boardId || undefined, socketId);
+        }
+        if (data.priority !== undefined && data.priority !== currentCard.priority) {
+          await eventStore.emit('card.priority.changed' as any, {
+            cardId: card.id as any, title: card.title,
+            oldPriority: currentCard.priority, newPriority: data.priority,
+            boardId, workspaceId,
+          }, userId as any, boardId || undefined, socketId);
+        }
+
         const updatePayload = {
           cardId: card.id as any,
           changes,

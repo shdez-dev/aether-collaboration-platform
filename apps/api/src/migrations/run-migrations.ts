@@ -549,6 +549,108 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 012: Add password_reset_token and password_reset_expires to users');
 
+      // Migration 014: Add github_token to user_preferences
+      await client.query(`
+        ALTER TABLE user_preferences
+          ADD COLUMN IF NOT EXISTS github_token TEXT;
+      `);
+      console.log('  ✓ Migration 014: Add github_token to user_preferences');
+
+      // Migration 013: Create standups table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS standups (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL,
+          workspace_id UUID NOT NULL,
+          date DATE NOT NULL DEFAULT CURRENT_DATE,
+          yesterday_items JSONB NOT NULL DEFAULT '[]',
+          today_items JSONB NOT NULL DEFAULT '[]',
+          blockers JSONB NOT NULL DEFAULT '[]',
+          published_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT fk_standup_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          CONSTRAINT fk_standup_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+          CONSTRAINT uq_standup_user_workspace_date UNIQUE (user_id, workspace_id, date)
+        );
+        CREATE INDEX IF NOT EXISTS idx_standups_user ON standups(user_id);
+        CREATE INDEX IF NOT EXISTS idx_standups_workspace_date ON standups(workspace_id, date);
+      `);
+      console.log('  ✓ Migration 013: Create standups table');
+
+      // Migration 015: Create workspace_github_connections table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS workspace_github_connections (
+          id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          workspace_id   UUID NOT NULL UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,
+          github_token   TEXT NOT NULL,
+          repos          TEXT[] NOT NULL DEFAULT '{}',
+          webhook_secret TEXT NOT NULL,
+          github_login   TEXT,
+          connected_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+          created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_wgc_workspace ON workspace_github_connections(workspace_id);
+      `);
+      console.log('  ✓ Migration 015: Create workspace_github_connections table');
+
+      // Migration 016: Add color column to boards
+      await client.query(`
+        ALTER TABLE boards ADD COLUMN IF NOT EXISTS color VARCHAR(50) DEFAULT '#3b82f6';
+      `);
+      console.log('  ✓ Migration 016: Add color to boards');
+
+      // Migration 017: Create teams and team_members tables
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS teams (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name        VARCHAR(255) NOT NULL,
+          description TEXT,
+          color       VARCHAR(50) DEFAULT '#3b82f6',
+          icon        VARCHAR(500),
+          lead_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+          created_by  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_teams_created_by ON teams(created_by);
+        CREATE INDEX IF NOT EXISTS idx_teams_lead ON teams(lead_id);
+
+        CREATE TABLE IF NOT EXISTS team_members (
+          id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          team_id   UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+          user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          role      VARCHAR(50) NOT NULL DEFAULT 'MEMBER',
+          joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CONSTRAINT uq_team_member UNIQUE (team_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
+        CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
+      `);
+      console.log('  ✓ Migration 017: Create teams and team_members tables');
+
+      // Migration 018: Create project_teams pivot table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS project_teams (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          project_id  UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          team_id     UUID NOT NULL REFERENCES teams(id)    ON DELETE CASCADE,
+          assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          assigned_by UUID REFERENCES users(id) ON DELETE SET NULL,
+          CONSTRAINT uq_project_team UNIQUE (project_id, team_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_teams_project ON project_teams(project_id);
+        CREATE INDEX IF NOT EXISTS idx_project_teams_team    ON project_teams(team_id);
+      `);
+      console.log('  ✓ Migration 018: Create project_teams pivot table');
+
+      // Migration 019: Add ai_planner_credits to users
+      await client.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_planner_credits INTEGER NOT NULL DEFAULT 3;
+      `);
+      console.log('  ✓ Migration 019: Add ai_planner_credits to users');
+
       console.log('✅ All migrations completed successfully');
     } finally {
       client.release();

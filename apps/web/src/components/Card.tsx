@@ -8,82 +8,67 @@ import { apiService } from '@/services/apiService';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, memo } from 'react';
+import { useT } from '@/lib/i18n';
 
 interface CardProps {
   card: CardType;
 }
 
-const priorityConfig = {
-  LOW: {
-    color: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
-    label: 'Baja',
-    icon: '▼',
-  },
-  MEDIUM: {
-    color: 'bg-warning/10 text-warning border-warning/30',
-    label: 'Media',
-    icon: '■',
-  },
-  HIGH: {
-    color: 'bg-error/10 text-error border-error/30',
-    label: 'Alta',
-    icon: '▲',
-  },
+const C = {
+  surface: '#14171c',
+  hover:   '#171b21',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  amber:   '#f59e0b',
+  red:     '#ef4444',
 };
 
-const MONTHS_SHORT = [
-  'Ene',
-  'Feb',
-  'Mar',
-  'Abr',
-  'May',
-  'Jun',
-  'Jul',
-  'Ago',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dic',
-];
+const PRIORITY_COLORS = {
+  LOW:    { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)'  },
+  MEDIUM: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)'  },
+  HIGH:   { color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
+};
+
+const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 export function Card({ card }: CardProps) {
-  // Optimización: Solo extraer lo que necesitamos del store
-  const updateCard = useCardStore((state) => state.updateCard);
-  const setSelectedCard = useCardStore((state) => state.setSelectedCard);
-  const userRole = useWorkspaceStore((state) => state.currentWorkspace?.userRole);
+  const t = useT();
+  const updateCard     = useCardStore((s) => s.updateCard);
+  const setSelectedCard = useCardStore((s) => s.setSelectedCard);
+  const userRole       = useWorkspaceStore((s) => s.currentWorkspace?.userRole);
+
+  const PRIORITY = {
+    LOW:    { label: t.card_priority_low,    ...PRIORITY_COLORS.LOW    },
+    MEDIUM: { label: t.card_priority_medium, ...PRIORITY_COLORS.MEDIUM },
+    HIGH:   { label: t.card_priority_high,   ...PRIORITY_COLORS.HIGH   },
+  };
 
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
 
-  // ✅ PERMISOS ACTUALIZADOS:
-  // OWNER y ADMIN: pueden editar campos (título, descripción, etc.)
-  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
-
-  // OWNER, ADMIN y MEMBER: pueden marcar cards como completadas
+  const canEdit     = userRole === 'ADMIN' || userRole === 'OWNER';
   const canComplete = canEdit || userRole === 'MEMBER';
-
-  // OWNER, ADMIN y MEMBER: pueden arrastrar cards
   const canDragByRole = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
-  // Verificar si la card está bloqueada por dependencias pendientes
   const blockedByPendingCount = card.blockedByPendingCount ?? 0;
   const isBlocked = blockedByPendingCount > 0 && !card.completed;
-
-  // No se puede arrastrar si está bloqueada
   const canDrag = canDragByRole && !isBlocked;
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
-    data: {
-      type: 'card',
-      card,
-    },
-    disabled: !canDrag, // ✅ Deshabilitado si no tiene permisos o está bloqueada
+    data: { type: 'card', card },
+    disabled: !canDrag,
   });
 
-  const style = {
+  const dndStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : card.completed ? 0.7 : 1,
+    opacity: isDragging ? 0.45 : card.completed ? 0.72 : 1,
     willChange: isDragging ? 'transform' : 'auto',
   };
 
@@ -94,399 +79,287 @@ export function Card({ card }: CardProps) {
 
   const handleToggleComplete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-
     if (!canComplete || isTogglingComplete || isBlocked) return;
-
     setIsTogglingComplete(true);
-    const newCompletedState = !card.completed;
-
-    updateCard(card.id, {
-      completed: newCompletedState,
-      completedAt: newCompletedState ? new Date().toISOString() : undefined,
-    });
-
+    const next = !card.completed;
+    updateCard(card.id, { completed: next, completedAt: next ? new Date().toISOString() : undefined });
     try {
-      const response = await apiService.put<{ card: any }>(
+      const r = await apiService.put<{ card: any }>(
         `/api/cards/${card.id}`,
-        { completed: newCompletedState, completedAt: newCompletedState ? new Date().toISOString() : null },
+        { completed: next, completedAt: next ? new Date().toISOString() : null },
         true
       );
-
-      if (!response.success) {
-        updateCard(card.id, { completed: card.completed, completedAt: card.completedAt });
-        return;
-      }
-
-      updateCard(card.id, response.data!.card);
+      if (!r.success) { updateCard(card.id, { completed: card.completed, completedAt: card.completedAt }); return; }
+      updateCard(card.id, r.data!.card);
     } catch {
       updateCard(card.id, { completed: card.completed, completedAt: card.completedAt });
-    } finally {
-      setIsTogglingComplete(false);
-    }
+    } finally { setIsTogglingComplete(false); }
   };
 
   const formatDueDate = (date: string) => {
-    const dueDate = new Date(date);
+    const d = new Date(date);
     const now = new Date();
-    const diffTime = dueDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    const day = dueDate.getDate();
-    const month = MONTHS_SHORT[dueDate.getMonth()];
-    const dateText = `${day} ${month}`;
-
-    if (diffDays < 0) return { text: dateText, color: 'text-error', isOverdue: true };
-    if (diffDays === 0) return { text: 'Hoy', color: 'text-warning', isOverdue: false };
-    if (diffDays <= 3) return { text: dateText, color: 'text-warning', isOverdue: false };
-    return { text: dateText, color: 'text-text-muted', isOverdue: false };
+    const diff = Math.ceil((d.getTime() - now.getTime()) / 86400000);
+    const text = diff === 0 ? 'Hoy' : `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+    if (diff < 0)  return { text, color: C.red   };
+    if (diff === 0) return { text, color: C.amber };
+    if (diff <= 3)  return { text, color: C.amber };
+    return { text, color: C.text4 };
   };
 
-  const dueDate = card.dueDate ? formatDueDate(card.dueDate) : null;
-  const priority = card.priority ? priorityConfig[card.priority] : null;
+  const due      = card.dueDate ? formatDueDate(card.dueDate) : null;
+  const prio     = card.priority ? PRIORITY[card.priority] : null;
+  const labels   = (card as any).labels || [];
+  const members  = card.members || [];
   const commentCount = (card as any)._count?.comments || 0;
+  const blockingCount = card.blockingCount ?? 0;
 
-  const labels = (card as any).labels || [];
-  const visibleLabels = labels.slice(0, 3);
-  const remainingLabels = labels.length > 3 ? labels.length - 3 : 0;
-
-  // Progreso del checklist (solo disponible si la card fue abierta al menos 1 vez)
   const checklistItems: Array<{ completed: boolean }> = card.checklistItems || [];
   const checklistTotal = checklistItems.length;
-  const checklistDone = checklistItems.filter((i) => i.completed).length;
-  const checklistPct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
+  const checklistDone  = checklistItems.filter((i) => i.completed).length;
+  const checklistPct   = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
 
-  // Contador de cards que esta card está bloqueando
-  const blockingCount = card.blockingCount ?? 0;
+  // Derive base border/bg from card state
+  const baseBorder = card.completed ? `${C.green}2e` : isBlocked ? `${C.amber}33` : C.border;
+  const baseBg     = card.completed ? `${C.green}09` : isBlocked ? `${C.amber}09` : C.surface;
+  const hoverBorder = card.completed ? `${C.green}55` : isBlocked ? `${C.amber}55` : C.border2;
+  const hoverBg     = card.completed ? `${C.green}11` : isBlocked ? `${C.amber}11` : C.hover;
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...dndStyle,
+        background: baseBg,
+        border: `1px solid ${baseBorder}`,
+        borderRadius: '8px',
+        padding: '9px 10px 8px',
+        cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer',
+        transition: `${dndStyle.transition ?? ''}, border-color 0.12s, background 0.12s`.trimStart().replace(/^,\s*/, ''),
+      }}
       {...(canDrag ? attributes : {})}
       {...(canDrag ? listeners : {})}
       onClick={handleClick}
-      className={`
-        bg-card border rounded-lg p-3
-        transition-all
-        ${isDragging ? 'cursor-grabbing shadow-xl border-accent' : canDrag ? 'cursor-grab' : 'cursor-pointer'}
-        ${
-          card.completed
-            ? 'border-success/30 bg-success/5'
-            : isBlocked
-              ? 'border-warning/30 bg-warning/5 cursor-not-allowed'
-              : 'border-border hover:bg-surface hover:border-accent/50 hover:shadow-lg cursor-pointer'
+      onMouseEnter={(e) => {
+        if (!isDragging) {
+          e.currentTarget.style.borderColor = hoverBorder;
+          e.currentTarget.style.background  = hoverBg;
         }
-      `}
-      title={
-        isBlocked
-          ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}. No se puede mover hasta completar las dependencias.`
-          : ''
-      }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = baseBorder;
+        e.currentTarget.style.background  = baseBg;
+      }}
+      title={isBlocked ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}` : ''}
     >
-      {/* Checkbox + Título */}
-      <div className="pb-2 border-b border-border/30 flex items-start gap-2">
-        {/* CHECKBOX DE COMPLETADO - Solo ADMIN y OWNER pueden completar; bloqueado si hay dependencias pendientes */}
+      {/* Label strips */}
+      {labels.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {labels.slice(0, 4).map((label: any) => (
+            <span
+              key={label.id}
+              title={label.name}
+              style={{ display: 'inline-block', height: '4px', width: '24px', borderRadius: '2px', background: label.color }}
+            />
+          ))}
+          {labels.length > 4 && (
+            <span style={{ fontSize: '9px', color: C.text4, lineHeight: '4px', alignSelf: 'center' }}>
+              +{labels.length - 4}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Checkbox + Title */}
+      <div className="flex items-start gap-2">
         <button
           onClick={handleToggleComplete}
           disabled={!canComplete || isTogglingComplete || isBlocked}
           title={
-            isBlocked
-              ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}`
-              : !canComplete
-                ? 'Sin permisos para completar'
-                : card.completed
-                  ? 'Marcar como pendiente'
-                  : 'Marcar como completada'
+            isBlocked ? `Bloqueada por ${blockedByPendingCount} dep. pendiente${blockedByPendingCount !== 1 ? 's' : ''}`
+            : !canComplete ? 'Sin permisos'
+            : card.completed ? 'Marcar como pendiente'
+            : 'Marcar como completada'
           }
-          className={`
-            mt-0.5 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded border-2 
-            flex items-center justify-center transition-all touch-manipulation
-            p-2 sm:p-0
-            ${
-              isBlocked
-                ? 'border-warning/50 bg-warning/10 cursor-not-allowed'
-                : card.completed
-                  ? 'bg-success border-success hover:bg-success/80 cursor-pointer'
-                  : canComplete
-                    ? 'border-border hover:border-accent cursor-pointer'
-                    : 'border-border cursor-not-allowed opacity-50'
-            }
-          `}
+          className="flex-shrink-0 flex items-center justify-center rounded-[5px] transition-colors mt-[1px]"
+          style={{
+            width: '16px', height: '16px',
+            border: `1.5px solid ${isBlocked ? C.amber : card.completed ? C.green : C.text3}`,
+            background: card.completed ? C.green : isBlocked ? `${C.amber}22` : 'transparent',
+            cursor: !canComplete || isBlocked ? 'not-allowed' : 'pointer',
+            flexShrink: 0,
+          }}
         >
           {isBlocked ? (
-            <svg
-              className="w-2.5 h-2.5 text-warning"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
+            <svg viewBox="0 0 12 12" fill="none" stroke={C.amber} strokeWidth="1.5" width="8" height="8">
+              <rect x="2" y="5" width="8" height="6" rx="1" /><path d="M4 5V3.5a2 2 0 014 0V5" />
             </svg>
           ) : card.completed ? (
-            <svg
-              className="w-3 h-3 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={3}
-                d="M5 13l4 4L19 7"
-              />
+            <svg viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" width="8" height="8">
+              <path d="M2 5l2.5 2.5 3.5-4" />
             </svg>
           ) : null}
         </button>
 
-        {/* Título */}
         <h4
-          className={`
-            text-[15px] font-medium leading-relaxed flex-1
-            ${card.completed ? 'text-text-muted line-through' : 'text-text-primary'}
-          `}
+          style={{
+            fontSize: '12.5px',
+            fontWeight: 500,
+            lineHeight: 1.45,
+            color: card.completed ? C.text3 : C.text,
+            textDecoration: card.completed ? 'line-through' : 'none',
+            flex: 1,
+            wordBreak: 'break-word',
+          }}
         >
           {card.title}
         </h4>
       </div>
 
-      {/* Task ID */}
-      <div className="py-1.5 border-b border-border/30 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-text-muted">
-          <span>#</span>
-          <span>ID Tarea</span>
-        </div>
-        <div className="text-xs text-text-primary font-mono">{card.id.slice(0, 8)}</div>
-      </div>
-
-      {/* Due Date */}
-      {dueDate && (
-        <div className="py-1.5 border-b border-border/30 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-text-muted">
-            <svg
-              className="w-3 h-3 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <span>Fecha límite</span>
+      {/* Checklist bar (only if there are items) */}
+      {checklistTotal > 0 && (
+        <div className="flex items-center gap-1.5 mt-2">
+          <span style={{ fontSize: '10px', color: checklistPct === 100 ? C.green : C.text4, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+            {checklistDone}/{checklistTotal}
+          </span>
+          <div style={{ flex: 1, height: '3px', background: C.border2, borderRadius: '2px', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%', borderRadius: '2px',
+                width: `${checklistPct}%`,
+                background: checklistPct === 100 ? C.green : C.accent,
+                transition: 'width 0.3s',
+              }}
+            />
           </div>
-          <div className={`${dueDate.color} text-xs font-medium`}>{dueDate.text}</div>
         </div>
       )}
 
-      {/* Priority */}
-      {priority && (
-        <div className="py-1.5 border-b border-border/30 flex items-center justify-between">
-          <div className="text-xs text-text-muted">Prioridad</div>
-          <div
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border ${priority.color} text-[10px] font-medium uppercase`}
+      {/* Footer meta row */}
+      <div className="flex items-center gap-2 mt-2 flex-wrap" style={{ minHeight: '18px' }}>
+        {/* Priority */}
+        {prio && (
+          <span
+            style={{
+              fontSize: '10px', fontWeight: 600,
+              padding: '1px 5px', borderRadius: '3px',
+              background: prio.bg, color: prio.color,
+              border: `1px solid ${prio.color}33`,
+              flexShrink: 0,
+            }}
           >
-            <span>{priority.icon}</span>
-            <span>{priority.label}</span>
-          </div>
-        </div>
-      )}
+            {prio.label}
+          </span>
+        )}
 
-      {/* Assigned Members */}
-      {card.members && card.members.length > 0 && (
-        <div className="py-1.5 border-b border-border/30 flex items-center justify-between">
-          <div className="text-xs text-text-muted">Asignados</div>
-          <div className="flex -space-x-1.5">
-            {card.members.slice(0, 3).map((member) => (
+        {/* Due date */}
+        {due && (
+          <div className="flex items-center gap-[3px]" style={{ flexShrink: 0 }}>
+            <svg viewBox="0 0 14 14" fill="none" stroke={due.color} strokeWidth="1.4" width="10" height="10">
+              <rect x="1" y="2" width="12" height="11" rx="1.5" />
+              <path d="M4 1v2M10 1v2M1 6h12" />
+            </svg>
+            <span style={{ fontSize: '10.5px', color: due.color, fontVariantNumeric: 'tabular-nums' }}>
+              {due.text}
+            </span>
+          </div>
+        )}
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Comments */}
+        {commentCount > 0 && (
+          <div className="flex items-center gap-[3px]" style={{ flexShrink: 0 }}>
+            <svg viewBox="0 0 14 14" fill="none" stroke={C.text4} strokeWidth="1.4" width="10" height="10">
+              <path d="M2 2h10v7H8l-2 2-2-2H2z" />
+            </svg>
+            <span style={{ fontSize: '10px', color: C.text4 }}>{commentCount}</span>
+          </div>
+        )}
+
+        {/* Blocked indicator */}
+        {isBlocked && (
+          <div
+            className="flex items-center gap-[3px]"
+            title={`Bloqueada por ${blockedByPendingCount} dep. pendiente${blockedByPendingCount !== 1 ? 's' : ''}`}
+            style={{ flexShrink: 0 }}
+          >
+            <svg viewBox="0 0 12 12" fill="none" stroke={C.amber} strokeWidth="1.5" width="10" height="10">
+              <rect x="1.5" y="5" width="9" height="6.5" rx="1" /><path d="M3.5 5V3.5a2.5 2.5 0 015 0V5" />
+            </svg>
+            <span style={{ fontSize: '10px', color: C.amber }}>{blockedByPendingCount}</span>
+          </div>
+        )}
+
+        {/* Blocking indicator */}
+        {!isBlocked && blockingCount > 0 && (
+          <div
+            className="flex items-center gap-[3px]"
+            title={`Bloquea a ${blockingCount} card${blockingCount !== 1 ? 's' : ''}`}
+            style={{ flexShrink: 0 }}
+          >
+            <svg viewBox="0 0 14 14" fill="none" stroke={C.text4} strokeWidth="1.4" width="10" height="10">
+              <circle cx="4" cy="3" r="1.5" /><circle cx="4" cy="11" r="1.5" /><circle cx="10" cy="3" r="1.5" />
+              <path d="M4 4.5v5M10 4.5C10 8 4 9 4 9.5" />
+            </svg>
+            <span style={{ fontSize: '10px', color: C.text4 }}>{blockingCount}</span>
+          </div>
+        )}
+
+        {/* Members */}
+        {members.length > 0 && (
+          <div className="flex items-center" style={{ flexShrink: 0 }}>
+            {members.slice(0, 3).map((m: any, i: number) => (
               <div
-                key={member.id}
-                className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-[10px] font-bold border-2 border-card ring-1 ring-border"
-                title={member.name}
+                key={m.id}
+                title={m.name}
+                style={{
+                  width: '18px', height: '18px',
+                  borderRadius: '50%',
+                  background: `linear-gradient(135deg, ${C.accent}bb, ${C.accent}55)`,
+                  border: `1.5px solid #13161b`,
+                  marginLeft: i === 0 ? 0 : '-5px',
+                  fontSize: '9px', fontWeight: 700, color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  zIndex: 3 - i,
+                  position: 'relative',
+                }}
               >
-                {member.name.charAt(0).toUpperCase()}
+                {m.name.charAt(0).toUpperCase()}
               </div>
             ))}
-            {card.members.length > 3 && (
-              <div className="w-6 h-6 rounded-full bg-surface text-text-secondary flex items-center justify-center text-[10px] font-bold border-2 border-card ring-1 ring-border">
-                +{card.members.length - 3}
+            {members.length > 3 && (
+              <div
+                style={{
+                  width: '18px', height: '18px', borderRadius: '50%',
+                  background: C.hover, border: `1.5px solid #13161b`,
+                  marginLeft: '-5px', fontSize: '9px', fontWeight: 700, color: C.text3,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+                }}
+              >
+                +{members.length - 3}
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Checklist progress bar */}
-      {checklistTotal > 0 && (
-        <div className="py-1.5 border-b border-border/30">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-xs text-text-muted flex-shrink-0">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
-              </svg>
-              <span>
-                {checklistDone}/{checklistTotal}
-              </span>
-            </div>
-            <div className="flex-1 h-1 bg-surface border border-border/50 overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ${checklistPct === 100 ? 'bg-success' : 'bg-accent'}`}
-                style={{ width: `${checklistPct}%` }}
-              />
-            </div>
-            <span
-              className={`text-[10px] font-mono w-7 text-right ${checklistPct === 100 ? 'text-success' : 'text-text-muted'}`}
-            >
-              {checklistPct}%
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Footer: comentarios · dependencias · labels · completado */}
-      <div className="pt-2 flex items-center justify-between gap-2 min-w-0">
-        {/* Izquierda: comentarios + dependencias */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-shrink-0">
-          {/* Comentarios */}
-          <div
-            className="flex items-center gap-1 text-text-muted"
-            title={`${commentCount} comentario${commentCount !== 1 ? 's' : ''}`}
-          >
-            <svg
-              className="w-3.5 h-3.5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </svg>
-            <span className="text-xs font-medium">{commentCount}</span>
-          </div>
-
-          {/* Dependencias: solo iconos + números */}
-          {isBlocked && (
-            <div
-              className="flex items-center gap-1 text-warning"
-              title={`Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}`}
-            >
-              <svg
-                className="w-3 h-3 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-              <span className="text-xs font-medium">{blockedByPendingCount}</span>
-            </div>
-          )}
-          {!isBlocked && blockingCount > 0 && (
-            <div
-              className="flex items-center gap-1 text-text-muted"
-              title={`Bloquea a ${blockingCount} card${blockingCount !== 1 ? 's' : ''}`}
-            >
-              <svg
-                className="w-3 h-3 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                />
-              </svg>
-              <span className="text-xs font-medium">{blockingCount}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Derecha: labels + completado */}
-        <div className="flex items-center gap-2 min-w-0 justify-end flex-1">
-          {/* Labels: puntos de color */}
-          {labels.length > 0 && (
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {visibleLabels.map((label: any) => (
-                <div
-                  key={label.id}
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: label.color }}
-                  title={label.name}
-                />
-              ))}
-              {remainingLabels > 0 && (
-                <span
-                  className="text-[10px] text-text-muted font-medium"
-                  title={`${remainingLabels} etiquetas más`}
-                >
-                  +{remainingLabels}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Badge completado */}
-          {card.completed && (
-            <div title="Completada">
-              <svg
-                className="w-3.5 h-3.5 text-success flex-shrink-0"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Memoizar para evitar re-renders innecesarios cuando las props no cambian
-export default memo(Card, (prevProps, nextProps) => {
-  // Solo re-renderizar si la card realmente cambió
-  return (
-    prevProps.card.id === nextProps.card.id &&
-    prevProps.card.title === nextProps.card.title &&
-    prevProps.card.position === nextProps.card.position &&
-    prevProps.card.completed === nextProps.card.completed &&
-    prevProps.card.dueDate === nextProps.card.dueDate &&
-    prevProps.card.priority === nextProps.card.priority &&
-    prevProps.card.members?.length === nextProps.card.members?.length &&
-    prevProps.card.labels?.length === nextProps.card.labels?.length &&
-    prevProps.card.checklistItems?.length === nextProps.card.checklistItems?.length &&
-    prevProps.card.checklistItems?.filter((i) => i.completed).length ===
-      nextProps.card.checklistItems?.filter((i) => i.completed).length &&
-    prevProps.card.blockedByPendingCount === nextProps.card.blockedByPendingCount &&
-    prevProps.card.blockingCount === nextProps.card.blockingCount
-  );
-});
+export default memo(Card, (prev, next) =>
+  prev.card.id === next.card.id &&
+  prev.card.title === next.card.title &&
+  prev.card.position === next.card.position &&
+  prev.card.completed === next.card.completed &&
+  prev.card.dueDate === next.card.dueDate &&
+  prev.card.priority === next.card.priority &&
+  prev.card.members?.length === next.card.members?.length &&
+  prev.card.labels?.length === next.card.labels?.length &&
+  prev.card.checklistItems?.length === next.card.checklistItems?.length &&
+  prev.card.checklistItems?.filter((i) => i.completed).length ===
+    next.card.checklistItems?.filter((i) => i.completed).length &&
+  prev.card.blockedByPendingCount === next.card.blockedByPendingCount &&
+  prev.card.blockingCount === next.card.blockingCount
+);

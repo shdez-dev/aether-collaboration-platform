@@ -181,6 +181,64 @@ export function getEventDescription(event: ActivityLogEntry, t: Record<string, a
         targetName || payload?.documentTitle || ''
       );
 
+    // Project
+    case 'project.created':
+      return t.dashboard_activity_project_created(payload?.name || '');
+    case 'project.updated':
+      return t.dashboard_activity_project_updated(payload?.name || '');
+    case 'project.status.changed':
+      return t.dashboard_activity_project_status_changed(
+        payload?.name || '',
+        payload?.oldStatus || '',
+        payload?.newStatus || ''
+      );
+    case 'project.deleted':
+      return t.dashboard_activity_project_deleted(payload?.name || '');
+    case 'project.board.assigned':
+      return t.dashboard_activity_project_board_assigned(
+        payload?.boardName || '',
+        payload?.projectName || ''
+      );
+    case 'project.board.removed':
+      return t.dashboard_activity_project_board_removed(
+        payload?.boardName || '',
+        payload?.projectName || ''
+      );
+    case 'project.milestone.created':
+      return t.dashboard_activity_project_milestone_created(
+        payload?.milestoneName || '',
+        payload?.projectName || ''
+      );
+    case 'project.milestone.completed':
+      return t.dashboard_activity_project_milestone_completed(
+        payload?.milestoneName || '',
+        payload?.projectName || ''
+      );
+
+    // Team
+    case 'team.created':
+      return t.dashboard_activity_team_created(payload?.name || '');
+    case 'team.updated':
+      return t.dashboard_activity_team_updated(payload?.name || '');
+    case 'team.deleted':
+      return t.dashboard_activity_team_deleted(payload?.name || '');
+    case 'team.member.added':
+      return t.dashboard_activity_team_member_added(
+        payload?.memberName || '',
+        payload?.teamName || ''
+      );
+    case 'team.member.removed':
+      return t.dashboard_activity_team_member_removed(
+        payload?.memberName || '',
+        payload?.teamName || ''
+      );
+    case 'team.member.roleChanged':
+      return t.dashboard_activity_team_member_role_changed(
+        payload?.memberName || '',
+        payload?.teamName || '',
+        payload?.newRole || ''
+      );
+
     // Auth
     case 'auth.user.registered':
       return t.dashboard_activity_auth_registered;
@@ -236,6 +294,20 @@ export function getEventIcon(eventType: EventType): LucideIcon {
   if (eventType.startsWith('workspace.')) {
     if (eventType.includes('member')) return Users;
     return Layout;
+  }
+
+  if (eventType.startsWith('project.')) {
+    if (eventType.includes('deleted')) return Trash2;
+    if (eventType.includes('milestone')) return CheckCircle;
+    if (eventType.includes('board')) return Layout;
+    if (eventType.includes('status')) return AlertCircle;
+    return FileText;
+  }
+
+  if (eventType.startsWith('team.')) {
+    if (eventType.includes('deleted')) return Trash2;
+    if (eventType.includes('member')) return eventType.includes('added') ? UserPlus : UserMinus;
+    return Users;
   }
 
   return FileText;

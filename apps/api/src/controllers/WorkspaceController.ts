@@ -923,6 +923,66 @@ class WorkspaceController {
       });
     }
   }
+
+  /**
+   * GET /api/workspaces/:id/teams
+   * Equipos activos en esta workspace (derivados de project_teams),
+   * con sus miembros y el rol que cada uno tiene en la workspace.
+   */
+  async getTeams(req: WorkspaceRequest, res: Response) {
+    const workspaceId = req.params.id;
+    try {
+      const { pool } = await import('../lib/db');
+
+      // Equipos con sus miembros que tienen proyectos en esta workspace
+      const { rows } = await pool.query(
+        `SELECT
+            t.id          AS team_id,
+            t.name        AS team_name,
+            t.color       AS team_color,
+            u.id          AS user_id,
+            u.name        AS user_name,
+            u.email       AS user_email,
+            u.avatar      AS user_avatar,
+            tm.role       AS team_role,
+            wm.role       AS workspace_role
+         FROM teams t
+         JOIN project_teams pt ON pt.team_id = t.id
+         JOIN projects p ON p.id = pt.project_id AND p.workspace_id = $1
+         JOIN team_members tm ON tm.team_id = t.id
+         JOIN users u ON u.id = tm.user_id
+         LEFT JOIN workspace_members wm ON wm.workspace_id = $1 AND wm.user_id = u.id
+         ORDER BY t.name, u.name`,
+        [workspaceId]
+      );
+
+      // Agrupar por equipo
+      const teamsMap = new Map<string, { id: string; name: string; color: string | null; members: any[] }>();
+      for (const row of rows) {
+        if (!teamsMap.has(row.team_id)) {
+          teamsMap.set(row.team_id, { id: row.team_id, name: row.team_name, color: row.team_color, members: [] });
+        }
+        teamsMap.get(row.team_id)!.members.push({
+          id:            row.user_id,
+          name:          row.user_name,
+          email:         row.user_email,
+          avatar:        row.user_avatar,
+          teamRole:      row.team_role,
+          workspaceRole: row.workspace_role,
+        });
+      }
+
+      // Deduplicar miembros por equipo (un miembro puede aparecer por varios proyectos)
+      const teams = Array.from(teamsMap.values()).map((t) => ({
+        ...t,
+        members: Array.from(new Map(t.members.map((m) => [m.id, m])).values()),
+      }));
+
+      return res.json({ success: true, data: { teams } });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
+    }
+  }
 }
 
 export const workspaceController = new WorkspaceController();

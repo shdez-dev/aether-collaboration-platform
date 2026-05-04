@@ -10,7 +10,6 @@ import {
   Plus,
   Search,
   Clock,
-  User,
   ArrowLeft,
   FileEdit,
   File,
@@ -33,18 +32,43 @@ import { formatShort } from '@/lib/utils/date';
 import { useAuthStore } from '@/stores/authStore';
 import { apiService } from '@/services/apiService';
 
-// Helper para obtener el icono de Lucide por nombre
-const getIconByName = (iconName: string) => {
+// ─── Design tokens ────────────────────────────────────────────────────────────
+
+const C = {
+  bg:      '#0b0d10',
+  bg2:     '#0f1117',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  red:     '#ef4444',
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const getIconByName = (iconName: string): LucideIcon => {
   const icons: Record<string, LucideIcon> = {
-    File,
-    MessageSquare,
-    ClipboardList,
-    Settings,
-    RotateCcw,
-    BookOpen,
+    File, MessageSquare, ClipboardList, Settings, RotateCcw, BookOpen,
   };
   return icons[iconName] || File;
 };
+
+const PROJECT_TYPES: Array<{ id: string; name: string; icon: LucideIcon; description: string }> = [
+  { id: 'software',     name: 'Software Development', icon: Code,        description: 'Tech stack, architecture, APIs' },
+  { id: 'construction', name: 'Construction',          icon: Building2,   description: 'Site plans, materials, contractors' },
+  { id: 'research',     name: 'Research',              icon: FlaskConical,description: 'Methodology, hypothesis, data analysis' },
+  { id: 'design',       name: 'Design',                icon: Palette,     description: 'Creative projects and design work' },
+  { id: 'marketing',    name: 'Marketing',             icon: Megaphone,   description: 'Marketing campaigns and strategies' },
+  { id: 'general',      name: 'General Project',       icon: FolderOpen,  description: 'Generic project documentation' },
+];
+
+// ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function DocumentsPage() {
   const t = useT();
@@ -58,119 +82,37 @@ export default function DocumentsPage() {
   const { user } = useAuthStore();
   const userRole = currentWorkspace?.userRole;
 
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState('blank');
+  const [templates, setTemplates]                   = useState<any[]>([]);
+  const [searchQuery, setSearchQuery]               = useState('');
+  const [showCreateModal, setShowCreateModal]       = useState(false);
+  const [selectedTemplate, setSelectedTemplate]     = useState('blank');
   const [selectedProjectType, setSelectedProjectType] = useState('software');
-  const [newDocTitle, setNewDocTitle] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-
-  // Tipos de proyecto disponibles
-  const PROJECT_TYPES: Array<{ id: string; name: string; icon: LucideIcon; description: string }> =
-    [
-      {
-        id: 'software',
-        name: 'Software Development',
-        icon: Code,
-        description: 'Tech stack, architecture, APIs',
-      },
-      {
-        id: 'construction',
-        name: 'Construction',
-        icon: Building2,
-        description: 'Site plans, materials, contractors',
-      },
-      {
-        id: 'research',
-        name: 'Research',
-        icon: FlaskConical,
-        description: 'Methodology, hypothesis, data analysis',
-      },
-      {
-        id: 'design',
-        name: 'Design',
-        icon: Palette,
-        description: 'Creative projects and design work',
-      },
-      {
-        id: 'marketing',
-        name: 'Marketing',
-        icon: Megaphone,
-        description: 'Marketing campaigns and strategies',
-      },
-      {
-        id: 'general',
-        name: 'General Project',
-        icon: FolderOpen,
-        description: 'Generic project documentation',
-      },
-    ];
+  const [newDocTitle, setNewDocTitle]               = useState('');
+  const [isCreating, setIsCreating]                 = useState(false);
+  const [searchFocused, setSearchFocused]           = useState(false);
 
   const canCreateDocument = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
-  // Cargar templates disponibles
+  // Cargar templates
   useEffect(() => {
     const loadTemplates = async () => {
-      const fallbackTemplates = [
-        {
-          id: 'blank',
-          name: t.documents_template_blank || 'Blank Document',
-          iconName: 'File',
-          description: 'Start with an empty document',
-        },
-        {
-          id: 'meeting-notes',
-          name: t.documents_template_meeting || 'Meeting Notes',
-          iconName: 'MessageSquare',
-          description: 'Structured meeting notes',
-        },
-        {
-          id: 'project-brief',
-          name: t.documents_template_project || 'Project Brief',
-          iconName: 'ClipboardList',
-          description: 'Project overview',
-        },
-        {
-          id: 'technical-spec',
-          name: t.documents_template_technical || 'Technical Spec',
-          iconName: 'Settings',
-          description: 'Technical documentation',
-        },
-        {
-          id: 'retrospective',
-          name: t.documents_template_retrospective || 'Retrospective',
-          iconName: 'RotateCcw',
-          description: 'Sprint retrospective',
-        },
-        {
-          id: 'project-documentation',
-          name: 'Complete Project Documentation',
-          iconName: 'BookOpen',
-          description: 'Comprehensive project documentation with adaptive sections',
-        },
+      const fallback = [
+        { id: 'blank',                 name: t.documents_template_blank        || 'Blank Document',                iconName: 'File',         description: 'Start with an empty document' },
+        { id: 'meeting-notes',         name: t.documents_template_meeting      || 'Meeting Notes',                 iconName: 'MessageSquare',description: 'Structured meeting notes' },
+        { id: 'project-brief',         name: t.documents_template_project      || 'Project Brief',                 iconName: 'ClipboardList',description: 'Project overview' },
+        { id: 'technical-spec',        name: t.documents_template_technical    || 'Technical Spec',                iconName: 'Settings',     description: 'Technical documentation' },
+        { id: 'retrospective',         name: t.documents_template_retrospective|| 'Retrospective',                 iconName: 'RotateCcw',    description: 'Sprint retrospective' },
+        { id: 'project-documentation', name: 'Complete Project Documentation',                                     iconName: 'BookOpen',     description: 'Comprehensive project documentation with adaptive sections' },
       ];
-
       try {
-        const response = await apiService.get<{ templates: any[] }>(
-          '/api/documents/templates',
-          true
-        );
-
+        const response = await apiService.get<{ templates: any[] }>('/api/documents/templates', true);
         if (response.success && (response.data?.templates?.length ?? 0) > 0) {
-          const mappedTemplates = (response.data!.templates ?? []).map((t: any) => ({
-            ...t,
-            iconName: t.icon,
-          }));
-          setTemplates([
-            fallbackTemplates[0], // Blank siempre primero
-            ...mappedTemplates,
-          ]);
+          setTemplates([fallback[0], ...(response.data!.templates ?? []).map((t: any) => ({ ...t, iconName: t.icon }))]);
         } else {
-          setTemplates(fallbackTemplates);
+          setTemplates(fallback);
         }
       } catch {
-        setTemplates(fallbackTemplates);
+        setTemplates(fallback);
       }
     };
     loadTemplates();
@@ -183,19 +125,12 @@ export default function DocumentsPage() {
     }
   }, [workspaceId, fetchDocuments]);
 
-  // Refrescar documentos cuando la página se hace visible
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && workspaceId) {
-        fetchDocuments(workspaceId).catch(() => {});
-      }
+      if (!document.hidden && workspaceId) fetchDocuments(workspaceId).catch(() => {});
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [workspaceId, fetchDocuments]);
 
   const filteredDocuments = documents.filter((doc) =>
@@ -204,133 +139,176 @@ export default function DocumentsPage() {
 
   const handleCreateDocument = async () => {
     if (!newDocTitle.trim() || !canCreateDocument) return;
-
     setIsCreating(true);
     try {
       const documentData: any = {
         title: newDocTitle.trim(),
         templateId: selectedTemplate !== 'blank' ? selectedTemplate : undefined,
       };
-
-      // Si es la plantilla de documentación completa, incluir el tipo de proyecto
       if (selectedTemplate === 'project-documentation') {
-        documentData.metadata = {
-          projectType: selectedProjectType,
-        };
+        documentData.metadata = { projectType: selectedProjectType };
       }
-
-      const doc = await createDocument(workspaceId, documentData);
-
+      await createDocument(workspaceId, documentData);
       setShowCreateModal(false);
       setNewDocTitle('');
       setSelectedTemplate('blank');
-      setSelectedProjectType('software'); // Reset to default
-      router.push(`/dashboard/workspaces/${workspaceId}/documents/${doc.id}`);
-    } catch (error) {
+      setSelectedProjectType('software');
+    } catch {
     } finally {
       setIsCreating(false);
     }
   };
 
-  const handleDocumentClick = (documentId: string) => {
-    router.push(`/dashboard/workspaces/${workspaceId}/documents/${documentId}`);
-  };
-
-  const handleBack = () => {
-    router.push(`/dashboard/workspaces/${workspaceId}`);
+  const closeModal = () => {
+    if (isCreating) return;
+    setShowCreateModal(false);
+    setNewDocTitle('');
+    setSelectedTemplate('blank');
+    setSelectedProjectType('software');
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="px-3 py-3 md:px-6 md:py-4">
-          <div className="flex items-center justify-between gap-2 md:gap-4">
-            <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
-              <button
-                onClick={handleBack}
-                className="flex items-center gap-1.5 px-2 py-1.5 md:px-3 text-sm text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border transition-all flex-shrink-0"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.btn_back}</span>
-              </button>
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column' }}>
 
-              <div className="hidden sm:block w-px h-6 bg-border flex-shrink-0" />
-
-              <div className="flex items-center gap-2 md:gap-3 min-w-0">
-                <div className="hidden sm:flex p-2 bg-accent/10 border border-accent/30 flex-shrink-0">
-                  <FileText className="w-4 h-4 md:w-5 md:h-5 text-accent" />
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 10,
+        background: C.surface, borderBottom: `1px solid ${C.border}`,
+        padding: '0 20px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '52px' }}>
+          {/* Left */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+            <BackBtn onClick={() => router.push(`/dashboard/workspaces/${workspaceId}`)} label={t.btn_back} />
+            <div style={{ width: '1px', height: '18px', background: C.border2, flexShrink: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '7px', flexShrink: 0,
+                background: `${C.accent}18`, border: `1px solid ${C.accent}33`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <FileText style={{ width: '14px', height: '14px', color: C.accent }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {t.documents_section_title}
                 </div>
-                <div className="min-w-0">
-                  <h1 className="text-base md:text-xl font-medium text-text-primary truncate">
-                    {t.documents_section_title}
-                  </h1>
-                  <p className="text-xs md:text-sm text-text-secondary truncate hidden sm:block">
-                    {currentWorkspace?.name || 'Workspace'}
-                  </p>
+                <div style={{ fontSize: '11px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {currentWorkspace?.name || 'Workspace'}
                 </div>
               </div>
             </div>
-
-            {canCreateDocument && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors flex-shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.documents_btn_new}</span>
-              </button>
-            )}
           </div>
 
-          <div className="mt-3 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          {/* Right */}
+          {canCreateDocument && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: 500,
+                background: C.accent, color: '#fff', border: 'none', cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <Plus style={{ width: '14px', height: '14px' }} />
+              {t.documents_btn_new}
+            </button>
+          )}
+        </div>
+
+        {/* Search */}
+        <div style={{ paddingBottom: '12px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '0 10px',
+            background: C.bg2,
+            border: `1px solid ${searchFocused ? C.accent : C.border}`,
+            borderRadius: '7px',
+            transition: 'border-color 0.15s',
+          }}>
+            <Search style={{ width: '13px', height: '13px', color: C.text4, flexShrink: 0 }} />
             <input
               type="text"
               placeholder={t.documents_search_placeholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent text-sm"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              style={{
+                flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                fontSize: '13px', color: C.text, padding: '8px 0',
+              }}
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.text4, padding: '0 2px', lineHeight: 1 }}
+              >
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" width="11" height="11">
+                  <path d="M1 1l10 10M11 1L1 11" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="p-3 md:p-6">
+      {/* ── Main ────────────────────────────────────────────────────────────── */}
+      <main style={{ flex: 1, padding: '20px' }}>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-text-secondary">{t.documents_loading}</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '50%',
+                border: `2px solid ${C.accent}`, borderTopColor: 'transparent',
+                margin: '0 auto 14px', animation: 'spin 0.7s linear infinite',
+              }} />
+              <p style={{ fontSize: '13px', color: C.text3 }}>{t.documents_loading}</p>
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
             </div>
           </div>
         ) : filteredDocuments.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="p-4 bg-surface border border-border mb-4">
-              <FileText className="w-12 h-12 text-text-muted" />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', textAlign: 'center' }}>
+            <div style={{
+              width: '48px', height: '48px', borderRadius: '12px',
+              background: `${C.accent}12`, border: `1px solid ${C.accent}25`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: '16px',
+            }}>
+              <FileText style={{ width: '22px', height: '22px', color: C.text4 }} />
             </div>
-            <h3 className="text-lg font-medium text-text-primary mb-2">
+            <h3 style={{ fontSize: '15px', fontWeight: 600, color: C.text, marginBottom: '8px' }}>
               {searchQuery ? t.documents_no_results_title : t.documents_empty_ws_title}
             </h3>
-            <p className="text-text-secondary mb-6">
+            <p style={{ fontSize: '13px', color: C.text3, marginBottom: '24px', maxWidth: '320px', lineHeight: 1.6 }}>
               {searchQuery ? t.documents_no_results_desc : t.documents_empty_ws_desc}
             </p>
             {canCreateDocument && !searchQuery && (
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 18px', borderRadius: '7px', fontSize: '13px', fontWeight: 500,
+                  background: C.accent, color: '#fff', border: 'none', cursor: 'pointer',
+                }}
               >
-                <Plus className="w-4 h-4" />
-                <span>{t.documents_btn_create}</span>
+                <Plus style={{ width: '14px', height: '14px' }} />
+                {t.documents_btn_create}
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '12px',
+          }}>
             {filteredDocuments.map((doc) => (
               <DocumentCard
                 key={doc.id}
                 document={doc}
-                onClick={() => handleDocumentClick(doc.id)}
+                onClick={() => router.push(`/dashboard/workspaces/${workspaceId}/documents/${doc.id}`)}
                 userTimezone={user?.timezone}
                 userLanguage={user?.language as 'es' | 'en'}
               />
@@ -339,155 +317,168 @@ export default function DocumentsPage() {
         )}
       </main>
 
+      {/* ── Modal crear documento ────────────────────────────────────────────── */}
       {showCreateModal && canCreateDocument && (
-        <>
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px', overflowY: 'auto',
+            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+        >
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40"
-            onClick={() => !isCreating && setShowCreateModal(false)}
-          />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-card border border-border max-w-4xl w-full p-6 my-8">
-              <h2 className="text-2xl font-semibold mb-2">{t.documents_modal_title}</h2>
-              <p className="text-sm text-text-secondary mb-6">
-                Choose a template to get started quickly, or start with a blank document
-              </p>
+            style={{
+              width: '100%', maxWidth: '680px',
+              background: '#13161b', border: `1px solid ${C.border}`,
+              borderRadius: '12px', overflow: 'hidden',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+              margin: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '18px 20px 16px', borderBottom: `1px solid ${C.border}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '28px', height: '28px', borderRadius: '7px',
+                  background: `${C.accent}18`, border: `1px solid ${C.accent}33`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <FileEdit style={{ width: '13px', height: '13px', color: C.accent }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: C.text }}>{t.documents_modal_title}</div>
+                  <div style={{ fontSize: '11.5px', color: C.text4 }}>Elige una plantilla o empieza desde cero</div>
+                </div>
+              </div>
+              <CloseBtn onClick={closeModal} disabled={isCreating} />
+            </div>
 
-              <div className="mb-6">
-                <label className="block text-sm text-text-secondary mb-2">
-                  {t.documents_modal_label_title}
+            {/* Modal body */}
+            <div style={{ padding: '20px', maxHeight: '70vh', overflowY: 'auto' }}>
+
+              {/* Título */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: C.text2, marginBottom: '6px' }}>
+                  {t.documents_modal_label_title} <span style={{ color: C.red }}>*</span>
                 </label>
-                <input
-                  type="text"
+                <TitleInput
                   value={newDocTitle}
-                  onChange={(e) => setNewDocTitle(e.target.value)}
+                  onChange={(v) => setNewDocTitle(v)}
                   placeholder={t.documents_modal_placeholder_title}
-                  className="w-full px-4 py-2 bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
-                  autoFocus
                   disabled={isCreating}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateDocument()}
+                  onEnter={handleCreateDocument}
                 />
               </div>
 
-              <div className="mb-6">
-                <label className="block text-sm text-text-secondary mb-3">
+              {/* Plantillas */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: C.text2, marginBottom: '10px' }}>
                   {t.documents_modal_label_template}
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-2">
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px',
+                  maxHeight: '300px', overflowY: 'auto', paddingRight: '2px',
+                }}>
                   {templates.map((template: any) => {
-                    const TemplateIcon = template.iconName
-                      ? getIconByName(template.iconName)
-                      : template.icon
-                        ? null
-                        : File; // Fallback para templates del backend con emojis
-
+                    const TemplateIcon = template.iconName ? getIconByName(template.iconName) : null;
+                    const isSelected = selectedTemplate === template.id;
                     return (
-                      <button
+                      <TemplateCard
                         key={template.id}
-                        onClick={() => setSelectedTemplate(template.id)}
+                        icon={TemplateIcon ? <TemplateIcon style={{ width: '16px', height: '16px', color: C.accent }} /> : <span style={{ fontSize: '18px' }}>{template.icon}</span>}
+                        name={template.name}
+                        description={template.description}
+                        category={template.category}
+                        selected={isSelected}
                         disabled={isCreating}
-                        className={`p-4 border text-left transition-all group ${
-                          selectedTemplate === template.id
-                            ? 'border-accent bg-accent/10 ring-2 ring-accent/20'
-                            : 'border-border bg-surface hover:border-accent/50 hover:bg-accent/5'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0">
-                            {TemplateIcon ? (
-                              <TemplateIcon className="w-6 h-6 text-accent" />
-                            ) : (
-                              <span className="text-2xl">{template.icon}</span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-text-primary mb-1 group-hover:text-accent transition-colors">
-                              {template.name}
-                            </div>
-                            {template.description && (
-                              <div className="text-xs text-text-secondary line-clamp-2">
-                                {template.description}
-                              </div>
-                            )}
-                            {template.category && (
-                              <div className="text-xs text-text-muted mt-1">
-                                {template.category}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </button>
+                        onClick={() => setSelectedTemplate(template.id)}
+                      />
                     );
                   })}
                 </div>
               </div>
 
-              {/* Selector de tipo de proyecto - solo visible para Complete Project Documentation */}
+              {/* Tipo de proyecto */}
               {selectedTemplate === 'project-documentation' && (
-                <div className="mb-6 p-4 bg-accent/5 border border-accent/20 rounded">
-                  <label className="block text-sm font-medium text-text-primary mb-3">
-                    Project Type
-                    <span className="text-xs text-text-secondary ml-2 font-normal">
-                      Select the type of project to customize the documentation sections
+                <div style={{
+                  marginBottom: '18px', padding: '14px',
+                  background: `${C.accent}0a`, border: `1px solid ${C.accent}22`,
+                  borderRadius: '8px',
+                }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: C.text2, marginBottom: '10px' }}>
+                    Tipo de proyecto
+                    <span style={{ fontSize: '11px', color: C.text4, fontWeight: 400, marginLeft: '8px' }}>
+                      Personaliza las secciones según el tipo
                     </span>
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                     {PROJECT_TYPES.map((type) => {
                       const IconComponent = type.icon;
+                      const isSel = selectedProjectType === type.id;
                       return (
                         <button
                           key={type.id}
                           onClick={() => setSelectedProjectType(type.id)}
                           disabled={isCreating}
-                          className={`p-3 border text-left transition-all ${
-                            selectedProjectType === type.id
-                              ? 'border-accent bg-accent text-white'
-                              : 'border-border bg-surface hover:border-accent/50'
-                          }`}
+                          style={{
+                            padding: '10px', borderRadius: '7px', textAlign: 'left',
+                            background: isSel ? `${C.accent}20` : C.surface,
+                            border: `1px solid ${isSel ? C.accent : C.border}`,
+                            cursor: 'pointer',
+                          }}
                         >
-                          <div className="flex items-center gap-2 mb-1">
-                            <IconComponent className="w-4 h-4" />
-                            <span className="text-xs font-medium">{type.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                            <IconComponent style={{ width: '13px', height: '13px', color: isSel ? C.accent : C.text3 }} />
+                            <span style={{ fontSize: '11.5px', fontWeight: 500, color: isSel ? C.accent : C.text2 }}>{type.name}</span>
                           </div>
-                          <div className="text-xs opacity-80 line-clamp-1">{type.description}</div>
+                          <div style={{ fontSize: '10.5px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {type.description}
+                          </div>
                         </button>
                       );
                     })}
                   </div>
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  disabled={isCreating}
-                  className="flex-1 px-4 py-2 border border-border bg-surface text-text-primary hover:bg-card transition-colors disabled:opacity-50"
-                >
-                  {t.documents_btn_cancel}
-                </button>
-                <button
-                  onClick={handleCreateDocument}
-                  disabled={!newDocTitle.trim() || isCreating}
-                  className="flex-1 px-4 py-2 bg-accent text-white hover:bg-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isCreating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>{t.documents_btn_creating}</span>
-                    </>
-                  ) : (
-                    <>
-                      <FileEdit className="w-4 h-4" />
-                      <span>{t.documents_btn_create_confirm}</span>
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Modal footer */}
+            <div style={{
+              display: 'flex', gap: '8px', padding: '12px 20px 16px',
+              borderTop: `1px solid ${C.border}`, background: '#111418',
+            }}>
+              <CancelBtn onClick={closeModal} disabled={isCreating} label={t.documents_btn_cancel} />
+              <CreateBtn
+                onClick={handleCreateDocument}
+                disabled={!newDocTitle.trim() || isCreating}
+                isCreating={isCreating}
+                label={t.documents_btn_create_confirm}
+                loadingLabel={t.documents_btn_creating}
+              />
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
+}
+
+// ─── DocumentCard ─────────────────────────────────────────────────────────────
+
+function wordCount(text: string): number {
+  return text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+function contentPreview(text: string, maxChars = 120): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  return clean.length > maxChars ? clean.slice(0, maxChars).trimEnd() + '…' : clean;
 }
 
 function DocumentCard({
@@ -502,32 +493,257 @@ function DocumentCard({
   userLanguage?: 'es' | 'en';
 }) {
   const t = useT();
+  const [hovered, setHovered] = useState(false);
+
+  const preview = contentPreview(document.content || '');
+  const words   = wordCount(document.content || '');
+  const updatedDate = formatShort(new Date(document.updatedAt), userTimezone, userLanguage);
+  const createdDate = formatShort(new Date(document.createdAt), userTimezone, userLanguage);
 
   return (
     <button
       onClick={onClick}
-      className="group bg-card border border-border hover:border-accent hover:shadow-lg transition-all text-left p-4"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', textAlign: 'left',
+        padding: '0', borderRadius: '10px', cursor: 'pointer',
+        background: hovered ? C.hover : C.surface,
+        border: `1px solid ${hovered ? C.border2 : C.border}`,
+        transition: 'background 0.12s, border-color 0.12s',
+        boxShadow: hovered ? '0 4px 20px rgba(0,0,0,0.3)' : 'none',
+        overflow: 'hidden',
+      }}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="p-2 bg-accent/10 border border-accent/30 group-hover:bg-accent/20 transition-colors">
-          <FileText className="w-5 h-5 text-accent" />
-        </div>
+      {/* Preview area */}
+      <div style={{
+        height: '80px', width: '100%', overflow: 'hidden',
+        background: C.bg2,
+        borderBottom: `1px solid ${C.border}`,
+        padding: '12px 14px',
+        position: 'relative',
+      }}>
+        {preview ? (
+          <p style={{
+            fontSize: '11px', lineHeight: 1.6, color: C.text3,
+            margin: 0, overflow: 'hidden',
+            display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
+          }}>
+            {preview}
+          </p>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <FileText style={{ width: '22px', height: '22px', color: C.text4, opacity: 0.4 }} />
+          </div>
+        )}
+        {/* Fade at bottom */}
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: '28px',
+          background: `linear-gradient(transparent, ${C.bg2})`,
+          pointerEvents: 'none',
+        }} />
       </div>
 
-      <h3 className="text-base font-medium text-text-primary mb-2 line-clamp-2 group-hover:text-accent transition-colors">
-        {document.title}
-      </h3>
+      {/* Card body */}
+      <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
-      <div className="space-y-1.5 text-xs text-text-muted">
-        <div className="flex items-center gap-2">
-          <Clock className="w-3 h-3" />
-          <span>
-            {t.documents_updated(
-              formatShort(new Date(document.updatedAt), userTimezone, userLanguage)
-            )}
-          </span>
+        {/* Title */}
+        <h3 style={{
+          fontSize: '13px', fontWeight: 600, color: C.text,
+          margin: 0, lineHeight: 1.4,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>
+          {document.title}
+        </h3>
+
+        {/* Metadata pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {words > 0 && (
+            <span style={{
+              fontSize: '10.5px', color: C.text4,
+              background: C.bg2, border: `1px solid ${C.border}`,
+              borderRadius: '4px', padding: '1px 6px',
+            }}>
+              {words.toLocaleString()} {userLanguage === 'es' ? 'palabras' : 'words'}
+            </span>
+          )}
+        </div>
+
+        {/* Footer timestamps */}
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Clock style={{ width: '10px', height: '10px', color: C.text4, flexShrink: 0 }} />
+            <span style={{ fontSize: '10.5px', color: C.text4 }}>
+              {t.documents_updated(updatedDate)}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <FileText style={{ width: '10px', height: '10px', color: C.text4, flexShrink: 0 }} />
+            <span style={{ fontSize: '10.5px', color: C.text4 }}>
+              {userLanguage === 'es' ? 'Creado' : 'Created'} {createdDate}
+            </span>
+          </div>
         </div>
       </div>
+    </button>
+  );
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+
+function BackBtn({ onClick, label }: { onClick: () => void; label: string }) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '6px',
+        padding: '5px 10px', borderRadius: '7px', fontSize: '12.5px', fontWeight: 500,
+        background: h ? C.hover : 'transparent', border: `1px solid ${h ? C.border2 : 'transparent'}`,
+        color: h ? C.text : C.text3, cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0,
+      }}
+    >
+      <ArrowLeft style={{ width: '13px', height: '13px' }} />
+      {label}
+    </button>
+  );
+}
+
+function CloseBtn({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{
+        width: '26px', height: '26px', borderRadius: '6px',
+        background: h ? C.hover : 'transparent', border: 'none',
+        color: h ? C.text2 : C.text4, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" width="11" height="11">
+        <path d="M1 1l10 10M11 1L1 11" />
+      </svg>
+    </button>
+  );
+}
+
+function TitleInput({ value, onChange, placeholder, disabled, onEnter }: {
+  value: string; onChange: (v: string) => void; placeholder: string;
+  disabled?: boolean; onEnter: () => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      autoFocus
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onKeyDown={(e) => e.key === 'Enter' && onEnter()}
+      style={{
+        width: '100%', padding: '9px 12px', borderRadius: '7px',
+        background: C.surface, border: `1px solid ${focused ? C.accent : C.border}`,
+        color: C.text, fontSize: '13px', outline: 'none',
+        transition: 'border-color 0.15s', boxSizing: 'border-box',
+      }}
+    />
+  );
+}
+
+function TemplateCard({ icon, name, description, category, selected, disabled, onClick }: {
+  icon: React.ReactNode; name: string; description?: string; category?: string;
+  selected: boolean; disabled?: boolean; onClick: () => void;
+}) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{
+        padding: '12px', borderRadius: '8px', textAlign: 'left', cursor: 'pointer',
+        background: selected ? `${C.accent}18` : h ? C.hover : C.surface,
+        border: `1px solid ${selected ? C.accent : h ? C.border2 : C.border}`,
+        transition: 'all 0.12s',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+        <div style={{ flexShrink: 0, marginTop: '1px' }}>{icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '12.5px', fontWeight: 500, color: selected ? C.accent : C.text, marginBottom: '3px' }}>
+            {name}
+          </div>
+          {description && (
+            <div style={{ fontSize: '11px', color: C.text4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+              {description}
+            </div>
+          )}
+          {category && (
+            <div style={{ fontSize: '10.5px', color: C.text4, marginTop: '2px' }}>{category}</div>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function CancelBtn({ onClick, disabled, label }: { onClick: () => void; disabled?: boolean; label: string }) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{
+        flex: 1, padding: '8px 0', borderRadius: '7px', fontSize: '13px', fontWeight: 500,
+        background: h ? C.border : C.hover, border: `1px solid ${C.border2}`,
+        color: h ? C.text : C.text2, cursor: 'pointer', transition: 'all 0.12s',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function CreateBtn({ onClick, disabled, isCreating, label, loadingLabel }: {
+  onClick: () => void; disabled?: boolean; isCreating: boolean; label: string; loadingLabel: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+        padding: '8px 0', borderRadius: '7px', fontSize: '13px', fontWeight: 500,
+        background: C.accent, color: '#fff', border: 'none',
+        cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+        transition: 'opacity 0.12s',
+      }}
+    >
+      {isCreating ? (
+        <>
+          <svg className="animate-spin" viewBox="0 0 16 16" fill="none" width="13" height="13">
+            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="28" strokeDashoffset="10" />
+          </svg>
+          {loadingLabel}
+        </>
+      ) : (
+        <>
+          <FileEdit style={{ width: '13px', height: '13px' }} />
+          {label}
+        </>
+      )}
     </button>
   );
 }

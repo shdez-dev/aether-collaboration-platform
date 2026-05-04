@@ -70,6 +70,24 @@ import { useT } from '@/lib/i18n';
 
 const lowlight = createLowlight(common);
 
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const C = {
+  bg:      '#0b0d10',
+  bg2:     '#0f1117',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  red:     '#ef4444',
+  amber:   '#f59e0b',
+};
+
 // ── Highlight colour palette ──────────────────────────────────────────────────
 const HIGHLIGHT_COLORS = [
   { label: 'Amarillo', value: '#fef08a' },
@@ -650,19 +668,24 @@ function ToolbarButton({
   children: React.ReactNode;
   title: string;
 }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <button
-      onMouseDown={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
+      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       disabled={disabled}
       title={title}
-      className={`p-1.5 sm:p-2 border transition-colors touch-manipulation min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
-        isActive
-          ? 'bg-accent text-white border-accent'
-          : 'bg-surface text-text-primary border-border hover:bg-card hover:border-border-hover'
-      } disabled:opacity-50 disabled:cursor-not-allowed`}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '28px', height: '28px', borderRadius: '5px', flexShrink: 0,
+        background: isActive ? C.accent : hovered ? C.hover : 'transparent',
+        border: `1px solid ${isActive ? C.accent : hovered ? C.border2 : 'transparent'}`,
+        color: isActive ? '#fff' : hovered ? C.text : C.text3,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+        transition: 'all 0.1s',
+      }}
     >
       {children}
     </button>
@@ -670,7 +693,7 @@ function ToolbarButton({
 }
 
 function Divider() {
-  return <div className="w-px h-6 bg-border mx-1 flex-shrink-0" />;
+  return <div style={{ width: '1px', height: '18px', background: C.border2, margin: '0 3px', flexShrink: 0 }} />;
 }
 
 // ── Highlight colour picker button ────────────────────────────────────────────
@@ -689,67 +712,61 @@ function HighlightPicker({ editor }: { editor: any }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  const [hBtn, setHBtn] = useState(false);
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} style={{ position: 'relative' }}>
       <button
-        onMouseDown={(e) => {
-          e.preventDefault();
-          setOpen((v) => !v);
-        }}
+        onMouseDown={(e) => { e.preventDefault(); setOpen((v) => !v); }}
+        onMouseEnter={() => setHBtn(true)}
+        onMouseLeave={() => setHBtn(false)}
         title="Color de resaltado"
-        className={`flex items-center gap-0.5 p-2 border transition-colors ${
-          isActive
-            ? 'bg-accent text-white border-accent'
-            : 'bg-surface text-text-primary border-border hover:bg-card hover:border-border-hover'
-        }`}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '2px',
+          padding: '0 5px', height: '28px', borderRadius: '5px',
+          background: isActive ? C.accent : hBtn ? C.hover : 'transparent',
+          border: `1px solid ${isActive ? C.accent : hBtn ? C.border2 : 'transparent'}`,
+          color: isActive ? '#fff' : hBtn ? C.text : C.text3,
+          cursor: 'pointer', transition: 'all 0.1s',
+        }}
       >
-        <Highlighter className="w-4 h-4" />
-        <ChevronDown className="w-3 h-3 opacity-60" />
+        <Highlighter style={{ width: '13px', height: '13px' }} />
+        <ChevronDown style={{ width: '10px', height: '10px', opacity: 0.6 }} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border shadow-xl p-2 w-48">
-          <p className="text-[10px] text-text-muted font-mono uppercase tracking-wider mb-2 px-1">
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
+          background: C.surface, border: `1px solid ${C.border2}`,
+          borderRadius: '9px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          padding: '12px', width: '180px',
+        }}>
+          <p style={{ fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>
             Color de resaltado
           </p>
-          <div className="grid grid-cols-4 gap-1 mb-2">
-            {HIGHLIGHT_COLORS.map((c) => (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: '10px' }}>
+            {HIGHLIGHT_COLORS.map((hc) => (
               <button
-                key={c.value}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  editor.chain().focus().setHighlight({ color: c.value }).run();
-                  setOpen(false);
-                }}
-                title={c.label}
-                style={{ backgroundColor: c.value }}
-                className="w-8 h-8 rounded-sm border-2 border-transparent hover:border-border transition-colors"
+                key={hc.value}
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHighlight({ color: hc.value }).run(); setOpen(false); }}
+                title={hc.label}
+                style={{ backgroundColor: hc.value, width: '32px', height: '32px', borderRadius: '5px', border: '2px solid transparent', cursor: 'pointer' }}
               />
             ))}
           </div>
-          {/* Custom colour input */}
-          <div className="flex items-center gap-1 border-t border-border pt-2">
-            <span className="text-[10px] text-text-muted font-mono flex-shrink-0">Custom:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderTop: `1px solid ${C.border}`, paddingTop: '8px' }}>
+            <span style={{ fontSize: '10px', color: C.text4, flexShrink: 0 }}>Custom:</span>
             <input
               type="color"
               defaultValue="#fef08a"
-              onInput={(e) => {
-                const val = (e.target as HTMLInputElement).value;
-                editor.chain().focus().setHighlight({ color: val }).run();
-              }}
-              className="w-8 h-6 cursor-pointer border border-border rounded-sm bg-surface p-0"
+              onInput={(e) => { editor.chain().focus().setHighlight({ color: (e.target as HTMLInputElement).value }).run(); }}
+              style={{ width: '28px', height: '22px', cursor: 'pointer', border: `1px solid ${C.border2}`, borderRadius: '4px', background: C.bg2, padding: 0 }}
               title="Color personalizado"
             />
           </div>
-          {/* Remove highlight */}
           {isActive && (
             <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                editor.chain().focus().unsetHighlight().run();
-                setOpen(false);
-              }}
-              className="mt-2 w-full text-[10px] text-error font-mono hover:underline text-left px-1"
+              onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().unsetHighlight().run(); setOpen(false); }}
+              style={{ marginTop: '8px', width: '100%', fontSize: '10px', color: C.red, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '0 2px' }}
             >
               Quitar resaltado
             </button>
@@ -949,6 +966,26 @@ function TableHoverButtons({
   );
 }
 
+function TableMenuItem({ children, onMouseDown, danger }: { children: React.ReactNode; onMouseDown: (e: React.MouseEvent) => void; danger?: boolean }) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onMouseDown={onMouseDown}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: '7px',
+        padding: '6px 10px', borderRadius: '6px', textAlign: 'left',
+        fontSize: '12.5px', background: h ? C.hover : 'transparent', border: 'none',
+        color: danger ? (h ? C.red : C.text3) : (h ? C.text : C.text2),
+        cursor: 'pointer', transition: 'all 0.1s',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 // ── Table context menu ────────────────────────────────────────────────────────
 function TableMenu({ editor, t }: { editor: any; t: any }) {
   const [open, setOpen] = useState(false);
@@ -969,128 +1006,61 @@ function TableMenu({ editor, t }: { editor: any; t: any }) {
     setOpen(false);
   };
 
+  const [hBtn, setHBtn] = useState(false);
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} style={{ position: 'relative' }}>
       <button
-        onMouseDown={(e) => {
-          e.preventDefault();
-          setOpen((v) => !v);
-        }}
+        onMouseDown={(e) => { e.preventDefault(); setOpen((v) => !v); }}
+        onMouseEnter={() => setHBtn(true)}
+        onMouseLeave={() => setHBtn(false)}
         title="Opciones de tabla"
-        className={`flex items-center gap-0.5 p-2 border transition-colors ${
-          inTable
-            ? 'bg-accent text-white border-accent'
-            : 'bg-surface text-text-primary border-border hover:bg-card hover:border-border-hover'
-        }`}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '2px',
+          padding: '0 5px', height: '28px', borderRadius: '5px',
+          background: inTable ? C.accent : hBtn ? C.hover : 'transparent',
+          border: `1px solid ${inTable ? C.accent : hBtn ? C.border2 : 'transparent'}`,
+          color: inTable ? '#fff' : hBtn ? C.text : C.text3,
+          cursor: 'pointer', transition: 'all 0.1s',
+        }}
       >
-        <TableIcon className="w-4 h-4" />
-        <ChevronDown className="w-3 h-3 opacity-60" />
+        <TableIcon style={{ width: '13px', height: '13px' }} />
+        <ChevronDown style={{ width: '10px', height: '10px', opacity: 0.6 }} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border shadow-xl py-1 w-52 text-sm font-mono">
-          {/* Insert new table */}
-          <button
-            onMouseDown={(e) => {
-              e.preventDefault();
-              run(() =>
-                editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-              );
-            }}
-            className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-3.5 h-3.5 text-accent" /> Insertar tabla (3×3)
-          </button>
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
+          background: C.surface, border: `1px solid ${C.border2}`,
+          borderRadius: '9px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          padding: '4px', width: '210px',
+        }}>
+          <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()); }}>
+            <Plus style={{ width: '12px', height: '12px', color: C.accent }} /> Insertar tabla (3×3)
+          </TableMenuItem>
 
           {inTable && (
             <>
-              <div className="border-t border-border/50 my-1" />
-              {/* Columns */}
-              <p className="px-3 py-0.5 text-[10px] text-text-muted uppercase tracking-wider">
-                Columnas
-              </p>
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(() => editor.chain().focus().addColumnBefore().run());
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
-              >
-                + Columna a la izquierda
-              </button>
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(() => editor.chain().focus().addColumnAfter().run());
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
-              >
-                + Columna a la derecha
-              </button>
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(() => editor.chain().focus().deleteColumn().run());
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface text-error/80 hover:text-error transition-colors flex items-center gap-2"
-              >
-                <Trash2 className="w-3 h-3" /> {t.editor_table_delete_column}
-              </button>
+              <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
+              <p style={{ fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '2px 10px 4px' }}>Columnas</p>
+              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addColumnBefore().run()); }}>+ Columna a la izquierda</TableMenuItem>
+              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addColumnAfter().run()); }}>+ Columna a la derecha</TableMenuItem>
+              <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteColumn().run()); }}>
+                <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_column}
+              </TableMenuItem>
 
-              <div className="border-t border-border/50 my-1" />
-              {/* Rows */}
-              <p className="px-3 py-0.5 text-[10px] text-text-muted uppercase tracking-wider">
-                Filas
-              </p>
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(() => editor.chain().focus().addRowBefore().run());
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
-              >
-                + Fila arriba
-              </button>
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(() => editor.chain().focus().addRowAfter().run());
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
-              >
-                + Fila abajo
-              </button>
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(() => editor.chain().focus().deleteRow().run());
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface text-error/80 hover:text-error transition-colors flex items-center gap-2"
-              >
-                <Trash2 className="w-3 h-3" /> {t.editor_table_delete_row}
-              </button>
+              <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
+              <p style={{ fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '2px 10px 4px' }}>Filas</p>
+              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addRowBefore().run()); }}>+ Fila arriba</TableMenuItem>
+              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addRowAfter().run()); }}>+ Fila abajo</TableMenuItem>
+              <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteRow().run()); }}>
+                <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_row}
+              </TableMenuItem>
 
-              <div className="border-t border-border/50 my-1" />
-              {/* Header toggle */}
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(() => editor.chain().focus().toggleHeaderRow().run());
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface transition-colors"
-              >
-                ⇅ Alternar fila encabezado
-              </button>
-              {/* Delete table */}
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  run(() => editor.chain().focus().deleteTable().run());
-                }}
-                className="w-full text-left px-3 py-1.5 hover:bg-surface text-error transition-colors flex items-center gap-2"
-              >
-                <Trash2 className="w-3 h-3" /> {t.editor_table_delete_table}
-              </button>
+              <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
+              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().toggleHeaderRow().run()); }}>⇅ Alternar fila encabezado</TableMenuItem>
+              <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteTable().run()); }}>
+                <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_table}
+              </TableMenuItem>
             </>
           )}
         </div>
@@ -1113,6 +1083,75 @@ function formatTimeAgo(date: Date): string {
   const hours = Math.floor(minutes / 60);
   if (hours === 1) return 'hace 1 hora';
   return `hace ${hours} horas`;
+}
+
+function BubbleBtn({ children, onMouseDown, active, title }: { children: React.ReactNode; onMouseDown: (e: React.MouseEvent) => void; active?: boolean; title: string }) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onMouseDown={onMouseDown}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      title={title}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '24px', height: '24px', borderRadius: '4px',
+        background: active ? C.accent : h ? C.hover : 'transparent',
+        border: 'none', color: active ? '#fff' : h ? C.text : C.text3,
+        cursor: 'pointer', transition: 'all 0.1s',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CommentsBtn({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      title={active ? 'Cerrar comentarios' : 'Abrir comentarios'}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '5px',
+        padding: '0 10px', height: '28px', borderRadius: '5px', fontSize: '12px',
+        background: active ? `${C.accent}18` : h ? C.hover : 'transparent',
+        border: `1px solid ${active ? `${C.accent}50` : h ? C.border2 : 'transparent'}`,
+        color: active ? C.accent : h ? C.text2 : C.text3,
+        cursor: 'pointer', transition: 'all 0.1s',
+      }}
+    >
+      <MessageSquare style={{ width: '13px', height: '13px' }} />
+    </button>
+  );
+}
+
+function SaveBtn({ onClick, isSaving }: { onClick: () => void; isSaving: boolean }) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={isSaving}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      title="Guardar manualmente (Ctrl+S)"
+      style={{
+        display: 'flex', alignItems: 'center', gap: '5px',
+        padding: '0 10px', height: '28px', borderRadius: '5px', fontSize: '12px', fontWeight: 500,
+        background: isSaving ? `${C.green}18` : h ? C.hover : 'transparent',
+        border: `1px solid ${isSaving ? `${C.green}40` : h ? C.border2 : C.border}`,
+        color: isSaving ? C.green : h ? C.text : C.text2,
+        cursor: isSaving ? 'default' : 'pointer', transition: 'all 0.1s',
+      }}
+    >
+      {isSaving
+        ? <><Check style={{ width: '12px', height: '12px' }} /> Guardado</>
+        : <><Save style={{ width: '12px', height: '12px' }} /> Ctrl+S</>
+      }
+    </button>
+  );
 }
 
 // ── Main toolbar ──────────────────────────────────────────────────────────────
@@ -1182,8 +1221,8 @@ function EditorToolbar({
   };
 
   return (
-    <div className="border-b border-border bg-card px-3 sm:px-6 py-2 flex-shrink-0">
-      <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap overflow-x-auto sm:overflow-x-visible">
+    <div style={{ borderBottom: `1px solid ${C.border}`, background: C.surface, padding: '6px 16px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexWrap: 'wrap', overflowX: 'auto' }}>
         {/* History */}
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
@@ -1332,59 +1371,36 @@ function EditorToolbar({
         {/* Table with dropdown */}
         <TableMenu editor={editor} t={t} />
 
-        <div className="flex-1" />
+        <div style={{ flex: 1 }} />
 
         {/* Auto-save indicator */}
         {isSavingToServer ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-warning border border-warning/30 bg-warning/10 rounded">
-            <div className="w-2 h-2 rounded-full bg-warning animate-pulse" />
-            <span className="font-medium">Guardando en DB...</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '4px 10px', borderRadius: '5px', fontSize: '11.5px',
+            background: `${C.amber}12`, border: `1px solid ${C.amber}35`, color: C.amber,
+          }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: C.amber }} className="animate-pulse" />
+            Guardando…
           </div>
         ) : lastSaveTime ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-success border border-success/30 bg-success/10 rounded">
-            <Check className="w-3 h-3" />
-            <span className="font-medium">Guardado {formatTimeAgo(lastSaveTime)}</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '5px',
+            padding: '4px 10px', borderRadius: '5px', fontSize: '11.5px',
+            background: `${C.green}12`, border: `1px solid ${C.green}35`, color: C.green,
+          }}>
+            <Check style={{ width: '11px', height: '11px' }} />
+            Guardado {formatTimeAgo(lastSaveTime)}
           </div>
         ) : null}
 
         {/* Toggle comments sidebar */}
         {onToggleComments && (
-          <button
-            onClick={onToggleComments}
-            title={commentsOpen ? 'Cerrar comentarios' : 'Abrir comentarios'}
-            className={`px-2.5 py-2 border transition-all flex items-center gap-1.5 text-sm ${
-              commentsOpen
-                ? 'bg-accent/10 border-accent/50 text-accent'
-                : 'bg-surface border-border hover:bg-card text-text-muted hover:text-text-primary'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
+          <CommentsBtn active={!!commentsOpen} onClick={onToggleComments} />
         )}
 
         {/* Manual Save (Ctrl+S) */}
-        <button
-          onClick={onSave}
-          disabled={isSaving}
-          title="Guardar manualmente (Ctrl+S)"
-          className={`px-3 py-2 border transition-all flex items-center gap-2 text-sm ${
-            isSaving
-              ? 'bg-success/20 border-success text-success'
-              : 'bg-surface border-border hover:bg-card text-text-primary'
-          } disabled:opacity-50`}
-        >
-          {isSaving ? (
-            <>
-              <Check className="w-4 h-4" />
-              <span>Guardado</span>
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              <span>Ctrl+S</span>
-            </>
-          )}
-        </button>
+        <SaveBtn onClick={onSave} isSaving={!!isSaving} />
       </div>
     </div>
   );
@@ -1873,74 +1889,48 @@ export default function CollaborativeEditor({
 
   if (!isDocumentReady || !editor) {
     return (
-      <div className="flex items-center justify-center h-full bg-surface">
-        <div className="text-center max-w-md">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: C.bg }}>
+        <div style={{ textAlign: 'center', maxWidth: '360px' }}>
           {syncError ? (
-            // Error state
-            <div className="space-y-4">
-              <div className="w-12 h-12 mx-auto rounded-full bg-error/10 flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-error"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
+            <>
+              <div style={{
+                width: '40px', height: '40px', borderRadius: '10px', margin: '0 auto 16px',
+                background: `${C.red}15`, border: `1px solid ${C.red}40`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg style={{ width: '18px', height: '18px', color: C.red }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-text-primary mb-2">
-                  Error al cargar documento
-                </h3>
-                <p className="text-sm text-text-muted mb-4">{syncError}</p>
-                <button
-                  onClick={() => {
-                    setSyncError(null);
-                    retryCountRef.current = 0;
-                    initialSyncReceivedRef.current = false;
-                    isJoinedRef.current = false;
-                    window.location.reload();
-                  }}
-                  className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/80 transition-colors"
-                >
-                  Reintentar
-                </button>
-              </div>
-            </div>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, color: C.text, marginBottom: '8px' }}>Error al cargar documento</h3>
+              <p style={{ fontSize: '13px', color: C.text3, marginBottom: '20px' }}>{syncError}</p>
+              <button
+                onClick={() => { setSyncError(null); retryCountRef.current = 0; initialSyncReceivedRef.current = false; isJoinedRef.current = false; window.location.reload(); }}
+                style={{ padding: '8px 20px', borderRadius: '7px', fontSize: '13px', fontWeight: 500, background: C.accent, color: '#fff', border: 'none', cursor: 'pointer' }}
+              >
+                Reintentar
+              </button>
+            </>
           ) : (
-            // Loading state
-            <div className="space-y-4">
-              <div className="inline-block w-10 h-10 border-3 border-accent border-t-transparent rounded-full animate-spin" />
-              <div className="space-y-2">
-                <p className="text-text-primary font-medium">
-                  {!isDocumentReady ? 'Cargando documento...' : 'Inicializando editor...'}
-                </p>
-                {retryCountRef.current > 0 && (
-                  <p className="text-sm text-text-muted">
-                    Reintentando conexión ({retryCountRef.current}/2)...
-                  </p>
-                )}
-                <div className="flex justify-center gap-1 mt-4">
-                  <div
-                    className="w-2 h-2 bg-accent rounded-full animate-pulse"
-                    style={{ animationDelay: '0ms' }}
-                  />
-                  <div
-                    className="w-2 h-2 bg-accent rounded-full animate-pulse"
-                    style={{ animationDelay: '200ms' }}
-                  />
-                  <div
-                    className="w-2 h-2 bg-accent rounded-full animate-pulse"
-                    style={{ animationDelay: '400ms' }}
-                  />
-                </div>
+            <>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '50%', margin: '0 auto 16px',
+                border: `2px solid ${C.accent}`, borderTopColor: 'transparent',
+                animation: 'spin 0.7s linear infinite',
+              }} />
+              <p style={{ fontSize: '14px', fontWeight: 500, color: C.text, marginBottom: '6px' }}>
+                {!isDocumentReady ? 'Cargando documento…' : 'Inicializando editor…'}
+              </p>
+              {retryCountRef.current > 0 && (
+                <p style={{ fontSize: '12px', color: C.text4 }}>Reintentando conexión ({retryCountRef.current}/2)…</p>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '5px', marginTop: '16px' }}>
+                {[0, 200, 400].map((delay) => (
+                  <div key={delay} className="animate-pulse" style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.accent, animationDelay: `${delay}ms` }} />
+                ))}
               </div>
-            </div>
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+            </>
           )}
         </div>
       </div>
@@ -1948,7 +1938,7 @@ export default function CollaborativeEditor({
   }
 
   return (
-    <div className="flex flex-col h-full bg-surface">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
       {canEdit && (
         <EditorToolbar
           editor={editor}
@@ -1967,127 +1957,85 @@ export default function CollaborativeEditor({
         <BubbleMenu
           editor={editor}
           tippyOptions={{ duration: 100 }}
-          className="flex items-center gap-0.5 bg-card border border-border shadow-xl px-1 py-1"
+          className="flex items-center gap-0.5 px-1 py-1"
+          style={{
+            background: C.surface, border: `1px solid ${C.border2}`,
+            borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            gap: '2px', padding: '4px',
+          }}
         >
           {[
-            {
-              cmd: () => editor.chain().focus().toggleBold().run(),
-              active: editor.isActive('bold'),
-              icon: <Bold className="w-3.5 h-3.5" />,
-              title: 'Negrita',
-            },
-            {
-              cmd: () => editor.chain().focus().toggleItalic().run(),
-              active: editor.isActive('italic'),
-              icon: <Italic className="w-3.5 h-3.5" />,
-              title: 'Cursiva',
-            },
-            {
-              cmd: () => editor.chain().focus().toggleUnderline().run(),
-              active: editor.isActive('underline'),
-              icon: <UnderlineIcon className="w-3.5 h-3.5" />,
-              title: 'Subrayado',
-            },
-            {
-              cmd: () => editor.chain().focus().toggleStrike().run(),
-              active: editor.isActive('strike'),
-              icon: <Strikethrough className="w-3.5 h-3.5" />,
-              title: 'Tachado',
-            },
-            {
-              cmd: () => editor.chain().focus().toggleCode().run(),
-              active: editor.isActive('code'),
-              icon: <Code className="w-3.5 h-3.5" />,
-              title: 'Código',
-            },
+            { cmd: () => editor.chain().focus().toggleBold().run(),      active: editor.isActive('bold'),      icon: <Bold style={{ width: '13px', height: '13px' }} />,          title: 'Negrita' },
+            { cmd: () => editor.chain().focus().toggleItalic().run(),    active: editor.isActive('italic'),    icon: <Italic style={{ width: '13px', height: '13px' }} />,        title: 'Cursiva' },
+            { cmd: () => editor.chain().focus().toggleUnderline().run(), active: editor.isActive('underline'), icon: <UnderlineIcon style={{ width: '13px', height: '13px' }} />, title: 'Subrayado' },
+            { cmd: () => editor.chain().focus().toggleStrike().run(),    active: editor.isActive('strike'),    icon: <Strikethrough style={{ width: '13px', height: '13px' }} />, title: 'Tachado' },
+            { cmd: () => editor.chain().focus().toggleCode().run(),      active: editor.isActive('code'),      icon: <Code style={{ width: '13px', height: '13px' }} />,          title: 'Código' },
           ].map(({ cmd, active, icon, title }) => (
-            <button
-              key={title}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                cmd();
-              }}
-              title={title}
-              className={`p-1.5 border transition-colors ${active ? 'bg-accent text-white border-accent' : 'border-transparent hover:bg-surface text-text-primary'}`}
-            >
+            <BubbleBtn key={title} onMouseDown={(e) => { e.preventDefault(); cmd(); }} active={active} title={title}>
               {icon}
-            </button>
+            </BubbleBtn>
           ))}
-          <div className="w-px h-4 bg-border mx-0.5" />
-          {/* Inline highlight colour swatches in bubble menu */}
-          {HIGHLIGHT_COLORS.slice(0, 5).map((c) => (
+
+          <div style={{ width: '1px', height: '16px', background: C.border2, margin: '0 2px' }} />
+
+          {HIGHLIGHT_COLORS.slice(0, 5).map((hc) => (
             <button
-              key={c.value}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                editor.chain().focus().setHighlight({ color: c.value }).run();
-              }}
-              title={`Resaltar: ${c.label}`}
-              style={{ backgroundColor: c.value }}
-              className="w-5 h-5 rounded-sm border border-transparent hover:border-border transition-colors"
+              key={hc.value}
+              onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHighlight({ color: hc.value }).run(); }}
+              title={`Resaltar: ${hc.label}`}
+              style={{ backgroundColor: hc.value, width: '18px', height: '18px', borderRadius: '4px', border: '1px solid transparent', cursor: 'pointer' }}
             />
           ))}
           {editor.isActive('highlight') && (
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                editor.chain().focus().unsetHighlight().run();
-              }}
-              title="Quitar resaltado"
-              className="p-1.5 border border-transparent hover:bg-surface text-text-muted hover:text-error transition-colors"
-            >
-              <Minus className="w-3 h-3" />
-            </button>
+            <BubbleBtn onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().unsetHighlight().run(); }} title="Quitar resaltado">
+              <Minus style={{ width: '11px', height: '11px' }} />
+            </BubbleBtn>
           )}
-          <div className="w-px h-4 bg-border mx-0.5" />
-          <button
-            onMouseDown={(e) => {
-              e.preventDefault();
-              if (editor.isActive('link')) {
-                editor.chain().focus().unsetLink().run();
-              } else {
-                const url = window.prompt('URL:');
-                if (url) editor.chain().focus().setLink({ href: url }).run();
-              }
-            }}
-            title="Enlace"
-            className={`p-1.5 border transition-colors ${editor.isActive('link') ? 'bg-accent text-white border-accent' : 'border-transparent hover:bg-surface text-text-primary'}`}
+
+          <div style={{ width: '1px', height: '16px', background: C.border2, margin: '0 2px' }} />
+
+          <BubbleBtn
+            onMouseDown={(e) => { e.preventDefault(); if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); } else { const url = window.prompt('URL:'); if (url) editor.chain().focus().setLink({ href: url }).run(); } }}
+            active={editor.isActive('link')} title="Enlace"
           >
-            <LinkIcon className="w-3.5 h-3.5" />
-          </button>
-          <div className="w-px h-4 bg-border mx-0.5" />
-          {/* Botón de comentario inline */}
-          <button
-            onMouseDown={(e) => {
-              e.preventDefault();
-              const { from, to } = editor.state.selection;
-              if (from === to) return;
-              // Guardar la selección antes de que el sidebar tome el foco
-              setPendingSelection({ from, to });
-              setSidebarOpen(true);
-              // Mantener el foco en el editor para que la selección no se pierda
-              setTimeout(() => editor.commands.focus(), 0);
-            }}
+            <LinkIcon style={{ width: '13px', height: '13px' }} />
+          </BubbleBtn>
+
+          <div style={{ width: '1px', height: '16px', background: C.border2, margin: '0 2px' }} />
+
+          <BubbleBtn
+            onMouseDown={(e) => { e.preventDefault(); const { from, to } = editor.state.selection; if (from === to) return; setPendingSelection({ from, to }); setSidebarOpen(true); setTimeout(() => editor.commands.focus(), 0); }}
             title="Comentar selección"
-            className="flex items-center gap-1 p-1.5 border border-transparent hover:bg-accent/10 hover:text-accent text-text-muted transition-colors"
           >
-            <MessageSquare className="w-3.5 h-3.5" />
-          </button>
+            <MessageSquare style={{ width: '13px', height: '13px' }} />
+          </BubbleBtn>
         </BubbleMenu>
       )}
 
       {/* Main content area: editor + sidebar */}
-      <div className="flex flex-1 overflow-hidden">
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Editor scroll area */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-          <div className="min-h-full py-4 md:py-12 px-2 md:px-4">
+        <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ minHeight: '100%', padding: '40px 24px' }}>
             <div
-              className={`max-w-4xl mx-auto bg-card border border-border shadow-lg transition-all duration-300 ${isTransitioning ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}
+              style={{
+                maxWidth: '760px', margin: '0 auto',
+                background: C.surface, border: `1px solid ${C.border}`,
+                borderRadius: '10px', boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+                opacity: isTransitioning ? 0.5 : 1,
+                transform: isTransitioning ? 'scale(0.99)' : 'scale(1)',
+                transition: 'opacity 0.3s, transform 0.3s',
+              }}
             >
-              <div ref={editorWrapRef} className="px-4 py-6 md:px-16 md:py-12 relative">
+              <div ref={editorWrapRef} style={{ padding: '48px 64px', position: 'relative' }}>
                 {!canEdit && (
-                  <div className="mb-4 px-4 py-2 bg-warning/10 border-l-4 border-warning text-warning text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <Eye className="w-4 h-4" />
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    marginBottom: '20px', padding: '8px 14px',
+                    background: `${C.amber}12`, borderLeft: `3px solid ${C.amber}`,
+                    borderRadius: '0 6px 6px 0', fontSize: '13px', color: C.amber,
+                  }}>
+                    <Eye style={{ width: '14px', height: '14px', flexShrink: 0 }} />
                     <span>Este documento es de solo lectura</span>
                   </div>
                 )}
@@ -2188,18 +2136,21 @@ export default function CollaborativeEditor({
         {/* Backdrop for mobile comment sidebar */}
         {commentSidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-30 md:hidden"
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 30 }}
+            className="md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Comments sidebar — overlay on mobile, inline on desktop */}
+        {/* Comments sidebar */}
         <div
-          className={`flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${
-            commentSidebarOpen
-              ? 'fixed inset-y-0 right-0 w-[min(100vw,24rem)] z-40 md:relative md:inset-auto md:w-96'
-              : 'w-0'
-          }`}
+          style={{
+            flexShrink: 0, overflow: 'hidden',
+            transition: 'width 0.3s ease',
+            width: commentSidebarOpen ? '384px' : '0',
+            borderLeft: commentSidebarOpen ? `1px solid ${C.border}` : 'none',
+          }}
+          className={commentSidebarOpen ? 'fixed inset-y-0 right-0 z-40 md:relative md:inset-auto' : ''}
         >
           <DocumentCommentsSidebar
             documentId={documentId}

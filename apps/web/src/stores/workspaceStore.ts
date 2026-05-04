@@ -119,7 +119,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       // ==================== FETCH WORKSPACES ====================
       fetchWorkspaces: async (includeArchived = false) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, workspaces: [] });
 
         try {
           const response = await apiService.get<{ workspaces: Workspace[] }>(
@@ -149,7 +149,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       // ==================== FETCH WORKSPACE BY ID ====================
       fetchWorkspaceById: async (id: string) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, currentWorkspace: null, currentStats: null });
 
         try {
           const response = await apiService.get<{ workspace: Workspace }>(
@@ -595,6 +595,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       // ==================== FETCH STATS ====================
       fetchStats: async (id: string) => {
+        set({ currentStats: null });
         try {
           const response = await apiService.get<{ stats: WorkspaceStats }>(
             `/api/workspaces/${id}/stats`,
@@ -654,10 +655,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     {
       name: 'aether-workspace-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        workspaces: state.workspaces,
-        currentWorkspace: state.currentWorkspace,
-      }),
+      partialize: () => ({}),
     }
   )
 );

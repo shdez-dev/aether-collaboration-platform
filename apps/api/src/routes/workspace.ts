@@ -3,6 +3,8 @@
 import { Router } from 'express';
 import { workspaceController } from '../controllers/WorkspaceController';
 import { activityLogController } from '../controllers/ActivityLogController';
+import { workspaceGithubController } from '../controllers/WorkspaceGithubController';
+import { projectController } from '../controllers/ProjectController';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership, requireAdmin, requireOwner } from '../middleware/workspace';
 
@@ -118,6 +120,14 @@ router.get('/:id/stats', checkWorkspaceMembership, (req, res) =>
 );
 
 /**
+ * GET /api/workspaces/:id/teams
+ * Equipos activos derivados de project_teams, con miembros
+ */
+router.get('/:id/teams', checkWorkspaceMembership, (req, res) =>
+  workspaceController.getTeams(req, res)
+);
+
+/**
  * POST /api/workspaces/:id/archive
  * Archivar workspace (solo OWNER)
  */
@@ -164,6 +174,56 @@ router.post('/:id/invite-token', checkWorkspaceMembership, requireAdmin, (req, r
 router.delete('/:id/invite-token', checkWorkspaceMembership, requireAdmin, (req, res) =>
   workspaceController.revokeInviteToken(req, res)
 );
+
+/**
+ * GET /api/workspaces/:id/github
+ * Estado de la conexión GitHub del workspace
+ */
+router.get('/:id/github', checkWorkspaceMembership, (req, res) =>
+  workspaceGithubController.getConnection(req, res)
+);
+
+/**
+ * GET /api/workspaces/:id/github/repos
+ * Lista repos accesibles con el token guardado (o ?token=xxx para preview)
+ */
+router.get('/:id/github/repos', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceGithubController.listRepos(req, res)
+);
+
+/**
+ * POST /api/workspaces/:id/github
+ * Conectar GitHub (guardar token + registrar webhooks)
+ */
+router.post('/:id/github', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceGithubController.connect(req, res)
+);
+
+/**
+ * DELETE /api/workspaces/:id/github
+ * Desconectar GitHub (eliminar webhooks + borrar fila)
+ */
+router.delete('/:id/github', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceGithubController.disconnect(req, res)
+);
+
+/**
+ * GET /api/workspaces/:id/projects
+ * Listar proyectos del workspace
+ */
+router.get('/:id/projects', checkWorkspaceMembership, (req, res) => {
+  req.params.wsId = req.params.id;
+  projectController.listByWorkspace(req, res);
+});
+
+/**
+ * POST /api/workspaces/:id/projects
+ * Crear proyecto en el workspace
+ */
+router.post('/:id/projects', checkWorkspaceMembership, (req, res) => {
+  req.params.wsId = req.params.id;
+  projectController.create(req, res);
+});
 
 /**
  * GET /api/workspaces/:id/activity

@@ -617,6 +617,104 @@ export class NotificationService {
   }
 
   /**
+   * Notificación cuando añaden al usuario a un equipo
+   */
+  async createTeamMemberAddedNotification(data: {
+    userId: string;
+    adderId: string;
+    adderName: string;
+    teamId: string;
+    teamName: string;
+  }): Promise<Notification | null> {
+    if (data.userId === data.adderId) return null;
+
+    const isDuplicate = await notificationRepository.existsRecent({
+      userId: data.userId,
+      type: 'TEAM_MEMBER_ADDED' as any,
+    });
+    if (isDuplicate) return null;
+
+    const notification = await notificationRepository.create({
+      userId: data.userId,
+      type: 'TEAM_MEMBER_ADDED' as any,
+      title: 'Te añadieron a un equipo',
+      message: `${data.adderName} te añadió al equipo "${data.teamName}"`,
+      data: {
+        teamId: data.teamId,
+        teamName: data.teamName,
+        adderId: data.adderId,
+        adderName: data.adderName,
+      },
+    });
+
+    try {
+      await eventStore.emit(
+        'notification.created',
+        {
+          notificationId: notification.id,
+          userId: data.userId,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+        },
+        data.adderId as any,
+        undefined,
+        undefined,
+        data.userId as any
+      );
+    } catch {}
+
+    return notification;
+  }
+
+  /**
+   * Notificación cuando quitan al usuario de un equipo
+   */
+  async createTeamMemberRemovedNotification(data: {
+    userId: string;
+    removerId: string;
+    removerName: string;
+    teamId: string;
+    teamName: string;
+  }): Promise<Notification | null> {
+    if (data.userId === data.removerId) return null;
+
+    const notification = await notificationRepository.create({
+      userId: data.userId,
+      type: 'TEAM_MEMBER_REMOVED' as any,
+      title: 'Te quitaron de un equipo',
+      message: `${data.removerName} te quitó del equipo "${data.teamName}"`,
+      data: {
+        teamId: data.teamId,
+        teamName: data.teamName,
+        removerId: data.removerId,
+        removerName: data.removerName,
+      },
+    });
+
+    try {
+      await eventStore.emit(
+        'notification.created',
+        {
+          notificationId: notification.id,
+          userId: data.userId,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+        },
+        data.removerId as any,
+        undefined,
+        undefined,
+        data.userId as any
+      );
+    } catch {}
+
+    return notification;
+  }
+
+  /**
    * Limpiar notificaciones leídas antiguas
    */
   async cleanupReadNotifications(userId: string): Promise<void> {

@@ -6,15 +6,26 @@ import type { Card, List } from '@aether/types';
 import { useCardStore } from '@/stores/cardStore';
 import { useT } from '@/lib/i18n';
 import {
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  Circle,
-  ArrowUpDown,
+  ChevronUp, ChevronDown, ChevronsUpDown,
+  CheckCircle2, Clock, AlertTriangle, Circle, Search,
 } from 'lucide-react';
+
+const C = {
+  bg:      '#0b0d10',
+  surface: '#14171c',
+  surface2:'#111418',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  green:   '#10b981',
+  amber:   '#f59e0b',
+  red:     '#ef4444',
+};
 
 interface Props {
   lists: List[];
@@ -23,14 +34,14 @@ interface Props {
 }
 
 type SortField = 'title' | 'list' | 'priority' | 'dueDate' | 'status';
-type SortDir = 'asc' | 'desc';
+type SortDir   = 'asc' | 'desc';
 
 const PRIORITY_ORDER = { HIGH: 0, MEDIUM: 1, LOW: 2, null: 3 };
-const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
 function dateStatus(iso: string | undefined, completed: boolean) {
@@ -38,31 +49,34 @@ function dateStatus(iso: string | undefined, completed: boolean) {
   if (!iso) return 'none';
   const now = new Date();
   const due = new Date(iso);
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today  = new Date(now.getFullYear(),  now.getMonth(),  now.getDate());
   const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
   if (dueDay < today) return 'overdue';
   if (dueDay.getTime() === today.getTime()) return 'today';
   return 'ok';
 }
 
+const PRIORITY_CFG = {
+  HIGH:   { label: 'Alta',   color: C.red,   bg: `${C.red}15`,   border: `${C.red}35`   },
+  MEDIUM: { label: 'Media',  color: C.amber, bg: `${C.amber}15`, border: `${C.amber}35` },
+  LOW:    { label: 'Baja',   color: C.accent, bg: `${C.accent}15`, border: `${C.accent}35` },
+};
+
 export function BoardTableView({ lists, filteredCards, onCardClick }: Props) {
   const t = useT();
   const cards = useCardStore((s) => s.cards);
-  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({
-    field: 'list',
-    dir: 'asc',
-  });
+  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'list', dir: 'asc' });
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   const listMap = useMemo(() => new Map(lists.map((l) => [l.id, l])), [lists]);
 
-  // Flatten all cards
   const allCards: Card[] = useMemo(() => {
     const source = filteredCards ?? cards;
     return Object.values(source).flat() as Card[];
   }, [filteredCards, cards]);
 
-  // Filter by search
   const filtered = useMemo(() => {
     if (!search.trim()) return allCards;
     const q = search.toLowerCase();
@@ -71,35 +85,27 @@ export function BoardTableView({ lists, filteredCards, onCardClick }: Props) {
     );
   }, [allCards, search]);
 
-  // Sort
   const sorted = useMemo(() => {
     const arr = [...filtered];
     arr.sort((a, b) => {
       let cmp = 0;
       switch (sort.field) {
-        case 'title':
-          cmp = a.title.localeCompare(b.title);
-          break;
+        case 'title':    cmp = a.title.localeCompare(b.title); break;
         case 'list': {
           const la = listMap.get(a.listId)?.name ?? '';
           const lb = listMap.get(b.listId)?.name ?? '';
-          cmp = la.localeCompare(lb);
-          break;
+          cmp = la.localeCompare(lb); break;
         }
         case 'priority':
-          cmp =
-            (PRIORITY_ORDER[a.priority as keyof typeof PRIORITY_ORDER] ?? 3) -
-            (PRIORITY_ORDER[b.priority as keyof typeof PRIORITY_ORDER] ?? 3);
+          cmp = (PRIORITY_ORDER[a.priority as keyof typeof PRIORITY_ORDER] ?? 3)
+              - (PRIORITY_ORDER[b.priority as keyof typeof PRIORITY_ORDER] ?? 3);
           break;
         case 'dueDate': {
           const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
           const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-          cmp = da - db;
-          break;
+          cmp = da - db; break;
         }
-        case 'status':
-          cmp = Number(a.completed) - Number(b.completed);
-          break;
+        case 'status': cmp = Number(a.completed) - Number(b.completed); break;
       }
       return sort.dir === 'asc' ? cmp : -cmp;
     });
@@ -107,74 +113,103 @@ export function BoardTableView({ lists, filteredCards, onCardClick }: Props) {
   }, [filtered, sort, listMap]);
 
   function toggleSort(field: SortField) {
-    setSort((s) =>
-      s.field === field ? { field, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: 'asc' }
+    setSort((s) => s.field === field
+      ? { field, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+      : { field, dir: 'asc' }
     );
   }
 
   function SortIcon({ field }: { field: SortField }) {
-    if (sort.field !== field) return <ChevronsUpDown className="w-3.5 h-3.5 opacity-30" />;
-    return sort.dir === 'asc' ? (
-      <ChevronUp className="w-3.5 h-3.5" />
-    ) : (
-      <ChevronDown className="w-3.5 h-3.5" />
-    );
+    if (sort.field !== field) return <ChevronsUpDown style={{ width: '12px', height: '12px', opacity: 0.3 }} />;
+    return sort.dir === 'asc'
+      ? <ChevronUp   style={{ width: '12px', height: '12px', color: C.accent }} />
+      : <ChevronDown style={{ width: '12px', height: '12px', color: C.accent }} />;
   }
 
-  const priorityConfig = {
-    HIGH: { label: 'Alta', color: 'text-error bg-error/10 border-error/30' },
-    MEDIUM: { label: 'Media', color: 'text-warning bg-warning/10 border-warning/30' },
-    LOW: { label: 'Baja', color: 'text-blue-500 bg-blue-500/10 border-blue-500/30' },
-  };
+  const COLS: [SortField, string][] = [
+    ['title',    t.table_col_title],
+    ['list',     t.table_col_list],
+    ['priority', t.table_col_priority],
+    ['dueDate',  t.table_col_due],
+    ['status',   t.table_col_status],
+  ];
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Barra de búsqueda rápida */}
-      <div className="px-6 py-3 border-b border-border bg-card flex items-center gap-3">
-        <ArrowUpDown className="w-4 h-4 text-text-muted flex-shrink-0" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar en la tabla…"
-          className="flex-1 bg-transparent text-sm text-text-primary placeholder-text-muted focus:outline-none font-mono"
-        />
-        <span className="text-xs text-text-muted font-mono">{sorted.length} cards</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
+
+      {/* Barra superior */}
+      <div style={{
+        padding: '10px 20px',
+        borderBottom: `1px solid ${C.border}`,
+        background: C.surface2,
+        display: 'flex', alignItems: 'center', gap: '10px',
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px', flex: 1,
+          padding: '6px 11px', borderRadius: '7px',
+          background: C.surface,
+          border: `1px solid ${searchFocused ? C.accent : C.border}`,
+          transition: 'border-color 0.15s',
+        }}>
+          <Search style={{ width: '13px', height: '13px', color: C.text4, flexShrink: 0 }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="Buscar tarjeta…"
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              fontSize: '12.5px', color: C.text,
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.text4, padding: 0, display: 'flex', fontSize: '12px', lineHeight: 1 }}
+            >×</button>
+          )}
+        </div>
+        <span style={{ fontSize: '11px', color: C.text4, whiteSpace: 'nowrap' }}>
+          {sorted.length} {sorted.length === 1 ? 'tarjeta' : 'tarjetas'}
+        </span>
       </div>
 
       {/* Tabla */}
-      <div className="flex-1 overflow-auto">
+      <div style={{ flex: 1, overflowY: 'auto' }}>
         {sorted.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-text-muted font-mono text-sm">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: C.text4, fontSize: '13px' }}>
             {t.table_empty}
           </div>
         ) : (
-          <table className="w-full text-sm border-collapse">
-            <thead className="sticky top-0 z-10 bg-card border-b border-border">
-              <tr>
-                {(
-                  [
-                    ['title', t.table_col_title],
-                    ['list', t.table_col_list],
-                    ['priority', t.table_col_priority],
-                    ['dueDate', t.table_col_due],
-                    ['status', t.table_col_status],
-                  ] as [SortField, string][]
-                ).map(([field, label]) => (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+              <tr style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                {COLS.map(([field, label]) => (
                   <th
                     key={field}
                     onClick={() => toggleSort(field)}
-                    className="px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wider cursor-pointer hover:text-text-primary select-none group"
+                    style={{
+                      padding: '9px 14px', textAlign: 'left',
+                      fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.06em',
+                      color: sort.field === field ? C.accent : C.text4,
+                      textTransform: 'uppercase', cursor: 'pointer',
+                      userSelect: 'none', whiteSpace: 'nowrap',
+                      transition: 'color 0.12s',
+                    }}
+                    onMouseEnter={(e) => { if (sort.field !== field) (e.currentTarget as HTMLElement).style.color = C.text3; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = sort.field === field ? C.accent : C.text4; }}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       {label}
                       <SortIcon field={field} />
                     </div>
                   </th>
                 ))}
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
+                <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.06em', color: C.text4, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                   {t.table_col_members}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
+                <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.06em', color: C.text4, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                   {t.table_col_labels}
                 </th>
               </tr>
@@ -182,136 +217,171 @@ export function BoardTableView({ lists, filteredCards, onCardClick }: Props) {
             <tbody>
               {sorted.map((card, i) => {
                 const list = listMap.get(card.listId);
-                const prio = card.priority ? priorityConfig[card.priority] : null;
-                const ds = dateStatus(card.dueDate, card.completed);
+                const prio = card.priority ? PRIORITY_CFG[card.priority as keyof typeof PRIORITY_CFG] : null;
+                const ds   = dateStatus(card.dueDate, card.completed);
+                const isHovered = hoveredRow === card.id;
+                const rowBg = isHovered
+                  ? C.hover
+                  : i % 2 === 0 ? 'transparent' : `${C.surface}60`;
 
                 return (
                   <tr
                     key={card.id}
                     onClick={() => onCardClick(card)}
-                    className={`border-b border-border/50 cursor-pointer transition-colors hover:bg-surface ${
-                      card.completed ? 'opacity-60' : ''
-                    } ${i % 2 === 0 ? 'bg-background' : 'bg-card/50'}`}
+                    onMouseEnter={() => setHoveredRow(card.id)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                    style={{
+                      background: rowBg,
+                      borderBottom: `1px solid ${C.border}`,
+                      cursor: 'pointer',
+                      opacity: card.completed ? 0.55 : 1,
+                      transition: 'background 0.1s',
+                    }}
                   >
                     {/* Título */}
-                    <td className="px-4 py-3 max-w-[280px]">
-                      <div className="flex items-center gap-2">
+                    <td style={{ padding: '9px 14px', maxWidth: '260px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {card.completed ? (
-                          <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+                          <CheckCircle2 style={{ width: '14px', height: '14px', color: C.green, flexShrink: 0 }} />
                         ) : ds === 'overdue' ? (
-                          <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+                          <AlertTriangle style={{ width: '14px', height: '14px', color: C.red, flexShrink: 0 }} />
                         ) : (
-                          <Circle className="w-4 h-4 text-text-muted flex-shrink-0" />
+                          <Circle style={{ width: '14px', height: '14px', color: C.text4, flexShrink: 0 }} />
                         )}
-                        <span
-                          className={`font-medium truncate ${card.completed ? 'line-through text-text-muted' : 'text-text-primary'}`}
-                        >
+                        <span style={{
+                          fontSize: '12.5px', fontWeight: 500,
+                          color: card.completed ? C.text3 : C.text,
+                          textDecoration: card.completed ? 'line-through' : 'none',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
                           {card.title}
                         </span>
                       </div>
                     </td>
 
                     {/* Lista */}
-                    <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-0.5 bg-surface border border-border text-text-secondary font-mono truncate max-w-[120px] inline-block">
+                    <td style={{ padding: '9px 14px' }}>
+                      <span style={{
+                        fontSize: '11px', padding: '2px 8px', borderRadius: '4px',
+                        background: C.surface, border: `1px solid ${C.border2}`,
+                        color: C.text3, whiteSpace: 'nowrap',
+                        display: 'inline-block', maxWidth: '130px',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
                         {list?.name ?? '—'}
                       </span>
                     </td>
 
                     {/* Prioridad */}
-                    <td className="px-4 py-3">
+                    <td style={{ padding: '9px 14px' }}>
                       {prio ? (
-                        <span
-                          className={`text-[10px] px-2 py-0.5 border font-medium uppercase ${prio.color}`}
-                        >
+                        <span style={{
+                          fontSize: '10px', padding: '2px 7px', borderRadius: '4px',
+                          background: prio.bg, border: `1px solid ${prio.border}`,
+                          color: prio.color, fontWeight: 600, letterSpacing: '0.04em',
+                          textTransform: 'uppercase', whiteSpace: 'nowrap',
+                        }}>
                           {prio.label}
                         </span>
                       ) : (
-                        <span className="text-text-muted text-xs">—</span>
+                        <span style={{ fontSize: '12px', color: C.text4 }}>—</span>
                       )}
                     </td>
 
                     {/* Fecha */}
-                    <td className="px-4 py-3 font-mono text-xs">
+                    <td style={{ padding: '9px 14px' }}>
                       {card.dueDate ? (
-                        <div
-                          className={`flex items-center gap-1 ${
-                            ds === 'overdue'
-                              ? 'text-error'
-                              : ds === 'today'
-                                ? 'text-warning'
-                                : 'text-text-secondary'
-                          }`}
-                        >
-                          <Clock className="w-3 h-3" />
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap',
+                          fontSize: '11.5px',
+                          color: ds === 'overdue' ? C.red : ds === 'today' ? C.amber : C.text3,
+                        }}>
+                          <Clock style={{ width: '11px', height: '11px', flexShrink: 0 }} />
                           {fmtDate(card.dueDate)}
                         </div>
                       ) : (
-                        <span className="text-text-muted">—</span>
+                        <span style={{ fontSize: '12px', color: C.text4 }}>—</span>
                       )}
                     </td>
 
                     {/* Estado */}
-                    <td className="px-4 py-3">
+                    <td style={{ padding: '9px 14px' }}>
                       {card.completed ? (
-                        <span className="text-[10px] px-2 py-0.5 border border-success/30 bg-success/10 text-success font-medium">
+                        <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', background: `${C.green}15`, border: `1px solid ${C.green}35`, color: C.green, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                           {t.table_completed}
                         </span>
                       ) : ds === 'overdue' ? (
-                        <span className="text-[10px] px-2 py-0.5 border border-error/30 bg-error/10 text-error font-medium">
+                        <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', background: `${C.red}12`, border: `1px solid ${C.red}30`, color: C.red, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                           {t.table_overdue}
                         </span>
+                      ) : ds === 'today' ? (
+                        <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', background: `${C.amber}12`, border: `1px solid ${C.amber}30`, color: C.amber, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          Hoy
+                        </span>
                       ) : (
-                        <span className="text-[10px] px-2 py-0.5 border border-border text-text-muted font-medium">
+                        <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', background: 'transparent', border: `1px solid ${C.border2}`, color: C.text4, fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                           {t.table_pending}
                         </span>
                       )}
                     </td>
 
                     {/* Miembros */}
-                    <td className="px-4 py-3">
+                    <td style={{ padding: '9px 14px' }}>
                       {card.members && card.members.length > 0 ? (
-                        <div className="flex -space-x-1.5">
-                          {card.members.slice(0, 3).map((m) => (
+                        <div style={{ display: 'flex' }}>
+                          {card.members.slice(0, 4).map((m, mi) => (
                             <div
                               key={m.id}
-                              className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-[10px] font-bold border-2 border-card"
                               title={m.name}
+                              style={{
+                                width: '22px', height: '22px', borderRadius: '50%',
+                                background: `linear-gradient(135deg, ${C.accent}cc, ${C.accent}55)`,
+                                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '9px', fontWeight: 700,
+                                border: `2px solid ${C.surface}`,
+                                marginLeft: mi > 0 ? '-6px' : 0,
+                                zIndex: 4 - mi,
+                                position: 'relative',
+                              }}
                             >
                               {m.name.charAt(0).toUpperCase()}
                             </div>
                           ))}
-                          {card.members.length > 3 && (
-                            <div className="w-6 h-6 rounded-full bg-surface text-text-secondary flex items-center justify-center text-[10px] font-bold border-2 border-card">
-                              +{card.members.length - 3}
+                          {card.members.length > 4 && (
+                            <div style={{
+                              width: '22px', height: '22px', borderRadius: '50%',
+                              background: C.hover, color: C.text3,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '9px', fontWeight: 600,
+                              border: `2px solid ${C.surface}`,
+                              marginLeft: '-6px', position: 'relative',
+                            }}>
+                              +{card.members.length - 4}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-text-muted text-xs">—</span>
+                        <span style={{ fontSize: '12px', color: C.text4 }}>—</span>
                       )}
                     </td>
 
                     {/* Labels */}
-                    <td className="px-4 py-3">
+                    <td style={{ padding: '9px 14px' }}>
                       {card.labels && card.labels.length > 0 ? (
-                        <div className="flex items-center gap-1">
-                          {card.labels.slice(0, 4).map((l) => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {card.labels.slice(0, 5).map((l) => (
                             <div
                               key={l.id}
-                              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: l.color }}
                               title={l.name}
+                              style={{ width: '10px', height: '10px', borderRadius: '50%', background: l.color, flexShrink: 0 }}
                             />
                           ))}
-                          {card.labels.length > 4 && (
-                            <span className="text-[10px] text-text-muted">
-                              +{card.labels.length - 4}
-                            </span>
+                          {card.labels.length > 5 && (
+                            <span style={{ fontSize: '10px', color: C.text4 }}>+{card.labels.length - 5}</span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-text-muted text-xs">—</span>
+                        <span style={{ fontSize: '12px', color: C.text4 }}>—</span>
                       )}
                     </td>
                   </tr>

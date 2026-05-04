@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, memo, useCallback, useMemo } from 'react';
+import { useT } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
 import '../styles/member-picker.css';
 
@@ -80,6 +81,7 @@ export function MemberPicker({
   onMemberAssigned,
   onMemberRemoved,
 }: MemberPickerProps) {
+  const t = useT();
   const [workspaceMembers, setWorkspaceMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -207,7 +209,7 @@ export function MemberPicker({
       {/* Search */}
       <input
         type="text"
-        placeholder="Buscar miembros..."
+        placeholder={t.board_filter_member}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         className="member-search-input"
@@ -226,7 +228,7 @@ export function MemberPicker({
           </div>
         ) : unassignedMembers.length === 0 && assignedFilteredMembers.length === 0 ? (
           <div className="member-empty">
-            <p>No se encontraron miembros</p>
+            <p>{t.comments_mention_no_results}</p>
           </div>
         ) : (
           <>

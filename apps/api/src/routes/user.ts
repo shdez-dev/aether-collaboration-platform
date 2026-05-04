@@ -2,6 +2,7 @@
 
 import { Router } from 'express';
 import { userController } from '../controllers/UserController';
+import { standupController } from '../controllers/StandupController';
 import { authenticateJWT } from '../middleware/auth';
 import { uploadAvatar } from '../middleware/upload';
 
@@ -100,6 +101,38 @@ router.post('/favorites/:userId', (req, res) => userController.addFavorite(req, 
  * Permisos: Usuario autenticado
  */
 router.delete('/favorites/:userId', (req, res) => userController.removeFavorite(req, res));
+
+/**
+ * GET /api/users/me/agenda
+ * Milestones y sprints próximos de los boards del usuario
+ */
+router.get('/me/agenda', (req, res) => userController.getAgenda(req, res));
+
+/**
+ * GET /api/users/me/github/prs
+ * PRs de GitHub donde el usuario es reviewer
+ */
+router.get('/me/github/prs',    (req, res) => userController.getGithubPRs(req, res));
+router.get('/me/teammates',     (req, res) => userController.getTeammates(req, res));
+router.get('/me/team-standups', (req, res) => userController.getTeamStandups(req, res));
+
+/**
+ * GET /api/users/me/standup?workspaceId=xxx
+ * Obtener el standup de hoy del usuario
+ */
+router.get('/me/standup', (req, res) => standupController.getTodayStandup(req, res));
+
+/**
+ * PUT /api/users/me/standup
+ * Crear o actualizar borrador del standup de hoy
+ */
+router.put('/me/standup', (req, res) => standupController.upsertStandup(req, res));
+
+/**
+ * POST /api/users/me/standup/publish
+ * Publicar el standup de hoy
+ */
+router.post('/me/standup/publish', (req, res) => standupController.publishStandup(req, res));
 
 /**
  * GET /api/users/:id

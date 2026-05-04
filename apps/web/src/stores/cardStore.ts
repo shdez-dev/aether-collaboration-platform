@@ -124,10 +124,7 @@ export const useCardStore = create<CardState>()(
     {
       name: 'aether-card-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        cards: state.cards,
-        currentWorkspaceId: state.currentWorkspaceId,
-      }),
+      partialize: () => ({}),
     }
   )
 );

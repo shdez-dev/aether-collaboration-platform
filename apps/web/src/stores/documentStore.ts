@@ -296,10 +296,7 @@ export const useDocumentStore = create<DocumentState>()(
     {
       name: 'aether-document-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        documents: state.documents,
-        currentDocument: state.currentDocument,
-      }),
+      partialize: () => ({}),
     }
   )
 );

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { boardService } from '../services/BoardService';
 import { DependencyGraphService } from '../services/DependencyGraphService';
 import { WorkspaceRequest } from '../middleware/workspace';
+import { pool } from '../lib/db';
 
 /**
  * Schemas de validación con Zod
@@ -12,11 +13,14 @@ import { WorkspaceRequest } from '../middleware/workspace';
 const createBoardSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').max(255),
   description: z.string().max(1000).optional(),
+  color: z.string().max(50).optional(),
+  projectId: z.string().uuid().optional(),
 });
 
 const updateBoardSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
+  color: z.string().max(50).optional(),
 });
 
 class BoardController {
@@ -65,8 +69,20 @@ class BoardController {
         });
       }
 
+      const { projectId, ...boardData } = validation.data;
+
       // Crear board
-      const board = await boardService.createBoard(workspaceId, userId, validation.data);
+      const board = await boardService.createBoard(workspaceId, userId, boardData);
+
+      // Si se pasó projectId, asociar el board al proyecto
+      if (projectId) {
+        await pool.query(
+          `INSERT INTO project_boards (id, project_id, board_id)
+           VALUES (gen_random_uuid(), $1, $2)
+           ON CONFLICT DO NOTHING`,
+          [projectId, board.id]
+        );
+      }
 
       return res.status(201).json({
         success: true,
@@ -404,6 +420,52 @@ class BoardController {
       const { id } = req.params;
       const graph = await DependencyGraphService.getGraph(id);
       return res.json({ success: true, data: { graph } });
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: error.message },
+      });
+    }
+  }
+
+  /**
+   * GET /api/workspaces/:workspaceId/boards/orphaned
+   * Boards del workspace que no pertenecen a ningún proyecto
+   */
+  async listOrphaned(req: WorkspaceRequest, res: Response) {
+    try {
+      const { workspaceId } = req.params;
+      const result = await pool.query(
+        `SELECT b.*,
+           COUNT(DISTINCT c.id)::int AS card_count,
+           COUNT(DISTINCT l.id)::int AS list_count
+         FROM boards b
+         LEFT JOIN lists l ON l.board_id = b.id
+         LEFT JOIN cards c ON c.list_id = l.id
+         WHERE b.workspace_id = $1
+           AND b.archived = false
+           AND NOT EXISTS (
+             SELECT 1 FROM project_boards pb WHERE pb.board_id = b.id
+           )
+         GROUP BY b.id
+         ORDER BY b.updated_at DESC`,
+        [workspaceId]
+      );
+      const boards = result.rows.map((r) => ({
+        id: r.id,
+        workspaceId: r.workspace_id,
+        name: r.name,
+        description: r.description,
+        color: r.color,
+        position: r.position,
+        archived: r.archived,
+        createdBy: r.created_by,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        cardCount: r.card_count,
+        listCount: r.list_count,
+      }));
+      return res.json({ success: true, data: { boards } });
     } catch (error: any) {
       return res.status(500).json({
         success: false,

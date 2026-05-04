@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, memo, useCallback } from 'react';
+import { useT } from '@/lib/i18n';
 import { useLabelStore, Label } from '@/stores/labelStore';
 import { apiService } from '@/services/apiService';
 import '../styles/label-picker.css';
@@ -86,6 +87,7 @@ export function LabelPicker({
   onLabelAssigned,
   onLabelRemoved,
 }: LabelPickerProps) {
+  const t = useT();
   const { getWorkspaceLabels, fetchLabels, createLabel } = useLabelStore();
 
   const [isCreating, setIsCreating] = useState(false);
@@ -224,7 +226,7 @@ export function LabelPicker({
       {!isCreating && (
         <input
           type="text"
-          placeholder="Buscar etiquetas..."
+          placeholder={t.board_filter_label}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="label-search-input"
@@ -241,7 +243,7 @@ export function LabelPicker({
                 type="text"
                 value={newLabelName}
                 onChange={(e) => setNewLabelName(e.target.value)}
-                placeholder="ej. Error, Feature..."
+                placeholder={t.board_filter_search_placeholder}
                 className="label-name-input"
                 autoFocus
                 maxLength={50}
@@ -279,10 +281,10 @@ export function LabelPicker({
                 }}
                 className="btn-cancel-create"
               >
-                Cancelar
+                {t.btn_cancel}
               </button>
               <button type="submit" disabled={!newLabelName.trim()} className="btn-create-label">
-                Crear
+                {t.btn_create}
               </button>
             </div>
           </form>
@@ -290,7 +292,7 @@ export function LabelPicker({
           <>
             {filteredLabels.length === 0 ? (
               <div className="empty-state">
-                <p>Sin etiquetas aún</p>
+                <p>{t.checklist_empty}</p>
               </div>
             ) : (
               <div className="labels-list">
@@ -307,7 +309,7 @@ export function LabelPicker({
 
             <button onClick={() => setIsCreating(true)} className="btn-new-label" type="button">
               <span>+</span>
-              Crear nueva etiqueta
+              {t.btn_create}
             </button>
           </>
         )}

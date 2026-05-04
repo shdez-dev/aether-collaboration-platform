@@ -19,6 +19,11 @@ import commentRoutes from './routes/comments';
 import notificationRoutes from './routes/notifications';
 import documentRoutes from './routes/documentss';
 import activityRoutes from './routes/activity';
+import githubWebhookRoutes from './routes/github_webhook';
+import projectRoutes from './routes/projects';
+import teamRoutes from './routes/teams';
+import searchRoutes from './routes/search';
+import aiRoutes from './routes/ai';
 import { documentCommentController } from './controllers/DocumentCommentController';
 
 // Import middleware
@@ -37,6 +42,7 @@ import { initializeRedis, closeRedisConnections } from './lib/redis';
 import { initializeRealtimeGateway } from './websocket/RealtimeGateway';
 import { initializeYjsGateway } from './websocket/Yjsgateway';
 import { runMigrations } from './migrations/run-migrations';
+import { startDueDateJob, stopDueDateJob } from './jobs/dueDateJob';
 
 // ============================================================================
 // ENVIRONMENT VALIDATION
@@ -125,6 +131,9 @@ app.use(
   })
 );
 
+// GitHub webhooks need raw body for HMAC verification — must come BEFORE express.json()
+app.use('/api/webhooks/github', express.raw({ type: 'application/json' }), githubWebhookRoutes);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -195,6 +204,10 @@ app.use('/api', notificationRoutes);
 app.use('/api', documentRoutes);
 app.use('/api/presence', presenceRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -244,7 +257,10 @@ async function startServer() {
     // 4. Inject Socket.IO into DocumentCommentController for realtime events
     documentCommentController.setIo(realtimeGateway.getIO());
 
-    // 5. Start HTTP server
+    // 5. Start due date notification cron job
+    startDueDateJob();
+
+    // 6. Start HTTP server
     httpServer.listen(PORT, () => {
       const line = '─'.repeat(52);
       process.stdout.write(`\n${line}\n`);
@@ -272,6 +288,7 @@ const shutdown = async (signal: string) => {
 
   httpServer.close(async () => {
     try {
+      stopDueDateJob();
       await closeRedisConnections();
       process.exit(0);
     } catch {

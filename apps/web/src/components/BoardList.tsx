@@ -11,7 +11,23 @@ import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from './Card';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { Plus, Trash2, Pencil, GripVertical } from 'lucide-react';
 import { useT } from '@/lib/i18n';
+
+const C = {
+  bg:      '#0b0d10',
+  bg2:     '#0f1217',
+  surface: '#14171c',
+  hover:   '#1c2128',
+  border:  '#1f2329',
+  border2: '#2a2f36',
+  text:    '#e6e8eb',
+  text2:   '#a1a7b0',
+  text3:   '#6b7280',
+  text4:   '#4b5260',
+  accent:  '#3b82f6',
+  red:     '#ef4444',
+};
 
 interface List {
   id: string;
@@ -26,351 +42,384 @@ interface List {
 
 interface BoardListProps {
   list: List;
-  /** Cuando hay filtros activos, se pasan las cards ya filtradas desde el padre */
   filteredCards?: any[];
 }
 
 export default function BoardList({ list, filteredCards: filteredCardsProp }: BoardListProps) {
-  const t = useT();
   const { updateList, deleteList } = useBoardStore();
   const { cards, addCard } = useCardStore();
-  const setSelectedCard = useCardStore((state) => state.setSelectedCard);
-  // Obtener rol del usuario
+  const setSelectedCard = useCardStore((s) => s.setSelectedCard);
   const { currentWorkspace } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(list.name);
+  const [isEditing, setIsEditing]           = useState(false);
+  const [editedName, setEditedName]         = useState(list.name);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  // Estado para añadir card
-  const [isAddingCard, setIsAddingCard] = useState(false);
-  const [cardTitle, setCardTitle] = useState('');
+  const [isMenuOpen, setIsMenuOpen]         = useState(false);
+  const [isAddingCard, setIsAddingCard]     = useState(false);
+  const [cardTitle, setCardTitle]           = useState('');
   const [isCreatingCard, setIsCreatingCard] = useState(false);
 
-  // Permisos: OWNER y ADMIN pueden editar/crear/eliminar
-  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
+  const t = useT();
 
-  // OWNER, ADMIN y MEMBER pueden arrastrar (solo VIEWER no puede)
+  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
   const canDrag = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
-  // Configurar sortable para la lista - Solo OWNER y ADMIN pueden mover listas
   const {
-    attributes,
-    listeners,
-    setNodeRef: setSortableNodeRef,
-    transform,
-    transition,
-    isDragging,
+    attributes, listeners, setNodeRef: setSortableNodeRef,
+    transform, transition, isDragging,
   } = useSortable({
     id: list.id,
-    data: {
-      type: 'list',
-      list,
-    },
+    data: { type: 'list', list },
     disabled: !canEdit,
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.45 : 1,
   };
 
-  // Configurar droppable para el área de cards - OWNER, ADMIN y MEMBER pueden soltar
   const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
     id: `list-droppable-${list.id}`,
-    data: {
-      type: 'list',
-      listId: list.id,
-    },
+    data: { type: 'list', listId: list.id },
     disabled: !canDrag,
   });
 
-  // Guardar cambios del nombre
   const handleSave = async () => {
     if (!canEdit) return;
-
-    if (editedName.trim() === list.name) {
-      setIsEditing(false);
-      return;
+    if (editedName.trim() === list.name || !editedName.trim()) {
+      setEditedName(list.name); setIsEditing(false); return;
     }
-
-    if (!editedName.trim()) {
-      setEditedName(list.name);
-      setIsEditing(false);
-      return;
-    }
-
     await updateList(list.id, editedName.trim());
     setIsEditing(false);
   };
 
-  // Cancelar edición
-  const handleCancel = () => {
-    setEditedName(list.name);
-    setIsEditing(false);
-  };
-
-  // Eliminar lista
   const handleDelete = async () => {
     if (!canEdit) return;
-
-    if (allListCards.length > 0) {
-      alert(
-        'No se puede eliminar una lista con tarjetas. Por favor, mueve o elimina las tarjetas primero.'
-      );
-      return;
-    }
+    if (allListCards.length > 0) return;
     await deleteList(list.id);
   };
 
-  // Crear card
   const handleCreateCard = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!canEdit) return;
-
-    if (!cardTitle.trim()) return;
-
+    if (!canEdit || !cardTitle.trim()) return;
     setIsCreatingCard(true);
-
     try {
-      const response = await apiService.post<{ card: any }>(
-        `/api/lists/${list.id}/cards`,
-        { title: cardTitle.trim() },
-        true
-      );
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Error al crear la tarjeta');
-      }
-
-      addCard(list.id, response.data!.card);
-      setSelectedCard(response.data!.card);
-
-      // Reset
-      setCardTitle('');
-      setIsAddingCard(false);
-    } catch (error: any) {
-      alert(`Error al crear la tarjeta: ${error.message}`);
-    } finally {
-      setIsCreatingCard(false);
-    }
-  };
-
-  const handleCancelAddCard = () => {
-    setCardTitle('');
-    setIsAddingCard(false);
+      const r = await apiService.post<{ card: any }>(`/api/lists/${list.id}/cards`, { title: cardTitle.trim() }, true);
+      if (!r.success) throw new Error(r.error?.message || 'Error al crear la tarjeta');
+      addCard(list.id, r.data!.card);
+      setSelectedCard(r.data!.card);
+      setCardTitle(''); setIsAddingCard(false);
+    } catch (err: any) {
+      alert(`Error al crear la tarjeta: ${err.message}`);
+    } finally { setIsCreatingCard(false); }
   };
 
   const allListCards = cards[list.id] || [];
-  const listCards = filteredCardsProp ?? allListCards;
-  const cardIds = listCards.map((card) => card.id);
-  const isFiltered = filteredCardsProp !== undefined;
+  const listCards    = filteredCardsProp ?? allListCards;
+  const cardIds      = listCards.map((c) => c.id);
+  const isFiltered   = filteredCardsProp !== undefined;
 
   return (
     <>
-      <div ref={setSortableNodeRef} style={style} className="w-80 flex-shrink-0">
+      <div ref={setSortableNodeRef} style={{ ...style, width: '272px', flexShrink: 0 }}>
         <div
-          className={`bg-card border border-border rounded-terminal p-6 shadow-terminal hover:shadow-terminal-hover hover:border-border-light flex flex-col ${isOver ? 'ring-2 ring-accent' : ''}`}
+          style={{
+            background: '#12151b',
+            border: `1px solid ${isOver ? C.accent : C.border}`,
+            borderRadius: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'border-color 0.15s',
+            boxShadow: isOver ? `0 0 0 1px ${C.accent}33` : 'none',
+          }}
         >
-          {/* Header */}
+          {/* ── Header ─────────────────────────────────────── */}
           <div
-            className={`flex items-center justify-between mb-4 pb-3 border-b border-border flex-shrink-0 ${
-              canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
-            }`}
-            {...(canEdit ? attributes : {})}
-            {...(canEdit ? listeners : {})}
+            style={{
+              padding: '10px 10px 10px 8px',
+              borderBottom: `1px solid ${C.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              flexShrink: 0,
+            }}
           >
+            {/* Drag handle */}
+            <div
+              {...(canEdit ? attributes : {})}
+              {...(canEdit ? listeners : {})}
+              style={{
+                cursor: canEdit ? 'grab' : 'default',
+                color: C.text4,
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0,
+                padding: '2px',
+                borderRadius: '4px',
+              }}
+              onMouseEnter={(e) => { if (canEdit) (e.currentTarget.style.color = C.text3); }}
+              onMouseLeave={(e) => { if (canEdit) (e.currentTarget.style.color = C.text4); }}
+            >
+              <GripVertical size={14} />
+            </div>
+
+            {/* Name */}
             {isEditing && canEdit ? (
               <input
                 type="text"
                 value={editedName}
                 onChange={(e) => setEditedName(e.target.value)}
                 onBlur={handleSave}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSave();
-                  if (e.key === 'Escape') handleCancel();
-                }}
-                className="input-terminal flex-1 mr-2 text-base"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setEditedName(list.name); setIsEditing(false); } }}
                 autoFocus
                 maxLength={255}
                 onClick={(e) => e.stopPropagation()}
+                style={{
+                  flex: 1, background: C.surface, border: `1px solid ${C.accent}`,
+                  borderRadius: '5px', padding: '3px 7px', fontSize: '13px',
+                  color: C.text, outline: 'none',
+                }}
               />
             ) : (
-              <h3
-                className={`font-normal flex-1 ${
-                  canEdit ? 'cursor-pointer hover:text-accent transition-colors' : ''
-                }`}
-                onClick={(e) => {
-                  if (canEdit) {
-                    e.stopPropagation();
-                    setIsEditing(true);
-                  }
+              <span
+                style={{
+                  flex: 1, fontSize: '13px', fontWeight: 600, color: C.text,
+                  cursor: canEdit ? 'text' : 'default', overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}
+                onClick={() => canEdit && setIsEditing(true)}
               >
                 {list.name}
-              </h3>
+              </span>
             )}
 
-            {/* Menu - Solo OWNER y ADMIN */}
+            {/* Count badge */}
+            <span
+              style={{
+                fontSize: '10.5px', fontWeight: 600, color: C.text4,
+                background: C.hover, border: `1px solid ${C.border2}`,
+                borderRadius: '4px', padding: '1px 5px', flexShrink: 0,
+              }}
+            >
+              {isFiltered ? `${listCards.length}/${allListCards.length}` : allListCards.length}
+            </span>
+
+            {/* Menu */}
             {canEdit && (
-              <div className="relative">
+              <div style={{ position: 'relative', flexShrink: 0 }}>
                 <button
-                  className="text-text-muted hover:text-text-primary transition-colors px-2 py-1"
                   onClick={(e) => { e.stopPropagation(); setIsMenuOpen((v) => !v); }}
+                  style={{
+                    width: '24px', height: '24px', borderRadius: '5px',
+                    color: C.text4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'transparent',
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text2); }}
+                  onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text4); }}
                 >
-                  ⋮
+                  <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
+                    <circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/>
+                  </svg>
                 </button>
 
-                {/* Backdrop */}
+                {isMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />}
                 {isMenuOpen && (
-                  <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
+                  <div
+                    className="absolute right-0 top-full z-20"
+                    style={{
+                      marginTop: '4px', minWidth: '140px',
+                      background: '#13161b', border: `1px solid ${C.border2}`,
+                      borderRadius: '7px', overflow: 'hidden',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setIsEditing(true); setIsMenuOpen(false); }}
+                      className="flex items-center gap-2 w-full text-left transition-colors"
+                      style={{ padding: '8px 12px', fontSize: '12.5px', color: C.text2 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Pencil size={12} /> {t.btn_edit}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); setIsMenuOpen(false); }}
+                      className="flex items-center gap-2 w-full text-left transition-colors"
+                      style={{ padding: '8px 12px', fontSize: '12.5px', color: C.red }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = `${C.red}15`)}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Trash2 size={12} /> {t.list_btn_delete}
+                    </button>
+                  </div>
                 )}
-
-                {/* Dropdown */}
-                <div className={`absolute right-0 top-full mt-1 w-40 card-terminal z-20 transition-all ${isMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsEditing(true);
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors"
-                  >
-                    ✎ Editar Nombre
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDeleteConfirm(true);
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors text-error"
-                  >
-                    ✕ {t.list_btn_delete}
-                  </button>
-                </div>
               </div>
             )}
           </div>
 
-          {/* Cards Area - Droppable con Scrollbar Personalizada + Performance */}
+          {/* ── Cards area ─────────────────────────────────── */}
           <div
             ref={setDroppableNodeRef}
-            className="overflow-y-auto overflow-x-hidden min-h-[120px] max-h-[55vh] md:max-h-[500px] cards-scrollbar pr-2 contain-layout"
+            style={{
+              padding: '8px',
+              minHeight: '80px',
+              maxHeight: '56vh',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              scrollbarWidth: 'thin',
+              scrollbarColor: `${C.border2} transparent`,
+            }}
           >
             <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
-              <div className="space-y-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 {listCards.length > 0 ? (
                   listCards.map((card) => <Card key={card.id} card={card} />)
                 ) : (
-                  <div className="text-center text-text-muted text-sm py-8">
-                    {isOver
-                      ? 'Suelta la tarjeta aquí'
-                      : isFiltered
-                        ? 'Sin resultados'
-                        : 'Sin tarjetas aún'}
+                  <div
+                    style={{
+                      textAlign: 'center', padding: '24px 12px',
+                      fontSize: '12px',
+                      color: isOver ? C.accent : C.text4,
+                      border: `1px dashed ${isOver ? C.accent : C.border}`,
+                      borderRadius: '6px',
+                      transition: 'border-color 0.15s, color 0.15s',
+                    }}
+                  >
+                    {isOver ? 'Soltar aquí' : isFiltered ? 'Sin resultados' : 'Sin tarjetas'}
                   </div>
                 )}
               </div>
             </SortableContext>
           </div>
 
-          {/* Add Card Section - Solo OWNER y ADMIN */}
+          {/* ── Add card ───────────────────────────────────── */}
           {canEdit && (
-            <div className="flex-shrink-0">
+            <div style={{ padding: '0 8px 8px', flexShrink: 0 }}>
               {isAddingCard ? (
-                <form onSubmit={handleCreateCard} className="mt-3 space-y-2">
+                <form onSubmit={handleCreateCard} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <textarea
                     value={cardTitle}
                     onChange={(e) => setCardTitle(e.target.value)}
-                    placeholder="Ingresa el título de la tarjeta..."
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setCardTitle(''); setIsAddingCard(false); } }}
+                    placeholder={t.card_placeholder_description}
                     autoFocus
-                    rows={3}
+                    rows={2}
                     disabled={isCreatingCard}
-                    className="input-terminal w-full text-sm resize-none"
+                    style={{
+                      width: '100%', background: C.surface, border: `1px solid ${C.accent}`,
+                      borderRadius: '6px', padding: '7px 9px', fontSize: '12.5px',
+                      color: C.text, outline: 'none', resize: 'none',
+                    }}
                   />
-                  <div className="flex gap-2">
+                  <div style={{ display: 'flex', gap: '5px' }}>
                     <button
                       type="submit"
                       disabled={!cardTitle.trim() || isCreatingCard}
-                      className="btn-primary flex-1 py-1.5 text-xs"
+                      style={{
+                        flex: 1, padding: '5px 0', borderRadius: '5px', fontSize: '12px', fontWeight: 500,
+                        background: C.accent, color: '#fff', opacity: !cardTitle.trim() ? 0.5 : 1,
+                        cursor: !cardTitle.trim() ? 'not-allowed' : 'pointer',
+                      }}
                     >
-                      {isCreatingCard ? 'Agregando...' : 'Agregar'}
+                      {isCreatingCard ? t.btn_creating : t.checklist_btn_add}
                     </button>
                     <button
                       type="button"
-                      onClick={handleCancelAddCard}
+                      onClick={() => { setCardTitle(''); setIsAddingCard(false); }}
                       disabled={isCreatingCard}
-                      className="btn-secondary py-1.5 px-3 text-xs"
+                      style={{
+                        padding: '5px 10px', borderRadius: '5px', fontSize: '12px',
+                        background: C.hover, border: `1px solid ${C.border2}`, color: C.text2,
+                      }}
                     >
-                      {t.btn_cancel}
+                      ✕
                     </button>
                   </div>
                 </form>
               ) : (
                 <button
                   onClick={() => setIsAddingCard(true)}
-                  className="w-full mt-3 py-2 text-text-muted hover:text-text-primary text-sm transition-colors border border-dashed border-border hover:border-accent rounded-terminal"
+                  className="flex items-center gap-1.5 w-full transition-colors"
+                  style={{
+                    padding: '6px 8px', borderRadius: '6px', fontSize: '12px',
+                    color: C.text4, background: 'transparent',
+                    border: `1px dashed ${C.border}`,
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget.style.borderColor = C.accent); (e.currentTarget.style.color = C.accent); }}
+                  onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border); (e.currentTarget.style.color = C.text4); }}
                 >
-                  + Agregar Tarjeta
+                  <Plus size={12} /> {t.addlist_btn}
                 </button>
               )}
             </div>
           )}
-
-          {/* Card Count */}
-          <div className="mt-3 pt-3 border-t border-border text-text-muted text-xs font-mono flex-shrink-0">
-            {isFiltered ? (
-              <>
-                {listCards.length} <span className="text-accent">/ {allListCards.length}</span>{' '}
-                {allListCards.length === 1 ? 'tarjeta' : 'tarjetas'}
-              </>
-            ) : (
-              <>
-                {listCards.length} {listCards.length === 1 ? 'tarjeta' : 'tarjetas'}
-              </>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* ── Delete confirm ─────────────────────────────────── */}
       {showDeleteConfirm && canEdit && (
         <>
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-fade-in"
+            className="fixed inset-0 z-40"
+            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
             onClick={() => setShowDeleteConfirm(false)}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="card-terminal max-w-md pointer-events-auto animate-scale-in">
-              <h3 className="text-xl mb-2">{t.list_delete_modal_title}</h3>
-              <p className="text-text-secondary mb-2">
-                ¿Estás seguro de que deseas eliminar <strong>{list.name}</strong>?
-              </p>
-              {allListCards.length > 0 ? (
-                <p className="text-error text-sm mb-6">
-                  ⚠ Esta lista tiene {allListCards.length}{' '}
-                  {allListCards.length === 1 ? 'tarjeta' : 'tarjetas'}. Por favor, muévelas o
-                  elimínalas primero.
-                </p>
-              ) : (
-                <p className="text-text-muted text-sm mb-6">Esta acción no se puede deshacer.</p>
-              )}
-              <div className="flex gap-3">
+            <div
+              className="pointer-events-auto rounded-[10px] overflow-hidden w-full"
+              style={{ maxWidth: '380px', background: '#13161b', border: `1px solid ${C.red}44`, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ padding: '20px 20px 0' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className="flex items-center justify-center rounded-[7px] flex-shrink-0"
+                    style={{ width: '34px', height: '34px', background: `${C.red}18`, border: `1px solid ${C.red}40` }}
+                  >
+                    <Trash2 size={15} style={{ color: C.red }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: C.text }}>{t.list_delete_modal_title}</p>
+                    <p style={{ fontSize: '12px', color: C.text3 }}>Esta acción no se puede deshacer</p>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    borderRadius: '7px', padding: '10px 12px', marginBottom: '16px',
+                    background: C.surface, border: `1px solid ${C.border}`, fontSize: '13px', color: C.text2,
+                  }}
+                >
+                  {allListCards.length > 0 ? (
+                    <span style={{ color: C.red }}>
+                      ⚠ Esta lista tiene <strong>{allListCards.length}</strong> tarjeta{allListCards.length !== 1 ? 's' : ''}. Muévelas o elimínalas primero.
+                    </span>
+                  ) : (
+                    <>¿Eliminar la lista <strong style={{ color: C.text }}>{list.name}</strong>?</>
+                  )}
+                </div>
+              </div>
+              <div
+                className="flex gap-2"
+                style={{ padding: '12px 20px 16px', borderTop: `1px solid ${C.border}` }}
+              >
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="btn-secondary flex-1"
+                  className="flex-1 rounded-[7px] font-medium transition-colors"
+                  style={{ padding: '8px 0', fontSize: '13px', background: C.hover, border: `1px solid ${C.border2}`, color: C.text2 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.text4)}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.border2)}
                 >
                   {t.btn_cancel}
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={allListCards.length > 0}
-                  className="btn-primary bg-error hover:bg-error/80 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 rounded-[7px] font-medium text-white transition-colors"
+                  style={{ padding: '8px 0', fontSize: '13px', background: C.red, opacity: allListCards.length > 0 ? 0.4 : 1 }}
+                  onMouseEnter={(e) => { if (allListCards.length === 0) (e.currentTarget.style.background = '#dc2626'); }}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = C.red)}
                 >
                   {t.btn_delete}
                 </button>

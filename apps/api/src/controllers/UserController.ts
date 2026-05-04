@@ -193,15 +193,33 @@ class UserController {
         });
       }
 
-      const activities = await userActivityService.getUserActivity(userId as any, 20);
+      const range = ((req.query.range as string) || '24h') as 'today' | '24h' | 'week';
+      const limitByRange: Record<string, number> = { today: 50, '24h': 100, week: 200 };
+      const limit = limitByRange[range] ?? 100;
 
-      const events = activities.map((activity) => ({
-        id: activity.id,
-        type: activity.activity_type,
-        payload: activity.metadata || {},
-        timestamp: activity.created_at,
-        createdBy: activity.user_id,
-      }));
+      // Parse optional workspace filter (comma-separated UUIDs)
+      const wsParam = req.query.workspaceIds as string | undefined;
+      const workspaceIds = wsParam ? wsParam.split(',').filter(Boolean) : undefined;
+
+      const activities = await userActivityService.getUserActivity(userId as any, limit, { workspaceIds, range });
+
+      const events = activities.map((activity) => {
+        const userName: string = activity.user_name || 'Miembro del equipo';
+        return {
+          id: activity.id,
+          type: activity.activity_type,
+          payload: {
+            ...(activity.metadata || {}),
+            // contexto enriquecido desde columnas JOIN (sobrescribe metadata si viene del JOIN)
+            workspaceName: activity.workspace_name || (activity.metadata || {}).workspaceName,
+            boardName:     activity.board_name     || (activity.metadata || {}).boardName,
+          },
+          timestamp: activity.created_at,
+          createdBy: userName,
+          userName,
+          userAvatar: activity.user_avatar || null,
+        };
+      });
 
       return res.json({
         success: true,
@@ -693,6 +711,7 @@ class UserController {
               compactMode: prefs.compact_mode,
               showArchived: prefs.show_archived,
               defaultBoardView: prefs.default_board_view,
+              hasGithubToken: false,
             },
           },
         });
@@ -712,6 +731,7 @@ class UserController {
             compactMode: prefs.compact_mode,
             showArchived: prefs.show_archived,
             defaultBoardView: prefs.default_board_view,
+            hasGithubToken: !!prefs.github_token,
           },
         },
       });
@@ -753,6 +773,7 @@ class UserController {
         compactMode,
         showArchived,
         defaultBoardView,
+        githubToken,
       } = req.body;
 
       // Verificar si existen preferencias
@@ -802,6 +823,10 @@ class UserController {
         updates.push(`default_board_view = $${paramIndex++}`);
         values.push(defaultBoardView);
       }
+      if (githubToken !== undefined) {
+        updates.push(`github_token = $${paramIndex++}`);
+        values.push(githubToken || null);  // empty string clears the token
+      }
 
       if (updates.length === 0) {
         return res.status(400).json({
@@ -838,6 +863,7 @@ class UserController {
             compactMode: prefs.compact_mode,
             showArchived: prefs.show_archived,
             defaultBoardView: prefs.default_board_view,
+            hasGithubToken: !!prefs.github_token,
           },
         },
       });
@@ -851,6 +877,146 @@ class UserController {
       });
     }
   }
+
+  /**
+   * GET /api/users/me/agenda
+   * Milestones y sprints próximos de los boards del usuario
+   */
+  async getAgenda(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+      }
+
+      const result = await pool.query(
+        `SELECT 'milestone' as type,
+                bm.id,
+                bm.name,
+                bm.date::text as event_date,
+                bm.color,
+                b.id as board_id,
+                b.name as board_name,
+                w.id as workspace_id,
+                w.name as workspace_name
+         FROM board_milestones bm
+         JOIN boards b ON bm.board_id = b.id
+         JOIN workspaces w ON b.workspace_id = w.id
+         JOIN workspace_members wm ON wm.workspace_id = w.id
+         WHERE wm.user_id = $1
+           AND b.archived = false
+           AND bm.date BETWEEN CURRENT_DATE - INTERVAL '1 day' AND CURRENT_DATE + INTERVAL '14 days'
+
+         UNION ALL
+
+         SELECT 'sprint_end' as type,
+                bs.id,
+                'Sprint: ' || bs.name as name,
+                bs.end_date::text as event_date,
+                '#f59e0b' as color,
+                b.id as board_id,
+                b.name as board_name,
+                w.id as workspace_id,
+                w.name as workspace_name
+         FROM board_sprints bs
+         JOIN boards b ON bs.board_id = b.id
+         JOIN workspaces w ON b.workspace_id = w.id
+         JOIN workspace_members wm ON wm.workspace_id = w.id
+         WHERE wm.user_id = $1
+           AND b.archived = false
+           AND bs.status IN ('PLANNED', 'ACTIVE')
+           AND bs.end_date BETWEEN CURRENT_DATE - INTERVAL '1 day' AND CURRENT_DATE + INTERVAL '14 days'
+
+         ORDER BY event_date ASC`,
+        [userId]
+      );
+
+      const items = result.rows.map((r) => ({
+        type: r.type,
+        id: r.id,
+        name: r.name,
+        date: r.event_date,
+        color: r.color,
+        boardId: r.board_id,
+        boardName: r.board_name,
+        workspaceId: r.workspace_id,
+        workspaceName: r.workspace_name,
+      }));
+
+      return res.json({ success: true, data: items });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to get agenda' } });
+    }
+  }
+
+  /**
+   * GET /api/users/me/github/prs
+   * PRs de GitHub donde el usuario es reviewer (requiere github_token en preferencias)
+   */
+  async getGithubPRs(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+      }
+
+      const prefsResult = await pool.query(
+        `SELECT github_token FROM user_preferences WHERE user_id = $1`,
+        [userId]
+      );
+
+      const token: string | null = prefsResult.rows[0]?.github_token ?? null;
+      if (!token) {
+        return res.status(400).json({ success: false, error: { code: 'GITHUB_TOKEN_NOT_SET', message: 'GitHub token not configured' } });
+      }
+
+      const ghResponse = await fetch(
+        'https://api.github.com/search/issues?q=is:pr+is:open+review-requested:@me&per_page=10&sort=updated',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        }
+      );
+
+      if (ghResponse.status === 401) {
+        return res.status(400).json({ success: false, error: { code: 'GITHUB_TOKEN_INVALID', message: 'GitHub token is invalid or expired' } });
+      }
+
+      if (!ghResponse.ok) {
+        return res.status(502).json({ success: false, error: { code: 'GITHUB_API_ERROR', message: `GitHub API error: ${ghResponse.status}` } });
+      }
+
+      const ghData = await ghResponse.json() as { items: any[] };
+
+      const prs = (ghData.items || []).map((item: any) => {
+        // repository_url: "https://api.github.com/repos/owner/repo"
+        const repoMatch = (item.repository_url || '').match(/repos\/(.+)$/);
+        const repo = repoMatch ? repoMatch[1] : 'unknown/repo';
+        return {
+          id: item.id,
+          number: item.number,
+          title: item.title,
+          repo,
+          url: item.html_url,
+          author: {
+            login: item.user?.login ?? '',
+            avatarUrl: item.user?.avatar_url ?? '',
+          },
+          draft: item.draft ?? false,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
+        };
+      });
+
+      return res.json({ success: true, data: prs });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch GitHub PRs' } });
+    }
+  }
+
   /**
    * GET /api/users?search=xxx&page=1&limit=20
    * Contactos - Lista de usuarios con workspaces compartidos
@@ -1144,6 +1310,89 @@ class UserController {
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Failed to get favorites' },
       });
+    }
+  }
+
+  /** GET /api/users/me/teammates — personas en los mismos equipos que el usuario */
+  async getTeammates(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
+
+      const result = await pool.query(
+        `SELECT DISTINCT ON (u.id)
+           u.id, u.name, u.email, u.avatar,
+           COUNT(cm.card_id) FILTER (WHERE c.completed = false)                                          AS total_cards,
+           COUNT(cm.card_id) FILTER (WHERE c.completed = false AND c.due_date < NOW())                   AS overdue_cards,
+           COUNT(cm.card_id) FILTER (WHERE c.completed = true AND c.completed_at >= NOW() - INTERVAL '7 days') AS completed_this_week,
+           MAX(c.updated_at) AS last_activity
+         FROM team_members tm1
+         JOIN team_members tm2 ON tm2.team_id = tm1.team_id AND tm2.user_id != tm1.user_id
+         JOIN users u ON u.id = tm2.user_id
+         LEFT JOIN card_members cm ON cm.user_id = u.id
+         LEFT JOIN cards c ON c.id = cm.card_id
+         WHERE tm1.user_id = $1
+         GROUP BY u.id, u.name, u.email, u.avatar
+         ORDER BY u.id, u.name ASC`,
+        [userId]
+      );
+
+      const teammates = result.rows.map((r) => ({
+        id:                r.id,
+        name:              r.name,
+        email:             r.email,
+        avatar:            r.avatar ?? null,
+        totalCards:        Number(r.total_cards ?? 0),
+        overdueCards:      Number(r.overdue_cards ?? 0),
+        completedThisWeek: Number(r.completed_this_week ?? 0),
+        lastActivity:      r.last_activity ? new Date(r.last_activity).toISOString() : null,
+      }));
+
+      return res.json({ success: true, data: { teammates } });
+    } catch (error) {
+      console.error('[UserController.getTeammates]', error);
+      return res.status(500).json({ success: false, error: { message: 'Error al obtener compañeros' } });
+    }
+  }
+
+  /** GET /api/users/me/team-standups — standups de hoy de los compañeros de equipo */
+  async getTeamStandups(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
+
+      const result = await pool.query(
+        `SELECT
+           s.id, s.user_id, s.today_items, s.blockers, s.published_at,
+           u.name AS user_name, u.avatar AS user_avatar
+         FROM standups s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.date = CURRENT_DATE
+           AND s.published_at IS NOT NULL
+           AND s.user_id IN (
+             SELECT DISTINCT tm2.user_id
+             FROM team_members tm1
+             JOIN team_members tm2 ON tm2.team_id = tm1.team_id AND tm2.user_id != tm1.user_id
+             WHERE tm1.user_id = $1
+           )
+         ORDER BY s.published_at DESC`,
+        [userId]
+      );
+
+      const standups = result.rows.map((r) => ({
+        id:          r.id,
+        userId:      r.user_id,
+        userName:    r.user_name,
+        userAvatar:  r.user_avatar ?? null,
+        todayItems:  r.today_items ?? [],
+        blockers:    r.blockers ?? [],
+        publishedAt: new Date(r.published_at).toISOString(),
+      }));
+
+      return res.json({ success: true, data: { standups } });
+    } catch (error) {
+      console.error('[UserController.getTeamStandups]', error);
+      return res.status(500).json({ success: false, error: { message: 'Error al obtener standups del equipo' } });
     }
   }
 }

@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useT } from '@/lib/i18n';
 
 interface ConfirmRemoveMemberModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export default function ConfirmRemoveMemberModal({
   onCancel,
   isRemoving = false,
 }: ConfirmRemoveMemberModalProps) {
+  const t = useT();
   // Cerrar con ESC
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -52,8 +54,8 @@ export default function ConfirmRemoveMemberModal({
               <span className="text-error text-2xl">⚠</span>
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-normal text-error mb-2">Remover Miembro</h2>
-              <p className="text-text-secondary text-sm">Esta acción no se puede deshacer</p>
+              <h2 className="text-xl font-normal text-error mb-2">Remover {t.role_member}</h2>
+              <p className="text-text-secondary text-sm">{t.ws_settings_confirm_delete}</p>
             </div>
           </div>
 
@@ -66,7 +68,7 @@ export default function ConfirmRemoveMemberModal({
             <div className="space-y-2 text-sm text-text-secondary">
               <p className="flex items-start gap-2">
                 <span className="text-error mt-0.5">•</span>
-                Perderá inmediatamente el acceso a todos los boards y contenido
+                {t.ws_settings_delete_desc.split('.')[0]}
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-error mt-0.5">•</span>
@@ -87,7 +89,7 @@ export default function ConfirmRemoveMemberModal({
               disabled={isRemoving}
               className="btn-secondary flex-1"
             >
-              Cancelar
+              {t.btn_cancel}
             </button>
             <button
               type="button"
@@ -98,10 +100,10 @@ export default function ConfirmRemoveMemberModal({
               {isRemoving ? (
                 <>
                   <span className="inline-block animate-spin mr-2">◌</span>
-                  Removiendo...
+                  {t.btn_deleting}
                 </>
               ) : (
-                'Sí, Remover Miembro'
+                t.ws_settings_btn_confirm_delete
               )}
             </button>
           </div>

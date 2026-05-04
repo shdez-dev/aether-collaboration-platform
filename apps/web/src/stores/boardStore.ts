@@ -62,11 +62,14 @@ interface BoardState {
 interface CreateBoardData {
   name: string;
   description?: string;
+  color?: string;
+  projectId?: string;
 }
 
 interface UpdateBoardData {
   name?: string;
   description?: string;
+  color?: string;
 }
 
 // ==================== STORE ====================
@@ -557,7 +560,7 @@ export const useBoardStore = create<BoardState>()(
 
       // ==================== FETCH BOARDS ====================
       fetchBoards: async (workspaceId: string) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, boards: [], currentBoard: null, lists: [] });
 
         try {
           const response = await apiService.get<{ boards: Board[] }>(
@@ -651,7 +654,10 @@ export const useBoardStore = create<BoardState>()(
           set((state) => {
             const alreadyAdded = state.boards.some((b) => b.id === response.data!.board.id);
             return {
-              boards: alreadyAdded ? state.boards : [...state.boards, response.data!.board],
+              // Siempre reemplazar con la data completa del servidor (incluye color y demás campos)
+              boards: alreadyAdded
+                ? state.boards.map((b) => b.id === response.data!.board.id ? response.data!.board : b)
+                : [...state.boards, response.data!.board],
               isLoading: false,
             };
           });
@@ -910,11 +916,7 @@ export const useBoardStore = create<BoardState>()(
     {
       name: 'aether-board-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        boards: state.boards,
-        currentBoard: state.currentBoard,
-        lists: state.lists,
-      }),
+      partialize: () => ({}),
     }
   )
 );

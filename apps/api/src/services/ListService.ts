@@ -161,6 +161,16 @@ export class ListService {
 
       await eventStore.emit('list.updated', payload, userId as any, list.board_id);
 
+      // Evento específico cuando se renombra la columna
+      if (data.name !== undefined) {
+        await eventStore.emit('list.renamed' as any, {
+          listId: list.id as any,
+          name: list.name,
+          boardId: list.board_id,
+          workspaceId,
+        }, userId as any, list.board_id);
+      }
+
       return this.formatList(list);
     } catch (error) {
       await client.query('ROLLBACK');
