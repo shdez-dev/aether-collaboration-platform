@@ -515,12 +515,11 @@ export class UserActivityService {
         metadata.workspaceId = payload.workspaceId;
         break;
 
-      case 'card.dependency.added':
+      case 'card.dependency.added': {
         metadata.blockingCardId = payload.blockingCardId;
         metadata.blockedCardId  = payload.blockedCardId;
         metadata.workspaceId    = payload.workspaceId || payload.dependency?.workspaceId;
         metadata.boardId        = payload.boardId     || payload.dependency?.boardId;
-        // Resolver nombres de ambas tarjetas
         const [blockingTitle, blockedTitle] = await Promise.all([
           this.getCardTitle(payload.blockingCardId),
           this.getCardTitle(payload.blockedCardId),
@@ -528,8 +527,9 @@ export class UserActivityService {
         metadata.blockingCardTitle = blockingTitle;
         metadata.blockedCardTitle  = blockedTitle;
         break;
+      }
 
-      case 'card.dependency.removed':
+      case 'card.dependency.removed': {
         metadata.cardId         = payload.cardId;
         metadata.blockingCardId = payload.blockingCardId;
         metadata.workspaceId    = payload.workspaceId;
@@ -541,6 +541,7 @@ export class UserActivityService {
         metadata.cardTitle         = ct1;
         metadata.blockingCardTitle = ct2;
         break;
+      }
 
       case 'checklist.item.created':
         metadata.cardId    = payload.cardId;

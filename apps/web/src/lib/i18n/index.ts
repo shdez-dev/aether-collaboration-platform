@@ -20,7 +20,8 @@ const dictionaries = { es, en } as const;
 export function useT() {
   const userLanguage = useAuthStore((state) => state.user?.language);
   const uiLanguage = useAuthStore((state) => state.uiLanguage);
-  const raw = userLanguage ?? uiLanguage;
+  // uiLanguage (explicit user choice) takes priority; falls back to profile language
+  const raw = uiLanguage ?? userLanguage;
   const lang: Language = raw === 'en' ? 'en' : 'es';
   return dictionaries[lang];
 }

@@ -2,7 +2,6 @@
 
 import { X, Filter } from 'lucide-react';
 import { EVENT_CATEGORIES } from '@/lib/utils/activityLog';
-import { DatePicker } from '@/components/ui/date-picker';
 import { useT } from '@/lib/i18n';
 
 export interface ActivityFilters {
@@ -203,45 +202,31 @@ export function ActivityFiltersComponent({
           >
             {t.activity_filter_date_range}
           </p>
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div>
-              <label
-                htmlFor="startDate"
-                className="block mb-1.5"
-                style={{ fontSize: '11px', color: C.text3 }}
-              >
+              <label htmlFor="startDate" style={{ display: 'block', fontSize: '11px', color: C.text3, marginBottom: '5px' }}>
                 {t.activity_filter_date_from}
               </label>
-              <DatePicker
-                date={filters.startDate ? new Date(filters.startDate) : undefined}
-                onDateChange={(date) =>
-                  onChange({
-                    ...filters,
-                    startDate: date ? date.toISOString().split('T')[0] : undefined,
-                  })
-                }
-                placeholder={t.activity_filter_date_from_placeholder}
-                maxDate={filters.endDate ? new Date(filters.endDate) : undefined}
+              <input
+                id="startDate"
+                type="date"
+                value={filters.startDate ?? ''}
+                max={filters.endDate ?? ''}
+                onChange={(e) => onChange({ ...filters, startDate: e.target.value || undefined })}
+                style={{ ...selectStyle, colorScheme: 'dark', cursor: 'pointer' }}
               />
             </div>
             <div>
-              <label
-                htmlFor="endDate"
-                className="block mb-1.5"
-                style={{ fontSize: '11px', color: C.text3 }}
-              >
+              <label htmlFor="endDate" style={{ display: 'block', fontSize: '11px', color: C.text3, marginBottom: '5px' }}>
                 {t.activity_filter_date_to}
               </label>
-              <DatePicker
-                date={filters.endDate ? new Date(filters.endDate) : undefined}
-                onDateChange={(date) =>
-                  onChange({
-                    ...filters,
-                    endDate: date ? date.toISOString().split('T')[0] : undefined,
-                  })
-                }
-                placeholder={t.activity_filter_date_to_placeholder}
-                minDate={filters.startDate ? new Date(filters.startDate) : undefined}
+              <input
+                id="endDate"
+                type="date"
+                value={filters.endDate ?? ''}
+                min={filters.startDate ?? ''}
+                onChange={(e) => onChange({ ...filters, endDate: e.target.value || undefined })}
+                style={{ ...selectStyle, colorScheme: 'dark', cursor: 'pointer' }}
               />
             </div>
           </div>

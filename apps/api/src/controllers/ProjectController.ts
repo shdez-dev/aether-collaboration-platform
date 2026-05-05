@@ -167,8 +167,10 @@ async function computeStats(projectId: string) {
 
   const progressPercent = totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
   let healthScore = 100;
-  if (totalCards > 0) healthScore -= Math.round((overdueCards / totalCards) * 40);
-  if (totalMilestones > 0) healthScore -= Math.round((missedMilestones / totalMilestones) * 30);
+  if (totalCards > 0) healthScore -= Math.round((overdueCards / totalCards) * 50);
+  if (totalMilestones > 0) healthScore -= Math.round((missedMilestones / totalMilestones) * 50);
+  // Only drop to "critical" (<40) if there are BOTH overdue cards AND missed milestones
+  if (missedMilestones === 0) healthScore = Math.max(healthScore, 40);
   healthScore = Math.max(0, healthScore);
 
   return { totalBoards: boardIds.length, totalCards, completedCards, overdueCards, totalDocuments: 0, progressPercent, healthScore, bottleneckBoardId, bottleneckBoardName };
@@ -574,6 +576,52 @@ class ProjectController {
     } catch (error) {
       console.error('[ProjectController.getTeams]', error);
       res.status(500).json({ success: false, error: { message: 'Error al obtener equipos del proyecto' } });
+    }
+  }
+
+  /** GET /api/projects/:id/timeline-cards */
+  async getTimelineCards(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { id } = req.params;
+
+      const access = await pool.query(
+        `SELECT p.id FROM projects p
+         JOIN workspace_members wm ON wm.workspace_id = p.workspace_id
+         WHERE p.id = $1 AND wm.user_id = $2`,
+        [id, userId]
+      );
+      if (!access.rows.length) return res.status(404).json({ success: false });
+
+      const result = await pool.query(
+        `SELECT c.id, c.title, c.due_date, c.start_date, c.priority, c.completed,
+                b.id AS board_id, b.name AS board_name, l.name AS list_name
+         FROM cards c
+         JOIN lists l ON l.id = c.list_id
+         JOIN boards b ON b.id = l.board_id
+         JOIN project_boards pb ON pb.board_id = b.id
+         WHERE pb.project_id = $1
+           AND (c.due_date IS NOT NULL OR c.start_date IS NOT NULL)
+         ORDER BY c.due_date ASC NULLS LAST, b.position ASC`,
+        [id]
+      );
+
+      const cards = result.rows.map((r: any) => ({
+        id:        r.id,
+        title:     r.title,
+        dueDate:   r.due_date  ? new Date(r.due_date).toISOString()  : null,
+        startDate: r.start_date ? new Date(r.start_date).toISOString() : null,
+        priority:  r.priority,
+        completed: r.completed,
+        boardId:   r.board_id,
+        boardName: r.board_name,
+        listName:  r.list_name,
+      }));
+
+      return res.json({ success: true, data: { cards } });
+    } catch (error) {
+      console.error('[ProjectController.getTimelineCards]', error);
+      return res.status(500).json({ success: false });
     }
   }
 

@@ -65,8 +65,12 @@ function getStatusCfg(status: ProjectStatus, t: ReturnType<typeof useT>) {
 }
 
 function isAtRisk(p: Project): boolean {
+  if (!p.endDate) return false;
+  if (p.status === 'COMPLETED' || p.status === 'ARCHIVED') return false;
+  const daysToEnd = Math.ceil((new Date(p.endDate).getTime() - Date.now()) / 86400000);
   const pct = p.progressPercent ?? p.stats?.progressPercent ?? 0;
-  return pct < 50 && p.status !== 'COMPLETED' && p.status !== 'ARCHIVED';
+  // At risk: deadline already passed, or within 14 days with less than 80% progress
+  return daysToEnd < 0 || (daysToEnd <= 14 && pct < 80);
 }
 
 // ── ProjectCard ───────────────────────────────────────────────────────────────

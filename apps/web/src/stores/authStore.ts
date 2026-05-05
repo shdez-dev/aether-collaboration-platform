@@ -37,7 +37,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   isHydrated: boolean; // Nuevo flag para saber si ya se hidrató desde localStorage
-  uiLanguage: 'es' | 'en'; // Language preference for unauthenticated users
+  uiLanguage: null | 'es' | 'en'; // Language preference — null means fallback to user.language
 
   // Acciones
   register: (name: string, email: string, password: string) => Promise<void>;
@@ -51,7 +51,7 @@ interface AuthState {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   clearError: () => void;
   setHydrated: (hydrated: boolean) => void;
-  setUiLanguage: (lang: 'es' | 'en') => void;
+  setUiLanguage: (lang: 'es' | 'en' | null) => void;
 
   // Helpers internos
   setAuth: (user: User, tokens: AuthTokens) => void;
@@ -139,7 +139,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       isHydrated: false,
-      uiLanguage: 'es',
+      uiLanguage: null,
 
       // ==================== REGISTER ====================
       register: async (name: string, email: string, password: string) => {
@@ -351,7 +351,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isHydrated: hydrated });
       },
 
-      setUiLanguage: (lang: 'es' | 'en') => {
+      setUiLanguage: (lang: 'es' | 'en' | null) => {
         set({ uiLanguage: lang });
       },
 

@@ -217,6 +217,19 @@ class WorkspaceController {
         validation.data
       );
 
+      // Registrar evento de actividad
+      userActivityService.logActivity(
+        userId,
+        'workspace.updated',
+        {
+          workspaceId,
+          workspaceName: workspace.name,
+          changes: Object.keys(validation.data).join(', '),
+        },
+        undefined,
+        workspaceId
+      ).catch(() => {});
+
       return res.json({
         success: true,
         data: { workspace },
@@ -648,6 +661,7 @@ class WorkspaceController {
         });
 
       const workspace = await workspaceService.archiveWorkspace(workspaceId, userId);
+      userActivityService.logActivity(userId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: 'archived' }, undefined, workspaceId).catch(() => {});
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
@@ -678,6 +692,7 @@ class WorkspaceController {
         });
 
       const workspace = await workspaceService.restoreWorkspace(workspaceId, userId);
+      userActivityService.logActivity(userId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: 'restored from archive' }, undefined, workspaceId).catch(() => {});
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
@@ -777,6 +792,7 @@ class WorkspaceController {
         userId,
         validation.data.visibility
       );
+      userActivityService.logActivity(userId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: `visibility → ${validation.data.visibility}` }, undefined, workspaceId).catch(() => {});
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {

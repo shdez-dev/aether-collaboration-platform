@@ -18,7 +18,8 @@ router.put('/:id', (req, res) => projectController.update(req, res));
 router.delete('/:id', (req, res) => projectController.delete(req, res));
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
-router.get('/:id/stats', (req, res) => projectController.getStats(req, res));
+router.get('/:id/stats',           (req, res) => projectController.getStats(req, res));
+router.get('/:id/timeline-cards',  (req, res) => projectController.getTimelineCards(req, res));
 
 // ── Boards del proyecto ────────────────────────────────────────────────────────
 router.post('/:id/boards', (req, res) => projectController.addBoard(req, res));

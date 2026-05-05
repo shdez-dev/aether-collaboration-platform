@@ -80,11 +80,12 @@ Schema:
 }
 
 Rules:
-- Today is {TODAY}. All dates must be >= today or null.
+- Today is {TODAY}. All dates must be strictly >= today or null. Never generate a past date.
 - Generate 1-3 projects (one per major workstream).
 - Each project: 2-5 milestones, 2-4 boards.
-- Each board: 3-5 lists (typical kanban flow).
-- Each list: 2-6 cards with concrete, actionable task titles.
+- Each board: exactly 4 lists named: "Backlog", "In Progress", "Review", "Done".
+- ALL cards must be placed exclusively in the FIRST list ("Backlog"). The other lists must have empty cards arrays: "cards": [].
+- Each Backlog list: 4-8 cards with concrete, actionable task titles.
 - Cards should be real tasks, not generic placeholders.
 - Never output text outside the JSON object.`;
 

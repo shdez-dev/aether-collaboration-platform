@@ -12,7 +12,7 @@ import { useT } from '@/lib/i18n';
 import {
   Plus, X, Check, Trash2, AlertCircle, Flag,
   LayoutDashboard, Settings, MoreHorizontal,
-  Calendar, Clock, Target, Users,
+  Calendar, Clock, Target, Users, GitBranch,
 } from 'lucide-react';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
@@ -165,6 +165,212 @@ function TimelineBar({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ── Project Gantt Timeline ────────────────────────────────────────────────────
+
+interface TimelineCard {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  startDate: string | null;
+  priority: string | null;
+  completed: boolean;
+  boardId: string;
+  boardName: string;
+  listName: string;
+}
+
+const PRIORITY_COLOR: Record<string, string> = {
+  HIGH: '#ef4444',
+  MEDIUM: '#f59e0b',
+  LOW: '#10b981',
+};
+
+function ProjectGantt({
+  projectId, milestones, color,
+}: {
+  projectId: string;
+  milestones: ProjectMilestone[];
+  color: string;
+}) {
+  const [cards, setCards] = useState<TimelineCard[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiService.get<{ cards: TimelineCard[] }>(`/api/projects/${projectId}/timeline-cards`, true)
+      .then((res) => { if (res.success && res.data) setCards(res.data.cards); })
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  // Compute date range
+  const allDates: number[] = [
+    ...milestones.map((m) => new Date(m.date).getTime()),
+    ...cards.flatMap((c) => [c.dueDate, c.startDate].filter(Boolean).map((d) => new Date(d!).getTime())),
+  ];
+
+  if (!loading && allDates.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '28px 0', borderRadius: '10px', border: `1px dashed ${C.border2}` }}>
+        <Calendar style={{ width: '22px', height: '22px', color: C.text4 }} />
+        <p style={{ margin: 0, fontSize: '12.5px', color: C.text3 }}>Sin fechas asignadas</p>
+        <p style={{ margin: 0, fontSize: '11.5px', color: C.text4, textAlign: 'center', maxWidth: '280px' }}>
+          Asigna fechas límite a los hitos o cards para ver el timeline
+        </p>
+      </div>
+    );
+  }
+
+  const minTs = Math.min(...allDates);
+  const maxTs = Math.max(...allDates);
+  // Pad 5 days on each side
+  const rangeStart = new Date(minTs - 5 * 86400000);
+  const rangeEnd   = new Date(maxTs + 5 * 86400000);
+  rangeStart.setDate(1); // snap to month start
+  rangeEnd.setMonth(rangeEnd.getMonth() + 1, 0); // snap to month end
+
+  const totalMs = rangeEnd.getTime() - rangeStart.getTime();
+
+  function pct(ts: number) {
+    return Math.max(0, Math.min(100, ((ts - rangeStart.getTime()) / totalMs) * 100));
+  }
+
+  // Build month labels
+  const months: { label: string; left: number }[] = [];
+  const cursor = new Date(rangeStart);
+  while (cursor <= rangeEnd) {
+    months.push({
+      label: cursor.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }).toUpperCase(),
+      left: pct(cursor.getTime()),
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  // Group cards by board
+  const boardMap = new Map<string, { name: string; cards: TimelineCard[] }>();
+  for (const c of cards) {
+    if (!boardMap.has(c.boardId)) boardMap.set(c.boardId, { name: c.boardName, cards: [] });
+    boardMap.get(c.boardId)!.cards.push(c);
+  }
+  const boards = Array.from(boardMap.values());
+
+  const todayPct = pct(Date.now());
+  const ROW_H = 32;
+  const SIDEBAR_W = 120;
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+        <div style={{ width: '16px', height: '16px', border: `2px solid ${C.border2}`, borderTopColor: color, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ overflowX: 'auto', borderRadius: '10px', border: `1px solid ${C.border}`, background: C.surface }}>
+      <div style={{ minWidth: '600px' }}>
+
+        {/* Month header */}
+        <div style={{ position: 'relative', height: '28px', borderBottom: `1px solid ${C.border}`, background: C.bg2 }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: `${SIDEBAR_W}px`, height: '100%', borderRight: `1px solid ${C.border}`, background: C.bg2 }} />
+          <div style={{ position: 'absolute', left: SIDEBAR_W, right: 0, top: 0, bottom: 0 }}>
+            {months.map((m, i) => (
+              <span key={i} style={{ position: 'absolute', left: `calc(${m.left}% + 6px)`, top: '7px', fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, whiteSpace: 'nowrap' }}>
+                {m.label}
+              </span>
+            ))}
+            {/* Month dividers */}
+            {months.map((m, i) => (
+              <div key={`div-${i}`} style={{ position: 'absolute', left: `${m.left}%`, top: 0, bottom: 0, width: '1px', background: C.border, opacity: 0.5 }} />
+            ))}
+            {/* Today line */}
+            <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: '1px', background: color, opacity: 0.7 }} />
+          </div>
+        </div>
+
+        {/* Milestones row */}
+        {milestones.length > 0 && (
+          <div style={{ position: 'relative', height: `${ROW_H}px`, borderBottom: `1px solid ${C.border}` }}>
+            {/* Sidebar label */}
+            <div style={{ position: 'absolute', left: 0, top: 0, width: `${SIDEBAR_W}px`, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: '10px', borderRight: `1px solid ${C.border}`, background: C.bg2 }}>
+              <Flag style={{ width: '10px', height: '10px', color: C.amber, marginRight: '5px', flexShrink: 0 }} />
+              <span style={{ fontSize: '10px', fontWeight: 600, color: C.text3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Hitos</span>
+            </div>
+            {/* Track */}
+            <div style={{ position: 'absolute', left: SIDEBAR_W, right: 0, top: 0, bottom: 0 }}>
+              {/* Today */}
+              <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: '1px', background: color, opacity: 0.3 }} />
+              {milestones.map((m) => {
+                const isPast = new Date(m.date) < new Date() && m.status === 'PENDING';
+                const dotColor = isPast ? C.red : (m.status === 'REACHED' ? C.green : (m.color || C.amber));
+                return (
+                  <div key={m.id} title={`${m.name} — ${fmtDate(m.date)}`}
+                    style={{ position: 'absolute', left: `${pct(new Date(m.date).getTime())}%`, top: '50%', transform: 'translate(-50%, -50%)', cursor: 'default', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}
+                  >
+                    <div style={{ width: '10px', height: '10px', transform: 'rotate(45deg)', background: dotColor, borderRadius: '2px', border: `2px solid ${C.surface}`, flexShrink: 0 }} />
+                    <span style={{ fontSize: '8.5px', color: dotColor, whiteSpace: 'nowrap', maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '3px', transform: 'none' }}>
+                      {m.name.split(' ').slice(0, 2).join(' ')}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Board rows */}
+        {boards.map((board) => (
+          <div key={board.name} style={{ position: 'relative', height: `${ROW_H}px`, borderBottom: `1px solid ${C.border}` }}>
+            {/* Sidebar */}
+            <div style={{ position: 'absolute', left: 0, top: 0, width: `${SIDEBAR_W}px`, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: '10px', borderRight: `1px solid ${C.border}`, background: C.bg2 }}>
+              <LayoutDashboard style={{ width: '9px', height: '9px', color, marginRight: '5px', flexShrink: 0 }} />
+              <span style={{ fontSize: '10px', fontWeight: 500, color: C.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{board.name}</span>
+            </div>
+            {/* Track */}
+            <div style={{ position: 'absolute', left: SIDEBAR_W, right: 0, top: 0, bottom: 0 }}>
+              <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: '1px', background: color, opacity: 0.3 }} />
+              {board.cards.map((card) => {
+                const date = card.dueDate ?? card.startDate;
+                if (!date) return null;
+                const dotColor = card.completed ? C.green : (PRIORITY_COLOR[card.priority ?? ''] ?? color);
+                return (
+                  <div key={card.id} title={`${card.title}${card.dueDate ? ' — ' + fmtDate(card.dueDate) : ''}`}
+                    style={{ position: 'absolute', left: `${pct(new Date(date).getTime())}%`, top: '50%', transform: 'translate(-50%, -50%)', cursor: 'default' }}
+                  >
+                    <div style={{
+                      width: '10px', height: '10px', borderRadius: '50%',
+                      background: card.completed ? 'transparent' : dotColor,
+                      border: `2px solid ${dotColor}`,
+                      flexShrink: 0,
+                    }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Legend */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '8px 12px 8px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '9.5px', color: C.text4, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Leyenda:</span>
+          {[['#ef4444', 'Alta'], ['#f59e0b', 'Media'], ['#10b981', 'Baja / Completada']].map(([c, l]) => (
+            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: c }} />
+              <span style={{ fontSize: '9.5px', color: C.text4 }}>{l}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ width: '8px', height: '8px', transform: 'rotate(45deg)', background: C.amber, borderRadius: '1px' }} />
+            <span style={{ fontSize: '9.5px', color: C.text4 }}>Hito</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ width: '1px', height: '12px', background: color }} />
+            <span style={{ fontSize: '9.5px', color: C.text4 }}>Hoy</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -957,6 +1163,21 @@ export default function ProjectDetailPage() {
             )}
           </section>
         )}
+
+        {/* ── SECCIÓN TIMELINE ─────────────────────────────────────────────── */}
+        <section>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+            <div style={{ flex: 1, height: '1px', background: C.border }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <GitBranch style={{ width: '12px', height: '12px', color }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>
+                Timeline
+              </span>
+            </div>
+            <div style={{ flex: 1, height: '1px', background: C.border }} />
+          </div>
+          <ProjectGantt projectId={projectId} milestones={milestones} color={color} />
+        </section>
 
         {/* Empty state if truly no content */}
         {boards.length === 0 && milestones.length === 0 && !stats && (
