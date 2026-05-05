@@ -113,7 +113,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
       <div ref={setSortableNodeRef} style={{ ...style, width: '272px', flexShrink: 0 }}>
         <div
           style={{
-            background: '#12151b',
+            background: C.bg2,
             border: `1px solid ${isOver ? C.accent : C.border}`,
             borderRadius: '10px',
             display: 'flex',
