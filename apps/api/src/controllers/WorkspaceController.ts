@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { workspaceService } from '../services/WorkspaceService';
 import { userActivityService } from '../services/UserActivityService';
 import type { WorkspaceRequest } from '../middleware/workspace';
-import type { WorkspaceRole } from '@aether/types';
+import type { WorkspaceRole, UserId } from '@aether/types';
 
 /**
  * Schemas de validación con Zod
@@ -661,7 +661,7 @@ class WorkspaceController {
         });
 
       const workspace = await workspaceService.archiveWorkspace(workspaceId, userId);
-      userActivityService.logActivity(userId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: 'archived' }, undefined, workspaceId).catch(() => {});
+      userActivityService.logActivity(userId as UserId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: 'archived' }, undefined, workspaceId).catch(() => {});
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
@@ -692,7 +692,7 @@ class WorkspaceController {
         });
 
       const workspace = await workspaceService.restoreWorkspace(workspaceId, userId);
-      userActivityService.logActivity(userId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: 'restored from archive' }, undefined, workspaceId).catch(() => {});
+      userActivityService.logActivity(userId as UserId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: 'restored from archive' }, undefined, workspaceId).catch(() => {});
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
@@ -792,7 +792,7 @@ class WorkspaceController {
         userId,
         validation.data.visibility
       );
-      userActivityService.logActivity(userId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: `visibility → ${validation.data.visibility}` }, undefined, workspaceId).catch(() => {});
+      userActivityService.logActivity(userId as UserId, 'workspace.updated', { workspaceId, workspaceName: workspace.name, changes: `visibility → ${validation.data.visibility}` }, undefined, workspaceId).catch(() => {});
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
       if (error.message?.includes('Only workspace owner')) {
