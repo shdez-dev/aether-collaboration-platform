@@ -6,6 +6,7 @@ import { documentService } from '../services/DocumentService';
 import { documentExportService } from '../services/DocumentExportService';
 import { documentTemplateService } from '../services/DocumentTemplateService';
 import { WorkspaceRequest } from '../middleware/workspace';
+import { pool } from '../lib/db';
 
 /**
  * Validation schemas
@@ -692,6 +693,34 @@ class DocumentController {
           details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
         },
       });
+    }
+  }
+  /**
+   * GET /api/documents/mine
+   * Returns all documents across all workspaces the user has access to.
+   * Used by AI Builder to let users pick an existing document.
+   */
+  async getMyDocuments(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
+      }
+
+      const result = await pool.query(
+        `SELECT d.id, d.title, d.updated_at, w.id AS workspace_id, w.name AS workspace_name, w.icon AS workspace_icon
+         FROM documents d
+         JOIN workspaces w ON w.id = d.workspace_id
+         JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $1
+         WHERE d.deleted_at IS NULL
+         ORDER BY d.updated_at DESC
+         LIMIT 100`,
+        [userId]
+      );
+
+      return res.json({ success: true, data: { documents: result.rows } });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR' } });
     }
   }
 }

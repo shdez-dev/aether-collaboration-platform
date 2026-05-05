@@ -1298,6 +1298,17 @@ export const es = {
   ai_builder_error_generation: 'No se pudo analizar el documento. Inténtalo de nuevo.',
   ai_builder_error_build: 'No se pudo crear el workspace. Inténtalo de nuevo.',
   ai_builder_error_no_key: 'El servicio de IA no está configurado en el servidor.',
+  ai_builder_from_doc_title: 'Usar un documento existente',
+  ai_builder_from_doc_subtitle: 'Selecciona un documento de tus workspaces, o crea uno con la plantilla del Constructor IA.',
+  ai_builder_select_doc: 'Selecciona un documento...',
+  ai_builder_load_doc: 'Cargar contenido',
+  ai_builder_doc_loaded: 'Contenido del documento cargado',
+  ai_builder_create_from_template: 'Crear documento con plantilla',
+  ai_builder_select_workspace: 'Selecciona workspace...',
+  ai_builder_creating_doc: 'Creando documento...',
+  ai_builder_doc_created: 'Documento creado. Se abrió en una nueva pestaña — vuelve aquí y selecciónalo cuando lo hayas completado.',
+  ai_builder_doc_error: 'No se pudo cargar el documento. Intenta de nuevo.',
+  ai_builder_or: 'o pega texto directamente',
 } as const;
 
 export type TranslationKey = keyof typeof es;

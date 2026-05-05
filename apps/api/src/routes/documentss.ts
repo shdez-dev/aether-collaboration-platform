@@ -16,6 +16,9 @@ router.get('/documents/templates', (req, res) => documentController.getTemplates
 // Apply authentication to all routes below this point
 router.use(authenticateJWT);
 
+// GET ALL USER DOCUMENTS (AI Builder picker) — MUST be before /documents/:id
+router.get('/documents/mine', (req, res) => documentController.getMyDocuments(req, res));
+
 // CREATE - requires workspace membership
 router.post('/workspaces/:workspaceId/documents', checkWorkspaceMembership, (req, res) =>
   documentController.create(req, res)

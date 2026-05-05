@@ -11,7 +11,9 @@ import {
   type AiList,
   type AiCard,
 } from '@/stores/aiPlannerStore';
-import { Sparkles, ChevronDown, ChevronRight, Plus, X, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronRight, Plus, X, AlertTriangle, CheckCircle2, Loader2, FileText, ExternalLink } from 'lucide-react';
+import { apiService } from '@/services/apiService';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 // ── Color tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -437,6 +439,92 @@ function Step1({
   const noCredits = credits === 0;
   const canGenerate = !isGenerating && !tooShort && !tooLong && !noCredits;
 
+  // Document picker state
+  type MyDoc = { id: string; title: string; workspace_id: string; workspace_name: string; workspace_icon: string; updated_at: string };
+  const [docs, setDocs] = useState<MyDoc[]>([]);
+  const [docsLoaded, setDocsLoaded] = useState(false);
+  const [selectedDocId, setSelectedDocId] = useState('');
+  const [loadingDoc, setLoadingDoc] = useState(false);
+  const [docMsg, setDocMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [showDocSection, setShowDocSection] = useState(false);
+
+  // Workspace picker for template creation
+  const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const [selectedWsId, setSelectedWsId] = useState('');
+  const [creatingDoc, setCreatingDoc] = useState(false);
+
+  const loadDocs = async () => {
+    if (docsLoaded) return;
+    const res = await apiService.get<{ documents: MyDoc[] }>('/api/documents/mine', true);
+    if (res.success && res.data) setDocs(res.data.documents);
+    setDocsLoaded(true);
+  };
+
+  const handleToggleDocSection = async () => {
+    const next = !showDocSection;
+    setShowDocSection(next);
+    if (next) {
+      loadDocs();
+      if (workspaces.length === 0) fetchWorkspaces();
+    }
+  };
+
+  const handleLoadDoc = async () => {
+    if (!selectedDocId) return;
+    setLoadingDoc(true);
+    setDocMsg(null);
+    const res = await apiService.get<{ document: { content: string; title: string } }>(`/api/documents/${selectedDocId}`, true);
+    setLoadingDoc(false);
+    if (res.success && res.data?.document?.content) {
+      setText(res.data.document.content);
+      setDocMsg({ type: 'ok', text: t.ai_builder_doc_loaded });
+    } else {
+      setDocMsg({ type: 'err', text: t.ai_builder_doc_error });
+    }
+  };
+
+  const handleCreateFromTemplate = async () => {
+    if (!selectedWsId) return;
+    setCreatingDoc(true);
+    setDocMsg(null);
+    const res = await apiService.post<{ document: { id: string } }>(
+      `/api/workspaces/${selectedWsId}/documents`,
+      { title: 'AI Workspace Builder Plan', templateId: 'ai-builder' },
+      true
+    );
+    setCreatingDoc(false);
+    if (res.success && res.data?.document?.id) {
+      const docId = res.data.document.id;
+      window.open(`/dashboard/workspaces/${selectedWsId}/documents/${docId}`, '_blank');
+      setDocMsg({ type: 'ok', text: t.ai_builder_doc_created });
+      // Reload doc list so it appears in the picker
+      setDocsLoaded(false);
+      loadDocs();
+    } else {
+      setDocMsg({ type: 'err', text: t.ai_builder_doc_error });
+    }
+  };
+
+  // Group docs by workspace for the select
+  const docsByWorkspace: Record<string, { name: string; icon: string; docs: MyDoc[] }> = {};
+  docs.forEach((d) => {
+    if (!docsByWorkspace[d.workspace_id]) {
+      docsByWorkspace[d.workspace_id] = { name: d.workspace_name, icon: d.workspace_icon, docs: [] };
+    }
+    docsByWorkspace[d.workspace_id].docs.push(d);
+  });
+
+  const selectStyle: React.CSSProperties = {
+    background: C.surface,
+    border: `1px solid ${C.border2}`,
+    color: C.text,
+    borderRadius: '6px',
+    padding: '6px 10px',
+    fontSize: '12px',
+    outline: 'none',
+    cursor: 'pointer',
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* Credits indicator */}
@@ -458,12 +546,143 @@ function Step1({
         </span>
       </div>
 
+      {/* ── Document section ─────────────────────────────────────────── */}
+      <div
+        className="mb-4 rounded-[8px] overflow-hidden"
+        style={{ border: `1px solid ${showDocSection ? C.accent + '55' : C.border}` }}
+      >
+        {/* Header toggle */}
+        <button
+          onClick={handleToggleDocSection}
+          className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
+          style={{ background: showDocSection ? C.accent + '11' : C.surface }}
+        >
+          <FileText size={14} style={{ color: showDocSection ? C.accent : C.text3 }} />
+          <div className="flex-1">
+            <p className="text-[13px] font-medium" style={{ color: showDocSection ? C.text : C.text2 }}>
+              {t.ai_builder_from_doc_title}
+            </p>
+            <p className="text-[11px]" style={{ color: C.text4 }}>
+              {t.ai_builder_from_doc_subtitle}
+            </p>
+          </div>
+          {showDocSection ? (
+            <ChevronDown size={13} style={{ color: C.text3 }} />
+          ) : (
+            <ChevronRight size={13} style={{ color: C.text3 }} />
+          )}
+        </button>
+
+        {/* Expanded content */}
+        {showDocSection && (
+          <div className="px-4 pb-4 pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
+            {/* Select existing doc */}
+            <p className="text-[11px] font-medium mb-2 mt-2" style={{ color: C.text3 }}>
+              1. {t.ai_builder_select_doc}
+            </p>
+            <div className="flex gap-2 mb-3">
+              <select
+                value={selectedDocId}
+                onChange={(e) => setSelectedDocId(e.target.value)}
+                style={{ ...selectStyle, flex: 1 }}
+              >
+                <option value="">{t.ai_builder_select_doc}</option>
+                {Object.entries(docsByWorkspace).map(([wsId, ws]) => (
+                  <optgroup key={wsId} label={`${ws.icon ?? ''} ${ws.name}`}>
+                    {ws.docs.map((d) => (
+                      <option key={d.id} value={d.id}>{d.title}</option>
+                    ))}
+                  </optgroup>
+                ))}
+                {docs.length === 0 && docsLoaded && (
+                  <option disabled value="">No documents found</option>
+                )}
+              </select>
+              <button
+                onClick={handleLoadDoc}
+                disabled={!selectedDocId || loadingDoc}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12px] font-medium"
+                style={{
+                  background: selectedDocId ? C.accent : C.border,
+                  color: selectedDocId ? '#fff' : C.text3,
+                  cursor: selectedDocId ? 'pointer' : 'not-allowed',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {loadingDoc ? <Loader2 size={12} className="animate-spin" /> : null}
+                {t.ai_builder_load_doc}
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-2 my-3">
+              <div style={{ flex: 1, height: '1px', background: C.border }} />
+              <span className="text-[10px]" style={{ color: C.text4 }}>o</span>
+              <div style={{ flex: 1, height: '1px', background: C.border }} />
+            </div>
+
+            {/* Create from template */}
+            <p className="text-[11px] font-medium mb-2" style={{ color: C.text3 }}>
+              2. {t.ai_builder_create_from_template}
+            </p>
+            <div className="flex gap-2">
+              <select
+                value={selectedWsId}
+                onChange={(e) => setSelectedWsId(e.target.value)}
+                style={{ ...selectStyle, flex: 1 }}
+              >
+                <option value="">{t.ai_builder_select_workspace}</option>
+                {workspaces.map((w) => (
+                  <option key={w.id} value={w.id}>{w.icon ?? ''} {w.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleCreateFromTemplate}
+                disabled={!selectedWsId || creatingDoc}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12px] font-medium"
+                style={{
+                  background: selectedWsId ? C.green : C.border,
+                  color: selectedWsId ? '#fff' : C.text3,
+                  cursor: selectedWsId ? 'pointer' : 'not-allowed',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {creatingDoc ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+                {creatingDoc ? t.ai_builder_creating_doc : t.ai_builder_create_from_template}
+              </button>
+            </div>
+
+            {/* Status message */}
+            {docMsg && (
+              <div
+                className="flex items-start gap-2 mt-3 px-3 py-2 rounded-[6px] text-[12px]"
+                style={{
+                  background: docMsg.type === 'ok' ? C.green + '18' : C.red + '18',
+                  border: `1px solid ${docMsg.type === 'ok' ? C.green + '44' : C.red + '44'}`,
+                  color: docMsg.type === 'ok' ? C.green : C.red,
+                }}
+              >
+                {docMsg.type === 'ok' ? <CheckCircle2 size={13} className="mt-0.5 shrink-0" /> : <AlertTriangle size={13} className="mt-0.5 shrink-0" />}
+                {docMsg.text}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Separator */}
+      <div className="flex items-center gap-3 mb-4">
+        <div style={{ flex: 1, height: '1px', background: C.border }} />
+        <span className="text-[11px]" style={{ color: C.text4 }}>{t.ai_builder_or}</span>
+        <div style={{ flex: 1, height: '1px', background: C.border }} />
+      </div>
+
       {/* Textarea — always interactive */}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={t.ai_builder_step1_placeholder}
-        rows={16}
+        rows={14}
         className="w-full rounded-[8px] p-4 text-[13px] leading-relaxed"
         style={{
           background: C.surface,

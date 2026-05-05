@@ -12,7 +12,8 @@ export type TemplateCategory =
   | 'project-brief'
   | 'technical-spec'
   | 'retrospective'
-  | 'project-documentation';
+  | 'project-documentation'
+  | 'ai-builder';
 
 export interface DocumentTemplate {
   id: TemplateCategory;
@@ -65,6 +66,14 @@ export class DocumentTemplateService {
         icon: 'BookOpen',
         category: 'Documentation',
       },
+      {
+        id: 'ai-builder',
+        name: 'AI Workspace Builder',
+        description:
+          'Structured template for the AI Builder. Fill in each section and let the AI generate your full workspace.',
+        icon: 'Sparkles',
+        category: 'AI',
+      },
     ];
   }
 
@@ -78,6 +87,7 @@ export class DocumentTemplateService {
       'technical-spec': this.getTechnicalSpecTemplate,
       retrospective: this.getRetrospectiveTemplate,
       'project-documentation': this.getProjectDocumentationTemplate,
+      'ai-builder': this.getAiBuilderTemplate,
     };
 
     const templateFn = templates[templateId];
@@ -3232,6 +3242,102 @@ export class DocumentTemplateService {
           },
         ];
     }
+  }
+  // ==================== AI BUILDER TEMPLATE ====================
+
+  private getAiBuilderTemplate(_metadata?: any): any {
+    const h1 = (text: string) => ({
+      type: 'heading',
+      attrs: { level: 1 },
+      content: [{ type: 'text', text }],
+    });
+    const h2 = (text: string) => ({
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text }],
+    });
+    const p = (text: string) => ({
+      type: 'paragraph',
+      content: [{ type: 'text', text }],
+    });
+    const hint = (text: string) => ({
+      type: 'paragraph',
+      content: [{ type: 'text', marks: [{ type: 'italic' }], text }],
+    });
+    const rule = () => ({ type: 'horizontalRule' });
+    const blank = () => ({ type: 'paragraph', content: [] });
+
+    return {
+      type: 'doc',
+      content: [
+        h1('AI Workspace Builder — Project Plan'),
+        hint('Fill in each section with as much detail as possible. The AI uses this document to generate your complete workspace, projects, boards, milestones, and tasks.'),
+        rule(),
+
+        h2('1. Project Overview'),
+        hint('Project name, one-line description, type (Web app / Mobile / API / Internal tool), and current stage (Idea / MVP / Growth).'),
+        blank(),
+
+        h2('2. Problem & Context'),
+        hint('What problem does this project solve? Who is affected? What happens if it is not solved?'),
+        blank(),
+
+        h2('3. Proposed Solution'),
+        hint('What are you building exactly? Describe the main modules or components.'),
+        blank(),
+
+        h2('4. Technology Stack'),
+        p('Backend:'),
+        p('Frontend:'),
+        p('Database:'),
+        p('Infrastructure / DevOps:'),
+        p('External APIs / Integrations:'),
+
+        h2('5. Scope'),
+        hint('What IS included in this version and what is NOT included (future versions).'),
+        p('Included:'),
+        blank(),
+        p('Excluded (future):'),
+        blank(),
+
+        h2('6. Objectives'),
+        hint('One general objective and 3–6 specific, measurable deliverables.'),
+        p('General objective:'),
+        blank(),
+        p('Specific objectives:'),
+        blank(),
+
+        h2('7. Team & Roles'),
+        hint('List each person, their role, and their main responsibilities.'),
+        blank(),
+
+        h2('8. Timeline & Milestones'),
+        hint('Project start date, target launch date, and key milestones with dates (YYYY-MM-DD). The AI will align tasks to these milestones.'),
+        p('Start date:'),
+        p('Launch date:'),
+        blank(),
+        p('Milestones:'),
+        p('1. Milestone name — YYYY-MM-DD'),
+        p('2. Milestone name — YYYY-MM-DD'),
+        p('3. Milestone name — YYYY-MM-DD'),
+
+        h2('9. Functional Requirements'),
+        hint('List the main features / modules with a brief description. Be specific — the AI turns these into tasks.'),
+        blank(),
+
+        h2('10. Non-Functional Requirements'),
+        hint('Performance targets, security requirements, scalability expectations, compliance constraints.'),
+        blank(),
+
+        h2('11. KPIs & Success Metrics'),
+        hint('How will you measure success? Include metric name, target value, and measurement frequency.'),
+        blank(),
+
+        h2('12. Known Risks'),
+        hint('List risks and how you plan to mitigate them (Risk: description | Mitigation: approach).'),
+        blank(),
+      ],
+    };
   }
 }
 
