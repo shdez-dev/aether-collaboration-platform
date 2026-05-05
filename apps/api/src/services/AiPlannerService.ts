@@ -112,12 +112,45 @@ class AiPlannerService {
 
     const completion = await this.client.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [
         { role: 'system', content: systemPrompt },
         {
           role: 'user',
           content: `Analyze this document and generate a complete workspace plan:\n\n${documentText}`,
+        },
+      ],
+    });
+
+    const rawText = completion.choices[0]?.message?.content ?? '';
+    const finishReason = completion.choices[0]?.finish_reason;
+
+    // If truncated, retry with a tighter scope (1 project max, fewer cards)
+    if (finishReason === 'length') {
+      console.warn('[AiPlannerService] Response truncated — retrying with reduced scope');
+      return this.generateReduced(documentText, today);
+    }
+
+    return this.parseAndValidate(rawText);
+  }
+
+  private async generateReduced(documentText: string, today: string): Promise<AiWorkspacePlan> {
+    const reducedPrompt = SYSTEM_PROMPT.replace('{TODAY}', today).replace(
+      'Generate 1-3 projects (one per major workstream).',
+      'Generate exactly 1 project with 2 boards maximum.'
+    ).replace(
+      'Each Backlog list: 4-8 cards',
+      'Each Backlog list: 3-5 cards'
+    );
+
+    const completion = await this.client.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 8192,
+      messages: [
+        { role: 'system', content: reducedPrompt },
+        {
+          role: 'user',
+          content: `Analyze this document and generate a focused workspace plan (1 project, most important workstream only):\n\n${documentText}`,
         },
       ],
     });
@@ -134,10 +167,17 @@ class AiPlannerService {
       text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
     }
 
+    // Try to extract a JSON object if there's surrounding text
+    if (!text.startsWith('{')) {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) text = match[0];
+    }
+
     let plan: AiWorkspacePlan;
     try {
       plan = JSON.parse(text);
     } catch {
+      console.error('[AiPlannerService] Raw response (first 500 chars):', rawText.slice(0, 500));
       throw new Error('[AiPlannerService] Failed to parse JSON response from Groq');
     }
 
