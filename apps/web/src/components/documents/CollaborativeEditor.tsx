@@ -1491,16 +1491,21 @@ export default function CollaborativeEditor({
       isJoinedRef.current = true;
       joinedOnce = true;
 
-      // Timeout de seguridad: si el document:sync no llega en 10s, abrir el
-      // editor de todas formas para no bloquear al usuario. En Render free tier
-      // el cold start puede tardar hasta ~30s, pero con polling + websocket
-      // la conexión debería establecerse mucho antes.
+      // Timeout de seguridad: si el document:sync no llega en 8s, pedir
+      // el estado de nuevo al servidor (document:request-sync) sin hacer re-join.
+      // Esto cubre el caso donde el sync inicial se perdió por un cambio de
+      // transporte (polling → websocket). Si tras 5s más sigue sin llegar,
+      // abrir el editor de todas formas para no bloquear al usuario.
       syncTimeoutId = setTimeout(() => {
         if (!isMounted || initialSyncReceivedRef.current) return;
-        initialSyncReceivedRef.current = true;
-        setIsDocumentReady(true);
-        setSyncError(null);
-      }, 10000);
+        socketService.emit('document:request-sync', { documentId });
+        syncTimeoutId = setTimeout(() => {
+          if (!isMounted || initialSyncReceivedRef.current) return;
+          initialSyncReceivedRef.current = true;
+          setIsDocumentReady(true);
+          setSyncError(null);
+        }, 5000);
+      }, 8000);
     };
 
     // ── Handler del document:sync enviado por el servidor ─────────────────────

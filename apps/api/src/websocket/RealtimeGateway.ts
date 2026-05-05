@@ -59,9 +59,9 @@ export class RealtimeGateway {
         origin: allowedOrigins,
         credentials: true,
       },
-      // polling primero para garantizar la conexión inicial en entornos cloud
-      // (Render free tier puede rechazar upgrades WebSocket en el handshake inicial)
-      transports: ['polling', 'websocket'],
+      // WebSocket primero — sin upgrade, sin race condition.
+      // Si Railway rechaza WebSocket, Socket.IO cae a polling automáticamente.
+      transports: ['websocket', 'polling'],
     });
 
     this.setupMiddleware();

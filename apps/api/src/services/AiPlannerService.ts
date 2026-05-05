@@ -28,6 +28,7 @@ export interface AiWorkspacePlan {
           title: string;
           description?: string;
           priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+          milestoneIndex?: number;
           dueDate?: string | null;
           checklistItems?: string[];
           dependsOn?: string[];
@@ -70,7 +71,7 @@ Schema:
                   "title": "string (max 120 chars)",
                   "description": "string (optional, 1-2 sentences)",
                   "priority": "LOW | MEDIUM | HIGH",
-                  "dueDate": "YYYY-MM-DD or null",
+                  "milestoneIndex": 1,
                   "checklistItems": ["string", "string"],
                   "dependsOn": ["exact title of another card in this same board's Backlog"]
                 }
@@ -84,7 +85,6 @@ Schema:
 }
 
 Rules:
-- Today is {TODAY}. All dates must be strictly >= today or null. Never generate a past date.
 - Generate EXACTLY 1 project. Do not generate multiple projects.
 - The project must have 2-4 milestones and 3-5 boards (one board per major technical area e.g. Backend, Frontend, DevOps, QA, Design).
 - Each board: exactly 4 lists named: "Backlog", "In Progress", "Review", "Done".
@@ -95,23 +95,17 @@ Rules:
 - For cards that logically depend on another card finishing first, add "dependsOn": an array with the EXACT title of 1-2 other cards in the same board's Backlog list. Only reference cards that actually exist in that list.
 - Not every card needs checklistItems or dependsOn — only where it makes real project sense.
 
-DATE ALIGNMENT RULES (absolutely mandatory — violations will break the timeline):
-- Milestones are hard phase gates. EVERY card's dueDate must fall within the phase defined by the milestones.
-- Step 1: Sort the milestones by dueDate ascending. Label them M1, M2, M3...
-- Step 2: Divide each board's cards into N groups where N = number of milestones with a real dueDate.
-- Step 3: Assign dates strictly as follows:
-    * Phase 1 cards: dueDate must be >= {TODAY} AND <= M1.dueDate
-    * Phase 2 cards: dueDate must be > M1.dueDate AND <= M2.dueDate
-    * Phase 3 cards: dueDate must be > M2.dueDate AND <= M3.dueDate
-    * (and so on for each subsequent milestone)
-- A card's dueDate must NEVER be greater than the last milestone's dueDate.
-- A card's dueDate must NEVER be less than today ({TODAY}).
-- If a card has no logical due date, set dueDate to null — do not invent a date outside phase bounds.
-- Distribute cards evenly: 6 cards + 3 milestones = 2 cards per phase.
-- Example: if M1="2026-07-01", M2="2026-09-01", M3="2026-11-01" and a board has 6 cards:
-    card1.dueDate="2026-06-10", card2.dueDate="2026-06-25" (phase 1, both <= 2026-07-01)
-    card3.dueDate="2026-07-20", card4.dueDate="2026-08-15" (phase 2, both <= 2026-09-01)
-    card5.dueDate="2026-09-20", card6.dueDate="2026-10-28" (phase 3, both <= 2026-11-01)
+MILESTONE ASSIGNMENT RULES:
+- Each card must have a "milestoneIndex" field: an integer indicating which milestone phase the card belongs to (1 = first milestone, 2 = second, etc.).
+- Assign milestoneIndex based on the semantic phase of the work:
+    * Foundation tasks (setup, infrastructure, architecture decisions) → milestoneIndex: 1
+    * Core feature implementation tasks → milestoneIndex: 2 (or later)
+    * Integration, polish, QA, and deployment tasks → last milestone index
+- If a card A has "dependsOn" card B, card A's milestoneIndex must be >= card B's milestoneIndex.
+- HIGH priority cards that are blockers for others should get the lowest milestoneIndex possible.
+- Distribute cards across milestone phases logically — avoid putting all cards in milestoneIndex 1.
+- milestoneIndex must be between 1 and the total number of milestones in the project.
+- Do NOT include a "dueDate" field on cards — the server will compute dates from milestoneIndex.
 - Never output text outside the JSON object.`;
 
 class AiPlannerService {
@@ -126,13 +120,12 @@ class AiPlannerService {
 
   async generateWorkspacePlan(documentText: string): Promise<AiWorkspacePlan> {
     const today = new Date().toISOString().split('T')[0];
-    const systemPrompt = SYSTEM_PROMPT.replace('{TODAY}', today);
 
     const completion = await this.client.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 8192,
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',
           content: `Analyze this document and generate a complete workspace plan:\n\n${documentText}`,
@@ -153,13 +146,9 @@ class AiPlannerService {
   }
 
   private async generateReduced(documentText: string, today: string): Promise<AiWorkspacePlan> {
-    const reducedPrompt = SYSTEM_PROMPT.replace('{TODAY}', today).replace(
-      'Generate 1-3 projects (one per major workstream).',
-      'Generate exactly 1 project with 2 boards maximum.'
-    ).replace(
-      'Each Backlog list: 4-8 cards',
-      'Each Backlog list: 3-5 cards'
-    );
+    const reducedPrompt = SYSTEM_PROMPT
+      .replace('3-5 boards', '2 boards maximum')
+      .replace('Each Backlog list: 4-8 cards', 'Each Backlog list: 3-5 cards');
 
     const completion = await this.client.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
@@ -210,7 +199,101 @@ class AiPlannerService {
       throw new Error('[AiPlannerService] Response missing required structure');
     }
 
+    return this.assignDates(plan);
+  }
+
+  private assignDates(plan: AiWorkspacePlan): AiWorkspacePlan {
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const project of plan.projects) {
+      const milestones = [...project.milestones]
+        .filter(m => m.dueDate)
+        .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!));
+
+      if (milestones.length === 0) continue;
+
+      // Build phase ranges: phase i (1-based) → [start, end]
+      const ranges: Array<{ start: string; end: string }> = milestones.map((m, i) => ({
+        start: i === 0 ? today : this.addDays(milestones[i - 1].dueDate!, 1),
+        end: m.dueDate!,
+      }));
+
+      const totalPhases = ranges.length;
+
+      for (const board of project.boards) {
+        const backlog = board.lists.find(l => l.name === 'Backlog');
+        if (!backlog || backlog.cards.length === 0) continue;
+
+        const cards = backlog.cards;
+
+        // Map title → card for dependency lookups
+        const cardMap = new Map(cards.map(c => [c.title, c]));
+
+        // Resolve effective milestoneIndex for each card clamped to valid range
+        const effectivePhase = new Map<string, number>();
+        for (const card of cards) {
+          const raw = card.milestoneIndex ?? 1;
+          effectivePhase.set(card.title, Math.min(Math.max(raw, 1), totalPhases));
+        }
+
+        // Topological sort to propagate dependency constraints
+        const visited = new Set<string>();
+        const order: string[] = [];
+        const visit = (title: string) => {
+          if (visited.has(title)) return;
+          visited.add(title);
+          const card = cardMap.get(title);
+          for (const dep of card?.dependsOn ?? []) {
+            if (cardMap.has(dep)) visit(dep);
+          }
+          order.push(title);
+        };
+        for (const card of cards) visit(card.title);
+
+        // Bump phase forward if a dependency is in a later phase
+        for (const title of order) {
+          const card = cardMap.get(title);
+          for (const dep of card?.dependsOn ?? []) {
+            const depPhase = effectivePhase.get(dep) ?? 1;
+            const myPhase = effectivePhase.get(title) ?? 1;
+            if (depPhase >= myPhase) {
+              effectivePhase.set(title, Math.min(depPhase + 1, totalPhases));
+            }
+          }
+        }
+
+        // Group cards by their final phase
+        const byPhase = new Map<number, typeof cards>();
+        for (const card of cards) {
+          const phase = effectivePhase.get(card.title)!;
+          if (!byPhase.has(phase)) byPhase.set(phase, []);
+          byPhase.get(phase)!.push(card);
+        }
+
+        // Assign evenly-spaced dates within each phase range
+        for (const [phase, phaseCards] of byPhase) {
+          const range = ranges[phase - 1];
+          if (!range) continue;
+
+          const startMs = new Date(range.start).getTime();
+          const endMs = new Date(range.end).getTime();
+          const count = phaseCards.length;
+          const step = count > 1 ? (endMs - startMs) / (count - 1) : 0;
+
+          phaseCards.forEach((card, i) => {
+            card.dueDate = new Date(startMs + step * i).toISOString().split('T')[0];
+          });
+        }
+      }
+    }
+
     return plan;
+  }
+
+  private addDays(date: string, days: number): string {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
   }
 }
 

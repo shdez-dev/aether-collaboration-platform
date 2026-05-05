@@ -102,6 +102,26 @@ export class YjsGateway {
       });
 
       // ================================================================
+      // REQUEST SYNC — El cliente pide el estado completo sin re-join
+      // Útil cuando el cliente pierde el document:sync inicial por una
+      // reconexión o cambio de transporte (polling → websocket)
+      // ================================================================
+      socket.on('document:request-sync', async (data: { documentId: string }) => {
+        try {
+          const { documentId } = data;
+
+          const doc = this.docs.get(documentId);
+          if (doc) {
+            const stateVector = Y.encodeStateAsUpdate(doc);
+            socket.emit('document:sync', { documentId, update: Array.from(stateVector) });
+          } else {
+            // El doc no está en memoria (servidor reiniciado) — pedir al cliente que haga join
+            socket.emit('document:reload', { documentId });
+          }
+        } catch (error) {}
+      });
+
+      // ================================================================
       // YJS UPDATE — Recibir cambio del cliente y persistir
       // ================================================================
       socket.on('document:yjs:update', async (data: { documentId: string; update: number[] }) => {
