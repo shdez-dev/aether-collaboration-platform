@@ -94,6 +94,16 @@ Rules:
 - For complex cards, add "checklistItems": an array of 2-5 short subtask strings (e.g. ["Write unit tests", "Add error handling", "Update docs"]).
 - For cards that logically depend on another card finishing first, add "dependsOn": an array with the EXACT title of 1-2 other cards in the same board's Backlog list. Only reference cards that actually exist in that list.
 - Not every card needs checklistItems or dependsOn — only where it makes real project sense.
+
+DATE ALIGNMENT RULES (critical):
+- Think of milestones as phase gates that constrain all card due dates.
+- Sort the project milestones chronologically. Divide the cards in each board into groups, one per milestone phase.
+- Cards in the first phase must have dueDate <= the first milestone's dueDate.
+- Cards in the second phase must have dueDate > first milestone's dueDate AND <= second milestone's dueDate.
+- Continue this pattern for each subsequent milestone.
+- Distribute cards evenly across phases: if a board has 6 cards and 3 milestones, assign roughly 2 cards per phase.
+- A card's dueDate must NEVER exceed the project's last milestone dueDate.
+- If a milestone has dueDate null, skip it for date assignment and use the next one with a real date.
 - Never output text outside the JSON object.`;
 
 class AiPlannerService {
