@@ -695,6 +695,21 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 020: Add ai_planner_credits to users');
 
+      // Migration 021: Create ai_builder_documents table (planning docs, no workspace FK)
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS ai_builder_documents (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          title VARCHAR(255) NOT NULL DEFAULT 'Untitled Plan',
+          content TEXT NOT NULL DEFAULT '',
+          used_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_ai_builder_documents_user_id ON ai_builder_documents(user_id);
+      `);
+      console.log('  ✓ Migration 021: Create ai_builder_documents table');
+
       console.log('✅ All migrations completed successfully');
     } finally {
       client.release();
