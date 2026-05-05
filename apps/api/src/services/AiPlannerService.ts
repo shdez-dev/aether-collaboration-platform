@@ -85,8 +85,8 @@ Schema:
 
 Rules:
 - Today is {TODAY}. All dates must be strictly >= today or null. Never generate a past date.
-- Generate 1-3 projects (one per major workstream).
-- Each project: 2-5 milestones, 2-4 boards.
+- Generate EXACTLY 1 project. Do not generate multiple projects.
+- The project must have 2-4 milestones and 3-5 boards (one board per major technical area e.g. Backend, Frontend, DevOps, QA, Design).
 - Each board: exactly 4 lists named: "Backlog", "In Progress", "Review", "Done".
 - ALL cards must be placed exclusively in the FIRST list ("Backlog"). The other lists must have empty cards arrays: "cards": [].
 - Each Backlog list: 4-8 cards with concrete, actionable task titles.
@@ -95,15 +95,23 @@ Rules:
 - For cards that logically depend on another card finishing first, add "dependsOn": an array with the EXACT title of 1-2 other cards in the same board's Backlog list. Only reference cards that actually exist in that list.
 - Not every card needs checklistItems or dependsOn — only where it makes real project sense.
 
-DATE ALIGNMENT RULES (critical):
-- Think of milestones as phase gates that constrain all card due dates.
-- Sort the project milestones chronologically. Divide the cards in each board into groups, one per milestone phase.
-- Cards in the first phase must have dueDate <= the first milestone's dueDate.
-- Cards in the second phase must have dueDate > first milestone's dueDate AND <= second milestone's dueDate.
-- Continue this pattern for each subsequent milestone.
-- Distribute cards evenly across phases: if a board has 6 cards and 3 milestones, assign roughly 2 cards per phase.
-- A card's dueDate must NEVER exceed the project's last milestone dueDate.
-- If a milestone has dueDate null, skip it for date assignment and use the next one with a real date.
+DATE ALIGNMENT RULES (absolutely mandatory — violations will break the timeline):
+- Milestones are hard phase gates. EVERY card's dueDate must fall within the phase defined by the milestones.
+- Step 1: Sort the milestones by dueDate ascending. Label them M1, M2, M3...
+- Step 2: Divide each board's cards into N groups where N = number of milestones with a real dueDate.
+- Step 3: Assign dates strictly as follows:
+    * Phase 1 cards: dueDate must be >= {TODAY} AND <= M1.dueDate
+    * Phase 2 cards: dueDate must be > M1.dueDate AND <= M2.dueDate
+    * Phase 3 cards: dueDate must be > M2.dueDate AND <= M3.dueDate
+    * (and so on for each subsequent milestone)
+- A card's dueDate must NEVER be greater than the last milestone's dueDate.
+- A card's dueDate must NEVER be less than today ({TODAY}).
+- If a card has no logical due date, set dueDate to null — do not invent a date outside phase bounds.
+- Distribute cards evenly: 6 cards + 3 milestones = 2 cards per phase.
+- Example: if M1="2026-07-01", M2="2026-09-01", M3="2026-11-01" and a board has 6 cards:
+    card1.dueDate="2026-06-10", card2.dueDate="2026-06-25" (phase 1, both <= 2026-07-01)
+    card3.dueDate="2026-07-20", card4.dueDate="2026-08-15" (phase 2, both <= 2026-09-01)
+    card5.dueDate="2026-09-20", card6.dueDate="2026-10-28" (phase 3, both <= 2026-11-01)
 - Never output text outside the JSON object.`;
 
 class AiPlannerService {

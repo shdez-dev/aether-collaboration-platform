@@ -207,9 +207,9 @@ function ProjectGantt({
   milestones: ProjectMilestone[];
   color: string;
 }) {
-  const [cards, setCards]       = useState<TimelineCard[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [tooltip, setTooltip]   = useState<TooltipState | null>(null);
+  const [cards, setCards]     = useState<TimelineCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   useEffect(() => {
     apiService.get<{ cards: TimelineCard[] }>(`/api/projects/${projectId}/timeline-cards`, true)
@@ -227,7 +227,7 @@ function ProjectGantt({
   }
 
   const allDates: number[] = [
-    ...milestones.map((m) => new Date(m.date).getTime()),
+    ...milestones.filter((m) => m.date).map((m) => new Date(m.date).getTime()),
     ...cards.flatMap((c) => [c.dueDate, c.startDate].filter(Boolean).map((d) => new Date(d!).getTime())),
   ];
 
@@ -243,28 +243,46 @@ function ProjectGantt({
     );
   }
 
-  // Date range — snap to month boundaries with 1-month padding
+  // ── Date range — snap to month start/end with padding ─────────────────
   const minTs = Math.min(...allDates);
   const maxTs = Math.max(...allDates);
-  const rangeStart = new Date(minTs - 10 * 86400000);
-  const rangeEnd   = new Date(maxTs + 10 * 86400000);
-  rangeStart.setDate(1);
-  rangeEnd.setMonth(rangeEnd.getMonth() + 1, 0);
-  const totalMs = rangeEnd.getTime() - rangeStart.getTime();
+  const rangeStart = new Date(minTs);
+  rangeStart.setDate(1); // first day of min month
+  const rangeEnd = new Date(maxTs);
+  rangeEnd.setMonth(rangeEnd.getMonth() + 1, 0); // last day of max month
+  const MS_PER_DAY = 86400000;
+  const totalDays = Math.max(1, Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / MS_PER_DAY));
 
-  function pct(ts: number) {
-    return Math.max(0, Math.min(100, ((ts - rangeStart.getTime()) / totalMs) * 100));
+  // Pixel width per day — adaptive based on range length
+  const DAY_W = totalDays <= 60 ? 32 : totalDays <= 120 ? 22 : totalDays <= 240 ? 16 : 12;
+  const TRACK_W = totalDays * DAY_W; // full track width in px
+
+  /** Convert a date to pixel X position on the track */
+  function dayX(d: Date): number {
+    return Math.round((d.getTime() - rangeStart.getTime()) / MS_PER_DAY * DAY_W);
   }
 
-  // Month header data
-  const months: { label: string; left: number }[] = [];
+  const todayX = dayX(new Date());
+
+  // ── Build month columns ──────────────────────────────────────────────
+  type MonthCol = { label: string; x: number; width: number };
+  const monthCols: MonthCol[] = [];
   const mc = new Date(rangeStart);
   while (mc <= rangeEnd) {
-    months.push({ label: mc.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }).toUpperCase(), left: pct(mc.getTime()) });
-    mc.setMonth(mc.getMonth() + 1);
+    const x = dayX(mc);
+    const nextMonth = new Date(mc); nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
+    const endX = Math.min(dayX(nextMonth), TRACK_W);
+    monthCols.push({
+      label: mc.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase(),
+      x, width: endX - x,
+    });
+    mc.setMonth(mc.getMonth() + 1, 1);
   }
 
-  // Group cards by board
+  // ── Day labels — density depends on DAY_W ───────────────────────────
+  const dayStep = DAY_W >= 28 ? 1 : DAY_W >= 18 ? 3 : DAY_W >= 12 ? 7 : 14;
+
+  // ── Group cards by board ─────────────────────────────────────────────
   const boardMap = new Map<string, { name: string; cards: TimelineCard[] }>();
   for (const c of cards) {
     if (!boardMap.has(c.boardId)) boardMap.set(c.boardId, { name: c.boardName, cards: [] });
@@ -272,16 +290,17 @@ function ProjectGantt({
   }
   const boards = Array.from(boardMap.values());
 
-  const todayPct = pct(Date.now());
-  const ROW_H    = 44;
-  const SECTION_H = 30;
+  const ROW_H     = 42;
+  const SECTION_H = 28;
   const SIDEBAR_W = 200;
+  const MONTH_H   = 22;
+  const DAY_H     = 18;
+  const HEADER_H  = MONTH_H + DAY_H;
 
   function showTip(e: React.MouseEvent, tip: TooltipState) {
     setTooltip({ ...tip, x: e.clientX, y: e.clientY });
   }
 
-  // Build flat rows: milestones section + board sections with one row per card
   type Row =
     | { kind: 'section'; label: string; icon: 'flag' | 'board' }
     | { kind: 'milestone'; m: ProjectMilestone }
@@ -296,6 +315,8 @@ function ProjectGantt({
     rows.push({ kind: 'section', label: board.name, icon: 'board' });
     board.cards.forEach((card, i) => rows.push({ kind: 'card', card, rowIdx: i }));
   });
+
+  const totalH = HEADER_H + rows.reduce((h, r) => h + (r.kind === 'section' ? SECTION_H : ROW_H), 0);
 
   return (
     <div style={{ position: 'relative' }} onMouseLeave={() => setTooltip(null)}>
@@ -314,117 +335,142 @@ function ProjectGantt({
             <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{tooltip.title}</span>
           </div>
           {tooltip.subtitle && <p style={{ margin: '0 0 5px', fontSize: '11px', color: C.text3 }}>{tooltip.subtitle}</p>}
-          {tooltip.range  && <p style={{ margin: '0 0 3px', fontSize: '11px', color: C.text2 }}>{tooltip.range}</p>}
-          {tooltip.date   && <p style={{ margin: 0, fontSize: '11px', color: C.text2 }}>{tooltip.date}</p>}
+          {tooltip.range   && <p style={{ margin: '0 0 3px', fontSize: '11px', color: C.text2 }}>{tooltip.range}</p>}
+          {tooltip.date    && <p style={{ margin: 0, fontSize: '11px', color: C.text2 }}>{tooltip.date}</p>}
           {tooltip.listName && <p style={{ margin: '4px 0 0', fontSize: '10px', color: C.text4 }}>{tooltip.listName}</p>}
         </div>
       )}
 
       <div style={{ overflowX: 'auto', borderRadius: '10px', border: `1px solid ${C.border}`, background: C.surface }}>
-        <div style={{ minWidth: '700px' }}>
+        {/* Fixed total width = sidebar + track */}
+        <div style={{ width: `${SIDEBAR_W + TRACK_W}px`, minWidth: '700px', position: 'relative' }}>
 
-          {/* ── Month header ──────────────────────────────────────────────── */}
-          <div style={{ position: 'relative', height: '32px', borderBottom: `1px solid ${C.border}`, background: C.bg2 }}>
-            <div style={{ position: 'absolute', left: 0, top: 0, width: `${SIDEBAR_W}px`, height: '100%', borderRight: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', paddingLeft: '12px' }}>
+          {/* ── Header ─────────────────────────────────────────────── */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 10, background: C.bg2, borderBottom: `1px solid ${C.border}` }}>
+            {/* Sidebar label */}
+            <div style={{ position: 'absolute', left: 0, top: 0, width: `${SIDEBAR_W}px`, height: `${HEADER_H}px`, borderRight: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', paddingLeft: '12px', background: C.bg2, zIndex: 2 }}>
               <span style={{ fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.08em', color: C.text4, textTransform: 'uppercase' }}>Tarea / Hito</span>
             </div>
-            <div style={{ position: 'absolute', left: SIDEBAR_W, right: 0, top: 0, bottom: 0 }}>
-              {months.map((m, i) => (
-                <span key={i} style={{ position: 'absolute', left: `calc(${m.left}% + 8px)`, top: '8px', fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, whiteSpace: 'nowrap' }}>{m.label}</span>
-              ))}
-              {months.map((m, i) => (
-                <div key={`d${i}`} style={{ position: 'absolute', left: `${m.left}%`, top: 0, bottom: 0, width: '1px', background: C.border, opacity: 0.4 }} />
-              ))}
-              {/* Today header marker */}
-              {todayPct > 0 && todayPct < 100 && (
-                <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ fontSize: '8px', fontWeight: 800, color: color, letterSpacing: '0.06em', padding: '2px 4px', background: color + '22', borderRadius: '3px', marginTop: '4px', whiteSpace: 'nowrap' }}>HOY</div>
+
+            {/* Month row */}
+            <div style={{ position: 'relative', height: `${MONTH_H}px`, marginLeft: SIDEBAR_W, borderBottom: `1px solid ${C.border}` }}>
+              {monthCols.map((mc2, i) => (
+                <div key={i} style={{ position: 'absolute', left: mc2.x, top: 0, width: mc2.width, height: '100%', overflow: 'hidden', borderRight: `1px solid ${C.border}` }}>
+                  <span style={{ position: 'sticky', left: 4, fontSize: '9px', fontWeight: 700, letterSpacing: '0.07em', color: C.text3, lineHeight: `${MONTH_H}px`, whiteSpace: 'nowrap' }}>
+                    {mc2.label}
+                  </span>
                 </div>
+              ))}
+              {/* Today marker in month row */}
+              {todayX >= 0 && todayX <= TRACK_W && (
+                <div style={{ position: 'absolute', left: todayX, top: 2, transform: 'translateX(-50%)', fontSize: '7.5px', fontWeight: 800, color: color, padding: '1px 3px', background: color + '22', borderRadius: '3px', whiteSpace: 'nowrap', zIndex: 1 }}>HOY</div>
+              )}
+            </div>
+
+            {/* Day row */}
+            <div style={{ position: 'relative', height: `${DAY_H}px`, marginLeft: SIDEBAR_W }}>
+              {/* Day columns */}
+              {Array.from({ length: totalDays }).map((_, di) => {
+                if (di % dayStep !== 0) return null;
+                const d = new Date(rangeStart.getTime() + di * MS_PER_DAY);
+                const x = di * DAY_W;
+                return (
+                  <div key={di} style={{ position: 'absolute', left: x, top: 0, width: dayStep * DAY_W, height: '100%', borderRight: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                    <span style={{ fontSize: '8.5px', color: C.text4, lineHeight: `${DAY_H}px`, paddingLeft: '3px', whiteSpace: 'nowrap' }}>{d.getDate()}</span>
+                  </div>
+                );
+              })}
+              {/* Today vertical line in day row */}
+              {todayX >= 0 && todayX <= TRACK_W && (
+                <div style={{ position: 'absolute', left: todayX, top: 0, bottom: 0, width: '2px', background: color, opacity: 0.8 }} />
               )}
             </div>
           </div>
 
-          {/* ── Rows ──────────────────────────────────────────────────────── */}
+          {/* ── Rows ───────────────────────────────────────────────── */}
           {rows.map((row, rIdx) => {
             const isEven = rIdx % 2 === 0;
 
+            // ── Section header ──
             if (row.kind === 'section') {
               return (
                 <div key={rIdx} style={{ position: 'relative', height: `${SECTION_H}px`, background: C.bg2, borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ position: 'absolute', left: 0, top: 0, width: `${SIDEBAR_W}px`, height: '100%', display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: '12px', borderRight: `1px solid ${C.border}` }}>
+                  <div style={{ position: 'sticky', left: 0, width: `${SIDEBAR_W}px`, height: '100%', display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: '12px', background: C.bg2, borderRight: `1px solid ${C.border}`, zIndex: 1 }}>
                     {row.icon === 'flag'
                       ? <Flag style={{ width: '10px', height: '10px', color: C.amber, flexShrink: 0 }} />
                       : <LayoutDashboard style={{ width: '10px', height: '10px', color, flexShrink: 0 }} />}
                     <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: C.text3, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</span>
                   </div>
-                  {/* Grid lines */}
-                  <div style={{ position: 'absolute', left: SIDEBAR_W, right: 0, top: 0, bottom: 0 }}>
-                    {months.map((m, i) => <div key={i} style={{ position: 'absolute', left: `${m.left}%`, top: 0, bottom: 0, width: '1px', background: C.border, opacity: 0.3 }} />)}
-                    {todayPct > 0 && todayPct < 100 && <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: '2px', background: color, opacity: 0.25 }} />}
+                  {/* Day grid lines on track */}
+                  <div style={{ position: 'absolute', left: SIDEBAR_W, top: 0, width: TRACK_W, height: '100%' }}>
+                    {Array.from({ length: totalDays }).map((_, di) => {
+                      if (di % dayStep !== 0) return null;
+                      return <div key={di} style={{ position: 'absolute', left: di * DAY_W, top: 0, bottom: 0, width: '1px', background: C.border, opacity: 0.2 }} />;
+                    })}
+                    {todayX >= 0 && todayX <= TRACK_W && <div style={{ position: 'absolute', left: todayX, top: 0, bottom: 0, width: '2px', background: color, opacity: 0.2 }} />}
                   </div>
                 </div>
               );
             }
 
+            // ── Milestone row ──
             if (row.kind === 'milestone') {
               const { m } = row;
-              const isPast     = new Date(m.date) < new Date() && m.status === 'PENDING';
-              const dotColor   = isPast ? C.red : m.status === 'REACHED' ? C.green : (m.color || C.amber);
-              const mPct       = pct(new Date(m.date).getTime());
+              const isPast   = new Date(m.date) < new Date() && m.status === 'PENDING';
+              const dotColor = isPast ? C.red : m.status === 'REACHED' ? C.green : (m.color || C.amber);
+              const mx       = dayX(new Date(m.date));
 
               return (
                 <div key={m.id} style={{ position: 'relative', height: `${ROW_H}px`, background: isEven ? C.surface : C.bg, borderBottom: `1px solid ${C.border}` }}>
-                  {/* Sidebar */}
-                  <div style={{ position: 'absolute', left: 0, top: 0, width: `${SIDEBAR_W}px`, height: '100%', display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '16px', paddingRight: '8px', borderRight: `1px solid ${C.border}` }}>
+                  <div style={{ position: 'sticky', left: 0, width: `${SIDEBAR_W}px`, height: '100%', display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '16px', paddingRight: '8px', background: isEven ? C.surface : C.bg, borderRight: `1px solid ${C.border}`, zIndex: 1 }}>
                     <div style={{ width: '8px', height: '8px', transform: 'rotate(45deg)', background: dotColor, borderRadius: '2px', flexShrink: 0 }} />
                     <span style={{ fontSize: '11.5px', fontWeight: 500, color: m.status === 'MISSED' ? C.text4 : C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: m.status === 'MISSED' ? 'line-through' : 'none' }}>{m.name}</span>
                   </div>
-                  {/* Track */}
-                  <div style={{ position: 'absolute', left: SIDEBAR_W, right: 0, top: 0, bottom: 0 }}>
-                    {months.map((mo, i) => <div key={i} style={{ position: 'absolute', left: `${mo.left}%`, top: 0, bottom: 0, width: '1px', background: C.border, opacity: 0.25 }} />)}
-                    {todayPct > 0 && todayPct < 100 && <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: '2px', background: color, opacity: 0.2 }} />}
-                    {/* Diamond + label */}
+                  <div style={{ position: 'absolute', left: SIDEBAR_W, top: 0, width: TRACK_W, height: '100%' }}>
+                    {Array.from({ length: totalDays }).map((_, di) => di % dayStep === 0 ? (
+                      <div key={di} style={{ position: 'absolute', left: di * DAY_W, top: 0, bottom: 0, width: '1px', background: C.border, opacity: 0.15 }} />
+                    ) : null)}
+                    {todayX >= 0 && todayX <= TRACK_W && <div style={{ position: 'absolute', left: todayX, top: 0, bottom: 0, width: '2px', background: color, opacity: 0.15 }} />}
+                    {/* Diamond marker */}
                     <div
-                      style={{ position: 'absolute', left: `${mPct}%`, top: '50%', transform: 'translate(-50%, -50%)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
+                      style={{ position: 'absolute', left: mx, top: '50%', transform: 'translate(-50%, -50%)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}
                       onMouseEnter={(e) => showTip(e, { title: m.name, subtitle: m.description ?? '', color: dotColor, date: `📅 ${fmtDate(m.date)}`, x: e.clientX, y: e.clientY })}
                       onMouseMove={(e) => setTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                       onMouseLeave={() => setTooltip(null)}
                     >
-                      <div style={{ width: '14px', height: '14px', transform: 'rotate(45deg)', background: dotColor, borderRadius: '3px', border: `2px solid ${C.surface}`, boxShadow: `0 0 0 2px ${dotColor}44` }} />
-                      <span style={{ fontSize: '9px', fontWeight: 600, color: dotColor, whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>{fmtShort(m.date)}</span>
+                      <div style={{ width: '14px', height: '14px', transform: 'rotate(45deg)', background: dotColor, borderRadius: '3px', border: `2px solid ${C.surface}`, boxShadow: `0 0 0 2px ${dotColor}55` }} />
+                      <span style={{ fontSize: '8.5px', fontWeight: 600, color: dotColor, whiteSpace: 'nowrap' }}>{fmtShort(m.date)}</span>
                     </div>
                   </div>
                 </div>
               );
             }
 
-            // Card row
+            // ── Card row ──
             const { card } = row;
-            const hasRange   = !!(card.startDate && card.dueDate);
-            const startPct   = card.startDate ? pct(new Date(card.startDate).getTime()) : null;
-            const endPct     = card.dueDate   ? pct(new Date(card.dueDate).getTime())   : null;
-            const markerPct  = endPct ?? startPct;
-            const barW       = hasRange && startPct !== null && endPct !== null ? Math.max(1, endPct - startPct) : 0;
-            const barColor   = card.completed ? C.green : (PRIORITY_COLOR[card.priority ?? ''] ?? color);
-            const isOverdue  = !card.completed && card.dueDate && new Date(card.dueDate) < new Date();
+            const hasRange  = !!(card.startDate && card.dueDate);
+            const barColor  = card.completed ? C.green : (PRIORITY_COLOR[card.priority ?? ''] ?? color);
+            const isOverdue = !card.completed && card.dueDate && new Date(card.dueDate) < new Date();
+            const startX    = card.startDate ? dayX(new Date(card.startDate)) : null;
+            const endX2     = card.dueDate   ? dayX(new Date(card.dueDate))   : null;
+            const markerX   = endX2 ?? startX;
+            const barPx     = hasRange && startX !== null && endX2 !== null ? Math.max(DAY_W, endX2 - startX) : 0;
 
             return (
               <div key={card.id} style={{ position: 'relative', height: `${ROW_H}px`, background: isEven ? C.surface : C.bg, borderBottom: `1px solid ${C.border}` }}>
-                {/* Sidebar */}
-                <div style={{ position: 'absolute', left: 0, top: 0, width: `${SIDEBAR_W}px`, height: '100%', display: 'flex', alignItems: 'center', gap: '7px', paddingLeft: '20px', paddingRight: '8px', borderRight: `1px solid ${C.border}` }}>
+                <div style={{ position: 'sticky', left: 0, width: `${SIDEBAR_W}px`, height: '100%', display: 'flex', alignItems: 'center', gap: '7px', paddingLeft: '20px', paddingRight: '8px', background: isEven ? C.surface : C.bg, borderRight: `1px solid ${C.border}`, zIndex: 1 }}>
                   <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: card.completed ? 'transparent' : barColor, border: `2px solid ${barColor}`, flexShrink: 0 }} />
                   <span style={{ fontSize: '11px', color: card.completed ? C.text3 : C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: card.completed ? 'line-through' : 'none' }}>{card.title}</span>
                 </div>
+                <div style={{ position: 'absolute', left: SIDEBAR_W, top: 0, width: TRACK_W, height: '100%' }}>
+                  {Array.from({ length: totalDays }).map((_, di) => di % dayStep === 0 ? (
+                    <div key={di} style={{ position: 'absolute', left: di * DAY_W, top: 0, bottom: 0, width: '1px', background: C.border, opacity: 0.12 }} />
+                  ) : null)}
+                  {todayX >= 0 && todayX <= TRACK_W && <div style={{ position: 'absolute', left: todayX, top: 0, bottom: 0, width: '2px', background: color, opacity: 0.12 }} />}
 
-                {/* Track */}
-                <div style={{ position: 'absolute', left: SIDEBAR_W, right: 0, top: 0, bottom: 0 }}>
-                  {months.map((mo, i) => <div key={i} style={{ position: 'absolute', left: `${mo.left}%`, top: 0, bottom: 0, width: '1px', background: C.border, opacity: 0.2 }} />)}
-                  {todayPct > 0 && todayPct < 100 && <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: '2px', background: color, opacity: 0.15 }} />}
-
-                  {hasRange && startPct !== null && (
-                    /* Bar — start to due */
+                  {hasRange && startX !== null && (
                     <div
-                      style={{ position: 'absolute', left: `${startPct}%`, top: '50%', transform: 'translateY(-50%)', width: `${barW}%`, height: '16px', borderRadius: '8px', background: card.completed ? `${barColor}55` : `linear-gradient(to right, ${barColor}dd, ${barColor}88)`, border: `1.5px solid ${barColor}${card.completed ? '44' : 'bb'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', paddingLeft: '7px', overflow: 'hidden', boxShadow: isOverdue ? `0 0 0 1px ${C.red}66` : 'none' }}
+                      style={{ position: 'absolute', left: startX, top: '50%', transform: 'translateY(-50%)', width: barPx, height: '16px', borderRadius: '8px', background: card.completed ? `${barColor}55` : `linear-gradient(to right, ${barColor}dd, ${barColor}88)`, border: `1.5px solid ${barColor}${card.completed ? '44' : 'bb'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', paddingLeft: '7px', overflow: 'hidden', boxShadow: isOverdue ? `0 0 0 1px ${C.red}77` : 'none' }}
                       onMouseEnter={(e) => showTip(e, { title: card.title, subtitle: card.boardName, color: barColor, range: `${fmtShort(card.startDate!)} → ${fmtShort(card.dueDate!)}`, listName: card.listName, x: e.clientX, y: e.clientY })}
                       onMouseMove={(e) => setTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                       onMouseLeave={() => setTooltip(null)}
@@ -433,10 +479,9 @@ function ProjectGantt({
                     </div>
                   )}
 
-                  {!hasRange && markerPct !== null && (
-                    /* Single marker — only one date */
+                  {!hasRange && markerX !== null && (
                     <div
-                      style={{ position: 'absolute', left: `${markerPct}%`, top: '50%', transform: 'translate(-50%, -50%)', cursor: 'pointer' }}
+                      style={{ position: 'absolute', left: markerX, top: '50%', transform: 'translate(-50%, -50%)', cursor: 'pointer' }}
                       onMouseEnter={(e) => showTip(e, { title: card.title, subtitle: card.boardName, color: barColor, date: `📅 ${fmtShort(card.dueDate ?? card.startDate!)}`, listName: card.listName, x: e.clientX, y: e.clientY })}
                       onMouseMove={(e) => setTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                       onMouseLeave={() => setTooltip(null)}
@@ -449,7 +494,7 @@ function ProjectGantt({
             );
           })}
 
-          {/* ── Legend ──────────────────────────────────────────────────── */}
+          {/* ── Legend ─────────────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px', padding: '9px 14px', borderTop: `1px solid ${C.border}`, background: C.bg2, flexWrap: 'wrap' }}>
             <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, textTransform: 'uppercase' }}>Leyenda</span>
             {([['#ef4444', 'Alta'], ['#f59e0b', 'Media'], ['#10b981', 'Baja']] as [string,string][]).map(([c, l]) => (
