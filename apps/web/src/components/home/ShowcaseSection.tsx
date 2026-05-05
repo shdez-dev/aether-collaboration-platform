@@ -17,29 +17,20 @@ function MetricsStrip() {
   ];
 
   return (
-    <div
-      className="grid grid-cols-2 md:grid-cols-4"
-      style={{
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-      }}
-    >
+    <div className="home-metrics-strip grid grid-cols-2 md:grid-cols-4">
       {metrics.map((m, i) => (
         <div
           key={m.label}
-          className="px-6 py-8"
-          style={{
-            borderRight: i < metrics.length - 1 ? '1px solid rgba(255,255,255,0.06)' : undefined,
-          }}
+          className={i < metrics.length - 1 ? 'home-metrics-cell-border px-6 py-8' : 'px-6 py-8'}
         >
           <div
             className="font-bold font-sans mb-1.5"
-            style={{ fontSize: '36px', letterSpacing: '-0.02em', color: 'rgba(255,255,255,0.9)', fontVariantNumeric: 'tabular-nums' }}
+            style={{ fontSize: '36px', letterSpacing: '-0.02em', color: 'var(--home-stat-value)', fontVariantNumeric: 'tabular-nums' }}
           >
             {m.value}
-            <span style={{ fontSize: '22px', color: 'rgba(255,255,255,0.3)' }}>{m.unit}</span>
+            <span style={{ fontSize: '22px', color: 'var(--home-text-3)' }}>{m.unit}</span>
           </div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.05em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <p className="font-mono text-[11px] uppercase tracking-[0.05em]" style={{ color: 'var(--home-text-3)' }}>
             {m.label}
           </p>
         </div>
@@ -73,14 +64,14 @@ function ActivitySection() {
             viewport={{ once: true }}
             transition={{ duration: 0.55 }}
             className="rounded-xl overflow-hidden"
-            style={{ background: 'hsl(0 0% 13%)', border: '1px solid rgba(255,255,255,0.14)' }}
+            style={{ background: 'var(--home-surface)', border: '1px solid var(--home-border-strong)' }}
           >
             <div
               className="flex items-center justify-between px-5 py-3.5 font-mono text-[11px] uppercase tracking-[0.05em]"
               style={{
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
-                background: 'hsl(0 0% 10%)',
-                color: 'rgba(255,255,255,0.4)',
+                borderBottom: '1px solid var(--home-border)',
+                background: 'var(--home-surface-alt)',
+                color: 'var(--home-text-3)',
               }}
             >
               <span>ACTIVIDAD · platform-team</span>
@@ -91,18 +82,18 @@ function ActivitySection() {
                 key={i}
                 className="flex gap-3.5 items-start px-5 py-3 text-[13px]"
                 style={{
-                  borderBottom: i < FEED_ROWS.length - 1 ? '1px solid rgba(255,255,255,0.06)' : undefined,
+                  borderBottom: i < FEED_ROWS.length - 1 ? '1px solid var(--home-border)' : undefined,
                 }}
               >
-                <span className="font-mono text-[11px] pt-0.5 min-w-[42px]" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                <span className="font-mono text-[11px] pt-0.5 min-w-[42px]" style={{ color: 'var(--home-badge-ts)' }}>
                   {row.ts}
                 </span>
-                <div style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.88)' }}>{row.who}</span>
+                <div style={{ color: 'var(--home-text-2)' }}>
+                  <span className="font-semibold" style={{ color: 'var(--home-text-1)' }}>{row.who}</span>
                   {' '}{row.action}{' '}
                   <span
                     className="font-mono text-[12px] px-1.5 py-0.5 rounded"
-                    style={{ color: '#93c5fd', background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}
+                    style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.2)' }}
                   >
                     {row.obj}
                   </span>
@@ -128,11 +119,11 @@ function ActivitySection() {
             </div>
             <h2
               className="font-bold leading-[1.08] mb-5 max-w-[540px]"
-              style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', letterSpacing: '-0.025em', color: 'rgba(255,255,255,0.95)' }}
+              style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', letterSpacing: '-0.025em', color: 'var(--home-text-1)' }}
             >
               {t.home_activity_title}
             </h2>
-            <p className="text-[17px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.48)', maxWidth: '480px' }}>
+            <p className="text-[17px] leading-relaxed" style={{ color: 'var(--home-text-2)', maxWidth: '480px' }}>
               {t.home_activity_sub}
             </p>
           </motion.div>
@@ -156,11 +147,8 @@ function CtaBox() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.55 }}
-          className="relative text-center rounded-2xl overflow-hidden px-12 py-16"
-          style={{
-            background: 'radial-gradient(ellipse 80% 70% at 50% 0%, rgba(59,130,246,0.22), transparent 70%), hsl(0 0% 11%)',
-            border: '1px solid rgba(59,130,246,0.25)',
-          }}
+          className="home-cta-box relative text-center rounded-2xl overflow-hidden px-12 py-16"
+          style={{ border: '1px solid rgba(59,130,246,0.25)' }}
         >
           {/* Top glow line */}
           <span
@@ -172,13 +160,13 @@ function CtaBox() {
             style={{
               fontSize: 'clamp(26px, 3.5vw, 42px)',
               letterSpacing: '-0.025em',
-              color: 'rgba(255,255,255,0.95)',
+              color: 'var(--home-text-1)',
               maxWidth: '680px',
             }}
           >
             {t.home_cta_title}
           </h2>
-          <p className="text-[17px] mb-7 mx-auto" style={{ color: 'rgba(255,255,255,0.48)', maxWidth: '460px' }}>
+          <p className="text-[17px] mb-7 mx-auto" style={{ color: 'var(--home-text-2)', maxWidth: '460px' }}>
             {t.home_cta_sub}
           </p>
           <div className="flex items-center justify-center gap-2.5 flex-wrap">
@@ -209,9 +197,9 @@ function CtaBox() {
                   href="/login"
                   className="inline-flex items-center text-[15px] font-medium px-5 py-3 rounded-[10px] transition-all"
                   style={{
-                    color: 'rgba(255,255,255,0.8)',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'var(--home-glass-text)',
+                    background: 'var(--home-glass)',
+                    border: '1px solid var(--home-glass-border)',
                   }}
                 >
                   {t.home_cta_secondary}

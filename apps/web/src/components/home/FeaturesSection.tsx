@@ -67,23 +67,19 @@ export function FeaturesSection() {
           </div>
           <h2
             className="font-bold leading-[1.08] mb-5 max-w-[780px]"
-            style={{ fontSize: 'clamp(30px, 4vw, 46px)', letterSpacing: '-0.025em', color: 'rgba(255,255,255,0.95)' }}
+            style={{ fontSize: 'clamp(30px, 4vw, 46px)', letterSpacing: '-0.025em', color: 'var(--home-text-1)' }}
           >
             {t.home_features_heading}
           </h2>
-          <p className="text-[17px] max-w-[620px]" style={{ color: 'rgba(255,255,255,0.48)' }}>
+          <p className="text-[17px] max-w-[620px]" style={{ color: 'var(--home-text-2)' }}>
             {t.home_features_sub}
           </p>
         </motion.div>
 
         {/* Feature grid — 3×2, separated by 1px border lines */}
         <div
-          className="grid grid-cols-1 md:grid-cols-3 rounded-xl overflow-hidden"
-          style={{
-            gap: '1px',
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}
+          className="home-feature-grid grid grid-cols-1 md:grid-cols-3 rounded-xl overflow-hidden"
+          style={{ gap: '1px' }}
         >
           {features.map((f, i) => (
             <motion.div
@@ -105,7 +101,7 @@ export function FeaturesSection() {
                 (e.currentTarget as HTMLElement).style.background = 'hsl(var(--background))';
               }}
             >
-              <span className="font-mono text-[11px] tracking-[0.05em]" style={{ color: 'rgba(255,255,255,0.28)' }}>
+              <span className="font-mono text-[11px] tracking-[0.05em]" style={{ color: 'var(--home-text-4)' }}>
                 {f.num}
               </span>
               <div
@@ -120,11 +116,11 @@ export function FeaturesSection() {
               </div>
               <h4
                 className="text-[17px] font-semibold"
-                style={{ letterSpacing: '-0.01em', color: 'rgba(255,255,255,0.9)' }}
+                style={{ letterSpacing: '-0.01em', color: 'var(--home-text-1)' }}
               >
                 {f.title}
               </h4>
-              <p className="text-[14px] leading-[1.55]" style={{ color: 'rgba(255,255,255,0.48)' }}>
+              <p className="text-[14px] leading-[1.55]" style={{ color: 'var(--home-text-2)' }}>
                 {f.body}
               </p>
             </motion.div>

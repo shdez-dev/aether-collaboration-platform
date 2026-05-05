@@ -946,6 +946,82 @@ body {
   color: hsl(220 20% 32%);
 }
 
+/* ==================== HOME PAGE — CSS TOKENS ==================== */
+
+:root {
+  --home-text-1:    rgba(255, 255, 255, 0.95);
+  --home-text-2:    rgba(255, 255, 255, 0.50);
+  --home-text-3:    rgba(255, 255, 255, 0.32);
+  --home-text-4:    rgba(255, 255, 255, 0.28);
+  --home-text-logo: rgba(255, 255, 255, 0.88);
+  --home-border:         rgba(255, 255, 255, 0.06);
+  --home-border-strong:  rgba(255, 255, 255, 0.14);
+  --home-surface:     hsl(0 0% 13%);
+  --home-surface-alt: hsl(0 0% 10%);
+  --home-nav-bg:    rgba(9, 11, 18, 0.72);
+  --home-nav-border: rgba(255, 255, 255, 0.06);
+  --home-glass:        rgba(255, 255, 255, 0.04);
+  --home-glass-border: rgba(255, 255, 255, 0.12);
+  --home-glass-text:   rgba(255, 255, 255, 0.80);
+  --home-grid-line: rgba(255, 255, 255, 0.025);
+  --home-stat-value: rgba(255, 255, 255, 0.90);
+  --home-badge-ts: rgba(255, 255, 255, 0.28);
+}
+
+.light {
+  --home-text-1:    hsl(220 25% 10%);
+  --home-text-2:    hsl(220 20% 36%);
+  --home-text-3:    hsl(220 14% 48%);
+  --home-text-4:    hsl(220 14% 52%);
+  --home-text-logo: hsl(220 25% 12%);
+  --home-border:         hsl(220 18% 86%);
+  --home-border-strong:  hsl(220 18% 76%);
+  --home-surface:     hsl(0 0% 100%);
+  --home-surface-alt: hsl(220 20% 96%);
+  --home-nav-bg:    rgba(255, 255, 255, 0.88);
+  --home-nav-border: hsl(220 18% 88%);
+  --home-glass:        hsl(220 20% 95%);
+  --home-glass-border: hsl(220 18% 82%);
+  --home-glass-text:   hsl(220 25% 22%);
+  --home-grid-line: rgba(0, 0, 0, 0.045);
+  --home-stat-value: hsl(220 25% 10%);
+  --home-badge-ts: hsl(220 14% 52%);
+}
+
+/* CTA box gradient (can't use custom property for full radial-gradient) */
+.home-cta-box {
+  background: radial-gradient(ellipse 80% 70% at 50% 0%, rgba(59,130,246,0.22), transparent 70%), hsl(0 0% 11%);
+}
+.light .home-cta-box {
+  background: radial-gradient(ellipse 80% 70% at 50% 0%, rgba(59,130,246,0.09), transparent 70%), hsl(220 20% 98%);
+}
+
+/* Feature grid gap color */
+.home-feature-grid {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.light .home-feature-grid {
+  background: hsl(220 18% 86%);
+  border: 1px solid hsl(220 18% 86%);
+}
+
+/* Metrics strip */
+.home-metrics-strip {
+  border-top:    1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.light .home-metrics-strip {
+  border-top:    1px solid hsl(220 18% 86%);
+  border-bottom: 1px solid hsl(220 18% 86%);
+}
+.home-metrics-cell-border {
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+.light .home-metrics-cell-border {
+  border-right: 1px solid hsl(220 18% 86%);
+}
+
 /* ==================== HOME PAGE — LIGHT THEME CONTRAST ==================== */
 
 /* AETHER title gradient: white on dark, near-black on light */

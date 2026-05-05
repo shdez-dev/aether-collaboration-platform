@@ -334,13 +334,13 @@ export function HeroSection() {
         style={{
           backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
-          background: 'rgba(9,11,18,0.72)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--home-nav-bg)',
+          borderBottom: '1px solid var(--home-nav-border)',
         }}
       >
         <div className="max-w-[1240px] mx-auto px-8 flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.88)' }}>
+          <Link href="/" className="flex items-center gap-2.5 text-sm font-semibold" style={{ color: 'var(--home-text-logo)' }}>
             <AetherNavLogo />
             <span>Aether</span>
           </Link>
@@ -354,7 +354,7 @@ export function HeroSection() {
               <Link
                 href="/login"
                 className="hidden sm:inline-flex text-sm px-3 py-2 rounded-lg transition-colors"
-                style={{ color: 'rgba(255,255,255,0.48)' }}
+                style={{ color: 'var(--home-text-2)' }}
               >
                 {t.home_hero_cta_login}
               </Link>
@@ -394,8 +394,8 @@ export function HeroSection() {
             className="absolute inset-0"
             style={{
               backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)
+                linear-gradient(var(--home-grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--home-grid-line) 1px, transparent 1px)
               `,
               backgroundSize: '64px 64px',
               maskImage: 'radial-gradient(ellipse 90% 60% at 50% 30%, black 40%, transparent 100%)',
@@ -413,8 +413,8 @@ export function HeroSection() {
             className="font-bold leading-[1.02] mb-6 max-w-[920px]"
             style={{ fontSize: 'clamp(40px, 6vw, 72px)', letterSpacing: '-0.035em' }}
           >
-            <span style={{ color: 'rgba(255,255,255,0.95)' }}>{t.home_hero_title_main} </span>
-            <span style={{ color: 'rgba(255,255,255,0.38)' }}>{t.home_hero_title_dim}</span>
+            <span style={{ color: 'var(--home-text-1)' }}>{t.home_hero_title_main} </span>
+            <span style={{ color: 'var(--home-text-3)' }}>{t.home_hero_title_dim}</span>
           </motion.h1>
 
           {/* Subtitle */}
@@ -423,7 +423,7 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.14 }}
             className="leading-relaxed mb-9 max-w-xl text-[19px]"
-            style={{ color: 'rgba(255,255,255,0.5)' }}
+            style={{ color: 'var(--home-text-2)' }}
           >
             {t.home_hero_description}
           </motion.p>
@@ -462,9 +462,9 @@ export function HeroSection() {
                   href="/login"
                   className="inline-flex items-center font-medium text-[15px] px-5 py-3 rounded-[10px] transition-all"
                   style={{
-                    color: 'rgba(255,255,255,0.8)',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'var(--home-glass-text)',
+                    background: 'var(--home-glass)',
+                    border: '1px solid var(--home-glass-border)',
                   }}
                 >
                   {t.home_hero_cta_login}
@@ -480,8 +480,8 @@ export function HeroSection() {
             transition={{ duration: 0.5, delay: 0.32 }}
             className="flex gap-10 flex-wrap font-mono text-xs mb-16 pt-6 max-w-[620px]"
             style={{
-              color: 'rgba(255,255,255,0.32)',
-              borderTop: '1px solid rgba(255,255,255,0.06)',
+              color: 'var(--home-text-3)',
+              borderTop: '1px solid var(--home-border)',
             }}
           >
             {[
@@ -492,7 +492,7 @@ export function HeroSection() {
               <div key={s.label}>
                 <strong
                   className="block font-semibold mb-0.5 text-[15px]"
-                  style={{ color: 'rgba(255,255,255,0.9)', fontFamily: 'inherit' }}
+                  style={{ color: 'var(--home-stat-value)', fontFamily: 'inherit' }}
                 >
                   {s.value}
                 </strong>

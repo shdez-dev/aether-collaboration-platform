@@ -63,7 +63,7 @@ export function Footer() {
   return (
     <footer
       className="relative py-16 px-4 md:px-8"
-      style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+      style={{ borderTop: '1px solid var(--home-border)' }}
     >
       <div className="max-w-[1240px] mx-auto">
         {/* Main grid */}
@@ -75,11 +75,11 @@ export function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            <Link href="/" className="flex items-center gap-2 mb-4" style={{ color: 'rgba(255,255,255,0.88)' }}>
+            <Link href="/" className="flex items-center gap-2 mb-4" style={{ color: 'var(--home-text-logo)' }}>
               <AetherLogo />
               <span className="text-sm font-semibold">Aether</span>
             </Link>
-            <p className="text-[13px] leading-relaxed max-w-[260px]" style={{ color: 'rgba(255,255,255,0.36)' }}>
+            <p className="text-[13px] leading-relaxed max-w-[260px]" style={{ color: 'var(--home-text-3)' }}>
               {t.home_footer_desc}
             </p>
           </motion.div>
@@ -95,7 +95,7 @@ export function Footer() {
             >
               <h5
                 className="font-mono text-[11px] uppercase tracking-[0.08em] font-medium mb-3.5"
-                style={{ color: 'rgba(255,255,255,0.28)' }}
+                style={{ color: 'var(--home-text-4)' }}
               >
                 {col.heading}
               </h5>
@@ -105,9 +105,9 @@ export function Footer() {
                     <Link
                       href={l.href}
                       className="block py-1 text-[13px] transition-colors"
-                      style={{ color: 'rgba(255,255,255,0.42)' }}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.85)')}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.42)')}
+                      style={{ color: 'var(--home-text-2)' }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'var(--home-text-1)')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'var(--home-text-2)')}
                     >
                       {l.label}
                     </Link>
@@ -122,8 +122,8 @@ export function Footer() {
         <div
           className="pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 font-mono text-[11px]"
           style={{
-            borderTop: '1px solid rgba(255,255,255,0.06)',
-            color: 'rgba(255,255,255,0.28)',
+            borderTop: '1px solid var(--home-border)',
+            color: 'var(--home-text-4)',
           }}
         >
           <span>{t.home_footer_copyright}</span>
