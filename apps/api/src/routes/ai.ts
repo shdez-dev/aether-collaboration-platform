@@ -2,6 +2,7 @@
 
 import { Router } from 'express';
 import { authenticateJWT } from '../middleware/auth';
+import { aiGenerateLimiter } from '../middleware/rateLimiter';
 import { aiPlannerController } from '../controllers/AiPlannerController';
 import { aiBuilderDocumentController } from '../controllers/AiBuilderDocumentController';
 
@@ -11,8 +12,8 @@ router.use(authenticateJWT);
 
 // AI Planner
 router.get('/credits', (req, res) => aiPlannerController.getCredits(req, res));
-router.post('/plan',   (req, res) => aiPlannerController.generatePlan(req, res));
-router.post('/build',  (req, res) => aiPlannerController.buildWorkspace(req, res));
+router.post('/plan',   aiGenerateLimiter, (req, res) => aiPlannerController.generatePlan(req, res));
+router.post('/build',  aiGenerateLimiter, (req, res) => aiPlannerController.buildWorkspace(req, res));
 
 // AI Builder planning documents (no workspace affiliation)
 router.get('/documents',           (req, res) => aiBuilderDocumentController.list(req, res));

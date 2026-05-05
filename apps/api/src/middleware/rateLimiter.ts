@@ -89,3 +89,24 @@ export const passwordResetLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/**
+ * AI generation rate limiter (strict, per user)
+ * Applies to /api/ai/plan and /api/ai/build.
+ * Uses userId as key (not IP) so shared networks (campus, office) no se ven afectadas.
+ * Must run AFTER authenticateJWT so req.user está disponible.
+ */
+export const aiGenerateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: isDevelopment ? 1000 : 8,
+  keyGenerator: (req: any) => req.user?.id ?? req.ip,
+  message: {
+    success: false,
+    error: {
+      code: 'AI_RATE_LIMIT',
+      message: 'Has alcanzado el límite de generaciones por hora. Intenta de nuevo más tarde.',
+    },
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

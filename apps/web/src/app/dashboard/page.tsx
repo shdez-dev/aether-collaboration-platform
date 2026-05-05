@@ -7,6 +7,8 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
 import { AlertTriangle, CheckCircle2, Clock, Users, Send, ExternalLink } from 'lucide-react';
 import { useT } from '@/lib/i18n';
+import OnboardingModal from '@/components/OnboardingModal';
+import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 const C = {
@@ -191,6 +193,8 @@ export default function DashboardPage() {
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
   const t = useT();
 
+  const [isCreateWsOpen, setIsCreateWsOpen] = useState(false);
+
   // Cards
   const [overdue,  setOverdue]  = useState<UserCard[]>([]);
   const [today,    setToday]    = useState<UserCard[]>([]);
@@ -303,7 +307,20 @@ export default function DashboardPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  // Mostrar onboarding solo cuando no hay workspaces y el fetch ya terminó
+  const showOnboarding = !cardsLoading && workspaces.length === 0;
+
   return (
+    <>
+    {showOnboarding && user && (
+      <OnboardingModal
+        userName={user.name ?? 'Usuario'}
+        onCreateManually={() => setIsCreateWsOpen(true)}
+      />
+    )}
+    {isCreateWsOpen && (
+      <CreateWorkspaceModal isOpen={isCreateWsOpen} onClose={() => setIsCreateWsOpen(false)} />
+    )}
     <div style={{ height: '100%', overflow: 'auto', background: C.bg }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
@@ -504,5 +521,6 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
