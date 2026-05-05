@@ -7,10 +7,10 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useT } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
 import {
-import { C } from '@/lib/colors';
   ArrowLeft, Users, MoreHorizontal, Plus, Trash2, Crown,
   AlertTriangle, CheckCircle2, Clock, ExternalLink, FolderKanban, Check,
 } from 'lucide-react';
+import { C } from '@/lib/colors';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 

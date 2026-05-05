@@ -6,10 +6,10 @@ import type { Card, List } from '@aether/types';
 import { useCardStore } from '@/stores/cardStore';
 import { useT } from '@/lib/i18n';
 import {
-import { C } from '@/lib/colors';
   ChevronUp, ChevronDown, ChevronsUpDown,
   CheckCircle2, Clock, AlertTriangle, Circle, Search,
 } from 'lucide-react';
+import { C } from '@/lib/colors';
 
 
 interface Props {

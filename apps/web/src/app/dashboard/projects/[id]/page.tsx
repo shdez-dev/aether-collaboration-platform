@@ -10,11 +10,11 @@ import { useTeamStore } from '@/stores/teamStore';
 import { apiService } from '@/services/apiService';
 import { useT } from '@/lib/i18n';
 import {
-import { C } from '@/lib/colors';
   Plus, X, Check, Trash2, AlertCircle, Flag,
   LayoutDashboard, Settings, MoreHorizontal,
   Calendar, Clock, Target, Users, GitBranch,
 } from 'lucide-react';
+import { C } from '@/lib/colors';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 

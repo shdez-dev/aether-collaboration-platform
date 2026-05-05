@@ -6,13 +6,13 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getAvatarUrl, getInitials } from '@/lib/utils/avatar';
 import { useT } from '@/lib/i18n';
 import {
-import { C } from '@/lib/colors';
   getEventDescription,
   getEventIcon,
   getEventColor,
   formatRelativeTime,
   type ActivityLogEntry,
 } from '@/lib/utils/activityLog';
+import { C } from '@/lib/colors';
 
 interface ActivityEventCardProps {
   event: ActivityLogEntry;

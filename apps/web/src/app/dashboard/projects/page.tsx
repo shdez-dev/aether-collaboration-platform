@@ -6,10 +6,10 @@ import { useProjectStore, type Project, type ProjectStatus } from '@/stores/proj
 import CreateProjectModal from '@/components/CreateProjectModal';
 import { useT } from '@/lib/i18n';
 import {
-import { C } from '@/lib/colors';
   Plus, Search, FolderOpen, TrendingUp, AlertTriangle,
   CheckCircle2, Clock, ChevronDown, LayoutGrid, FileStack,
 } from 'lucide-react';
+import { C } from '@/lib/colors';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 

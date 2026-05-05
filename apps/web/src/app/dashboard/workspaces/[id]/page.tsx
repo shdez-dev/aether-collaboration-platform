@@ -20,12 +20,12 @@ import { apiService } from '@/services/apiService';
 import { useRealtimeToast } from '@/hooks/useRealtimeToast';
 import { getAvatarUrl } from '@/lib/utils/avatar';
 import {
-import { C } from '@/lib/colors';
   Plus, Archive, UserMinus, Trash2,
   LayoutGrid, Activity, AlertCircle, FileText,
   TrendingUp, TrendingDown, ChevronDown, FolderOpen,
   UserX, Zap, Users, LayoutDashboard,
 } from 'lucide-react';
+import { C } from '@/lib/colors';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 

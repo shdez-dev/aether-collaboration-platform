@@ -22,7 +22,6 @@ import {
 import '@xyflow/react/dist/style.css';
 import { apiService } from '@/services/apiService';
 import {
-import { C } from '@/lib/colors';
   ArrowLeft,
   RefreshCw,
   AlertTriangle,
@@ -31,6 +30,7 @@ import { C } from '@/lib/colors';
   CheckCircle2,
   Circle,
 } from 'lucide-react';
+import { C } from '@/lib/colors';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
