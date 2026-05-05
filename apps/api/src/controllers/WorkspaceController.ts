@@ -219,7 +219,7 @@ class WorkspaceController {
 
       // Registrar evento de actividad
       userActivityService.logActivity(
-        userId,
+        userId as UserId,
         'workspace.updated',
         {
           workspaceId,
