@@ -99,7 +99,8 @@ export const passwordResetLimiter = rateLimit({
 export const aiGenerateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
   max: isDevelopment ? 1000 : 8,
-  keyGenerator: (req: any) => req.user?.id ?? req.ip,
+  keyGenerator: (req: any) => req.user?.id ?? (req.ip ?? 'anonymous'),
+  validate: { xForwardedForHeader: false },
   message: {
     success: false,
     error: {
