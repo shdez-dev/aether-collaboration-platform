@@ -10,28 +10,13 @@ import { useTeamStore } from '@/stores/teamStore';
 import { apiService } from '@/services/apiService';
 import { useT } from '@/lib/i18n';
 import {
+import { C } from '@/lib/colors';
   Plus, X, Check, Trash2, AlertCircle, Flag,
   LayoutDashboard, Settings, MoreHorizontal,
   Calendar, Clock, Target, Users, GitBranch,
 } from 'lucide-react';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
-const C = {
-  bg:      '#0b0d10',
-  bg2:     '#0f1217',
-  surface: '#14171c',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  green:   '#10b981',
-  amber:   '#f59e0b',
-  red:     '#ef4444',
-};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

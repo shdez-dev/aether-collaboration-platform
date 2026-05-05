@@ -20,25 +20,9 @@ import { CardChecklist } from './CardChecklist';
 import { CardDependencies } from './CardDependencies';
 import type { Sprint } from '@aether/types';
 import { motion, PanInfo } from 'framer-motion';
+import { C } from '@/lib/colors';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
-const C = {
-  bg:      '#0b0d10',
-  bg2:     '#0f1217',
-  surface: '#14171c',
-  surface2:'#111418',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  green:   '#10b981',
-  amber:   '#f59e0b',
-  red:     '#ef4444',
-};
 
 // ── Custom Calendar ───────────────────────────────────────────────────────────
 function CustomCalendar({ value, onChange, onClose }: {

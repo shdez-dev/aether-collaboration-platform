@@ -3,6 +3,7 @@
 import { X, Filter } from 'lucide-react';
 import { EVENT_CATEGORIES } from '@/lib/utils/activityLog';
 import { useT } from '@/lib/i18n';
+import { C } from '@/lib/colors';
 
 export interface ActivityFilters {
   eventTypes: string[];
@@ -29,23 +30,6 @@ const CATEGORY_LABEL_KEYS: Record<string, string> = {
   comment: 'activity_cat_comment',
 };
 
-const C = {
-  bg:      '#0b0d10',
-  bg2:     '#0f1217',
-  surface: '#14171c',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  green:   '#10b981',
-  amber:   '#f59e0b',
-  red:     '#ef4444',
-  purple:  '#a855f7',
-};
 
 export function ActivityFiltersComponent({
   filters,

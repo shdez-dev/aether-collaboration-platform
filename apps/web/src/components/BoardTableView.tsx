@@ -6,26 +6,11 @@ import type { Card, List } from '@aether/types';
 import { useCardStore } from '@/stores/cardStore';
 import { useT } from '@/lib/i18n';
 import {
+import { C } from '@/lib/colors';
   ChevronUp, ChevronDown, ChevronsUpDown,
   CheckCircle2, Clock, AlertTriangle, Circle, Search,
 } from 'lucide-react';
 
-const C = {
-  bg:      '#0b0d10',
-  surface: '#14171c',
-  surface2:'#111418',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  green:   '#10b981',
-  amber:   '#f59e0b',
-  red:     '#ef4444',
-};
 
 interface Props {
   lists: List[];

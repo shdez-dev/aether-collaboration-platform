@@ -7,19 +7,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, FolderKanban, Users, X, ArrowRight } from 'lucide-react';
+import { C } from '@/lib/colors';
 
-const C = {
-  bg:      '#0b0d10',
-  surface: '#14171c',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  accent:  '#3b82f6',
-  green:   '#10b981',
-  purple:  '#a855f7',
-};
 
 const STORAGE_KEY = 'aether_onboarding_seen';
 

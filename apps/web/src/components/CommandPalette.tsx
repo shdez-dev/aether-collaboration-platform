@@ -7,23 +7,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/apiService';
 import { useT } from '@/lib/i18n';
+import { C } from '@/lib/colors';
 
 // ── Tokens de color ───────────────────────────────────────────────────────────
-const C = {
-  bg:      '#0b0d10',
-  surface: '#14171c',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  red:     '#ef4444',
-  green:   '#10b981',
-  amber:   '#f59e0b',
-};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

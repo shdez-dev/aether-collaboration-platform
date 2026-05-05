@@ -7,20 +7,8 @@ import { useDocumentStore } from '@/stores/documentStore';
 import { FileText, Plus } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { getRecentDocIds, recordRecentDoc } from '@/lib/utils/recentDocs';
+import { C } from '@/lib/colors';
 
-const C = {
-  bg:      '#0b0d10',
-  surface: '#14171c',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  red:     '#ef4444',
-};
 
 function formatDate(date: string) {
   const d = new Date(date);

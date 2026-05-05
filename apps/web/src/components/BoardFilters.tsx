@@ -6,6 +6,7 @@ import { Search, X, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import type { User, Label } from '@aether/types';
 import { getAvatarUrl } from '@/lib/utils/avatar';
+import { C } from '@/lib/colors';
 
 export type PriorityFilter = 'LOW' | 'MEDIUM' | 'HIGH';
 export type DateFilter = 'overdue' | 'due_today' | 'due_week' | 'no_date';
@@ -34,21 +35,6 @@ function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-const C = {
-  bg2:     '#0f1217',
-  surface: '#14171c',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  red:     '#ef4444',
-  amber:   '#f59e0b',
-  green:   '#10b981',
-};
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 function Dropdown({

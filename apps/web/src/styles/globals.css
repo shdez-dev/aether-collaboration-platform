@@ -9,6 +9,22 @@
   :root {
     /* AETHER Theme - Dark Mode (default) */
     --background: 0 0% 7%;
+
+    /* C-token custom properties (dark defaults) */
+    --c-bg:      #0b0d10;
+    --c-bg2:     #0f1217;
+    --c-surface: #14171c;
+    --c-hover:   #1c2128;
+    --c-border:  #1f2329;
+    --c-border2: #2a2f36;
+    --c-text:    #e6e8eb;
+    --c-text2:   #a1a7b0;
+    --c-text3:   #6b7280;
+    --c-text4:   #4b5260;
+    --c-accent:  #3b82f6;
+    --c-green:   #10b981;
+    --c-amber:   #f59e0b;
+    --c-red:     #ef4444;
     --foreground: 210 40% 98%;
 
     --card: 0 0% 7%;
@@ -42,6 +58,22 @@
   .light {
     /* AETHER Theme - Light Mode - Suave y legible */
     --background: 220 20% 96%;
+
+    /* C-token custom properties (light overrides) */
+    --c-bg:      #f0f2f5;
+    --c-bg2:     #e6e9ef;
+    --c-surface: #ffffff;
+    --c-hover:   #e4e8f0;
+    --c-border:  #d1d5db;
+    --c-border2: #b8bec8;
+    --c-text:    #1a2030;
+    --c-text2:   #3f4d63;
+    --c-text3:   #6b7a90;
+    --c-text4:   #8a96a8;
+    --c-accent:  #3b82f6;
+    --c-green:   #059669;
+    --c-amber:   #d97706;
+    --c-red:     #dc2626;
     --foreground: 220 25% 18%;
 
     --card: 0 0% 100%;

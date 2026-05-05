@@ -9,25 +9,12 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, memo } from 'react';
 import { useT } from '@/lib/i18n';
+import { C } from '@/lib/colors';
 
 interface CardProps {
   card: CardType;
 }
 
-const C = {
-  surface: '#14171c',
-  hover:   '#171b21',
-  border:  '#1f2329',
-  border2: '#2a2f36',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  green:   '#10b981',
-  amber:   '#f59e0b',
-  red:     '#ef4444',
-};
 
 const PRIORITY_COLORS = {
   LOW:    { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)'  },

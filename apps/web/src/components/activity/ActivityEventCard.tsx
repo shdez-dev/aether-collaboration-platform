@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getAvatarUrl, getInitials } from '@/lib/utils/avatar';
 import { useT } from '@/lib/i18n';
 import {
+import { C } from '@/lib/colors';
   getEventDescription,
   getEventIcon,
   getEventColor,
@@ -1509,21 +1510,7 @@ function formatFieldName(key: string): string {
   return translations[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
 }
 
-const C = {
-  bg2:     '#0f1217',
-  surface: '#14171c',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-  green:   '#10b981',
-  amber:   '#f59e0b',
-  red:     '#ef4444',
-  purple:  '#a855f7',
-};
+
 
 // Map getEventColor string class → actual token color
 function resolveEventColor(colorClass: string): string {

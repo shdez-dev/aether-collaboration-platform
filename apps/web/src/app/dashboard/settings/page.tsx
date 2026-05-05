@@ -6,33 +6,133 @@ import { useState, useEffect } from 'react';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import type { UserPreferences } from '@/stores/preferencesStore';
 import { useTheme } from '@/providers/ThemeProvider';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Select } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Loader2,
-  Save,
-  Bell,
-  Palette,
-  Layout,
-  Eye,
-  Monitor,
-  Sun,
-  Moon,
-  Check,
-  Mail,
-  Smartphone,
-  MessageSquare,
-  Kanban,
-  Table2,
-  CalendarDays,
-  GanttChart,
+  Loader2, Save, Bell, Palette, Layout,
+  Monitor, Sun, Moon, Check,
+  Mail, Smartphone, MessageSquare, Kanban, Table2,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
+import { C } from '@/lib/colors';
+
+// ── Color tokens (mismo sistema que el resto de la app) ───────────────────────
+
+// ── Componentes locales ───────────────────────────────────────────────────────
+
+function SectionCard({ icon, title, desc, children }: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{
+      background: C.bg2,
+      border: `1px solid ${C.border}`,
+      borderRadius: '12px',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        padding: '16px 20px',
+        borderBottom: `1px solid ${C.border}`,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '12px',
+      }}>
+        <div style={{
+          width: '34px', height: '34px', borderRadius: '8px',
+          background: `${C.accent}18`, border: `1px solid ${C.accent}30`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: C.accent, flexShrink: 0,
+        }}>
+          {icon}
+        </div>
+        <div>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: C.text }}>{title}</p>
+          <p style={{ fontSize: '12px', color: C.text3, marginTop: '2px' }}>{desc}</p>
+        </div>
+      </div>
+      <div style={{ padding: '20px' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function OptionButton({ selected, onClick, children }: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+        padding: '12px', borderRadius: '8px', cursor: 'pointer',
+        border: `1.5px solid ${selected ? C.accent : C.border2}`,
+        background: selected ? `${C.accent}12` : 'transparent',
+        color: selected ? C.accent : C.text3,
+        transition: 'all 0.15s', position: 'relative',
+      }}
+      onMouseEnter={(e) => { if (!selected) { e.currentTarget.style.borderColor = `${C.accent}50`; e.currentTarget.style.color = C.text2; } }}
+      onMouseLeave={(e) => { if (!selected) { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3; } }}
+    >
+      {selected && (
+        <div style={{
+          position: 'absolute', top: '6px', right: '6px',
+          width: '14px', height: '14px', borderRadius: '50%',
+          background: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Check size={9} color="#fff" />
+        </div>
+      )}
+      {children}
+    </button>
+  );
+}
+
+function ToggleRow({ label, desc, checked, onChange, disabled }: {
+  label: string;
+  desc: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '12px 0', opacity: disabled ? 0.5 : 1,
+    }}>
+      <div>
+        <p style={{ fontSize: '13.5px', fontWeight: 500, color: C.text }}>{label}</p>
+        <p style={{ fontSize: '12px', color: C.text3, marginTop: '2px' }}>{desc}</p>
+      </div>
+      <button
+        onClick={() => !disabled && onChange(!checked)}
+        style={{
+          width: '40px', height: '22px', borderRadius: '11px', flexShrink: 0,
+          background: checked ? C.accent : C.border2,
+          border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+          position: 'relative', transition: 'background 0.2s',
+        }}
+      >
+        <div style={{
+          position: 'absolute', top: '3px',
+          left: checked ? '21px' : '3px',
+          width: '16px', height: '16px', borderRadius: '50%',
+          background: '#fff', transition: 'left 0.2s',
+        }} />
+      </button>
+    </div>
+  );
+}
+
+function Divider() {
+  return <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />;
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
   const t = useT();
@@ -54,424 +154,256 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  useEffect(() => {
-    loadPreferences();
-  }, [loadPreferences]);
+  useEffect(() => { loadPreferences(); }, [loadPreferences]);
 
   useEffect(() => {
     if (preferences) {
-      const newPrefs = {
-        ...preferences,
-        theme: currentTheme,
-      };
-      setLocalPrefs(newPrefs);
+      setLocalPrefs({ ...preferences, theme: currentTheme });
     }
   }, [preferences, currentTheme]);
 
   useEffect(() => {
     if (preferences) {
-      const changed =
-        JSON.stringify(localPrefs) !==
-        JSON.stringify({
-          ...preferences,
-          theme: currentTheme,
-        });
-      setHasChanges(changed);
+      setHasChanges(JSON.stringify(localPrefs) !== JSON.stringify({ ...preferences, theme: currentTheme }));
     }
   }, [localPrefs, preferences, currentTheme]);
 
   const handleSave = async () => {
     setIsSaving(true);
-
     try {
-      // Aplicar tema inmediatamente
       setTheme(localPrefs.theme);
-
-      // Guardar preferencias en el backend
       const { theme, ...prefsToSave } = localPrefs;
       await updatePreferences({ ...prefsToSave, theme: localPrefs.theme });
-
       setHasChanges(false);
-      toast({
-        title: t.settings_toast_saved_title,
-        description: t.settings_toast_saved_desc,
-      });
-    } catch (error) {
-      toast({
-        title: t.error_title,
-        description: t.settings_toast_error_desc,
-        variant: 'destructive',
-      });
+      toast({ title: t.settings_toast_saved_title, description: t.settings_toast_saved_desc });
+    } catch {
+      toast({ title: t.error_title, description: t.settings_toast_error_desc, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
-    setLocalPrefs({ ...localPrefs, theme: newTheme });
-  };
-
   if (isLoading && !preferences) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: C.bg }}>
+        <Loader2 size={28} color={C.text3} style={{ animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
 
   const themeOptions = [
     { value: 'light', label: t.settings_theme_light, icon: Sun },
-    { value: 'dark', label: t.settings_theme_dark, icon: Moon },
-    { value: 'system', label: t.settings_theme_system, icon: Monitor },
+    { value: 'dark',  label: t.settings_theme_dark,  icon: Moon },
+    { value: 'system',label: t.settings_theme_system, icon: Monitor },
   ];
 
   const viewOptions = [
     { value: 'kanban', label: t.settings_view_kanban || 'Kanban', icon: Kanban },
-    { value: 'table', label: t.settings_view_table || 'Table', icon: Table2 },
-    { value: 'calendar', label: t.settings_view_calendar || 'Calendar', icon: CalendarDays },
-    { value: 'timeline', label: t.settings_view_timeline || 'Timeline', icon: GanttChart },
+    { value: 'table',  label: t.settings_view_table  || 'Table',  icon: Table2 },
   ];
 
   const frequencyOptions = [
-    {
-      value: 'realtime',
-      label: t.settings_freq_realtime_label,
-      desc: t.settings_freq_realtime_desc,
-    },
-    { value: 'daily', label: t.settings_freq_daily_label, desc: t.settings_freq_daily_desc },
-    { value: 'weekly', label: t.settings_freq_weekly_label, desc: t.settings_freq_weekly_desc },
+    { value: 'realtime', label: t.settings_freq_realtime_label, desc: t.settings_freq_realtime_desc },
+    { value: 'daily',    label: t.settings_freq_daily_label,    desc: t.settings_freq_daily_desc },
+    { value: 'weekly',   label: t.settings_freq_weekly_label,   desc: t.settings_freq_weekly_desc },
   ];
 
   return (
-    <div className="container mx-auto max-w-7xl py-4 md:py-8 px-3 md:px-4">
-      <div className="space-y-4 md:space-y-6">
-        {/* Header con botón de guardar */}
-        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-0 md:justify-between">
+    <div style={{ height: '100%', overflow: 'auto', background: C.bg }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 28px 56px' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t.settings_title}</h1>
-            <p className="text-muted-foreground text-sm md:text-base mt-1 md:mt-2">
-              {t.settings_subtitle}
-            </p>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, color: C.text, marginBottom: '4px' }}>
+              {t.settings_title}
+            </h1>
+            <p style={{ fontSize: '13px', color: C.text3 }}>{t.settings_subtitle}</p>
           </div>
 
           {hasChanges && (
-            <Button onClick={handleSave} disabled={isSaving} size="lg" className="hidden md:flex">
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t.btn_saving}
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  {t.btn_save_changes}
-                </>
-              )}
-            </Button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '7px',
+                padding: '8px 16px', borderRadius: '7px', cursor: isSaving ? 'not-allowed' : 'pointer',
+                background: C.accent, color: '#fff', border: 'none',
+                fontSize: '13px', fontWeight: 600, opacity: isSaving ? 0.7 : 1,
+              }}
+            >
+              {isSaving
+                ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />{t.btn_saving}</>
+                : <><Save size={14} />{t.btn_save_changes}</>
+              }
+            </button>
           )}
         </div>
 
-        {/* Grid Layout - 2 columnas en desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* COLUMNA IZQUIERDA */}
+        {/* Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
 
-          {/* Theme Settings */}
-          <Card className="h-fit">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-primary" />
-                <CardTitle>{t.settings_section_appearance}</CardTitle>
-              </div>
-              <CardDescription>{t.settings_section_appearance_desc}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-2 md:gap-3">
-                {themeOptions.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    onClick={() => handleThemeChange(value as any)}
-                    className={`
-                      relative flex flex-col items-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-lg border-2 transition-all
-                      ${
-                        localPrefs.theme === value
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:border-primary/50 hover:bg-accent/5'
-                      }
-                    `}
-                  >
-                    {localPrefs.theme === value && (
-                      <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2">
-                        <Check className="h-3 w-3 md:h-4 md:w-4 text-primary" />
-                      </div>
-                    )}
-                    <Icon
-                      className={`h-5 w-5 md:h-6 md:w-6 ${localPrefs.theme === value ? 'text-primary' : 'text-muted-foreground'}`}
-                    />
-                    <span
-                      className={`text-xs md:text-sm font-medium text-center ${localPrefs.theme === value ? 'text-primary' : 'text-muted-foreground'}`}
-                    >
-                      {label}
-                    </span>
-                  </button>
-                ))}
+          {/* Apariencia */}
+          <SectionCard
+            icon={<Palette size={16} />}
+            title={t.settings_section_appearance}
+            desc={t.settings_section_appearance_desc}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' }}>
+              {themeOptions.map(({ value, label, icon: Icon }) => (
+                <OptionButton
+                  key={value}
+                  selected={localPrefs.theme === value}
+                  onClick={() => setLocalPrefs({ ...localPrefs, theme: value as any })}
+                >
+                  <Icon size={20} />
+                  <span style={{ fontSize: '11.5px', fontWeight: 500 }}>{label}</span>
+                </OptionButton>
+              ))}
+            </div>
+
+            <div style={{
+              padding: '10px 12px', borderRadius: '7px',
+              background: C.surface, border: `1px solid ${C.border}`,
+              display: 'flex', alignItems: 'center', gap: '8px',
+            }}>
+              <div style={{
+                width: '10px', height: '10px', borderRadius: '50%',
+                background: actualTheme === 'dark' ? '#1e293b' : '#f1f5f9',
+                border: `2px solid ${C.accent}`,
+              }} />
+              <span style={{ fontSize: '12px', color: C.text3 }}>
+                {t.settings_current_theme}{' '}
+                <span style={{ color: C.text, fontWeight: 500 }}>
+                  {actualTheme === 'dark' ? t.settings_theme_dark : t.settings_theme_light}
+                </span>
+              </span>
+            </div>
+          </SectionCard>
+
+          {/* Vista de boards */}
+          <SectionCard
+            icon={<Layout size={16} />}
+            title={t.settings_section_board_view}
+            desc={t.settings_section_board_view_desc}
+          >
+            <p style={{ fontSize: '12px', color: C.text3, marginBottom: '10px' }}>
+              {t.settings_label_default_view}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+              {viewOptions.map(({ value, label, icon: Icon }) => (
+                <OptionButton
+                  key={value}
+                  selected={localPrefs.defaultBoardView === value}
+                  onClick={() => setLocalPrefs({ ...localPrefs, defaultBoardView: value as any })}
+                >
+                  <Icon size={20} />
+                  <span style={{ fontSize: '11.5px', fontWeight: 500 }}>{label}</span>
+                </OptionButton>
+              ))}
+            </div>
+          </SectionCard>
+
+          {/* Notificaciones (col-span 2) */}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <SectionCard
+              icon={<Bell size={16} />}
+              title={t.settings_section_notifications}
+              desc={t.settings_section_notifications_desc}
+            >
+              {/* Badge "En desarrollo" */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '4px 10px', borderRadius: '20px', marginBottom: '20px',
+                background: `${C.amber}12`, border: `1px solid ${C.amber}30`,
+              }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: C.amber }} />
+                <span style={{ fontSize: '11px', color: C.amber, fontWeight: 600 }}>En desarrollo — próximamente</span>
               </div>
 
-              <div className="pt-2">
-                <div className="rounded-lg border border-border p-3 bg-accent/5">
-                  <div className="flex items-center gap-2 text-sm">
-                    <div
-                      className={`w-3 h-3 rounded-full ${actualTheme === 'dark' ? 'bg-slate-800' : 'bg-white'} border-2 border-primary`}
-                    />
-                    <span className="text-muted-foreground">
-                      {t.settings_current_theme}{' '}
-                      <span className="font-medium text-foreground">
-                        {actualTheme === 'dark' ? t.settings_theme_dark : t.settings_theme_light}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Board View Settings */}
-          <Card className="h-fit">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Layout className="h-5 w-5 text-primary" />
-                <CardTitle>{t.settings_section_board_view}</CardTitle>
-              </div>
-              <CardDescription>{t.settings_section_board_view_desc}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-2">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="compactMode" className="text-base">
-                      {t.settings_label_compact_mode}
-                    </Label>
-                    <p className="text-sm text-muted-foreground">{t.settings_compact_mode_desc}</p>
-                  </div>
-                  <Switch
-                    id="compactMode"
-                    checked={localPrefs.compactMode}
-                    onCheckedChange={(checked) =>
-                      setLocalPrefs({ ...localPrefs, compactMode: checked })
-                    }
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', opacity: 0.5, pointerEvents: 'none' }}>
+                {/* Canales */}
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+                    {t.settings_notifications_channels}
+                  </p>
+                  <ToggleRow
+                    label={t.settings_label_email_notif}
+                    desc={t.settings_email_notif_desc}
+                    checked={localPrefs.emailNotifications}
+                    onChange={(v) => setLocalPrefs({ ...localPrefs, emailNotifications: v })}
+                    disabled
+                  />
+                  <Divider />
+                  <ToggleRow
+                    label={t.settings_label_push_notif}
+                    desc={t.settings_push_notif_desc}
+                    checked={localPrefs.pushNotifications}
+                    onChange={(v) => setLocalPrefs({ ...localPrefs, pushNotifications: v })}
+                    disabled
+                  />
+                  <Divider />
+                  <ToggleRow
+                    label={t.settings_label_inapp_notif}
+                    desc={t.settings_inapp_notif_desc}
+                    checked={localPrefs.inAppNotifications}
+                    onChange={(v) => setLocalPrefs({ ...localPrefs, inAppNotifications: v })}
+                    disabled
                   />
                 </div>
 
-                <Separator />
-
-                <div className="space-y-2">
-                  <Label htmlFor="defaultBoardView" className="text-sm md:text-base">
-                    {t.settings_label_default_view}
-                  </Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
-                    {viewOptions.map(({ value, label, icon: Icon }) => (
+                {/* Frecuencia */}
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+                    {t.settings_notifications_frequency}
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {frequencyOptions.map(({ value, label, desc }) => (
                       <button
                         key={value}
-                        onClick={() =>
-                          setLocalPrefs({ ...localPrefs, defaultBoardView: value as any })
-                        }
-                        className={`
-                          flex flex-col items-center gap-1.5 md:gap-2 p-2.5 md:p-3 rounded-lg border transition-all
-                          ${
-                            localPrefs.defaultBoardView === value
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border hover:border-primary/50 text-muted-foreground'
-                          }
-                        `}
+                        onClick={() => setLocalPrefs({ ...localPrefs, notificationFrequency: value as any })}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
+                          border: `1px solid ${localPrefs.notificationFrequency === value ? C.accent : C.border2}`,
+                          background: localPrefs.notificationFrequency === value ? `${C.accent}12` : 'transparent',
+                        }}
                       >
-                        <Icon className="w-5 h-5 md:w-6 md:h-6" />
-                        <span className="text-[10px] md:text-xs font-medium">{label}</span>
+                        <div>
+                          <p style={{ fontSize: '13px', fontWeight: 500, color: localPrefs.notificationFrequency === value ? C.accent : C.text }}>
+                            {label}
+                          </p>
+                          <p style={{ fontSize: '11.5px', color: C.text3, marginTop: '1px' }}>{desc}</p>
+                        </div>
+                        {localPrefs.notificationFrequency === value && <Check size={14} color={C.accent} />}
                       </button>
                     ))}
                   </div>
                 </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between py-2">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="showArchived" className="text-base">
-                      {t.settings_label_show_archived}
-                    </Label>
-                    <p className="text-sm text-muted-foreground">{t.settings_show_archived_desc}</p>
-                  </div>
-                  <Switch
-                    id="showArchived"
-                    checked={localPrefs.showArchived}
-                    onCheckedChange={(checked) =>
-                      setLocalPrefs({ ...localPrefs, showArchived: checked })
-                    }
-                  />
-                </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* COLUMNA DERECHA - Card más grande para notificaciones */}
-
-          {/* Notification Settings */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-primary" />
-                <CardTitle>{t.settings_section_notifications}</CardTitle>
-              </div>
-              <CardDescription>{t.settings_section_notifications_desc}</CardDescription>
-            </CardHeader>
-            <CardContent className="relative">
-              {/* En desarrollo overlay */}
-              <div className="absolute inset-0 z-10 rounded-b-lg backdrop-blur-[2px] bg-background/60 flex flex-col items-center justify-center gap-3 pointer-events-auto">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-card text-muted-foreground text-sm font-mono select-none">
-                  <span className="w-2 h-2 rounded-full bg-yellow-500/80 animate-pulse shrink-0" />
-                  En desarrollo
-                </div>
-                <p className="text-xs text-muted-foreground/60 font-mono">
-                  próximamente disponible
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Columna 1: Tipos de notificación */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    {t.settings_notifications_channels}
-                  </h4>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between py-2">
-                      <div className="space-y-0.5 flex items-center gap-2">
-                        <Mail className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <Label htmlFor="emailNotifications" className="text-base">
-                            {t.settings_label_email_notif}
-                          </Label>
-                          <p className="text-sm text-muted-foreground">
-                            {t.settings_email_notif_desc}
-                          </p>
-                        </div>
-                      </div>
-                      <Switch
-                        id="emailNotifications"
-                        checked={localPrefs.emailNotifications}
-                        onCheckedChange={(checked) =>
-                          setLocalPrefs({ ...localPrefs, emailNotifications: checked })
-                        }
-                      />
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex items-center justify-between py-2">
-                      <div className="space-y-0.5 flex items-center gap-2">
-                        <Smartphone className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <Label htmlFor="pushNotifications" className="text-base">
-                            {t.settings_label_push_notif}
-                          </Label>
-                          <p className="text-sm text-muted-foreground">
-                            {t.settings_push_notif_desc}
-                          </p>
-                        </div>
-                      </div>
-                      <Switch
-                        id="pushNotifications"
-                        checked={localPrefs.pushNotifications}
-                        onCheckedChange={(checked) =>
-                          setLocalPrefs({ ...localPrefs, pushNotifications: checked })
-                        }
-                      />
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex items-center justify-between py-2">
-                      <div className="space-y-0.5 flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <Label htmlFor="inAppNotifications" className="text-base">
-                            {t.settings_label_inapp_notif}
-                          </Label>
-                          <p className="text-sm text-muted-foreground">
-                            {t.settings_inapp_notif_desc}
-                          </p>
-                        </div>
-                      </div>
-                      <Switch
-                        id="inAppNotifications"
-                        checked={localPrefs.inAppNotifications}
-                        onCheckedChange={(checked) =>
-                          setLocalPrefs({ ...localPrefs, inAppNotifications: checked })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Columna 2: Frecuencia */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    {t.settings_notifications_frequency}
-                  </h4>
-
-                  <div className="space-y-2">
-                    <Label className="text-base">{t.settings_label_email_frequency}</Label>
-                    <div className="space-y-2 pt-2">
-                      {frequencyOptions.map(({ value, label, desc }) => (
-                        <button
-                          key={value}
-                          onClick={() =>
-                            setLocalPrefs({ ...localPrefs, notificationFrequency: value as any })
-                          }
-                          className={`
-                            w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all
-                            ${
-                              localPrefs.notificationFrequency === value
-                                ? 'border-primary bg-primary/10'
-                                : 'border-border hover:border-primary/50 hover:bg-accent/5'
-                            }
-                          `}
-                        >
-                          <div className="flex-1">
-                            <div
-                              className={`font-medium ${localPrefs.notificationFrequency === value ? 'text-primary' : 'text-foreground'}`}
-                            >
-                              {label}
-                            </div>
-                            <div className="text-xs text-muted-foreground">{desc}</div>
-                          </div>
-                          {localPrefs.notificationFrequency === value && (
-                            <Check className="h-5 w-5 text-primary" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </SectionCard>
+          </div>
         </div>
 
-        {/* Footer con botón de guardar (sticky en mobile) */}
+        {/* Botón guardar mobile */}
         {hasChanges && (
-          <div className="sticky bottom-4 flex justify-center lg:hidden">
-            <Button onClick={handleSave} disabled={isSaving} size="lg" className="shadow-lg">
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t.btn_saving}
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  {t.btn_save_changes}
-                </>
-              )}
-            </Button>
+          <div style={{ position: 'sticky', bottom: '16px', display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '7px',
+                padding: '10px 24px', borderRadius: '8px', cursor: isSaving ? 'not-allowed' : 'pointer',
+                background: C.accent, color: '#fff', border: 'none',
+                fontSize: '13px', fontWeight: 600, opacity: isSaving ? 0.7 : 1,
+                boxShadow: '0 4px 20px rgba(59,130,246,0.35)',
+              }}
+            >
+              {isSaving
+                ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />{t.btn_saving}</>
+                : <><Save size={14} />{t.btn_save_changes}</>
+              }
+            </button>
           </div>
         )}
       </div>

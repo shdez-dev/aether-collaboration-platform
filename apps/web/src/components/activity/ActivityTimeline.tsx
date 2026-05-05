@@ -5,6 +5,7 @@ import { ActivityEventCard } from './ActivityEventCard';
 import { groupEventsByDate, type ActivityLogEntry } from '@/lib/utils/activityLog';
 import { useT } from '@/lib/i18n';
 import { Loader2 } from 'lucide-react';
+import { C } from '@/lib/colors';
 
 interface ActivityTimelineProps {
   events: ActivityLogEntry[];
@@ -15,17 +16,6 @@ interface ActivityTimelineProps {
   accentColor?: string;
 }
 
-const C = {
-  bg2:     '#0f1217',
-  surface: '#14171c',
-  hover:   '#1c2128',
-  border:  '#1f2329',
-  text:    '#e6e8eb',
-  text2:   '#a1a7b0',
-  text3:   '#6b7280',
-  text4:   '#4b5260',
-  accent:  '#3b82f6',
-};
 
 export function ActivityTimeline({
   events,
