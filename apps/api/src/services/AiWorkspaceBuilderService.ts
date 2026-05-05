@@ -81,6 +81,10 @@ class AiWorkspaceBuilderService {
           );
 
           // 7. Crear listas del board
+          // Track title→id for dependency resolution within this board
+          const cardTitleToId = new Map<string, string>();
+          const pendingDeps: Array<{ blockingTitle: string; blockedId: string }> = [];
+
           for (let lIdx = 0; lIdx < (board.lists ?? []).length; lIdx++) {
             const list = board.lists[lIdx];
 
@@ -96,9 +100,10 @@ class AiWorkspaceBuilderService {
             for (let cIdx = 0; cIdx < (list.cards ?? []).length; cIdx++) {
               const card = list.cards[cIdx];
 
-              await client.query(
+              const cardResult = await client.query(
                 `INSERT INTO cards (id, list_id, title, description, position, priority, due_date, completed, created_by, updated_at)
-                 VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, false, $7, CURRENT_TIMESTAMP)`,
+                 VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, false, $7, CURRENT_TIMESTAMP)
+                 RETURNING id`,
                 [
                   listId,
                   card.title,
@@ -109,7 +114,36 @@ class AiWorkspaceBuilderService {
                   userId,
                 ]
               );
+              const cardId: string = cardResult.rows[0].id;
+              cardTitleToId.set(card.title, cardId);
+
+              // 8a. Crear checklist items
+              for (let iIdx = 0; iIdx < (card.checklistItems ?? []).length; iIdx++) {
+                const itemTitle = card.checklistItems![iIdx];
+                await client.query(
+                  `INSERT INTO card_checklist_items (id, card_id, title, completed, position, created_by, updated_at)
+                   VALUES (gen_random_uuid(), $1, $2, false, $3, $4, CURRENT_TIMESTAMP)`,
+                  [cardId, itemTitle, iIdx, userId]
+                );
+              }
+
+              // 8b. Registrar dependencias pendientes para resolver después
+              for (const depTitle of (card.dependsOn ?? [])) {
+                pendingDeps.push({ blockingTitle: depTitle, blockedId: cardId });
+              }
             }
+          }
+
+          // 9. Resolver y crear dependencias entre cards del board
+          for (const dep of pendingDeps) {
+            const blockingId = cardTitleToId.get(dep.blockingTitle);
+            if (!blockingId || blockingId === dep.blockedId) continue;
+            await client.query(
+              `INSERT INTO card_dependencies (id, blocking_card_id, blocked_card_id, created_by)
+               VALUES (gen_random_uuid(), $1, $2, $3)
+               ON CONFLICT DO NOTHING`,
+              [blockingId, dep.blockedId, userId]
+            );
           }
         }
       }

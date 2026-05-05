@@ -29,6 +29,8 @@ export interface AiWorkspacePlan {
           description?: string;
           priority?: 'LOW' | 'MEDIUM' | 'HIGH';
           dueDate?: string | null;
+          checklistItems?: string[];
+          dependsOn?: string[];
         }>;
       }>;
     }>;
@@ -62,13 +64,15 @@ Schema:
           "description": "string",
           "lists": [
             {
-              "name": "string (e.g. Backlog, To Do, In Progress, Review, Done)",
+              "name": "string",
               "cards": [
                 {
                   "title": "string (max 120 chars)",
                   "description": "string (optional, 1-2 sentences)",
                   "priority": "LOW | MEDIUM | HIGH",
-                  "dueDate": "YYYY-MM-DD or null"
+                  "dueDate": "YYYY-MM-DD or null",
+                  "checklistItems": ["string", "string"],
+                  "dependsOn": ["exact title of another card in this same board's Backlog"]
                 }
               ]
             }
@@ -87,6 +91,9 @@ Rules:
 - ALL cards must be placed exclusively in the FIRST list ("Backlog"). The other lists must have empty cards arrays: "cards": [].
 - Each Backlog list: 4-8 cards with concrete, actionable task titles.
 - Cards should be real tasks, not generic placeholders.
+- For complex cards, add "checklistItems": an array of 2-5 short subtask strings (e.g. ["Write unit tests", "Add error handling", "Update docs"]).
+- For cards that logically depend on another card finishing first, add "dependsOn": an array with the EXACT title of 1-2 other cards in the same board's Backlog list. Only reference cards that actually exist in that list.
+- Not every card needs checklistItems or dependsOn — only where it makes real project sense.
 - Never output text outside the JSON object.`;
 
 class AiPlannerService {

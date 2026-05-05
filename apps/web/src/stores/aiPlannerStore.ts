@@ -10,6 +10,8 @@ export interface AiCard {
   description?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH';
   dueDate?: string | null;
+  checklistItems?: string[];
+  dependsOn?: string[];
 }
 
 export interface AiList {

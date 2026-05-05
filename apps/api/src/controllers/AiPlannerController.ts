@@ -43,6 +43,8 @@ const workspacePlanSchema = z.object({
                   description: z.string().optional(),
                   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
                   dueDate: z.string().nullable().optional(),
+                  checklistItems: z.array(z.string().max(500)).optional(),
+                  dependsOn: z.array(z.string().max(255)).optional(),
                 })
               ),
             })
