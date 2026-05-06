@@ -1948,12 +1948,7 @@ export default function CollaborativeEditor({
         <BubbleMenu
           editor={editor}
           tippyOptions={{ duration: 100 }}
-          className="flex items-center gap-0.5 px-1 py-1"
-          style={{
-            background: C.surface, border: `1px solid ${C.border2}`,
-            borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            gap: '2px', padding: '4px',
-          }}
+          className="flex items-center gap-0.5 rounded-[8px] p-1"
         >
           {[
             { cmd: () => editor.chain().focus().toggleBold().run(),      active: editor.isActive('bold'),      icon: <Bold style={{ width: '13px', height: '13px' }} />,          title: 'Negrita' },

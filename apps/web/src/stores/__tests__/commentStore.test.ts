@@ -137,6 +137,8 @@ describe('CommentStore', () => {
     });
 
     it('should show optimistic comment immediately', async () => {
+      jest.useFakeTimers();
+
       mockCommentService.createComment.mockImplementation(
         () => new Promise((resolve) => setTimeout(() => resolve(mockComment), 100))
       );
@@ -153,6 +155,8 @@ describe('CommentStore', () => {
         const hasOptimistic = comments.some((c) => c.id.startsWith('temp-'));
         expect(hasOptimistic).toBe(true);
       });
+
+      jest.useRealTimers();
     });
 
     it('should rollback optimistic comment on error', async () => {

@@ -25,6 +25,8 @@
     --c-green:   #10b981;
     --c-amber:   #f59e0b;
     --c-red:     #ef4444;
+    --c-purple:  #8b5cf6;
+    --c-surface2:#1a1f27;
     --foreground: 210 40% 98%;
 
     --card: 0 0% 7%;
@@ -74,6 +76,8 @@
     --c-green:   #059669;
     --c-amber:   #d97706;
     --c-red:     #dc2626;
+    --c-purple:  #7c3aed;
+    --c-surface2:#f5f7fa;
     --foreground: 220 25% 18%;
 
     --card: 0 0% 100%;

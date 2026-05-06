@@ -207,6 +207,30 @@ export type GithubEventType =
   | 'github.pr.review_requested';
 
 /**
+ * Project Events
+ */
+export type ProjectEventType =
+  | 'project.created'
+  | 'project.updated'
+  | 'project.deleted'
+  | 'project.status.changed'
+  | 'project.board.assigned'
+  | 'project.board.removed'
+  | 'project.milestone.created'
+  | 'project.milestone.completed';
+
+/**
+ * Team Events
+ */
+export type TeamEventType =
+  | 'team.created'
+  | 'team.updated'
+  | 'team.deleted'
+  | 'team.member.added'
+  | 'team.member.removed'
+  | 'team.member.roleChanged';
+
+/**
  * All possible event types
  */
 export type EventType =
@@ -219,7 +243,9 @@ export type EventType =
   | DocumentEventType
   | NotificationEventType
   | PresenceEventType
-  | GithubEventType;
+  | GithubEventType
+  | ProjectEventType
+  | TeamEventType;
 
 // ============================================================================
 // AUTH EVENT PAYLOADS
