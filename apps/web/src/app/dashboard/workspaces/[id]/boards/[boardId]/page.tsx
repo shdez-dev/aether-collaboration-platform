@@ -1,7 +1,7 @@
 // apps/web/src/app/dashboard/workspaces/[id]/boards/[boardId]/page.tsx
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
@@ -59,6 +59,8 @@ import { useT } from '@/lib/i18n';
 import type { BoardView } from '@aether/types';
 import { BoardTableView } from '@/components/BoardTableView';
 import { C } from '@/lib/colors';
+import { useBoardCursors } from '@/hooks/useBoardCursors';
+import { RemoteCursors } from '@/components/realtime/RemoteCursors';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getRoleMeta(role: string, t: { role_owner: string; role_admin: string; role_member: string; role_viewer: string }) {
@@ -110,6 +112,10 @@ export default function BoardPage() {
   const [currentView, setCurrentView] = useState<BoardView>('kanban');
   const [viewInitialized, setViewInitialized] = useState(false);
   const [recentActivity, setRecentActivity] = useState<ActivityLogEntry[]>([]);
+
+  // Cursor presence
+  const kanbanRef = useRef<HTMLDivElement>(null);
+  const { cursors: remoteCursors } = useBoardCursors(boardId, kanbanRef);
 
   const handleViewChange = async (view: BoardView) => {
     setCurrentView(view);
@@ -524,7 +530,8 @@ export default function BoardPage() {
             </div>
           ) : (
             /* ── Kanban ──────────────────────────────────────────────── */
-            <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
+            <div ref={kanbanRef} style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', position: 'relative' }}>
+              <RemoteCursors cursors={remoteCursors} />
               <div style={{ height: '100%', padding: '16px 20px' }}>
                 <DndContext
                   sensors={sensors}
@@ -556,7 +563,7 @@ export default function BoardPage() {
                     {activeList ? (
                       <div style={{ width: '272px', opacity: 0.85, transform: 'rotate(2deg)' }}>
                         <div style={{
-                          background: '#12151b', border: `1px solid ${C.accent}`,
+                          background: C.bg2, border: `1px solid ${C.accent}`,
                           borderRadius: '10px', padding: '12px 14px',
                           fontSize: '13px', fontWeight: 600, color: C.text,
                           boxShadow: '0 16px 40px rgba(0,0,0,0.5)',

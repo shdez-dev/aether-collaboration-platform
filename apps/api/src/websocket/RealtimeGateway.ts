@@ -282,6 +282,21 @@ export class RealtimeGateway {
       });
 
       // ========================================================================
+      // CURSOR PRESENCE (efímero — no se persiste en Redis)
+      // ========================================================================
+      socket.on('cursor:move', (data: { boardId: string; x: number; y: number }) => {
+        const { boardId, x, y } = data;
+        if (!boardId || typeof x !== 'number' || typeof y !== 'number') return;
+        // Re-broadcast solo a los demás usuarios del board
+        socket.to(`board:${boardId}`).emit('cursor:moved', {
+          userId: authSocket.userId,
+          name: authSocket.userName,
+          x,
+          y,
+        });
+      });
+
+      // ========================================================================
       // PING/PONG (para mantener conexión activa)
       // ========================================================================
       socket.on('ping', () => {

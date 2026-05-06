@@ -267,6 +267,21 @@ class SocketService {
     this.on('typing:stopped', callback);
   }
 
+  // ─── Cursores ─────────────────────────────────────────────────────────────
+
+  emitCursorMove(boardId: string, x: number, y: number): void {
+    if (!this.isConnected()) return;
+    this.socket?.emit('cursor:move', { boardId, x, y });
+  }
+
+  onCursorMoved(callback: (data: { userId: string; name: string; x: number; y: number }) => void): void {
+    this.on('cursor:moved', callback);
+  }
+
+  offCursorMoved(callback: (data: any) => void): void {
+    this.off('cursor:moved', callback);
+  }
+
   startTyping(cardId: string): void {
     if (!this.isConnected()) return;
     this.emit('typing:start', { cardId });
