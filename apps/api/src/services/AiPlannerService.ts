@@ -29,7 +29,6 @@ export interface AiWorkspacePlan {
           description?: string;
           priority?: 'LOW' | 'MEDIUM' | 'HIGH';
           milestoneIndex?: number;
-          dueDate?: string | null;
           checklistItems?: string[];
           dependsOn?: string[];
         }>;
@@ -38,17 +37,84 @@ export interface AiWorkspacePlan {
   }>;
 }
 
-const SYSTEM_PROMPT = `You are an expert project manager and software architect for Aether, a team collaboration platform.
-Analyze the provided document and generate a complete, professional workspace plan.
+const SYSTEM_PROMPT = `You are a project planning engine. Your sole output is a single valid JSON object — no markdown, no backticks, no prose, no text outside the JSON.
 
-You MUST respond with ONLY valid JSON — no markdown, no backticks, no explanation, no text outside the JSON.
+## STEP 1 — INTERPRET THE DOCUMENT
+Before generating JSON, internally extract:
+- What is the product or system being built? (name it precisely)
+- What are its major technical components? (e.g. REST API, React UI, PostgreSQL schema, CI/CD pipeline, mobile app, ML model)
+- What are the main functional areas? (e.g. authentication, payments, notifications, reporting)
+- What is the domain? (e.g. e-commerce, healthcare, fintech, logistics, SaaS B2B)
 
-Schema:
+Each board must map to one of those extracted components. Never generate boards named "Backend", "Frontend", "DevOps" unless those exact labels appear in the document — use the actual names of the system's components.
+
+## STEP 2 — DEFINE MILESTONES
+Generate 2–4 milestones that represent sequential phases of the project:
+- M1: Foundation (infrastructure, setup, data models, base architecture)
+- M2: Core features (main functionality, primary user flows)
+- M3+: Polish, QA, integrations, deployment (only if needed)
+Each milestone: { "name": string, "description": string, "dueDate": null }
+
+## STEP 3 — GENERATE BOARDS
+Generate 3–5 boards, one per major technical component identified in Step 1.
+Each board has exactly 4 lists: "Backlog", "In Progress", "Review", "Done".
+Only "Backlog" contains cards. The other 3 lists always have "cards": [].
+
+## STEP 4 — GENERATE CARDS (apply ALL rules below)
+
+### TASK DEFINITION RULES
+- Every card title MUST follow the pattern: [Action Verb] + [Concrete Object]
+  Good: "Implement JWT refresh token rotation", "Design PostgreSQL schema for orders"
+  Bad: "Backend setup", "Work on authentication", "Improve performance"
+- Titles: max 120 chars, must be completable in 1–3 days by one person
+- Each Backlog: 4–8 cards
+- Every card MUST have "priority": "LOW" | "MEDIUM" | "HIGH"
+  - Assign at least 1 HIGH card per board (the most critical blocker)
+  - HIGH = blocks other work or is on the critical path
+  - MEDIUM = important but not an immediate blocker
+  - LOW = nice-to-have or polish
+
+### MILESTONE DISTRIBUTION RULES
+Distribute cards across milestones as follows:
+- milestoneIndex 1 (Foundation): 25–35% of cards in the board → setup, schemas, base config, auth scaffolding
+- milestoneIndex 2 (Core): 40–50% of cards → primary features, main business logic
+- milestoneIndex N (Final): remaining cards → integration, testing, deployment, polish
+Rules:
+- milestoneIndex must be between 1 and the total number of milestones
+- Never put all cards in milestoneIndex 1
+- HIGH priority foundation cards belong in milestoneIndex 1
+
+### DEPENDENCY RULES
+- Use "dependsOn" only when card A cannot start until card B is fully done
+- "dependsOn" must contain the EXACT title of 1–2 other cards in the same board's Backlog
+- If card A dependsOn card B, then A's milestoneIndex >= B's milestoneIndex
+- Never create circular dependencies
+- Not every card needs "dependsOn" — only genuine blockers
+
+### CHECKLIST RULES
+- Add "checklistItems" only to cards with multiple distinct sub-steps
+- 2–5 short action strings per checklist (e.g. ["Create DB migration", "Add index on foreign key", "Write integration test"])
+- Simple cards do not need a checklist
+
+### ANTI-GENERIC RULE
+Every card title must be specific to the domain and system described in the document.
+If the document is about a healthcare appointment system, cards must mention appointments, patients, doctors, schedules — not "Create CRUD endpoints" or "Add API routes".
+Replace every generic term with the specific domain term from the document.
+
+### STRICT VALIDATION (check before outputting)
+- All card titles within a board must be unique
+- milestoneIndex on every card is an integer between 1 and total milestones
+- Every milestone index from 1 to N has at least 1 card assigned across all boards
+- Each board has at least 1 card with "priority": "HIGH"
+- No card in "dependsOn" references a title that doesn't exist in that board's Backlog
+- "In Progress", "Review", "Done" lists always have "cards": []
+
+## OUTPUT SCHEMA
 {
   "workspace": {
-    "name": "string (max 60 chars)",
-    "description": "string (1-2 sentences)",
-    "icon": "single emoji",
+    "name": "string (max 60 chars, reflects the actual product name)",
+    "description": "string (1–2 sentences, specific to the domain)",
+    "icon": "single emoji matching the domain",
     "color": "hex color (e.g. #3b82f6)"
   },
   "projects": [
@@ -57,26 +123,29 @@ Schema:
       "description": "string",
       "status": "PLANNING",
       "milestones": [
-        { "name": "string", "description": "string", "dueDate": "YYYY-MM-DD or null" }
+        { "name": "string", "description": "string", "dueDate": null }
       ],
       "boards": [
         {
-          "name": "string (e.g. Backend, Frontend, Design, QA)",
+          "name": "string (specific component name from the document)",
           "description": "string",
           "lists": [
             {
-              "name": "string",
+              "name": "Backlog",
               "cards": [
                 {
-                  "title": "string (max 120 chars)",
-                  "description": "string (optional, 1-2 sentences)",
+                  "title": "string",
+                  "description": "string (optional, 1 sentence max)",
                   "priority": "LOW | MEDIUM | HIGH",
                   "milestoneIndex": 1,
-                  "checklistItems": ["string", "string"],
-                  "dependsOn": ["exact title of another card in this same board's Backlog"]
+                  "checklistItems": ["string"],
+                  "dependsOn": ["exact title of another card in this board's Backlog"]
                 }
               ]
-            }
+            },
+            { "name": "In Progress", "cards": [] },
+            { "name": "Review", "cards": [] },
+            { "name": "Done", "cards": [] }
           ]
         }
       ]
@@ -84,29 +153,7 @@ Schema:
   ]
 }
 
-Rules:
-- Generate EXACTLY 1 project. Do not generate multiple projects.
-- The project must have 2-4 milestones and 3-5 boards (one board per major technical area e.g. Backend, Frontend, DevOps, QA, Design).
-- Each board: exactly 4 lists named: "Backlog", "In Progress", "Review", "Done".
-- ALL cards must be placed exclusively in the FIRST list ("Backlog"). The other lists must have empty cards arrays: "cards": [].
-- Each Backlog list: 4-8 cards with concrete, actionable task titles.
-- Cards should be real tasks, not generic placeholders.
-- For complex cards, add "checklistItems": an array of 2-5 short subtask strings (e.g. ["Write unit tests", "Add error handling", "Update docs"]).
-- For cards that logically depend on another card finishing first, add "dependsOn": an array with the EXACT title of 1-2 other cards in the same board's Backlog list. Only reference cards that actually exist in that list.
-- Not every card needs checklistItems or dependsOn — only where it makes real project sense.
-
-MILESTONE ASSIGNMENT RULES:
-- Each card must have a "milestoneIndex" field: an integer indicating which milestone phase the card belongs to (1 = first milestone, 2 = second, etc.).
-- Assign milestoneIndex based on the semantic phase of the work:
-    * Foundation tasks (setup, infrastructure, architecture decisions) → milestoneIndex: 1
-    * Core feature implementation tasks → milestoneIndex: 2 (or later)
-    * Integration, polish, QA, and deployment tasks → last milestone index
-- If a card A has "dependsOn" card B, card A's milestoneIndex must be >= card B's milestoneIndex.
-- HIGH priority cards that are blockers for others should get the lowest milestoneIndex possible.
-- Distribute cards across milestone phases logically — avoid putting all cards in milestoneIndex 1.
-- milestoneIndex must be between 1 and the total number of milestones in the project.
-- Do NOT include a "dueDate" field on cards — the server will compute dates from milestoneIndex.
-- Never output text outside the JSON object.`;
+Generate EXACTLY 1 project. Never output text outside the JSON object.`;
 
 class AiPlannerService {
   private client: Groq;
@@ -146,8 +193,8 @@ class AiPlannerService {
 
   private async generateReduced(doc: string): Promise<AiWorkspacePlan> {
     const reducedPrompt = SYSTEM_PROMPT
-      .replace('3-5 boards', '2 boards maximum')
-      .replace('Each Backlog list: 4-8 cards', 'Each Backlog list: 3-5 cards');
+      .replace('3–5 boards', '2 boards maximum')
+      .replace('4–8 cards', '3–5 cards');
 
     const completion = await this.client.chat.completions.create({
       model: 'llama-3.1-8b-instant',
@@ -155,7 +202,7 @@ class AiPlannerService {
       temperature: 0.3,
       messages: [
         { role: 'system', content: reducedPrompt },
-        { role: 'user', content: `Analyze this document and generate a focused workspace plan (1 project, most important workstream only):\n\n${doc}` },
+        { role: 'user', content: `Analyze this document and generate a focused workspace plan (1 project, 2 boards max):\n\n${doc}` },
       ],
     });
 
@@ -181,7 +228,7 @@ class AiPlannerService {
       plan = JSON.parse(text);
     } catch {
       console.error('[AiPlannerService] Raw response (first 500 chars):', rawText.slice(0, 500));
-      throw new Error('[AiPlannerService] Failed to parse JSON response from Gemini');
+      throw new Error('[AiPlannerService] Failed to parse JSON response from AI');
     }
 
     // Validate minimum structure
@@ -195,101 +242,7 @@ class AiPlannerService {
       throw new Error('[AiPlannerService] Response missing required structure');
     }
 
-    return this.assignDates(plan);
-  }
-
-  private assignDates(plan: AiWorkspacePlan): AiWorkspacePlan {
-    const today = new Date().toISOString().split('T')[0];
-
-    for (const project of plan.projects) {
-      const milestones = [...project.milestones]
-        .filter(m => m.dueDate)
-        .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!));
-
-      if (milestones.length === 0) continue;
-
-      // Build phase ranges: phase i (1-based) → [start, end]
-      const ranges: Array<{ start: string; end: string }> = milestones.map((m, i) => ({
-        start: i === 0 ? today : this.addDays(milestones[i - 1].dueDate!, 1),
-        end: m.dueDate!,
-      }));
-
-      const totalPhases = ranges.length;
-
-      for (const board of project.boards) {
-        const backlog = board.lists.find(l => l.name === 'Backlog');
-        if (!backlog || backlog.cards.length === 0) continue;
-
-        const cards = backlog.cards;
-
-        // Map title → card for dependency lookups
-        const cardMap = new Map(cards.map(c => [c.title, c]));
-
-        // Resolve effective milestoneIndex for each card clamped to valid range
-        const effectivePhase = new Map<string, number>();
-        for (const card of cards) {
-          const raw = card.milestoneIndex ?? 1;
-          effectivePhase.set(card.title, Math.min(Math.max(raw, 1), totalPhases));
-        }
-
-        // Topological sort to propagate dependency constraints
-        const visited = new Set<string>();
-        const order: string[] = [];
-        const visit = (title: string) => {
-          if (visited.has(title)) return;
-          visited.add(title);
-          const card = cardMap.get(title);
-          for (const dep of card?.dependsOn ?? []) {
-            if (cardMap.has(dep)) visit(dep);
-          }
-          order.push(title);
-        };
-        for (const card of cards) visit(card.title);
-
-        // Bump phase forward if a dependency is in a later phase
-        for (const title of order) {
-          const card = cardMap.get(title);
-          for (const dep of card?.dependsOn ?? []) {
-            const depPhase = effectivePhase.get(dep) ?? 1;
-            const myPhase = effectivePhase.get(title) ?? 1;
-            if (depPhase >= myPhase) {
-              effectivePhase.set(title, Math.min(depPhase + 1, totalPhases));
-            }
-          }
-        }
-
-        // Group cards by their final phase
-        const byPhase = new Map<number, typeof cards>();
-        for (const card of cards) {
-          const phase = effectivePhase.get(card.title)!;
-          if (!byPhase.has(phase)) byPhase.set(phase, []);
-          byPhase.get(phase)!.push(card);
-        }
-
-        // Assign evenly-spaced dates within each phase range
-        for (const [phase, phaseCards] of byPhase) {
-          const range = ranges[phase - 1];
-          if (!range) continue;
-
-          const startMs = new Date(range.start).getTime();
-          const endMs = new Date(range.end).getTime();
-          const count = phaseCards.length;
-          const step = count > 1 ? (endMs - startMs) / (count - 1) : 0;
-
-          phaseCards.forEach((card, i) => {
-            card.dueDate = new Date(startMs + step * i).toISOString().split('T')[0];
-          });
-        }
-      }
-    }
-
     return plan;
-  }
-
-  private addDays(date: string, days: number): string {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
   }
 }
 

@@ -406,6 +406,139 @@ function ProjectSection({
 // ── Step 1: Document input ────────────────────────────────────────────────────
 type PlanDoc = { id: string; title: string; updated_at: string };
 
+// ── Guided form types ─────────────────────────────────────────────────────────
+interface ProjectForm {
+  intro: string;
+  problem: string;
+  solution: string;
+  scopeIn: string;
+  scopeOut: string;
+  goalGeneral: string;
+  goalsSpecific: string[];
+  team: Array<{ name: string; role: string; responsibilities: string }>;
+  startDate: string;
+  launchDate: string;
+  milestones: Array<{ name: string; date: string }>;
+  stack: { backend: string; frontend: string; database: string; devops: string; apis: string };
+  functionalReqs: Array<{ module: string; description: string }>;
+  nonFunctional: { performance: string; security: string; scalability: string; compliance: string };
+  kpis: Array<{ indicator: string; target: string; frequency: string }>;
+  risks: Array<{ risk: string; mitigation: string }>;
+}
+
+const EMPTY_FORM: ProjectForm = {
+  intro: '', problem: '', solution: '', scopeIn: '', scopeOut: '',
+  goalGeneral: '', goalsSpecific: ['', '', ''],
+  team: [{ name: '', role: '', responsibilities: '' }],
+  startDate: '', launchDate: '',
+  milestones: [{ name: '', date: '' }, { name: '', date: '' }, { name: '', date: '' }],
+  stack: { backend: '', frontend: '', database: '', devops: '', apis: '' },
+  functionalReqs: [{ module: '', description: '' }, { module: '', description: '' }, { module: '', description: '' }],
+  nonFunctional: { performance: '', security: '', scalability: '', compliance: '' },
+  kpis: [{ indicator: '', target: '', frequency: '' }],
+  risks: [{ risk: '', mitigation: '' }],
+};
+
+function serializeProjectForm(f: ProjectForm): string {
+  const out: string[] = [];
+  const push = (...lines: string[]) => lines.forEach(l => out.push(l));
+
+  push('# Constructor IA — Plan de Proyecto', '');
+
+  push('## 1. Introducción');
+  push(f.intro.trim() || '(no proporcionado)', '');
+
+  push('## 2. Descripción del Problema');
+  push(f.problem.trim() || '(no proporcionado)', '');
+
+  push('## 3. Formulación de la Solución');
+  push(f.solution.trim() || '(no proporcionado)', '');
+
+  push('## 4. Alcance y Restricciones');
+  push('**Incluido en esta versión:**');
+  const inc = f.scopeIn.split('\n').map(l => l.trim()).filter(Boolean);
+  inc.length ? inc.forEach(l => push(`- ${l}`)) : push('- (no especificado)');
+  push('');
+  push('**Excluido (versiones futuras):**');
+  const exc = f.scopeOut.split('\n').map(l => l.trim()).filter(Boolean);
+  exc.length ? exc.forEach(l => push(`- ${l}`)) : push('- (no especificado)');
+  push('');
+
+  push('## 5. Objetivos');
+  push(`**Objetivo general:** ${f.goalGeneral.trim() || '(no definido)'}`, '', '**Objetivos específicos:**');
+  const specs = f.goalsSpecific.filter(g => g.trim());
+  specs.length ? specs.forEach((g, i) => push(`${i + 1}. ${g.trim()}`)) : push('1. (no definido)');
+  push('');
+
+  push('## 6. Equipo de Trabajo y Roles');
+  push('| Nombre | Rol | Responsabilidades |', '|--------|-----|-------------------|');
+  const validTeam = f.team.filter(m => m.name.trim() || m.role.trim());
+  validTeam.length ? validTeam.forEach(m => push(`| ${m.name} | ${m.role} | ${m.responsibilities} |`)) : push('| (no definido) | | |');
+  push('');
+
+  push('## 7. Cronograma e Hitos');
+  push(
+    `- **Fecha de inicio del proyecto:** ${f.startDate || '(no definida)'}`,
+    `- **Fecha objetivo de lanzamiento:** ${f.launchDate || '(no definida)'}`,
+    '', '**Hitos clave:**'
+  );
+  const validMs = f.milestones.filter(m => m.name.trim());
+  validMs.length ? validMs.forEach((m, i) => push(`${i + 1}. ${m.name.trim()}${m.date ? ` — ${m.date}` : ''}`)) : push('1. (no definido)');
+  push('');
+
+  push('## 8. Stack Tecnológico');
+  push(
+    `- **Backend:** ${f.stack.backend || '(no especificado)'}`,
+    `- **Frontend:** ${f.stack.frontend || '(no especificado)'}`,
+    `- **Base de datos:** ${f.stack.database || '(no especificado)'}`,
+    `- **Infraestructura / DevOps:** ${f.stack.devops || '(no especificado)'}`,
+    `- **APIs externas / Integraciones:** ${f.stack.apis || '(no especificado)'}`,
+    ''
+  );
+
+  push('## 9. Requerimientos Funcionales');
+  const validReqs = f.functionalReqs.filter(r => r.module.trim());
+  validReqs.length ? validReqs.forEach((r, i) => push(`${i + 1}. **${r.module.trim()}:** ${r.description.trim()}`)) : push('1. (no definido)');
+  push('');
+
+  push('## 10. Requerimientos No Funcionales');
+  push(
+    `- **Rendimiento:** ${f.nonFunctional.performance || '(no especificado)'}`,
+    `- **Seguridad:** ${f.nonFunctional.security || '(no especificado)'}`,
+    `- **Escalabilidad:** ${f.nonFunctional.scalability || '(no especificado)'}`,
+    `- **Cumplimiento / Legal:** ${f.nonFunctional.compliance || '(no especificado)'}`,
+    ''
+  );
+
+  push('## 11. KPIs e Indicadores de Gestión');
+  push('| Indicador | Meta | Frecuencia |', '|-----------|------|------------|');
+  const validKpis = f.kpis.filter(k => k.indicator.trim());
+  validKpis.length ? validKpis.forEach(k => push(`| ${k.indicator} | ${k.target} | ${k.frequency} |`)) : push('| (no definido) | | |');
+  push('');
+
+  push('## 12. Riesgos Identificados');
+  push('| Riesgo | Mitigación |', '|--------|-----------|');
+  const validRisks = f.risks.filter(r => r.risk.trim());
+  validRisks.length ? validRisks.forEach(r => push(`| ${r.risk} | ${r.mitigation} |`)) : push('| (no definido) | |');
+
+  return out.join('\n');
+}
+
+const FORM_SECTIONS = [
+  { title: 'Introducción', hint: 'Contexto general: ¿qué motivó el proyecto, para quién es, qué vacío aborda?' },
+  { title: 'Descripción del Problema', hint: '¿Qué problema concreto resuelve? ¿Qué consecuencias tiene no resolverlo?' },
+  { title: 'Formulación de la Solución', hint: '¿Qué estás construyendo exactamente? Describe los módulos o componentes principales.' },
+  { title: 'Alcance y Restricciones', hint: 'Qué está incluido en esta versión y qué queda para versiones futuras.' },
+  { title: 'Objetivos', hint: 'Objetivo general y objetivos específicos medibles.' },
+  { title: 'Equipo de Trabajo y Roles', hint: 'Lista cada persona, su rol y responsabilidades. Ayuda a la IA a asignar boards por área.' },
+  { title: 'Cronograma e Hitos', hint: 'Fechas de inicio, lanzamiento y hitos clave del proyecto.' },
+  { title: 'Stack Tecnológico', hint: 'Tecnologías que guían qué boards crea la IA (Backend, Frontend, DevOps, etc.).' },
+  { title: 'Requerimientos Funcionales', hint: 'Funcionalidades y módulos principales. Se convierten en cards concretas.' },
+  { title: 'Requerimientos No Funcionales', hint: 'Rendimiento, seguridad, escalabilidad, cumplimiento. Se convierten en cards de QA y DevOps.' },
+  { title: 'KPIs e Indicadores', hint: '¿Cómo medirás el éxito? Indicador, meta y frecuencia de medición.' },
+  { title: 'Riesgos Identificados', hint: 'Riesgos y estrategias de mitigación. Pueden convertirse en cards de dependencia.' },
+];
+
 function Step1({
   credits,
   onGenerate,
@@ -420,14 +553,45 @@ function Step1({
   t: any;
 }) {
   const { uiLanguage } = useAuthStore();
+  const noCredits = credits === 0;
+
+  // Mode toggle
+  const [mode, setMode] = useState<'form' | 'text'>('form');
+
+  // ── Form mode state ──────────────────────────────────────────────
+  const [form, setForm] = useState<ProjectForm>(EMPTY_FORM);
+  const [openSections, setOpenSections] = useState<boolean[]>(
+    Array(12).fill(false).map((_, i) => i === 0)
+  );
+  const toggleSection = (i: number) =>
+    setOpenSections(prev => prev.map((v, j) => (j === i ? !v : v)));
+
+  const sectionFilled = [
+    form.intro.trim().length > 0,
+    form.problem.trim().length > 0,
+    form.solution.trim().length > 0,
+    form.scopeIn.trim().length > 0 || form.scopeOut.trim().length > 0,
+    form.goalGeneral.trim().length > 0 || form.goalsSpecific.some(g => g.trim()),
+    form.team.some(m => m.name.trim() || m.role.trim()),
+    !!(form.startDate || form.launchDate || form.milestones.some(m => m.name.trim())),
+    Object.values(form.stack).some(v => v.trim()),
+    form.functionalReqs.some(r => r.module.trim()),
+    Object.values(form.nonFunctional).some(v => v.trim()),
+    form.kpis.some(k => k.indicator.trim()),
+    form.risks.some(r => r.risk.trim()),
+  ];
+  const filledCount = sectionFilled.filter(Boolean).length;
+  const canGenerateForm =
+    !isGenerating && !noCredits && form.intro.trim().length > 0 && form.solution.trim().length > 0;
+
+  // ── Text mode state ──────────────────────────────────────────────
   const [text, setText] = useState('');
   const charCount = text.length;
-  const tooLong = charCount > 50000;
+  const tooLong = charCount > 50_000;
   const tooShort = charCount < 10;
-  const noCredits = credits === 0;
-  const canGenerate = !isGenerating && !tooShort && !tooLong && !noCredits;
+  const canGenerateText = !isGenerating && !tooShort && !tooLong && !noCredits;
 
-  // Planning documents state
+  // Planning documents (text mode)
   const [plans, setPlans] = useState<PlanDoc[]>([]);
   const [plansLoaded, setPlansLoaded] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
@@ -443,33 +607,28 @@ function Step1({
     if (res.success && res.data) setPlans(res.data.documents);
     setPlansLoaded(true);
   };
-
   const handleTogglePlans = () => {
     const next = !showPlans;
     setShowPlans(next);
     if (next && !plansLoaded) loadPlans();
   };
-
   const handleNewPlan = async () => {
     setCreatingPlan(true);
     setPlanMsg(null);
     const lang = uiLanguage ?? 'en';
     const res = await apiService.post<{ document: PlanDoc & { content: string } }>(
-      '/api/ai/documents',
-      { templateId: 'ai-builder', lang },
-      true
+      '/api/ai/documents', { templateId: 'ai-builder', lang }, true
     );
     setCreatingPlan(false);
     if (res.success && res.data?.document) {
       const doc = res.data.document;
-      setPlans((p) => [doc, ...p]);
+      setPlans(p => [doc, ...p]);
       setEditingPlan({ id: doc.id, title: doc.title, content: doc.content });
       setSelectedPlanId(doc.id);
     } else {
       setPlanMsg({ type: 'err', text: t.ai_builder_plan_error });
     }
   };
-
   const handleSelectPlan = async (id: string) => {
     setSelectedPlanId(id);
     setPlanMsg(null);
@@ -482,7 +641,6 @@ function Step1({
       setPlanMsg({ type: 'err', text: t.ai_builder_plan_error });
     }
   };
-
   const handleSavePlan = async () => {
     if (!editingPlan) return;
     setSaving(true);
@@ -491,34 +649,29 @@ function Step1({
     setSaving(false);
     setSaveMsg(res.success ? 'ok' : 'err');
     if (res.success) {
-      setPlans((p) => p.map((d) => d.id === editingPlan.id ? { ...d, title: editingPlan.title } : d));
+      setPlans(p => p.map(d => d.id === editingPlan.id ? { ...d, title: editingPlan.title } : d));
       setTimeout(() => setSaveMsg(null), 2000);
     }
   };
-
   const handleDeletePlan = async (id: string) => {
     await apiService.delete(`/api/ai/documents/${id}`, true);
-    setPlans((p) => p.filter((d) => d.id !== id));
+    setPlans(p => p.filter(d => d.id !== id));
     if (selectedPlanId === id) { setSelectedPlanId(''); setEditingPlan(null); }
   };
-
   const handleLoadPlan = () => {
     if (!editingPlan?.content) return;
     setText(editingPlan.content);
     setPlanMsg({ type: 'ok', text: t.ai_builder_plan_loaded });
-    // Mark as used for future LLM dataset
     apiService.patch(`/api/ai/documents/${editingPlan.id}/used`, {}, true);
   };
 
-  const selectStyle: React.CSSProperties = {
-    background: C.surface,
-    border: `1px solid ${C.border2}`,
-    color: C.text,
-    borderRadius: '6px',
-    padding: '6px 10px',
-    fontSize: '12px',
-    outline: 'none',
-    cursor: 'pointer',
+  // ── Shared input styles ──────────────────────────────────────────
+  const inp: React.CSSProperties = {
+    background: C.bg2, border: `1px solid ${C.border2}`, borderRadius: '5px',
+    color: C.text, padding: '7px 10px', fontSize: '12px', outline: 'none', width: '100%',
+  };
+  const ta: React.CSSProperties = {
+    ...inp, resize: 'vertical' as const, fontFamily: 'inherit', lineHeight: '1.6',
   };
 
   return (
@@ -537,183 +690,473 @@ function Step1({
         <span className="text-[11px]" style={{ color: C.text4 }}>{t.ai_builder_trial_notice}</span>
       </div>
 
-      {/* ── Planning documents section ─────────────────────────────── */}
+      {/* Mode tabs */}
       <div
-        className="mb-5 rounded-[8px] overflow-hidden"
-        style={{ border: `1px solid ${showPlans ? C.accent + '55' : C.border}` }}
+        className="flex mb-5 rounded-[8px] overflow-hidden"
+        style={{ border: `1px solid ${C.border}`, background: C.surface }}
       >
-        {/* Header */}
         <button
-          onClick={handleTogglePlans}
-          className="w-full flex items-center gap-3 px-4 py-3 text-left"
-          style={{ background: showPlans ? C.accent + '0d' : C.surface }}
+          onClick={() => setMode('form')}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-medium transition-all"
+          style={{ background: mode === 'form' ? C.accent : 'transparent', color: mode === 'form' ? '#fff' : C.text3 }}
         >
-          <FileText size={14} style={{ color: showPlans ? C.accent : C.text3 }} />
-          <div className="flex-1">
-            <p className="text-[13px] font-medium" style={{ color: showPlans ? C.text : C.text2 }}>
-              {t.ai_builder_plans_title}
-            </p>
-            <p className="text-[11px]" style={{ color: C.text4 }}>{t.ai_builder_plans_subtitle}</p>
-          </div>
-          {showPlans ? <ChevronDown size={13} style={{ color: C.text3 }} /> : <ChevronRight size={13} style={{ color: C.text3 }} />}
+          <FileText size={13} />
+          Formulario guiado
         </button>
+        <button
+          onClick={() => setMode('text')}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-medium transition-all"
+          style={{ background: mode === 'text' ? C.accent : 'transparent', color: mode === 'text' ? '#fff' : C.text3 }}
+        >
+          <ChevronRight size={13} />
+          Texto libre
+        </button>
+      </div>
 
-        {showPlans && (
-          <div className="p-4" style={{ borderTop: `1px solid ${C.border}` }}>
-            {/* Picker row */}
-            <div className="flex gap-2 mb-3">
-              <select
-                value={selectedPlanId}
-                onChange={(e) => handleSelectPlan(e.target.value)}
-                style={{ ...selectStyle, flex: 1 }}
-              >
-                <option value="">{t.ai_builder_select_plan}</option>
-                {plans.map((d) => (
-                  <option key={d.id} value={d.id}>{d.title}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleNewPlan}
-                disabled={creatingPlan}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12px] font-medium"
-                style={{ background: C.accent, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                {creatingPlan ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                {t.ai_builder_new_plan}
-              </button>
+      {/* ══ FORM MODE ══════════════════════════════════════════════════════════ */}
+      {mode === 'form' && (
+        <>
+          {/* Progress */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 rounded-full overflow-hidden" style={{ height: '4px', background: C.border }}>
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${(filledCount / 12) * 100}%`, background: filledCount >= 6 ? C.green : C.accent }}
+              />
             </div>
+            <span className="text-[11px] flex-shrink-0" style={{ color: C.text4 }}>
+              {filledCount} / 12 secciones
+            </span>
+          </div>
 
-            {/* Inline editor */}
-            {editingPlan && (
-              <div className="rounded-[6px] overflow-hidden" style={{ border: `1px solid ${C.border2}` }}>
-                {/* Editor toolbar */}
+          {/* Sections */}
+          {FORM_SECTIONS.map((sec, i) => (
+            <div
+              key={i}
+              className="mb-3 rounded-[8px] overflow-hidden"
+              style={{ border: `1px solid ${openSections[i] ? C.accent + '55' : C.border}` }}
+            >
+              {/* Section header */}
+              <button
+                onClick={() => toggleSection(i)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                style={{ background: openSections[i] ? C.accent + '08' : C.surface }}
+              >
                 <div
-                  className="flex items-center gap-2 px-3 py-2"
-                  style={{ background: C.hover, borderBottom: `1px solid ${C.border}` }}
-                >
-                  <input
-                    value={editingPlan.title}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, title: e.target.value })}
-                    className="flex-1 text-[12px] font-medium bg-transparent outline-none"
-                    style={{ color: C.text }}
-                  />
-                  <button
-                    onClick={handleSavePlan}
-                    disabled={saving}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-[4px] text-[11px] font-medium"
-                    style={{ background: C.accent + '22', color: C.accent, cursor: 'pointer' }}
-                  >
-                    {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
-                    {saving ? t.ai_builder_saving : saveMsg === 'ok' ? t.ai_builder_plan_saved : t.ai_builder_save_plan}
-                  </button>
-                  <button
-                    onClick={() => handleDeletePlan(editingPlan.id)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-[4px] text-[11px]"
-                    style={{ color: C.text3, cursor: 'pointer' }}
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </div>
-                {/* Content textarea */}
-                <textarea
-                  value={editingPlan.content}
-                  onChange={(e) => setEditingPlan({ ...editingPlan, content: e.target.value })}
-                  rows={20}
-                  spellCheck={false}
-                  className="w-full p-4 text-[12px] leading-relaxed font-mono"
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                   style={{
-                    background: C.bg2,
-                    color: C.text2,
-                    outline: 'none',
-                    resize: 'vertical',
-                    border: 'none',
+                    background: sectionFilled[i] ? C.green : C.surface,
+                    border: `1px solid ${sectionFilled[i] ? C.green : C.border2}`,
+                    color: sectionFilled[i] ? '#fff' : C.text4,
                   }}
-                />
-                {/* Load button */}
-                <div
-                  className="flex items-center justify-between px-3 py-2"
-                  style={{ background: C.hover, borderTop: `1px solid ${C.border}` }}
                 >
-                  {planMsg ? (
-                    <span className="text-[11px]" style={{ color: planMsg.type === 'ok' ? C.green : C.red }}>
-                      {planMsg.text}
-                    </span>
-                  ) : (
-                    <span className="text-[11px]" style={{ color: C.text4 }}>
-                      {editingPlan.content.length.toLocaleString()} chars
-                    </span>
+                  {sectionFilled[i] ? '✓' : i + 1}
+                </div>
+                <span className="text-[13px] font-medium flex-1" style={{ color: C.text }}>{sec.title}</span>
+                {openSections[i]
+                  ? <ChevronDown size={13} style={{ color: C.text4 }} />
+                  : <ChevronRight size={13} style={{ color: C.text4 }} />}
+              </button>
+
+              {/* Section body */}
+              {openSections[i] && (
+                <div className="p-4" style={{ borderTop: `1px solid ${C.border}` }}>
+                  <p className="text-[11px] mb-3 italic" style={{ color: C.text4 }}>{sec.hint}</p>
+
+                  {/* 1 — Introducción */}
+                  {i === 0 && (
+                    <textarea value={form.intro} onChange={e => setForm(f => ({ ...f, intro: e.target.value }))}
+                      rows={4} placeholder="Describe el contexto general del proyecto..." style={ta} />
                   )}
-                  <button
-                    onClick={handleLoadPlan}
-                    disabled={!editingPlan.content}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[12px] font-medium"
-                    style={{ background: C.green, color: '#fff', cursor: 'pointer' }}
-                  >
-                    <CheckCircle2 size={12} />
-                    {t.ai_builder_load_plan}
+
+                  {/* 2 — Problema */}
+                  {i === 1 && (
+                    <textarea value={form.problem} onChange={e => setForm(f => ({ ...f, problem: e.target.value }))}
+                      rows={4} placeholder="¿Qué problema concreto resuelve este proyecto?..." style={ta} />
+                  )}
+
+                  {/* 3 — Solución */}
+                  {i === 2 && (
+                    <textarea value={form.solution} onChange={e => setForm(f => ({ ...f, solution: e.target.value }))}
+                      rows={5} placeholder="¿Qué estás construyendo exactamente? Describe los módulos principales..." style={ta} />
+                  )}
+
+                  {/* 4 — Alcance */}
+                  {i === 3 && (
+                    <>
+                      <p className="text-[11px] font-semibold mb-1" style={{ color: C.text3 }}>Incluido en esta versión</p>
+                      <textarea value={form.scopeIn} onChange={e => setForm(f => ({ ...f, scopeIn: e.target.value }))}
+                        rows={3} placeholder={"Un ítem por línea\n- Autenticación de usuarios\n- Dashboard principal"} style={{ ...ta, marginBottom: '12px' }} />
+                      <p className="text-[11px] font-semibold mb-1" style={{ color: C.text3 }}>Excluido (versiones futuras)</p>
+                      <textarea value={form.scopeOut} onChange={e => setForm(f => ({ ...f, scopeOut: e.target.value }))}
+                        rows={3} placeholder={"Un ítem por línea\n- App móvil\n- Integración con ERP"} style={ta} />
+                    </>
+                  )}
+
+                  {/* 5 — Objetivos */}
+                  {i === 4 && (
+                    <>
+                      <p className="text-[11px] font-semibold mb-1" style={{ color: C.text3 }}>Objetivo general</p>
+                      <input value={form.goalGeneral} onChange={e => setForm(f => ({ ...f, goalGeneral: e.target.value }))}
+                        placeholder="Una oración que describe la meta global del proyecto" style={{ ...inp, marginBottom: '12px' }} />
+                      <p className="text-[11px] font-semibold mb-2" style={{ color: C.text3 }}>Objetivos específicos</p>
+                      {form.goalsSpecific.map((g, gi) => (
+                        <div key={gi} className="flex items-center gap-2 mb-2">
+                          <span className="text-[11px] w-4 text-right flex-shrink-0" style={{ color: C.text4 }}>{gi + 1}.</span>
+                          <input value={g} onChange={e => setForm(f => {
+                            const gs = [...f.goalsSpecific]; gs[gi] = e.target.value; return { ...f, goalsSpecific: gs };
+                          })} placeholder={`Objetivo ${gi + 1} (medible y concreto)`} style={inp} />
+                          {form.goalsSpecific.length > 1 && (
+                            <button onClick={() => setForm(f => ({ ...f, goalsSpecific: f.goalsSpecific.filter((_, j) => j !== gi) }))} style={{ color: C.text4, flexShrink: 0 }}>
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={() => setForm(f => ({ ...f, goalsSpecific: [...f.goalsSpecific, ''] }))}
+                        className="flex items-center gap-1 text-[11px] mt-1" style={{ color: C.accent }}>
+                        <Plus size={11} /> Agregar objetivo
+                      </button>
+                    </>
+                  )}
+
+                  {/* 6 — Equipo */}
+                  {i === 5 && (
+                    <>
+                      <div className="flex gap-2 mb-1">
+                        <span className="text-[10px] font-semibold flex-1" style={{ color: C.text4 }}>NOMBRE</span>
+                        <span className="text-[10px] font-semibold flex-1" style={{ color: C.text4 }}>ROL</span>
+                        <span className="text-[10px] font-semibold flex-[2]" style={{ color: C.text4 }}>RESPONSABILIDADES</span>
+                        <div style={{ width: '20px' }} />
+                      </div>
+                      {form.team.map((m, mi) => (
+                        <div key={mi} className="flex items-center gap-2 mb-2">
+                          <input value={m.name} onChange={e => setForm(f => { const t = [...f.team]; t[mi] = { ...t[mi], name: e.target.value }; return { ...f, team: t }; })}
+                            placeholder="Nombre" style={{ ...inp, flex: '1' }} />
+                          <input value={m.role} onChange={e => setForm(f => { const t = [...f.team]; t[mi] = { ...t[mi], role: e.target.value }; return { ...f, team: t }; })}
+                            placeholder="Rol" style={{ ...inp, flex: '1' }} />
+                          <input value={m.responsibilities} onChange={e => setForm(f => { const t = [...f.team]; t[mi] = { ...t[mi], responsibilities: e.target.value }; return { ...f, team: t }; })}
+                            placeholder="Responsabilidades" style={{ ...inp, flex: '2' }} />
+                          {form.team.length > 1 && (
+                            <button onClick={() => setForm(f => ({ ...f, team: f.team.filter((_, j) => j !== mi) }))} style={{ color: C.text4, flexShrink: 0 }}>
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={() => setForm(f => ({ ...f, team: [...f.team, { name: '', role: '', responsibilities: '' }] }))}
+                        className="flex items-center gap-1 text-[11px]" style={{ color: C.accent }}>
+                        <Plus size={11} /> Agregar persona
+                      </button>
+                    </>
+                  )}
+
+                  {/* 7 — Cronograma */}
+                  {i === 6 && (
+                    <>
+                      <div className="flex gap-3 mb-4">
+                        <div className="flex-1">
+                          <p className="text-[11px] font-semibold mb-1" style={{ color: C.text3 }}>Fecha de inicio</p>
+                          <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} style={inp} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[11px] font-semibold mb-1" style={{ color: C.text3 }}>Fecha de lanzamiento</p>
+                          <input type="date" value={form.launchDate} onChange={e => setForm(f => ({ ...f, launchDate: e.target.value }))} style={inp} />
+                        </div>
+                      </div>
+                      <p className="text-[11px] font-semibold mb-2" style={{ color: C.text3 }}>Hitos clave</p>
+                      {form.milestones.map((m, mi) => (
+                        <div key={mi} className="flex items-center gap-2 mb-2">
+                          <input value={m.name} onChange={e => setForm(f => { const ms = [...f.milestones]; ms[mi] = { ...ms[mi], name: e.target.value }; return { ...f, milestones: ms }; })}
+                            placeholder={`Hito ${mi + 1}`} style={{ ...inp, flex: '2' }} />
+                          <input type="date" value={m.date} onChange={e => setForm(f => { const ms = [...f.milestones]; ms[mi] = { ...ms[mi], date: e.target.value }; return { ...f, milestones: ms }; })}
+                            style={{ ...inp, flex: '1' }} />
+                          {form.milestones.length > 1 && (
+                            <button onClick={() => setForm(f => ({ ...f, milestones: f.milestones.filter((_, j) => j !== mi) }))} style={{ color: C.text4, flexShrink: 0 }}>
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={() => setForm(f => ({ ...f, milestones: [...f.milestones, { name: '', date: '' }] }))}
+                        className="flex items-center gap-1 text-[11px]" style={{ color: C.accent }}>
+                        <Plus size={11} /> Agregar hito
+                      </button>
+                    </>
+                  )}
+
+                  {/* 8 — Stack */}
+                  {i === 7 && (
+                    <div className="flex flex-col gap-2">
+                      {(['backend', 'frontend', 'database', 'devops', 'apis'] as const).map(key => {
+                        const labels: Record<string, string> = {
+                          backend: 'Backend', frontend: 'Frontend', database: 'Base de datos',
+                          devops: 'Infraestructura / DevOps', apis: 'APIs / Integraciones',
+                        };
+                        const placeholders: Record<string, string> = {
+                          backend: 'Node.js + Express', frontend: 'React + Next.js',
+                          database: 'PostgreSQL', devops: 'Docker + Railway', apis: 'Stripe, Twilio',
+                        };
+                        return (
+                          <div key={key} className="flex items-center gap-3">
+                            <span className="text-[11px] w-36 flex-shrink-0" style={{ color: C.text3 }}>{labels[key]}</span>
+                            <input value={form.stack[key]} onChange={e => setForm(f => ({ ...f, stack: { ...f.stack, [key]: e.target.value } }))}
+                              placeholder={`e.g. ${placeholders[key]}`} style={inp} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* 9 — Req funcionales */}
+                  {i === 8 && (
+                    <>
+                      <div className="flex gap-2 mb-1">
+                        <div style={{ width: '16px' }} />
+                        <span className="text-[10px] font-semibold flex-1" style={{ color: C.text4 }}>MÓDULO</span>
+                        <span className="text-[10px] font-semibold flex-[2]" style={{ color: C.text4 }}>DESCRIPCIÓN</span>
+                        <div style={{ width: '20px' }} />
+                      </div>
+                      {form.functionalReqs.map((r, ri) => (
+                        <div key={ri} className="flex items-center gap-2 mb-2">
+                          <span className="text-[11px] w-4 text-right flex-shrink-0" style={{ color: C.text4 }}>{ri + 1}.</span>
+                          <input value={r.module} onChange={e => setForm(f => { const reqs = [...f.functionalReqs]; reqs[ri] = { ...reqs[ri], module: e.target.value }; return { ...f, functionalReqs: reqs }; })}
+                            placeholder="Módulo o funcionalidad" style={{ ...inp, flex: '1' }} />
+                          <input value={r.description} onChange={e => setForm(f => { const reqs = [...f.functionalReqs]; reqs[ri] = { ...reqs[ri], description: e.target.value }; return { ...f, functionalReqs: reqs }; })}
+                            placeholder="Descripción breve" style={{ ...inp, flex: '2' }} />
+                          {form.functionalReqs.length > 1 && (
+                            <button onClick={() => setForm(f => ({ ...f, functionalReqs: f.functionalReqs.filter((_, j) => j !== ri) }))} style={{ color: C.text4, flexShrink: 0 }}>
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={() => setForm(f => ({ ...f, functionalReqs: [...f.functionalReqs, { module: '', description: '' }] }))}
+                        className="flex items-center gap-1 text-[11px]" style={{ color: C.accent }}>
+                        <Plus size={11} /> Agregar requerimiento
+                      </button>
+                    </>
+                  )}
+
+                  {/* 10 — Req no funcionales */}
+                  {i === 9 && (
+                    <div className="flex flex-col gap-2">
+                      {(['performance', 'security', 'scalability', 'compliance'] as const).map(key => {
+                        const labels: Record<string, string> = {
+                          performance: 'Rendimiento', security: 'Seguridad',
+                          scalability: 'Escalabilidad', compliance: 'Cumplimiento / Legal',
+                        };
+                        return (
+                          <div key={key} className="flex items-center gap-3">
+                            <span className="text-[11px] w-36 flex-shrink-0" style={{ color: C.text3 }}>{labels[key]}</span>
+                            <input value={form.nonFunctional[key]} onChange={e => setForm(f => ({ ...f, nonFunctional: { ...f.nonFunctional, [key]: e.target.value } }))}
+                              placeholder={`Requisito de ${labels[key].toLowerCase()}...`} style={inp} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* 11 — KPIs */}
+                  {i === 10 && (
+                    <>
+                      <div className="flex gap-2 mb-1">
+                        <span className="text-[10px] font-semibold flex-[2]" style={{ color: C.text4 }}>INDICADOR</span>
+                        <span className="text-[10px] font-semibold flex-1" style={{ color: C.text4 }}>META</span>
+                        <span className="text-[10px] font-semibold flex-1" style={{ color: C.text4 }}>FRECUENCIA</span>
+                        <div style={{ width: '20px' }} />
+                      </div>
+                      {form.kpis.map((k, ki) => (
+                        <div key={ki} className="flex items-center gap-2 mb-2">
+                          <input value={k.indicator} onChange={e => setForm(f => { const kpis = [...f.kpis]; kpis[ki] = { ...kpis[ki], indicator: e.target.value }; return { ...f, kpis }; })}
+                            placeholder="Indicador" style={{ ...inp, flex: '2' }} />
+                          <input value={k.target} onChange={e => setForm(f => { const kpis = [...f.kpis]; kpis[ki] = { ...kpis[ki], target: e.target.value }; return { ...f, kpis }; })}
+                            placeholder="Meta" style={{ ...inp, flex: '1' }} />
+                          <input value={k.frequency} onChange={e => setForm(f => { const kpis = [...f.kpis]; kpis[ki] = { ...kpis[ki], frequency: e.target.value }; return { ...f, kpis }; })}
+                            placeholder="Frecuencia" style={{ ...inp, flex: '1' }} />
+                          {form.kpis.length > 1 && (
+                            <button onClick={() => setForm(f => ({ ...f, kpis: f.kpis.filter((_, j) => j !== ki) }))} style={{ color: C.text4, flexShrink: 0 }}>
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={() => setForm(f => ({ ...f, kpis: [...f.kpis, { indicator: '', target: '', frequency: '' }] }))}
+                        className="flex items-center gap-1 text-[11px]" style={{ color: C.accent }}>
+                        <Plus size={11} /> Agregar KPI
+                      </button>
+                    </>
+                  )}
+
+                  {/* 12 — Riesgos */}
+                  {i === 11 && (
+                    <>
+                      <div className="flex gap-2 mb-1">
+                        <span className="text-[10px] font-semibold flex-[2]" style={{ color: C.text4 }}>RIESGO</span>
+                        <span className="text-[10px] font-semibold flex-[2]" style={{ color: C.text4 }}>MITIGACIÓN</span>
+                        <div style={{ width: '20px' }} />
+                      </div>
+                      {form.risks.map((r, ri) => (
+                        <div key={ri} className="flex items-center gap-2 mb-2">
+                          <input value={r.risk} onChange={e => setForm(f => { const risks = [...f.risks]; risks[ri] = { ...risks[ri], risk: e.target.value }; return { ...f, risks }; })}
+                            placeholder="Riesgo" style={{ ...inp, flex: '2' }} />
+                          <input value={r.mitigation} onChange={e => setForm(f => { const risks = [...f.risks]; risks[ri] = { ...risks[ri], mitigation: e.target.value }; return { ...f, risks }; })}
+                            placeholder="Mitigación" style={{ ...inp, flex: '2' }} />
+                          {form.risks.length > 1 && (
+                            <button onClick={() => setForm(f => ({ ...f, risks: f.risks.filter((_, j) => j !== ri) }))} style={{ color: C.text4, flexShrink: 0 }}>
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={() => setForm(f => ({ ...f, risks: [...f.risks, { risk: '', mitigation: '' }] }))}
+                        className="flex items-center gap-1 text-[11px]" style={{ color: C.accent }}>
+                        <Plus size={11} /> Agregar riesgo
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-2 my-4 px-3 py-2 rounded-[6px]"
+              style={{ background: C.red + '18', border: `1px solid ${C.red}33`, color: C.red }}>
+              <AlertTriangle size={13} />
+              <span className="text-[12px]">{error}</span>
+            </div>
+          )}
+
+          {/* Generate button */}
+          <div className="mt-5 flex items-center gap-3">
+            <button
+              onClick={() => canGenerateForm && onGenerate(serializeProjectForm(form))}
+              disabled={!canGenerateForm}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-[7px] font-medium text-[13px] transition-all"
+              style={{
+                background: canGenerateForm ? C.accent : C.border,
+                color: canGenerateForm ? '#fff' : C.text3,
+                cursor: canGenerateForm ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {isGenerating
+                ? <><Loader2 size={14} className="animate-spin" />{t.ai_builder_analyzing}</>
+                : <><Sparkles size={14} />{t.ai_builder_analyze}</>}
+            </button>
+            {!canGenerateForm && !noCredits && (
+              <span className="text-[11px]" style={{ color: C.text4 }}>
+                Completa al menos Introducción y Solución para continuar
+              </span>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ══ TEXT MODE ══════════════════════════════════════════════════════════ */}
+      {mode === 'text' && (
+        <>
+          {/* Planning documents section */}
+          <div className="mb-5 rounded-[8px] overflow-hidden" style={{ border: `1px solid ${showPlans ? C.accent + '55' : C.border}` }}>
+            <button onClick={handleTogglePlans} className="w-full flex items-center gap-3 px-4 py-3 text-left"
+              style={{ background: showPlans ? C.accent + '0d' : C.surface }}>
+              <FileText size={14} style={{ color: showPlans ? C.accent : C.text3 }} />
+              <div className="flex-1">
+                <p className="text-[13px] font-medium" style={{ color: showPlans ? C.text : C.text2 }}>{t.ai_builder_plans_title}</p>
+                <p className="text-[11px]" style={{ color: C.text4 }}>{t.ai_builder_plans_subtitle}</p>
+              </div>
+              {showPlans ? <ChevronDown size={13} style={{ color: C.text3 }} /> : <ChevronRight size={13} style={{ color: C.text3 }} />}
+            </button>
+
+            {showPlans && (
+              <div className="p-4" style={{ borderTop: `1px solid ${C.border}` }}>
+                <div className="flex gap-2 mb-3">
+                  <select value={selectedPlanId} onChange={(e) => handleSelectPlan(e.target.value)}
+                    style={{ background: C.surface, border: `1px solid ${C.border2}`, color: C.text, borderRadius: '6px', padding: '6px 10px', fontSize: '12px', outline: 'none', cursor: 'pointer', flex: 1 }}>
+                    <option value="">{t.ai_builder_select_plan}</option>
+                    {plans.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
+                  </select>
+                  <button onClick={handleNewPlan} disabled={creatingPlan}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12px] font-medium"
+                    style={{ background: C.accent, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {creatingPlan ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                    {t.ai_builder_new_plan}
                   </button>
                 </div>
+
+                {editingPlan && (
+                  <div className="rounded-[6px] overflow-hidden" style={{ border: `1px solid ${C.border2}` }}>
+                    <div className="flex items-center gap-2 px-3 py-2" style={{ background: C.hover, borderBottom: `1px solid ${C.border}` }}>
+                      <input value={editingPlan.title} onChange={(e) => setEditingPlan({ ...editingPlan, title: e.target.value })}
+                        className="flex-1 text-[12px] font-medium bg-transparent outline-none" style={{ color: C.text }} />
+                      <button onClick={handleSavePlan} disabled={saving}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-[4px] text-[11px] font-medium"
+                        style={{ background: C.accent + '22', color: C.accent, cursor: 'pointer' }}>
+                        {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                        {saving ? t.ai_builder_saving : saveMsg === 'ok' ? t.ai_builder_plan_saved : t.ai_builder_save_plan}
+                      </button>
+                      <button onClick={() => handleDeletePlan(editingPlan.id)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-[4px] text-[11px]"
+                        style={{ color: C.text3, cursor: 'pointer' }}>
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                    <textarea value={editingPlan.content} onChange={(e) => setEditingPlan({ ...editingPlan, content: e.target.value })}
+                      rows={20} spellCheck={false} className="w-full p-4 text-[12px] leading-relaxed font-mono"
+                      style={{ background: C.bg2, color: C.text2, outline: 'none', resize: 'vertical', border: 'none' }} />
+                    <div className="flex items-center justify-between px-3 py-2" style={{ background: C.hover, borderTop: `1px solid ${C.border}` }}>
+                      {planMsg
+                        ? <span className="text-[11px]" style={{ color: planMsg.type === 'ok' ? C.green : C.red }}>{planMsg.text}</span>
+                        : <span className="text-[11px]" style={{ color: C.text4 }}>{editingPlan.content.length.toLocaleString()} chars</span>}
+                      <button onClick={handleLoadPlan} disabled={!editingPlan.content}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[12px] font-medium"
+                        style={{ background: C.green, color: '#fff', cursor: 'pointer' }}>
+                        <CheckCircle2 size={12} />
+                        {t.ai_builder_load_plan}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
 
-      {/* Separator */}
-      <div className="flex items-center gap-3 mb-4">
-        <div style={{ flex: 1, height: '1px', background: C.border }} />
-        <span className="text-[11px]" style={{ color: C.text4 }}>{t.ai_builder_or}</span>
-        <div style={{ flex: 1, height: '1px', background: C.border }} />
-      </div>
+          {/* Separator */}
+          <div className="flex items-center gap-3 mb-4">
+            <div style={{ flex: 1, height: '1px', background: C.border }} />
+            <span className="text-[11px]" style={{ color: C.text4 }}>{t.ai_builder_or}</span>
+            <div style={{ flex: 1, height: '1px', background: C.border }} />
+          </div>
 
-      {/* Textarea */}
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={t.ai_builder_step1_placeholder}
-        rows={14}
-        className="w-full rounded-[8px] p-4 text-[13px] leading-relaxed"
-        style={{
-          background: C.surface,
-          border: `1px solid ${tooLong ? C.red : C.border}`,
-          color: C.text,
-          outline: 'none',
-          resize: 'vertical',
-          fontFamily: 'inherit',
-        }}
-      />
-      <div className="mt-2 mb-4">
-        <span className="text-[11px]" style={{ color: tooLong ? C.red : C.text4 }}>
-          {charCount.toLocaleString()} / 50,000 characters
-        </span>
-      </div>
+          {/* Textarea */}
+          <textarea value={text} onChange={(e) => setText(e.target.value)}
+            placeholder={t.ai_builder_step1_placeholder} rows={14}
+            className="w-full rounded-[8px] p-4 text-[13px] leading-relaxed"
+            style={{ background: C.surface, border: `1px solid ${tooLong ? C.red : C.border}`, color: C.text, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+          <div className="mt-2 mb-4">
+            <span className="text-[11px]" style={{ color: tooLong ? C.red : C.text4 }}>
+              {charCount.toLocaleString()} / 50,000 characters
+            </span>
+          </div>
 
-      {error && (
-        <div
-          className="flex items-center gap-2 mb-4 px-3 py-2 rounded-[6px]"
-          style={{ background: C.red + '18', border: `1px solid ${C.red}33`, color: C.red }}
-        >
-          <AlertTriangle size={13} />
-          <span className="text-[12px]">{error}</span>
-        </div>
+          {error && (
+            <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-[6px]"
+              style={{ background: C.red + '18', border: `1px solid ${C.red}33`, color: C.red }}>
+              <AlertTriangle size={13} />
+              <span className="text-[12px]">{error}</span>
+            </div>
+          )}
+
+          <button onClick={() => canGenerateText && onGenerate(text)} disabled={!canGenerateText}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-[7px] font-medium text-[13px] transition-all"
+            style={{ background: canGenerateText ? C.accent : C.border, color: canGenerateText ? '#fff' : C.text3, cursor: canGenerateText ? 'pointer' : 'not-allowed' }}>
+            {isGenerating
+              ? <><Loader2 size={14} className="animate-spin" />{t.ai_builder_analyzing}</>
+              : <><Sparkles size={14} />{t.ai_builder_analyze}</>}
+          </button>
+        </>
       )}
-
-      <button
-        onClick={() => canGenerate && onGenerate(text)}
-        disabled={!canGenerate}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-[7px] font-medium text-[13px] transition-all"
-        style={{
-          background: canGenerate ? C.accent : C.border,
-          color: canGenerate ? '#fff' : C.text3,
-          cursor: canGenerate ? 'pointer' : 'not-allowed',
-        }}
-      >
-        {isGenerating ? (
-          <><Loader2 size={14} className="animate-spin" />{t.ai_builder_analyzing}</>
-        ) : (
-          <><Sparkles size={14} />{t.ai_builder_analyze}</>
-        )}
-      </button>
     </div>
   );
 }
