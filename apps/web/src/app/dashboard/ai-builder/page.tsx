@@ -403,6 +403,83 @@ function ProjectSection({
   );
 }
 
+// ── Team member row with email validation ─────────────────────────────────────
+function TeamMemberRow({
+  member,
+  canRemove,
+  onUpdate,
+  onRemove,
+  inp,
+}: {
+  member: { email: string; role: string; responsibilities: string };
+  canRemove: boolean;
+  onUpdate: (m: { email: string; role: string; responsibilities: string }) => void;
+  onRemove: () => void;
+  inp: React.CSSProperties;
+}) {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'found' | 'not_found'>('idle');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleEmailChange = (email: string) => {
+    onUpdate({ ...member, email });
+    setStatus('idle');
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!email.includes('@') || email.length < 5) return;
+    setStatus('loading');
+    timerRef.current = setTimeout(async () => {
+      const res = await apiService.get<{ user: { id: string } | null }>(
+        `/api/users/search?email=${encodeURIComponent(email)}`, true
+      );
+      setStatus(res.success && res.data?.user ? 'found' : 'not_found');
+    }, 600);
+  };
+
+  const borderColor =
+    status === 'found' ? C.green :
+    status === 'not_found' ? C.red :
+    undefined;
+
+  return (
+    <div className="flex items-center gap-2 mb-2">
+      <div style={{ flex: '2', position: 'relative' }}>
+        <input
+          type="email"
+          value={member.email}
+          onChange={e => handleEmailChange(e.target.value)}
+          placeholder="usuario@ejemplo.com"
+          style={{ ...inp, width: '100%', border: `1px solid ${borderColor ?? (inp.border as string)?.split(' ').pop() ?? 'var(--c-border2)'}` }}
+        />
+        {status === 'loading' && (
+          <Loader2 size={11} className="animate-spin" style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: C.text4 }} />
+        )}
+        {status === 'found' && (
+          <CheckCircle2 size={11} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: C.green }} />
+        )}
+        {status === 'not_found' && (
+          <AlertTriangle size={11} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: C.red }} />
+        )}
+      </div>
+      <input
+        value={member.role}
+        onChange={e => onUpdate({ ...member, role: e.target.value })}
+        placeholder="Rol"
+        style={{ ...inp, flex: '1' }}
+      />
+      <input
+        value={member.responsibilities}
+        onChange={e => onUpdate({ ...member, responsibilities: e.target.value })}
+        placeholder="Responsabilidades principales"
+        style={{ ...inp, flex: '2' }}
+      />
+      {canRemove && (
+        <button onClick={onRemove} style={{ color: C.text4, flexShrink: 0 }}>
+          <X size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Step 1: Document input ────────────────────────────────────────────────────
 type PlanDoc = { id: string; title: string; updated_at: string };
 
@@ -415,7 +492,7 @@ interface ProjectForm {
   scopeOut: string;
   goalGeneral: string;
   goalsSpecific: string[];
-  team: Array<{ name: string; role: string; responsibilities: string }>;
+  team: Array<{ email: string; role: string; responsibilities: string }>;
   startDate: string;
   launchDate: string;
   milestones: Array<{ name: string; date: string }>;
@@ -429,7 +506,7 @@ interface ProjectForm {
 const EMPTY_FORM: ProjectForm = {
   intro: '', problem: '', solution: '', scopeIn: '', scopeOut: '',
   goalGeneral: '', goalsSpecific: ['', '', ''],
-  team: [{ name: '', role: '', responsibilities: '' }],
+  team: [{ email: '', role: '', responsibilities: '' }],
   startDate: '', launchDate: '',
   milestones: [{ name: '', date: '' }, { name: '', date: '' }, { name: '', date: '' }],
   stack: { backend: '', frontend: '', database: '', devops: '', apis: '' },
@@ -471,9 +548,9 @@ function serializeProjectForm(f: ProjectForm): string {
   push('');
 
   push('## 6. Equipo de Trabajo y Roles');
-  push('| Nombre | Rol | Responsabilidades |', '|--------|-----|-------------------|');
-  const validTeam = f.team.filter(m => m.name.trim() || m.role.trim());
-  validTeam.length ? validTeam.forEach(m => push(`| ${m.name} | ${m.role} | ${m.responsibilities} |`)) : push('| (no definido) | | |');
+  push('| Correo | Rol | Responsabilidades |', '|--------|-----|-------------------|');
+  const validTeam = f.team.filter(m => m.email.trim() || m.role.trim());
+  validTeam.length ? validTeam.forEach(m => push(`| ${m.email} | ${m.role} | ${m.responsibilities} |`)) : push('| (no definido) | | |');
   push('');
 
   push('## 7. Cronograma e Hitos');
@@ -572,7 +649,7 @@ function Step1({
     form.solution.trim().length > 0,
     form.scopeIn.trim().length > 0 || form.scopeOut.trim().length > 0,
     form.goalGeneral.trim().length > 0 || form.goalsSpecific.some(g => g.trim()),
-    form.team.some(m => m.name.trim() || m.role.trim()),
+    form.team.some(m => m.email.trim() || m.role.trim()),
     !!(form.startDate || form.launchDate || form.milestones.some(m => m.name.trim())),
     Object.values(form.stack).some(v => v.trim()),
     form.functionalReqs.some(r => r.module.trim()),
@@ -824,27 +901,22 @@ function Step1({
                   {i === 5 && (
                     <>
                       <div className="flex gap-2 mb-1">
-                        <span className="text-[10px] font-semibold flex-1" style={{ color: C.text4 }}>NOMBRE</span>
+                        <span className="text-[10px] font-semibold flex-[2]" style={{ color: C.text4 }}>CORREO</span>
                         <span className="text-[10px] font-semibold flex-1" style={{ color: C.text4 }}>ROL</span>
                         <span className="text-[10px] font-semibold flex-[2]" style={{ color: C.text4 }}>RESPONSABILIDADES</span>
                         <div style={{ width: '20px' }} />
                       </div>
                       {form.team.map((m, mi) => (
-                        <div key={mi} className="flex items-center gap-2 mb-2">
-                          <input value={m.name} onChange={e => setForm(f => { const t = [...f.team]; t[mi] = { ...t[mi], name: e.target.value }; return { ...f, team: t }; })}
-                            placeholder="Nombre" style={{ ...inp, flex: '1' }} />
-                          <input value={m.role} onChange={e => setForm(f => { const t = [...f.team]; t[mi] = { ...t[mi], role: e.target.value }; return { ...f, team: t }; })}
-                            placeholder="Rol" style={{ ...inp, flex: '1' }} />
-                          <input value={m.responsibilities} onChange={e => setForm(f => { const t = [...f.team]; t[mi] = { ...t[mi], responsibilities: e.target.value }; return { ...f, team: t }; })}
-                            placeholder="Responsabilidades" style={{ ...inp, flex: '2' }} />
-                          {form.team.length > 1 && (
-                            <button onClick={() => setForm(f => ({ ...f, team: f.team.filter((_, j) => j !== mi) }))} style={{ color: C.text4, flexShrink: 0 }}>
-                              <X size={12} />
-                            </button>
-                          )}
-                        </div>
+                        <TeamMemberRow
+                          key={mi}
+                          member={m}
+                          canRemove={form.team.length > 1}
+                          inp={inp}
+                          onUpdate={updated => setForm(f => { const t = [...f.team]; t[mi] = updated; return { ...f, team: t }; })}
+                          onRemove={() => setForm(f => ({ ...f, team: f.team.filter((_, j) => j !== mi) }))}
+                        />
                       ))}
-                      <button onClick={() => setForm(f => ({ ...f, team: [...f.team, { name: '', role: '', responsibilities: '' }] }))}
+                      <button onClick={() => setForm(f => ({ ...f, team: [...f.team, { email: '', role: '', responsibilities: '' }] }))}
                         className="flex items-center gap-1 text-[11px]" style={{ color: C.accent }}>
                         <Plus size={11} /> Agregar persona
                       </button>
