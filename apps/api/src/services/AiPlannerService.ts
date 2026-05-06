@@ -1,7 +1,7 @@
 // apps/api/src/services/AiPlannerService.ts
-// Servicio de generación de plan de workspace con IA (Google Gemini)
+// Servicio de generación de plan de workspace con IA (Groq)
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
 export interface AiWorkspacePlan {
   workspace: {
@@ -109,30 +109,57 @@ MILESTONE ASSIGNMENT RULES:
 - Never output text outside the JSON object.`;
 
 class AiPlannerService {
-  private genAI: GoogleGenerativeAI;
+  private client: Groq;
 
   constructor() {
-    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    console.log('[AiPlannerService] initialized (Gemini 2.0 Flash Lite)');
+    this.client = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
+    console.log('[AiPlannerService] initialized (Groq llama-3.1-8b-instant)');
   }
 
   async generateWorkspacePlan(documentText: string): Promise<AiWorkspacePlan> {
-    const model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-lite',
-      systemInstruction: SYSTEM_PROMPT,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        maxOutputTokens: 8192,
-        temperature: 0.3,
-      },
+    // llama-3.1-8b-instant: 6 000 000 TPM en el free tier de Groq
+    const MAX_DOC_CHARS = 8_000;
+    const doc = documentText.length > MAX_DOC_CHARS
+      ? documentText.slice(0, MAX_DOC_CHARS) + '\n\n[documento truncado]'
+      : documentText;
+
+    const completion = await this.client.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      max_tokens: 8192,
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: `Analyze this document and generate a complete workspace plan:\n\n${doc}` },
+      ],
     });
 
-    const result = await model.generateContent(
-      `Analyze this document and generate a complete workspace plan:\n\n${documentText}`
-    );
+    const rawText = completion.choices[0]?.message?.content ?? '';
+    const finishReason = completion.choices[0]?.finish_reason;
 
-    const rawText = result.response.text();
+    if (finishReason === 'length') {
+      console.warn('[AiPlannerService] Response truncated — retrying with reduced scope');
+      return this.generateReduced(doc);
+    }
+
     return this.parseAndValidate(rawText);
+  }
+
+  private async generateReduced(doc: string): Promise<AiWorkspacePlan> {
+    const reducedPrompt = SYSTEM_PROMPT
+      .replace('3-5 boards', '2 boards maximum')
+      .replace('Each Backlog list: 4-8 cards', 'Each Backlog list: 3-5 cards');
+
+    const completion = await this.client.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      max_tokens: 6000,
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: reducedPrompt },
+        { role: 'user', content: `Analyze this document and generate a focused workspace plan (1 project, most important workstream only):\n\n${doc}` },
+      ],
+    });
+
+    return this.parseAndValidate(completion.choices[0]?.message?.content ?? '');
   }
 
   private parseAndValidate(rawText: string): AiWorkspacePlan {
