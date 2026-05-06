@@ -113,12 +113,12 @@ class AiPlannerService {
 
   constructor() {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    console.log('[AiPlannerService] initialized (Gemini 1.5 Flash)');
+    console.log('[AiPlannerService] initialized (Gemini 2.0 Flash Lite)');
   }
 
   async generateWorkspacePlan(documentText: string): Promise<AiWorkspacePlan> {
     const model = this.genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash-lite',
       systemInstruction: SYSTEM_PROMPT,
       generationConfig: {
         responseMimeType: 'application/json',
