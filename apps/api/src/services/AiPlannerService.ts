@@ -121,6 +121,14 @@ class AiPlannerService {
   async generateWorkspacePlan(documentText: string): Promise<AiWorkspacePlan> {
     const today = new Date().toISOString().split('T')[0];
 
+    // Groq on_demand: límite 12 000 tokens totales (input + max_tokens).
+    // Con max_tokens=8192 y system prompt ~820 tokens, quedan ~3 000 tokens
+    // para el documento (~12 000 chars). Truncamos a 8 000 para tener margen.
+    const MAX_DOC_CHARS = 8_000;
+    const doc = documentText.length > MAX_DOC_CHARS
+      ? documentText.slice(0, MAX_DOC_CHARS) + '\n\n[documento truncado por límite de tokens]'
+      : documentText;
+
     const completion = await this.client.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 8192,
@@ -128,7 +136,7 @@ class AiPlannerService {
         { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `Analyze this document and generate a complete workspace plan:\n\n${documentText}`,
+          content: `Analyze this document and generate a complete workspace plan:\n\n${doc}`,
         },
       ],
     });
@@ -150,6 +158,11 @@ class AiPlannerService {
       .replace('3-5 boards', '2 boards maximum')
       .replace('Each Backlog list: 4-8 cards', 'Each Backlog list: 3-5 cards');
 
+    const MAX_DOC_CHARS = 8_000;
+    const doc = documentText.length > MAX_DOC_CHARS
+      ? documentText.slice(0, MAX_DOC_CHARS) + '\n\n[documento truncado por límite de tokens]'
+      : documentText;
+
     const completion = await this.client.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 8192,
@@ -157,7 +170,7 @@ class AiPlannerService {
         { role: 'system', content: reducedPrompt },
         {
           role: 'user',
-          content: `Analyze this document and generate a focused workspace plan (1 project, most important workstream only):\n\n${documentText}`,
+          content: `Analyze this document and generate a focused workspace plan (1 project, most important workstream only):\n\n${doc}`,
         },
       ],
     });
