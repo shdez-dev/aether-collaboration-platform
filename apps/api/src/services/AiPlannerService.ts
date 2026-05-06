@@ -1,7 +1,7 @@
 // apps/api/src/services/AiPlannerService.ts
-// Servicio de generación de plan de workspace con IA (Groq - gratuito)
+// Servicio de generación de plan de workspace con IA (Google Gemini)
 
-import Groq from 'groq-sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface AiWorkspacePlan {
   workspace: {
@@ -109,73 +109,29 @@ MILESTONE ASSIGNMENT RULES:
 - Never output text outside the JSON object.`;
 
 class AiPlannerService {
-  private client: Groq;
+  private genAI: GoogleGenerativeAI;
 
   constructor() {
-    this.client = new Groq({
-      apiKey: process.env.GROQ_API_KEY || '',
-    });
-    console.log('[AiPlannerService] initialized (Groq)');
+    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    console.log('[AiPlannerService] initialized (Gemini 2.0 Flash)');
   }
 
   async generateWorkspacePlan(documentText: string): Promise<AiWorkspacePlan> {
-    const today = new Date().toISOString().split('T')[0];
-
-    // Groq on_demand: límite 12 000 tokens totales (input + max_tokens).
-    // Con max_tokens=8192 y system prompt ~820 tokens, quedan ~3 000 tokens
-    // para el documento (~12 000 chars). Truncamos a 8 000 para tener margen.
-    const MAX_DOC_CHARS = 8_000;
-    const doc = documentText.length > MAX_DOC_CHARS
-      ? documentText.slice(0, MAX_DOC_CHARS) + '\n\n[documento truncado por límite de tokens]'
-      : documentText;
-
-    const completion = await this.client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 8192,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `Analyze this document and generate a complete workspace plan:\n\n${doc}`,
-        },
-      ],
+    const model = this.genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      systemInstruction: SYSTEM_PROMPT,
+      generationConfig: {
+        responseMimeType: 'application/json',
+        maxOutputTokens: 8192,
+        temperature: 0.3,
+      },
     });
 
-    const rawText = completion.choices[0]?.message?.content ?? '';
-    const finishReason = completion.choices[0]?.finish_reason;
+    const result = await model.generateContent(
+      `Analyze this document and generate a complete workspace plan:\n\n${documentText}`
+    );
 
-    // If truncated, retry with a tighter scope (1 project max, fewer cards)
-    if (finishReason === 'length') {
-      console.warn('[AiPlannerService] Response truncated — retrying with reduced scope');
-      return this.generateReduced(documentText, today);
-    }
-
-    return this.parseAndValidate(rawText);
-  }
-
-  private async generateReduced(documentText: string, today: string): Promise<AiWorkspacePlan> {
-    const reducedPrompt = SYSTEM_PROMPT
-      .replace('3-5 boards', '2 boards maximum')
-      .replace('Each Backlog list: 4-8 cards', 'Each Backlog list: 3-5 cards');
-
-    const MAX_DOC_CHARS = 8_000;
-    const doc = documentText.length > MAX_DOC_CHARS
-      ? documentText.slice(0, MAX_DOC_CHARS) + '\n\n[documento truncado por límite de tokens]'
-      : documentText;
-
-    const completion = await this.client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 8192,
-      messages: [
-        { role: 'system', content: reducedPrompt },
-        {
-          role: 'user',
-          content: `Analyze this document and generate a focused workspace plan (1 project, most important workstream only):\n\n${doc}`,
-        },
-      ],
-    });
-
-    const rawText = completion.choices[0]?.message?.content ?? '';
+    const rawText = result.response.text();
     return this.parseAndValidate(rawText);
   }
 
@@ -198,7 +154,7 @@ class AiPlannerService {
       plan = JSON.parse(text);
     } catch {
       console.error('[AiPlannerService] Raw response (first 500 chars):', rawText.slice(0, 500));
-      throw new Error('[AiPlannerService] Failed to parse JSON response from Groq');
+      throw new Error('[AiPlannerService] Failed to parse JSON response from Gemini');
     }
 
     // Validate minimum structure
