@@ -110,7 +110,7 @@ class AiWorkspaceBuilderService {
                   card.description ?? null,
                   cIdx,
                   card.priority ?? null,
-                  card.dueDate ?? null,
+                  null,
                   userId,
                 ]
               );
