@@ -59,7 +59,7 @@ export default function AddListButton({ boardId }: AddListButtonProps) {
     <div style={{ width: '272px', flexShrink: 0 }}>
       <div
         style={{
-          background: '#12151b', border: `1px solid ${C.accent}`,
+          background: C.bg2, border: `1px solid ${C.accent}`,
           borderRadius: '10px', padding: '12px',
         }}
       >

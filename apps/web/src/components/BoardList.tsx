@@ -217,7 +217,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
                     className="absolute right-0 top-full z-20"
                     style={{
                       marginTop: '4px', minWidth: '140px',
-                      background: '#13161b', border: `1px solid ${C.border2}`,
+                      background: C.bg2, border: `1px solid ${C.border2}`,
                       borderRadius: '7px', overflow: 'hidden',
                       boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                     }}
@@ -356,7 +356,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <div
               className="pointer-events-auto rounded-[10px] overflow-hidden w-full"
-              style={{ maxWidth: '380px', background: '#13161b', border: `1px solid ${C.red}44`, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
+              style={{ maxWidth: '380px', background: C.bg2, border: `1px solid ${C.red}44`, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
               onClick={(e) => e.stopPropagation()}
             >
               <div style={{ padding: '20px 20px 0' }}>

@@ -5,6 +5,7 @@ import { Request, Response } from 'express';
 import { CardService } from '../services/CardService';
 import { z } from 'zod';
 import { WorkspaceRequest } from '../middleware/workspace';
+import { query } from '../lib/db';
 
 // ==================== SCHEMAS DE VALIDACIÓN ====================
 
@@ -191,6 +192,18 @@ export class CardController {
         });
       }
 
+      const validationResult = updateCardSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid input',
+            details: validationResult.error.errors,
+          },
+        });
+      }
+
       // MEMBER solo puede actualizar el estado de completado, no otros campos
       if (isMember) {
         const allowedMemberKeys = new Set(['completed', 'completedAt']);
@@ -205,18 +218,26 @@ export class CardController {
             },
           });
         }
-      }
 
-      const validationResult = updateCardSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid input',
-            details: validationResult.error.errors,
-          },
-        });
+        // Cards asignadas solo pueden marcarlas sus asignados; sin asignados cualquiera puede.
+        const cardRow = await query(
+          `SELECT cm.user_id
+           FROM cards c
+           LEFT JOIN card_members cm ON cm.card_id = c.id
+           WHERE c.id = $1`,
+          [id]
+        );
+        const assigneeIds: (string | null)[] = cardRow.rows.map((r: any) => r.user_id);
+        const hasAssignees = assigneeIds.some((uid) => uid !== null);
+        if (hasAssignees && !assigneeIds.includes(userId)) {
+          return res.status(403).json({
+            success: false,
+            error: {
+              code: 'INSUFFICIENT_PERMISSIONS',
+              message: 'Solo puedes marcar como completada una card que te esté asignada',
+            },
+          });
+        }
       }
 
       const card = await CardService.updateCard(id, userId, validationResult.data, socketId);

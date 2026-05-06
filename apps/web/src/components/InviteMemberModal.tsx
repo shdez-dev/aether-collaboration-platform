@@ -211,7 +211,7 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
           onClick={(e) => e.stopPropagation()}
           style={{
             width: '100%', maxWidth: '560px', pointerEvents: 'auto',
-            background: '#13161b', border: `1px solid ${C.border}`,
+            background: C.bg2, border: `1px solid ${C.border}`,
             borderRadius: '12px', overflow: 'hidden',
             boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
             maxHeight: '90vh', display: 'flex', flexDirection: 'column',
@@ -443,7 +443,7 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
               {/* Footer */}
               <div style={{
                 display: 'flex', gap: '8px', padding: '12px 20px 16px',
-                borderTop: `1px solid ${C.border}`, background: '#111418', flexShrink: 0,
+                borderTop: `1px solid ${C.border}`, background: C.bg, flexShrink: 0,
               }}>
                 <CancelBtn onClick={onClose} disabled={isLoading} label={t.btn_cancel} />
                 <SubmitBtn

@@ -135,7 +135,7 @@ export default function WorkspaceDetailPage() {
   const [sideProjects,         setSideProjects]         = useState(true);
   const [sideMembers,          setSideMembers]          = useState(true);
   const [wsTeams,              setWsTeams]              = useState<{ id: string; name: string; color: string | null; members: any[] }[]>([]);
-  const [sideActivity,         setSideActivity]         = useState(false);
+  const [sideActivity,         setSideActivity]         = useState(true);
 
   // ── Activity tab ──────────────────────────────────────────────────────────
   const EVENTS_PER_PAGE = 20;
@@ -234,18 +234,117 @@ export default function WorkspaceDetailPage() {
     });
   }, [boards]);
 
+  // ── Real-time project events ──────────────────────────────────────────────
+  const handleProjectEvent = useCallback(async (event: { type: string; payload: any }) => {
+    const p = event.payload;
+    switch (event.type) {
+      case 'project.created': {
+        if (!p.projectId) break;
+        try {
+          const r = await apiService.get<{ project: any }>(`/api/projects/${p.projectId}`, true);
+          if (r.success && r.data?.project) {
+            setWsProjects((prev) => {
+              if (prev.some((x) => x.id === p.projectId)) return prev;
+              return [r.data!.project, ...prev];
+            });
+          }
+        } catch { /* silencio */ }
+        break;
+      }
+      case 'project.updated':
+      case 'project.status.changed': {
+        if (!p.projectId) break;
+        try {
+          const r = await apiService.get<{ project: any }>(`/api/projects/${p.projectId}`, true);
+          if (r.success && r.data?.project) {
+            setWsProjects((prev) =>
+              prev.map((x) => (x.id === p.projectId ? r.data!.project : x))
+            );
+          }
+        } catch { /* silencio */ }
+        break;
+      }
+      case 'project.deleted': {
+        if (p.projectId) {
+          setWsProjects((prev) => prev.filter((x) => x.id !== p.projectId));
+        }
+        break;
+      }
+      case 'board.created': {
+        if (!p.boardId) break;
+        try {
+          const r = await apiService.get<{ board: any }>(`/api/boards/${p.boardId}`, true);
+          if (r.success && r.data?.board) {
+            setOrphanBoards((prev) => {
+              if (prev.some((b) => b.id === p.boardId)) return prev;
+              return [r.data!.board, ...prev];
+            });
+          }
+        } catch { /* silencio */ }
+        break;
+      }
+      case 'project.board.assigned': {
+        if (p.boardId) {
+          setOrphanBoards((prev) => prev.filter((b) => b.id !== p.boardId));
+        }
+        if (p.projectId) {
+          try {
+            const r = await apiService.get<{ project: any }>(`/api/projects/${p.projectId}`, true);
+            if (r.success && r.data?.project) {
+              setWsProjects((prev) =>
+                prev.map((x) => (x.id === p.projectId ? r.data!.project : x))
+              );
+            }
+          } catch { /* silencio */ }
+        }
+        break;
+      }
+      case 'project.board.removed': {
+        if (p.boardId) {
+          try {
+            const r = await apiService.get<{ board: any }>(`/api/boards/${p.boardId}`, true);
+            if (r.success && r.data?.board) {
+              setOrphanBoards((prev) => {
+                if (prev.some((b) => b.id === p.boardId)) return prev;
+                return [r.data!.board, ...prev];
+              });
+            }
+          } catch { /* silencio */ }
+        }
+        if (p.projectId) {
+          setWsProjects((prev) =>
+            prev.map((x) =>
+              x.id === p.projectId
+                ? { ...x, boards: (x.boards ?? []).filter((b: any) => b.id !== p.boardId) }
+                : x
+            )
+          );
+        }
+        break;
+      }
+      case 'board.archived':
+      case 'board.deleted': {
+        if (p.boardId) {
+          setOrphanBoards((prev) => prev.filter((b) => b.id !== p.boardId));
+        }
+        break;
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!workspaceId) return;
     const join = () => socketService.joinWorkspace(workspaceId);
+    const onEvent = (event: any) => { handleEvent(event); handleProjectEvent(event); };
     join();
     socketService.onConnect(join);
-    socketService.on('event', handleEvent);
+    socketService.on('event', onEvent);
     return () => {
       socketService.leaveWorkspace(workspaceId);
       socketService.offConnect(join);
-      socketService.off('event', handleEvent);
+      socketService.off('event', onEvent);
     };
-  }, [workspaceId, handleEvent]);
+  }, [workspaceId, handleEvent, handleProjectEvent]);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading && !currentWorkspace) {
@@ -850,29 +949,44 @@ export default function WorkspaceDetailPage() {
 
                       {/* ── En planificación (colapsable) ─────────────────── */}
                       {planningProjects.length > 0 && (
-                        <div style={{ borderRadius: '10px', border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                        <div style={{ borderRadius: '10px', border: '1px solid rgba(59,130,246,0.28)', background: 'rgba(59,130,246,0.03)' }}>
+                          {/* Header */}
                           <button
                             onClick={() => setPlanningOpen(!planningOpen)}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.1s' }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '10px', transition: 'background 0.15s' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.07)'; }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                           >
-                            <ChevronDown style={{ ...ic(11), color: C.text4, transform: planningOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s', flexShrink: 0 }} />
-                            <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text3 }}>{t.projects_status_planning}</span>
-                            <span style={{ fontSize: '11px', padding: '0 6px', borderRadius: '10px', background: C.hover, color: C.text4, border: `1px solid ${C.border2}`, lineHeight: '18px' }}>
+                            {/* Chevron en caja azul */}
+                            <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(59,130,246,0.14)', border: '1px solid rgba(59,130,246,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.15s' }}>
+                              <ChevronDown style={{ width: '12px', height: '12px', color: '#3b82f6', transform: planningOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.22s ease', flexShrink: 0 }} />
+                            </div>
+
+                            {/* Título + badge */}
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6' }}>{t.projects_status_planning}</span>
+                            <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '1px 8px', borderRadius: '10px', background: 'rgba(59,130,246,0.13)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.28)', lineHeight: '18px', flexShrink: 0 }}>
                               {planningProjects.length}
                             </span>
-                            <span style={{ fontSize: '11.5px', color: C.text4, marginLeft: 'auto' }}>{t.projects_status_planning}</span>
+
+                            {/* Derecha: hint */}
+                            <span style={{ fontSize: '11.5px', color: C.text4, marginLeft: 'auto', flexShrink: 0 }}>
+                              {planningProjects.length === 1 ? '1 proyecto sin iniciar' : `${planningProjects.length} proyectos sin iniciar`}
+                            </span>
+                            <Zap style={{ width: '11px', height: '11px', color: 'rgba(59,130,246,0.5)', flexShrink: 0 }} />
                           </button>
-                          {planningOpen && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                              {planningProjects.map((proj, idx) => (
-                                <div key={proj.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                                  {renderCard(proj)}
-                                </div>
-                              ))}
+
+                          {/* Contenido animado con grid */}
+                          <div style={{ display: 'grid', gridTemplateRows: planningOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.28s ease' }}>
+                            <div style={{ overflow: 'hidden' }}>
+                              <div style={{ borderTop: '1px solid rgba(59,130,246,0.18)' }}>
+                                {planningProjects.map((proj, idx) => (
+                                  <div key={proj.id} style={{ borderTop: idx > 0 ? `1px solid ${C.border}` : 'none' }}>
+                                    {renderCard(proj)}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          )}
+                          </div>
                         </div>
                       )}
                     </>
@@ -881,15 +995,15 @@ export default function WorkspaceDetailPage() {
 
                 {/* ── Sin proyecto ─────────────────────────────────────── */}
                 {orphanBoards.length > 0 && (
-                  <div style={{ background: C.surface, borderRadius: '10px', border: `1px solid ${C.border}`, overflow: 'hidden', opacity: 0.9 }}>
+                  <div style={{ background: C.surface, borderRadius: '10px', border: `1px solid ${C.border}` }}>
                     {/* Cabecera colapsable */}
                     <button
                       onClick={() => setOrphanOpen(!orphanOpen)}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '10px', transition: 'background 0.15s' }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
-                      <ChevronDown style={{ ...ic(11), color: C.text4, transform: orphanOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s', flexShrink: 0 }} />
+                      <ChevronDown style={{ ...ic(11), color: C.text4, transform: orphanOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.22s ease', flexShrink: 0 }} />
                       <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text3 }}>{t.ws_no_project_label}</span>
                       <span style={{ fontSize: '11px', padding: '0 6px', borderRadius: '10px', background: C.hover, color: C.text4, border: `1px solid ${C.border2}`, lineHeight: '18px' }}>
                         {orphanBoards.length}
@@ -897,8 +1011,10 @@ export default function WorkspaceDetailPage() {
                       <span style={{ fontSize: '11.5px', color: C.text4, marginLeft: 'auto' }}>{t.ws_boards_unassigned}</span>
                     </button>
 
-                    {/* Filas */}
-                    {orphanOpen && orphanBoards.map((board: any, idx: number) => {
+                    {/* Filas animadas */}
+                    <div style={{ display: 'grid', gridTemplateRows: orphanOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.28s ease' }}>
+                      <div style={{ overflow: 'hidden' }}>
+                    {orphanBoards.map((board: any, idx: number) => {
                       const bColor = board.color || accentColor;
                       return (
                         <div key={board.id}
@@ -946,6 +1062,8 @@ export default function WorkspaceDetailPage() {
                         </div>
                       );
                     })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </section>

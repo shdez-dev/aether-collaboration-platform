@@ -10,6 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useState, memo } from 'react';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
+import { useAuthStore } from '@/stores/authStore';
 
 interface CardProps {
   card: CardType;
@@ -38,9 +39,17 @@ export function Card({ card }: CardProps) {
 
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
 
+  const currentUserId = useAuthStore((s) => s.user?.id);
+
   const canEdit     = userRole === 'ADMIN' || userRole === 'OWNER';
-  const canComplete = canEdit || userRole === 'MEMBER';
   const canDragByRole = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
+
+  // Members can only complete cards that have no assignees (anyone can)
+  // or cards where they are explicitly assigned.
+  const cardMembers: Array<{ id: string }> = (card as any).members || [];
+  const cardHasAssignees = cardMembers.length > 0;
+  const isAssignedToMe   = cardMembers.some((m) => m.id === currentUserId);
+  const canComplete = canEdit || (userRole === 'MEMBER' && (!cardHasAssignees || isAssignedToMe));
 
   const blockedByPendingCount = card.blockedByPendingCount ?? 0;
   const isBlocked = blockedByPendingCount > 0 && !card.completed;
@@ -305,7 +314,7 @@ export function Card({ card }: CardProps) {
                   width: '18px', height: '18px',
                   borderRadius: '50%',
                   background: `linear-gradient(135deg, ${C.accent}bb, ${C.accent}55)`,
-                  border: `1.5px solid #13161b`,
+                  border: `1.5px solid ${C.bg}`,
                   marginLeft: i === 0 ? 0 : '-5px',
                   fontSize: '9px', fontWeight: 700, color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -320,7 +329,7 @@ export function Card({ card }: CardProps) {
               <div
                 style={{
                   width: '18px', height: '18px', borderRadius: '50%',
-                  background: C.hover, border: `1.5px solid #13161b`,
+                  background: C.hover, border: `1.5px solid ${C.bg}`,
                   marginLeft: '-5px', fontSize: '9px', fontWeight: 700, color: C.text3,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
                 }}

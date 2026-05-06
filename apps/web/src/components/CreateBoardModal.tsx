@@ -109,7 +109,7 @@ export default function CreateBoardModal({
         className="w-full flex flex-col rounded-[12px] overflow-hidden"
         style={{
           maxWidth: '420px',
-          background: '#13161b',
+          background: C.bg2,
           border: `1px solid ${C.border}`,
           boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
           opacity: animIn ? 1 : 0,
@@ -318,7 +318,7 @@ export default function CreateBoardModal({
         {/* ── Footer ────────────────────────────────────────────────── */}
         <div
           className="flex-shrink-0 flex items-center gap-2"
-          style={{ padding: '12px 20px 16px', borderTop: `1px solid ${C.border}`, background: '#111418' }}
+          style={{ padding: '12px 20px 16px', borderTop: `1px solid ${C.border}`, background: C.bg }}
         >
           <button
             type="button"

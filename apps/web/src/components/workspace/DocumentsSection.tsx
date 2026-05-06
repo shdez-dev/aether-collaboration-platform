@@ -218,7 +218,7 @@ export default function DocumentsSection({ workspaceId, isOwnerOrAdmin, accentCo
           onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
         >
           <div
-            style={{ width: '420px', maxWidth: 'calc(100vw - 32px)', background: '#13161b', border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
+            style={{ width: '420px', maxWidth: 'calc(100vw - 32px)', background: C.bg2, border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

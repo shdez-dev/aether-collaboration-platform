@@ -1,7 +1,7 @@
 // apps/web/src/app/dashboard/workspaces/[id]/boards/[boardId]/page.tsx
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
@@ -113,9 +113,10 @@ export default function BoardPage() {
   const [viewInitialized, setViewInitialized] = useState(false);
   const [recentActivity, setRecentActivity] = useState<ActivityLogEntry[]>([]);
 
-  // Cursor presence
-  const kanbanRef = useRef<HTMLDivElement>(null);
-  const { cursors: remoteCursors } = useBoardCursors(boardId, kanbanRef);
+  // Cursor presence — callback ref para evitar el ref trap
+  const [kanbanEl, setKanbanEl] = useState<HTMLDivElement | null>(null);
+  const kanbanCallbackRef = useCallback((el: HTMLDivElement | null) => setKanbanEl(el), []);
+  const { cursors: remoteCursors } = useBoardCursors(boardId, kanbanEl);
 
   const handleViewChange = async (view: BoardView) => {
     setCurrentView(view);
@@ -530,7 +531,7 @@ export default function BoardPage() {
             </div>
           ) : (
             /* ── Kanban ──────────────────────────────────────────────── */
-            <div ref={kanbanRef} style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', position: 'relative' }}>
+            <div ref={kanbanCallbackRef} style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', position: 'relative' }}>
               <RemoteCursors cursors={remoteCursors} />
               <div style={{ height: '100%', padding: '16px 20px' }}>
                 <DndContext

@@ -84,7 +84,7 @@ function Dropdown({
         <div
           style={{
             position: 'absolute', top: 'calc(100% + 5px)', left: 0, zIndex: 50,
-            background: '#13161b', border: `1px solid ${C.border2}`,
+            background: C.bg2, border: `1px solid ${C.border2}`,
             borderRadius: '8px', minWidth: '180px', overflow: 'hidden',
             boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
           }}

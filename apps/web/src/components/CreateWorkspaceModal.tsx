@@ -105,7 +105,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
         style={{
           maxWidth: '480px',
           maxHeight: '92vh',
-          background: '#13161b',
+          background: C.bg2,
           border: `1px solid ${C.border}`,
           boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
           opacity: animIn ? 1 : 0,
@@ -350,7 +350,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <div
           className="flex-shrink-0"
-          style={{ padding: '12px 20px 14px', borderTop: `1px solid ${C.border}`, background: '#111418' }}
+          style={{ padding: '12px 20px 14px', borderTop: `1px solid ${C.border}`, background: C.bg }}
         >
           <p className="text-[11.5px] mb-3" style={{ color: C.text4 }}>
             Podrás invitar a miembros una vez creado.
