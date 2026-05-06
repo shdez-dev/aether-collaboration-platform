@@ -57,7 +57,7 @@ function timeAgo(date: string, t: Record<string, any>): string {
 }
 
 function getRoleBadge(role: string | undefined, t: { role_owner: string; role_admin: string; role_member: string }) {
-  if (role === 'OWNER') return { label: t.role_owner.toUpperCase(), bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: 'rgba(245,158,11,0.35)' };
+  if (role === 'OWNER') return { label: t.role_owner.toUpperCase(), bg: 'rgba(161,167,176,0.12)', color: '#a1a7b0', border: 'rgba(161,167,176,0.28)' };
   if (role === 'ADMIN') return { label: t.role_admin.toUpperCase(), bg: 'rgba(16,185,129,0.15)', color: '#10b981', border: 'rgba(16,185,129,0.35)' };
   return { label: t.role_member.toUpperCase(), bg: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: 'rgba(99,102,241,0.3)' };
 }

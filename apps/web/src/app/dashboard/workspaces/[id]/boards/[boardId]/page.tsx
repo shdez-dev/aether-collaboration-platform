@@ -64,7 +64,7 @@ import { RemoteCursors } from '@/components/realtime/RemoteCursors';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getRoleMeta(role: string, t: { role_owner: string; role_admin: string; role_member: string; role_viewer: string }) {
-  if (role === 'OWNER')  return { label: t.role_owner,  color: '#f59e0b' };
+  if (role === 'OWNER')  return { label: t.role_owner,  color: '#a1a7b0' };
   if (role === 'ADMIN')  return { label: t.role_admin,  color: '#10b981' };
   if (role === 'VIEWER') return { label: t.role_viewer, color: '#6b7280' };
   return                        { label: t.role_member, color: '#a5b4fc' };
