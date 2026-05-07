@@ -221,8 +221,8 @@ export default function WorkspaceDetailPage() {
 
   useEffect(() => {
     if (!workspaceId) return;
-    apiService.get<{ connection: any }>(`/api/workspaces/${workspaceId}/github`, true).then((r) => {
-      if (r.success && r.data?.connection) {
+    apiService.get<{ githubLogin: string; repos: string[]; connectedAt: string } | null>(`/api/workspaces/${workspaceId}/github`, true).then((r) => {
+      if (r.success && r.data) {
         setGithubConnected(true);
         const ghTypes = 'github.push,github.pr.opened,github.pr.closed,github.pr.merged,github.pr.review.submitted,github.pr.review_requested';
         apiService.get<{ events: any[] }>(`/api/workspaces/${workspaceId}/activity?eventTypes=${ghTypes}&limit=10`, true).then((r2) => {
