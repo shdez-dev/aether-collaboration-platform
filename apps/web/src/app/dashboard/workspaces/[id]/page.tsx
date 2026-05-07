@@ -24,6 +24,7 @@ import {
   LayoutGrid, Activity, AlertCircle, FileText,
   TrendingUp, TrendingDown, ChevronDown, FolderOpen,
   UserX, Zap, Users, LayoutDashboard,
+  Github, GitBranch, GitMerge, GitPullRequest, GitPullRequestClosed,
 } from 'lucide-react';
 import { C } from '@/lib/colors';
 
@@ -136,6 +137,9 @@ export default function WorkspaceDetailPage() {
   const [sideMembers,          setSideMembers]          = useState(true);
   const [wsTeams,              setWsTeams]              = useState<{ id: string; name: string; color: string | null; members: any[] }[]>([]);
   const [sideActivity,         setSideActivity]         = useState(true);
+  const [sideGithub,           setSideGithub]           = useState(true);
+  const [githubConnected,      setGithubConnected]      = useState(false);
+  const [githubEvents,         setGithubEvents]         = useState<any[]>([]);
 
   // ── Activity tab ──────────────────────────────────────────────────────────
   const EVENTS_PER_PAGE = 20;
@@ -214,6 +218,19 @@ export default function WorkspaceDetailPage() {
     apiService.get<{ teams: any[] }>(`/api/workspaces/${workspaceId}/teams`, true)
       .then((r) => { if (r.success && r.data) setWsTeams(r.data.teams || []); });
   }, [workspaceId, fetchWorkspaceById, fetchMembers, fetchBoards, fetchStats, fetchProjectsByWorkspace]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    apiService.get<{ connection: any }>(`/api/workspaces/${workspaceId}/github`, true).then((r) => {
+      if (r.success && r.data?.connection) {
+        setGithubConnected(true);
+        const ghTypes = 'github.push,github.pr.opened,github.pr.closed,github.pr.merged,github.pr.review.submitted,github.pr.review_requested';
+        apiService.get<{ events: any[] }>(`/api/workspaces/${workspaceId}/activity?eventTypes=${ghTypes}&limit=10`, true).then((r2) => {
+          if (r2.success && r2.data) setGithubEvents(r2.data.events || []);
+        });
+      }
+    });
+  }, [workspaceId]);
 
   useEffect(() => {
     if (boards.length === 0) return;
@@ -335,7 +352,14 @@ export default function WorkspaceDetailPage() {
   useEffect(() => {
     if (!workspaceId) return;
     const join = () => socketService.joinWorkspace(workspaceId);
-    const onEvent = (event: any) => { handleEvent(event); handleProjectEvent(event); };
+    const onEvent = (event: any) => {
+      handleEvent(event);
+      handleProjectEvent(event);
+      if ((event.type as string)?.startsWith('github.')) {
+        setGithubEvents((prev) => [event, ...prev].slice(0, 20));
+        if (!githubConnected) setGithubConnected(true);
+      }
+    };
     join();
     socketService.onConnect(join);
     socketService.on('event', onEvent);
@@ -1479,6 +1503,86 @@ export default function WorkspaceDetailPage() {
                   </div>
                 )}
               </div>
+
+              {/* GitHub Activity panel */}
+              {githubConnected && (
+                <div style={{ borderBottom: `1px solid ${C.border}` }}>
+                  <button onClick={() => setSideGithub(!sideGithub)}
+                    style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                      <Github style={{ ...ic(12), color: C.purple }} />
+                      <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>GitHub</span>
+                      {githubEvents.length > 0 && (
+                        <span style={{ fontSize: '10px', padding: '0 5px', borderRadius: '8px', background: C.hover, color: C.text3, border: `1px solid ${C.border2}`, lineHeight: '16px' }}>
+                          {githubEvents.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown style={{ ...ic(11), color: C.text4, transform: sideGithub ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
+                  </button>
+                  {sideGithub && (
+                    <div style={{ padding: '0 8px 8px' }}>
+                      {githubEvents.length === 0 ? (
+                        <p style={{ fontSize: '12px', color: C.text4, textAlign: 'center', padding: '14px 0' }}>Sin actividad reciente</p>
+                      ) : githubEvents.slice(0, 8).map((ev, i) => {
+                        const p = ev.payload || {};
+                        const repo = (p.repo as string) || '';
+                        const repoShort = repo.split('/')[1] || repo;
+                        let icon: React.ReactNode;
+                        let text = '';
+
+                        if (ev.type === 'github.push') {
+                          const n = (p.commits as any[])?.length ?? 0;
+                          icon = <GitBranch style={{ ...ic(11), color: C.green, flexShrink: 0 }} />;
+                          text = `${p.pusher || 'Someone'} pushed ${n} commit${n !== 1 ? 's' : ''} to ${p.branch}`;
+                        } else if (ev.type === 'github.pr.opened') {
+                          icon = <GitPullRequest style={{ ...ic(11), color: '#3b82f6', flexShrink: 0 }} />;
+                          text = `${p.author || 'Someone'} opened PR #${p.prNumber}: ${p.title}`;
+                        } else if (ev.type === 'github.pr.merged') {
+                          icon = <GitMerge style={{ ...ic(11), color: C.purple, flexShrink: 0 }} />;
+                          text = `${p.mergedBy || 'Someone'} merged PR #${p.prNumber}`;
+                        } else if (ev.type === 'github.pr.closed') {
+                          icon = <GitPullRequestClosed style={{ ...ic(11), color: C.red, flexShrink: 0 }} />;
+                          text = `PR #${p.prNumber} cerrado`;
+                        } else if (ev.type === 'github.pr.review.submitted') {
+                          const state = (p.state as string)?.toLowerCase();
+                          icon = <GitPullRequest style={{ ...ic(11), color: state === 'approved' ? C.green : C.amber, flexShrink: 0 }} />;
+                          text = `${p.reviewer} ${state === 'approved' ? 'aprobó' : state === 'changes_requested' ? 'solicitó cambios en' : 'revisó'} PR #${p.prNumber}`;
+                        } else if (ev.type === 'github.pr.review_requested') {
+                          icon = <GitPullRequest style={{ ...ic(11), color: C.amber, flexShrink: 0 }} />;
+                          text = `Revisión pedida a ${p.reviewer} en PR #${p.prNumber}`;
+                        } else {
+                          icon = <Github style={{ ...ic(11), color: C.purple, flexShrink: 0 }} />;
+                          text = ev.type;
+                        }
+
+                        const createdAt: string | undefined = ev.createdAt || ev.timestamp;
+                        return (
+                          <div key={ev.id || i}
+                            style={{ padding: '6px 7px', borderRadius: '6px', transition: 'background 0.1s' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px' }}>
+                              <div style={{ flexShrink: 0, marginTop: '2px' }}>{icon}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ margin: 0, fontSize: '11.5px', color: C.text2, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {text}
+                                </p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                  {repoShort && <span style={{ fontSize: '10px', color: C.text4 }}>{repoShort}</span>}
+                                  {createdAt && <span style={{ fontSize: '10px', color: C.text4 }}>{repoShort ? '·' : ''} {ago(createdAt)}</span>}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Actividad panel */}
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
