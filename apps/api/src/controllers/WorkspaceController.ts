@@ -30,7 +30,7 @@ const inviteMemberSchema = z.object({
 });
 
 const inviteMultipleMembersSchema = z.object({
-  emails: z.array(z.string().email()).min(1).max(20),
+  emails: z.array(z.string().email()).min(1).max(4),
   role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
 });
 
@@ -355,6 +355,16 @@ class WorkspaceController {
         });
       }
 
+      if (error.message === 'Member limit reached') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'MEMBER_LIMIT_REACHED',
+            message: 'This workspace has reached the maximum of 5 members',
+          },
+        });
+      }
+
       return res.status(500).json({
         success: false,
         error: {
@@ -414,6 +424,8 @@ class WorkspaceController {
             reason = 'User does not exist';
           } else if (error.message === 'User is already a member') {
             reason = 'Already a member';
+          } else if (error.message === 'Member limit reached') {
+            reason = 'Workspace member limit of 5 reached';
           } else if (error.message === 'Insufficient permissions') {
             reason = 'Insufficient permissions';
           }
@@ -888,6 +900,11 @@ class WorkspaceController {
         return res
           .status(409)
           .json({ success: false, error: { code: 'ALREADY_MEMBER', message: error.message } });
+      }
+      if (error.message === 'Member limit reached') {
+        return res
+          .status(403)
+          .json({ success: false, error: { code: 'MEMBER_LIMIT_REACHED', message: 'This workspace has reached the maximum of 5 members' } });
       }
       return res.status(500).json({
         success: false,

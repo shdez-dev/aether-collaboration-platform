@@ -294,6 +294,14 @@ export class WorkspaceService {
         throw new Error('User is already a member');
       }
 
+      const memberCount = await client.query(
+        `SELECT COUNT(*) FROM workspace_members WHERE workspace_id = $1`,
+        [workspaceId]
+      );
+      if (parseInt(memberCount.rows[0].count) >= 5) {
+        throw new Error('Member limit reached');
+      }
+
       await client.query(
         `INSERT INTO workspace_members (id, workspace_id, user_id, role)
          VALUES (uuid_generate_v4(), $1, $2, $3)`,
@@ -892,6 +900,14 @@ export class WorkspaceService {
       );
       if (existing.rows.length > 0) {
         throw new Error('Already a member');
+      }
+
+      const memberCount = await client.query(
+        `SELECT COUNT(*) FROM workspace_members WHERE workspace_id = $1`,
+        [workspace.id]
+      );
+      if (parseInt(memberCount.rows[0].count) >= 5) {
+        throw new Error('Member limit reached');
       }
 
       await client.query(

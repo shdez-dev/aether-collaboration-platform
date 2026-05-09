@@ -324,6 +324,18 @@ class TeamController {
         return res.status(403).json({ success: false, error: { message: 'Solo el lead puede añadir miembros' } });
       }
 
+      // Verificar límite de miembros
+      const memberCount = await pool.query(
+        `SELECT COUNT(*) FROM team_members WHERE team_id = $1`,
+        [id]
+      );
+      if (parseInt(memberCount.rows[0].count) >= 5) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'MEMBER_LIMIT_REACHED', message: 'El equipo ha alcanzado el máximo de 5 miembros' },
+        });
+      }
+
       // Resolver userId desde email si es necesario
       let targetUserId = body.data.userId;
       if (!targetUserId && body.data.email) {
