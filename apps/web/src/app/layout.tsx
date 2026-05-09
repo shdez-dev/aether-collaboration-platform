@@ -52,7 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#3B82F6" />
         <meta
           name="description"
-          content="AETHER - Event-driven collaboration platform for teams. Manage workspaces, boards, and documents in real-time."
+          content="Aether - Event-driven collaboration platform for teams. Manage workspaces, boards, and documents in real-time."
         />
         <meta name="application-name" content="Aether" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -68,7 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
-        <title>AETHER - Collaboration Platform</title>
+        <title>Aether - Collaboration Platform</title>
       </head>
       <body>
         <ErrorBoundary>
@@ -84,7 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         href="/"
                         className="flex items-center gap-2 text-accent hover:text-accent-hover transition-colors flex-shrink-0 min-h-[44px]"
                       >
-                        <span className="text-lg sm:text-xl font-bold font-mono whitespace-nowrap">[ AETHER ]</span>
+                        <span className="text-lg sm:text-xl font-bold font-mono whitespace-nowrap">[ Aether ]</span>
                       </Link>
 
                       {/* Navigation Links */}

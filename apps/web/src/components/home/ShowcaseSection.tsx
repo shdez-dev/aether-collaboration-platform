@@ -12,12 +12,11 @@ function MetricsStrip() {
   const metrics = [
     { value: '38', unit: 'ms', label: t.home_metrics_sync },
     { value: '99.99', unit: '%', label: t.home_metrics_uptime },
-    { value: '140', unit: '+', label: t.home_metrics_shortcuts },
     { value: '0', unit: '', label: t.home_metrics_deps },
   ];
 
   return (
-    <div className="home-metrics-strip grid grid-cols-2 md:grid-cols-4">
+    <div className="home-metrics-strip grid grid-cols-1 md:grid-cols-3">
       {metrics.map((m, i) => (
         <div
           key={m.label}

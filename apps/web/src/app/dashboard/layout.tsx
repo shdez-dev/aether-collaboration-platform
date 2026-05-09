@@ -363,7 +363,7 @@ function SidebarContent({
               <circle cx="32" cy="173" r="9" fill="#3B82F6" />
               <circle cx="188" cy="173" r="9" fill="#3B82F6" />
             </svg>
-            <span className="text-[13px] font-semibold flex-1 truncate tracking-[0.06em]">AETHER</span>
+            <span className="text-[13px] font-semibold flex-1 truncate tracking-[0.06em]">Aether</span>
             <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12" style={{ color: C.text3, flexShrink: 0 }}>
               <path d="M3 5l3-3 3 3M3 7l3 3 3-3" />
             </svg>

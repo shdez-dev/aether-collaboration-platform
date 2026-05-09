@@ -176,7 +176,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <>
             {/* Header */}
             <div className="p-6 border-b border-border">
-              <h1 className="text-xl font-normal mb-1">[ AETHER ]</h1>
+              <h1 className="text-xl font-normal mb-1">[ Aether ]</h1>
               <p className="text-text-muted text-xs">Event-sourced platform</p>
               <div className="status-online mt-3">OPERATIONAL</div>
             </div>

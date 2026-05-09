@@ -234,7 +234,7 @@ function ProductShot() {
         <aside style={{ width: '180px', flexShrink: 0, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', background: C.bg2 }}>
           {/* Brand */}
           <div style={{ padding: '12px', borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: C.text, marginBottom: '2px' }}>[ AETHER ]</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: C.text, marginBottom: '2px' }}>[ Aether ]</div>
             <div style={{ fontSize: '10px', color: C.text3 }}>platform-team</div>
           </div>
 
@@ -567,8 +567,6 @@ export function HeroSection() {
           >
             {[
               { value: t.home_hero_stat1_value, label: t.home_hero_stat1_label },
-              { value: t.home_hero_stat2_value, label: t.home_hero_stat2_label },
-              { value: t.home_hero_stat3_value, label: t.home_hero_stat3_label },
             ].map((s) => (
               <div key={s.label}>
                 <strong

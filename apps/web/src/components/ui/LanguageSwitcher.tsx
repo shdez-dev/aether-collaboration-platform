@@ -25,12 +25,17 @@ export function LanguageSwitcher({ variant = 'topbar' }: LanguageSwitcherProps) 
       <button
         onClick={handleToggle}
         title={currentLang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg border border-border bg-surface/80 backdrop-blur-sm text-text-secondary hover:text-text-primary hover:border-accent/40 transition-all text-xs font-medium shadow-sm"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-medium transition-all"
+        style={{
+          color: 'var(--home-glass-text)',
+          background: 'var(--home-glass)',
+          border: '1px solid var(--home-glass-border)',
+        }}
       >
         <Globe className="w-3.5 h-3.5" />
         <span>{currentLang.toUpperCase()}</span>
-        <span className="hidden sm:inline text-text-muted">·</span>
-        <span className="hidden sm:inline text-text-muted">{nextLang.toUpperCase()}</span>
+        <span className="hidden sm:inline" style={{ color: 'var(--home-text-4)' }}>·</span>
+        <span className="hidden sm:inline" style={{ color: 'var(--home-text-3)' }}>{nextLang.toUpperCase()}</span>
       </button>
     );
   }

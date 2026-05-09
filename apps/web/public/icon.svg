@@ -1,32 +1,9 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Simplified version for small sizes -->
-  <defs>
-    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  
-  <!-- Background -->
-  <rect width="64" height="64" rx="12" fill="url(#iconGrad)"/>
-  
-  <!-- Simplified "A" with nodes -->
-  <!-- Top node -->
-  <circle cx="32" cy="18" r="4" fill="white"/>
-  
-  <!-- Left bottom node -->
-  <circle cx="20" cy="42" r="4" fill="white"/>
-  
-  <!-- Right bottom node -->
-  <circle cx="44" cy="42" r="4" fill="white"/>
-  
-  <!-- Lines forming A -->
-  <line x1="32" y1="22" x2="20" y2="38" stroke="white" stroke-width="3" stroke-linecap="round"/>
-  <line x1="32" y1="22" x2="44" y2="38" stroke="white" stroke-width="3" stroke-linecap="round"/>
-  <line x1="24" y1="36" x2="40" y2="36" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-  
-  <!-- Small bottom center node -->
-  <circle cx="32" cy="50" r="2.5" fill="white" opacity="0.8"/>
-  <line x1="20" y1="46" x2="30" y2="48" stroke="white" stroke-width="1.5" opacity="0.6"/>
-  <line x1="44" y1="46" x2="34" y2="48" stroke="white" stroke-width="1.5" opacity="0.6"/>
+<svg width="64" height="64" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="220" height="220" rx="44" fill="#0f1117"/>
+  <path d="M 110 39 L 32 173" stroke="#3B82F6" stroke-width="10" stroke-linecap="round"/>
+  <path d="M 110 39 L 188 173" stroke="#3B82F6" stroke-width="10" stroke-linecap="round"/>
+  <path d="M 66 122 L 154 122" stroke="#3B82F6" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="110" cy="39" r="9" fill="#3B82F6"/>
+  <circle cx="32" cy="173" r="9" fill="#3B82F6"/>
+  <circle cx="188" cy="173" r="9" fill="#3B82F6"/>
 </svg>

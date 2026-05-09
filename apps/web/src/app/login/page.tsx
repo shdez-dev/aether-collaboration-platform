@@ -113,7 +113,7 @@ export default function LoginPage() {
 
         {/* Encabezado */}
         <div className="mb-8">
-          <h1 className="text-2xl font-normal mb-2">[ AETHER ]</h1>
+          <h1 className="text-2xl font-normal mb-2">[ Aether ]</h1>
           <p className="text-text-secondary text-sm">~/ {t.login_subtitle}</p>
           <div className="status-online mt-4">ONLINE</div>
         </div>
