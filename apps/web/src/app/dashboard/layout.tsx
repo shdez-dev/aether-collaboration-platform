@@ -389,7 +389,7 @@ function SidebarContent({
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="13" height="13" style={{ flexShrink: 0 }}>
             <circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" />
           </svg>
-          <span className="text-[12.5px] flex-1">Buscar o saltar a...</span>
+          <span className="flex-1" />
           <span
             className="font-mono text-[10.5px] px-[5px] py-[1px] rounded-[3px] flex-shrink-0"
             style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text3 }}
@@ -601,24 +601,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {/* Actions */}
               <div className="flex items-center gap-1.5 ml-auto">
-                {/* Nuevo */}
-                <button
-                  onClick={() => router.push('/dashboard/workspaces')}
-                  className="inline-flex items-center gap-1.5 rounded-[5px] text-[12.5px] font-medium transition-colors"
-                  style={{ height: '28px', padding: '0 10px 0 8px', background: '#191d23', border: `1px solid ${C.border2}`, color: C.text }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = '#191d23')}
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" width="13" height="13">
-                    <path d="M8 3v10M3 8h10" />
-                  </svg>
-                  Nuevo
-                  <span
-                    className="font-mono text-[10px] px-[4px] py-[1px] rounded-[3px] ml-1"
-                    style={{ border: `1px solid ${C.border2}`, background: C.bg, color: C.text3 }}
-                  >C</span>
-                </button>
-
                 {/* Notifications */}
                 <NotificationBell />
 

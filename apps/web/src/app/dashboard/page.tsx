@@ -7,7 +7,6 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
 import { AlertTriangle, CheckCircle2, Clock, Users, Send, ExternalLink } from 'lucide-react';
 import { useT } from '@/lib/i18n';
-import OnboardingModal from '@/components/OnboardingModal';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
 import { C } from '@/lib/colors';
 
@@ -292,17 +291,8 @@ export default function DashboardPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  // Mostrar onboarding solo cuando no hay workspaces y el fetch ya terminó
-  const showOnboarding = !cardsLoading && workspaces.length === 0;
-
   return (
     <>
-    {showOnboarding && user && (
-      <OnboardingModal
-        userName={user.name ?? 'Usuario'}
-        onCreateManually={() => setIsCreateWsOpen(true)}
-      />
-    )}
     {isCreateWsOpen && (
       <CreateWorkspaceModal isOpen={isCreateWsOpen} onClose={() => setIsCreateWsOpen(false)} />
     )}
