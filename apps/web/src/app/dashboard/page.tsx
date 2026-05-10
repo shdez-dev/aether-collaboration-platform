@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
-import { AlertTriangle, CheckCircle2, Clock, Users, Send, ExternalLink } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Users, ExternalLink, Plus, X, Check } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
 import { C } from '@/lib/colors';
@@ -47,6 +47,16 @@ interface TeamStandup {
   blockers: { id: string; text: string }[];
   publishedAt: string;
 }
+
+interface TodoItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  createdAt: string;
+}
+
+const TODO_LS_KEY = 'aether-today-todos';
+const TODO_TTL_MS = 24 * 60 * 60 * 1000;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -191,13 +201,14 @@ export default function DashboardPage() {
   const [teamStandups,  setTeamStandups]  = useState<TeamStandup[]>([]);
   const [teamLoading,   setTeamLoading]   = useState(true);
 
-  // My standup
-  const [standupText,    setStandupText]    = useState('');
-  const [standupPublished, setStandupPublished] = useState(false);
-  const [standupSaving,  setStandupSaving]  = useState(false);
+  // Todo list widget
+  const [todoItems,    setTodoItems]    = useState<TodoItem[]>([]);
+  const [newItemText,  setNewItemText]  = useState('');
+  const [hoveredTodo,  setHoveredTodo]  = useState<string | null>(null);
+  const newItemRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // First workspace for standup API
+  // First workspace for standup API sync
   const firstWsId = workspaces[0]?.id ?? null;
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
@@ -217,11 +228,12 @@ export default function DashboardPage() {
 
         const todayCards    = pending.filter((c) => c.dueDate && new Date(c.dueDate) <= todayEnd);
         const upcomingCards = pending.filter((c) => c.dueDate && new Date(c.dueDate) > todayEnd && new Date(c.dueDate) <= weekEnd);
+        const laterCards    = pending.filter((c) => c.dueDate && new Date(c.dueDate) > weekEnd);
         const noDateCards   = pending.filter((c) => !c.dueDate);
 
         setOverdue(ov);
         setToday(todayCards);
-        setUpcoming(upcomingCards);
+        setUpcoming([...upcomingCards, ...laterCards]);
         setNoDate(noDateCards);
       })
       .finally(() => setCardsLoading(false));
@@ -238,44 +250,60 @@ export default function DashboardPage() {
     }).finally(() => setTeamLoading(false));
   }, []);
 
-  // Load my standup
+  // Load + purge todo items from localStorage
   useEffect(() => {
-    if (!firstWsId) return;
-    apiService.get<{ todayItems: { text: string }[]; publishedAt: string | null }>(
-      `/api/users/me/standup?workspaceId=${firstWsId}`, true
-    ).then((res) => {
-      if (res.success && res.data) {
-        const text = (res.data.todayItems ?? []).map((i) => i.text).join(', ');
-        setStandupText(text);
-        setStandupPublished(!!res.data.publishedAt);
-      }
-    });
-  }, [firstWsId]);
+    try {
+      const raw = localStorage.getItem(TODO_LS_KEY);
+      if (!raw) return;
+      const items: TodoItem[] = JSON.parse(raw);
+      const cutoff = Date.now() - TODO_TTL_MS;
+      const fresh = items.filter((i) => new Date(i.createdAt).getTime() > cutoff);
+      localStorage.setItem(TODO_LS_KEY, JSON.stringify(fresh));
+      setTodoItems(fresh);
+    } catch {}
+  }, []);
 
-  // Autosave standup con debounce
-  const saveStandup = useCallback((text: string) => {
-    if (!firstWsId || !text.trim()) return;
-    setStandupSaving(true);
-    apiService.put('/api/users/me/standup', {
-      workspaceId:   firstWsId,
-      todayItems:    [{ text }],
-      yesterdayItems: [],
-      blockers:      [],
-    }, true).finally(() => setStandupSaving(false));
-  }, [firstWsId]);
-
-  function handleStandupChange(val: string) {
-    setStandupText(val);
-    setStandupPublished(false);
+  function persistTodos(items: TodoItem[]) {
+    setTodoItems(items);
+    try { localStorage.setItem(TODO_LS_KEY, JSON.stringify(items)); } catch {}
+    // Sync non-completed items to standup API for team visibility (debounced)
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => saveStandup(val), 1200);
+    debounceRef.current = setTimeout(() => {
+      if (!firstWsId) return;
+      const pendingItems = items.filter((i) => !i.completed);
+      apiService.put('/api/users/me/standup', {
+        workspaceId:    firstWsId,
+        todayItems:     pendingItems.map((i) => ({ id: i.id, text: i.text })),
+        yesterdayItems: [],
+        blockers:       [],
+      }, true).then((res) => {
+        if (res.success && pendingItems.length > 0) {
+          apiService.post('/api/users/me/standup/publish', { workspaceId: firstWsId }, true);
+        }
+      }).catch(() => {});
+    }, 1500);
   }
 
-  async function publishStandup() {
-    if (!firstWsId || !standupText.trim()) return;
-    await saveStandup(standupText);
-    const res = await apiService.post('/api/users/me/standup/publish', { workspaceId: firstWsId }, true);
-    if (res.success) setStandupPublished(true);
+  function addTodoItem() {
+    const text = newItemText.trim();
+    if (!text) return;
+    const item: TodoItem = {
+      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+      text,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+    persistTodos([...todoItems, item]);
+    setNewItemText('');
+    newItemRef.current?.focus();
+  }
+
+  function toggleTodo(id: string) {
+    persistTodos(todoItems.map((i) => i.id === id ? { ...i, completed: !i.completed } : i));
+  }
+
+  function deleteTodo(id: string) {
+    persistTodos(todoItems.filter((i) => i.id !== id));
   }
 
   // ── Derived ─────────────────────────────────────────────────────────────────
@@ -312,37 +340,98 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Standup input */}
-          <div style={{ padding: '14px 24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <MiniAvatar name={user?.name ?? 'U'} size={28} />
-            <input
-              value={standupText}
-              onChange={(e) => handleStandupChange(e.target.value)}
-              placeholder={t.dashboard_standup_placeholder}
-              disabled={standupPublished}
-              style={{
-                flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                fontSize: '13.5px', color: standupPublished ? C.text3 : C.text,
-                fontStyle: standupPublished ? 'italic' : 'normal',
-              }}
-              onKeyDown={(e) => { if (e.key === 'Enter') publishStandup(); }}
-            />
-            {standupPublished ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: C.green }}>
-                <CheckCircle2 style={{ width: '13px', height: '13px' }} />
-                {t.dashboard_standup_published}
-              </div>
-            ) : standupText.trim() ? (
-              <button
-                onClick={publishStandup}
-                disabled={standupSaving}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, background: C.accent, color: '#fff', border: 'none', cursor: 'pointer', opacity: standupSaving ? 0.7 : 1 }}
+          {/* Todo list widget */}
+          <div style={{ padding: '14px 24px 16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text4, marginBottom: '10px' }}>
+              {t.dashboard_standup_placeholder}
+            </div>
+
+            {/* Items list */}
+            {todoItems.map((item) => (
+              <div
+                key={item.id}
+                onMouseEnter={() => setHoveredTodo(item.id)}
+                onMouseLeave={() => setHoveredTodo(null)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', minHeight: '28px' }}
               >
-                <Send style={{ width: '11px', height: '11px' }} />
-                {standupSaving ? t.btn_saving : t.btn_save}
-              </button>
-            ) : (
-              <span style={{ fontSize: '11px', color: C.text4 }}>{t.dashboard_standup_hint}</span>
+                {/* Checkbox */}
+                <button
+                  onClick={() => toggleTodo(item.id)}
+                  style={{
+                    width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
+                    border: item.completed ? 'none' : `1.5px solid ${C.border2}`,
+                    background: item.completed ? C.accent : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', transition: 'all 0.12s',
+                  }}
+                >
+                  {item.completed && <Check size={10} color="#fff" strokeWidth={3} />}
+                </button>
+
+                {/* Text */}
+                <span style={{
+                  flex: 1, fontSize: '13.5px',
+                  color: item.completed ? C.text3 : C.text,
+                  textDecoration: item.completed ? 'line-through' : 'none',
+                  lineHeight: 1.4,
+                }}>
+                  {item.text}
+                </span>
+
+                {/* Delete button */}
+                {hoveredTodo === item.id && (
+                  <button
+                    onClick={() => deleteTodo(item.id)}
+                    style={{
+                      width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: C.text4,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = `${C.red}20`; e.currentTarget.style.color = C.red; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text4; }}
+                  >
+                    <X size={11} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {/* Add item input */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: todoItems.length > 0 ? '6px' : '0', padding: '3px 0' }}>
+              <div style={{
+                width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
+                border: `1.5px solid ${C.border2}`, background: 'transparent',
+              }} />
+              <input
+                ref={newItemRef}
+                value={newItemText}
+                onChange={(e) => setNewItemText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addTodoItem(); }}
+                placeholder={t.dashboard_todo_add_placeholder}
+                style={{
+                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                  fontSize: '13.5px', color: C.text,
+                }}
+              />
+              {newItemText.trim() && (
+                <button
+                  onClick={addTodoItem}
+                  style={{
+                    width: '22px', height: '22px', borderRadius: '5px', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: C.accent, border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  <Plus size={12} color="#fff" strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+
+            {todoItems.length === 0 && !newItemText && (
+              <div style={{ fontSize: '11.5px', color: C.text4, marginTop: '4px', paddingLeft: '24px' }}>
+                {t.dashboard_standup_hint}
+              </div>
             )}
           </div>
         </div>
