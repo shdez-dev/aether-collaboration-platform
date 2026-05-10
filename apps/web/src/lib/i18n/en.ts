@@ -985,6 +985,19 @@ export const en = {
   home_footer_sign_in: 'Sign in',
   home_footer_copyright: '© 2026 Aether. All rights reserved.',
 
+  // ── Mock ProductShot (HeroSection) ───────────────────────────────────────
+  home_mock_section_workspaces: 'Workspaces',
+  home_mock_section_projects: 'Projects',
+  home_mock_section_teams: 'Teams',
+  home_mock_col_backlog: 'Backlog',
+  home_mock_col_in_progress: 'In progress',
+  home_mock_col_in_review: 'In review',
+  home_mock_col_done: 'Done',
+  home_mock_priority_high: 'High',
+  home_mock_priority_medium: 'Medium',
+  home_mock_priority_low: 'Low',
+  home_mock_due_today: 'Today',
+
   // ── Forgot Password ───────────────────────────────────────────────────────
   forgot_title: 'Forgot your password?',
   forgot_subtitle: "Enter your email and we'll send you instructions to reset your password.",

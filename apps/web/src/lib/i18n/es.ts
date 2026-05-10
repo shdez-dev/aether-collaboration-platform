@@ -115,6 +115,19 @@ export const es = {
   home_footer_sign_in: 'Iniciar sesión',
   home_footer_copyright: '© 2026 Aether. Todos los derechos reservados.',
 
+  // ── Mock ProductShot (HeroSection) ───────────────────────────────────────
+  home_mock_section_workspaces: 'Workspaces',
+  home_mock_section_projects: 'Proyectos',
+  home_mock_section_teams: 'Equipos',
+  home_mock_col_backlog: 'Backlog',
+  home_mock_col_in_progress: 'En progreso',
+  home_mock_col_in_review: 'En revisión',
+  home_mock_col_done: 'Hecho',
+  home_mock_priority_high: 'Alta',
+  home_mock_priority_medium: 'Media',
+  home_mock_priority_low: 'Baja',
+  home_mock_due_today: 'Hoy',
+
   // ── Layout / Navegación ───────────────────────────────────────────────────
   nav_home: 'Home',
   nav_dashboard: 'Dashboard',
