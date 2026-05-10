@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useTeamStore, type Team, type TeamMember, type TeamActivity } from '@/stores/teamStore';
+import { useTeamStore, type Team, type TeamMember, type TeamActivity, type TeamInvitation } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useT } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
@@ -580,7 +580,7 @@ export default function TeamDetailPage() {
   const router = useRouter();
   const teamId = params.id as string;
 
-  const { currentTeam, isLoading, error, fetchTeamById, removeMember, changeMemberRole } = useTeamStore();
+  const { currentTeam, isLoading, error, fetchTeamById, removeMember, changeMemberRole, pendingTeamInvitations, loadPendingTeamInvitations, acceptTeamInvitation, rejectTeamInvitation } = useTeamStore();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
 
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -596,6 +596,7 @@ export default function TeamDetailPage() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAssignProject, setShowAssignProject] = useState(false);
+  const [invActionLoading, setInvActionLoading] = useState<string | null>(null);
 
   // Load team
   useEffect(() => {
@@ -644,7 +645,31 @@ export default function TeamDetailPage() {
     loadMembers();
     loadActivity();
     loadWorkspaces();
-  }, [loadMembers, loadActivity, loadWorkspaces]);
+    loadPendingTeamInvitations();
+  }, [loadMembers, loadActivity, loadWorkspaces, loadPendingTeamInvitations]);
+
+  async function handleAcceptTeamInvitation(id: string) {
+    setInvActionLoading(id);
+    try {
+      await acceptTeamInvitation(id);
+      await loadMembers();
+    } catch (err: any) {
+      alert(err.message || 'Error al aceptar invitación');
+    } finally {
+      setInvActionLoading(null);
+    }
+  }
+
+  async function handleRejectTeamInvitation(id: string) {
+    setInvActionLoading(id);
+    try {
+      await rejectTeamInvitation(id);
+    } catch (err: any) {
+      alert(err.message || 'Error al rechazar invitación');
+    } finally {
+      setInvActionLoading(null);
+    }
+  }
 
   async function handleRemoveMember(userId: string) {
     try {
@@ -776,6 +801,72 @@ export default function TeamDetailPage() {
       {/* ── BODY (scrollable) ── */}
       <div className="flex-1 overflow-auto">
         <div className="max-w-[1100px] mx-auto px-7 py-8 flex flex-col gap-10">
+
+          {/* ── INVITACIONES PENDIENTES (propias de este equipo) ── */}
+          {pendingTeamInvitations.filter((inv) => inv.team.id === teamId).length > 0 && (
+            <section>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.1em] mb-4" style={{ color: C.text4 }}>
+                {t.team_pending_invitations_section}
+              </div>
+              <div className="flex flex-col gap-2">
+                {pendingTeamInvitations.filter((inv) => inv.team.id === teamId).map((inv) => {
+                  const isActing = invActionLoading === inv.id;
+                  return (
+                    <div
+                      key={inv.id}
+                      className="flex items-center gap-3 rounded-[8px] px-4 py-3"
+                      style={{ background: C.bg2, border: `1px solid ${C.border}` }}
+                    >
+                      <div
+                        className="flex items-center justify-center rounded-full flex-shrink-0 font-semibold text-white text-[12px]"
+                        style={{ width: '34px', height: '34px', background: teamColor }}
+                      >
+                        {getInitial(inv.inviterName)}
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-[13px] font-medium" style={{ color: C.text }}>
+                          {t.team_invitation_from(inv.inviterName)}
+                        </span>
+                        <span className="text-[11.5px]" style={{ color: C.text3 }}>
+                          {t.team_invitation_role(inv.role.toLowerCase())}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => handleAcceptTeamInvitation(inv.id)}
+                          disabled={isActing}
+                          className="text-[12px] font-medium rounded-[6px] transition-colors"
+                          style={{
+                            padding: '5px 12px', height: '30px',
+                            background: isActing ? C.border2 : teamColor,
+                            color: isActing ? C.text4 : '#fff',
+                            cursor: isActing ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {isActing ? '...' : t.ws_invitation_accept}
+                        </button>
+                        <button
+                          onClick={() => handleRejectTeamInvitation(inv.id)}
+                          disabled={isActing}
+                          className="text-[12px] rounded-[6px] transition-colors"
+                          style={{
+                            padding: '5px 12px', height: '30px',
+                            background: C.hover, border: `1px solid ${C.border2}`,
+                            color: isActing ? C.text4 : C.text2,
+                            cursor: isActing ? 'not-allowed' : 'pointer',
+                          }}
+                          onMouseEnter={(e) => { if (!isActing) { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red; } }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2; }}
+                        >
+                          {t.ws_invitation_reject}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* ── MIEMBROS ── */}
           <section>

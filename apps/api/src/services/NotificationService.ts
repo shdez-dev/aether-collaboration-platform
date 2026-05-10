@@ -225,6 +225,7 @@ export class NotificationService {
     workspaceName: string;
     inviterId: string;
     inviterName: string;
+    invitationId: string;
   }): Promise<Notification | null> {
     const notification = await notificationRepository.create({
       userId: data.userId,
@@ -232,6 +233,7 @@ export class NotificationService {
       title: 'Invitación a workspace',
       message: `${data.inviterName} te ha invitado a unirte a "${data.workspaceName}"`,
       data: {
+        invitationId: data.invitationId,
         workspaceId: data.workspaceId,
         workspaceName: data.workspaceName,
         inviterId: data.inviterId,
@@ -250,10 +252,53 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.inviterId as any, // userId: quien genera el evento (el que invita)
-        undefined, // boardId: no aplica
-        undefined, // socketId: no aplica
-        data.userId as any // targetUserId: quien recibe la notificación (el invitado)
+        data.inviterId as any,
+        undefined,
+        undefined,
+        data.userId as any
+      );
+    } catch (error) {}
+
+    return notification;
+  }
+
+  async createTeamInviteNotification(data: {
+    userId: string;
+    teamId: string;
+    teamName: string;
+    inviterId: string;
+    inviterName: string;
+    invitationId: string;
+  }): Promise<Notification | null> {
+    const notification = await notificationRepository.create({
+      userId: data.userId,
+      type: 'TEAM_INVITE' as any,
+      title: 'Invitación a equipo',
+      message: `${data.inviterName} te ha invitado a unirte al equipo "${data.teamName}"`,
+      data: {
+        invitationId: data.invitationId,
+        teamId: data.teamId,
+        teamName: data.teamName,
+        inviterId: data.inviterId,
+        inviterName: data.inviterName,
+      },
+    });
+
+    try {
+      await eventStore.emit(
+        'notification.created',
+        {
+          notificationId: notification.id,
+          userId: data.userId,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+        },
+        data.inviterId as any,
+        undefined,
+        undefined,
+        data.userId as any
       );
     } catch (error) {}
 

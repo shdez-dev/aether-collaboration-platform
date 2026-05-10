@@ -365,6 +365,16 @@ class WorkspaceController {
         });
       }
 
+      if (error.message === 'Invitation already sent') {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: 'INVITATION_ALREADY_SENT',
+            message: 'An invitation has already been sent to this user',
+          },
+        });
+      }
+
       return res.status(500).json({
         success: false,
         error: {
@@ -372,6 +382,53 @@ class WorkspaceController {
           message: 'Failed to invite member',
         },
       });
+    }
+  }
+
+  async getPendingInvitations(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+
+      const invitations = await workspaceService.getPendingWorkspaceInvitations(userId);
+      return res.json({ success: true, data: { invitations } });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch invitations' } });
+    }
+  }
+
+  async acceptInvitation(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { invitationId } = req.params;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+
+      await workspaceService.acceptWorkspaceInvitation(invitationId, userId);
+      return res.json({ success: true, data: { message: 'Invitation accepted' } });
+    } catch (error: any) {
+      if (error.message === 'Invitation not found') {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Invitation not found or already processed' } });
+      }
+      if (error.message === 'Member limit reached') {
+        return res.status(403).json({ success: false, error: { code: 'MEMBER_LIMIT_REACHED', message: 'Workspace has reached the maximum of 5 members' } });
+      }
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to accept invitation' } });
+    }
+  }
+
+  async rejectInvitation(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { invitationId } = req.params;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+
+      await workspaceService.rejectWorkspaceInvitation(invitationId, userId);
+      return res.json({ success: true, data: { message: 'Invitation rejected' } });
+    } catch (error: any) {
+      if (error.message === 'Invitation not found') {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Invitation not found or already processed' } });
+      }
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to reject invitation' } });
     }
   }
 
@@ -426,6 +483,8 @@ class WorkspaceController {
             reason = 'Already a member';
           } else if (error.message === 'Member limit reached') {
             reason = 'Workspace member limit of 5 reached';
+          } else if (error.message === 'Invitation already sent') {
+            reason = 'Invitation already sent';
           } else if (error.message === 'Insufficient permissions') {
             reason = 'Insufficient permissions';
           }

@@ -847,6 +847,7 @@ export type NotificationType =
   | 'BOARD_INVITE'
   | 'WORKSPACE_INVITE'
   | 'WORKSPACE_REMOVED'
+  | 'TEAM_INVITE'
   | 'DOCUMENT_MENTION'
   | 'DOCUMENT_SHARED'
   | 'DOCUMENT_COMMENT';
@@ -891,11 +892,14 @@ export interface NotificationData {
   hoursUntilDue?: number;
   daysUntilDue?: number;
 
-  // Para BOARD_INVITE / WORKSPACE_INVITE / WORKSPACE_REMOVED
+  // Para BOARD_INVITE / WORKSPACE_INVITE / WORKSPACE_REMOVED / TEAM_INVITE
+  invitationId?: string;
   boardId?: string;
   boardName?: string;
   workspaceId?: string;
   workspaceName?: string;
+  teamId?: string;
+  teamName?: string;
   invitedBy?: string;
   invitedByName?: string;
   inviterId?: string;

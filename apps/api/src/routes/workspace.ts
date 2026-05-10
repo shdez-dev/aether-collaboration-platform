@@ -42,6 +42,25 @@ router.post('/from-template', (req, res) => workspaceController.createFromTempla
 router.post('/join/:token', (req, res) => workspaceController.joinByToken(req, res));
 
 /**
+ * GET /api/workspaces/invitations
+ * Listar invitaciones pendientes del usuario autenticado
+ * DEBE ir antes de /:id
+ */
+router.get('/invitations', (req, res) => workspaceController.getPendingInvitations(req, res));
+
+/**
+ * POST /api/workspaces/invitations/:invitationId/accept
+ * Aceptar una invitación a workspace
+ */
+router.post('/invitations/:invitationId/accept', (req, res) => workspaceController.acceptInvitation(req, res));
+
+/**
+ * POST /api/workspaces/invitations/:invitationId/reject
+ * Rechazar una invitación a workspace
+ */
+router.post('/invitations/:invitationId/reject', (req, res) => workspaceController.rejectInvitation(req, res));
+
+/**
  * GET /api/workspaces/:id
  * Obtener un workspace específico
  * Permisos: Miembro del workspace

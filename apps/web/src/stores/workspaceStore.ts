@@ -53,12 +53,27 @@ interface WorkspaceMember {
   };
 }
 
+export interface WorkspaceInvitation {
+  id: string;
+  role: string;
+  createdAt: string;
+  workspace: {
+    id: string;
+    name: string;
+    color?: string | null;
+    icon?: string | null;
+  };
+  inviterName: string;
+  inviterAvatar?: string | null;
+}
+
 interface WorkspaceState {
   // Estado
   workspaces: Workspace[];
   currentWorkspace: Workspace | null;
   currentMembers: WorkspaceMember[];
   currentStats: WorkspaceStats | null;
+  pendingInvitations: WorkspaceInvitation[];
   isLoading: boolean;
   error: string | null;
 
@@ -84,6 +99,11 @@ interface WorkspaceState {
   inviteMultipleMembers: (workspaceId: string, emails: string[], role: string) => Promise<any>;
   changeMemberRole: (workspaceId: string, userId: string, role: string) => Promise<void>;
   removeMember: (workspaceId: string, userId: string) => Promise<void>;
+
+  // Invitaciones pendientes
+  loadPendingInvitations: () => Promise<void>;
+  acceptWorkspaceInvitation: (invitationId: string) => Promise<void>;
+  rejectWorkspaceInvitation: (invitationId: string) => Promise<void>;
 
   // Helpers
   clearError: () => void;
@@ -114,6 +134,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       currentWorkspace: null,
       currentMembers: [],
       currentStats: null,
+      pendingInvitations: [],
       isLoading: false,
       error: null,
 
@@ -641,12 +662,52 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set({ error: null });
       },
 
+      // ==================== INVITACIONES PENDIENTES ====================
+      loadPendingInvitations: async () => {
+        const response = await apiService.get<{ invitations: WorkspaceInvitation[] }>(
+          '/api/workspaces/invitations',
+          true
+        );
+        if (response.success && response.data) {
+          set({ pendingInvitations: response.data.invitations });
+        }
+      },
+
+      acceptWorkspaceInvitation: async (invitationId: string) => {
+        const response = await apiService.post(
+          `/api/workspaces/invitations/${invitationId}/accept`,
+          {},
+          true
+        );
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Error al aceptar invitación');
+        }
+        set((state) => ({
+          pendingInvitations: state.pendingInvitations.filter((i) => i.id !== invitationId),
+        }));
+      },
+
+      rejectWorkspaceInvitation: async (invitationId: string) => {
+        const response = await apiService.post(
+          `/api/workspaces/invitations/${invitationId}/reject`,
+          {},
+          true
+        );
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Error al rechazar invitación');
+        }
+        set((state) => ({
+          pendingInvitations: state.pendingInvitations.filter((i) => i.id !== invitationId),
+        }));
+      },
+
       reset: () => {
         set({
           workspaces: [],
           currentWorkspace: null,
           currentMembers: [],
           currentStats: null,
+          pendingInvitations: [],
           isLoading: false,
           error: null,
         });

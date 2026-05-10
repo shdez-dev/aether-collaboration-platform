@@ -324,6 +324,32 @@ class TeamController {
         return res.status(403).json({ success: false, error: { message: 'Solo el lead puede añadir miembros' } });
       }
 
+      // Resolver userId desde email si es necesario
+      let targetUserId = body.data.userId;
+      if (!targetUserId && body.data.email) {
+        const userRes = await pool.query(`SELECT id FROM users WHERE email = $1`, [body.data.email]);
+        if (!userRes.rows.length) return res.status(404).json({ success: false, error: { message: 'Usuario no encontrado' } });
+        targetUserId = userRes.rows[0].id;
+      }
+
+      // Verificar si ya es miembro
+      const existingMember = await pool.query(
+        `SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2`,
+        [id, targetUserId]
+      );
+      if (existingMember.rows.length > 0) {
+        return res.status(409).json({ success: false, error: { code: 'ALREADY_MEMBER', message: 'El usuario ya es miembro del equipo' } });
+      }
+
+      // Verificar si ya hay invitación pendiente
+      const existingInv = await pool.query(
+        `SELECT 1 FROM team_invitations WHERE team_id = $1 AND invited_user_id = $2 AND status = 'PENDING'`,
+        [id, targetUserId]
+      );
+      if (existingInv.rows.length > 0) {
+        return res.status(409).json({ success: false, error: { code: 'INVITATION_ALREADY_SENT', message: 'Ya se envió una invitación a este usuario' } });
+      }
+
       // Verificar límite de miembros
       const memberCount = await pool.query(
         `SELECT COUNT(*) FROM team_members WHERE team_id = $1`,
@@ -336,45 +362,28 @@ class TeamController {
         });
       }
 
-      // Resolver userId desde email si es necesario
-      let targetUserId = body.data.userId;
-      if (!targetUserId && body.data.email) {
-        const userRes = await pool.query(`SELECT id FROM users WHERE email = $1`, [body.data.email]);
-        if (!userRes.rows.length) return res.status(404).json({ success: false, error: { message: 'Usuario no encontrado' } });
-        targetUserId = userRes.rows[0].id;
-      }
-
-      await pool.query(
-        `INSERT INTO team_members (team_id, user_id, role)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (team_id, user_id) DO NOTHING`,
-        [id, targetUserId, body.data.role ?? 'MEMBER']
+      const invResult = await pool.query(
+        `INSERT INTO team_invitations (team_id, invited_user_id, invited_by, role)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [id, targetUserId, userId, body.data.role ?? 'MEMBER']
       );
-
-      await pool.query(`UPDATE teams SET updated_at = NOW() WHERE id = $1`, [id]);
+      const invitationId = invResult.rows[0].id;
 
       const teamInfo = await pool.query(`SELECT name FROM teams WHERE id = $1`, [id]);
       const teamName = teamInfo.rows[0]?.name;
       const actorInfo = await pool.query(`SELECT name FROM users WHERE id = $1`, [userId]);
       const actorName = actorInfo.rows[0]?.name ?? '';
 
-      try {
-        await eventStore.emit('team.member.added' as any, {
-          teamId: id,
-          teamName,
-          memberId: targetUserId,
-        }, userId as any);
-      } catch {}
-
-      // Notification to the added member (skip if self-add)
+      // Notification to the invited user (skip if self-invite)
       if (targetUserId !== userId) {
         try {
-          await notificationService.createTeamMemberAddedNotification({
+          await notificationService.createTeamInviteNotification({
             userId: targetUserId!,
-            adderId: userId,
-            adderName: actorName,
             teamId: id,
             teamName: teamName ?? '',
+            inviterId: userId,
+            inviterName: actorName,
+            invitationId,
           });
         } catch {}
       }
@@ -584,6 +593,118 @@ class TeamController {
     } catch (error) {
       console.error('[TeamController.getActivity]', error);
       res.status(500).json({ success: false, error: { message: 'Error al obtener actividad' } });
+    }
+  }
+
+  /** GET /api/teams/invitations */
+  async getPendingTeamInvitations(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'No autenticado' } });
+
+      const result = await pool.query(
+        `SELECT ti.id, ti.role, ti.created_at,
+                t.id AS team_id, t.name AS team_name, t.color AS team_color, t.icon AS team_icon,
+                u.name AS inviter_name, u.avatar AS inviter_avatar
+         FROM team_invitations ti
+         JOIN teams t ON t.id = ti.team_id
+         JOIN users u ON u.id = ti.invited_by
+         WHERE ti.invited_user_id = $1 AND ti.status = 'PENDING'
+         ORDER BY ti.created_at DESC`,
+        [userId]
+      );
+
+      const invitations = result.rows.map((r) => ({
+        id: r.id,
+        role: r.role,
+        createdAt: r.created_at,
+        team: {
+          id: r.team_id,
+          name: r.team_name,
+          color: r.team_color,
+          icon: r.team_icon,
+        },
+        inviterName: r.inviter_name,
+        inviterAvatar: r.inviter_avatar,
+      }));
+
+      res.json({ success: true, data: { invitations } });
+    } catch (error) {
+      console.error('[TeamController.getPendingTeamInvitations]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al obtener invitaciones' } });
+    }
+  }
+
+  /** POST /api/teams/invitations/:invitationId/accept */
+  async acceptTeamInvitation(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { invitationId } = req.params;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'No autenticado' } });
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        const invResult = await client.query(
+          `SELECT * FROM team_invitations WHERE id = $1 AND invited_user_id = $2 AND status = 'PENDING'`,
+          [invitationId, userId]
+        );
+        if (!invResult.rows.length) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Invitación no encontrada o ya procesada' } });
+        }
+        const inv = invResult.rows[0];
+
+        const memberCount = await client.query(`SELECT COUNT(*) FROM team_members WHERE team_id = $1`, [inv.team_id]);
+        if (parseInt(memberCount.rows[0].count) >= 5) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ success: false, error: { code: 'MEMBER_LIMIT_REACHED', message: 'El equipo ha alcanzado el máximo de 5 miembros' } });
+        }
+
+        await client.query(
+          `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT (team_id, user_id) DO NOTHING`,
+          [inv.team_id, userId, inv.role]
+        );
+        await client.query(`UPDATE team_invitations SET status = 'ACCEPTED' WHERE id = $1`, [invitationId]);
+        await client.query(`UPDATE teams SET updated_at = NOW() WHERE id = $1`, [inv.team_id]);
+        await client.query('COMMIT');
+
+        res.json({ success: true, data: { message: 'Invitación aceptada' } });
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('[TeamController.acceptTeamInvitation]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al aceptar invitación' } });
+    }
+  }
+
+  /** POST /api/teams/invitations/:invitationId/reject */
+  async rejectTeamInvitation(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { invitationId } = req.params;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'No autenticado' } });
+
+      const result = await pool.query(
+        `UPDATE team_invitations SET status = 'REJECTED'
+         WHERE id = $1 AND invited_user_id = $2 AND status = 'PENDING'
+         RETURNING id`,
+        [invitationId, userId]
+      );
+
+      if (!result.rows.length) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Invitación no encontrada o ya procesada' } });
+      }
+
+      res.json({ success: true, data: { message: 'Invitación rechazada' } });
+    } catch (error) {
+      console.error('[TeamController.rejectTeamInvitation]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al rechazar invitación' } });
     }
   }
 }

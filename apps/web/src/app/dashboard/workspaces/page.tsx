@@ -407,21 +407,46 @@ function ArchivedCard({ workspace, onRestore, colorIndex }: { workspace: any; on
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function WorkspacesPage() {
-  const { workspaces, isLoading, fetchWorkspaces, restoreWorkspace } = useWorkspaceStore();
+  const { workspaces, isLoading, fetchWorkspaces, restoreWorkspace, pendingInvitations, loadPendingInvitations, acceptWorkspaceInvitation, rejectWorkspaceInvitation } = useWorkspaceStore();
   const router = useRouter();
   const t = useT();
 
-  const [isCreateWsOpen,  setIsCreateWsOpen]  = useState(false);
-  const [addProjectWsId,  setAddProjectWsId]  = useState<string | null>(null);
-  const [searchQuery,     setSearchQuery]      = useState('');
-  const [favorites,       setFavorites]        = useState<Set<string>>(new Set());
-  const [showArchived,    setShowArchived]      = useState(false);
+  const [isCreateWsOpen,    setIsCreateWsOpen]    = useState(false);
+  const [addProjectWsId,    setAddProjectWsId]    = useState<string | null>(null);
+  const [searchQuery,       setSearchQuery]        = useState('');
+  const [favorites,         setFavorites]          = useState<Set<string>>(new Set());
+  const [showArchived,      setShowArchived]        = useState(false);
+  const [invActionLoading,  setInvActionLoading]   = useState<string | null>(null);
 
   useEffect(() => {
     fetchWorkspaces(true);
+    loadPendingInvitations();
     const saved = localStorage.getItem('aether-favorite-workspaces');
     if (saved) setFavorites(new Set(JSON.parse(saved)));
-  }, [fetchWorkspaces]);
+  }, [fetchWorkspaces, loadPendingInvitations]);
+
+  async function handleAcceptInvitation(id: string) {
+    setInvActionLoading(id);
+    try {
+      await acceptWorkspaceInvitation(id);
+      await fetchWorkspaces(true);
+    } catch (err: any) {
+      alert(err.message || 'Error al aceptar invitación');
+    } finally {
+      setInvActionLoading(null);
+    }
+  }
+
+  async function handleRejectInvitation(id: string) {
+    setInvActionLoading(id);
+    try {
+      await rejectWorkspaceInvitation(id);
+    } catch (err: any) {
+      alert(err.message || 'Error al rechazar invitación');
+    } finally {
+      setInvActionLoading(null);
+    }
+  }
 
   const toggleFavorite = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -589,17 +614,84 @@ export default function WorkspacesPage() {
         <div className="mb-8">
           <SectionHeader
             label={t.ws_page_invitations}
-            count={0}
+            count={pendingInvitations.length}
             icon={<Mail className="w-[15px] h-[15px]" style={{ color: C.accent, flexShrink: 0 }} />}
           />
-          <div
-            className="flex flex-col items-center justify-center rounded-[8px] py-8 text-center"
-            style={{ border: `1px dashed ${C.border2}` }}
-          >
-            <Mail className="w-6 h-6 mb-2" style={{ color: C.text4 }} />
-            <p className="text-[13px] font-medium mb-0.5" style={{ color: C.text3 }}>{t.ws_page_no_invitations}</p>
-            <p className="text-[11.5px]" style={{ color: C.text4 }}>{t.ws_page_no_invitations_hint}</p>
-          </div>
+          {pendingInvitations.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center rounded-[8px] py-8 text-center"
+              style={{ border: `1px dashed ${C.border2}` }}
+            >
+              <Mail className="w-6 h-6 mb-2" style={{ color: C.text4 }} />
+              <p className="text-[13px] font-medium mb-0.5" style={{ color: C.text3 }}>{t.ws_page_no_invitations}</p>
+              <p className="text-[11.5px]" style={{ color: C.text4 }}>{t.ws_page_no_invitations_hint}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {pendingInvitations.map((inv) => {
+                const wsColor = inv.workspace.color || '#3b82f6';
+                const initial = inv.workspace.name?.trim()?.[0]?.toUpperCase() ?? '?';
+                const isActing = invActionLoading === inv.id;
+                return (
+                  <div
+                    key={inv.id}
+                    className="flex items-center gap-3 rounded-[8px] px-4 py-3"
+                    style={{ background: C.bg2, border: `1px solid ${C.border}` }}
+                  >
+                    {/* Workspace icon */}
+                    <div
+                      className="flex items-center justify-center text-[14px] font-bold text-white rounded-[7px] flex-shrink-0"
+                      style={{ width: '36px', height: '36px', background: wsColor }}
+                    >
+                      {initial}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-[13px] font-semibold truncate" style={{ color: C.text }}>
+                        {inv.workspace.name}
+                      </span>
+                      <span className="text-[11.5px]" style={{ color: C.text3 }}>
+                        {t.ws_invitation_from(inv.inviterName, inv.role.toLowerCase())}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleAcceptInvitation(inv.id)}
+                        disabled={isActing}
+                        className="text-[12px] font-medium rounded-[6px] transition-colors"
+                        style={{
+                          padding: '5px 12px', height: '30px',
+                          background: isActing ? C.border2 : C.accent,
+                          color: isActing ? C.text4 : '#fff',
+                          cursor: isActing ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {isActing ? '...' : t.ws_invitation_accept}
+                      </button>
+                      <button
+                        onClick={() => handleRejectInvitation(inv.id)}
+                        disabled={isActing}
+                        className="text-[12px] rounded-[6px] transition-colors"
+                        style={{
+                          padding: '5px 12px', height: '30px',
+                          background: C.hover, border: `1px solid ${C.border2}`,
+                          color: isActing ? C.text4 : C.text2,
+                          cursor: isActing ? 'not-allowed' : 'pointer',
+                        }}
+                        onMouseEnter={(e) => { if (!isActing) { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red; } }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2; }}
+                      >
+                        {t.ws_invitation_reject}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

@@ -579,6 +579,44 @@ CREATE TRIGGER trigger_update_board_sprints_timestamp
   WHEN (OLD.* IS DISTINCT FROM NEW.*)
   EXECUTE FUNCTION update_board_sprints_updated_at();
 
+-- Workspace Invitations (pendientes de aceptar/rechazar)
+CREATE TABLE IF NOT EXISTS workspace_invitations (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id    UUID NOT NULL,
+  invited_user_id UUID NOT NULL,
+  invited_by      UUID NOT NULL,
+  role            VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
+  status          VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','ACCEPTED','REJECTED')),
+  created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ws_inv_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ws_inv_user      FOREIGN KEY (invited_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ws_inv_inviter   FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT uq_workspace_invitation UNIQUE (workspace_id, invited_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ws_inv_user   ON workspace_invitations(invited_user_id);
+CREATE INDEX IF NOT EXISTS idx_ws_inv_ws     ON workspace_invitations(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_ws_inv_status ON workspace_invitations(status);
+
+-- Team Invitations (pendientes de aceptar/rechazar)
+CREATE TABLE IF NOT EXISTS team_invitations (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id         UUID NOT NULL,
+  invited_user_id UUID NOT NULL,
+  invited_by      UUID NOT NULL,
+  role            VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
+  status          VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','ACCEPTED','REJECTED')),
+  created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_team_inv_team    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+  CONSTRAINT fk_team_inv_user    FOREIGN KEY (invited_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_team_inv_inviter FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT uq_team_invitation  UNIQUE (team_id, invited_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_inv_user   ON team_invitations(invited_user_id);
+CREATE INDEX IF NOT EXISTS idx_team_inv_team   ON team_invitations(team_id);
+CREATE INDEX IF NOT EXISTS idx_team_inv_status ON team_invitations(status);
+
 -- User Favorite Contacts (contactos favoritos)
 CREATE TABLE IF NOT EXISTS user_favorite_contacts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

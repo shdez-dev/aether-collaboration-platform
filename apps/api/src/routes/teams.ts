@@ -12,6 +12,11 @@ router.use(authenticateJWT);
 router.get('/',    (req, res) => teamController.list(req, res));
 router.post('/',   (req, res) => teamController.create(req, res));
 
+// ── Invitaciones (deben ir antes de /:id) ─────────────────────────────────────
+router.get('/invitations',                               (req, res) => teamController.getPendingTeamInvitations(req, res));
+router.post('/invitations/:invitationId/accept',         (req, res) => teamController.acceptTeamInvitation(req, res));
+router.post('/invitations/:invitationId/reject',         (req, res) => teamController.rejectTeamInvitation(req, res));
+
 // ── Equipo individual ──────────────────────────────────────────────────────────
 router.get('/:id',    (req, res) => teamController.getById(req, res));
 router.put('/:id',    (req, res) => teamController.update(req, res));

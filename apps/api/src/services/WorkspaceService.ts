@@ -283,7 +283,6 @@ export class WorkspaceService {
       }
 
       const inviteeId = userResult.rows[0].id;
-      const inviteeName = userResult.rows[0].name;
 
       const existingMember = await client.query(
         `SELECT id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
@@ -294,6 +293,15 @@ export class WorkspaceService {
         throw new Error('User is already a member');
       }
 
+      const existingInvitation = await client.query(
+        `SELECT id FROM workspace_invitations WHERE workspace_id = $1 AND invited_user_id = $2 AND status = 'PENDING'`,
+        [workspaceId, inviteeId]
+      );
+
+      if (existingInvitation.rows.length > 0) {
+        throw new Error('Invitation already sent');
+      }
+
       const memberCount = await client.query(
         `SELECT COUNT(*) FROM workspace_members WHERE workspace_id = $1`,
         [workspaceId]
@@ -302,37 +310,32 @@ export class WorkspaceService {
         throw new Error('Member limit reached');
       }
 
-      await client.query(
-        `INSERT INTO workspace_members (id, workspace_id, user_id, role)
-         VALUES (uuid_generate_v4(), $1, $2, $3)`,
-        [workspaceId, inviteeId, role]
+      const invResult = await client.query(
+        `INSERT INTO workspace_invitations (workspace_id, invited_user_id, invited_by, role)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [workspaceId, inviteeId, inviterId, role]
       );
+      const invitationId = invResult.rows[0].id;
 
       await client.query('COMMIT');
+
+      const workspaceResult = await pool.query('SELECT name FROM workspaces WHERE id = $1', [workspaceId]);
+      const workspaceName = workspaceResult.rows[0]?.name || 'Unknown workspace';
+
+      const inviterResult = await pool.query('SELECT name FROM users WHERE id = $1', [inviterId]);
+      const inviterName = inviterResult.rows[0]?.name || 'Someone';
 
       const payload: WorkspaceMemberInvitedPayload = {
         workspaceId: workspaceId as any,
         inviterId: inviterId as any,
         inviteeId: inviteeId as any,
         inviteeEmail,
-        inviteeName,
+        inviteeName: userResult.rows[0].name,
         role,
       };
-
       await eventStore.emit('workspace.member.invited', payload, inviterId as any);
 
-      // Crear notificación de invitación
       try {
-        const workspaceResult = await client.query('SELECT name FROM workspaces WHERE id = $1', [
-          workspaceId,
-        ]);
-        const workspaceName = workspaceResult.rows[0]?.name || 'Unknown workspace';
-
-        const inviterResult = await client.query('SELECT name FROM users WHERE id = $1', [
-          inviterId,
-        ]);
-        const inviterName = inviterResult.rows[0]?.name || 'Someone';
-
         const { notificationService } = await import('./NotificationService');
         await notificationService.createWorkspaceInviteNotification({
           userId: inviteeId,
@@ -340,6 +343,7 @@ export class WorkspaceService {
           workspaceName,
           inviterId,
           inviterName,
+          invitationId,
         });
       } catch (notifError) {}
     } catch (error) {
@@ -347,6 +351,88 @@ export class WorkspaceService {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  async getPendingWorkspaceInvitations(userId: string): Promise<any[]> {
+    const result = await pool.query(
+      `SELECT wi.id, wi.role, wi.created_at,
+              w.id AS workspace_id, w.name AS workspace_name, w.color AS workspace_color, w.icon AS workspace_icon,
+              u.name AS inviter_name, u.avatar AS inviter_avatar
+       FROM workspace_invitations wi
+       JOIN workspaces w ON w.id = wi.workspace_id
+       JOIN users u ON u.id = wi.invited_by
+       WHERE wi.invited_user_id = $1 AND wi.status = 'PENDING'
+       ORDER BY wi.created_at DESC`,
+      [userId]
+    );
+    return result.rows.map((r) => ({
+      id: r.id,
+      role: r.role,
+      createdAt: r.created_at,
+      workspace: {
+        id: r.workspace_id,
+        name: r.workspace_name,
+        color: r.workspace_color,
+        icon: r.workspace_icon,
+      },
+      inviterName: r.inviter_name,
+      inviterAvatar: r.inviter_avatar,
+    }));
+  }
+
+  async acceptWorkspaceInvitation(invitationId: string, userId: string): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const invResult = await client.query(
+        `SELECT * FROM workspace_invitations WHERE id = $1 AND invited_user_id = $2 AND status = 'PENDING'`,
+        [invitationId, userId]
+      );
+      if (invResult.rows.length === 0) {
+        throw new Error('Invitation not found');
+      }
+      const inv = invResult.rows[0];
+
+      const memberCount = await client.query(
+        `SELECT COUNT(*) FROM workspace_members WHERE workspace_id = $1`,
+        [inv.workspace_id]
+      );
+      if (parseInt(memberCount.rows[0].count) >= 5) {
+        throw new Error('Member limit reached');
+      }
+
+      await client.query(
+        `INSERT INTO workspace_members (id, workspace_id, user_id, role)
+         VALUES (uuid_generate_v4(), $1, $2, $3)
+         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+        [inv.workspace_id, userId, inv.role]
+      );
+
+      await client.query(
+        `UPDATE workspace_invitations SET status = 'ACCEPTED' WHERE id = $1`,
+        [invitationId]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async rejectWorkspaceInvitation(invitationId: string, userId: string): Promise<void> {
+    const result = await pool.query(
+      `UPDATE workspace_invitations SET status = 'REJECTED'
+       WHERE id = $1 AND invited_user_id = $2 AND status = 'PENDING'
+       RETURNING id`,
+      [invitationId, userId]
+    );
+    if (result.rows.length === 0) {
+      throw new Error('Invitation not found');
     }
   }
 

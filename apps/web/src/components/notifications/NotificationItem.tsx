@@ -81,6 +81,15 @@ const TYPE_META: Record<string, { color: string; icon: React.ReactNode }> = {
       </svg>
     ),
   },
+  TEAM_INVITE: {
+    color: '#06b6d4',
+    icon: (
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12">
+        <circle cx="5" cy="4" r="2" /><path d="M1 11c0-2 1.5-3 4-3s4 1 4 3" />
+        <path d="M10 7l2 2-2 2" />
+      </svg>
+    ),
+  },
   WORKSPACE_REMOVED: {
     color: '#ef4444',
     icon: (

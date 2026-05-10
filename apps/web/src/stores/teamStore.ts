@@ -50,6 +50,20 @@ export interface TeamActivity {
   createdAt: string;
 }
 
+export interface TeamInvitation {
+  id: string;
+  role: string;
+  createdAt: string;
+  team: {
+    id: string;
+    name: string;
+    color?: string | null;
+    icon?: string | null;
+  };
+  inviterName: string;
+  inviterAvatar?: string | null;
+}
+
 interface CreateTeamData {
   name: string;
   description?: string;
@@ -68,6 +82,7 @@ interface UpdateTeamData {
 interface TeamState {
   teams: Team[];
   currentTeam: Team | null;
+  pendingTeamInvitations: TeamInvitation[];
   isLoading: boolean;
   error: string | null;
 
@@ -81,6 +96,10 @@ interface TeamState {
   removeMember: (teamId: string, userId: string) => Promise<void>;
   changeMemberRole: (teamId: string, userId: string, role: 'LEAD' | 'MEMBER') => Promise<void>;
 
+  loadPendingTeamInvitations: () => Promise<void>;
+  acceptTeamInvitation: (invitationId: string) => Promise<void>;
+  rejectTeamInvitation: (invitationId: string) => Promise<void>;
+
   clearError: () => void;
   reset: () => void;
 }
@@ -91,6 +110,7 @@ export const useTeamStore = create<TeamState>()(
   persist(
     (set, get) => ({
       teams: [],
+      pendingTeamInvitations: [],
       currentTeam: null,
       isLoading: false,
       error: null,
@@ -225,9 +245,47 @@ export const useTeamStore = create<TeamState>()(
 
       // ── Helpers ─────────────────────────────────────────────────────────────
 
+      loadPendingTeamInvitations: async () => {
+        const response = await apiService.get<{ invitations: TeamInvitation[] }>(
+          '/api/teams/invitations',
+          true
+        );
+        if (response.success && response.data) {
+          set({ pendingTeamInvitations: response.data.invitations });
+        }
+      },
+
+      acceptTeamInvitation: async (invitationId: string) => {
+        const response = await apiService.post(
+          `/api/teams/invitations/${invitationId}/accept`,
+          {},
+          true
+        );
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Error al aceptar invitación');
+        }
+        set((state) => ({
+          pendingTeamInvitations: state.pendingTeamInvitations.filter((i) => i.id !== invitationId),
+        }));
+      },
+
+      rejectTeamInvitation: async (invitationId: string) => {
+        const response = await apiService.post(
+          `/api/teams/invitations/${invitationId}/reject`,
+          {},
+          true
+        );
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Error al rechazar invitación');
+        }
+        set((state) => ({
+          pendingTeamInvitations: state.pendingTeamInvitations.filter((i) => i.id !== invitationId),
+        }));
+      },
+
       clearError: () => set({ error: null }),
 
-      reset: () => set({ teams: [], currentTeam: null, isLoading: false, error: null }),
+      reset: () => set({ teams: [], currentTeam: null, pendingTeamInvitations: [], isLoading: false, error: null }),
     }),
     {
       name: 'aether-team-store',

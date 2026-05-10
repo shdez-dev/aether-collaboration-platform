@@ -1269,6 +1269,14 @@ export const es = {
   ws_page_no_invitations_hint: 'Cuando alguien te invite a una workspace, aparecerá aquí',
   ws_page_archived: 'Archivadas',
 
+  ws_invitation_from: (inviterName: string, role: string) => `${inviterName} te invitó como ${role}`,
+  ws_invitation_accept: 'Aceptar',
+  ws_invitation_reject: 'Rechazar',
+
+  team_pending_invitations_section: 'Invitaciones pendientes',
+  team_invitation_from: (inviterName: string) => `${inviterName} te invitó a este equipo`,
+  team_invitation_role: (role: string) => `Rol: ${role}`,
+
   // ── AI Builder ────────────────────────────────────────────────────────────
   ai_builder_nav_label: 'Constructor IA',
   ai_builder_beta_label: 'BETA',

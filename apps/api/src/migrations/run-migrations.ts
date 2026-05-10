@@ -710,6 +710,38 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 021: Create ai_builder_documents table');
 
+      // Migration 022: Create workspace_invitations and team_invitations tables
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS workspace_invitations (
+          id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          workspace_id   UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+          invited_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          invited_by     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          role           VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
+          status         VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','ACCEPTED','REJECTED')),
+          created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CONSTRAINT uq_workspace_invitation UNIQUE (workspace_id, invited_user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_ws_inv_user   ON workspace_invitations(invited_user_id);
+        CREATE INDEX IF NOT EXISTS idx_ws_inv_ws     ON workspace_invitations(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_ws_inv_status ON workspace_invitations(status);
+
+        CREATE TABLE IF NOT EXISTS team_invitations (
+          id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          team_id        UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+          invited_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          invited_by     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          role           VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
+          status         VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','ACCEPTED','REJECTED')),
+          created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CONSTRAINT uq_team_invitation UNIQUE (team_id, invited_user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_inv_user   ON team_invitations(invited_user_id);
+        CREATE INDEX IF NOT EXISTS idx_team_inv_team   ON team_invitations(team_id);
+        CREATE INDEX IF NOT EXISTS idx_team_inv_status ON team_invitations(status);
+      `);
+      console.log('  ✓ Migration 022: Create workspace_invitations and team_invitations tables');
+
       console.log('✅ All migrations completed successfully');
     } finally {
       client.release();
