@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
-import { AlertTriangle, CheckCircle2, Users, ExternalLink, Plus, X, Check } from 'lucide-react';
+import { AlertTriangle, Users, ExternalLink, Plus, X, Check } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
 import { C } from '@/lib/colors';
@@ -204,7 +204,7 @@ export default function DashboardPage() {
   // Todo list widget
   const [todoItems,    setTodoItems]    = useState<TodoItem[]>([]);
   const [newItemText,  setNewItemText]  = useState('');
-  const [hoveredTodo,  setHoveredTodo]  = useState<string | null>(null);
+  const [isAddingItem, setIsAddingItem] = useState(false);
   const newItemRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -295,7 +295,7 @@ export default function DashboardPage() {
     };
     persistTodos([...todoItems, item]);
     setNewItemText('');
-    newItemRef.current?.focus();
+    setTimeout(() => newItemRef.current?.focus(), 0);
   }
 
   function toggleTodo(id: string) {
@@ -346,91 +346,122 @@ export default function DashboardPage() {
               {t.dashboard_standup_placeholder}
             </div>
 
-            {/* Items list */}
-            {todoItems.map((item) => (
-              <div
-                key={item.id}
-                onMouseEnter={() => setHoveredTodo(item.id)}
-                onMouseLeave={() => setHoveredTodo(null)}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', minHeight: '28px' }}
-              >
-                {/* Checkbox */}
-                <button
-                  onClick={() => toggleTodo(item.id)}
-                  style={{
-                    width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
-                    border: item.completed ? 'none' : `1.5px solid ${C.border2}`,
-                    background: item.completed ? C.accent : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', transition: 'all 0.12s',
-                  }}
-                >
-                  {item.completed && <Check size={10} color="#fff" strokeWidth={3} />}
-                </button>
-
-                {/* Text */}
-                <span style={{
-                  flex: 1, fontSize: '13.5px',
-                  color: item.completed ? C.text3 : C.text,
-                  textDecoration: item.completed ? 'line-through' : 'none',
-                  lineHeight: 1.4,
-                }}>
-                  {item.text}
-                </span>
-
-                {/* Delete button */}
-                {hoveredTodo === item.id && (
-                  <button
-                    onClick={() => deleteTodo(item.id)}
-                    style={{
-                      width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: C.text4,
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = `${C.red}20`; e.currentTarget.style.color = C.red; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text4; }}
-                  >
-                    <X size={11} strokeWidth={2.5} />
-                  </button>
-                )}
-              </div>
-            ))}
-
-            {/* Add item input */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: todoItems.length > 0 ? '6px' : '0', padding: '3px 0' }}>
+            {/* Items list — scrollable when > 5 */}
+            {todoItems.length > 0 && (
               <div style={{
-                width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
-                border: `1.5px solid ${C.border2}`, background: 'transparent',
-              }} />
-              <input
-                ref={newItemRef}
-                value={newItemText}
-                onChange={(e) => setNewItemText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addTodoItem(); }}
-                placeholder={t.dashboard_todo_add_placeholder}
-                style={{
-                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                  fontSize: '13.5px', color: C.text,
-                }}
-              />
-              {newItemText.trim() && (
+                maxHeight: todoItems.length > 5 ? '168px' : 'none',
+                overflowY: todoItems.length > 5 ? 'auto' : 'visible',
+                marginBottom: '4px',
+              }}>
+                {todoItems.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', minHeight: '30px' }}
+                  >
+                    {/* Text */}
+                    <span style={{
+                      flex: 1, fontSize: '13.5px', lineHeight: 1.4,
+                      color: item.completed ? C.green : C.text,
+                    }}>
+                      {item.text}
+                    </span>
+
+                    {/* Actions: check + delete */}
+                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                      <button
+                        onClick={() => toggleTodo(item.id)}
+                        style={{
+                          width: '22px', height: '22px', borderRadius: '5px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: item.completed ? `${C.green}20` : 'none',
+                          border: 'none', cursor: 'pointer', color: C.green,
+                          transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = `${C.green}28`; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = item.completed ? `${C.green}20` : 'none'; }}
+                      >
+                        <Check size={13} strokeWidth={2.5} />
+                      </button>
+                      <button
+                        onClick={() => deleteTodo(item.id)}
+                        style={{
+                          width: '22px', height: '22px', borderRadius: '5px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'none', border: 'none', cursor: 'pointer', color: C.text4,
+                          transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = `${C.red}20`; e.currentTarget.style.color = C.red; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text4; }}
+                      >
+                        <X size={12} strokeWidth={2} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add item: input when active, + button otherwise */}
+            {isAddingItem ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', marginTop: todoItems.length > 0 ? '4px' : '0' }}>
+                <input
+                  ref={newItemRef}
+                  autoFocus
+                  value={newItemText}
+                  onChange={(e) => setNewItemText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addTodoItem();
+                    if (e.key === 'Escape') { setIsAddingItem(false); setNewItemText(''); }
+                  }}
+                  placeholder={t.dashboard_todo_add_placeholder}
+                  style={{
+                    flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                    fontSize: '13.5px', color: C.text,
+                    borderBottom: `1px solid ${C.border2}`, paddingBottom: '2px',
+                  }}
+                />
                 <button
                   onClick={addTodoItem}
+                  disabled={!newItemText.trim()}
                   style={{
                     width: '22px', height: '22px', borderRadius: '5px', flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: C.accent, border: 'none', cursor: 'pointer',
+                    background: newItemText.trim() ? C.accent : C.hover,
+                    border: 'none', cursor: newItemText.trim() ? 'pointer' : 'default',
+                    transition: 'background 0.12s',
                   }}
                 >
                   <Plus size={12} color="#fff" strokeWidth={2.5} />
                 </button>
-              )}
-            </div>
-
-            {todoItems.length === 0 && !newItemText && (
-              <div style={{ fontSize: '11.5px', color: C.text4, marginTop: '4px', paddingLeft: '24px' }}>
-                {t.dashboard_standup_hint}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginTop: todoItems.length > 0 ? '8px' : '0' }}>
+                <button
+                  onClick={() => setIsAddingItem(true)}
+                  style={{
+                    width: '22px', height: '22px', borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'none', border: `1.5px dashed ${C.border2}`,
+                    cursor: 'pointer', color: C.text4, transition: 'all 0.12s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = C.accent;
+                    e.currentTarget.style.color = C.accent;
+                    e.currentTarget.style.background = `${C.accent}12`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = C.border2;
+                    e.currentTarget.style.color = C.text4;
+                    e.currentTarget.style.background = 'none';
+                  }}
+                >
+                  <Plus size={11} strokeWidth={2.5} />
+                </button>
+                {todoItems.length === 0 && (
+                  <span style={{ fontSize: '11.5px', color: C.text4 }}>
+                    {t.dashboard_standup_hint}
+                  </span>
+                )}
               </div>
             )}
           </div>
