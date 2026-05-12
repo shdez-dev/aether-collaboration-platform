@@ -1522,9 +1522,9 @@ export default function CollaborativeEditor({
     // el join inicial (que ya hace doJoinAndWaitSync() al final de este efecto).
     const handleSocketReconnect = () => {
       if (!isMounted || !joinedOnce) return;
-      // Resetear estado: el servidor ya no nos tiene en el room
+      // Re-join silencioso: el servidor perdió el room pero no ocultamos el editor
+      // para evitar que React desmonte EditorContent mientras ProseMirror sigue vivo.
       initialSyncReceivedRef.current = false;
-      setIsDocumentReady(false);
       doJoinAndWaitSync();
     };
 
@@ -1611,13 +1611,11 @@ export default function CollaborativeEditor({
   );
 
   useEffect(() => {
-    if (editor) {
-      setIsTransitioning(true);
-      setTimeout(() => {
-        editor.setEditable(canEdit);
-        setTimeout(() => setIsTransitioning(false), 300);
-      }, 150);
-    }
+    if (!editor) return;
+    setIsTransitioning(true);
+    const t1 = setTimeout(() => editor.setEditable(canEdit), 150);
+    const t2 = setTimeout(() => setIsTransitioning(false), 450);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [editor, canEdit]);
 
   const { saveNow, isSaving, lastSavedAt } = useDocumentAutoSave({
