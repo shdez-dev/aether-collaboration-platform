@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
-import { AlertTriangle, Users, ExternalLink, Plus, X, Check } from 'lucide-react';
+import { AlertTriangle, Users, ExternalLink, Plus, X, Check, Clock, FileText, MessageCircle, LayoutGrid, Archive, User, Tag, Edit, Trash2, Move, ArrowRight } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
 import { C } from '@/lib/colors';
@@ -53,6 +53,15 @@ interface TodoItem {
   text: string;
   completed: boolean;
   createdAt: string;
+}
+
+interface UserActivityEvent {
+  id: string;
+  type: string;
+  payload: Record<string, any>;
+  timestamp: string;
+  userName: string;
+  userAvatar: string | null;
 }
 
 const TODO_LS_KEY = 'aether-today-todos';
@@ -201,6 +210,10 @@ export default function DashboardPage() {
   const [teamStandups,  setTeamStandups]  = useState<TeamStandup[]>([]);
   const [teamLoading,   setTeamLoading]   = useState(true);
 
+  // My activity
+  const [myActivity,       setMyActivity]       = useState<UserActivityEvent[]>([]);
+  const [activityLoading,  setActivityLoading]  = useState(true);
+
   // Todo list widget
   const [todoItems,    setTodoItems]    = useState<TodoItem[]>([]);
   const [newItemText,  setNewItemText]  = useState('');
@@ -248,6 +261,15 @@ export default function DashboardPage() {
       if (tmRes.success && tmRes.data) setTeammates(tmRes.data.teammates);
       if (sdRes.success && sdRes.data) setTeamStandups(sdRes.data.standups);
     }).finally(() => setTeamLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setActivityLoading(true);
+    apiService.get<{ events: UserActivityEvent[] }>('/api/users/me/activity?range=week', true)
+      .then((res) => {
+        if (res.success && res.data) setMyActivity(res.data.events || []);
+      })
+      .finally(() => setActivityLoading(false));
   }, []);
 
   // Load + purge todo items from localStorage
@@ -316,6 +338,90 @@ export default function DashboardPage() {
     : totalPending > 0
     ? t.dashboard_summary_week(totalPending)
     : t.dashboard_summary_all_done;
+
+  // ── Activity helpers ────────────────────────────────────────────────────────
+
+  function getActivityIcon(type: string) {
+    const s = 12;
+    if (type.startsWith('comment'))   return <MessageCircle width={s} height={s} />;
+    if (type.startsWith('document'))  return <FileText width={s} height={s} />;
+    if (type.startsWith('board'))     return <LayoutGrid width={s} height={s} />;
+    if (type.startsWith('list'))      return <LayoutGrid width={s} height={s} />;
+    if (type.includes('archived'))    return <Archive width={s} height={s} />;
+    if (type.includes('assigned'))    return <User width={s} height={s} />;
+    if (type.includes('label'))       return <Tag width={s} height={s} />;
+    if (type.includes('moved'))       return <Move width={s} height={s} />;
+    if (type.includes('created'))     return <Plus width={s} height={s} />;
+    if (type.includes('deleted'))     return <Trash2 width={s} height={s} />;
+    if (type.includes('updated') || type.includes('renamed') || type.includes('changed')) return <Edit width={s} height={s} />;
+    return <Clock width={s} height={s} />;
+  }
+
+  function getActivityIconColor(type: string): string {
+    if (type.includes('deleted'))  return C.red;
+    if (type.includes('archived')) return C.amber;
+    if (type.includes('created'))  return C.green;
+    if (type.includes('completed')) return C.green;
+    if (type.includes('moved'))    return C.amber;
+    return C.accent;
+  }
+
+  function getActivityText(event: UserActivityEvent): { action: string; subject?: string; extra?: string } {
+    const { type, payload } = event;
+    const title = payload.cardTitle || payload.title || payload.name || '';
+    const newTitle = payload.newTitle || payload.newName || '';
+
+    switch (type) {
+      // Workspace
+      case 'workspace.created':      return { action: t.activity_workspace_created, subject: payload.name };
+      case 'workspace.updated':      return { action: t.activity_workspace_updated, subject: payload.name };
+      case 'workspace.member.invited': return { action: t.activity_workspace_member_invited, subject: payload.inviteeName, extra: payload.workspaceName };
+      case 'workspace.member.joined':  return { action: t.activity_workspace_member_joined };
+      case 'workspace.member.removed': return { action: t.activity_workspace_member_removed, subject: payload.memberName };
+      // Board
+      case 'board.created':   return { action: t.activity_board_created, subject: payload.name || payload.title };
+      case 'board.updated':   return { action: t.activity_board_updated, subject: payload.name || payload.title };
+      case 'board.archived':  return { action: t.activity_board_archived, subject: payload.name || payload.title };
+      case 'board.unarchived':return { action: t.activity_board_unarchived, subject: payload.name || payload.title };
+      case 'board.deleted':   return { action: t.activity_board_deleted, subject: payload.name || payload.title };
+      case 'board.renamed':   return { action: t.activity_board_renamed, subject: newTitle || payload.name };
+      // List
+      case 'list.created':  return { action: t.activity_list_created, subject: payload.name, extra: payload.boardTitle || payload.boardName };
+      case 'list.renamed':  return { action: t.activity_list_renamed, subject: payload.name };
+      case 'list.deleted':  return { action: t.activity_list_deleted, subject: payload.name };
+      // Card
+      case 'card.created':   return { action: t.activity_card_created, subject: payload.title, extra: payload.listName };
+      case 'card.deleted':   return { action: t.activity_card_deleted, subject: payload.title };
+      case 'card.moved':     return { action: t.activity_card_moved, subject: payload.title, extra: payload.toListName || payload.newListName };
+      case 'card.completed': return { action: t.activity_card_completed, subject: payload.title };
+      case 'card.uncompleted': return { action: t.activity_card_uncompleted, subject: payload.title };
+      case 'card.renamed':   return { action: t.activity_card_renamed, subject: newTitle || payload.title };
+      case 'card.description.changed': return { action: t.activity_card_description_changed, subject: title };
+      case 'card.priority.changed':    return { action: t.activity_card_priority_changed, subject: title };
+      case 'card.archived':            return { action: t.activity_card_archived, subject: title };
+      case 'card.unarchived':          return { action: t.activity_card_unarchived, subject: title };
+      case 'card.duedate.set':         return { action: t.activity_card_duedate_set, subject: title };
+      case 'card.duedate.changed':     return { action: t.activity_card_duedate_changed, subject: title };
+      case 'card.duedate.removed':     return { action: t.activity_card_duedate_removed, subject: title };
+      case 'card.member.assigned':     return { action: t.activity_member_assigned, subject: payload.assignedUserName || payload.memberName, extra: title };
+      case 'card.member.unassigned':   return { action: t.activity_member_unassigned, subject: payload.unassignedUserName || payload.memberName, extra: title };
+      case 'card.label.added':         return { action: t.activity_label_added, subject: payload.labelName, extra: title };
+      case 'card.label.removed':       return { action: t.activity_label_removed, subject: payload.labelName, extra: title };
+      // Comment
+      case 'comment.created':  return { action: t.activity_comment_created, subject: payload.cardTitle };
+      case 'comment.updated':  return { action: t.activity_comment_updated, subject: payload.cardTitle };
+      case 'comment.deleted':  return { action: t.activity_comment_deleted, subject: payload.cardTitle };
+      // Checklist
+      case 'checklist.item.created': return { action: t.activity_checklist_item_created, subject: payload.cardTitle };
+      case 'checklist.item.deleted': return { action: t.activity_checklist_item_deleted, subject: payload.cardTitle };
+      // Document
+      case 'document.created':          return { action: t.activity_document_created, subject: payload.title };
+      case 'document.deleted':          return { action: t.activity_document_deleted, subject: payload.title };
+      case 'document.version.created':  return { action: t.activity_document_version, subject: payload.title };
+      case 'document.version.restored': return { action: t.activity_document_version_restored, subject: payload.title };
+      default: return { action: t.activity_default };
+    }
+  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -614,6 +720,74 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+        {/* ── MI ACTIVIDAD RECIENTE ────────────────────────────────── */}
+        <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock style={{ width: '13px', height: '13px', color: C.text4 }} />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>{t.dashboard_my_activity_title}</span>
+            </div>
+            <span style={{ fontSize: '11px', color: C.text4 }}>{t.dashboard_my_activity_range}</span>
+          </div>
+
+          {activityLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+              <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
+            </div>
+          ) : myActivity.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 0', color: C.text4, fontSize: '13px' }}>
+              {t.dashboard_my_activity_empty}
+            </div>
+          ) : (
+            <div style={{ padding: '8px 16px', maxHeight: '340px', overflowY: 'auto' }}>
+              {myActivity.map((event, i) => {
+                const { action, subject, extra } = getActivityText(event);
+                const iconColor = getActivityIconColor(event.type);
+                return (
+                  <div
+                    key={event.id}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '10px',
+                      padding: '8px 0',
+                      borderBottom: i < myActivity.length - 1 ? `1px solid ${C.border}` : 'none',
+                    }}
+                  >
+                    {/* Icon */}
+                    <div style={{
+                      width: '26px', height: '26px', borderRadius: '6px', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: `${iconColor}18`, color: iconColor,
+                      border: `1px solid ${iconColor}28`,
+                      marginTop: '1px',
+                    }}>
+                      {getActivityIcon(event.type)}
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '12.5px', color: C.text, lineHeight: 1.4, margin: 0 }}>
+                        <span style={{ color: C.text3 }}>{action}</span>
+                        {subject && <> <strong style={{ color: C.text, fontWeight: 500 }}>{subject}</strong></>}
+                        {extra && <span style={{ color: C.text4, fontSize: '11.5px' }}> · {extra}</span>}
+                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                        {(event.payload.workspaceName || event.payload.boardName) && (
+                          <span style={{ fontSize: '11px', color: C.text4 }}>
+                            {[event.payload.workspaceName, event.payload.boardName].filter(Boolean).join(' › ')}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '11px', color: C.text4 }}>
+                          {timeAgo(event.timestamp, t)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
     </>

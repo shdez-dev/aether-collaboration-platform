@@ -79,6 +79,11 @@ export const en = {
   dashboard_recent_boards_title: 'Recent boards',
   dashboard_recent_boards_subtitle: 'Your boards with activity',
 
+  // ── Dashboard – User activity ─────────────────────────────────────────────
+  dashboard_my_activity_title: 'My recent activity',
+  dashboard_my_activity_range: 'Last 7 days',
+  dashboard_my_activity_empty: 'No activity in the last 7 days',
+
   // ── Dashboard – Activity feed ─────────────────────────────────────────────
   dashboard_activity_title: 'Recent activity',
   dashboard_activity_subtitle: 'Latest events across your projects',

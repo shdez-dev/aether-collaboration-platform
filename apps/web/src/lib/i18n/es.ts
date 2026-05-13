@@ -206,6 +206,11 @@ export const es = {
   dashboard_recent_boards_title: 'Boards recientes',
   dashboard_recent_boards_subtitle: 'Tus tableros con actividad',
 
+  // ── Dashboard – Actividad del usuario ────────────────────────────────────
+  dashboard_my_activity_title: 'Mi actividad reciente',
+  dashboard_my_activity_range: 'Últimos 7 días',
+  dashboard_my_activity_empty: 'Sin actividad en los últimos 7 días',
+
   // ── Dashboard – Feed de actividad ────────────────────────────────────────
   dashboard_activity_title: 'Actividad reciente',
   dashboard_activity_subtitle: 'Últimos eventos en tus proyectos',
