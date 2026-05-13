@@ -350,7 +350,7 @@ function SidebarContent({
       <div style={{ padding: '10px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
         <Link href="/">
           <div
-            className="flex items-center justify-center gap-2.5 px-2 py-2 rounded-md cursor-pointer transition-colors"
+            className="flex items-center gap-2.5 px-4 py-2 rounded-md cursor-pointer transition-colors"
             style={{ color: C.text }}
             onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
