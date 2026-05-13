@@ -364,7 +364,9 @@ export default function DashboardPage() {
       case 'workspace.updated':      return { action: t.activity_workspace_updated, subject: payload.name };
       case 'workspace.member.invited': return { action: t.activity_workspace_member_invited, subject: payload.inviteeName, extra: payload.workspaceName };
       case 'workspace.member.joined':  return { action: t.activity_workspace_member_joined };
-      case 'workspace.member.removed': return { action: t.activity_workspace_member_removed, subject: payload.memberName };
+      case 'workspace.member.removed':     return { action: t.activity_workspace_member_removed, subject: payload.memberName };
+      case 'workspace.deleted':            return { action: t.activity_workspace_deleted, subject: payload.name };
+      case 'workspace.member.roleChanged': return { action: t.activity_workspace_member_role_changed, subject: payload.memberName, extra: payload.newRole };
       // Board
       case 'board.created':   return { action: t.activity_board_created, subject: payload.name || payload.title };
       case 'board.updated':   return { action: t.activity_board_updated, subject: payload.name || payload.title };
@@ -392,12 +394,15 @@ export default function DashboardPage() {
       case 'card.duedate.removed':     return { action: t.activity_card_duedate_removed, subject: title };
       case 'card.member.assigned':     return { action: t.activity_member_assigned, subject: payload.assignedUserName || payload.memberName, extra: title };
       case 'card.member.unassigned':   return { action: t.activity_member_unassigned, subject: payload.unassignedUserName || payload.memberName, extra: title };
-      case 'card.label.added':         return { action: t.activity_label_added, subject: payload.labelName, extra: title };
-      case 'card.label.removed':       return { action: t.activity_label_removed, subject: payload.labelName, extra: title };
+      case 'card.label.added':           return { action: t.activity_label_added, subject: payload.labelName, extra: title };
+      case 'card.label.removed':         return { action: t.activity_label_removed, subject: payload.labelName, extra: title };
+      case 'card.dependency.added':      return { action: t.activity_card_dependency_added, subject: payload.blockingCardTitle || payload.blockingCardId, extra: payload.blockedCardTitle || payload.blockedCardId };
+      case 'card.dependency.removed':    return { action: t.activity_card_dependency_removed, subject: payload.cardTitle || payload.cardId };
       // Comment
-      case 'comment.created':  return { action: t.activity_comment_created, subject: payload.cardTitle };
-      case 'comment.updated':  return { action: t.activity_comment_updated, subject: payload.cardTitle };
-      case 'comment.deleted':  return { action: t.activity_comment_deleted, subject: payload.cardTitle };
+      case 'comment.created':   return { action: t.activity_comment_created, subject: payload.cardTitle };
+      case 'comment.updated':   return { action: t.activity_comment_updated, subject: payload.cardTitle };
+      case 'comment.deleted':   return { action: t.activity_comment_deleted, subject: payload.cardTitle };
+      case 'comment.mentioned': return { action: t.activity_comment_mentioned, subject: payload.cardTitle };
       // Checklist
       case 'checklist.item.created': return { action: t.activity_checklist_item_created, subject: payload.cardTitle };
       case 'checklist.item.deleted': return { action: t.activity_checklist_item_deleted, subject: payload.cardTitle };
@@ -405,7 +410,24 @@ export default function DashboardPage() {
       case 'document.created':          return { action: t.activity_document_created, subject: payload.title };
       case 'document.deleted':          return { action: t.activity_document_deleted, subject: payload.title };
       case 'document.version.created':  return { action: t.activity_document_version, subject: payload.title };
-      case 'document.version.restored': return { action: t.activity_document_version_restored, subject: payload.title };
+      case 'document.version.restored':    return { action: t.activity_document_version_restored, subject: payload.title };
+      case 'document.permission.updated':  return { action: t.activity_document_permission_updated, subject: payload.title };
+      // Project
+      case 'project.created':            return { action: t.activity_project_created, subject: payload.name };
+      case 'project.updated':            return { action: t.activity_project_updated, subject: payload.name };
+      case 'project.deleted':            return { action: t.activity_project_deleted, subject: payload.name };
+      case 'project.status.changed':     return { action: t.activity_project_status_changed, subject: payload.name, extra: payload.newStatus };
+      case 'project.board.assigned':     return { action: t.activity_project_board_assigned, subject: payload.boardName, extra: payload.projectName };
+      case 'project.board.removed':      return { action: t.activity_project_board_removed, subject: payload.boardName, extra: payload.projectName };
+      case 'project.milestone.created':  return { action: t.activity_project_milestone_created, subject: payload.milestoneName, extra: payload.projectName };
+      case 'project.milestone.completed':return { action: t.activity_project_milestone_completed, subject: payload.milestoneName, extra: payload.projectName };
+      // Team
+      case 'team.created':              return { action: t.activity_team_created, subject: payload.name };
+      case 'team.updated':              return { action: t.activity_team_updated, subject: payload.name };
+      case 'team.deleted':              return { action: t.activity_team_deleted, subject: payload.name };
+      case 'team.member.added':         return { action: t.activity_team_member_added, subject: payload.memberName, extra: payload.teamName };
+      case 'team.member.removed':       return { action: t.activity_team_member_removed, subject: payload.memberName, extra: payload.teamName };
+      case 'team.member.roleChanged':   return { action: t.activity_team_member_role_changed, subject: payload.memberName, extra: payload.teamName };
       default: return { action: t.activity_default };
     }
   }
