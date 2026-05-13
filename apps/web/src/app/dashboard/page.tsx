@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
-import { AlertTriangle, Users, ExternalLink, Plus, X, Check, Clock, FileText, MessageCircle, LayoutGrid, Archive, User, Tag, Edit, Trash2, Move, ArrowRight } from 'lucide-react';
+import { Users, ExternalLink, Plus, X, Check, Clock, FileText, MessageCircle, LayoutGrid, Archive, User, Tag, Edit, Trash2, Move } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
 import { C } from '@/lib/colors';
@@ -36,16 +36,6 @@ interface Teammate {
   overdueCards: number;
   completedThisWeek: number;
   lastActivity: string | null;
-}
-
-interface TeamStandup {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string | null;
-  todayItems: { id: string; text: string }[];
-  blockers: { id: string; text: string }[];
-  publishedAt: string;
 }
 
 interface TodoItem {
@@ -206,9 +196,8 @@ export default function DashboardPage() {
   const [cardsLoading, setCardsLoading] = useState(true);
 
   // Team
-  const [teammates,     setTeammates]     = useState<Teammate[]>([]);
-  const [teamStandups,  setTeamStandups]  = useState<TeamStandup[]>([]);
-  const [teamLoading,   setTeamLoading]   = useState(true);
+  const [teammates,   setTeammates]   = useState<Teammate[]>([]);
+  const [teamLoading, setTeamLoading] = useState(true);
 
   // My activity
   const [myActivity,       setMyActivity]       = useState<UserActivityEvent[]>([]);
@@ -254,13 +243,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setTeamLoading(true);
-    Promise.all([
-      apiService.get<{ teammates: Teammate[] }>('/api/users/me/teammates', true),
-      apiService.get<{ standups: TeamStandup[] }>('/api/users/me/team-standups', true),
-    ]).then(([tmRes, sdRes]) => {
-      if (tmRes.success && tmRes.data) setTeammates(tmRes.data.teammates);
-      if (sdRes.success && sdRes.data) setTeamStandups(sdRes.data.standups);
-    }).finally(() => setTeamLoading(false));
+    apiService.get<{ teammates: Teammate[] }>('/api/users/me/teammates', true)
+      .then((res) => {
+        if (res.success && res.data) setTeammates(res.data.teammates);
+      })
+      .finally(() => setTeamLoading(false));
   }, []);
 
   useEffect(() => {
@@ -679,113 +666,66 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* HOY EN EL EQUIPO (standups) */}
-            {(teamStandups.length > 0 || !teamLoading) && (
-              <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}` }}>
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.dashboard_activity_title}</span>
+            {/* MI ACTIVIDAD RECIENTE */}
+            <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <Clock style={{ width: '13px', height: '13px', color: C.text4 }} />
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.dashboard_my_activity_title}</span>
                 </div>
+                <span style={{ fontSize: '10.5px', color: C.text4 }}>{t.dashboard_my_activity_range}</span>
+              </div>
 
-                <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {teamStandups.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: C.text4, textAlign: 'center', padding: '10px 0' }}>
-                      {t.dashboard_activity_empty}
-                    </div>
-                  ) : (
-                    teamStandups.map((sd) => (
-                      <div key={sd.id} style={{ display: 'flex', gap: '9px' }}>
-                        <MiniAvatar name={sd.userName} size={24} />
+              {activityLoading ? (
+                <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                  <div className="w-4 h-4 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
+                </div>
+              ) : myActivity.length === 0 ? (
+                <div style={{ padding: '18px 16px', fontSize: '12px', color: C.text4, textAlign: 'center' }}>
+                  {t.dashboard_my_activity_empty}
+                </div>
+              ) : (
+                <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                  {myActivity.map((event, i) => {
+                    const { action, subject, extra } = getActivityText(event);
+                    const iconColor = getActivityIconColor(event.type);
+                    return (
+                      <div
+                        key={event.id}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', gap: '9px',
+                          padding: '8px 16px',
+                          borderBottom: i < myActivity.length - 1 ? `1px solid ${C.border}` : 'none',
+                        }}
+                      >
+                        <div style={{
+                          width: '24px', height: '24px', borderRadius: '5px', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: `${iconColor}18`, color: iconColor,
+                          border: `1px solid ${iconColor}28`,
+                          marginTop: '1px',
+                        }}>
+                          {getActivityIcon(event.type)}
+                        </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '11.5px', fontWeight: 600, color: C.text2, marginBottom: '3px' }}>
-                            {sd.userName.split(' ')[0]}
-                          </div>
-                          <div style={{ fontSize: '12px', color: C.text3, lineHeight: 1.5 }}>
-                            {sd.todayItems.map((i) => i.text).join(' · ')}
-                          </div>
-                          {sd.blockers.length > 0 && (
-                            <div style={{ fontSize: '11.5px', color: C.amber, marginTop: '4px', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
-                              <AlertTriangle style={{ width: '11px', height: '11px', marginTop: '2px', flexShrink: 0 }} />
-                              {sd.blockers.map((b) => b.text).join(', ')}
-                            </div>
-                          )}
-                          <div style={{ fontSize: '10.5px', color: C.text4, marginTop: '4px' }}>
-                            {timeAgo(sd.publishedAt, t)}
+                          <p style={{ fontSize: '12px', color: C.text, lineHeight: 1.4, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ color: C.text3 }}>{action}</span>
+                            {subject && <> <strong style={{ color: C.text, fontWeight: 500 }}>{subject}</strong></>}
+                            {extra && <span style={{ color: C.text4 }}> · {extra}</span>}
+                          </p>
+                          <div style={{ fontSize: '10.5px', color: C.text4, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {[event.payload.workspaceName, event.payload.boardName].filter(Boolean).join(' › ')}
+                            {(event.payload.workspaceName || event.payload.boardName) && ' · '}
+                            {timeAgo(event.timestamp, t)}
                           </div>
                         </div>
                       </div>
-                    ))
-                  )}
+                    );
+                  })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-        {/* ── MI ACTIVIDAD RECIENTE ────────────────────────────────── */}
-        <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Clock style={{ width: '13px', height: '13px', color: C.text4 }} />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>{t.dashboard_my_activity_title}</span>
-            </div>
-            <span style={{ fontSize: '11px', color: C.text4 }}>{t.dashboard_my_activity_range}</span>
-          </div>
-
-          {activityLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-              <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
-            </div>
-          ) : myActivity.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '36px 0', color: C.text4, fontSize: '13px' }}>
-              {t.dashboard_my_activity_empty}
-            </div>
-          ) : (
-            <div style={{ padding: '8px 16px', maxHeight: '340px', overflowY: 'auto' }}>
-              {myActivity.map((event, i) => {
-                const { action, subject, extra } = getActivityText(event);
-                const iconColor = getActivityIconColor(event.type);
-                return (
-                  <div
-                    key={event.id}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '10px',
-                      padding: '8px 0',
-                      borderBottom: i < myActivity.length - 1 ? `1px solid ${C.border}` : 'none',
-                    }}
-                  >
-                    {/* Icon */}
-                    <div style={{
-                      width: '26px', height: '26px', borderRadius: '6px', flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: `${iconColor}18`, color: iconColor,
-                      border: `1px solid ${iconColor}28`,
-                      marginTop: '1px',
-                    }}>
-                      {getActivityIcon(event.type)}
-                    </div>
-
-                    {/* Content */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: '12.5px', color: C.text, lineHeight: 1.4, margin: 0 }}>
-                        <span style={{ color: C.text3 }}>{action}</span>
-                        {subject && <> <strong style={{ color: C.text, fontWeight: 500 }}>{subject}</strong></>}
-                        {extra && <span style={{ color: C.text4, fontSize: '11.5px' }}> · {extra}</span>}
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                        {(event.payload.workspaceName || event.payload.boardName) && (
-                          <span style={{ fontSize: '11px', color: C.text4 }}>
-                            {[event.payload.workspaceName, event.payload.boardName].filter(Boolean).join(' › ')}
-                          </span>
-                        )}
-                        <span style={{ fontSize: '11px', color: C.text4 }}>
-                          {timeAgo(event.timestamp, t)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
       </div>
