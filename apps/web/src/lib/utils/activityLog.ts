@@ -123,12 +123,12 @@ export function getEventDescription(event: ActivityLogEntry, t: Record<string, a
       return t.dashboard_activity_card_priority_changed(name);
     case 'card.member.assigned':
       return t.dashboard_activity_card_member_assigned(
-        payload?.assignedUserName || '',
+        payload?.assignedUserName || payload?.memberName || '',
         name
       );
     case 'card.member.unassigned':
       return t.dashboard_activity_card_member_unassigned(
-        payload?.unassignedUserName || '',
+        payload?.unassignedUserName || payload?.memberName || '',
         name
       );
     case 'card.label.added':

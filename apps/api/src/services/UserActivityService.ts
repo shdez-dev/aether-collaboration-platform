@@ -82,6 +82,8 @@ export class UserActivityService {
       'checklist.item.deleted',
       // Comment
       'comment.created',
+      'comment.updated',
+      'comment.deleted',
       'comment.mentioned',
       // Document
       'document.created',
@@ -632,54 +634,49 @@ export class UserActivityService {
         metadata.cardId = payload.cardId;
         metadata.commentId = payload.commentId;
         metadata.contentPreview = payload.content?.substring(0, 100);
-        // Obtener título de la tarjeta
-        if (payload.cardId) {
-          metadata.cardTitle = await this.getCardTitle(payload.cardId);
-        }
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        metadata.cardTitle = payload.cardTitle || (payload.cardId ? await this.getCardTitle(payload.cardId) : undefined);
+        metadata.authorName = payload.authorName;
         break;
 
       case 'comment.updated':
         metadata.cardId = payload.cardId;
         metadata.commentId = payload.commentId;
-        metadata.contentPreview = payload.content?.substring(0, 100);
+        metadata.contentPreview = payload.changes?.content?.substring(0, 100) || payload.content?.substring(0, 100);
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        metadata.cardTitle = payload.cardTitle || (payload.cardId ? await this.getCardTitle(payload.cardId) : undefined);
+        metadata.authorName = payload.authorName;
         break;
 
       case 'comment.deleted':
         metadata.commentId = payload.commentId;
         metadata.cardId = payload.cardId;
-        metadata.deletedBy = payload.deletedBy;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
+        metadata.cardTitle = payload.cardTitle || (payload.cardId ? await this.getCardTitle(payload.cardId) : undefined);
+        metadata.deletedByName = payload.deletedByName;
         break;
 
       case 'card.member.assigned':
         metadata.cardId = payload.cardId;
         metadata.memberId = payload.userId || payload.memberId;
-        // Usar título del payload si está disponible
-        if (payload.title) {
-          metadata.cardTitle = payload.title;
-        } else if (payload.cardId) {
-          // Fallback: consultar título de la tarjeta
-          metadata.cardTitle = await this.getCardTitle(payload.cardId);
-        }
-        // Obtener nombre del miembro
-        if (metadata.memberId) {
-          metadata.memberName = await this.getMemberName(metadata.memberId);
-        }
+        metadata.cardTitle = payload.cardTitle || payload.title || (payload.cardId ? await this.getCardTitle(payload.cardId) : undefined);
+        metadata.memberName = payload.memberName || payload.assignedUserName || (metadata.memberId ? await this.getMemberName(metadata.memberId) : undefined);
+        metadata.assignedUserName = metadata.memberName;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'card.member.unassigned':
         metadata.cardId = payload.cardId;
         metadata.memberId = payload.userId || payload.memberId;
-        // Usar título del payload si está disponible
-        if (payload.title) {
-          metadata.cardTitle = payload.title;
-        } else if (payload.cardId) {
-          // Fallback: consultar título de la tarjeta
-          metadata.cardTitle = await this.getCardTitle(payload.cardId);
-        }
-        // Obtener nombre del miembro
-        if (metadata.memberId) {
-          metadata.memberName = await this.getMemberName(metadata.memberId);
-        }
+        metadata.cardTitle = payload.cardTitle || payload.title || (payload.cardId ? await this.getCardTitle(payload.cardId) : undefined);
+        metadata.memberName = payload.memberName || payload.unassignedUserName || (metadata.memberId ? await this.getMemberName(metadata.memberId) : undefined);
+        metadata.unassignedUserName = metadata.memberName;
+        metadata.boardId = payload.boardId;
+        metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'card.label.added':

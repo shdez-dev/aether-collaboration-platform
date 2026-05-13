@@ -720,6 +720,10 @@ export class CardService {
       ]);
       const assignerName = userResult.rows[0]?.name || 'Unknown user';
 
+      // Obtener nombre del usuario asignado para el payload
+      const memberResult = await pool.query('SELECT name FROM users WHERE id = $1', [memberId]);
+      const memberName = memberResult.rows[0]?.name || '';
+
       const payload = {
         cardId: cardId as any,
         userId: memberId as any,
@@ -728,6 +732,9 @@ export class CardService {
           name: assignerName,
         },
         title: cardTitle,
+        cardTitle,
+        memberName,
+        assignedUserName: memberName,
         boardId,
         workspaceId,
       };
@@ -789,11 +796,20 @@ export class CardService {
       const cardResult = await client.query('SELECT title FROM cards WHERE id = $1', [cardId]);
       const cardTitle = cardResult.rows[0]?.title || 'Unknown card';
 
+      const unassignerResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const unassignerName = unassignerResult.rows[0]?.name || 'Unknown user';
+
+      const memberResult = await pool.query('SELECT name FROM users WHERE id = $1', [memberId]);
+      const memberName = memberResult.rows[0]?.name || '';
+
       const payload = {
         cardId: cardId as any,
         userId: memberId as any,
-        unassignedBy: userId as any,
+        unassignedBy: { id: userId, name: unassignerName },
         title: cardTitle,
+        cardTitle,
+        memberName,
+        unassignedUserName: memberName,
         boardId,
         workspaceId,
       };

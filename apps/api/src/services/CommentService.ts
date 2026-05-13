@@ -41,7 +41,28 @@ export class CommentService {
       mentions: data.mentions || [],
     });
 
-    // ✅ EMITIR EVENTO (ya después de que el repositorio hizo commit)
+    // Obtener información del autor y la tarjeta para el evento y notificaciones
+    let eventBoardId: string | undefined;
+    let eventWorkspaceId: string | undefined;
+    let eventCardTitle: string | undefined;
+    let eventAuthorName: string | undefined;
+
+    try {
+      const authorResult = await pool.query(`SELECT id, name, email FROM users WHERE id = $1`, [
+        data.userId,
+      ]);
+      const author = authorResult.rows[0];
+      const card = await CardService.getCardById(data.cardId);
+
+      if (author && card) {
+        eventBoardId = await CardService.getBoardIdFromCard(card.id) || undefined;
+        eventWorkspaceId = eventBoardId ? await CardService.getWorkspaceIdFromBoard(eventBoardId) || undefined : undefined;
+        eventCardTitle = card.title;
+        eventAuthorName = author.name;
+      }
+    } catch (_) {}
+
+    // ✅ EMITIR EVENTO con contexto completo
     await eventStore.emit(
       'comment.created',
       {
@@ -51,11 +72,14 @@ export class CommentService {
         content: comment.content,
         mentions: (comment.mentions || []) as UserId[],
         createdBy: data.userId as UserId,
+        authorName: eventAuthorName,
+        cardTitle: eventCardTitle,
+        boardId: eventBoardId,
+        workspaceId: eventWorkspaceId,
       },
       data.userId as UserId
     );
 
-    // Obtener información del autor y la tarjeta para notificaciones
     try {
       const authorResult = await pool.query(`SELECT id, name, email FROM users WHERE id = $1`, [
         data.userId,
@@ -65,8 +89,8 @@ export class CommentService {
 
       if (author && card) {
         // Obtener boardId y workspaceId para incluir en notificaciones
-        const boardId = await CardService.getBoardIdFromCard(card.id) || undefined;
-        const workspaceId = boardId ? await CardService.getWorkspaceIdFromBoard(boardId) || undefined : undefined;
+        const boardId = eventBoardId || await CardService.getBoardIdFromCard(card.id) || undefined;
+        const workspaceId = eventWorkspaceId || (boardId ? await CardService.getWorkspaceIdFromBoard(boardId) || undefined : undefined);
 
         // Procesar menciones y crear notificaciones de mención
         if (data.mentions && data.mentions.length > 0) {
@@ -179,6 +203,24 @@ export class CommentService {
       throw new Error('Card not found for comment');
     }
 
+    // Obtener contexto para el evento
+    let updateBoardId: string | undefined;
+    let updateWorkspaceId: string | undefined;
+    let updateCardTitle: string | undefined;
+    let updateAuthorName: string | undefined;
+    try {
+      const [uCard, uUser] = await Promise.all([
+        CardService.getCardById(cardId),
+        pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+      ]);
+      if (uCard) {
+        updateBoardId = await CardService.getBoardIdFromCard(uCard.id) || undefined;
+        updateWorkspaceId = updateBoardId ? await CardService.getWorkspaceIdFromBoard(updateBoardId) || undefined : undefined;
+        updateCardTitle = uCard.title;
+      }
+      updateAuthorName = uUser.rows[0]?.name;
+    } catch (_) {}
+
     // ✅ EMITIR EVENTO (ya después del commit del repositorio)
     await eventStore.emit(
       'comment.updated',
@@ -190,6 +232,10 @@ export class CommentService {
           mentions: data.mentions as UserId[] | undefined,
         },
         updatedBy: userId as UserId,
+        authorName: updateAuthorName,
+        cardTitle: updateCardTitle,
+        boardId: updateBoardId,
+        workspaceId: updateWorkspaceId,
       },
       userId as UserId
     );
@@ -268,6 +314,24 @@ export class CommentService {
       throw new Error('Comment not found');
     }
 
+    // Obtener contexto para el evento
+    let deleteBoardId: string | undefined;
+    let deleteWorkspaceId: string | undefined;
+    let deleteCardTitle: string | undefined;
+    let deleteUserName: string | undefined;
+    try {
+      const [dCard, dUser] = await Promise.all([
+        CardService.getCardById(cardId),
+        pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+      ]);
+      if (dCard) {
+        deleteBoardId = await CardService.getBoardIdFromCard(dCard.id) || undefined;
+        deleteWorkspaceId = deleteBoardId ? await CardService.getWorkspaceIdFromBoard(deleteBoardId) || undefined : undefined;
+        deleteCardTitle = dCard.title;
+      }
+      deleteUserName = dUser.rows[0]?.name;
+    } catch (_) {}
+
     // ✅ EMITIR EVENTO (ya después del commit del repositorio)
     await eventStore.emit(
       'comment.deleted',
@@ -275,6 +339,10 @@ export class CommentService {
         commentId: commentId as CommentId,
         cardId: cardId as CardId,
         deletedBy: userId as UserId,
+        deletedByName: deleteUserName,
+        cardTitle: deleteCardTitle,
+        boardId: deleteBoardId,
+        workspaceId: deleteWorkspaceId,
       },
       userId as UserId
     );

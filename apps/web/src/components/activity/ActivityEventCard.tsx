@@ -882,11 +882,12 @@ function organizeEventDetails(
 
     if (eventType === 'card.member.assigned') {
       const userItems = [];
+      const assignedName = payload.assignedUserName || payload.memberName;
 
-      if (payload.assignedUserName) {
+      if (assignedName) {
         userItems.push({
           label: 'Usuario asignado',
-          value: payload.assignedUserName,
+          value: assignedName,
           type: 'user' as const,
         });
       }
@@ -911,11 +912,12 @@ function organizeEventDetails(
 
     if (eventType === 'card.member.unassigned') {
       const userItems = [];
+      const unassignedName = payload.unassignedUserName || payload.memberName;
 
-      if (payload.unassignedUserName) {
+      if (unassignedName) {
         userItems.push({
           label: 'Usuario desasignado',
-          value: payload.unassignedUserName,
+          value: unassignedName,
           type: 'user' as const,
         });
       }

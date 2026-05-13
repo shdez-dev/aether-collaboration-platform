@@ -364,6 +364,306 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
           </div>
         );
 
+      case 'board.renamed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_board_renamed}</span>{' '}
+              <strong className="text-accent">{payload.newName || payload.name}</strong>
+            </p>
+          </div>
+        );
+
+      case 'board.deleted':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_board_deleted}</span>{' '}
+              {(payload.title || payload.name) && (
+                <strong className="text-error">{payload.title || payload.name}</strong>
+              )}
+            </p>
+          </div>
+        );
+
+      case 'board.unarchived':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_board_unarchived}</span>{' '}
+              {(payload.title || payload.name) && (
+                <strong className="text-accent">{payload.title || payload.name}</strong>
+              )}
+            </p>
+          </div>
+        );
+
+      case 'list.renamed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_list_renamed}</span>{' '}
+              <strong className="text-accent">{payload.name}</strong>
+            </p>
+          </div>
+        );
+
+      case 'card.completed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_completed}</span>{' '}
+              {payload.title && <strong className="text-success">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'card.uncompleted':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_uncompleted}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'card.renamed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_renamed}</span>{' '}
+              {payload.title && <strong className="text-text-muted line-through text-[11px]">{payload.title}</strong>}
+              {payload.newTitle && (
+                <>
+                  {' '}<span className="text-text-secondary">{t.activity_card_renamed_to}</span>{' '}
+                  <strong className="text-accent">{payload.newTitle}</strong>
+                </>
+              )}
+            </p>
+          </div>
+        );
+
+      case 'card.description.changed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_description_changed}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'card.duedate.set':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_duedate_set}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'card.duedate.changed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_duedate_changed}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'card.duedate.removed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_duedate_removed}</span>{' '}
+              {payload.title && <strong className="text-warning">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'card.priority.changed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_priority_changed}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'card.archived':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_archived}</span>{' '}
+              {payload.title && <strong className="text-warning">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'card.unarchived':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_card_unarchived}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'comment.updated':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_comment_updated}</span>{' '}
+              {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'comment.deleted':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_comment_deleted}</span>{' '}
+              {payload.cardTitle && <strong className="text-text-muted">{payload.cardTitle}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'comment.mentioned':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_comment_mentioned}</span>{' '}
+              {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'checklist.item.created':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_checklist_item_created}</span>{' '}
+              {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
+              {payload.itemTitle && (
+                <p className="text-[11px] text-text-muted italic mt-0.5">"{payload.itemTitle}"</p>
+              )}
+            </p>
+          </div>
+        );
+
+      case 'checklist.item.deleted':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_checklist_item_deleted}</span>{' '}
+              {payload.cardTitle && <strong className="text-text-muted">{payload.cardTitle}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'document.created':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_document_created}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'document.deleted':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_document_deleted}</span>{' '}
+              {payload.title && <strong className="text-error">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'document.version.created':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_document_version}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'document.version.restored':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_document_version_restored}</span>{' '}
+              {payload.title && <strong className="text-accent">{payload.title}</strong>}
+            </p>
+          </div>
+        );
+
+      case 'workspace.member.invited':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_workspace_member_invited}</span>{' '}
+              {payload.inviteeName && <strong className="text-accent">{payload.inviteeName}</strong>}{' '}
+              <span className="text-text-secondary">{t.activity_workspace_member_invited_to}</span>
+            </p>
+          </div>
+        );
+
+      case 'workspace.member.joined':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_workspace_member_joined}</span>
+            </p>
+          </div>
+        );
+
+      case 'workspace.member.removed':
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">
+              <strong className="text-text-primary">{user.name}</strong>{' '}
+              <span className="text-text-secondary">{t.activity_workspace_member_removed}</span>{' '}
+              {payload.memberName && <strong className="text-error">{payload.memberName}</strong>}{' '}
+              <span className="text-text-secondary">{t.activity_workspace_member_removed_from}</span>
+            </p>
+          </div>
+        );
+
       default:
         return (
           <div>
