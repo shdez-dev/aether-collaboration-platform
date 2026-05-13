@@ -350,12 +350,12 @@ function SidebarContent({
       <div style={{ padding: '10px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
         <Link href="/">
           <div
-            className="flex items-center gap-2.5 px-2 py-2 rounded-md cursor-pointer transition-colors"
+            className="flex items-center justify-center gap-2.5 px-2 py-2 rounded-md cursor-pointer transition-colors"
             style={{ color: C.text }}
             onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
-            <svg width="20" height="20" viewBox="0 0 220 220" fill="none" aria-label="Aether logo" style={{ flexShrink: 0 }}>
+            <svg width="22" height="22" viewBox="0 0 220 220" fill="none" aria-label="Aether logo" style={{ flexShrink: 0 }}>
               <path d="M 110 39 L 32 173" stroke="#3B82F6" strokeWidth="10" strokeLinecap="round" />
               <path d="M 110 39 L 188 173" stroke="#3B82F6" strokeWidth="10" strokeLinecap="round" />
               <path d="M 66 122 L 154 122" stroke="#3B82F6" strokeWidth="7" strokeLinecap="round" />
@@ -363,10 +363,15 @@ function SidebarContent({
               <circle cx="32" cy="173" r="9" fill="#3B82F6" />
               <circle cx="188" cy="173" r="9" fill="#3B82F6" />
             </svg>
-            <span className="text-[13px] font-semibold flex-1 truncate tracking-[0.06em]">Aether</span>
-            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12" style={{ color: C.text3, flexShrink: 0 }}>
-              <path d="M3 5l3-3 3 3M3 7l3 3 3-3" />
-            </svg>
+            <span
+              style={{
+                fontSize: '15px',
+                fontWeight: 700,
+                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+                letterSpacing: '0.04em',
+                color: C.text,
+              }}
+            >Aether</span>
           </div>
         </Link>
 
