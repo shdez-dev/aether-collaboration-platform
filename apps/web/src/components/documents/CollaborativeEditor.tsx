@@ -76,14 +76,14 @@ const lowlight = createLowlight(common);
 
 // ── Highlight colour palette ──────────────────────────────────────────────────
 const HIGHLIGHT_COLORS = [
-  { label: 'Amarillo', value: '#fef08a' },
-  { label: 'Verde', value: '#bbf7d0' },
-  { label: 'Azul', value: '#bfdbfe' },
-  { label: 'Rosa', value: '#fbcfe8' },
-  { label: 'Naranja', value: '#fed7aa' },
-  { label: 'Violeta', value: '#e9d5ff' },
-  { label: 'Rojo', value: '#fecaca' },
-  { label: 'Cyan', value: '#a5f3fc' },
+  { label: 'Amarillo', value: '#ca8a04' },
+  { label: 'Verde',    value: '#16a34a' },
+  { label: 'Azul',     value: '#2563eb' },
+  { label: 'Rosa',     value: '#db2777' },
+  { label: 'Naranja',  value: '#ea580c' },
+  { label: 'Violeta',  value: '#9333ea' },
+  { label: 'Rojo',     value: '#dc2626' },
+  { label: 'Cyan',     value: '#0891b2' },
 ];
 
 // ── Custom Indent extension ───────────────────────────────────────────────────
@@ -735,7 +735,7 @@ function HighlightPicker({ editor }: { editor: any }) {
                 key={hc.value}
                 onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHighlight({ color: hc.value }).run(); setOpen(false); }}
                 title={hc.label}
-                style={{ backgroundColor: hc.value, width: '32px', height: '32px', borderRadius: '5px', border: '2px solid transparent', cursor: 'pointer' }}
+                style={{ backgroundColor: hc.value, width: '32px', height: '32px', borderRadius: '5px', border: '2px solid rgba(255,255,255,0.12)', cursor: 'pointer' }}
               />
             ))}
           </div>
@@ -1947,6 +1947,11 @@ export default function CollaborativeEditor({
           editor={editor}
           tippyOptions={{ duration: 100 }}
           className="flex items-center gap-0.5 rounded-[8px] p-1"
+          style={{
+            background: 'var(--c-bg2, #161b22)',
+            border: '1px solid var(--c-border2, #2a2f36)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+          }}
         >
           {[
             { cmd: () => editor.chain().focus().toggleBold().run(),      active: editor.isActive('bold'),      icon: <Bold style={{ width: '13px', height: '13px' }} />,          title: 'Negrita' },
@@ -1967,7 +1972,7 @@ export default function CollaborativeEditor({
               key={hc.value}
               onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHighlight({ color: hc.value }).run(); }}
               title={`Resaltar: ${hc.label}`}
-              style={{ backgroundColor: hc.value, width: '18px', height: '18px', borderRadius: '4px', border: '1px solid transparent', cursor: 'pointer' }}
+              style={{ backgroundColor: hc.value, width: '18px', height: '18px', borderRadius: '4px', border: '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', flexShrink: 0 }}
             />
           ))}
           {editor.isActive('highlight') && (

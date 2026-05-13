@@ -636,6 +636,17 @@ body:has(.fixed.z-40) {
   background-color: rgba(59, 130, 246, 0.3);
 }
 
+/* ==================== HIGHLIGHT ==================== */
+.ProseMirror mark {
+  color: #ffffff !important;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.light .ProseMirror mark {
+  color: #ffffff !important;
+}
+
 /* ==================== COLLABORATION CURSORS ==================== */
 .collaboration-cursor__caret {
   border-left: 2.5px solid;
