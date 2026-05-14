@@ -1948,9 +1948,10 @@ export default function CollaborativeEditor({
           tippyOptions={{ duration: 100 }}
           className="flex items-center gap-0.5 rounded-[8px] p-1"
           style={{
-            background: 'var(--c-bg2, #161b22)',
-            border: '1px solid var(--c-border2, #2a2f36)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+            background: '#2c313a',
+            border: '1px solid #3d434d',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(8px)',
           }}
         >
           {[
