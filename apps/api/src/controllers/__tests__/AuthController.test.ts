@@ -204,7 +204,7 @@ describe('AuthController', () => {
 
       mockRequest.body = credentials;
 
-      // Mock: user exists
+      // Mock: user exists (con email_verified: true para pasar el check)
       mockClient.query.mockResolvedValueOnce({
         rows: [
           {
@@ -213,6 +213,7 @@ describe('AuthController', () => {
             name: 'Test User',
             password: 'hashed_password',
             avatar: null,
+            email_verified: true,
           },
         ],
       });
@@ -490,8 +491,10 @@ describe('AuthController', () => {
             },
           ],
         })
-        // Update user
-        .mockResolvedValueOnce({ rows: [] });
+        // Update user (SET email_verified = TRUE)
+        .mockResolvedValueOnce({ rows: [] })
+        // SELECT avatar para incluir en la respuesta de auto-login
+        .mockResolvedValueOnce({ rows: [{ avatar: null }] });
 
       await authController.verifyEmail(mockRequest as Request, mockResponse as Response);
 

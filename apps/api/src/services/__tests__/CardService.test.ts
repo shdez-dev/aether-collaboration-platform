@@ -442,7 +442,8 @@ describe('CardService', () => {
 
       (pool.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] });
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] })
+        .mockResolvedValueOnce({ rows: [{ name: 'Member Name' }] }); // SELECT name del usuario asignado
 
       await CardService.assignMember(cardId, userId, assignedBy);
 
@@ -479,7 +480,9 @@ describe('CardService', () => {
 
       (pool.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] });
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] })
+        .mockResolvedValueOnce({ rows: [{ name: 'Remover Name' }] }) // SELECT name del que desasigna
+        .mockResolvedValueOnce({ rows: [{ name: 'Member Name' }] }); // SELECT name del desasignado
 
       await CardService.unassignMember(cardId, userId, removedBy);
 
