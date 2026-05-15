@@ -38,6 +38,10 @@ interface AuthState {
   error: string | null;
   isHydrated: boolean; // Nuevo flag para saber si ya se hidrató desde localStorage
   uiLanguage: null | 'es' | 'en'; // Language preference — null means fallback to user.language
+  /** Email del usuario cuyo registro quedó pendiente de verificación */
+  pendingEmailVerification: string | null;
+  /** Email del usuario que intentó login pero aún no verificó su correo */
+  emailNotVerified: string | null;
 
   // Acciones
   register: (name: string, email: string, password: string) => Promise<void>;
@@ -52,6 +56,7 @@ interface AuthState {
   clearError: () => void;
   setHydrated: (hydrated: boolean) => void;
   setUiLanguage: (lang: 'es' | 'en' | null) => void;
+  clearPendingVerification: () => void;
 
   // Helpers internos
   setAuth: (user: User, tokens: AuthTokens) => void;
@@ -140,6 +145,8 @@ export const useAuthStore = create<AuthState>()(
       error: null,
       isHydrated: false,
       uiLanguage: null,
+      pendingEmailVerification: null,
+      emailNotVerified: null,
 
       // ==================== REGISTER ====================
       register: async (name: string, email: string, password: string) => {
@@ -160,13 +167,8 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          // Auto-login después de registro exitoso
-          try {
-            await get().login(email, password);
-          } catch (loginError) {
-            // Si el auto-login falla, marcamos como no cargando pero dejamos el error
-            set({ isLoading: false });
-          }
+          // Registro exitoso — el usuario debe verificar su correo antes de poder entrar
+          set({ isLoading: false, pendingEmailVerification: email });
         } catch (error: any) {
           set({
             isLoading: false,
@@ -187,10 +189,11 @@ export const useAuthStore = create<AuthState>()(
           }>('/api/auth/login', { email, password }, false);
 
           if (!response.success || !response.data) {
-            set({
-              isLoading: false,
-              error: response.error?.message || 'Error al iniciar sesión',
-            });
+            if (response.error?.code === 'EMAIL_NOT_VERIFIED') {
+              set({ isLoading: false, emailNotVerified: email, error: null });
+            } else {
+              set({ isLoading: false, error: response.error?.message || 'Error al iniciar sesión' });
+            }
             return;
           }
 
@@ -344,7 +347,11 @@ export const useAuthStore = create<AuthState>()(
       },
 
       clearError: () => {
-        set({ error: null });
+        set({ error: null, emailNotVerified: null });
+      },
+
+      clearPendingVerification: () => {
+        set({ pendingEmailVerification: null });
       },
 
       setHydrated: (hydrated: boolean) => {

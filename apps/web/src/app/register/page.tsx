@@ -26,7 +26,7 @@ type TouchedFields = {
 export default function RegisterPage() {
   const t = useT();
   const router = useRouter();
-  const { register, isLoading, error, isAuthenticated, isHydrated, clearError } = useAuthStore();
+  const { register, isLoading, error, isAuthenticated, isHydrated, clearError, pendingEmailVerification, clearPendingVerification } = useAuthStore();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -52,6 +52,13 @@ export default function RegisterPage() {
       router.push('/dashboard');
     }
   }, [isAuthenticated, isHydrated, router]);
+
+  useEffect(() => {
+    if (pendingEmailVerification) {
+      clearPendingVerification();
+      router.push(`/verify-email/pending?email=${encodeURIComponent(pendingEmailVerification)}`);
+    }
+  }, [pendingEmailVerification, clearPendingVerification, router]);
 
   useEffect(() => {
     return () => clearError();

@@ -59,9 +59,13 @@ export class RealtimeGateway {
         origin: allowedOrigins,
         credentials: true,
       },
-      // WebSocket primero — sin upgrade, sin race condition.
-      // Si Railway rechaza WebSocket, Socket.IO cae a polling automáticamente.
-      transports: ['websocket', 'polling'],
+      // Polling primero para Railway: el proxy de Railway no siempre hace el
+      // upgrade HTTP→WS correctamente. Arrancamos con polling y luego
+      // el cliente hace upgrade a WebSocket si el proxy lo permite.
+      transports: ['polling', 'websocket'],
+      // Mantener vivas las conexiones bajo el timeout de 60s de Railway
+      pingInterval: 25000,
+      pingTimeout: 20000,
     });
 
     this.setupMiddleware();

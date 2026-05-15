@@ -175,7 +175,7 @@ export class AuthController {
 
       // 3. Buscar usuario por email
       const result = await client.query(
-        'SELECT id, email, name, password, avatar FROM users WHERE email = $1',
+        'SELECT id, email, name, password, avatar, email_verified FROM users WHERE email = $1',
         [email]
       );
 
@@ -206,6 +206,17 @@ export class AuthController {
           error: {
             code: 'INVALID_CREDENTIALS',
             message: 'Email o contraseña incorrectos',
+          },
+        });
+      }
+
+      // 5. Verificar que el email esté confirmado
+      if (!user.email_verified) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'EMAIL_NOT_VERIFIED',
+            message: 'Debes verificar tu correo electrónico antes de iniciar sesión',
           },
         });
       }
@@ -541,6 +552,67 @@ export class AuthController {
       if (client) {
         client.release();
       }
+    }
+  }
+
+  /**
+   * POST /api/auth/resend-verification
+   * Reenvía el email de verificación sin requerir autenticación.
+   * Acepta { email } en el body. Por seguridad, siempre retorna 200
+   * aunque el email no exista o ya esté verificado.
+   */
+  async resendVerificationPublic(req: Request, res: Response) {
+    let client;
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Email requerido' },
+        });
+      }
+
+      client = await pool.connect();
+      const result = await client.query(
+        'SELECT id, email, name, email_verified FROM users WHERE email = $1',
+        [email.toLowerCase().trim()]
+      );
+
+      // Respuesta genérica para no revelar si el email existe
+      const okResponse = res.status(200).json({
+        success: true,
+        data: { message: 'Si el correo existe y no está verificado, recibirás un email.' },
+      });
+
+      if (result.rows.length === 0 || result.rows[0].email_verified) {
+        return okResponse;
+      }
+
+      const user = result.rows[0];
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await client.query(
+        `UPDATE users SET email_verification_token = $1, email_verification_expires = $2 WHERE id = $3`,
+        [token, expires, user.id]
+      );
+
+      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
+      const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
+
+      await emailService.sendVerificationEmail(user.email, {
+        userName: user.name,
+        verificationLink,
+      });
+
+      return okResponse;
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Error al procesar la solicitud' },
+      });
+    } finally {
+      if (client) client.release();
     }
   }
 

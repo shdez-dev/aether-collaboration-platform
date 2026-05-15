@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Mail } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -22,7 +22,7 @@ type TouchedFields = {
 export default function LoginPage() {
   const t = useT();
   const router = useRouter();
-  const { login, isLoading, error, isAuthenticated, isHydrated, clearError } = useAuthStore();
+  const { login, isLoading, error, isAuthenticated, isHydrated, clearError, emailNotVerified } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -174,6 +174,27 @@ export default function LoginPage() {
                 <p className="text-error text-xs mt-1.5">✗ {errors.password}</p>
               )}
             </div>
+
+            {/* Email no verificado */}
+            {emailNotVerified && (
+              <div
+                className="rounded-terminal p-3 flex flex-col gap-2"
+                style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.3)' }}
+              >
+                <div className="flex items-start gap-2">
+                  <Mail className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <p className="text-text-primary text-sm">
+                    Debes verificar tu correo electrónico antes de iniciar sesión.
+                  </p>
+                </div>
+                <Link
+                  href={`/verify-email/pending?email=${encodeURIComponent(emailNotVerified)}`}
+                  className="text-xs text-primary hover:text-primary-hover underline underline-offset-2 ml-6"
+                >
+                  Reenviar correo de verificación →
+                </Link>
+              </div>
+            )}
 
             {/* Error del servidor */}
             {error && (
