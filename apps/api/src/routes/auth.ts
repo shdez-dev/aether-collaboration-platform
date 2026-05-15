@@ -10,6 +10,7 @@ router.post('/login', (req, res) => authController.login(req, res));
 router.post('/refresh', (req, res) => authController.refresh(req, res));
 router.post('/verify-email', (req, res) => authController.verifyEmail(req, res));
 router.post('/resend-verification', (req, res) => authController.resendVerificationPublic(req, res));
+router.post('/check-verification', (req, res) => authController.checkVerification(req, res));
 router.post('/forgot-password', (req, res) => authController.forgotPassword(req, res));
 router.post('/reset-password', (req, res) => authController.resetPassword(req, res));
 

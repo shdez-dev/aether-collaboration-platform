@@ -556,6 +556,50 @@ export class AuthController {
   }
 
   /**
+   * POST /api/auth/check-verification
+   * Consulta si el email ya fue verificado. Devuelve tokens si lo está,
+   * para que la página de espera pueda hacer auto-login sin recargar.
+   */
+  async checkVerification(req: Request, res: Response) {
+    let client;
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Email requerido' } });
+      }
+
+      client = await pool.connect();
+      const result = await client.query(
+        'SELECT id, email, name, avatar, email_verified FROM users WHERE email = $1',
+        [email.toLowerCase().trim()]
+      );
+
+      if (result.rows.length === 0 || !result.rows[0].email_verified) {
+        return res.status(200).json({ success: true, data: { verified: false } });
+      }
+
+      const user = result.rows[0];
+      const tokenPayload = { userId: user.id as UserId, email: user.email };
+      const accessToken = generateAccessToken(tokenPayload);
+      const refreshToken = generateRefreshToken(tokenPayload);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          verified: true,
+          accessToken,
+          refreshToken,
+          user: { id: user.id, email: user.email, name: user.name, avatar: user.avatar },
+        },
+      });
+    } catch {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Error al verificar estado' } });
+    } finally {
+      if (client) client.release();
+    }
+  }
+
+  /**
    * POST /api/auth/resend-verification
    * Reenvía el email de verificación sin requerir autenticación.
    * Acepta { email } en el body. Por seguridad, siempre retorna 200
@@ -678,10 +722,27 @@ export class AuthController {
         user.id as UserId
       );
 
+      // Generar tokens para auto-login inmediato tras verificación
+      const tokenPayload = { userId: user.id as UserId, email: user.email };
+      const accessToken = generateAccessToken(tokenPayload);
+      const refreshToken = generateRefreshToken(tokenPayload);
+
+      // Obtener avatar del usuario
+      const profileResult = await client.query('SELECT avatar FROM users WHERE id = $1', [user.id]);
+      const avatar = profileResult.rows[0]?.avatar || null;
+
       return res.status(200).json({
         success: true,
         data: {
           message: 'Email verificado exitosamente',
+          accessToken,
+          refreshToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatar,
+          },
         },
       });
     } catch (error) {

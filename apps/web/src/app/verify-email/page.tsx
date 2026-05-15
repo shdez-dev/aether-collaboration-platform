@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function VerifyEmailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setAuth } = useAuthStore();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -36,10 +38,16 @@ export default function VerifyEmailPage() {
 
       if (response.ok) {
         setStatus('success');
-        // Redirect to login after 3 seconds
+        // Auto-login con los tokens devueltos y redirigir al dashboard
+        if (data.data?.accessToken && data.data?.user) {
+          setAuth(data.data.user, {
+            accessToken: data.data.accessToken,
+            refreshToken: data.data.refreshToken,
+          });
+        }
         setTimeout(() => {
-          router.push('/login');
-        }, 3000);
+          router.push('/dashboard');
+        }, 2000);
       } else {
         setStatus('error');
         setErrorMessage(
@@ -80,11 +88,11 @@ export default function VerifyEmailPage() {
                 Email verificado exitosamente
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Tu dirección de correo ha sido verificada. Ahora puedes iniciar sesión.
+                Tu dirección de correo ha sido verificada. Ingresando a Aether...
               </p>
               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Redirigiendo a login...</span>
+                <span>Redirigiendo al dashboard...</span>
               </div>
             </>
           )}
@@ -106,7 +114,7 @@ export default function VerifyEmailPage() {
                   Ir a Iniciar Sesión
                 </button>
                 <button
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => router.push('/verify-email/pending')}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <Mail className="w-4 h-4" />
