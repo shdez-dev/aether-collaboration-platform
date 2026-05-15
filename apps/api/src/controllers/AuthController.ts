@@ -107,11 +107,11 @@ export class AuthController {
             userName: user.name,
             verificationLink,
           })
-          .catch(() => {
-            // Don't fail registration if email fails
+          .catch((emailErr: any) => {
+            console.error('[register] Error enviando email de verificación:', emailErr?.message || emailErr);
           });
-      } catch {
-        // Don't fail registration if email service is not configured
+      } catch (emailErr: any) {
+        console.error('[register] Error inicializando EmailService:', emailErr?.message || emailErr);
       }
 
       // 9. Retornar usuario creado (SIN password)
