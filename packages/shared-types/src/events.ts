@@ -147,6 +147,16 @@ export type CardEventType =
   | 'card.dependency.removed';
 
 /**
+ * Checklist Events
+ */
+export type ChecklistEventType =
+  | 'checklist.item.created'
+  | 'checklist.item.updated'
+  | 'checklist.item.deleted'
+  | 'checklist.item.checked'
+  | 'checklist.item.unchecked';
+
+/**
  * Comment Events
  */
 export type CommentEventType =
@@ -239,6 +249,7 @@ export type EventType =
   | BoardEventType
   | ListEventType
   | CardEventType
+  | ChecklistEventType
   | CommentEventType
   | DocumentEventType
   | NotificationEventType

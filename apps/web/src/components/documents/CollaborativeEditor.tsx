@@ -1946,14 +1946,16 @@ export default function CollaborativeEditor({
         <BubbleMenu
           editor={editor}
           tippyOptions={{ duration: 100 }}
-          className="flex items-center gap-0.5 rounded-[8px] p-1"
-          style={{
-            background: '#2c313a',
-            border: '1px solid #3d434d',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.4)',
-            backdropFilter: 'blur(8px)',
-          }}
         >
+          <div
+            className="flex items-center gap-0.5 rounded-[8px] p-1"
+            style={{
+              background: '#2c313a',
+              border: '1px solid #3d434d',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
           {[
             { cmd: () => editor.chain().focus().toggleBold().run(),      active: editor.isActive('bold'),      icon: <Bold style={{ width: '13px', height: '13px' }} />,          title: 'Negrita' },
             { cmd: () => editor.chain().focus().toggleItalic().run(),    active: editor.isActive('italic'),    icon: <Italic style={{ width: '13px', height: '13px' }} />,        title: 'Cursiva' },
@@ -1999,6 +2001,7 @@ export default function CollaborativeEditor({
           >
             <MessageSquare style={{ width: '13px', height: '13px' }} />
           </BubbleBtn>
+          </div>
         </BubbleMenu>
       )}
 

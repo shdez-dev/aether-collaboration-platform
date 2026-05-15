@@ -12,9 +12,18 @@ jest.mock('@/services/socketService');
 describe('AuthStore', () => {
   beforeEach(() => {
     // Reset store state before each test
-    const { clearAuth } = useAuthStore.getState();
-    clearAuth();
-    jest.clearAllMocks();
+    useAuthStore.setState({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+      pendingEmailVerification: null,
+      emailNotVerified: null,
+    });
+    // resetAllMocks limpia también los valores encolados con mockResolvedValueOnce
+    jest.resetAllMocks();
   });
 
   describe('Initial State', () => {
@@ -31,7 +40,7 @@ describe('AuthStore', () => {
   });
 
   describe('Register', () => {
-    it('should register user and auto-login successfully', async () => {
+    it('should register user and set pendingEmailVerification', async () => {
       const mockUser = {
         id: 'user-123',
         email: 'test@example.com',
@@ -39,24 +48,9 @@ describe('AuthStore', () => {
         createdAt: new Date().toISOString(),
       };
 
-      const mockTokens = {
-        accessToken: 'access_token',
-        refreshToken: 'refresh_token',
-      };
-
-      // Mock register response
       (apiService.post as jest.Mock).mockResolvedValueOnce({
         success: true,
         data: { user: mockUser },
-      });
-
-      // Mock login response (auto-login after register)
-      (apiService.post as jest.Mock).mockResolvedValueOnce({
-        success: true,
-        data: {
-          user: mockUser,
-          ...mockTokens,
-        },
       });
 
       const { result } = renderHook(() => useAuthStore());
@@ -66,13 +60,14 @@ describe('AuthStore', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.isAuthenticated).toBe(true);
-        expect(result.current.user).toEqual(mockUser);
-        expect(result.current.accessToken).toBe(mockTokens.accessToken);
+        // Después del registro el usuario debe verificar su email, no se autentica aún
+        expect(result.current.isAuthenticated).toBe(false);
+        expect(result.current.pendingEmailVerification).toBe('test@example.com');
+        expect(result.current.isLoading).toBe(false);
       });
 
-      // Verify socket connection was initialized
-      expect(socketService.connect).toHaveBeenCalledWith(mockTokens.accessToken);
+      // No se conecta el socket hasta que el usuario verifique y haga login
+      expect(socketService.connect).not.toHaveBeenCalled();
     });
 
     it('should handle registration error', async () => {
