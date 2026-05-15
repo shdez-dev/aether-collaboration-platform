@@ -210,17 +210,6 @@ export class AuthController {
         });
       }
 
-      // 5. Verificar que el email esté confirmado
-      if (!user.email_verified) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'EMAIL_NOT_VERIFIED',
-            message: 'Debes verificar tu correo electrónico antes de iniciar sesión',
-          },
-        });
-      }
-
       // 5. Generar JWT access token y refresh token
       const tokenPayload = {
         userId: user.id as UserId,
