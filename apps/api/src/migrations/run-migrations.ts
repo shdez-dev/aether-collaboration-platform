@@ -742,6 +742,16 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 022: Create workspace_invitations and team_invitations tables');
 
+      // Migration 023: Mark pre-existing users as email verified
+      // Users created before email verification was enforced should not be locked out.
+      await client.query(`
+        UPDATE users
+        SET email_verified = TRUE
+        WHERE email_verified = FALSE
+          AND email_verification_token IS NULL;
+      `);
+      console.log('  ✓ Migration 023: Mark pre-existing users as email verified');
+
       console.log('✅ All migrations completed successfully');
     } finally {
       client.release();
