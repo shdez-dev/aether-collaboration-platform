@@ -435,9 +435,36 @@ export function HeroSection() {
             maskImage: 'radial-gradient(ellipse 90% 60% at 50% 30%, black 40%, transparent 100%)',
             WebkitMaskImage: 'radial-gradient(ellipse 90% 60% at 50% 30%, black 40%, transparent 100%)',
           }} />
+          {/* Ambient glow blobs */}
+          <div className="absolute pointer-events-none" style={{
+            top: '-5%', left: '15%', width: '700px', height: '700px',
+            background: 'radial-gradient(circle, rgba(59,130,246,0.13) 0%, transparent 68%)',
+            filter: 'blur(40px)',
+          }} />
+          <div className="absolute pointer-events-none" style={{
+            top: '5%', right: '8%', width: '480px', height: '480px',
+            background: 'radial-gradient(circle, rgba(168,85,247,0.09) 0%, transparent 70%)',
+            filter: 'blur(60px)',
+          }} />
         </div>
 
         <div className="relative z-10 max-w-[1240px] mx-auto px-8">
+          {/* Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="inline-flex items-center gap-2 mb-7 px-3.5 py-1.5 rounded-full font-mono tracking-wide"
+            style={{
+              fontSize: '11.5px',
+              border: '1px solid rgba(59,130,246,0.28)',
+              background: 'rgba(59,130,246,0.07)',
+              color: 'rgba(59,130,246,0.9)',
+            }}
+          >
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block', flexShrink: 0 }} />
+            Open source · Real-time · No vendor lock-in
+          </motion.div>
+
           {/* Title */}
           <motion.h1
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
@@ -445,7 +472,7 @@ export function HeroSection() {
             className="font-bold leading-[1.02] mb-6 max-w-[920px]"
             style={{ fontSize: 'clamp(40px, 6vw, 72px)', letterSpacing: '-0.035em' }}
           >
-            <span style={{ color: 'var(--home-text-1)' }}>{t.home_hero_title_main} </span>
+            <span className="home-aether-text">{t.home_hero_title_main} </span>
             <span style={{ color: 'var(--home-text-3)' }}>{t.home_hero_title_dim}</span>
           </motion.h1>
 
@@ -490,6 +517,8 @@ export function HeroSection() {
           >
             {[
               { value: t.home_hero_stat1_value, label: t.home_hero_stat1_label },
+              { value: t.home_hero_stat2_value, label: t.home_hero_stat2_label },
+              { value: t.home_hero_stat3_value, label: t.home_hero_stat3_label },
             ].map((s) => (
               <div key={s.label}>
                 <strong className="block font-semibold mb-0.5 text-[15px]" style={{ color: 'var(--home-stat-value)', fontFamily: 'inherit' }}>
@@ -504,9 +533,13 @@ export function HeroSection() {
           <motion.div
             initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.42 }}
-            className="hidden md:block"
+            className="hidden md:block relative"
           >
             <ProductShot />
+            {/* Fade out at the bottom */}
+            <div className="absolute bottom-0 inset-x-0 h-28 pointer-events-none" style={{
+              background: 'linear-gradient(to bottom, transparent, var(--background))',
+            }} />
           </motion.div>
         </div>
       </section>

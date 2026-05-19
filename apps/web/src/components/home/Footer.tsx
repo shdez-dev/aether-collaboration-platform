@@ -26,39 +26,6 @@ function AetherLogo() {
 export function Footer() {
   const t = useT();
 
-  const columns = [
-    {
-      heading: t.home_footer_col_product,
-      links: [
-        { label: 'Dashboard', href: '/dashboard' },
-        { label: 'Workspaces', href: '/dashboard/workspaces' },
-        { label: 'Boards Kanban', href: '/dashboard/workspaces' },
-        { label: 'Documentos colaborativos', href: '/dashboard/documents' },
-        { label: 'Actividad en tiempo real', href: '/#activity' },
-        { label: 'Notificaciones', href: '/dashboard/notifications' },
-      ],
-    },
-    {
-      heading: t.home_footer_col_resources,
-      links: [
-        { label: 'Documentación', href: '#' },
-        { label: 'Guía de inicio rápido', href: '#' },
-        { label: 'API Reference', href: '#' },
-        { label: 'Changelog', href: '#' },
-        { label: 'Status del sistema', href: '#' },
-      ],
-    },
-    {
-      heading: t.home_footer_col_project,
-      links: [
-        { label: 'Sobre Aether', href: '#' },
-        { label: 'Roadmap público', href: '#' },
-        { label: 'Contribuir', href: '#' },
-        { label: 'Contacto', href: '#' },
-        { label: 'GitHub', href: '#' },
-      ],
-    },
-  ];
 
   return (
     <footer
@@ -67,56 +34,21 @@ export function Footer() {
     >
       <div className="max-w-[1240px] mx-auto">
         {/* Main grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-          {/* Brand column */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <Link href="/" className="flex items-center gap-2 mb-4" style={{ color: 'var(--home-text-logo)' }}>
-              <AetherLogo />
-              <span className="text-sm font-semibold">Aether</span>
-            </Link>
-            <p className="text-[13px] leading-relaxed max-w-[260px]" style={{ color: 'var(--home-text-3)' }}>
-              {t.home_footer_desc}
-            </p>
-          </motion.div>
-
-          {/* Link columns */}
-          {columns.map((col, i) => (
-            <motion.div
-              key={col.heading}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.06 * (i + 1) }}
-            >
-              <h5
-                className="font-mono text-[11px] uppercase tracking-[0.08em] font-medium mb-3.5"
-                style={{ color: 'var(--home-text-4)' }}
-              >
-                {col.heading}
-              </h5>
-              <ul className="space-y-1">
-                {col.links.map((l) => (
-                  <li key={l.label}>
-                    <Link
-                      href={l.href}
-                      className="block py-1 text-[13px] transition-colors"
-                      style={{ color: 'var(--home-text-2)' }}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'var(--home-text-1)')}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'var(--home-text-2)')}
-                    >
-                      {l.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          ))}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mb-12"
+        >
+          <Link href="/" className="flex items-center gap-2 mb-4" style={{ color: 'var(--home-text-logo)' }}>
+            <AetherLogo />
+            <span className="text-sm font-semibold">Aether</span>
+          </Link>
+          <p className="text-[13px] leading-relaxed max-w-[260px]" style={{ color: 'var(--home-text-3)' }}>
+            {t.home_footer_desc}
+          </p>
+        </motion.div>
 
         {/* Bottom bar */}
         <div
@@ -132,12 +64,12 @@ export function Footer() {
 
       {/* Decorative glows */}
       <div
-        className="absolute bottom-0 left-0 w-64 h-64 rounded-full pointer-events-none -z-10"
-        style={{ background: 'rgba(59,130,246,0.04)', filter: 'blur(80px)' }}
+        className="absolute bottom-0 left-0 w-96 h-96 rounded-full pointer-events-none -z-10"
+        style={{ background: 'rgba(59,130,246,0.09)', filter: 'blur(90px)' }}
       />
       <div
-        className="absolute bottom-0 right-0 w-64 h-64 rounded-full pointer-events-none -z-10"
-        style={{ background: 'rgba(168,85,247,0.04)', filter: 'blur(80px)' }}
+        className="absolute bottom-0 right-0 w-96 h-96 rounded-full pointer-events-none -z-10"
+        style={{ background: 'rgba(168,85,247,0.07)', filter: 'blur(90px)' }}
       />
     </footer>
   );

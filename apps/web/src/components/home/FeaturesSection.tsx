@@ -88,28 +88,30 @@ export function FeaturesSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.45, delay: i * 0.06 }}
-              className="group relative flex flex-col gap-3 p-8 cursor-default"
+              className="home-feature-card group relative flex flex-col gap-3 p-8 cursor-default"
               style={{
                 background: 'hsl(var(--background))',
                 minHeight: '220px',
-                transition: 'background 0.2s',
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'hsl(var(--muted))';
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = 'hsl(var(--muted))';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'hsl(var(--background))';
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = 'hsl(var(--background))';
               }}
             >
               <span className="font-mono text-[11px] tracking-[0.05em]" style={{ color: 'var(--home-text-4)' }}>
                 {f.num}
               </span>
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
+                className="w-9 h-9 rounded-xl flex items-center justify-center mb-3 transition-all duration-200 group-hover:scale-110"
                 style={{
-                  background: 'rgba(59,130,246,0.08)',
-                  border: '1px solid rgba(59,130,246,0.2)',
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(168,85,247,0.07) 100%)',
+                  border: '1px solid rgba(59,130,246,0.22)',
                   color: '#3b82f6',
+                  boxShadow: '0 0 0 0 rgba(59,130,246,0)',
                 }}
               >
                 <div className="w-4 h-4">{f.icon}</div>

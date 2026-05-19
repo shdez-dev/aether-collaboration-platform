@@ -24,9 +24,9 @@ function MetricsStrip() {
         >
           <div
             className="font-bold font-sans mb-1.5"
-            style={{ fontSize: '36px', letterSpacing: '-0.02em', color: 'var(--home-stat-value)', fontVariantNumeric: 'tabular-nums' }}
+            style={{ fontSize: '36px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}
           >
-            {m.value}
+            <span className="home-metric-value">{m.value}</span>
             <span style={{ fontSize: '22px', color: 'var(--home-text-3)' }}>{m.unit}</span>
           </div>
           <p className="font-mono text-[11px] uppercase tracking-[0.05em]" style={{ color: 'var(--home-text-3)' }}>
@@ -152,7 +152,7 @@ function CtaBox() {
           {/* Top glow line */}
           <span
             className="absolute top-0 left-1/2 -translate-x-1/2 h-px"
-            style={{ width: '280px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.9), transparent)' }}
+            style={{ width: '380px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.95), rgba(168,85,247,0.6), transparent)' }}
           />
           <h2
             className="font-bold mb-3.5 mx-auto"
