@@ -501,7 +501,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'workspace.member.roleChanged') {
+    if (eventType === 'workspace.member.role-changed') {
       const changeItems = [];
 
       if (payload.memberName) {
@@ -564,7 +564,7 @@ function organizeEventDetails(
 
   // Eventos de Board
   if (eventType.startsWith('board.')) {
-    if (eventType === 'board.renamed') {
+    if (eventType === 'board.updated' && (payload.oldName || payload.newName)) {
       const changeItems = [];
 
       if (payload.oldName && payload.newName) {
@@ -587,7 +587,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'board.description.changed') {
+    if (eventType === 'board.updated' && (payload.oldDescription || payload.newDescription)) {
       const changeItems = [];
 
       if (payload.oldDescription || payload.newDescription) {
@@ -639,7 +639,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'board.archived' || eventType === 'board.unarchived') {
+    if (eventType === 'board.archived' || eventType === 'board.restored') {
       const infoItems = [];
 
       if (payload.name || payload.boardName) {
@@ -652,7 +652,7 @@ function organizeEventDetails(
 
       if (infoItems.length > 0) {
         sections.push({
-          title: eventType === 'board.archived' ? 'Tablero archivado' : 'Tablero restaurado',
+          title: eventType === 'board.archived' ? 'Tablero archivado' : 'Tablero restaurado',  // board.restored
           items: infoItems,
         });
       }
@@ -684,7 +684,7 @@ function organizeEventDetails(
 
   // Eventos de Lista
   if (eventType.startsWith('list.')) {
-    if (eventType === 'list.renamed') {
+    if (eventType === 'list.updated' && (payload.oldName || payload.newName)) {
       const changeItems = [];
 
       if (payload.oldName && payload.newName) {
@@ -757,7 +757,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'list.reordered') {
+    if (eventType === 'list.order-changed') {
       // Para reordenamiento, solo mostrar un mensaje simple
       return null; // No mostrar detalles adicionales para reordenamiento
     }
@@ -788,7 +788,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'card.renamed') {
+    if (eventType === 'card.updated' && (payload.oldTitle || payload.newTitle)) {
       const changeItems = [];
 
       if (payload.oldTitle && payload.newTitle) {
@@ -811,7 +811,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'card.description.changed') {
+    if (eventType === 'card.updated' && (payload.oldDescription || payload.newDescription)) {
       const changeItems = [];
 
       if (payload.oldDescription || payload.newDescription) {
@@ -857,7 +857,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'card.duedate.set' || eventType === 'card.duedate.changed') {
+    if (eventType === 'card.due-date.set') {
       const dateItems = [];
 
       if (payload.oldDueDate || payload.newDueDate || payload.dueDate) {
@@ -910,7 +910,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'card.member.unassigned') {
+    if (eventType === 'card.member.removed') {
       const userItems = [];
       const unassignedName = payload.unassignedUserName || payload.memberName;
 
@@ -1041,7 +1041,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'card.completed' || eventType === 'card.uncompleted') {
+    if (eventType === 'card.status-changed') {
       const infoItems = [];
 
       if (payload.title || payload.cardTitle) {
@@ -1054,10 +1054,7 @@ function organizeEventDetails(
 
       if (infoItems.length > 0) {
         sections.push({
-          title:
-            eventType === 'card.completed'
-              ? 'Tarjeta completada'
-              : 'Tarjeta marcada como incompleta',
+          title: payload?.completed ? 'Tarjeta completada' : 'Tarjeta marcada como incompleta',
           items: infoItems,
         });
       }
@@ -1065,7 +1062,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'card.duedate.removed') {
+    if (eventType === 'card.due-date.removed') {
       const infoItems = [];
 
       if (payload.oldDueDate) {
@@ -1089,7 +1086,7 @@ function organizeEventDetails(
 
   // Eventos de Comentarios
   if (eventType.includes('comment')) {
-    if (eventType === 'comment.created' || eventType === 'card.comment.added') {
+    if (eventType === 'comment.created') {
       const commentItems = [];
 
       if (payload.content) {
@@ -1110,7 +1107,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'comment.updated' || eventType === 'card.comment.updated') {
+    if (eventType === 'comment.updated') {
       const changeItems = [];
 
       if (payload.oldContent || payload.newContent) {
@@ -1157,7 +1154,7 @@ function organizeEventDetails(
 
   // Eventos de Documentos
   if (eventType.startsWith('document.')) {
-    if (eventType === 'document.title.changed') {
+    if (eventType === 'document.updated' && (payload.oldTitle || payload.newTitle)) {
       const changeItems = [];
 
       if (payload.oldTitle && payload.newTitle) {
@@ -1201,7 +1198,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'document.version.created') {
+    if (eventType === 'document.version.saved') {
       const versionItems = [];
 
       if (payload.versionNumber) {
@@ -1299,7 +1296,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'project.board.assigned' || eventType === 'project.board.removed') {
+    if (eventType === 'project.board.linked' || eventType === 'project.board.unlinked') {
       const items = [];
       if (payload.boardName) {
         items.push({ label: 'Board', value: payload.boardName, type: 'info' as const });
@@ -1309,7 +1306,7 @@ function organizeEventDetails(
       }
       if (items.length > 0) {
         sections.push({
-          title: eventType === 'project.board.assigned' ? 'Board asignado' : 'Board quitado',
+          title: eventType === 'project.board.linked' ? 'Board vinculado' : 'Board desvinculado',
           items,
         });
       }
@@ -1356,7 +1353,7 @@ function organizeEventDetails(
       return sections.length > 0 ? { sections } : null;
     }
 
-    if (eventType === 'team.member.roleChanged') {
+    if (eventType === 'team.member.role-changed') {
       const items = [];
       if (payload.memberName) {
         items.push({ label: 'Miembro', value: payload.memberName, type: 'user' as const });

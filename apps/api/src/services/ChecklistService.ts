@@ -79,13 +79,15 @@ export class ChecklistService {
       // Emitir evento realtime
       const meta = await this.getBoardAndWorkspaceFromCard(cardId);
       if (meta) {
-        await eventStore.emit(
-          'checklist.item.created' as any,
-          { cardId, item },
-          userId as any,
-          meta.board_id,
-          socketId
-        );
+        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorResult.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'checklist.item.created',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'checklist-item', id: item.id, name: item.title },
+          context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
+          socketId,
+        });
       }
 
       await client.query('COMMIT');
@@ -143,13 +145,30 @@ export class ChecklistService {
       // Emitir evento realtime
       const meta = await this.getBoardAndWorkspaceFromCard(cardId);
       if (meta) {
-        await eventStore.emit(
-          'checklist.item.updated' as any,
-          { cardId, item },
-          userId as any,
-          meta.board_id,
-          socketId
-        );
+        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorResult.rows[0]?.name ?? '';
+        // Si solo cambia completed, emitir checklist.item.status.changed
+        if (data.completed !== undefined && data.title === undefined) {
+          await eventStore.emit({
+            type: 'checklist.item.status-changed',
+            actor: { id: userId, name: actorName },
+            subject: { type: 'checklist-item', id: item.id, name: item.title },
+            context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
+            delta: {
+              before: { checked: !data.completed },
+              after: { checked: data.completed },
+            },
+            socketId,
+          });
+        } else {
+          await eventStore.emit({
+            type: 'checklist.item.updated',
+            actor: { id: userId, name: actorName },
+            subject: { type: 'checklist-item', id: item.id, name: item.title },
+            context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
+            socketId,
+          });
+        }
       }
 
       await client.query('COMMIT');
@@ -197,13 +216,15 @@ export class ChecklistService {
       // Emitir evento realtime
       const meta = await this.getBoardAndWorkspaceFromCard(cardId);
       if (meta) {
-        await eventStore.emit(
-          'checklist.item.deleted' as any,
-          { cardId, itemId },
-          userId as any,
-          meta.board_id,
-          socketId
-        );
+        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorResult.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'checklist.item.deleted',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'checklist-item', id: itemId, name: '' },
+          context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
+          socketId,
+        });
       }
 
       await client.query('COMMIT');

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTeamStore, type Team, type TeamMember, type TeamActivity, type TeamInvitation } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useT } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
 import {
@@ -16,17 +17,37 @@ import { C } from '@/lib/colors';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function timeAgo(date: string | null | undefined): string {
-  if (!date) return 'nunca';
+function getActivityAction(eventType: string | undefined, fallback: string, t: ReturnType<typeof import('@/lib/i18n').useT>): string {
+  switch (eventType) {
+    case 'card.created':             return t.team_activity_card_created;
+    case 'card.updated':             return t.team_activity_card_updated;
+    case 'card.moved':               return t.team_activity_card_moved;
+    case 'card.deleted':             return t.team_activity_card_deleted;
+    case 'card.archived':            return t.team_activity_card_archived;
+    case 'card.status-changed':
+      // El backend ya resuelve "completó" vs "cambió estado" en el campo action/fallback
+      return fallback.includes('complet')
+        ? t.team_activity_card_completed
+        : t.team_activity_card_status_changed;
+    case 'list.created':             return t.team_activity_list_created;
+    case 'board.created':            return t.team_activity_board_created;
+    case 'team.member.added':        return t.team_activity_member_added;
+    case 'team.member.removed':      return t.team_activity_member_removed;
+    case 'team.member.role-changed': return t.team_activity_member_role_changed;
+    default:                         return fallback;
+  }
+}
+
+function timeAgo(date: string | null | undefined, t: ReturnType<typeof import('@/lib/i18n').useT>): string {
+  if (!date) return '—';
   const diff = Date.now() - new Date(date).getTime();
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days  = Math.floor(diff / 86400000);
-  if (mins < 1)   return 'ahora';
-  if (mins < 60)  return `hace ${mins}m`;
-  if (hours < 24) return `hace ${hours}h`;
-  if (days < 30)  return `hace ${days}d`;
-  return `hace ${Math.floor(days / 30)}mes`;
+  if (mins < 1)   return t.projects_time_ago_now;
+  if (mins < 60)  return t.projects_time_ago_min(mins);
+  if (hours < 24) return t.projects_time_ago_h(hours);
+  return t.projects_time_ago_d(days);
 }
 
 function getInitial(name: string | null | undefined) {
@@ -313,36 +334,48 @@ function SettingsModal({ team, onClose, onUpdated, onDeleted }: {
 
 // ── Member Card ───────────────────────────────────────────────────────────────
 
+const TEAM_ROLES: Array<'ADMIN' | 'MEMBER' | 'VIEWER'> = ['ADMIN', 'MEMBER', 'VIEWER'];
+
+function roleLabel(role: string, t: ReturnType<typeof import('@/lib/i18n').useT>): string {
+  if (role === 'ADMIN')  return t.teams_role_admin;
+  if (role === 'VIEWER') return t.teams_role_viewer;
+  return t.teams_role_member;
+}
+
 function MemberCard({
   member,
   teamColor,
   canManage,
+  creatorId,
   onRemove,
-  onToggleRole,
+  onChangeRole,
 }: {
   member: TeamMember;
   teamColor: string;
   canManage: boolean;
+  creatorId: string;
   onRemove: (userId: string) => void;
-  onToggleRole: (userId: string, newRole: 'LEAD' | 'MEMBER') => void;
+  onChangeRole: (userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') => void;
 }) {
   const t = useT();
   const [hov, setHov] = useState(false);
-  const isLead = member.role === 'LEAD';
+  const [roleOpen, setRoleOpen] = useState(false);
+  const isAdmin = member.role === 'ADMIN';
+  const isCreator = member.id === creatorId;
   const hasOverdue = member.workload.overdueCards > 0;
 
   return (
     <div
       onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+      onMouseLeave={() => { setHov(false); setRoleOpen(false); }}
       className="rounded-[8px] flex flex-col gap-3 p-4 relative transition-all"
       style={{
         background: hov ? C.hover : C.surface,
         border: `1px solid ${hov ? C.border2 : C.border}`,
       }}
     >
-      {/* Remove button (hover) */}
-      {canManage && hov && (
+      {/* Remove button (hover) — el creador no puede ser eliminado */}
+      {canManage && hov && !isCreator && (
         <button
           onClick={() => onRemove(member.id)}
           className="absolute top-3 right-3 flex items-center justify-center rounded-[4px] transition-colors"
@@ -364,28 +397,58 @@ function MemberCard({
         </div>
       </div>
 
-      {/* Role badge */}
-      <div className="flex items-center gap-2">
+      {/* Role badge / selector */}
+      <div className="flex items-center gap-2" style={{ position: 'relative' }}>
         <div
           className="flex items-center gap-1 px-2 py-[2px] rounded-full text-[11px] font-medium"
-          style={isLead
+          style={isAdmin
             ? { background: `${teamColor}22`, color: teamColor, border: `1px solid ${teamColor}44` }
-            : { background: C.bg, color: C.text3, border: `1px solid ${C.border}` }
+            : member.role === 'VIEWER'
+              ? { background: C.bg, color: C.text4, border: `1px solid ${C.border}` }
+              : { background: C.bg, color: C.text3, border: `1px solid ${C.border}` }
           }
         >
-          {isLead && <Crown size={10} />}
-          {isLead ? t.teams_role_lead : t.teams_role_member}
+          {isAdmin && <Crown size={10} />}
+          {roleLabel(member.role, t)}
+          {isCreator && <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '2px' }}>·</span>}
         </div>
-        {canManage && (
-          <button
-            onClick={() => onToggleRole(member.id, isLead ? 'MEMBER' : 'LEAD')}
-            className="text-[11px] transition-colors"
-            style={{ color: C.text4 }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
-          >
-            {isLead ? `→ ${t.teams_role_member}` : `→ ${t.teams_role_lead}`}
-          </button>
+
+        {/* Dropdown para cambiar rol — solo si canManage y no es el creador */}
+        {canManage && !isCreator && (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setRoleOpen((v) => !v)}
+              className="text-[11px] transition-colors"
+              style={{ color: C.text4 }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+            >
+              ▾
+            </button>
+            {roleOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, zIndex: 20, marginTop: '4px',
+                background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '110px', overflow: 'hidden',
+              }}>
+                {TEAM_ROLES.filter((r) => r !== member.role).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => { onChangeRole(member.id, r); setRoleOpen(false); }}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '8px 12px',
+                      fontSize: '12px', color: C.text2, background: 'none', border: 'none',
+                      cursor: 'pointer', display: 'block',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                  >
+                    {roleLabel(r, t)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -408,7 +471,7 @@ function MemberCard({
         )}
         <div className="flex items-center gap-1" style={{ color: C.text4 }}>
           <Clock size={11} />
-          <span>{timeAgo(member.workload.lastActivity)}</span>
+          <span>{timeAgo(member.workload.lastActivity, t)}</span>
         </div>
       </div>
     </div>
@@ -680,7 +743,7 @@ export default function TeamDetailPage() {
     }
   }
 
-  async function handleToggleRole(userId: string, newRole: 'LEAD' | 'MEMBER') {
+  async function handleChangeRole(userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') {
     try {
       await changeMemberRole(teamId, userId, newRole);
       setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, role: newRole } : m));
@@ -689,8 +752,13 @@ export default function TeamDetailPage() {
     }
   }
 
+  const currentUser = useAuthStore((s) => s.user);
   const teamColor = currentTeam?.color || '#3b82f6';
-  const leadMember = members.find((m) => m.role === 'LEAD');
+  const leadMember = members.find((m) => m.role === 'ADMIN');
+  const isOwnerOrAdmin =
+    currentUser != null &&
+    (currentTeam?.createdBy === currentUser.id ||
+      members.find((m) => m.id === currentUser.id)?.role === 'ADMIN');
 
   if (isLoading) {
     return (
@@ -905,9 +973,10 @@ export default function TeamDetailPage() {
                     key={m.id}
                     member={m}
                     teamColor={teamColor}
-                    canManage={true}
+                    canManage={isOwnerOrAdmin}
+                    creatorId={currentTeam?.createdBy ?? ''}
                     onRemove={handleRemoveMember}
-                    onToggleRole={handleToggleRole}
+                    onChangeRole={handleChangeRole}
                   />
                 ))}
                 {/* Add button as last card */}
@@ -956,8 +1025,8 @@ export default function TeamDetailPage() {
             </section>
           )}
 
-          {/* ── ACTIVIDAD RECIENTE ── */}
-          <section>
+          {/* ── ACTIVIDAD RECIENTE — solo visible para el creador y admins ── */}
+          {isOwnerOrAdmin && <section>
             {/* Header + filtros */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.text4 }}>
@@ -1094,7 +1163,7 @@ export default function TeamDetailPage() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '12.5px', lineHeight: 1.4 }}>
                           <span style={{ fontWeight: 600, color: C.text }}>{ev.userName}</span>
-                          <span style={{ color: C.text3 }}> {ev.action}</span>
+                          <span style={{ color: C.text3 }}> {getActivityAction(ev.eventType, ev.action, t)}</span>
                           {ev.entityName && (
                             <span style={{ fontWeight: 500, color: C.text2 }}> "{ev.entityName}"</span>
                           )}
@@ -1106,20 +1175,20 @@ export default function TeamDetailPage() {
 
                       {/* Tiempo relativo */}
                       <span style={{ fontSize: '11px', color: C.text4, flexShrink: 0, paddingTop: '2px' }}>
-                        {timeAgo(ev.createdAt)}
+                        {timeAgo(ev.createdAt, t)}
                       </span>
                     </div>
                   ))}
 
                   {filtered.length > 30 && (
                     <div style={{ padding: '10px 14px', borderTop: `1px solid ${C.border}`, textAlign: 'center', fontSize: '12px', color: C.text4 }}>
-                      +{filtered.length - 30} eventos más
+                      {t.team_activity_more_events(filtered.length - 30)}
                     </div>
                   )}
                 </div>
               );
             })()}
-          </section>
+          </section>}
 
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>

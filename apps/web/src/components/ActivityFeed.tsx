@@ -23,9 +23,10 @@ import type { ActivityLogEntry } from '@/lib/utils/activityLog';
 
 interface ActivityFeedProps {
   workspaceId: string;
+  refreshKey?: number;
 }
 
-export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
+export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedProps) {
   const t = useT();
   const { accessToken } = useAuthStore();
   const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
@@ -34,7 +35,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
 
   useEffect(() => {
     loadActivity();
-  }, [workspaceId]);
+  }, [workspaceId, refreshKey]);
 
   const loadActivity = async () => {
     setIsLoading(true);
@@ -63,7 +64,7 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     if (type.includes('created')) return <Plus className="w-3.5 h-3.5" />;
     if (type.includes('updated')) return <Edit className="w-3.5 h-3.5" />;
     if (type.includes('deleted')) return <Trash2 className="w-3.5 h-3.5" />;
-    if (type.includes('moved') || type.includes('reordered'))
+    if (type.includes('moved') || type.includes('order-changed'))
       return <Move className="w-3.5 h-3.5" />;
     if (type.includes('archived')) return <Archive className="w-3.5 h-3.5" />;
     if (type.includes('assigned')) return <User className="w-3.5 h-3.5" />;
@@ -80,598 +81,499 @@ export default function ActivityFeed({ workspaceId }: ActivityFeedProps) {
     if (type.includes('created')) return 'text-success';
     if (type.includes('updated')) return 'text-accent';
     if (type.includes('deleted')) return 'text-error';
-    if (type.includes('moved') || type.includes('reordered')) return 'text-warning';
+    if (type.includes('moved') || type.includes('order-changed')) return 'text-warning';
     if (type.includes('archived')) return 'text-warning';
     return 'text-text-muted';
   };
 
   const getActivityMessage = (event: ActivityLogEntry) => {
-    const { eventType: type, payload, userName, userId } = event;
+    const { eventType, payload, delta, userName, userId, targetName, workspaceName, boardName } = event;
+    // Cast to string so the switch accepts both EventType values and any
+    // non-standard types stored in user_activity_log (e.g. card.renamed).
+    const type = eventType as string;
     const user = { id: userId, name: userName };
 
+    // Names from v2 schema top-level fields, then payload fallbacks
+    const wsName   = workspaceName  || payload?.workspaceName || payload?.name;
+    const brdName  = boardName      || payload?.boardName     || payload?.boardTitle || payload?.name;
+    const listName = payload?.listName || payload?.name;
+    const cardName = targetName     || payload?.cardTitle     || payload?.title;
+    const docName  = targetName     || payload?.title         || payload?.name;
+
+    const u  = (txt: string)  => <strong className="text-text-primary">{txt}</strong>;
+    const a  = (txt?: string) => txt ? <strong className="text-accent">{txt}</strong> : null;
+    const e  = (txt?: string) => txt ? <strong className="text-error">{txt}</strong> : null;
+    const w  = (txt?: string) => txt ? <strong className="text-warning">{txt}</strong> : null;
+    const m  = (txt?: string) => txt ? <strong className="text-text-muted">{txt}</strong> : null;
+    const s  = (txt: string)  => <span className="text-text-secondary">{txt}</span>;
+    const em = (txt?: string) => txt ? <em className="text-text-muted">{txt}</em> : null;
+
     switch (type) {
+      // ── Workspace ────────────────────────────────────────────────────────────
       case 'workspace.created':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_workspace_created}</span>{' '}
-              <strong className="text-accent">{payload.name}</strong>
-            </p>
-          </div>
-        );
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('creó el workspace')} {a(wsName)}</p>;
 
       case 'workspace.updated':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_workspace_updated}</span>{' '}
-              <strong className="text-accent">{payload.name}</strong>
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('actualizó el workspace')} {a(wsName)}
+            {delta?.after?.name && delta?.before?.name && (
+              <>{s(' · de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
+            )}
+          </p>
         );
 
       case 'workspace.deleted':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_workspace_deleted}</span>
-            </p>
-          </div>
-        );
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('eliminó el workspace')} {e(wsName)}</p>;
 
+      case 'workspace.member.invited': {
+        const invitee = payload?.inviteeName || payload?.inviteeEmail;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('invitó a')} {a(invitee)} {s('al workspace')} {a(wsName)}
+          </p>
+        );
+      }
+
+      case 'workspace.member.joined':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('se unió al workspace')} {a(wsName)}</p>;
+
+      case 'workspace.member.removed': {
+        const removed = payload?.memberName || targetName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('removió a')} {e(removed)} {s('del workspace')} {a(wsName)}
+          </p>
+        );
+      }
+
+      case 'workspace.member.role-changed': {
+        const member  = payload?.memberName || targetName;
+        const newRole = payload?.newRole    || delta?.after?.role;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('cambió el rol de')} {a(member)}
+            {newRole && <>{s(' a')} <em className="text-text-secondary">{newRole}</em></>}
+            {wsName && <>{s(' en')} {a(wsName)}</>}
+          </p>
+        );
+      }
+
+      // ── Board ────────────────────────────────────────────────────────────────
       case 'board.created':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_board_created}</span>{' '}
-              <strong className="text-accent">{payload.title || payload.name}</strong>
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('creó el board')} {a(brdName)}
+            {wsName && <>{s(' en')} {a(wsName)}</>}
+          </p>
         );
 
       case 'board.updated':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_board_updated}</span>{' '}
-              <strong className="text-accent">{payload.title || payload.name}</strong>
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('actualizó el board')} {a(brdName)}
+            {delta?.after?.name && delta?.before?.name && (
+              <>{s(' · de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
+            )}
+          </p>
         );
 
       case 'board.archived':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_board_archived}</span>{' '}
-              {payload.title && <strong className="text-warning">{payload.title}</strong>}
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('archivó el board')} {w(brdName)}
+            {wsName && <>{s(' en')} {a(wsName)}</>}
+          </p>
         );
 
-      case 'list.created':
+      case 'board.restored':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('restauró el board')} {a(brdName)}</p>;
+
+      case 'board.deleted':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('eliminó el board')} {e(brdName)}</p>;
+
+      // ── List ─────────────────────────────────────────────────────────────────
+      case 'list.created': {
+        const projName = payload?.projectName;
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_list_created}</span>{' '}
-              <strong className="text-accent">{payload.name}</strong>
-              {payload.boardTitle && (
-                <>
-                  {' '}
-                  <span className="text-text-secondary">{t.activity_list_in_board}</span>{' '}
-                  <strong className="text-text-muted">{payload.boardTitle}</strong>
-                </>
-              )}
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('creó la lista')} {a(listName)}
+            {brdName && <>{s(' en')} {a(brdName)}</>}
+            {projName && <>{s(' · proyecto')} {a(projName)}</>}
+          </p>
         );
+      }
 
       case 'list.updated':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_list_updated}</span>{' '}
-              <strong className="text-accent">{payload.name}</strong>
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('actualizó la lista')} {a(listName)}
+            {delta?.after?.name && delta?.before?.name && (
+              <>{s(' · de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
+            )}
+          </p>
         );
 
-      case 'list.reordered':
+      case 'list.order-changed':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_list_reordered}</span>{' '}
-              {payload.name && <strong className="text-accent">{payload.name}</strong>}
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('reordenó las listas')}
+            {brdName && <>{s(' en')} {a(brdName)}</>}
+          </p>
         );
 
       case 'list.deleted':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_list_deleted}</span>{' '}
-              {payload.name && <strong className="text-error">{payload.name}</strong>}
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('eliminó la lista')} {e(listName)}
+            {brdName && <>{s(' de')} {a(brdName)}</>}
+          </p>
         );
 
-      case 'card.created':
+      // ── Card ─────────────────────────────────────────────────────────────────
+      case 'card.created': {
+        const listName = payload?.listName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('creó la tarjeta')} {a(cardName)}
+            {listName && <>{s(' en')} {a(listName)}</>}
+            {brdName  && <>{s(' ·')} {m(brdName)}</>}
+          </p>
+        );
+      }
+
+      case 'card.updated': {
+        const from = delta?.before?.title;
+        const to   = delta?.after?.title;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)}{' '}
+            {from && to
+              ? <>{s('renombró')} {em(from)} {s('→')} {a(to)}</>
+              : <>{s('actualizó la tarjeta')} {a(cardName)}</>
+            }
+            {brdName && <>{s(' en')} {m(brdName)}</>}
+          </p>
+        );
+      }
+
+      case 'card.moved': {
+        const from = payload?.fromListName || delta?.before?.listName;
+        const to   = payload?.toListName   || payload?.newListName || delta?.after?.listName;
         return (
           <div>
             <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_created}</span>{' '}
-              <strong className="text-accent">{payload.title}</strong>
-              {payload.listName && (
-                <>
-                  {' '}
-                  <span className="text-text-secondary">{t.activity_card_in_list}</span>{' '}
-                  <strong className="text-text-muted">{payload.listName}</strong>
-                </>
-              )}
+              {u(user.name)} {s('movió')} {a(cardName)}
+              {brdName && <>{s(' en')} {m(brdName)}</>}
             </p>
-          </div>
-        );
-
-      case 'card.updated':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_updated}</span>{' '}
-              <strong className="text-accent">{payload.title}</strong>
-            </p>
-          </div>
-        );
-
-      case 'card.moved':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed mb-1">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_moved}</span>{' '}
-              <strong className="text-accent">{payload.title}</strong>
-            </p>
-            {(payload.fromListName || payload.toListName) && (
+            {(from || to) && (
               <div className="flex items-center gap-1.5 text-[11px] mt-1.5">
-                {payload.fromListName && (
-                  <span className="px-2 py-0.5 bg-surface border border-border rounded text-text-muted">
-                    {payload.fromListName}
-                  </span>
-                )}
-                {payload.fromListName && payload.toListName && (
-                  <ArrowRight className="w-3 h-3 text-text-muted" />
-                )}
-                {payload.toListName && (
-                  <span className="px-2 py-0.5 bg-success/10 border border-success/30 text-success rounded font-medium">
-                    {payload.toListName}
-                  </span>
-                )}
+                {from && <span className="px-2 py-0.5 bg-surface border border-border rounded text-text-muted">{from}</span>}
+                {from && to && <ArrowRight className="w-3 h-3 text-text-muted" />}
+                {to && <span className="px-2 py-0.5 bg-success/10 border border-success/30 text-success rounded font-medium">{to}</span>}
               </div>
             )}
           </div>
         );
+      }
 
       case 'card.deleted':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_deleted}</span>{' '}
-              {payload.title && <strong className="text-error">{payload.title}</strong>}
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('eliminó la tarjeta')} {e(cardName)}
+            {brdName && <>{s(' de')} {m(brdName)}</>}
+          </p>
         );
 
-      case 'comment.created':
+      case 'card.archived':
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('archivó la tarjeta')} {w(cardName)}
+            {brdName && <>{s(' en')} {m(brdName)}</>}
+          </p>
+        );
+
+      case 'card.restored':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('restauró la tarjeta')} {a(cardName)}</p>;
+
+      case 'card.status-changed': {
+        const completed = delta?.after?.completed ?? payload?.completed;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s(completed ? 'completó' : 'reabrió')}{' '}
+            <strong className={completed ? 'text-success' : 'text-accent'}>"{cardName}"</strong>
+            {brdName && <>{s(' en')} {m(brdName)}</>}
+          </p>
+        );
+      }
+
+      case 'card.priority.changed': {
+        const prev = delta?.before?.priority || payload?.oldPriority;
+        const next = delta?.after?.priority  || payload?.newPriority || payload?.priority;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('cambió la prioridad de')} {a(cardName)}
+            {prev && next
+              ? <>{s(' · ')}{em(prev)}{s(' → ')}{em(next)}</>
+              : next && <>{s(' a ')}{em(next)}</>
+            }
+          </p>
+        );
+      }
+
+      case 'card.due-date.set': {
+        const due = delta?.after?.dueDate || payload?.dueDate;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('estableció fecha límite en')} {a(cardName)}
+            {due && <>{s(' → ')}<em className="text-text-muted">{new Date(due).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</em></>}
+          </p>
+        );
+      }
+
+      case 'card.due-date.removed':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('quitó la fecha límite de')} {w(cardName)}</p>;
+
+      case 'card.member.assigned': {
+        const assignee = payload?.memberName || targetName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('asignó')} {a(assignee)} {s('a')} {m(cardName)}
+          </p>
+        );
+      }
+
+      case 'card.member.removed': {
+        const removed = payload?.memberName || targetName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('removió')} {e(removed)} {s('de')} {m(cardName)}
+          </p>
+        );
+      }
+
+      case 'card.label.added': {
+        const label = payload?.labelName || targetName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('añadió la etiqueta')} {a(label)} {s('en')} {m(cardName)}
+          </p>
+        );
+      }
+
+      case 'card.label.removed': {
+        const label = payload?.labelName || targetName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('quitó la etiqueta')} {e(label)} {s('de')} {m(cardName)}
+          </p>
+        );
+      }
+
+      case 'card.dependency.added': {
+        const blocking = payload?.blockingCardTitle;
+        const blocked  = payload?.blockedCardTitle;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('añadió dependencia:')} {a(blocking)} {s('bloquea')} {m(blocked)}
+          </p>
+        );
+      }
+
+      case 'card.dependency.removed':
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('removió una dependencia de')} {m(cardName)}
+          </p>
+        );
+
+      // ── Comment ───────────────────────────────────────────────────────────────
+      case 'comment.created': {
+        const card = cardName || payload?.cardTitle;
+        return (
+          <div>
+            <p className="text-xs leading-relaxed">{u(user.name)} {s('comentó en')} {a(card)}</p>
+            {(payload?.contentPreview || delta?.after?.content) && (
+              <p className="text-[11px] text-text-muted italic mt-1 line-clamp-1">
+                "{payload?.contentPreview || delta?.after?.content}"
+              </p>
+            )}
+          </div>
+        );
+      }
+
+      case 'comment.updated':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('editó un comentario en')} {a(cardName || payload?.cardTitle)}</p>;
+
+      case 'comment.deleted':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('eliminó un comentario en')} {m(cardName || payload?.cardTitle)}</p>;
+
+      case 'comment.mention-added':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('te mencionó en')} {a(cardName || payload?.cardTitle)}</p>;
+
+      // ── Checklist ─────────────────────────────────────────────────────────────
+      case 'checklist.item.created':
         return (
           <div>
             <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_comment_created}</span>{' '}
-              {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
+              {u(user.name)} {s('añadió un item al checklist de')} {a(cardName || payload?.cardTitle)}
             </p>
-            {payload.contentPreview && (
-              <p className="text-[11px] text-text-muted italic mt-1 line-clamp-1">
-                "{payload.contentPreview}"
+            {(payload?.itemTitle || delta?.after?.title) && (
+              <p className="text-[11px] text-text-muted italic mt-0.5">
+                "{payload?.itemTitle || delta?.after?.title}"
               </p>
             )}
           </div>
         );
 
-      case 'card.member.assigned':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_member_assigned}</span>{' '}
-              {payload.memberName && <strong className="text-accent">{payload.memberName}</strong>}
-              {payload.cardTitle && (
-                <>
-                  {' '}
-                  <span className="text-text-secondary">{t.activity_member_assigned_to}</span>{' '}
-                  <strong className="text-text-muted">{payload.cardTitle}</strong>
-                </>
-              )}
-            </p>
-          </div>
-        );
-
-      case 'card.member.unassigned':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_member_unassigned}</span>{' '}
-              {payload.memberName && <strong className="text-error">{payload.memberName}</strong>}
-              {payload.cardTitle && (
-                <>
-                  {' '}
-                  <span className="text-text-secondary">
-                    {t.activity_member_unassigned_from}
-                  </span>{' '}
-                  <strong className="text-text-muted">{payload.cardTitle}</strong>
-                </>
-              )}
-            </p>
-          </div>
-        );
-
-      case 'card.label.added':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_label_added}</span>{' '}
-              {payload.labelName && <strong className="text-accent">{payload.labelName}</strong>}
-              {payload.cardTitle && (
-                <>
-                  {' '}
-                  <span className="text-text-secondary">{t.activity_label_added_to}</span>{' '}
-                  <strong className="text-text-muted">{payload.cardTitle}</strong>
-                </>
-              )}
-            </p>
-          </div>
-        );
-
-      case 'card.label.removed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_label_removed}</span>{' '}
-              {payload.labelName && <strong className="text-error">{payload.labelName}</strong>}
-              {payload.cardTitle && (
-                <>
-                  {' '}
-                  <span className="text-text-secondary">{t.activity_label_removed_from}</span>{' '}
-                  <strong className="text-text-muted">{payload.cardTitle}</strong>
-                </>
-              )}
-            </p>
-          </div>
-        );
-
-      case 'board.renamed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_board_renamed}</span>{' '}
-              <strong className="text-accent">{payload.newName || payload.name}</strong>
-            </p>
-          </div>
-        );
-
-      case 'board.deleted':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_board_deleted}</span>{' '}
-              {(payload.title || payload.name) && (
-                <strong className="text-error">{payload.title || payload.name}</strong>
-              )}
-            </p>
-          </div>
-        );
-
-      case 'board.unarchived':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_board_unarchived}</span>{' '}
-              {(payload.title || payload.name) && (
-                <strong className="text-accent">{payload.title || payload.name}</strong>
-              )}
-            </p>
-          </div>
-        );
-
-      case 'list.renamed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_list_renamed}</span>{' '}
-              <strong className="text-accent">{payload.name}</strong>
-            </p>
-          </div>
-        );
-
-      case 'card.completed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_completed}</span>{' '}
-              {payload.title && <strong className="text-success">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'card.uncompleted':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_uncompleted}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'card.renamed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_renamed}</span>{' '}
-              {payload.title && <strong className="text-text-muted line-through text-[11px]">{payload.title}</strong>}
-              {payload.newTitle && (
-                <>
-                  {' '}<span className="text-text-secondary">{t.activity_card_renamed_to}</span>{' '}
-                  <strong className="text-accent">{payload.newTitle}</strong>
-                </>
-              )}
-            </p>
-          </div>
-        );
-
-      case 'card.description.changed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_description_changed}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'card.duedate.set':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_duedate_set}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'card.duedate.changed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_duedate_changed}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'card.duedate.removed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_duedate_removed}</span>{' '}
-              {payload.title && <strong className="text-warning">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'card.priority.changed':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_priority_changed}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'card.archived':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_archived}</span>{' '}
-              {payload.title && <strong className="text-warning">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'card.unarchived':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_card_unarchived}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'comment.updated':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_comment_updated}</span>{' '}
-              {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'comment.deleted':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_comment_deleted}</span>{' '}
-              {payload.cardTitle && <strong className="text-text-muted">{payload.cardTitle}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'comment.mentioned':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_comment_mentioned}</span>{' '}
-              {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
-            </p>
-          </div>
-        );
-
-      case 'checklist.item.created':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_checklist_item_created}</span>{' '}
-              {payload.cardTitle && <strong className="text-accent">{payload.cardTitle}</strong>}
-              {payload.itemTitle && (
-                <p className="text-[11px] text-text-muted italic mt-0.5">"{payload.itemTitle}"</p>
-              )}
-            </p>
-          </div>
-        );
-
       case 'checklist.item.deleted':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_checklist_item_deleted}</span>{' '}
-              {payload.cardTitle && <strong className="text-text-muted">{payload.cardTitle}</strong>}
-            </p>
-          </div>
-        );
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('eliminó un item del checklist de')} {m(cardName || payload?.cardTitle)}</p>;
 
+      // ── Document ──────────────────────────────────────────────────────────────
       case 'document.created':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('creó el documento')} {a(docName)}</p>;
+
+      case 'document.updated':
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_document_created}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('editó el documento')} {a(docName)}
+            {delta?.after?.title && delta?.before?.title && (
+              <>{s(' · de')} {em(delta.before.title)} {s('→')} {a(delta.after.title)}</>
+            )}
+          </p>
         );
 
       case 'document.deleted':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_document_deleted}</span>{' '}
-              {payload.title && <strong className="text-error">{payload.title}</strong>}
-            </p>
-          </div>
-        );
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('eliminó el documento')} {e(docName)}</p>;
 
-      case 'document.version.created':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_document_version}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
-        );
+      case 'document.version.saved':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('guardó una versión de')} {a(docName)}</p>;
 
       case 'document.version.restored':
-        return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_document_version_restored}</span>{' '}
-              {payload.title && <strong className="text-accent">{payload.title}</strong>}
-            </p>
-          </div>
-        );
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('restauró una versión de')} {a(docName)}</p>;
 
-      case 'workspace.member.invited':
+      case 'document.permission.changed': {
+        const targetUser = payload?.targetUserName;
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_workspace_member_invited}</span>{' '}
-              {payload.inviteeName && <strong className="text-accent">{payload.inviteeName}</strong>}{' '}
-              <span className="text-text-secondary">{t.activity_workspace_member_invited_to}</span>
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('actualizó permisos de')} {a(docName)}
+            {targetUser && <>{s(' para')} {a(targetUser)}</>}
+          </p>
         );
+      }
 
-      case 'workspace.member.joined':
+      // ── Project ───────────────────────────────────────────────────────────────
+      case 'project.created':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('creó el proyecto')} {a(targetName || payload?.name)}</p>;
+
+      case 'project.updated':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('actualizó el proyecto')} {a(targetName || payload?.name)}</p>;
+
+      case 'project.deleted':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('eliminó el proyecto')} {e(targetName || payload?.name)}</p>;
+
+      case 'project.status.changed': {
+        const projName  = targetName || payload?.name;
+        const newStatus = payload?.newStatus || delta?.after?.status;
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_workspace_member_joined}</span>
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('cambió estado de')} {a(projName)}
+            {newStatus && <>{s(' a')} <em className="text-text-secondary">{newStatus}</em></>}
+          </p>
         );
+      }
 
-      case 'workspace.member.removed':
+      case 'project.board.linked': {
+        const projName = payload?.projectName || targetName;
+        const board    = payload?.boardName   || brdName;
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_workspace_member_removed}</span>{' '}
-              {payload.memberName && <strong className="text-error">{payload.memberName}</strong>}{' '}
-              <span className="text-text-secondary">{t.activity_workspace_member_removed_from}</span>
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('vinculó el board')} {a(board)} {s('al proyecto')} {m(projName)}
+          </p>
         );
+      }
 
+      case 'project.board.unlinked': {
+        const projName = payload?.projectName || targetName;
+        const board    = payload?.boardName   || brdName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('desvinculó el board')} {e(board)} {s('del proyecto')} {m(projName)}
+          </p>
+        );
+      }
+
+      case 'project.milestone.created': {
+        const milestone = payload?.milestoneName || targetName;
+        const projName  = payload?.projectName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('creó el milestone')} {a(milestone)}
+            {projName && <>{s(' en')} {m(projName)}</>}
+          </p>
+        );
+      }
+
+      case 'project.milestone.completed': {
+        const milestone = payload?.milestoneName || targetName;
+        const projName  = payload?.projectName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('completó el milestone')} {a(milestone)}
+            {projName && <>{s(' en')} {m(projName)}</>}
+          </p>
+        );
+      }
+
+      // ── Team ──────────────────────────────────────────────────────────────────
+      case 'team.created':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('creó el equipo')} {a(targetName || payload?.name)}</p>;
+
+      case 'team.updated':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('actualizó el equipo')} {a(targetName || payload?.name)}</p>;
+
+      case 'team.deleted':
+        return <p className="text-xs leading-relaxed">{u(user.name)} {s('eliminó el equipo')} {e(targetName || payload?.name)}</p>;
+
+      case 'team.member.added': {
+        const member   = payload?.memberName;
+        const teamName = payload?.teamName || targetName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('añadió a')} {a(member)} {s('al equipo')} {m(teamName)}
+          </p>
+        );
+      }
+
+      case 'team.member.removed': {
+        const member   = payload?.memberName;
+        const teamName = payload?.teamName || targetName;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('removió a')} {e(member)} {s('del equipo')} {m(teamName)}
+          </p>
+        );
+      }
+
+      case 'team.member.role-changed': {
+        const member   = payload?.memberName;
+        const teamName = payload?.teamName || targetName;
+        const newRole  = payload?.newRole  || delta?.after?.role;
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('cambió el rol de')} {a(member)} {s('en')} {m(teamName)}
+            {newRole && <>{s(' a')} <em className="text-text-secondary">{newRole}</em></>}
+          </p>
+        );
+      }
+
+      // ── Default ───────────────────────────────────────────────────────────────
       default:
         return (
-          <div>
-            <p className="text-xs leading-relaxed">
-              <strong className="text-text-primary">{user.name}</strong>{' '}
-              <span className="text-text-secondary">{t.activity_default}</span>
-            </p>
-          </div>
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s('realizó una acción')}{' '}
+            <span className="text-text-muted text-[10px]">({type})</span>
+          </p>
         );
     }
   };

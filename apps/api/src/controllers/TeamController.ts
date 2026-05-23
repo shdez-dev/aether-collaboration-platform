@@ -26,11 +26,11 @@ const updateTeamSchema = z.object({
 const addMemberSchema = z.object({
   email:  z.string().email().optional(),
   userId: z.string().uuid().optional(),
-  role:   z.enum(['LEAD', 'MEMBER']).optional(),
+  role:   z.enum(['ADMIN', 'MEMBER', 'VIEWER']).optional(),
 }).refine((d) => d.email || d.userId, { message: 'email o userId requerido' });
 
 const changeMemberRoleSchema = z.object({
-  role: z.enum(['LEAD', 'MEMBER']),
+  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
 });
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -120,18 +120,22 @@ class TeamController {
       );
       const team = result.rows[0];
 
-      // El creador es automáticamente LEAD
+      // El creador es automáticamente ADMIN
       await pool.query(
-        `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'LEAD')
+        `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'ADMIN')
          ON CONFLICT (team_id, user_id) DO NOTHING`,
         [team.id, userId]
       );
 
       try {
-        await eventStore.emit('team.created' as any, {
-          teamId: team.id,
-          name: team.name,
-        }, userId as any);
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorInfo.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'team.created',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'team', id: team.id, name: team.name },
+          context: { workspaceId: '' },
+        } as any);
       } catch {}
 
       res.status(201).json({ success: true, data: { team: fmtTeam({ ...team, member_count: 1 }) } });
@@ -208,10 +212,14 @@ class TeamController {
       );
 
       try {
-        await eventStore.emit('team.updated' as any, {
-          teamId: id,
-          name: result.rows[0]?.name,
-        }, userId as any);
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorInfo.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'team.updated',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'team', id, name: result.rows[0]?.name ?? '' },
+          context: { workspaceId: '' },
+        } as any);
       } catch {}
 
       res.json({ success: true, data: { team: fmtTeam(result.rows[0]) } });
@@ -240,10 +248,14 @@ class TeamController {
       await pool.query(`DELETE FROM teams WHERE id = $1`, [id]);
 
       try {
-        await eventStore.emit('team.deleted' as any, {
-          teamId: id,
-          name: teamName,
-        }, userId as any);
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorInfo.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'team.deleted',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'team', id, name: teamName ?? '' },
+          context: { workspaceId: '' },
+        } as any);
       } catch {}
 
       res.json({ success: true, data: null });
@@ -313,15 +325,15 @@ class TeamController {
       const body = addMemberSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: body.error.issues[0].message } });
 
-      // Solo lead o creador puede añadir
+      // Solo ADMIN o creador puede añadir miembros
       const canEdit = await pool.query(
-        `SELECT 1 FROM teams WHERE id = $1 AND (created_by = $2 OR lead_id = $2)
+        `SELECT 1 FROM teams WHERE id = $1 AND created_by = $2
          UNION
-         SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 AND role = 'LEAD'`,
+         SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 AND role = 'ADMIN'`,
         [id, userId]
       );
       if (!canEdit.rows.length) {
-        return res.status(403).json({ success: false, error: { message: 'Solo el lead puede añadir miembros' } });
+        return res.status(403).json({ success: false, error: { message: 'Solo un administrador puede añadir miembros' } });
       }
 
       // Resolver userId desde email si es necesario
@@ -405,12 +417,21 @@ class TeamController {
       const body = changeMemberRoleSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: body.error.issues[0].message } });
 
+      // El creador no puede cambiarle el rol a sí mismo
+      const teamRow = await pool.query(`SELECT created_by FROM teams WHERE id = $1`, [id]);
+      if (!teamRow.rows.length) return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado' } });
+      if (teamRow.rows[0].created_by === targetId) {
+        return res.status(403).json({ success: false, error: { code: 'CANNOT_CHANGE_CREATOR_ROLE', message: 'No se puede cambiar el rol del creador del equipo' } });
+      }
+
       const canEdit = await pool.query(
-        `SELECT 1 FROM teams WHERE id = $1 AND (created_by = $2 OR lead_id = $2)`,
+        `SELECT 1 FROM teams WHERE id = $1 AND created_by = $2
+         UNION
+         SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 AND role = 'ADMIN'`,
         [id, userId]
       );
       if (!canEdit.rows.length) {
-        return res.status(403).json({ success: false, error: { message: 'Solo el creador o lead puede cambiar roles' } });
+        return res.status(403).json({ success: false, error: { message: 'Solo un administrador puede cambiar roles' } });
       }
 
       await pool.query(
@@ -418,20 +439,32 @@ class TeamController {
         [body.data.role, id, targetId]
       );
 
-      // Si el nuevo rol es LEAD, actualizar lead_id del equipo
-      if (body.data.role === 'LEAD') {
+      // Sincronizar lead_id: si hay al menos un ADMIN, el primero es el lead; si no, null
+      if (body.data.role === 'ADMIN') {
         await pool.query(`UPDATE teams SET lead_id = $1, updated_at = NOW() WHERE id = $2`, [targetId, id]);
+      } else {
+        // Si el target era el lead_id y ya no es ADMIN, buscar otro ADMIN
+        await pool.query(
+          `UPDATE teams SET lead_id = (
+             SELECT user_id FROM team_members WHERE team_id = $1 AND role = 'ADMIN' LIMIT 1
+           ), updated_at = NOW() WHERE id = $1`,
+          [id]
+        );
       }
 
       const teamInfo = await pool.query(`SELECT name FROM teams WHERE id = $1`, [id]);
       const teamName = teamInfo.rows[0]?.name;
       try {
-        await eventStore.emit('team.member.roleChanged' as any, {
-          teamId: id,
-          teamName,
-          memberId: targetId,
-          newRole: body.data.role,
-        }, userId as any);
+        const actorRoleInfo = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorRoleName = actorRoleInfo.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'team.member.role-changed',
+          actor: { id: userId, name: actorRoleName },
+          subject: { type: 'member', id: targetId, name: '' },
+          context: { workspaceId: '' },
+          payload: { teamId: id, teamName, newRole: body.data.role },
+          targetUserId: targetId,
+        } as any);
       } catch {}
 
       res.json({ success: true, data: null });
@@ -449,7 +482,16 @@ class TeamController {
 
       const { id, userId: targetId } = req.params;
 
-      // Solo lead/creador puede remover, o el propio usuario puede salir
+      // El creador del equipo no puede ser eliminado
+      const teamRow = await pool.query(`SELECT created_by FROM teams WHERE id = $1`, [id]);
+      if (!teamRow.rows.length) {
+        return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado' } });
+      }
+      if (teamRow.rows[0].created_by === targetId) {
+        return res.status(403).json({ success: false, error: { code: 'CANNOT_REMOVE_CREATOR', message: 'El creador del equipo no puede ser eliminado' } });
+      }
+
+      // Solo lead/creador puede remover a otros; cualquiera puede salir él mismo
       const canRemove = await pool.query(
         `SELECT 1 FROM teams WHERE id = $1 AND (created_by = $2 OR lead_id = $2)`,
         [id, userId]
@@ -467,11 +509,14 @@ class TeamController {
       const actorName = actorInfo.rows[0]?.name ?? '';
 
       try {
-        await eventStore.emit('team.member.removed' as any, {
-          teamId: id,
-          teamName,
-          memberId: targetId,
-        }, userId as any);
+        await eventStore.emit({
+          type: 'team.member.removed',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'member', id: targetId, name: '' },
+          context: { workspaceId: '' },
+          payload: { teamId: id, teamName },
+          targetUserId: targetId,
+        } as any);
       } catch {}
 
       if (targetId !== userId) {
@@ -545,41 +590,64 @@ class TeamController {
       );
       if (!access.rows.length) return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado' } });
 
-      // Actividad reciente de los miembros del equipo (via user_activity_log si existe, si no via events)
+      // Actividad reciente: acciones de miembros del equipo + eventos del propio equipo
       const result = await pool.query(
         `SELECT
            e.id,
-           e.event_type,
-           e.payload,
+           e.type,
+           e.subject_name,
+           e.delta,
+           e.actor_id,
            e.created_at,
-           u.id   AS user_id,
-           u.name AS user_name,
+           u.id     AS user_id,
+           u.name   AS user_name,
            u.avatar AS user_avatar
          FROM events e
-         JOIN users u ON u.id = e.user_id
-         WHERE e.user_id IN (SELECT user_id FROM team_members WHERE team_id = $1)
-           AND e.event_type IN ('card.created','card.updated','card.moved','card.completed','list.created','board.created')
+         JOIN users u ON u.id = e.actor_id
+         WHERE (
+           (
+             e.actor_id IN (SELECT user_id FROM team_members WHERE team_id = $1)
+             AND e.type IN (
+               'card.created', 'card.updated', 'card.moved', 'card.status-changed',
+               'card.deleted', 'card.archived',
+               'list.created', 'board.created'
+             )
+           )
+           OR
+           (
+             e.subject_id = $1
+             AND e.type IN (
+               'team.member.added', 'team.member.removed', 'team.member.role-changed'
+             )
+           )
+         )
          ORDER BY e.created_at DESC
          LIMIT $2`,
         [id, limit]
       );
 
       const events = result.rows.map((row) => {
-        const p = row.payload ?? {};
-        let action = row.event_type as string;
-        let entityName: string | null = null;
+        const delta = row.delta ?? {};
+        let action = row.type as string;
+        const entityName: string | null = row.subject_name ?? null;
 
-        switch (row.event_type) {
-          case 'card.created':    action = 'creó la card';       entityName = p.cardName ?? p.title ?? null; break;
-          case 'card.updated':    action = 'actualizó la card';  entityName = p.cardName ?? p.title ?? null; break;
-          case 'card.moved':      action = 'movió la card';      entityName = p.cardName ?? p.title ?? null; break;
-          case 'card.completed':  action = 'completó la card';   entityName = p.cardName ?? p.title ?? null; break;
-          case 'list.created':    action = 'creó la lista';      entityName = p.listName ?? p.name ?? null;  break;
-          case 'board.created':   action = 'creó el tablero';    entityName = p.boardName ?? p.name ?? null; break;
+        switch (row.type) {
+          case 'card.created':             action = 'creó la card';              break;
+          case 'card.updated':             action = 'actualizó la card';         break;
+          case 'card.moved':               action = 'movió la card';             break;
+          case 'card.deleted':             action = 'eliminó la card';           break;
+          case 'card.archived':            action = 'archivó la card';           break;
+          case 'card.status-changed':      action = delta.completed ? 'completó la card' : 'cambió el estado de la card'; break;
+          case 'list.created':             action = 'creó la lista';             break;
+          case 'board.created':            action = 'creó el tablero';           break;
+          case 'team.member.added':        action = 'añadió al equipo a';        break;
+          case 'team.member.removed':      action = 'eliminó del equipo a';      break;
+          case 'team.member.role-changed': action = 'cambió el rol de';          break;
         }
 
         return {
           id:         row.id,
+          eventType:  row.type,
           userId:     row.user_id,
           userName:   row.user_name,
           userAvatar: row.user_avatar ?? null,

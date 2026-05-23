@@ -133,6 +133,7 @@ export const es = {
   nav_dashboard: 'Dashboard',
   nav_workspaces: 'Workspaces',
   nav_documents: 'Documentos',
+  nav_calendar: 'Calendario',
   nav_users: 'Usuarios',
   nav_settings: 'Configuración',
   nav_notifications: 'Notificaciones',
@@ -596,6 +597,7 @@ export const es = {
 
   // ── AddList ───────────────────────────────────────────────────────────────
   addlist_btn: 'Añadir Lista',
+  addcard_btn: 'Añadir Card',
   addlist_placeholder: 'Nombre de la lista...',
   addlist_btn_creating: 'Creando...',
   addlist_btn_add: 'Añadir Lista',
@@ -1082,6 +1084,8 @@ export const es = {
   teams_search_placeholder: 'Buscar equipos...',
   teams_loading: 'Cargando equipos...',
   teams_empty_title: 'Sin equipos aún',
+  teams_see_all: 'Ver todos',
+  teams_member_count: (n: number) => `${n} miembro${n !== 1 ? 's' : ''}`,
   teams_empty_desc: 'Crea tu primer equipo para organizar colaboradores',
   teams_empty_btn: 'Crear primer equipo',
   teams_create_title: 'Nuevo equipo',
@@ -1104,10 +1108,13 @@ export const es = {
   teams_add_member_placeholder: 'email@ejemplo.com',
   teams_add_member_btn: 'Añadir',
   teams_add_member_adding: 'Añadiendo...',
-  teams_role_lead: 'Lead',
+  teams_role_admin: 'Admin',
   teams_role_member: 'Miembro',
-  teams_make_lead: 'Hacer lead',
-  teams_remove_lead: 'Quitar lead',
+  teams_role_viewer: 'Observador',
+  teams_role_lead: 'Admin',
+  teams_make_lead: 'Hacer admin',
+  teams_remove_lead: 'Quitar admin',
+  teams_change_role_to: (role: string) => `→ ${role}`,
   teams_remove_from_team: 'Remover del equipo',
   teams_cards_active: (n: number) => `${n} card${n !== 1 ? 's' : ''} activa${n !== 1 ? 's' : ''}`,
   teams_cards_overdue: (n: number) => `${n} vencida${n !== 1 ? 's' : ''}`,
@@ -1303,6 +1310,7 @@ export const es = {
   dashboard_standup_hint: 'Escribe una tarea y presiona Enter para añadirla',
   dashboard_todo_add_placeholder: 'Añadir tarea...',
   dashboard_this_week: 'Esta semana',
+  dashboard_later: 'Más adelante',
   dashboard_overdue_label: (n: number) => `vencida${n !== 1 ? 's' : ''}`,
   dashboard_card_overdue_days: (n: number) => `${n}d vencida`,
   sidebar_unknown_user: 'Usuario',
@@ -1394,7 +1402,117 @@ export const es = {
   ai_builder_new_plan_title: 'Plan de Proyecto',
   ai_builder_plan_error: 'No se pudo cargar el plan. Intenta de nuevo.',
   ai_builder_or: 'o pega texto directamente',
+
+  // ── Sidebar ───────────────────────────────────────────────────────────────
+  sidebar_show_less: 'Ver menos',
+  sidebar_more_suffix: 'más',
+
+  // ── Login ─────────────────────────────────────────────────────────────────
+  login_title: 'Bienvenido de vuelta',
+  login_welcome_subtitle: 'Inicia sesión para continuar con tu equipo.',
+
+  // ── Landing – Hero ────────────────────────────────────────────────────────
+  landing_hero_tagline: 'Tu equipo. En sincronía.',
+  landing_hero_h1_word: 'Trabaja',
+  landing_hero_h1_highlight: 'junto',
+  landing_hero_h1_line2: 'a tu equipo.',
+  landing_hero_description: 'Organiza proyectos, edita documentos y mantén a tu equipo alineado — en tiempo real, desde cualquier lugar.',
+  landing_hero_cta_dashboard: 'Ir al dashboard →',
+  landing_hero_cta_start: 'Comenzar gratis',
+  landing_hero_cta_login: 'Entrar',
+
+  // ── Landing – Features ────────────────────────────────────────────────────
+  landing_features_label: 'Funciones',
+  landing_features_heading: 'Todo lo que tu equipo necesita,',
+  landing_features_heading_highlight: 'en un solo lugar.',
+  landing_features_feat1_title: 'Tableros en tiempo real',
+  landing_features_feat1_body: 'Mueve tareas, asigna a tu equipo y ve los cambios al instante. Sin recargas, sin conflictos.',
+  landing_features_feat2_title: 'Documentos compartidos',
+  landing_features_feat2_body: 'Escribe y edita junto a tu equipo sin pisarse los cambios. El historial siempre te respalda.',
+  landing_features_feat3_title: 'Tu equipo, conectado',
+  landing_features_feat3_body: 'Notificaciones, menciones y presencia en vivo para nunca perder el hilo de lo que importa.',
+
+  // ── Landing – Architecture / Stats ────────────────────────────────────────
+  landing_arch_label: 'Rendimiento',
+  landing_arch_heading: 'Construido para equipos que',
+  landing_arch_heading_highlight: 'no pueden esperar.',
+  landing_arch_stat1_label: 'Latencia promedio',
+  landing_arch_stat1_desc: 'Los cambios de tu equipo llegan en tiempo real.',
+  landing_arch_stat2_label: 'Sin conflictos',
+  landing_arch_stat2_desc: 'Edición colaborativa con resolución automática.',
+  landing_arch_stat3_label: 'Uptime',
+  landing_arch_stat3_desc: 'Infraestructura estable para que tu equipo nunca se quede sin acceso.',
+
+  // ── Landing – CTA ─────────────────────────────────────────────────────────
+  landing_cta_label: 'Empieza hoy',
+  landing_cta_heading: '¿Listo para',
+  landing_cta_heading_highlight: 'colaborar?',
+  landing_cta_subtext: 'Crea tu workspace en segundos. Sin tarjeta de crédito, sin configuración complicada.',
+  landing_cta_dashboard: 'Ir al dashboard →',
+  landing_cta_start: 'Crear cuenta gratis',
+  landing_cta_login: 'Ya tengo cuenta',
+
+  // ── Landing – Footer ──────────────────────────────────────────────────────
+  landing_footer_login: 'Entrar',
+  landing_footer_register: 'Registrarse',
+
+  // ── Onboarding Companion (widget flotante) ────────────────────────────────
+  guide_title: 'Primeros pasos',
+  guide_progress: (done: number, total: number) => `${done} de ${total} completados`,
+  guide_dismiss: 'Descartar guía',
+  guide_step_label: (current: number, total: number) => `Paso ${current} de ${total}`,
+  guide_done_title: '¡Listo, todo configurado!',
+  guide_done_body: 'Ya tienes todo lo necesario para trabajar en Aether. ¡Adelante!',
+  guide_step_workspace_title: 'Crea tu workspace',
+  guide_step_workspace_instruction: 'Un workspace es tu espacio central — aquí viven tus proyectos, boards y equipo. Empieza creando el primero.',
+  guide_step_workspace_cta: 'Crear workspace',
+  guide_step_invite_title: 'Invita a tu equipo',
+  guide_step_invite_instruction: 'Los proyectos se construyen en equipo. Ve a tu workspace y usa el botón "Invitar" para añadir a tus compañeros.',
+  guide_step_invite_cta: 'Ir a mis workspaces',
+  guide_step_project_title: 'Crea un proyecto',
+  guide_step_project_instruction: 'Un proyecto agrupa tus boards por iniciativa: una feature, un sprint, un objetivo. Crea el primero desde la sección Proyectos.',
+  guide_step_project_cta: 'Ir a proyectos',
+  guide_step_board_title: 'Configura un board',
+  guide_step_board_instruction: 'Un board es donde ocurre el trabajo. Organiza las tareas en columnas — por ejemplo: Pendiente → En curso → Hecho.',
+  guide_step_board_cta: 'Ver workspaces',
+  guide_step_card_title: 'Añade tu primera card',
+  guide_step_card_instruction: '¡Ya casi! Una card es una tarea concreta. Ábrela, asígnala a alguien y ponle una fecha límite.',
+  guide_step_card_cta: 'Ir a un board',
+
+  // ── Team activity — action labels ─────────────────────────────────────────
+  team_activity_card_created:        'creó la card',
+  team_activity_card_updated:        'actualizó la card',
+  team_activity_card_moved:          'movió la card',
+  team_activity_card_completed:      'completó la card',
+  team_activity_card_status_changed: 'cambió el estado de la card',
+  team_activity_card_deleted:        'eliminó la card',
+  team_activity_card_archived:       'archivó la card',
+  team_activity_list_created:        'creó la lista',
+  team_activity_board_created:       'creó el tablero',
+  team_activity_member_added:        'añadió al equipo a',
+  team_activity_member_removed:      'eliminó del equipo a',
+  team_activity_member_role_changed: 'cambió el rol de',
+  team_activity_more_events:         (n: number) => `+${n} evento${n !== 1 ? 's' : ''} más`,
+
+  // ── Onboarding Modal (primera vez) ────────────────────────────────────────
+  onboarding_welcome_to: 'Bienvenido a',
+  onboarding_greeting: (name: string) => `Hola ${name} — Aether te ayuda a organizar tu equipo, repartir tareas y mantener a todos alineados. Sin curvas de aprendizaje.`,
+  onboarding_how_it_works: 'Cómo funciona',
+  onboarding_step_workspace_title: 'Workspace',
+  onboarding_step_workspace_desc: 'El espacio de tu equipo o proyecto. Aquí viven los boards, proyectos y miembros.',
+  onboarding_step_boards_title: 'Boards & Cards',
+  onboarding_step_boards_desc: 'Organiza el trabajo en columnas. Cada card es una tarea concreta con responsable y fecha.',
+  onboarding_step_team_title: 'Equipo',
+  onboarding_step_team_desc: 'Invita a tus compañeros para colaborar, asignar tareas y ver el progreso de todos.',
+  onboarding_where_start: '¿Por dónde quieres empezar?',
+  onboarding_ai_title: 'Crear workspace con IA',
+  onboarding_ai_desc: 'Describe tu proyecto y la IA genera el plan',
+  onboarding_manual_title: 'Crear manualmente',
+  onboarding_manual_desc: 'Configura tu workspace paso a paso',
+  onboarding_explore_first: 'Explorar primero, crear después',
 } as const;
 
 export type TranslationKey = keyof typeof es;
 export type Translations = typeof es;
+/** Tipo suelto para validar que en.ts tiene exactamente las mismas claves */
+export type TranslationShape = Record<TranslationKey, string | ((...args: any[]) => string) | readonly string[]>;

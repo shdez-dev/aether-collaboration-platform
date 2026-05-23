@@ -544,17 +544,21 @@ export function CardDetailModal() {
                       <MemberPicker workspaceId={currentWorkspaceId} cardId={selectedCard.id} assignedMembers={selectedCard.members || []} onMemberAssigned={handleMemberAssigned} onMemberRemoved={handleMemberRemoved} />
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {selectedCard.members && selectedCard.members.length > 0 ? selectedCard.members.map((m: any) => (
-                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px', borderRadius: '6px', background: C.surface }}>
-                            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: `linear-gradient(135deg, ${C.accent}cc, ${C.accent}55)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                              {m.user?.name?.charAt(0).toUpperCase()}
+                        {selectedCard.members && selectedCard.members.length > 0 ? selectedCard.members.map((m: any) => {
+                          const name  = m.name  ?? m.user?.name  ?? '';
+                          const email = m.email ?? m.user?.email ?? '';
+                          return (
+                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px', borderRadius: '6px', background: C.surface }}>
+                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: `${C.accent}cc`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                                {name.charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <p style={{ fontSize: '12px', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
+                                <p style={{ fontSize: '10.5px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</p>
+                              </div>
                             </div>
-                            <div style={{ minWidth: 0 }}>
-                              <p style={{ fontSize: '12px', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.user?.name}</p>
-                              <p style={{ fontSize: '10.5px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.user?.email}</p>
-                            </div>
-                          </div>
-                        )) : (
+                          );
+                        }) : (
                           <p style={{ fontSize: '11px', color: C.text4 }}>{t.card_members_none}</p>
                         )}
                       </div>

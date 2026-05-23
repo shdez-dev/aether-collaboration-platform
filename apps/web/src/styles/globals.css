@@ -3,7 +3,76 @@
 @tailwind utilities;
 
 /* Import JetBrains Mono from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Landing page ──────────────────────────────────────────────── */
+.hud-panel {
+  background: rgba(10, 20, 45, 0.7);
+  border: 1px solid rgba(56, 182, 255, 0.25);
+  border-radius: 8px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.hud-panel:hover {
+  border-color: rgba(56, 182, 255, 0.6);
+  box-shadow: 0 0 24px rgba(56, 182, 255, 0.08);
+}
+.landing-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 6px;
+  background: #38b6ff;
+  color: #080c14;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.landing-btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+.landing-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 182, 255, 0.4);
+  color: #38b6ff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.landing-btn-secondary:hover {
+  border-color: rgba(56, 182, 255, 0.75);
+  background: rgba(56, 182, 255, 0.06);
+}
+
+/* Auth inputs */
+.auth-input {
+  width: 100%;
+  background: rgba(8, 18, 40, 0.6);
+  border: 1px solid rgba(56, 182, 255, 0.2);
+  border-radius: 6px;
+  padding: 11px 14px;
+  color: #f0f6ff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+.auth-input::placeholder { color: rgba(180, 210, 255, 0.25); }
+.auth-input:focus {
+  border-color: rgba(56, 182, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(56, 182, 255, 0.08);
+}
+.auth-input:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-input--error { border-color: rgba(255, 80, 80, 0.55) !important; }
+.auth-input--error:focus { box-shadow: 0 0 0 3px rgba(255, 80, 80, 0.08) !important; }
 
 @layer base {
   :root {
@@ -11,22 +80,22 @@
     --background: 0 0% 7%;
 
     /* C-token custom properties (dark defaults) */
-    --c-bg:      #0b0d10;
-    --c-bg2:     #0f1217;
-    --c-surface: #14171c;
-    --c-hover:   #1c2128;
-    --c-border:  #1f2329;
-    --c-border2: #2a2f36;
-    --c-text:    #e6e8eb;
-    --c-text2:   #a1a7b0;
-    --c-text3:   #6b7280;
-    --c-text4:   #4b5260;
-    --c-accent:  #3b82f6;
-    --c-green:   #10b981;
+    --c-bg:      #080c14;
+    --c-bg2:     #0b1020;
+    --c-surface: #0e1628;
+    --c-surface2:#121e34;
+    --c-hover:   rgba(56, 182, 255, 0.07);
+    --c-border:  rgba(56, 182, 255, 0.11);
+    --c-border2: rgba(56, 182, 255, 0.22);
+    --c-text:    #f0f6ff;
+    --c-text2:   #8aaac8;
+    --c-text3:   #4a6480;
+    --c-text4:   #2d4560;
+    --c-accent:  #38b6ff;
+    --c-green:   #00e5cc;
     --c-amber:   #f59e0b;
     --c-red:     #ef4444;
     --c-purple:  #8b5cf6;
-    --c-surface2:#1a1f27;
     --foreground: 210 40% 98%;
 
     --card: 0 0% 7%;
@@ -57,56 +126,6 @@
     --radius: 0.25rem;
   }
 
-  .light {
-    /* AETHER Theme - Light Mode - Suave y legible */
-    --background: 220 20% 96%;
-
-    /* C-token custom properties (light overrides) */
-    --c-bg:      #f0f2f5;
-    --c-bg2:     #e6e9ef;
-    --c-surface: #ffffff;
-    --c-hover:   #e4e8f0;
-    --c-border:  #d1d5db;
-    --c-border2: #b8bec8;
-    --c-text:    #1a2030;
-    --c-text2:   #3f4d63;
-    --c-text3:   #6b7a90;
-    --c-text4:   #8a96a8;
-    --c-accent:  #3b82f6;
-    --c-green:   #059669;
-    --c-amber:   #d97706;
-    --c-red:     #dc2626;
-    --c-purple:  #7c3aed;
-    --c-surface2:#f5f7fa;
-    --foreground: 220 25% 18%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 220 25% 18%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 18%;
-
-    --primary: 221 75% 52%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 220 16% 90%;
-    --secondary-foreground: 220 25% 28%;
-
-    --muted: 220 16% 90%;
-    --muted-foreground: 220 14% 46%;
-
-    --accent: 221 75% 52%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 18% 82%;
-    --input: 0 0% 100%;
-    --ring: 221 75% 52%;
-
-    --radius: 0.25rem;
-  }
 
   * {
     @apply border-border;
@@ -140,108 +159,6 @@
     @apply bg-text-muted;
   }
 
-  /* Tema claro - tokens adicionales */
-  .light {
-    --surface: 220 20% 98%;
-    --text-primary: 220 25% 18%;
-    --text-secondary: 220 20% 32%;
-    --text-muted: 220 14% 52%;
-    --border-light: 220 18% 74%;
-    --accent-hover: 221 75% 44%;
-    --success: 142 60% 38%;
-    --warning: 38 85% 44%;
-    --error: 0 72% 51%;
-  }
-
-  .light ::-webkit-scrollbar-track {
-    background: hsl(220 20% 93%);
-  }
-
-  .light ::-webkit-scrollbar-thumb {
-    background: hsl(220 18% 72%);
-  }
-
-  .light ::-webkit-scrollbar-thumb:hover {
-    background: hsl(220 18% 60%);
-  }
-
-  /* Cards y componentes en tema claro */
-  .light .card-terminal,
-  .light [class*='rounded-xl'][class*='border'] {
-    box-shadow:
-      0 1px 3px 0 rgb(30 40 60 / 0.07),
-      0 1px 2px -1px rgb(30 40 60 / 0.05);
-  }
-
-  .light .card-terminal:hover,
-  .light [class*='rounded-xl'][class*='border']:hover {
-    box-shadow:
-      0 4px 12px -1px rgb(30 40 60 / 0.1),
-      0 2px 6px -2px rgb(30 40 60 / 0.06);
-  }
-
-  /* Input y select en tema claro */
-  .light input,
-  .light select,
-  .light textarea {
-    border-color: hsl(220 18% 80%);
-    background-color: hsl(0 0% 100%);
-    color: hsl(220 25% 18%);
-  }
-
-  .light input:focus,
-  .light select:focus,
-  .light textarea:focus {
-    border-color: hsl(221 75% 52%);
-    box-shadow: 0 0 0 3px hsl(221 75% 52% / 0.12);
-  }
-
-  .light input::placeholder,
-  .light textarea::placeholder {
-    color: hsl(220 14% 58%);
-  }
-
-  /* Botones en tema claro */
-  .light button[class*='border'] {
-    border-color: hsl(220 18% 78%);
-  }
-
-  .light button:hover[class*='border']:not([class*='primary']) {
-    border-color: hsl(220 18% 64%);
-    background-color: hsl(220 20% 96%);
-  }
-
-  /* Sidebar / nav en tema claro */
-  .light [class*='sidebar'],
-  .light nav {
-    background-color: hsl(220 20% 97%);
-    border-color: hsl(220 18% 86%);
-  }
-
-  /* Badges y chips */
-  .light [class*='badge'],
-  .light [class*='chip'] {
-    background-color: hsl(220 16% 90%);
-    color: hsl(220 25% 28%);
-    border-color: hsl(220 18% 82%);
-  }
-
-  /* Dropdowns y popovers */
-  .light [data-radix-popper-content-wrapper] > *,
-  .light [role='menu'],
-  .light [role='listbox'] {
-    background-color: hsl(0 0% 100%);
-    border-color: hsl(220 18% 82%);
-    box-shadow:
-      0 8px 24px -4px rgb(30 40 60 / 0.12),
-      0 2px 8px -2px rgb(30 40 60 / 0.08);
-  }
-
-  /* Items de menú hover */
-  .light [role='menuitem']:hover,
-  .light [role='option']:hover {
-    background-color: hsl(220 20% 95%);
-  }
 }
 
 @layer components {
@@ -331,18 +248,6 @@
     background: rgba(124, 58, 237, 0.45);
   }
 
-  /* Activity scroll - tema claro */
-  .light .activity-scroll {
-    scrollbar-color: rgba(124, 58, 237, 0.25) transparent;
-  }
-
-  .light .activity-scroll::-webkit-scrollbar-thumb {
-    background: rgba(124, 58, 237, 0.2);
-  }
-
-  .light .activity-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(124, 58, 237, 0.35);
-  }
 }
 
 @keyframes spin {
@@ -643,9 +548,6 @@ body:has(.fixed.z-40) {
   padding: 0 2px;
 }
 
-.light .ProseMirror mark {
-  color: #ffffff !important;
-}
 
 /* ==================== COLLABORATION CURSORS ==================== */
 .collaboration-cursor__caret {
@@ -903,63 +805,6 @@ body {
   }
 }
 
-/* ==================== PROSEMIRROR - TEMA CLARO ==================== */
-.light .ProseMirror {
-  color: hsl(220 25% 18%);
-}
-
-.light .ProseMirror p.is-editor-empty:first-child::before {
-  color: hsl(220 14% 58%);
-}
-
-.light .ProseMirror ul[data-type='taskList'] li[data-checked='true'] > div > p {
-  color: hsl(220 14% 52%);
-}
-
-.light .ProseMirror blockquote {
-  border-left-color: hsl(221 75% 52%);
-  color: hsl(220 20% 38%);
-  background: hsl(221 75% 52% / 0.05);
-}
-
-.light .ProseMirror code {
-  background-color: hsl(221 75% 52% / 0.08);
-  color: hsl(221 75% 42%);
-  border-color: hsl(221 75% 52% / 0.18);
-}
-
-.light .ProseMirror pre {
-  background-color: hsl(220 20% 95%);
-  border-color: hsl(220 18% 84%);
-}
-
-.light .ProseMirror pre code {
-  color: hsl(220 25% 22%);
-}
-
-.light .ProseMirror hr {
-  border-top-color: hsl(220 18% 80%);
-}
-
-.light .ProseMirror a {
-  color: hsl(221 75% 48%);
-}
-
-.light .ProseMirror a:hover {
-  color: hsl(221 75% 38%);
-}
-
-.light .ProseMirror ::selection {
-  background-color: hsl(221 75% 52% / 0.2);
-}
-
-.light .ProseMirror strong {
-  color: hsl(220 25% 14%);
-}
-
-.light .ProseMirror em {
-  color: hsl(220 20% 32%);
-}
 
 /* ==================== HOME PAGE — CSS TOKENS ==================== */
 
@@ -983,25 +828,6 @@ body {
   --home-badge-ts: rgba(255, 255, 255, 0.28);
 }
 
-.light {
-  --home-text-1:    hsl(220 25% 10%);
-  --home-text-2:    hsl(220 20% 36%);
-  --home-text-3:    hsl(220 14% 48%);
-  --home-text-4:    hsl(220 14% 52%);
-  --home-text-logo: hsl(220 25% 12%);
-  --home-border:         hsl(220 18% 86%);
-  --home-border-strong:  hsl(220 18% 76%);
-  --home-surface:     hsl(0 0% 100%);
-  --home-surface-alt: hsl(220 20% 96%);
-  --home-nav-bg:    rgba(255, 255, 255, 0.88);
-  --home-nav-border: hsl(220 18% 88%);
-  --home-glass:        hsl(220 20% 95%);
-  --home-glass-border: hsl(220 18% 82%);
-  --home-glass-text:   hsl(220 25% 22%);
-  --home-grid-line: rgba(0, 0, 0, 0.045);
-  --home-stat-value: hsl(220 25% 10%);
-  --home-badge-ts: hsl(220 14% 52%);
-}
 
 /* CTA box gradient */
 .home-cta-box {
@@ -1009,12 +835,6 @@ body {
     radial-gradient(ellipse 70% 60% at 50% 0%, rgba(59,130,246,0.32), transparent 65%),
     radial-gradient(ellipse 50% 40% at 80% 100%, rgba(168,85,247,0.12), transparent 60%),
     hsl(0 0% 11%);
-}
-.light .home-cta-box {
-  background:
-    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(59,130,246,0.13), transparent 65%),
-    radial-gradient(ellipse 50% 40% at 80% 100%, rgba(168,85,247,0.06), transparent 60%),
-    hsl(220 20% 98%);
 }
 
 /* Feature card hover */
@@ -1050,21 +870,11 @@ body {
   color: transparent;
   display: inline;
 }
-.light .home-metric-value {
-  background: linear-gradient(135deg, hsl(220 25% 10%) 0%, hsl(220 65% 42%) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
 
 /* Feature grid gap color */
 .home-feature-grid {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.06);
-}
-.light .home-feature-grid {
-  background: hsl(220 18% 86%);
-  border: 1px solid hsl(220 18% 86%);
 }
 
 /* Metrics strip */
@@ -1072,15 +882,8 @@ body {
   border-top:    1px solid rgba(255,255,255,0.06);
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.light .home-metrics-strip {
-  border-top:    1px solid hsl(220 18% 86%);
-  border-bottom: 1px solid hsl(220 18% 86%);
-}
 .home-metrics-cell-border {
   border-right: 1px solid rgba(255,255,255,0.06);
-}
-.light .home-metrics-cell-border {
-  border-right: 1px solid hsl(220 18% 86%);
 }
 
 /* ==================== HOME PAGE — LIGHT THEME CONTRAST ==================== */
@@ -1096,23 +899,9 @@ body {
   color: transparent;
 }
 
-.light .home-aether-text {
-  display: inline-block;
-  padding: 0.05em 0.08em;
-  background: linear-gradient(135deg, hsl(220 25% 10%) 0%, hsl(220 20% 30%) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
 
-/* Ambient glows — more visible on light background */
-.light .home-glow-primary {
-  opacity: 0.55;
-}
-
-.light .home-glow-secondary {
-  opacity: 0.45;
+.mini-day-hoverable:hover {
+  background: rgba(94, 197, 255, 0.08) !important;
 }
 
 @import './card-detail-modal.css';

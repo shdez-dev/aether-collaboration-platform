@@ -1,15 +1,12 @@
 // apps/web/src/components/comments/CommentForm.tsx
-
 'use client';
 
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceMembers } from '@/hooks/useWorkspaceMembers';
-import { getAvatarUrl } from '@/lib/utils/avatar';
 import { useT } from '@/lib/i18n';
+import { C } from '@/lib/colors';
 
 interface CommentFormProps {
   onSubmit: (content: string, mentions?: string[]) => Promise<void>;
@@ -23,41 +20,37 @@ interface CommentFormProps {
   workspaceId?: string;
 }
 
+const AVATAR_PALETTE = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#fb923c'];
+function hashColor(str: string) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
+}
+function initials(name: string) {
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
 export function CommentForm({
-  onSubmit,
-  submitText,
-  placeholder,
-  initialValue = '',
-  isEditing = false,
-  onCancel,
-  isLoading = false,
-  autoFocus = false,
-  workspaceId,
+  onSubmit, submitText, placeholder, initialValue = '',
+  isEditing = false, onCancel, isLoading = false, autoFocus = false, workspaceId,
 }: CommentFormProps) {
   const t = useT();
   const resolvedSubmitText = submitText ?? t.comments_default_submit;
   const resolvedPlaceholder = placeholder ?? t.comments_default_placeholder;
 
-  const [content, setContent] = useState(initialValue);
+  const [content, setContent]       = useState(initialValue);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // ── Mention state ──────────────────────────────────────────────────────────
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStart, setMentionStart] = useState(0);
-  const [activeIndex, setActiveIndex] = useState(0);
-  // Track mention IDs as they are inserted (avoids re-parsing text at submit time)
+  const [activeIndex, setActiveIndex]   = useState(0);
   const mentionIdsRef = useRef<Set<string>>(new Set());
+  const textareaRef   = useRef<HTMLTextAreaElement>(null);
+  const { user }      = useAuthStore();
+  const { members }   = useWorkspaceMembers(workspaceId);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { user } = useAuthStore();
-  const { members } = useWorkspaceMembers(workspaceId);
+  useEffect(() => { setActiveIndex(0); }, [mentionQuery]);
 
-  // Reset active index when query changes
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [mentionQuery]);
-
-  // Auto-resize textarea
+  // Auto-resize
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -65,127 +58,51 @@ export function CommentForm({
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [content]);
 
-  // ── Filtered members list ──────────────────────────────────────────────────
-  const filtered =
-    mentionQuery !== null
-      ? members
-          .filter(
-            (m) =>
-              m.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-              m.email.toLowerCase().includes(mentionQuery.toLowerCase())
-          )
-          .slice(0, 6)
-      : [];
+  const filtered = mentionQuery !== null
+    ? members.filter((m) =>
+        m.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+        m.email.toLowerCase().includes(mentionQuery.toLowerCase())
+      ).slice(0, 6)
+    : [];
 
-  // ── Extract mention user IDs for the API ──────────────────────────────────
-  // Supports both @[Nombre Completo] and legacy @PalabraSimple formats
-  const extractMentionIds = (text: string): string[] => {
-    const ids = new Set<string>();
-
-    // Format @[Nombre Completo]
-    const bracketRegex = /@\[([^\]]+)\]/g;
-    let m: RegExpExecArray | null;
-    while ((m = bracketRegex.exec(text)) !== null) {
-      const name = m[1];
-      const member = members.find((mb) => mb.name === name);
-      if (member) ids.add(member.id);
-    }
-
-    // Legacy format @PalabraSimple
-    const simpleRegex = /@(\w+)/g;
-    while ((m = simpleRegex.exec(text)) !== null) {
-      const username = m[1];
-      const member = members.find(
-        (mb) => mb.name.replace(/\s+/g, '').toLowerCase() === username.toLowerCase()
-      );
-      if (member) ids.add(member.id);
-    }
-
-    return Array.from(ids);
-  };
-
-  // ── Insert mention ─────────────────────────────────────────────────────────
   const insertMention = (name: string) => {
-    // Capture the user ID now (while members is definitely loaded)
     const member = members.find((mb) => mb.name === name);
     if (member) mentionIdsRef.current.add(member.id);
-
     const el = textareaRef.current;
     const cursorPos = el ? (el.selectionStart ?? mentionStart) : mentionStart;
     const before = content.slice(0, mentionStart);
-    const after = content.slice(cursorPos);
+    const after  = content.slice(cursorPos);
     const mention = `@[${name}] `;
-    const newValue = before + mention + after;
-    setContent(newValue);
+    setContent(before + mention + after);
     setMentionQuery(null);
     setTimeout(() => {
-      if (el) {
-        const p = (before + mention).length;
-        el.focus();
-        el.setSelectionRange(p, p);
-      }
+      if (el) { const p = (before + mention).length; el.focus(); el.setSelectionRange(p, p); }
     }, 0);
   };
 
-  // ── Handle textarea change ─────────────────────────────────────────────────
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const v = e.target.value;
     setContent(v);
     const cursor = e.target.selectionStart ?? 0;
-    const match = v.slice(0, cursor).match(/@([^@]*)$/);
-    if (match) {
-      setMentionQuery(match[1]);
-      setMentionStart(cursor - match[0].length);
-    } else {
-      setMentionQuery(null);
-    }
+    const match  = v.slice(0, cursor).match(/@([^@]*)$/);
+    if (match) { setMentionQuery(match[1]); setMentionStart(cursor - match[0].length); }
+    else setMentionQuery(null);
   };
 
-  // ── Handle keyboard navigation ─────────────────────────────────────────────
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Dropdown navigation
     if (mentionQuery !== null && filtered.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setActiveIndex((i) => (i + 1) % filtered.length);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length);
-        return;
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        insertMention(filtered[activeIndex].name);
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setMentionQuery(null);
-        return;
-      }
+      if (e.key === 'ArrowDown')  { e.preventDefault(); setActiveIndex((i) => (i + 1) % filtered.length); return; }
+      if (e.key === 'ArrowUp')    { e.preventDefault(); setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filtered[activeIndex].name); return; }
+      if (e.key === 'Escape')     { e.preventDefault(); setMentionQuery(null); return; }
     }
-
-    // Submit
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit();
-      return;
-    }
-
-    // Cancel edit
-    if (e.key === 'Escape' && isEditing && onCancel) {
-      e.preventDefault();
-      onCancel();
-    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSubmit(); return; }
+    if (e.key === 'Escape' && isEditing && onCancel)    { e.preventDefault(); onCancel(); }
   };
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!content.trim() || isSubmitting || isLoading) return;
-
     setIsSubmitting(true);
     const mentionIds = Array.from(mentionIdsRef.current);
     try {
@@ -196,45 +113,35 @@ export function CommentForm({
         mentionIdsRef.current = new Set();
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
       }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // ── Cancel ─────────────────────────────────────────────────────────────────
-  const handleCancel = () => {
-    setContent(initialValue);
-    setMentionQuery(null);
-    onCancel?.();
+    } catch {
+      // Error already surfaced via toast upstream — content intentionally preserved
+    } finally { setIsSubmitting(false); }
   };
 
   const loading = isSubmitting || isLoading;
   const isEmpty = !content.trim();
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="flex gap-3">
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+        {/* User avatar */}
         {!isEditing && user && (
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarImage
-              src={getAvatarUrl(user.avatar) || undefined}
-              alt={user.name}
-              crossOrigin="anonymous"
-            />
-            <AvatarFallback className="text-xs">
-              {user.name
-                .split(' ')
-                .map((n) => n[0])
-                .join('')
-                .toUpperCase()
-                .slice(0, 2)}
-            </AvatarFallback>
-          </Avatar>
+          <div style={{
+            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+            background: hashColor(user.name),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '10px', fontWeight: 700, color: '#fff',
+          }}>
+            {initials(user.name)}
+          </div>
         )}
 
-        {/* Textarea + dropdown wrapper */}
-        <div className="flex-1 relative">
-          <div className="relative rounded-md border border-input bg-background">
+        {/* Textarea + mention dropdown */}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <div style={{ borderRadius: '7px', border: `1px solid ${C.border}`, background: C.bg2, transition: 'border-color 0.12s' }}
+            onFocusCapture={(e) => (e.currentTarget.style.borderColor = C.accent)}
+            onBlurCapture={(e) => (e.currentTarget.style.borderColor = C.border)}
+          >
             <textarea
               ref={textareaRef}
               value={content}
@@ -243,89 +150,103 @@ export function CommentForm({
               placeholder={resolvedPlaceholder}
               disabled={loading}
               autoFocus={autoFocus}
-              rows={3}
-              className="w-full resize-none bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[80px]"
-              style={{ maxHeight: 200 }}
+              rows={2}
+              style={{
+                width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                resize: 'none', padding: '8px 10px', fontSize: '12.5px',
+                color: C.text, lineHeight: 1.6,
+                maxHeight: '200px', boxSizing: 'border-box',
+              }}
             />
           </div>
 
-          {/* Mention dropdown — positioned below the textarea */}
+          {/* Mention dropdown */}
           {filtered.length > 0 && (
             <div
-              className="absolute top-full left-0 mt-1.5 w-64 bg-popover border border-border rounded-lg shadow-2xl z-[9999] overflow-hidden py-1"
-              // Prevent click from stealing focus
               onMouseDown={(e) => e.preventDefault()}
+              style={{
+                position: 'absolute', top: '100%', left: 0, marginTop: '6px',
+                width: '240px', background: C.surface, border: `1px solid ${C.border2}`,
+                borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                zIndex: 9999, overflow: 'hidden', padding: '4px 0',
+              }}
             >
-              <p className="px-3 pt-1.5 pb-1 text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+              <p style={{ padding: '4px 12px', fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
                 {t.comments_mention_header}
               </p>
               {filtered.map((m, idx) => (
                 <button
-                  key={m.id}
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    insertMention(m.name);
+                  key={m.id} type="button"
+                  onMouseDown={(e) => { e.preventDefault(); insertMention(m.name); }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '7px 12px', background: idx === activeIndex ? `${C.accent}18` : 'transparent',
+                    border: 'none', cursor: 'pointer', textAlign: 'left',
                   }}
-                  className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm transition-colors ${
-                    idx === activeIndex
-                      ? 'bg-accent/15 text-accent'
-                      : 'text-popover-foreground hover:bg-muted'
-                  }`}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = idx === activeIndex ? `${C.accent}18` : 'transparent')}
                 >
-                  <Avatar className="h-6 w-6 shrink-0">
-                    <AvatarImage
-                      src={getAvatarUrl(m.avatar) || undefined}
-                      alt={m.name}
-                      crossOrigin="anonymous"
-                    />
-                    <AvatarFallback className="text-[10px]">
-                      {m.name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                        .toUpperCase()
-                        .slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start min-w-0">
-                    <span className="font-medium leading-tight truncate">{m.name}</span>
-                    <span className="text-[11px] text-muted-foreground truncate">{m.email}</span>
+                  <div style={{
+                    width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                    background: hashColor(m.name),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '9px', fontWeight: 700, color: '#fff',
+                  }}>
+                    {initials(m.name)}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 500, color: idx === activeIndex ? C.accent : C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
+                    <div style={{ fontSize: '10.5px', color: C.text4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email}</div>
                   </div>
                 </button>
               ))}
             </div>
           )}
 
-          <p className="mt-1 text-xs text-muted-foreground">
-            <kbd className="rounded border bg-muted px-1 text-[10px]">@</kbd>{' '}
+          {/* Hint */}
+          <p style={{ marginTop: '4px', fontSize: '10.5px', color: C.text4, lineHeight: 1.5 }}>
+            <kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>@</kbd>{' '}
             {t.comments_hint_mention}
-            {' • '}
-            <kbd className="rounded border bg-muted px-1 text-[10px]">Ctrl</kbd> +{' '}
-            <kbd className="rounded border bg-muted px-1 text-[10px]">Enter</kbd>{' '}
+            {' · '}
+            <kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Ctrl</kbd>
+            {'+'}
+            <kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Enter</kbd>{' '}
             {t.comments_hint_send}
             {isEditing && (
-              <>
-                {' • '}
-                <kbd className="rounded border bg-muted px-1 text-[10px]">Esc</kbd>{' '}
-                {t.comments_hint_cancel}
-              </>
+              <>{' · '}<kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Esc</kbd>{' '}{t.comments_hint_cancel}</>
             )}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-2">
+      {/* Actions */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
         {isEditing && onCancel && (
-          <Button type="button" variant="ghost" size="sm" onClick={handleCancel} disabled={loading}>
+          <button
+            type="button" onClick={() => { setContent(initialValue); setMentionQuery(null); onCancel?.(); }}
+            disabled={loading}
+            style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer' }}
+          >
             {t.btn_cancel}
-          </Button>
+          </button>
         )}
-        <Button type="submit" size="sm" disabled={isEmpty || loading}>
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {!loading && <Send className="mr-2 h-4 w-4" />}
+        <button
+          type="submit" disabled={isEmpty || loading}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '5px',
+            padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+            background: isEmpty || loading ? C.border2 : C.accent,
+            color: isEmpty || loading ? C.text4 : '#fff',
+            border: 'none', cursor: isEmpty || loading ? 'not-allowed' : 'pointer',
+            transition: 'background 0.12s',
+          }}
+        >
+          {loading
+            ? <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
+            : <Send style={{ width: '11px', height: '11px' }} />
+          }
           {resolvedSubmitText}
-        </Button>
+        </button>
       </div>
     </form>
   );

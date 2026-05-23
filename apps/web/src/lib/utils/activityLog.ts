@@ -26,6 +26,7 @@ export interface ActivityLogEntry {
   id: string;
   eventType: EventType;
   payload: any;
+  delta?: any;
   userId: string;
   userName: string;
   userAvatar?: string;
@@ -45,174 +46,164 @@ export interface ActivityLogEntry {
  */
 export function getEventDescription(event: ActivityLogEntry, t: Record<string, any>): string {
   const { eventType, payload, targetName } = event;
-  const name = targetName || payload?.name || payload?.title || '';
-  const newName = payload?.newName || payload?.newTitle || '';
-  const oldName = payload?.oldName || payload?.oldTitle || name;
+
+  // Nombres resueltos por tipo de entidad — cada evento sabe dónde está su nombre
+  const wsName   = payload?.workspaceName || payload?.name || targetName || '';
+  const brdName  = payload?.boardName || payload?.boardTitle || payload?.name || targetName || '';
+  const listName = payload?.listName || payload?.name || targetName || '';
+  const cardName = payload?.cardTitle || payload?.title || payload?.name || targetName || '';
+  const docName  = payload?.title || payload?.name || targetName || '';
+  const projName = payload?.name || payload?.projectName || targetName || '';
 
   switch (eventType) {
     // Workspace
     case 'workspace.created':
-      return t.dashboard_activity_workspace_created(name);
+      return t.dashboard_activity_workspace_created(wsName);
     case 'workspace.updated':
-      return t.dashboard_activity_workspace_updated(name);
+      return t.dashboard_activity_workspace_updated(wsName);
     case 'workspace.deleted':
-      return t.dashboard_activity_workspace_deleted(name);
+      return t.dashboard_activity_workspace_deleted(wsName);
     case 'workspace.member.invited':
       return t.dashboard_activity_workspace_member_invited(payload?.inviteeName || '');
     case 'workspace.member.joined':
       return t.dashboard_activity_workspace_member_joined;
     case 'workspace.member.removed':
       return t.dashboard_activity_workspace_member_removed(payload?.memberName || '');
-    case 'workspace.member.roleChanged':
+    case 'workspace.member.role-changed':
       return t.dashboard_activity_workspace_member_role_changed(payload?.memberName || '');
 
     // Board
     case 'board.created':
-      return t.dashboard_activity_board_created(name);
+      return t.dashboard_activity_board_created(brdName);
     case 'board.updated':
-      return t.dashboard_activity_board_updated(name);
+      return t.dashboard_activity_board_updated(brdName);
     case 'board.deleted':
-      return t.dashboard_activity_board_deleted(name);
+      return t.dashboard_activity_board_deleted(brdName);
     case 'board.archived':
-      return t.dashboard_activity_board_archived(name);
-    case 'board.unarchived':
-      return t.dashboard_activity_board_unarchived(name);
-    case 'board.renamed':
-      return t.dashboard_activity_board_renamed(oldName, newName);
-    case 'board.description.changed':
-      return t.dashboard_activity_board_description_changed(name);
+      return t.dashboard_activity_board_archived(brdName);
+    case 'board.restored':
+      return t.dashboard_activity_board_unarchived(brdName);
 
     // List
-    case 'list.created':
-      return t.dashboard_activity_list_created(name);
+    case 'list.created': {
+      const proj = payload?.projectName;
+      const base = t.dashboard_activity_list_created(listName);
+      const board = event.boardName || payload?.boardName || '';
+      const parts = [board, proj].filter(Boolean).join(' · proyecto ');
+      return parts ? `${base} en ${parts}` : base;
+    }
     case 'list.updated':
-      return t.dashboard_activity_list_updated(name);
+      return t.dashboard_activity_list_updated(listName);
     case 'list.deleted':
-      return t.dashboard_activity_list_deleted(name);
-    case 'list.renamed':
-      return t.dashboard_activity_list_renamed(oldName, newName);
-    case 'list.reordered':
+      return t.dashboard_activity_list_deleted(listName);
+    case 'list.order-changed':
       return t.dashboard_activity_list_reordered;
     case 'list.archived':
-      return t.dashboard_activity_list_archived(name);
+      return t.dashboard_activity_list_archived(listName);
 
     // Card
     case 'card.created':
-      return t.dashboard_activity_card_created(name);
+      return t.dashboard_activity_card_created(cardName);
     case 'card.updated':
-      return t.dashboard_activity_card_updated(name);
+      return t.dashboard_activity_card_updated(cardName);
     case 'card.deleted':
-      return t.dashboard_activity_card_deleted(name);
+      return t.dashboard_activity_card_deleted(cardName);
     case 'card.moved':
-      return t.dashboard_activity_card_moved(name, payload?.newListName || '');
-    case 'card.completed':
-      return t.dashboard_activity_card_completed(name);
-    case 'card.uncompleted':
-      return t.dashboard_activity_card_uncompleted(name);
-    case 'card.renamed':
-      return t.dashboard_activity_card_renamed(oldName, newName);
-    case 'card.description.changed':
-      return t.dashboard_activity_card_description_changed(name);
-    case 'card.duedate.set':
-      return t.dashboard_activity_card_due_set(name);
-    case 'card.duedate.changed':
-      return t.dashboard_activity_card_due_changed(name);
-    case 'card.duedate.removed':
-      return t.dashboard_activity_card_due_removed(name);
+      return t.dashboard_activity_card_moved(cardName, payload?.toListName || payload?.newListName || '');
+    case 'card.status-changed': {
+      const completed = payload?.completed ?? (event as any).delta?.after?.completed;
+      return completed
+        ? t.dashboard_activity_card_completed(cardName)
+        : t.dashboard_activity_card_uncompleted(cardName);
+    }
+    case 'card.due-date.set':
+      return t.dashboard_activity_card_due_changed(cardName);
+    case 'card.due-date.removed':
+      return t.dashboard_activity_card_due_removed(cardName);
     case 'card.priority.changed':
-      return t.dashboard_activity_card_priority_changed(name);
+      return t.dashboard_activity_card_priority_changed(cardName);
     case 'card.member.assigned':
       return t.dashboard_activity_card_member_assigned(
         payload?.assignedUserName || payload?.memberName || '',
-        name
+        cardName
       );
-    case 'card.member.unassigned':
+    case 'card.member.removed':
       return t.dashboard_activity_card_member_unassigned(
         payload?.unassignedUserName || payload?.memberName || '',
-        name
+        cardName
       );
     case 'card.label.added':
-      return t.dashboard_activity_card_label_added(payload?.labelName || '', name);
+      return t.dashboard_activity_card_label_added(payload?.labelName || '', cardName);
     case 'card.label.removed':
-      return t.dashboard_activity_card_label_removed(payload?.labelName || '', name);
+      return t.dashboard_activity_card_label_removed(payload?.labelName || '', cardName);
     case 'card.archived':
-      return t.dashboard_activity_card_archived(name);
-    case 'card.unarchived':
-      return t.dashboard_activity_card_unarchived(name);
+      return t.dashboard_activity_card_archived(cardName);
+    case 'card.restored':
+      return t.dashboard_activity_card_unarchived(cardName);
 
     // Comment
     case 'comment.created':
-    case 'card.comment.added':
-      return t.dashboard_activity_comment_added(targetName || payload?.cardTitle || '');
+      return t.dashboard_activity_comment_added(payload?.cardTitle || targetName || '');
     case 'comment.updated':
-    case 'card.comment.updated':
-      return t.dashboard_activity_comment_updated(targetName || payload?.cardTitle || '');
+      return t.dashboard_activity_comment_updated(payload?.cardTitle || targetName || '');
     case 'comment.deleted':
-    case 'card.comment.deleted':
-      return t.dashboard_activity_comment_deleted(targetName || payload?.cardTitle || '');
-    case 'comment.mentioned':
+      return t.dashboard_activity_comment_deleted(payload?.cardTitle || targetName || '');
+    case 'comment.mention-added':
       return t.dashboard_activity_comment_mentioned;
 
     // Document
     case 'document.created':
-      return t.dashboard_activity_document_created(name);
+      return t.dashboard_activity_document_created(docName);
     case 'document.updated':
-      return t.dashboard_activity_document_updated(name);
+      return t.dashboard_activity_document_updated(docName);
     case 'document.deleted':
-      return t.dashboard_activity_document_deleted(name);
-    case 'document.title.changed':
-      return t.dashboard_activity_document_renamed(oldName, newName);
-    case 'document.version.created':
-      return t.dashboard_activity_document_version(name);
+      return t.dashboard_activity_document_deleted(docName);
+    case 'document.version.saved':
+      return t.dashboard_activity_document_version(docName);
     case 'document.version.restored':
-      return t.dashboard_activity_document_version_restored(name);
+      return t.dashboard_activity_document_version_restored(docName);
     case 'document.exported':
-      return t.dashboard_activity_document_exported(name);
+      return t.dashboard_activity_document_exported(docName);
     case 'document.comment.added':
-      return t.dashboard_activity_document_comment_added(
-        targetName || payload?.documentTitle || ''
-      );
-    case 'document.comment.updated':
-      return t.dashboard_activity_document_comment_updated(
-        targetName || payload?.documentTitle || ''
-      );
-    case 'document.comment.deleted':
-      return t.dashboard_activity_document_comment_deleted(
-        targetName || payload?.documentTitle || ''
-      );
+      return t.dashboard_activity_document_comment_added(payload?.documentTitle || targetName || '');
+    case 'document.comment.resolved':
+      return t.dashboard_activity_document_comment_updated(payload?.documentTitle || targetName || '');
 
     // Project
     case 'project.created':
-      return t.dashboard_activity_project_created(payload?.name || '');
+      return t.dashboard_activity_project_created(projName);
     case 'project.updated':
-      return t.dashboard_activity_project_updated(payload?.name || '');
-    case 'project.status.changed':
-      return t.dashboard_activity_project_status_changed(
-        payload?.name || '',
-        payload?.oldStatus || '',
-        payload?.newStatus || ''
-      );
+      return t.dashboard_activity_project_updated(projName);
+    case 'project.status.changed': {
+      const statusLabel: Record<string, string> = {
+        PLANNING: 'Planificación', ACTIVE: 'Activo', ON_HOLD: 'En pausa',
+        COMPLETED: 'Completado', CANCELLED: 'Cancelado',
+      };
+      const oldS = statusLabel[payload?.oldStatus] || payload?.oldStatus || '';
+      const newS = statusLabel[payload?.newStatus] || payload?.newStatus || '';
+      return t.dashboard_activity_project_status_changed(projName, oldS, newS);
+    }
     case 'project.deleted':
-      return t.dashboard_activity_project_deleted(payload?.name || '');
-    case 'project.board.assigned':
+      return t.dashboard_activity_project_deleted(projName);
+    case 'project.board.linked':
       return t.dashboard_activity_project_board_assigned(
         payload?.boardName || '',
-        payload?.projectName || ''
+        payload?.projectName || projName
       );
-    case 'project.board.removed':
+    case 'project.board.unlinked':
       return t.dashboard_activity_project_board_removed(
         payload?.boardName || '',
-        payload?.projectName || ''
+        payload?.projectName || projName
       );
     case 'project.milestone.created':
       return t.dashboard_activity_project_milestone_created(
         payload?.milestoneName || '',
-        payload?.projectName || ''
+        payload?.projectName || projName
       );
     case 'project.milestone.completed':
       return t.dashboard_activity_project_milestone_completed(
         payload?.milestoneName || '',
-        payload?.projectName || ''
+        payload?.projectName || projName
       );
 
     // Team
@@ -232,20 +223,12 @@ export function getEventDescription(event: ActivityLogEntry, t: Record<string, a
         payload?.memberName || '',
         payload?.teamName || ''
       );
-    case 'team.member.roleChanged':
+    case 'team.member.role-changed':
       return t.dashboard_activity_team_member_role_changed(
         payload?.memberName || '',
         payload?.teamName || '',
         payload?.newRole || ''
       );
-
-    // Auth
-    case 'auth.user.registered':
-      return t.dashboard_activity_auth_registered;
-    case 'auth.user.loggedIn':
-      return t.dashboard_activity_auth_logged_in;
-    case 'auth.user.loggedOut':
-      return t.dashboard_activity_auth_logged_out;
 
     default:
       return t.dashboard_activity_unknown;
@@ -258,8 +241,7 @@ export function getEventDescription(event: ActivityLogEntry, t: Record<string, a
 export function getEventIcon(eventType: EventType): LucideIcon {
   if (eventType.startsWith('board.')) {
     if (eventType.includes('archived')) return Archive;
-    if (eventType.includes('unarchived')) return ArchiveRestore;
-    if (eventType.includes('renamed')) return Edit3;
+    if (eventType.includes('restored')) return ArchiveRestore;
     return Layout;
   }
 
@@ -270,17 +252,15 @@ export function getEventIcon(eventType: EventType): LucideIcon {
 
   if (eventType.startsWith('card.')) {
     if (eventType.includes('moved')) return ArrowRight;
-    if (eventType.includes('completed')) return CheckCircle;
-    if (eventType.includes('uncompleted')) return Circle;
+    if (eventType.includes('status-changed')) return CheckCircle;
     if (eventType.includes('deleted')) return Trash2;
     if (eventType.includes('created')) return Plus;
     if (eventType.includes('archived')) return Archive;
-    if (eventType.includes('unarchived')) return ArchiveRestore;
-    if (eventType.includes('duedate')) return Calendar;
+    if (eventType.includes('restored')) return ArchiveRestore;
+    if (eventType.includes('due-date')) return Calendar;
     if (eventType.includes('priority')) return AlertCircle;
     if (eventType.includes('label')) return Tag;
     if (eventType.includes('member')) return eventType.includes('assigned') ? UserPlus : UserMinus;
-    if (eventType.includes('renamed')) return Edit3;
     return SquareKanban;
   }
 
@@ -322,11 +302,7 @@ export function getEventColor(eventType: EventType): string {
   if (eventType.includes('archived')) return 'text-orange-600 dark:text-orange-400';
   if (eventType.includes('completed')) return 'text-blue-600 dark:text-blue-400';
   if (eventType.includes('moved')) return 'text-purple-600 dark:text-purple-400';
-  if (
-    eventType.includes('updated') ||
-    eventType.includes('changed') ||
-    eventType.includes('renamed')
-  )
+  if (eventType.includes('updated') || eventType.includes('changed'))
     return 'text-yellow-600 dark:text-yellow-400';
 
   return 'text-gray-600 dark:text-gray-400';
@@ -439,7 +415,7 @@ export const EVENT_CATEGORIES = {
       'workspace.member.invited',
       'workspace.member.joined',
       'workspace.member.removed',
-      'workspace.member.roleChanged',
+      'workspace.member.role-changed',
     ],
   },
   board: {
@@ -449,9 +425,7 @@ export const EVENT_CATEGORIES = {
       'board.updated',
       'board.deleted',
       'board.archived',
-      'board.unarchived',
-      'board.renamed',
-      'board.description.changed',
+      'board.restored',
     ],
   },
   card: {
@@ -461,20 +435,16 @@ export const EVENT_CATEGORIES = {
       'card.updated',
       'card.deleted',
       'card.moved',
-      'card.completed',
-      'card.uncompleted',
-      'card.renamed',
-      'card.description.changed',
-      'card.duedate.set',
-      'card.duedate.changed',
-      'card.duedate.removed',
+      'card.status-changed',
+      'card.due-date.set',
+      'card.due-date.removed',
       'card.priority.changed',
       'card.member.assigned',
-      'card.member.unassigned',
+      'card.member.removed',
       'card.label.added',
       'card.label.removed',
       'card.archived',
-      'card.unarchived',
+      'card.restored',
     ],
   },
   document: {
@@ -483,14 +453,13 @@ export const EVENT_CATEGORIES = {
       'document.created',
       'document.updated',
       'document.deleted',
-      'document.title.changed',
-      'document.version.created',
+      'document.version.saved',
       'document.version.restored',
       'document.exported',
     ],
   },
   comment: {
     label: 'Comments',
-    events: ['comment.created', 'comment.updated', 'comment.deleted', 'comment.mentioned'],
+    events: ['comment.created', 'comment.updated', 'comment.deleted', 'comment.mention-added'],
   },
 };

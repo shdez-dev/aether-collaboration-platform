@@ -6,6 +6,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useT } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
 import { getAvatarUrl, getInitials } from '@/lib/utils/avatar';
+import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { X, Star, UserPlus } from 'lucide-react';
 import { C } from '@/lib/colors';
 
@@ -58,6 +59,7 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
   const [searchResults, setSearchResults]   = useState<UserPreview[]>([]);
   const [searchingUser, setSearchingUser]   = useState(false);
   const [showDropdown, setShowDropdown]     = useState(false);
+  const [hasSearched, setHasSearched]       = useState(false);
 
   const [favoriteUsers, setFavoriteUsers]     = useState<UserPreview[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
@@ -70,7 +72,7 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
       setEmailInput(''); setSelectedUsers([]); setSelectedRole('MEMBER');
       setError(''); setSuccess(false); setInviteResults(null);
       setSelectedFavorites(new Set()); setActiveTab('email');
-      setSearchResults([]); setShowDropdown(false);
+      setSearchResults([]); setShowDropdown(false); setHasSearched(false);
     } else {
       loadFavorites();
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -87,10 +89,10 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
   };
 
   useEffect(() => {
-    const searchUser = async () => {
-      const query = emailInput.trim().toLowerCase();
-      if (!validateEmail(query)) { setSearchResults([]); setShowDropdown(false); return; }
-      setSearchingUser(true); setShowDropdown(true);
+    const searchUsers = async () => {
+      const query = emailInput.trim();
+      if (query.length < 3) { setSearchResults([]); setShowDropdown(false); setHasSearched(false); return; }
+      setSearchingUser(true); setShowDropdown(true); setHasSearched(false);
       try {
         const authData = localStorage.getItem('aether-auth-storage');
         let token = null;
@@ -98,26 +100,26 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
           try { const p = JSON.parse(authData); token = p.state?.accessToken || p.accessToken; } catch {}
         }
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/users/search?email=${encodeURIComponent(query)}`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/users/search?q=${encodeURIComponent(query)}`,
           { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
         );
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.data?.user) {
-            const alreadySelected = selectedUsers.some(
-              (u) => u.email.toLowerCase() === data.data.user.email.toLowerCase()
+          if (data.success && data.data?.users) {
+            const filtered = (data.data.users as UserPreview[]).filter(
+              (u) => !selectedUsers.some((s) => s.email.toLowerCase() === u.email.toLowerCase())
             );
-            setSearchResults(alreadySelected ? [] : [data.data.user]);
+            setSearchResults(filtered);
           } else { setSearchResults([]); }
         } else { setSearchResults([]); }
       } catch { setSearchResults([]); }
-      finally { setSearchingUser(false); }
+      finally { setSearchingUser(false); setHasSearched(true); }
     };
 
     const id = setTimeout(() => {
-      if (emailInput.trim()) searchUser();
-      else { setSearchResults([]); setShowDropdown(false); }
-    }, 500);
+      if (emailInput.trim().length >= 3) searchUsers();
+      else { setSearchResults([]); setShowDropdown(false); setHasSearched(false); }
+    }, 350);
     return () => clearTimeout(id);
   }, [emailInput, selectedUsers]);
 
@@ -141,7 +143,7 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
       setError('Este usuario ya fue agregado'); return;
     }
     setSelectedUsers([...selectedUsers, { email: user.email, name: user.name, avatar: user.avatar }]);
-    setEmailInput(''); setSearchResults([]); setShowDropdown(false); setError('');
+    setEmailInput(''); setSearchResults([]); setShowDropdown(false); setHasSearched(false); setError('');
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
@@ -176,6 +178,7 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
     try {
       const results = await inviteMultipleMembers(workspaceId, emailsToInvite, selectedRole);
       setSuccess(true); setInviteResults(results);
+      if (results.invited > 0) markStepDone('invite');
       if (results.failed === 0) setTimeout(() => onClose(), 2000);
     } catch (err: any) { setError(err.message || t.invite_error); }
   };
@@ -288,7 +291,7 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
                 {activeTab === 'email' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 500, color: C.text2 }}>
-                      Busca usuarios por email
+                      Busca usuarios por nombre o email
                     </label>
 
                     {/* Input con chips */}
@@ -314,9 +317,18 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
                           ref={inputRef}
                           type="text"
                           value={emailInput}
-                          onChange={(e) => { setEmailInput(e.target.value); setError(''); }}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEmailInput(val);
+                            setError('');
+                            if (val.trim().length < 3) {
+                              setShowDropdown(false);
+                              setSearchResults([]);
+                              setHasSearched(false);
+                            }
+                          }}
                           onKeyDown={handleKeyDown}
-                          placeholder={selectedUsers.length === 0 ? 'Escribe un email para buscar…' : ''}
+                          placeholder={selectedUsers.length === 0 ? 'Nombre o email…' : ''}
                           disabled={isLoading || success}
                           style={{
                             flex: 1, minWidth: '180px', background: 'transparent',
@@ -346,9 +358,9 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
                             searchResults.map((user) => (
                               <DropdownUserRow key={user.id} user={user} onSelect={() => handleSelectUser(user)} />
                             ))
-                          ) : validateEmail(emailInput.trim()) ? (
+                          ) : hasSearched ? (
                             <div style={{ padding: '14px', textAlign: 'center', fontSize: '13px', color: C.text4 }}>
-                              No se encontró ningún usuario con ese email
+                              No se encontraron usuarios
                             </div>
                           ) : null}
                         </div>
@@ -358,7 +370,7 @@ export default function InviteMemberModal({ workspaceId, isOpen, onClose }: Invi
                     <p style={{ fontSize: '11px', color: C.text4 }}>
                       {selectedUsers.length > 0
                         ? `${selectedUsers.length} usuario(s) seleccionado(s). Backspace para eliminar el último.`
-                        : 'Escribe un email completo para buscar el usuario'}
+                        : 'Escribe al menos 3 caracteres para buscar'}
                     </p>
                   </div>
                 )}

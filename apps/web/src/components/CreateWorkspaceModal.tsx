@@ -37,6 +37,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [visibility, setVisibility]   = useState<Visibility>('private');
   const [error, setError]             = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
 
   // ── Animation state ────────────────────────────────────────────────────────
   const [animIn, setAnimIn] = useState(false);
@@ -55,7 +56,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!name.trim()) { setError(t.create_ws_validation_name); return; }
+    if (!name.trim()) { setNameTouched(true); return; }
     try {
       await createWorkspace({
         name: name.trim(),
@@ -74,7 +75,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
     setAnimIn(false);
     closeTimerRef.current = setTimeout(() => {
       setName(''); setDescription(''); setSelectedIcon(WORKSPACE_ICON_KEYS[0]);
-      setSelectedColor(COLORS[0]); setVisibility('private'); setError('');
+      setSelectedColor(COLORS[0]); setVisibility('private'); setError(''); setNameTouched(false);
       onClose();
     }, 160);
   };
@@ -169,28 +170,38 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
             </div>
 
             {/* ── Nombre ───────────────────────────────────────────────── */}
-            <div className="mb-4">
-              <label className="block text-[12px] font-medium mb-1.5" style={{ color: C.text2 }}>
-                {t.create_ws_label_name} <span style={{ color: C.red }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t.create_ws_placeholder_name}
-                disabled={isLoading}
-                maxLength={255}
-                className="w-full rounded-[7px] text-[13px] outline-none transition-colors"
-                style={{
-                  padding: '9px 12px',
-                  background: C.surface,
-                  border: `1px solid ${C.border}`,
-                  color: C.text,
-                }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
-                onBlur={(e)  => (e.currentTarget.style.borderColor = C.border)}
-              />
-            </div>
+            {(() => {
+              const nameError = nameTouched && !name.trim();
+              return (
+                <div className="mb-4">
+                  <label className="block text-[12px] font-medium mb-1.5" style={{ color: C.text2 }}>
+                    {t.create_ws_label_name} <span style={{ color: C.red }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => { setName(e.target.value); if (e.target.value.trim()) setNameTouched(false); }}
+                    placeholder={t.create_ws_placeholder_name}
+                    disabled={isLoading}
+                    maxLength={255}
+                    className="w-full rounded-[7px] text-[13px] outline-none transition-colors"
+                    style={{
+                      padding: '9px 12px',
+                      background: C.surface,
+                      border: `1px solid ${nameError ? C.red : C.border}`,
+                      color: C.text,
+                    }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = nameError ? C.red : C.accent)}
+                    onBlur={(e) => { setNameTouched(true); e.currentTarget.style.borderColor = !e.currentTarget.value.trim() ? C.red : C.border; }}
+                  />
+                  {nameError && (
+                    <p className="text-[11.5px] mt-1.5" style={{ color: C.red }}>
+                      {t.create_ws_validation_name}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── Descripción ──────────────────────────────────────────── */}
             <div className="mb-4">

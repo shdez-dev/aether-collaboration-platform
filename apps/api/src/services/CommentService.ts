@@ -63,22 +63,17 @@ export class CommentService {
     } catch (_) {}
 
     // ✅ EMITIR EVENTO con contexto completo
-    await eventStore.emit(
-      'comment.created',
-      {
-        commentId: comment.id as CommentId,
-        cardId: data.cardId as CardId,
-        userId: data.userId as UserId,
-        content: comment.content,
-        mentions: (comment.mentions || []) as UserId[],
-        createdBy: data.userId as UserId,
-        authorName: eventAuthorName,
-        cardTitle: eventCardTitle,
+    await eventStore.emit({
+      type: 'comment.created',
+      actor: { id: data.userId, name: eventAuthorName ?? '' },
+      subject: { type: 'comment', id: comment.id, name: comment.content.slice(0, 50) },
+      context: {
+        workspaceId: eventWorkspaceId ?? '',
         boardId: eventBoardId,
-        workspaceId: eventWorkspaceId,
+        cardId: data.cardId,
       },
-      data.userId as UserId
-    );
+      payload: { mentions: (comment.mentions || []) as UserId[] },
+    });
 
     try {
       const authorResult = await pool.query(`SELECT id, name, email FROM users WHERE id = $1`, [
@@ -111,17 +106,20 @@ export class CommentService {
           }
 
           for (const mentionedUserId of data.mentions) {
-            await eventStore.emit(
-              'comment.mentioned',
-              {
-                commentId: comment.id as CommentId,
-                cardId: data.cardId as CardId,
-                mentionedUserId: mentionedUserId as UserId,
-                mentionedByUserId: data.userId as UserId,
-                content: comment.content,
+            const mentionedUserResult = await pool.query('SELECT name FROM users WHERE id = $1', [mentionedUserId]);
+            const mentionedUserName = mentionedUserResult.rows[0]?.name ?? '';
+            await eventStore.emit({
+              type: 'comment.mention-added',
+              actor: { id: data.userId, name: eventAuthorName ?? '' },
+              subject: { type: 'comment', id: comment.id, name: comment.content.slice(0, 50) },
+              context: {
+                workspaceId: eventWorkspaceId ?? '',
+                boardId: eventBoardId,
+                cardId: data.cardId,
               },
-              data.userId as UserId
-            );
+              payload: { mentionedUserId, mentionedUserName, contentPreview: comment.content.slice(0, 100) },
+              targetUserId: mentionedUserId,
+            });
           }
         }
 
@@ -181,6 +179,13 @@ export class CommentService {
       throw new Error('Only the author can edit this comment');
     }
 
+    // Fetch contenido anterior para delta
+    let oldContent: string | undefined;
+    try {
+      const oldResult = await pool.query('SELECT content FROM comments WHERE id = $1', [commentId]);
+      oldContent = oldResult.rows[0]?.content;
+    } catch (_) {}
+
     if (data.content !== undefined) {
       if (data.content.trim().length === 0) {
         throw new Error('Comment content cannot be empty');
@@ -222,23 +227,20 @@ export class CommentService {
     } catch (_) {}
 
     // ✅ EMITIR EVENTO (ya después del commit del repositorio)
-    await eventStore.emit(
-      'comment.updated',
-      {
-        commentId: commentId as CommentId,
-        cardId: cardId as CardId,
-        changes: {
-          content: data.content,
-          mentions: data.mentions as UserId[] | undefined,
-        },
-        updatedBy: userId as UserId,
-        authorName: updateAuthorName,
-        cardTitle: updateCardTitle,
+    await eventStore.emit({
+      type: 'comment.updated',
+      actor: { id: userId, name: updateAuthorName ?? '' },
+      subject: { type: 'comment', id: commentId, name: (data.content ?? updatedComment.content).slice(0, 50) },
+      context: {
+        workspaceId: updateWorkspaceId ?? '',
         boardId: updateBoardId,
-        workspaceId: updateWorkspaceId,
+        cardId,
       },
-      userId as UserId
-    );
+      delta: {
+        before: { content: oldContent },
+        after: { content: updatedComment.content },
+      },
+    });
 
     // Procesar menciones actualizadas
     if (data.mentions && data.mentions.length > 0) {
@@ -271,17 +273,20 @@ export class CommentService {
           }
 
           for (const mentionedUserId of data.mentions) {
-            await eventStore.emit(
-              'comment.mentioned',
-              {
-                commentId: commentId as CommentId,
-                cardId: cardId as CardId,
-                mentionedUserId: mentionedUserId as UserId,
-                mentionedByUserId: userId as UserId,
-                content: updatedComment.content,
+            const mentionedUserResult2 = await pool.query('SELECT name FROM users WHERE id = $1', [mentionedUserId]);
+            const mentionedUserName2 = mentionedUserResult2.rows[0]?.name ?? '';
+            await eventStore.emit({
+              type: 'comment.mention-added',
+              actor: { id: userId, name: updateAuthorName ?? '' },
+              subject: { type: 'comment', id: commentId, name: updatedComment.content.slice(0, 50) },
+              context: {
+                workspaceId: updateWorkspaceId ?? '',
+                boardId: updateBoardId,
+                cardId,
               },
-              userId as UserId
-            );
+              payload: { mentionedUserId, mentionedUserName: mentionedUserName2, contentPreview: updatedComment.content.slice(0, 100) },
+              targetUserId: mentionedUserId,
+            });
           }
         }
       } catch (error) {}
@@ -333,19 +338,16 @@ export class CommentService {
     } catch (_) {}
 
     // ✅ EMITIR EVENTO (ya después del commit del repositorio)
-    await eventStore.emit(
-      'comment.deleted',
-      {
-        commentId: commentId as CommentId,
-        cardId: cardId as CardId,
-        deletedBy: userId as UserId,
-        deletedByName: deleteUserName,
-        cardTitle: deleteCardTitle,
+    await eventStore.emit({
+      type: 'comment.deleted',
+      actor: { id: userId, name: deleteUserName ?? '' },
+      subject: { type: 'comment', id: commentId, name: '' },
+      context: {
+        workspaceId: deleteWorkspaceId ?? '',
         boardId: deleteBoardId,
-        workspaceId: deleteWorkspaceId,
+        cardId,
       },
-      userId as UserId
-    );
+    });
   }
 
   /**

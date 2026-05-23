@@ -165,7 +165,7 @@ describe('CommentStore', () => {
       const { result } = renderHook(() => useCommentStore());
 
       await act(async () => {
-        await result.current.createComment('card-1', 'New comment');
+        await expect(result.current.createComment('card-1', 'New comment')).rejects.toThrow('Failed to create');
       });
 
       await waitFor(() => {

@@ -1,91 +1,44 @@
 // packages/shared-types/src/events.ts
 
 /**
- * Core Event System Types
+ * Core Event System Types — v2
  *
- * Every operation in AETHER is modeled as an immutable event.
- * Events are the single source of truth for state changes.
+ * Schema canónico: cada evento tiene actor, subject, context y delta
+ * separados del payload. Elimina duplicados y estandariza estructura.
  */
 
 // ============================================================================
-// BRANDED TYPES - Type-safe IDs
+// BRANDED TYPES
 // ============================================================================
 
 export type Brand<K, T> = K & { __brand: T };
 
-export type UserId = Brand<string, 'UserId'>;
-export type WorkspaceId = Brand<string, 'WorkspaceId'>;
-export type BoardId = Brand<string, 'BoardId'>;
-export type ListId = Brand<string, 'ListId'>;
-export type CardId = Brand<string, 'CardId'>;
-export type DocumentId = Brand<string, 'DocumentId'>;
+export type UserId           = Brand<string, 'UserId'>;
+export type WorkspaceId      = Brand<string, 'WorkspaceId'>;
+export type BoardId          = Brand<string, 'BoardId'>;
+export type ListId           = Brand<string, 'ListId'>;
+export type CardId           = Brand<string, 'CardId'>;
+export type DocumentId       = Brand<string, 'DocumentId'>;
 export type DocumentVersionId = Brand<string, 'DocumentVersionId'>;
 export type DocumentCommentId = Brand<string, 'DocumentCommentId'>;
-export type CommentId = Brand<string, 'CommentId'>;
-export type LabelId = Brand<string, 'LabelId'>;
-export type NotificationId = Brand<string, 'NotificationId'>;
-export type EventId = Brand<string, 'EventId'>;
-export type SocketId = Brand<string, 'SocketId'>;
+export type CommentId        = Brand<string, 'CommentId'>;
+export type LabelId          = Brand<string, 'LabelId'>;
+export type NotificationId   = Brand<string, 'NotificationId'>;
+export type EventId          = Brand<string, 'EventId'>;
+export type SocketId         = Brand<string, 'SocketId'>;
 
 // ============================================================================
-// VECTOR CLOCK - Causal ordering
+// VECTOR CLOCK
 // ============================================================================
 
-/**
- * Vector clock for tracking causal relationships between events.
- * Ensures correct ordering of events in distributed system.
- */
 export interface VectorClock {
   [userId: string]: number;
 }
 
 // ============================================================================
-// BASE EVENT STRUCTURE
+// CANONICAL EVENT TYPES
 // ============================================================================
 
-/**
- * Metadata attached to every event
- */
-export interface EventMeta {
-  eventId: EventId;
-  timestamp: number; // Unix timestamp in milliseconds
-  userId: UserId;
-  version: number; // Event schema version
-  vectorClock: VectorClock;
-  correlationId?: string; // For tracking related events
-  socketId?: SocketId; // Para identificar el socket que originó el evento
-}
-
-/**
- * Base event structure - all events extend this
- */
-export interface BaseEvent<TType extends string = string, TPayload = unknown> {
-  type: TType;
-  payload: TPayload;
-  meta: EventMeta;
-}
-
-// ============================================================================
-// EVENT CATEGORIES
-// ============================================================================
-
-/**
- * Authentication Events
- */
-export type AuthEventType =
-  | 'auth.user.registered'
-  | 'auth.user.loggedIn'
-  | 'auth.user.loggedOut'
-  | 'auth.session.expired'
-  | 'auth.email.verified'
-  | 'auth.email.verificationSent'
-  | 'auth.password.resetRequested'
-  | 'auth.password.reset'
-  | 'auth.password.resetCompleted';
-
-/**
- * Workspace Events
- */
 export type WorkspaceEventType =
   | 'workspace.created'
   | 'workspace.updated'
@@ -93,1175 +46,459 @@ export type WorkspaceEventType =
   | 'workspace.member.invited'
   | 'workspace.member.joined'
   | 'workspace.member.removed'
-  | 'workspace.member.roleChanged';
+  | 'workspace.member.role-changed';
 
-/**
- * Board Events
- */
 export type BoardEventType =
   | 'board.created'
   | 'board.updated'
   | 'board.deleted'
   | 'board.archived'
-  | 'board.unarchived'
-  | 'board.renamed'
-  | 'board.description.changed';
+  | 'board.restored';
 
-/**
- * List Events
- */
 export type ListEventType =
   | 'list.created'
   | 'list.updated'
   | 'list.deleted'
-  | 'list.reordered'
-  | 'list.renamed'
-  | 'list.archived';
+  | 'list.archived'
+  | 'list.order-changed';
 
-/**
- * Card Events
- */
 export type CardEventType =
   | 'card.created'
   | 'card.updated'
   | 'card.deleted'
   | 'card.moved'
-  | 'card.completed'
-  | 'card.uncompleted'
-  | 'card.renamed'
-  | 'card.description.changed'
-  | 'card.duedate.set'
-  | 'card.duedate.changed'
-  | 'card.duedate.removed'
+  | 'card.status-changed'
+  | 'card.archived'
+  | 'card.restored'
+  | 'card.due-date.set'
+  | 'card.due-date.removed'
   | 'card.priority.changed'
   | 'card.member.assigned'
-  | 'card.member.unassigned'
+  | 'card.member.removed'
   | 'card.label.added'
   | 'card.label.removed'
-  | 'card.comment.added'
-  | 'card.comment.updated'
-  | 'card.comment.deleted'
-  | 'card.archived'
-  | 'card.unarchived'
   | 'card.dependency.added'
   | 'card.dependency.removed';
 
-/**
- * Checklist Events
- */
-export type ChecklistEventType =
-  | 'checklist.item.created'
-  | 'checklist.item.updated'
-  | 'checklist.item.deleted'
-  | 'checklist.item.checked'
-  | 'checklist.item.unchecked';
-
-/**
- * Comment Events
- */
 export type CommentEventType =
   | 'comment.created'
   | 'comment.updated'
   | 'comment.deleted'
-  | 'comment.mentioned';
+  | 'comment.mention-added';
 
-/**
- * Document Events
- */
+export type ChecklistEventType =
+  | 'checklist.created'
+  | 'checklist.deleted'
+  | 'checklist.item.created'
+  | 'checklist.item.updated'
+  | 'checklist.item.deleted'
+  | 'checklist.item.status-changed';
+
 export type DocumentEventType =
   | 'document.created'
   | 'document.updated'
   | 'document.deleted'
-  | 'document.title.changed'
-  | 'document.operation.applied'
-  | 'document.format.applied'
-  | 'document.version.created'
+  | 'document.version.saved'
   | 'document.version.restored'
   | 'document.exported'
-  | 'document.permission.updated'
+  | 'document.permission.changed'
   | 'document.comment.added'
-  | 'document.comment.updated'
-  | 'document.comment.deleted'
-  | 'document.comment.resolved'
-  | 'document.user.joined'
-  | 'document.user.left'
-  | 'document.cursor.moved'
-  | 'document.selection.changed';
+  | 'document.comment.resolved';
 
-/**
- * Notification Events
- */
-export type NotificationEventType =
-  | 'notification.created'
-  | 'notification.read'
-  | 'notification.deleted';
-
-/**
- * Presence Events
- */
-export type PresenceEventType =
-  | 'presence.user.joined'
-  | 'presence.user.left'
-  | 'presence.user.online'
-  | 'presence.user.offline'
-  | 'presence.user.typing'
-  | 'presence.user.typing.stopped'
-  | 'presence.cursor.moved';
-
-export type GithubEventType =
-  | 'github.push'
-  | 'github.pr.opened'
-  | 'github.pr.closed'
-  | 'github.pr.merged'
-  | 'github.pr.review.submitted'
-  | 'github.pr.review_requested';
-
-/**
- * Project Events
- */
 export type ProjectEventType =
   | 'project.created'
   | 'project.updated'
   | 'project.deleted'
   | 'project.status.changed'
-  | 'project.board.assigned'
-  | 'project.board.removed'
+  | 'project.board.linked'
+  | 'project.board.unlinked'
   | 'project.milestone.created'
   | 'project.milestone.completed';
 
-/**
- * Team Events
- */
 export type TeamEventType =
   | 'team.created'
   | 'team.updated'
   | 'team.deleted'
   | 'team.member.added'
   | 'team.member.removed'
-  | 'team.member.roleChanged';
+  | 'team.member.role-changed';
 
-/**
- * All possible event types
- */
+export type GithubEventType =
+  | 'github.push.received'
+  | 'github.pr.opened'
+  | 'github.pr.closed'
+  | 'github.pr.merged'
+  | 'github.pr.review-submitted'
+  | 'github.pr.review-requested';
+
+/** Efímeros: solo WebSocket, nunca persisten en DB */
+export type EphemeralEventType =
+  | 'presence.user.joined'
+  | 'presence.user.left'
+  | 'presence.user.typing'
+  | 'presence.user.typing.stopped'
+  | 'presence.cursor.moved'
+  | 'document.user.joined'
+  | 'document.user.left'
+  | 'document.cursor.moved'
+  | 'document.selection.changed';
+
 export type EventType =
-  | AuthEventType
   | WorkspaceEventType
   | BoardEventType
   | ListEventType
   | CardEventType
-  | ChecklistEventType
   | CommentEventType
+  | ChecklistEventType
   | DocumentEventType
-  | NotificationEventType
-  | PresenceEventType
-  | GithubEventType
   | ProjectEventType
-  | TeamEventType;
+  | TeamEventType
+  | GithubEventType
+  | EphemeralEventType;
 
 // ============================================================================
-// AUTH EVENT PAYLOADS
+// SUBJECT TYPES
 // ============================================================================
 
-/**
- * User Registered Event
- */
-export interface UserRegisteredPayload {
-  userId: UserId;
-  email: string;
+export type SubjectType =
+  | 'workspace'
+  | 'board'
+  | 'list'
+  | 'card'
+  | 'comment'
+  | 'checklist'
+  | 'checklist-item'
+  | 'document'
+  | 'document-comment'
+  | 'project'
+  | 'milestone'
+  | 'team'
+  | 'member'
+  | 'label'
+  | 'dependency'
+  | 'version'
+  | 'repository';
+
+// ============================================================================
+// CANONICAL BASE EVENT STRUCTURE
+// ============================================================================
+
+export interface AetherActor {
+  id: string;
   name: string;
 }
 
-export type UserRegisteredEvent = BaseEvent<'auth.user.registered', UserRegisteredPayload>;
-
-/**
- * User Logged In Event
- */
-export interface UserLoggedInPayload {
-  userId: UserId;
-  email: string;
-}
-
-export type UserLoggedInEvent = BaseEvent<'auth.user.loggedIn', UserLoggedInPayload>;
-
-/**
- * User Logged Out Event
- */
-export interface UserLoggedOutPayload {
-  userId: UserId;
-}
-
-export type UserLoggedOutEvent = BaseEvent<'auth.user.loggedOut', UserLoggedOutPayload>;
-
-// ============================================================================
-// WORKSPACE EVENT PAYLOADS
-// ============================================================================
-
-/**
- * Workspace Created Event
- */
-export interface WorkspaceCreatedPayload {
-  workspaceId: WorkspaceId;
+export interface AetherSubject {
+  type: SubjectType;
+  id: string;
   name: string;
-  description?: string;
-  ownerId: UserId;
-  icon?: string;
-  color?: string;
 }
 
-export type WorkspaceCreatedEvent = BaseEvent<'workspace.created', WorkspaceCreatedPayload>;
-
-/**
- * Workspace Updated Event
- */
-export interface WorkspaceUpdatedPayload {
-  workspaceId: WorkspaceId;
-  changes: {
-    name?: string;
-    description?: string;
-    icon?: string;
-    color?: string;
-  };
-  updatedBy: UserId;
+export interface AetherContext {
+  workspaceId: string;
+  boardId?:    string;
+  listId?:     string;
+  cardId?:     string;
+  documentId?: string;
 }
 
-export type WorkspaceUpdatedEvent = BaseEvent<'workspace.updated', WorkspaceUpdatedPayload>;
-
-/**
- * Workspace Deleted Event
- */
-export interface WorkspaceDeletedPayload {
-  workspaceId: WorkspaceId;
-  deletedBy: UserId;
+export interface AetherDelta {
+  before: Record<string, unknown>;
+  after:  Record<string, unknown>;
 }
 
-export type WorkspaceDeletedEvent = BaseEvent<'workspace.deleted', WorkspaceDeletedPayload>;
+export interface AetherEvent<
+  TType extends EventType = EventType,
+  TPayload extends Record<string, unknown> = Record<string, unknown>
+> {
+  eventId:        string;
+  type:           TType;
+  timestamp:      number;
+  version:        1;
+  actor:          AetherActor;
+  subject:        AetherSubject;
+  context:        AetherContext;
+  delta?:         AetherDelta;
+  payload:        TPayload;
+  vectorClock:    VectorClock;
+  correlationId?: string;
+  socketId?:      string;
+}
 
-/**
- * Workspace Member Invited Event
- */
-export interface WorkspaceMemberInvitedPayload {
-  workspaceId: WorkspaceId;
-  inviterId: UserId;
-  inviteeId: UserId;
+/** Alias de compatibilidad */
+export type Event = AetherEvent;
+
+// ============================================================================
+// WORKSPACE PAYLOADS
+// ============================================================================
+
+export type WorkspaceCreatedPayload    = { plan?: string };
+export type WorkspaceUpdatedPayload    = Record<string, never>;
+export type WorkspaceDeletedPayload    = Record<string, never>;
+export type WorkspaceMemberInvitedPayload = {
   inviteeEmail: string;
-  inviteeName: string;
   role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
-}
-
-export type WorkspaceMemberInvitedEvent = BaseEvent<
-  'workspace.member.invited',
-  WorkspaceMemberInvitedPayload
->;
-
-/**
- * Workspace Member Role Changed Event
- */
-export interface WorkspaceMemberRoleChangedPayload {
-  workspaceId: WorkspaceId;
-  userId: UserId;
-  oldRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
-  newRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
-  changedBy: UserId;
-}
-
-export type WorkspaceMemberRoleChangedEvent = BaseEvent<
-  'workspace.member.roleChanged',
-  WorkspaceMemberRoleChangedPayload
->;
-
-/**
- * Workspace Member Removed Event
- */
-export interface WorkspaceMemberRemovedPayload {
-  workspaceId: WorkspaceId;
-  userId: UserId;
-  removedBy: UserId;
-}
-
-export type WorkspaceMemberRemovedEvent = BaseEvent<
-  'workspace.member.removed',
-  WorkspaceMemberRemovedPayload
->;
+};
+export type WorkspaceMemberJoinedPayload = {
+  role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+};
+export type WorkspaceMemberRemovedPayload = { reason?: string };
+export type WorkspaceMemberRoleChangedPayload = Record<string, never>; // delta cubre before/after role
 
 // ============================================================================
-// BOARD EVENT PAYLOADS
+// BOARD PAYLOADS
 // ============================================================================
 
-/**
- * Board Created Event
- */
-export interface BoardCreatedPayload {
-  boardId: BoardId;
-  workspaceId: WorkspaceId;
-  name: string;
-  description?: string;
-  createdBy: UserId;
-  position: number;
-}
-
-export type BoardCreatedEvent = BaseEvent<'board.created', BoardCreatedPayload>;
-
-/**
- * Board Updated Event
- */
-export interface BoardUpdatedPayload {
-  boardId: BoardId;
-  changes: {
-    name?: string;
-    description?: string;
-  };
-  updatedBy: UserId;
-  name: string;
-  workspaceId: string;
-}
-
-export type BoardUpdatedEvent = BaseEvent<'board.updated', BoardUpdatedPayload>;
-
-/**
- * Board Archived Event
- */
-export interface BoardArchivedPayload {
-  boardId: BoardId;
-  archivedBy: UserId;
-  workspaceId: string;
-}
-
-export type BoardArchivedEvent = BaseEvent<'board.archived', BoardArchivedPayload>;
-
-/**
- * Board Deleted Event
- */
-export interface BoardDeletedPayload {
-  boardId: BoardId;
-  deletedBy: UserId;
-}
-
-export type BoardDeletedEvent = BaseEvent<'board.deleted', BoardDeletedPayload>;
+export type BoardCreatedPayload    = { visibility?: string };
+export type BoardUpdatedPayload    = Record<string, never>;
+export type BoardDeletedPayload    = Record<string, never>;
+export type BoardArchivedPayload   = Record<string, never>;
+export type BoardRestoredPayload = Record<string, never>;
 
 // ============================================================================
-// LIST EVENT PAYLOADS
+// LIST PAYLOADS
 // ============================================================================
 
-/**
- * List Created Event
- */
-export interface ListCreatedPayload {
-  listId: ListId;
-  boardId: BoardId;
-  boardTitle?: string;
-  name: string;
-  position: number;
-  createdBy: UserId;
-  workspaceId: string | null;
-}
-
-export type ListCreatedEvent = BaseEvent<'list.created', ListCreatedPayload>;
-
-/**
- * List Updated Event
- */
-export interface ListUpdatedPayload {
-  listId: ListId;
-  changes: {
-    name?: string;
-  };
-  updatedBy: UserId;
-  name: string;
-  boardId: string;
-  workspaceId: string | null;
-}
-
-export type ListUpdatedEvent = BaseEvent<'list.updated', ListUpdatedPayload>;
-
-/**
- * List Reordered Event
- */
-export interface ListReorderedPayload {
-  listId: ListId;
-  boardId: BoardId;
-  oldPosition: number;
-  newPosition: number;
-  reorderedBy: UserId;
-  workspaceId: string | null;
-}
-
-export type ListReorderedEvent = BaseEvent<'list.reordered', ListReorderedPayload>;
-
-/**
- * List Deleted Event
- */
-export interface ListDeletedPayload {
-  listId: ListId;
-  boardId: BoardId;
-  deletedBy: UserId;
-  workspaceId: string | null;
-}
-
-export type ListDeletedEvent = BaseEvent<'list.deleted', ListDeletedPayload>;
+export type ListCreatedPayload   = { position: number };
+export type ListUpdatedPayload   = Record<string, never>;
+export type ListDeletedPayload   = Record<string, never>;
+export type ListArchivedPayload  = Record<string, never>;
+export type ListOrderChangedPayload = Record<string, never>; // delta: { before: {position}, after: {position} }
 
 // ============================================================================
-// CARD EVENT PAYLOADS
+// CARD PAYLOADS
 // ============================================================================
 
-/**
- * Card Created Event
- */
-export interface CardCreatedPayload {
-  cardId: CardId;
-  listId: ListId;
-  title: string;
-  description?: string;
-  position: number;
-  createdBy: UserId;
-}
+export type CardCreatedPayload      = { position: number };
+export type CardUpdatedPayload      = Record<string, never>;
+export type CardDeletedPayload      = Record<string, never>;
+export type CardMovedPayload        = Record<string, never>; // delta: { before: {listId,listName,position}, after: ... }
+export type CardStatusChangedPayload = Record<string, never>; // delta: { before: {completed}, after: {completed} }
+export type CardArchivedPayload     = Record<string, never>;
+export type CardRestoredPayload     = Record<string, never>;
+export type CardDueDateSetPayload   = Record<string, never>; // delta: { before: {dueDate}, after: {dueDate} }
+export type CardDueDateRemovedPayload = Record<string, never>;
+export type CardPriorityChangedPayload = Record<string, never>; // delta: { before: {priority}, after: {priority} }
 
-export type CardCreatedEvent = BaseEvent<'card.created', CardCreatedPayload>;
-
-/**
- * Card Updated Event
- */
-export interface CardUpdatedPayload {
-  cardId: CardId;
-  changes: {
-    title?: string;
-    description?: string;
-    dueDate?: string | null;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
-    completed?: boolean;
-    completedAt?: string | null;
-  };
-  updatedBy: UserId;
-}
-
-export type CardUpdatedEvent = BaseEvent<'card.updated', CardUpdatedPayload>;
-
-/**
- * Card Moved Event
- */
-export interface CardMovedPayload {
-  cardId: CardId;
-  fromListId: ListId;
-  toListId: ListId;
-  fromPosition: number;
-  toPosition: number;
-  movedBy: UserId;
-}
-
-export type CardMovedEvent = BaseEvent<'card.moved', CardMovedPayload>;
-
-/**
- * Card Deleted Event
- */
-export interface CardDeletedPayload {
-  cardId: CardId;
-  listId: ListId;
-  deletedBy: UserId;
-}
-
-export type CardDeletedEvent = BaseEvent<'card.deleted', CardDeletedPayload>;
-
-/**
- * Card Completed Event
- */
-export interface CardCompletedPayload {
-  cardId: CardId;
-  listId: ListId;
-  completedBy: UserId;
-  completedAt: string;
-}
-
-export type CardCompletedEvent = BaseEvent<'card.completed', CardCompletedPayload>;
-
-/**
- * Card Uncompleted Event
- */
-export interface CardUncompletedPayload {
-  cardId: CardId;
-  listId: ListId;
-  uncompletedBy: UserId;
-}
-
-export type CardUncompletedEvent = BaseEvent<'card.uncompleted', CardUncompletedPayload>;
-
-/**
- * Card Member Assigned Event
- */
-export interface CardMemberAssignedPayload {
-  cardId: CardId;
-  userId: UserId;
-  assignedBy: UserId;
-}
-
-export type CardMemberAssignedEvent = BaseEvent<'card.member.assigned', CardMemberAssignedPayload>;
-
-/**
- * Card Member Unassigned Event
- */
-export interface CardMemberUnassignedPayload {
-  cardId: CardId;
-  userId: UserId;
-  unassignedBy: UserId;
-}
-
-export type CardMemberUnassignedEvent = BaseEvent<
-  'card.member.unassigned',
-  CardMemberUnassignedPayload
->;
-
-/**
- * Card Label Added Event
- */
-export interface CardLabelAddedPayload {
-  cardId: CardId;
-  labelId: LabelId;
-  addedBy: UserId;
-}
-
-export type CardLabelAddedEvent = BaseEvent<'card.label.added', CardLabelAddedPayload>;
-
-/**
- * Card Label Removed Event
- */
-export interface CardLabelRemovedPayload {
-  cardId: CardId;
-  labelId: LabelId;
-  removedBy: UserId;
-}
-
-export type CardLabelRemovedEvent = BaseEvent<'card.label.removed', CardLabelRemovedPayload>;
+export type CardMemberAssignedPayload = {
+  memberId:   string;
+  memberName: string;
+};
+export type CardMemberRemovedPayload = {
+  memberId:   string;
+  memberName: string;
+};
+export type CardLabelAddedPayload = {
+  labelId:   string;
+  labelName: string;
+  color?:    string;
+};
+export type CardLabelRemovedPayload = {
+  labelId:   string;
+  labelName: string;
+};
+export type CardDependencyAddedPayload = {
+  dependsOnId:    string;
+  dependsOnTitle: string;
+};
+export type CardDependencyRemovedPayload = {
+  dependsOnId:    string;
+  dependsOnTitle: string;
+};
 
 // ============================================================================
-// COMMENT EVENT PAYLOADS
+// COMMENT PAYLOADS
 // ============================================================================
 
-/**
- * Comment Created Event
- */
-export interface CommentCreatedPayload {
-  commentId: CommentId;
-  cardId: CardId;
-  userId: UserId;
-  content: string;
-  mentions: UserId[];
-  createdBy: UserId;
-}
-
-export type CommentCreatedEvent = BaseEvent<'comment.created', CommentCreatedPayload>;
-
-/**
- * Comment Updated Event
- */
-export interface CommentUpdatedPayload {
-  commentId: CommentId;
-  cardId: CardId;
-  changes: {
-    content?: string;
-    mentions?: UserId[];
-  };
-  updatedBy: UserId;
-}
-
-export type CommentUpdatedEvent = BaseEvent<'comment.updated', CommentUpdatedPayload>;
-
-/**
- * Comment Deleted Event
- */
-export interface CommentDeletedPayload {
-  commentId: CommentId;
-  cardId: CardId;
-  deletedBy: UserId;
-}
-
-export type CommentDeletedEvent = BaseEvent<'comment.deleted', CommentDeletedPayload>;
-
-/**
- * Comment Mentioned Event
- * Se dispara cuando un usuario es mencionado en un comentario
- */
-export interface CommentMentionedPayload {
-  commentId: CommentId;
-  cardId: CardId;
-  mentionedUserId: UserId;
-  mentionedByUserId: UserId;
-  content: string;
-}
-
-export type CommentMentionedEvent = BaseEvent<'comment.mentioned', CommentMentionedPayload>;
+export type CommentCreatedPayload  = { content: string; mentions: string[] };
+export type CommentUpdatedPayload  = Record<string, never>; // delta: { before: {content}, after: {content} }
+export type CommentDeletedPayload  = Record<string, never>;
+export type CommentMentionAddedPayload = {
+  mentionedUserId:   string;
+  mentionedUserName: string;
+  contentPreview:    string;
+};
 
 // ============================================================================
-// DOCUMENT EVENT PAYLOADS
+// CHECKLIST PAYLOADS
 // ============================================================================
 
-/**
- * Document Created Event
- */
-export interface DocumentCreatedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  title: string;
-  createdBy: UserId;
-  templateId?: string; // Si se creó desde una plantilla
-}
-
-export type DocumentCreatedEvent = BaseEvent<'document.created', DocumentCreatedPayload>;
-
-/**
- * Document Updated Event
- * Para cambios generales del documento (no contenido Yjs)
- */
-export interface DocumentUpdatedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  changes: {
-    title?: string;
-    content?: string; // Texto plano extraído
-  };
-  updatedBy: UserId;
-}
-
-export type DocumentUpdatedEvent = BaseEvent<'document.updated', DocumentUpdatedPayload>;
-
-/**
- * Document Title Changed Event
- */
-export interface DocumentTitleChangedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  oldTitle: string;
-  newTitle: string;
-  changedBy: UserId;
-}
-
-export type DocumentTitleChangedEvent = BaseEvent<
-  'document.title.changed',
-  DocumentTitleChangedPayload
->;
-
-/**
- * Document Deleted Event
- */
-export interface DocumentDeletedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  deletedBy: UserId;
-}
-
-export type DocumentDeletedEvent = BaseEvent<'document.deleted', DocumentDeletedPayload>;
-
-/**
- * Document Operation Applied Event
- * Para operaciones Yjs (CRDT) - granular
- */
-export interface DocumentOperationAppliedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  operation: {
-    type: 'insert' | 'delete' | 'format' | 'update';
-    position?: number;
-    length?: number;
-    content?: string;
-    attributes?: Record<string, any>;
-  };
-  userId: UserId;
-  vectorClock: VectorClock; // Para ordenamiento causal
-}
-
-export type DocumentOperationAppliedEvent = BaseEvent<
-  'document.operation.applied',
-  DocumentOperationAppliedPayload
->;
-
-/**
- * Document Format Applied Event
- * Para cambios de formato (negrita, cursiva, etc.)
- */
-export interface DocumentFormatAppliedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  format: {
-    type: 'bold' | 'italic' | 'underline' | 'strike' | 'heading' | 'list' | 'link' | 'code';
-    from: number;
-    to: number;
-    value?: any; // e.g., nivel de heading, URL del link, etc.
-  };
-  appliedBy: UserId;
-}
-
-export type DocumentFormatAppliedEvent = BaseEvent<
-  'document.format.applied',
-  DocumentFormatAppliedPayload
->;
-
-/**
- * Document Version Created Event
- * Snapshot automático del documento
- */
-export interface DocumentVersionCreatedPayload {
-  versionId: DocumentVersionId;
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  metadata: {
-    operationCount?: number;
-    description?: string;
-  };
-  createdBy: UserId;
-}
-
-export type DocumentVersionCreatedEvent = BaseEvent<
-  'document.version.created',
-  DocumentVersionCreatedPayload
->;
-
-/**
- * Document Version Restored Event
- */
-export interface DocumentVersionRestoredPayload {
-  versionId: DocumentVersionId;
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  restoredBy: UserId;
-}
-
-export type DocumentVersionRestoredEvent = BaseEvent<
-  'document.version.restored',
-  DocumentVersionRestoredPayload
->;
-
-/**
- * Document Exported Event
- */
-export interface DocumentExportedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  format: 'markdown' | 'pdf' | 'html';
-  exportedBy: UserId;
-}
-
-export type DocumentExportedEvent = BaseEvent<'document.exported', DocumentExportedPayload>;
-
-/**
- * Document Permission Updated Event
- */
-export interface DocumentPermissionUpdatedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  targetUserId?: UserId;
-  permission: 'VIEW' | 'COMMENT' | 'EDIT';
-  updatedBy: UserId;
-}
-
-export type DocumentPermissionUpdatedEvent = BaseEvent<
-  'document.permission.updated',
-  DocumentPermissionUpdatedPayload
->;
-
-/**
- * Document Comment Added Event
- */
-export interface DocumentCommentAddedPayload {
-  commentId: DocumentCommentId;
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  content: string;
-  position: {
-    from: number;
-    to: number;
-  };
-  mentions?: UserId[];
-  parentId?: DocumentCommentId; // Para threading
-  createdBy: UserId;
-}
-
-export type DocumentCommentAddedEvent = BaseEvent<
-  'document.comment.added',
-  DocumentCommentAddedPayload
->;
-
-/**
- * Document Comment Updated Event
- */
-export interface DocumentCommentUpdatedPayload {
-  commentId: DocumentCommentId;
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  changes: {
-    content?: string;
-    mentions?: UserId[];
-  };
-  updatedBy: UserId;
-}
-
-export type DocumentCommentUpdatedEvent = BaseEvent<
-  'document.comment.updated',
-  DocumentCommentUpdatedPayload
->;
-
-/**
- * Document Comment Deleted Event
- */
-export interface DocumentCommentDeletedPayload {
-  commentId: DocumentCommentId;
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  deletedBy: UserId;
-}
-
-export type DocumentCommentDeletedEvent = BaseEvent<
-  'document.comment.deleted',
-  DocumentCommentDeletedPayload
->;
-
-/**
- * Document Comment Resolved Event
- */
-export interface DocumentCommentResolvedPayload {
-  commentId: DocumentCommentId;
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  resolved: boolean;
-  resolvedBy: UserId;
-}
-
-export type DocumentCommentResolvedEvent = BaseEvent<
-  'document.comment.resolved',
-  DocumentCommentResolvedPayload
->;
-
-/**
- * Document User Joined Event (Awareness/Presencia)
- */
-export interface DocumentUserJoinedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  userId: UserId;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-    color: string; // Color del cursor
-  };
-}
-
-export type DocumentUserJoinedEvent = BaseEvent<'document.user.joined', DocumentUserJoinedPayload>;
-
-/**
- * Document User Left Event
- */
-export interface DocumentUserLeftPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  userId: UserId;
-}
-
-export type DocumentUserLeftEvent = BaseEvent<'document.user.left', DocumentUserLeftPayload>;
-
-/**
- * Document Cursor Moved Event (Ephemeral)
- */
-export interface DocumentCursorMovedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  userId: UserId;
-  position: number; // Posición en el documento
-  userName: string;
-  userColor: string;
-}
-
-export type DocumentCursorMovedEvent = BaseEvent<
-  'document.cursor.moved',
-  DocumentCursorMovedPayload
->;
-
-/**
- * Document Selection Changed Event (Ephemeral)
- */
-export interface DocumentSelectionChangedPayload {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-  userId: UserId;
-  selection: {
-    from: number;
-    to: number;
-  };
-  userName: string;
-  userColor: string;
-}
-
-export type DocumentSelectionChangedEvent = BaseEvent<
-  'document.selection.changed',
-  DocumentSelectionChangedPayload
->;
+export type ChecklistCreatedPayload         = Record<string, never>;
+export type ChecklistDeletedPayload         = Record<string, never>;
+export type ChecklistItemCreatedPayload     = { position: number };
+export type ChecklistItemUpdatedPayload     = Record<string, never>; // delta: { before: {title}, after: {title} }
+export type ChecklistItemDeletedPayload     = Record<string, never>;
+export type ChecklistItemStatusChangedPayload = Record<string, never>; // delta: { before: {checked}, after: {checked} } — event: checklist.item.status-changed
 
 // ============================================================================
-// PRESENCE EVENT PAYLOADS
+// DOCUMENT PAYLOADS
 // ============================================================================
 
-/**
- * User Joined Board Event (WebSocket)
- */
-export interface UserJoinedBoardPayload {
-  userId: UserId;
-  boardId: BoardId;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-  };
-}
+export type DocumentCreatedPayload           = Record<string, never>;
+export type DocumentUpdatedPayload           = Record<string, never>; // delta: { before: {title}, after: {title} }
+export type DocumentDeletedPayload           = Record<string, never>;
+export type DocumentVersionSavedPayload      = { versionNumber: number; size?: number };
+export type DocumentVersionRestoredPayload   = Record<string, never>; // delta: { before: {versionNumber}, after: {versionNumber} }
+export type DocumentExportedPayload          = { format: 'pdf' | 'docx' | 'md' };
+export type DocumentPermissionChangedPayload = {
+  targetUserId?:   string;
+  targetUserName?: string;
+}; // delta: { before: {permission}, after: {permission} }
+export type DocumentCommentAddedPayload    = { content: string; mentions: string[] };
+export type DocumentCommentResolvedPayload = Record<string, never>;
 
-export type UserJoinedBoardEvent = BaseEvent<'presence.user.joined', UserJoinedBoardPayload>;
+// ============================================================================
+// PROJECT PAYLOADS
+// ============================================================================
 
-/**
- * User Left Board Event (WebSocket)
- */
-export interface UserLeftBoardPayload {
-  userId: UserId;
-  boardId: BoardId;
-}
+export type ProjectCreatedPayload           = Record<string, never>;
+export type ProjectUpdatedPayload           = Record<string, never>;
+export type ProjectDeletedPayload           = Record<string, never>;
+export type ProjectStatusChangedPayload     = Record<string, never>; // delta: { before: {status}, after: {status} }
+export type ProjectMilestoneCreatedPayload  = { dueDate?: string };
+export type ProjectMilestoneCompletedPayload = Record<string, never>;
 
-export type UserLeftBoardEvent = BaseEvent<'presence.user.left', UserLeftBoardPayload>;
+// ============================================================================
+// TEAM PAYLOADS
+// ============================================================================
 
-/**
- * User Online Event
- */
-export interface UserOnlinePayload {
-  userId: UserId;
-  workspaceId?: WorkspaceId;
-  boardId?: BoardId;
-}
+export type TeamCreatedPayload           = Record<string, never>;
+export type TeamUpdatedPayload           = Record<string, never>;
+export type TeamDeletedPayload           = Record<string, never>;
+export type TeamMemberAddedPayload       = { role: string };
+export type TeamMemberRemovedPayload     = Record<string, never>;
+export type TeamMemberRoleChangedPayload = { memberId: string }; // delta: { before: {role}, after: {role} }
 
-export type UserOnlineEvent = BaseEvent<'presence.user.online', UserOnlinePayload>;
+// ============================================================================
+// GITHUB PAYLOADS
+// ============================================================================
 
-/**
- * User Offline Event
- */
-export interface UserOfflinePayload {
-  userId: UserId;
-  lastSeen: number;
-}
+export type GithubPushReceivedPayload      = { branch: string; commitCount: number; ref: string };
+export type GithubPrOpenedPayload          = { prId: string; title: string; branch: string };
+export type GithubPrClosedPayload          = { prId: string; title: string };
+export type GithubPrMergedPayload          = { prId: string; title: string; branch: string };
+export type GithubPrReviewSubmittedPayload = { prId: string; reviewer: string; state: string };
+export type GithubPrReviewRequestedPayload = { prId: string; reviewer: string };
 
-export type UserOfflineEvent = BaseEvent<'presence.user.offline', UserOfflinePayload>;
+// ============================================================================
+// EPHEMERAL PAYLOADS (solo WebSocket)
+// ============================================================================
 
-/**
- * User Typing Event (Ephemeral - No persiste en DB)
- */
-export interface UserTypingPayload {
-  userId: UserId;
-  cardId: CardId;
-  user: {
-    id: string;
-    name: string;
-  };
-}
-
-export type UserTypingEvent = BaseEvent<'presence.user.typing', UserTypingPayload>;
-
-/**
- * User Stopped Typing Event (Ephemeral)
- */
-export interface UserTypingStoppedPayload {
-  userId: UserId;
-  cardId: CardId;
-}
-
-export type UserTypingStoppedEvent = BaseEvent<
-  'presence.user.typing.stopped',
-  UserTypingStoppedPayload
->;
-
-/**
- * Cursor Moved Event (Ephemeral)
- */
-export interface CursorMovedPayload {
-  userId: UserId;
-  documentId?: DocumentId;
-  position: {
-    x: number;
-    y: number;
-  };
+export type PresenceUserJoinedPayload = {
+  user: { id: string; name: string; email: string; avatar?: string };
+};
+export type PresenceUserLeftPayload    = Record<string, never>;
+export type PresenceUserTypingPayload  = { cardId: string };
+export type PresenceUserTypingStoppedPayload = { cardId: string };
+export type PresenceCursorMovedPayload = { x: number; y: number; color: string };
+export type DocumentUserJoinedPayload  = {
+  user: { id: string; name: string; avatar?: string; color: string };
+};
+export type DocumentUserLeftPayload    = Record<string, never>;
+export type DocumentCursorMovedPayload = { position: number; color: string };
+export type DocumentSelectionChangedPayload = {
+  selection: { from: number; to: number };
   color: string;
-}
-
-export type CursorMovedEvent = BaseEvent<'presence.cursor.moved', CursorMovedPayload>;
+};
 
 // ============================================================================
-// NOTIFICATION EVENT PAYLOADS
+// TYPED EVENT ALIASES
 // ============================================================================
 
-/**
- * Notification Created Event
- */
-export interface NotificationCreatedPayload {
-  notificationId: NotificationId;
-  userId: UserId;
-  type:
-    | 'COMMENT_MENTION'
-    | 'COMMENT_ADDED'
-    | 'CARD_ASSIGNED'
-    | 'CARD_UNASSIGNED'
-    | 'CARD_DUE_SOON'
-    | 'CARD_OVERDUE'
-    | 'WORKSPACE_INVITE'
-    | 'WORKSPACE_REMOVED'
-    | 'DOCUMENT_MENTION'
-    | 'DOCUMENT_SHARED'
-    | 'DOCUMENT_COMMENT';
-  title: string;
-  message: string;
-  data: {
-    cardId?: CardId;
-    cardTitle?: string;
-    documentId?: DocumentId;
-    documentTitle?: string;
-    commentId?: CommentId | DocumentCommentId;
-    commentPreview?: string;
-    authorId?: UserId;
-    authorName?: string;
-    [key: string]: any;
-  };
-}
+export type WorkspaceCreatedEvent      = AetherEvent<'workspace.created',           WorkspaceCreatedPayload>;
+export type WorkspaceUpdatedEvent      = AetherEvent<'workspace.updated',           WorkspaceUpdatedPayload>;
+export type WorkspaceDeletedEvent      = AetherEvent<'workspace.deleted',           WorkspaceDeletedPayload>;
+export type WorkspaceMemberInvitedEvent = AetherEvent<'workspace.member.invited',   WorkspaceMemberInvitedPayload>;
+export type WorkspaceMemberJoinedEvent  = AetherEvent<'workspace.member.joined',    WorkspaceMemberJoinedPayload>;
+export type WorkspaceMemberRemovedEvent = AetherEvent<'workspace.member.removed',   WorkspaceMemberRemovedPayload>;
+export type WorkspaceMemberRoleChangedEvent = AetherEvent<'workspace.member.role-changed', WorkspaceMemberRoleChangedPayload>;
 
-export type NotificationCreatedEvent = BaseEvent<
-  'notification.created',
-  NotificationCreatedPayload
->;
+export type BoardCreatedEvent  = AetherEvent<'board.created',   BoardCreatedPayload>;
+export type BoardUpdatedEvent  = AetherEvent<'board.updated',   BoardUpdatedPayload>;
+export type BoardDeletedEvent  = AetherEvent<'board.deleted',   BoardDeletedPayload>;
+export type BoardArchivedEvent = AetherEvent<'board.archived',  BoardArchivedPayload>;
+export type BoardRestoredEvent = AetherEvent<'board.restored',  BoardRestoredPayload>;
 
-/**
- * Notification Read Event
- */
-export interface NotificationReadPayload {
-  notificationId: NotificationId;
-  userId: UserId;
-  unreadCount: number;
-}
+export type ListCreatedEvent      = AetherEvent<'list.created',      ListCreatedPayload>;
+export type ListUpdatedEvent      = AetherEvent<'list.updated',      ListUpdatedPayload>;
+export type ListDeletedEvent      = AetherEvent<'list.deleted',      ListDeletedPayload>;
+export type ListArchivedEvent     = AetherEvent<'list.archived',     ListArchivedPayload>;
+export type ListOrderChangedEvent = AetherEvent<'list.order-changed',ListOrderChangedPayload>;
 
-export type NotificationReadEvent = BaseEvent<'notification.read', NotificationReadPayload>;
+export type CardCreatedEvent         = AetherEvent<'card.created',          CardCreatedPayload>;
+export type CardUpdatedEvent         = AetherEvent<'card.updated',          CardUpdatedPayload>;
+export type CardDeletedEvent         = AetherEvent<'card.deleted',          CardDeletedPayload>;
+export type CardMovedEvent           = AetherEvent<'card.moved',            CardMovedPayload>;
+export type CardStatusChangedEvent   = AetherEvent<'card.status-changed',   CardStatusChangedPayload>;
+export type CardArchivedEvent        = AetherEvent<'card.archived',         CardArchivedPayload>;
+export type CardRestoredEvent        = AetherEvent<'card.restored',         CardRestoredPayload>;
+export type CardDueDateSetEvent      = AetherEvent<'card.due-date.set',     CardDueDateSetPayload>;
+export type CardDueDateRemovedEvent  = AetherEvent<'card.due-date.removed', CardDueDateRemovedPayload>;
+export type CardPriorityChangedEvent = AetherEvent<'card.priority.changed', CardPriorityChangedPayload>;
+export type CardMemberAssignedEvent  = AetherEvent<'card.member.assigned',  CardMemberAssignedPayload>;
+export type CardMemberRemovedEvent   = AetherEvent<'card.member.removed',   CardMemberRemovedPayload>;
+export type CardLabelAddedEvent      = AetherEvent<'card.label.added',      CardLabelAddedPayload>;
+export type CardLabelRemovedEvent    = AetherEvent<'card.label.removed',    CardLabelRemovedPayload>;
+export type CardDependencyAddedEvent   = AetherEvent<'card.dependency.added',   CardDependencyAddedPayload>;
+export type CardDependencyRemovedEvent = AetherEvent<'card.dependency.removed', CardDependencyRemovedPayload>;
 
-/**
- * Notification Read All Event
- */
-export interface NotificationReadAllPayload {
-  userId: UserId;
-  unreadCount: number;
-}
+export type CommentCreatedEvent      = AetherEvent<'comment.created',      CommentCreatedPayload>;
+export type CommentUpdatedEvent      = AetherEvent<'comment.updated',      CommentUpdatedPayload>;
+export type CommentDeletedEvent      = AetherEvent<'comment.deleted',      CommentDeletedPayload>;
+export type CommentMentionAddedEvent = AetherEvent<'comment.mention-added',CommentMentionAddedPayload>;
 
-export type NotificationReadAllEvent = BaseEvent<
-  'notification.read_all',
-  NotificationReadAllPayload
->;
+export type ChecklistCreatedEvent             = AetherEvent<'checklist.created',            ChecklistCreatedPayload>;
+export type ChecklistDeletedEvent             = AetherEvent<'checklist.deleted',            ChecklistDeletedPayload>;
+export type ChecklistItemCreatedEvent         = AetherEvent<'checklist.item.created',       ChecklistItemCreatedPayload>;
+export type ChecklistItemUpdatedEvent         = AetherEvent<'checklist.item.updated',       ChecklistItemUpdatedPayload>;
+export type ChecklistItemDeletedEvent         = AetherEvent<'checklist.item.deleted',       ChecklistItemDeletedPayload>;
+export type ChecklistItemStatusChangedEvent   = AetherEvent<'checklist.item.status-changed',ChecklistItemStatusChangedPayload>;
 
-/**
- * Notification Deleted Event
- */
-export interface NotificationDeletedPayload {
-  notificationId: NotificationId;
-  userId: UserId;
-  unreadCount: number;
-}
+export type DocumentCreatedEvent            = AetherEvent<'document.created',            DocumentCreatedPayload>;
+export type DocumentUpdatedEvent            = AetherEvent<'document.updated',            DocumentUpdatedPayload>;
+export type DocumentDeletedEvent            = AetherEvent<'document.deleted',            DocumentDeletedPayload>;
+export type DocumentVersionSavedEvent       = AetherEvent<'document.version.saved',      DocumentVersionSavedPayload>;
+export type DocumentVersionRestoredEvent    = AetherEvent<'document.version.restored',   DocumentVersionRestoredPayload>;
+export type DocumentExportedEvent           = AetherEvent<'document.exported',           DocumentExportedPayload>;
+export type DocumentPermissionChangedEvent  = AetherEvent<'document.permission.changed', DocumentPermissionChangedPayload>;
+export type DocumentCommentAddedEvent       = AetherEvent<'document.comment.added',      DocumentCommentAddedPayload>;
+export type DocumentCommentResolvedEvent    = AetherEvent<'document.comment.resolved',   DocumentCommentResolvedPayload>;
 
-export type NotificationDeletedEvent = BaseEvent<
-  'notification.deleted',
-  NotificationDeletedPayload
->;
+export type ProjectCreatedEvent            = AetherEvent<'project.created',            ProjectCreatedPayload>;
+export type ProjectUpdatedEvent            = AetherEvent<'project.updated',            ProjectUpdatedPayload>;
+export type ProjectDeletedEvent            = AetherEvent<'project.deleted',            ProjectDeletedPayload>;
+export type ProjectStatusChangedEvent      = AetherEvent<'project.status.changed',     ProjectStatusChangedPayload>;
+export type ProjectBoardLinkedEvent        = AetherEvent<'project.board.linked',        Record<string, never>>;
+export type ProjectBoardUnlinkedEvent      = AetherEvent<'project.board.unlinked',      Record<string, never>>;
+export type ProjectMilestoneCreatedEvent   = AetherEvent<'project.milestone.created',  ProjectMilestoneCreatedPayload>;
+export type ProjectMilestoneCompletedEvent = AetherEvent<'project.milestone.completed',ProjectMilestoneCompletedPayload>;
 
-// ============================================================================
-// EVENT UNION TYPES
-// ============================================================================
+export type TeamCreatedEvent          = AetherEvent<'team.created',          TeamCreatedPayload>;
+export type TeamUpdatedEvent          = AetherEvent<'team.updated',          TeamUpdatedPayload>;
+export type TeamDeletedEvent          = AetherEvent<'team.deleted',          TeamDeletedPayload>;
+export type TeamMemberAddedEvent      = AetherEvent<'team.member.added',     TeamMemberAddedPayload>;
+export type TeamMemberRemovedEvent    = AetherEvent<'team.member.removed',   TeamMemberRemovedPayload>;
+export type TeamMemberRoleChangedEvent = AetherEvent<'team.member.role-changed',TeamMemberRoleChangedPayload>;
 
-/**
- * All possible events in the system
- */
-export type Event =
-  | UserRegisteredEvent
-  | UserLoggedInEvent
-  | UserLoggedOutEvent
-  | WorkspaceCreatedEvent
-  | WorkspaceUpdatedEvent
-  | WorkspaceDeletedEvent
-  | WorkspaceMemberInvitedEvent
-  | WorkspaceMemberRoleChangedEvent
-  | WorkspaceMemberRemovedEvent
-  | BoardCreatedEvent
-  | BoardUpdatedEvent
-  | BoardArchivedEvent
-  | BoardDeletedEvent
-  | ListCreatedEvent
-  | ListUpdatedEvent
-  | ListReorderedEvent
-  | ListDeletedEvent
-  | CardCreatedEvent
-  | CardUpdatedEvent
-  | CardMovedEvent
-  | CardDeletedEvent
-  | CardCompletedEvent
-  | CardUncompletedEvent
-  | CardMemberAssignedEvent
-  | CardMemberUnassignedEvent
-  | CardLabelAddedEvent
-  | CardLabelRemovedEvent
-  | CommentCreatedEvent
-  | CommentUpdatedEvent
-  | CommentDeletedEvent
-  | CommentMentionedEvent
-  | DocumentCreatedEvent
-  | DocumentUpdatedEvent
-  | DocumentTitleChangedEvent
-  | DocumentDeletedEvent
-  | DocumentOperationAppliedEvent
-  | DocumentFormatAppliedEvent
-  | DocumentVersionCreatedEvent
-  | DocumentVersionRestoredEvent
-  | DocumentExportedEvent
-  | DocumentPermissionUpdatedEvent
-  | DocumentCommentAddedEvent
-  | DocumentCommentUpdatedEvent
-  | DocumentCommentDeletedEvent
-  | DocumentCommentResolvedEvent
-  | DocumentUserJoinedEvent
-  | DocumentUserLeftEvent
-  | DocumentCursorMovedEvent
-  | DocumentSelectionChangedEvent
-  | NotificationCreatedEvent
-  | NotificationReadEvent
-  | NotificationReadAllEvent
-  | NotificationDeletedEvent
-  | UserJoinedBoardEvent
-  | UserLeftBoardEvent
-  | UserOnlineEvent
-  | UserOfflineEvent
-  | UserTypingEvent
-  | UserTypingStoppedEvent
-  | CursorMovedEvent
-  | BaseEvent<EventType, unknown>;
+export type GithubPushReceivedEvent        = AetherEvent<'github.push.received',       GithubPushReceivedPayload>;
+export type GithubPrOpenedEvent            = AetherEvent<'github.pr.opened',           GithubPrOpenedPayload>;
+export type GithubPrClosedEvent            = AetherEvent<'github.pr.closed',           GithubPrClosedPayload>;
+export type GithubPrMergedEvent            = AetherEvent<'github.pr.merged',           GithubPrMergedPayload>;
+export type GithubPrReviewSubmittedEvent   = AetherEvent<'github.pr.review-submitted', GithubPrReviewSubmittedPayload>;
+export type GithubPrReviewRequestedEvent   = AetherEvent<'github.pr.review-requested', GithubPrReviewRequestedPayload>;
 
 // ============================================================================
-// EVENT HELPERS
+// EPHEMERAL EVENTS (solo WebSocket, sin persistir)
 // ============================================================================
 
-/**
- * Type guard to check event type
- */
-export function isEventType<T extends EventType>(
-  event: Event,
-  type: T
-): event is Extract<Event, { type: T }> {
-  return event.type === type;
-}
-
-/**
- * Extract payload type from event type
- */
-export type PayloadOf<T extends EventType> = Extract<Event, { type: T }>['payload'];
-
-/**
- * Helper para identificar eventos efímeros (no se persisten en DB)
- */
 export const EPHEMERAL_EVENTS = new Set<EventType>([
+  'presence.user.joined',
+  'presence.user.left',
   'presence.user.typing',
   'presence.user.typing.stopped',
   'presence.cursor.moved',
+  'document.user.joined',
+  'document.user.left',
   'document.cursor.moved',
   'document.selection.changed',
 ]);
@@ -1271,12 +508,60 @@ export function isEphemeralEvent(eventType: EventType): boolean {
 }
 
 // ============================================================================
-// WEBSOCKET MESSAGE TYPES
+// HELPERS
 // ============================================================================
 
+export function isEventType<T extends EventType>(
+  event: AetherEvent,
+  type: T
+): event is AetherEvent<T> {
+  return event.type === type;
+}
+
 /**
- * WebSocket message structure for client-server communication
+ * Serializa un evento a texto legible para logs y contexto del LLM.
+ *
+ * Ejemplo de salida:
+ *   [2026-05-21T10:03Z] card.status.changed
+ *     actor: Sebastián Hernández
+ *     subject: "Fix auth bug" (card)
+ *     context: workspace abc, board "Backend", list "En progreso"
+ *     delta: completed false → true
  */
+export function toReadable(event: AetherEvent): string {
+  const date = new Date(event.timestamp).toISOString().replace('.000Z', 'Z');
+  const lines: string[] = [
+    `[${date}] ${event.type}`,
+    `  actor: ${event.actor.name}`,
+    `  subject: "${event.subject.name}" (${event.subject.type})`,
+  ];
+
+  const ctx = event.context;
+  const ctxParts: string[] = [`workspace ${ctx.workspaceId.slice(0, 8)}`];
+  if (ctx.boardId)    ctxParts.push(`board ${ctx.boardId.slice(0, 8)}`);
+  if (ctx.listId)     ctxParts.push(`list ${ctx.listId.slice(0, 8)}`);
+  if (ctx.cardId)     ctxParts.push(`card ${ctx.cardId.slice(0, 8)}`);
+  if (ctx.documentId) ctxParts.push(`doc ${ctx.documentId.slice(0, 8)}`);
+  lines.push(`  context: ${ctxParts.join(', ')}`);
+
+  if (event.delta) {
+    const before = JSON.stringify(event.delta.before);
+    const after  = JSON.stringify(event.delta.after);
+    lines.push(`  delta: ${before} → ${after}`);
+  }
+
+  const payloadKeys = Object.keys(event.payload);
+  if (payloadKeys.length > 0) {
+    lines.push(`  payload: ${JSON.stringify(event.payload)}`);
+  }
+
+  return lines.join('\n');
+}
+
+// ============================================================================
+// WEBSOCKET MESSAGE TYPES (sin cambios)
+// ============================================================================
+
 export interface WebSocketMessage<T = unknown> {
   type: 'event' | 'command' | 'query' | 'error' | 'ack';
   payload: T;
@@ -1284,9 +569,6 @@ export interface WebSocketMessage<T = unknown> {
   timestamp?: number;
 }
 
-/**
- * Command types for WebSocket operations
- */
 export type WebSocketCommand =
   | 'join.board'
   | 'leave.board'
@@ -1297,65 +579,16 @@ export type WebSocketCommand =
   | 'cursor.move'
   | 'selection.change';
 
-/**
- * Join Board Command
- */
-export interface JoinBoardCommand {
-  boardId: BoardId;
-}
-
-/**
- * Leave Board Command
- */
-export interface LeaveBoardCommand {
-  boardId: BoardId;
-}
-
-/**
- * Join Document Command
- */
-export interface JoinDocumentCommand {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-}
-
-/**
- * Leave Document Command
- */
-export interface LeaveDocumentCommand {
-  documentId: DocumentId;
-  workspaceId: WorkspaceId;
-}
-
-/**
- * Typing Start Command
- */
-export interface TypingStartCommand {
-  cardId: CardId;
-}
-
-/**
- * Typing Stop Command
- */
-export interface TypingStopCommand {
-  cardId: CardId;
-}
-
-/**
- * Cursor Move Command
- */
-export interface CursorMoveCommand {
-  documentId: DocumentId;
-  position: number;
-}
-
-/**
- * Selection Change Command
- */
+export interface JoinBoardCommand    { boardId: BoardId }
+export interface LeaveBoardCommand   { boardId: BoardId }
+export interface JoinDocumentCommand { documentId: DocumentId; workspaceId: WorkspaceId }
+export interface LeaveDocumentCommand { documentId: DocumentId; workspaceId: WorkspaceId }
+export interface TypingStartCommand  { cardId: CardId }
+export interface TypingStopCommand   { cardId: CardId }
+export interface CursorMoveCommand   { documentId: DocumentId; position: number }
 export interface SelectionChangeCommand {
   documentId: DocumentId;
-  selection: {
-    from: number;
-    to: number;
-  };
+  selection: { from: number; to: number };
 }
+
+// NotificationType está definido en models.ts — no se duplica aquí.

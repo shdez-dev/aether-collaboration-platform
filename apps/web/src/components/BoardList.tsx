@@ -6,6 +6,7 @@ import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
+import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { useSortable } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
@@ -96,6 +97,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
       const r = await apiService.post<{ card: any }>(`/api/lists/${list.id}/cards`, { title: cardTitle.trim() }, true);
       if (!r.success) throw new Error(r.error?.message || 'Error al crear la tarjeta');
       addCard(list.id, r.data!.card);
+      markStepDone('card');
       setSelectedCard(r.data!.card);
       setCardTitle(''); setIsAddingCard(false);
     } catch (err: any) {
@@ -337,7 +339,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
                   onMouseEnter={(e) => { (e.currentTarget.style.borderColor = C.accent); (e.currentTarget.style.color = C.accent); }}
                   onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border); (e.currentTarget.style.color = C.text4); }}
                 >
-                  <Plus size={12} /> {t.addlist_btn}
+                  <Plus size={12} /> {t.addcard_btn}
                 </button>
               )}
             </div>

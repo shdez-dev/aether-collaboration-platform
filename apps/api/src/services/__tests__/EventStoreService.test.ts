@@ -4,9 +4,8 @@ import { EventStoreService } from '../EventStoreService';
 import { pool } from '../../lib/db';
 import { redisPubClient } from '../../lib/redis';
 import { getRealtimeGateway } from '../../websocket/RealtimeGateway';
-import type { UserId, EventType } from '@aether/types';
+import type { EventType } from '@aether/types';
 
-// Mock dependencies
 jest.mock('../../lib/db');
 jest.mock('../../lib/redis');
 jest.mock('../../websocket/RealtimeGateway');
@@ -16,6 +15,13 @@ jest.mock('../UserActivityService', () => ({
   },
 }));
 
+const BASE_PARAMS = {
+  actor:   { id: 'user-123', name: 'Test User' },
+  subject: { type: 'card' as const, id: 'card-456', name: 'Test Card' },
+  context: { workspaceId: 'ws-001', boardId: 'board-789' },
+  payload: { position: 1 },
+};
+
 describe('EventStoreService', () => {
   let eventStore: EventStoreService;
   let mockPool: jest.Mocked<typeof pool>;
@@ -23,66 +29,49 @@ describe('EventStoreService', () => {
   let mockGateway: any;
 
   beforeEach(() => {
-    // Reset mocks
     jest.clearAllMocks();
 
-    // Setup mocks
-    mockPool = pool as jest.Mocked<typeof pool>;
+    mockPool  = pool as jest.Mocked<typeof pool>;
     mockRedis = redisPubClient as jest.Mocked<typeof redisPubClient>;
 
     mockGateway = {
-      broadcastToBoard: jest.fn(),
+      broadcastToBoard:       jest.fn(),
       broadcastToBoardExcept: jest.fn(),
-      sendToUser: jest.fn(),
+      broadcastToWorkspace:   jest.fn(),
+      sendToUser:             jest.fn(),
     };
 
     (getRealtimeGateway as jest.Mock).mockReturnValue(mockGateway);
-
-    // Setup pool.query mock
-    mockPool.query = jest.fn().mockResolvedValue({ rows: [] });
-
-    // Setup redis publish mock
+    mockPool.query  = jest.fn().mockResolvedValue({ rows: [] });
     mockRedis.publish = jest.fn().mockResolvedValue(1);
 
-    // Create new instance
     eventStore = new EventStoreService();
   });
 
   describe('emit', () => {
     it('should persist non-ephemeral events to PostgreSQL', async () => {
-      const userId = 'user-123' as UserId;
-      const payload = { cardId: 'card-456', title: 'Test Card' };
-
-      await eventStore.emit('card.created', payload, userId);
+      await eventStore.emit({ type: 'card.created', ...BASE_PARAMS });
 
       expect(mockPool.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO events'),
-        expect.arrayContaining([
-          expect.any(String), // eventId
-          'card.created', // type
-          JSON.stringify(payload), // payload
-          userId, // userId
-          expect.any(Number), // timestamp
-          1, // version
-          expect.any(String), // vector_clock
-        ])
+        expect.arrayContaining(['card.created'])
       );
     });
 
-    it('should NOT persist ephemeral events (presence.* events)', async () => {
-      const userId = 'user-123' as UserId;
-      const payload = { boardId: 'board-789' };
-
-      await eventStore.emit('presence.join' as EventType, payload, userId);
+    it('should NOT persist ephemeral events (presence.*)', async () => {
+      await eventStore.emit({
+        type:    'presence.user.typing' as EventType,
+        actor:   BASE_PARAMS.actor,
+        subject: BASE_PARAMS.subject,
+        context: BASE_PARAMS.context,
+        payload: { cardId: 'card-456' },
+      });
 
       expect(mockPool.query).not.toHaveBeenCalled();
     });
 
     it('should publish event to Redis pub/sub', async () => {
-      const userId = 'user-123' as UserId;
-      const payload = { cardId: 'card-456' };
-
-      await eventStore.emit('card.created', payload, userId);
+      await eventStore.emit({ type: 'card.created', ...BASE_PARAMS });
 
       expect(mockRedis.publish).toHaveBeenCalledWith(
         'aether:events',
@@ -90,95 +79,69 @@ describe('EventStoreService', () => {
       );
     });
 
-    it('should broadcast to board via WebSocket if boardId provided', async () => {
-      const userId = 'user-123' as UserId;
-      const boardId = 'board-789';
-      const payload = { cardId: 'card-456' };
-
-      await eventStore.emit('card.created', payload, userId, boardId);
+    it('should broadcast to board via WebSocket when boardId in context', async () => {
+      await eventStore.emit({ type: 'card.created', ...BASE_PARAMS });
 
       expect(mockGateway.broadcastToBoard).toHaveBeenCalledWith(
-        boardId,
-        expect.objectContaining({
-          type: 'card.created',
-          payload,
-        })
+        BASE_PARAMS.context.boardId,
+        expect.objectContaining({ type: 'card.created' })
       );
     });
 
-    it('should broadcast to board EXCEPT originating socket', async () => {
-      const userId = 'user-123' as UserId;
-      const boardId = 'board-789';
-      const socketId = 'socket-abc';
-      const payload = { cardId: 'card-456' };
-
-      await eventStore.emit('card.created', payload, userId, boardId, socketId);
+    it('should broadcast to board EXCEPT originating socket when socketId provided', async () => {
+      await eventStore.emit({
+        type: 'card.created',
+        ...BASE_PARAMS,
+        socketId: 'socket-abc',
+      });
 
       expect(mockGateway.broadcastToBoardExcept).toHaveBeenCalledWith(
-        boardId,
-        expect.objectContaining({
-          type: 'card.created',
-          payload,
-        }),
-        socketId
+        BASE_PARAMS.context.boardId,
+        expect.objectContaining({ type: 'card.created' }),
+        'socket-abc'
       );
-
       expect(mockGateway.broadcastToBoard).not.toHaveBeenCalled();
     });
 
     it('should send event directly to targetUserId if provided', async () => {
-      const userId = 'user-123' as UserId;
-      const targetUserId = 'user-target';
-      const payload = { message: 'Hello' };
-
-      await eventStore.emit(
-        'notification.created',
-        payload,
-        userId,
-        undefined,
-        undefined,
-        targetUserId
-      );
+      await eventStore.emit({
+        type:         'card.member.assigned',
+        actor:        BASE_PARAMS.actor,
+        subject:      { type: 'member', id: 'user-target', name: 'Target User' },
+        context:      BASE_PARAMS.context,
+        payload:      { memberId: 'user-target', memberName: 'Target User' },
+        targetUserId: 'user-target',
+      });
 
       expect(mockGateway.sendToUser).toHaveBeenCalledWith(
-        targetUserId,
-        expect.objectContaining({
-          type: 'notification.created',
-          payload,
-        })
+        'user-target',
+        expect.objectContaining({ type: 'card.member.assigned' })
       );
     });
 
-    it('should create event with vector clock', async () => {
-      const userId = 'user-123' as UserId;
-      const payload = { cardId: 'card-456' };
+    it('should increment vector clock per user on successive emits', async () => {
+      const e1 = await eventStore.emit({ type: 'card.created', ...BASE_PARAMS });
+      const e2 = await eventStore.emit({ type: 'card.updated', ...BASE_PARAMS });
 
-      const event = await eventStore.emit('card.created', payload, userId);
-
-      expect(event.meta.vectorClock).toEqual({
-        [userId]: 1,
-      });
+      expect(e1.vectorClock['user-123']).toBe(1);
+      expect(e2.vectorClock['user-123']).toBe(2);
     });
 
-    it('should include eventId, timestamp, and version in event meta', async () => {
-      const userId = 'user-123' as UserId;
-      const payload = { cardId: 'card-456' };
+    it('should include eventId and timestamp on returned event', async () => {
+      const event = await eventStore.emit({ type: 'card.created', ...BASE_PARAMS });
 
-      const event = await eventStore.emit('card.created', payload, userId);
-
-      expect(event.meta.eventId).toBeDefined();
-      expect(event.meta.timestamp).toBeGreaterThan(0);
-      expect(event.meta.version).toBe(1);
-      expect(event.meta.userId).toBe(userId);
+      expect(event.eventId).toBeDefined();
+      expect(event.timestamp).toBeGreaterThan(0);
+      expect(event.version).toBe(1);
+      expect(event.actor.id).toBe('user-123');
     });
 
     it('should not fail if Redis is unavailable', async () => {
       mockRedis.publish = jest.fn().mockRejectedValue(new Error('Redis down'));
 
-      const userId = 'user-123' as UserId;
-      const payload = { cardId: 'card-456' };
-
-      await expect(eventStore.emit('card.created', payload, userId)).resolves.toBeDefined();
+      await expect(
+        eventStore.emit({ type: 'card.created', ...BASE_PARAMS })
+      ).resolves.toBeDefined();
     });
 
     it('should not fail if WebSocket gateway is unavailable', async () => {
@@ -186,142 +149,93 @@ describe('EventStoreService', () => {
         throw new Error('Gateway not initialized');
       });
 
-      const userId = 'user-123' as UserId;
-      const payload = { cardId: 'card-456' };
+      await expect(
+        eventStore.emit({ type: 'card.created', ...BASE_PARAMS })
+      ).resolves.toBeDefined();
+    });
 
-      await expect(eventStore.emit('card.created', payload, userId)).resolves.toBeDefined();
+    it('should store delta when provided', async () => {
+      await eventStore.emit({
+        type:    'card.updated',
+        ...BASE_PARAMS,
+        delta:   { before: { title: 'Old' }, after: { title: 'New' } },
+        payload: {},
+      });
+
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO events'),
+        expect.arrayContaining([
+          JSON.stringify({ before: { title: 'Old' }, after: { title: 'New' } }),
+        ])
+      );
     });
   });
 
   describe('getUserEvents', () => {
-    it('should retrieve events for a specific user', async () => {
-      const userId = 'user-123' as UserId;
-      const mockEvents = [
-        { id: '1', event_type: 'card.created', user_id: userId, timestamp: Date.now() },
-        { id: '2', event_type: 'card.updated', user_id: userId, timestamp: Date.now() },
-      ];
-
-      mockPool.query = jest.fn().mockResolvedValue({ rows: mockEvents });
-
-      const events = await eventStore.getUserEvents(userId);
-
-      expect(mockPool.query).toHaveBeenCalledWith(expect.stringContaining('WHERE user_id = $1'), [
-        userId,
-        50,
-      ]);
-      expect(events).toEqual(mockEvents);
-    });
-
-    it('should limit results to specified limit', async () => {
-      const userId = 'user-123' as UserId;
+    it('should query by actor_id', async () => {
       mockPool.query = jest.fn().mockResolvedValue({ rows: [] });
 
-      await eventStore.getUserEvents(userId, 10);
-
-      expect(mockPool.query).toHaveBeenCalledWith(expect.any(String), [userId, 10]);
-    });
-  });
-
-  describe('getEventsByType', () => {
-    it('should retrieve events by event type', async () => {
-      const eventType = 'card.created' as EventType;
-      const mockEvents = [
-        { id: '1', event_type: eventType, timestamp: Date.now() },
-        { id: '2', event_type: eventType, timestamp: Date.now() },
-      ];
-
-      mockPool.query = jest.fn().mockResolvedValue({ rows: mockEvents });
-
-      const events = await eventStore.getEventsByType(eventType);
+      await eventStore.getUserEvents('user-123', 10);
 
       expect(mockPool.query).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE event_type = $1'),
-        [eventType, 50]
+        expect.stringContaining('actor_id = $1'),
+        ['user-123', 10]
       );
-      expect(events).toEqual(mockEvents);
     });
   });
 
   describe('getBoardEvents', () => {
-    it('should retrieve events related to a board', async () => {
-      const boardId = 'board-789';
-      const mockEvents = [
-        {
-          id: '1',
-          event_type: 'board.created',
-          payload: { boardId },
-          timestamp: Date.now().toString(),
-          user_id: 'user-123',
-          version: 1,
-          vector_clock: {},
-        },
-      ];
-
-      mockPool.query = jest.fn().mockResolvedValue({ rows: mockEvents });
-
-      const events = await eventStore.getBoardEvents(boardId);
-
-      expect(mockPool.query).toHaveBeenCalledWith(expect.stringContaining('board.%'), [
-        boardId,
-        50,
-        0,
-      ]);
-      expect(events).toHaveLength(1);
-      expect(events[0].type).toBe('board.created');
-    });
-
-    it('should handle pagination with offset', async () => {
-      const boardId = 'board-789';
+    it('should query by board_id', async () => {
       mockPool.query = jest.fn().mockResolvedValue({ rows: [] });
 
-      await eventStore.getBoardEvents(boardId, 20, 40);
+      await eventStore.getBoardEvents('board-789', 20, 40);
 
-      expect(mockPool.query).toHaveBeenCalledWith(expect.any(String), [boardId, 20, 40]);
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('board_id = $1'),
+        ['board-789', 20, 40]
+      );
     });
 
     it('should return empty array if query fails', async () => {
-      const boardId = 'board-789';
       mockPool.query = jest.fn().mockRejectedValue(new Error('Query failed'));
 
-      const events = await eventStore.getBoardEvents(boardId);
+      const events = await eventStore.getBoardEvents('board-789');
 
       expect(events).toEqual([]);
     });
   });
 
   describe('getCardEvents', () => {
-    it('should retrieve events for a specific card', async () => {
-      const cardId = 'card-456';
-      const mockEvents = [
-        {
-          id: '1',
-          event_type: 'card.created',
-          payload: { cardId },
-          timestamp: Date.now().toString(),
-          user_id: 'user-123',
-          version: 1,
-          vector_clock: {},
-        },
-      ];
+    it('should query by card_id', async () => {
+      mockPool.query = jest.fn().mockResolvedValue({ rows: [] });
 
-      mockPool.query = jest.fn().mockResolvedValue({ rows: mockEvents });
-
-      const events = await eventStore.getCardEvents(cardId);
+      await eventStore.getCardEvents('card-456');
 
       expect(mockPool.query).toHaveBeenCalledWith(
-        expect.stringContaining("payload->>'cardId' = $1"),
-        [cardId, 20]
+        expect.stringContaining('card_id = $1'),
+        ['card-456', 20]
       );
-      expect(events).toHaveLength(1);
     });
 
     it('should return empty array if query fails', async () => {
-      const cardId = 'card-456';
       mockPool.query = jest.fn().mockRejectedValue(new Error('Query failed'));
 
-      const events = await eventStore.getCardEvents(cardId);
+      const events = await eventStore.getCardEvents('card-456');
 
       expect(events).toEqual([]);
+    });
+  });
+
+  describe('getEventsByType', () => {
+    it('should query by type', async () => {
+      mockPool.query = jest.fn().mockResolvedValue({ rows: [] });
+
+      await eventStore.getEventsByType('card.created' as EventType, 25);
+
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE type = $1'),
+        ['card.created', 25]
+      );
     });
   });
 });

@@ -37,123 +37,29 @@ export interface AiWorkspacePlan {
   }>;
 }
 
-const SYSTEM_PROMPT = `You are a project planning engine. Your sole output is a single valid JSON object — no markdown, no backticks, no prose, no text outside the JSON.
+const SYSTEM_PROMPT = `Output ONLY a valid JSON object. No markdown, no prose, no text outside the JSON.
 
-## STEP 1 — INTERPRET THE DOCUMENT
-Before generating JSON, internally extract:
-- What is the product or system being built? (name it precisely)
-- What are its major technical components? (e.g. REST API, React UI, PostgreSQL schema, CI/CD pipeline, mobile app, ML model)
-- What are the main functional areas? (e.g. authentication, payments, notifications, reporting)
-- What is the domain? (e.g. e-commerce, healthcare, fintech, logistics, SaaS B2B)
+AETHER STRUCTURE: Workspace -> 1 Project -> Boards -> Lists -> Cards
+- Lists per board: exactly 4 — "Backlog" (cards here), "In Progress"[], "Review"[], "Done"[]
+- Cards only in Backlog: { title, priority, milestoneIndex, description? }
 
-Each board must map to one of those extracted components. Never generate boards named "Backend", "Frontend", "DevOps" unless those exact labels appear in the document — use the actual names of the system's components.
+BOARDS: If document has "Componentes / Areas -> BOARDS", each item = one board (use exact names). Otherwise infer. Max 4 boards total. No generic names.
 
-## STEP 2 — DEFINE MILESTONES
-Generate 2–4 milestones that represent sequential phases of the project:
-- M1: Foundation (infrastructure, setup, data models, base architecture)
-- M2: Core features (main functionality, primary user flows)
-- M3+: Polish, QA, integrations, deployment (only if needed)
-Each milestone: { "name": string, "description": string, "dueDate": null }
+MILESTONES (2-3 only): Use document hitos if provided, else: M1=Foundation, M2=Core, M3=Launch. Every milestone needs >= 1 card.
 
-## STEP 3 — GENERATE BOARDS
-Generate 3–5 boards, one per major technical component identified in Step 1.
-Each board has exactly 4 lists: "Backlog", "In Progress", "Review", "Done".
-Only "Backlog" contains cards. The other 3 lists always have "cards": [].
+CARDS (4-6 per Backlog, NO MORE):
+- Title: [Action Verb] + [Specific Domain Object]. NEVER generic.
+- Only create cards for "Incluido" scope. NEVER for "Excluido".
+- milestoneIndex: M1=~30%, M2=~50%, M3=rest. Never all in M1.
+- priority: HIGH (>=1 per board, required), MEDIUM, LOW.
+- description: OMIT unless essential. Max 8 words if included.
+- OMIT checklistItems and dependsOn entirely to save space.
+- All titles within a board must be unique.
 
-## STEP 4 — GENERATE CARDS (apply ALL rules below)
+OUTPUT SCHEMA (follow exactly):
+{"workspace":{"name":"string","description":"string","icon":"emoji","color":"hex"},"projects":[{"name":"string","description":"string","status":"PLANNING","milestones":[{"name":"string","description":"string","dueDate":null}],"boards":[{"name":"string","description":"string","lists":[{"name":"Backlog","cards":[{"title":"string","priority":"HIGH|MEDIUM|LOW","milestoneIndex":1}]},{"name":"In Progress","cards":[]},{"name":"Review","cards":[]},{"name":"Done","cards":[]}]}]}]}
 
-### TASK DEFINITION RULES
-- Every card title MUST follow the pattern: [Action Verb] + [Concrete Object]
-  Good: "Implement JWT refresh token rotation", "Design PostgreSQL schema for orders"
-  Bad: "Backend setup", "Work on authentication", "Improve performance"
-- Titles: max 120 chars, must be completable in 1–3 days by one person
-- Each Backlog: 4–8 cards
-- Every card MUST have "priority": "LOW" | "MEDIUM" | "HIGH"
-  - Assign at least 1 HIGH card per board (the most critical blocker)
-  - HIGH = blocks other work or is on the critical path
-  - MEDIUM = important but not an immediate blocker
-  - LOW = nice-to-have or polish
-
-### MILESTONE DISTRIBUTION RULES
-Distribute cards across milestones as follows:
-- milestoneIndex 1 (Foundation): 25–35% of cards in the board → setup, schemas, base config, auth scaffolding
-- milestoneIndex 2 (Core): 40–50% of cards → primary features, main business logic
-- milestoneIndex N (Final): remaining cards → integration, testing, deployment, polish
-Rules:
-- milestoneIndex must be between 1 and the total number of milestones
-- Never put all cards in milestoneIndex 1
-- HIGH priority foundation cards belong in milestoneIndex 1
-
-### DEPENDENCY RULES
-- Use "dependsOn" only when card A cannot start until card B is fully done
-- "dependsOn" must contain the EXACT title of 1–2 other cards in the same board's Backlog
-- If card A dependsOn card B, then A's milestoneIndex >= B's milestoneIndex
-- Never create circular dependencies
-- Not every card needs "dependsOn" — only genuine blockers
-
-### CHECKLIST RULES
-- Add "checklistItems" only to cards with multiple distinct sub-steps
-- 2–5 short action strings per checklist (e.g. ["Create DB migration", "Add index on foreign key", "Write integration test"])
-- Simple cards do not need a checklist
-
-### ANTI-GENERIC RULE
-Every card title must be specific to the domain and system described in the document.
-If the document is about a healthcare appointment system, cards must mention appointments, patients, doctors, schedules — not "Create CRUD endpoints" or "Add API routes".
-Replace every generic term with the specific domain term from the document.
-
-### STRICT VALIDATION (check before outputting)
-- All card titles within a board must be unique
-- milestoneIndex on every card is an integer between 1 and total milestones
-- Every milestone index from 1 to N has at least 1 card assigned across all boards
-- Each board has at least 1 card with "priority": "HIGH"
-- No card in "dependsOn" references a title that doesn't exist in that board's Backlog
-- "In Progress", "Review", "Done" lists always have "cards": []
-
-## OUTPUT SCHEMA
-{
-  "workspace": {
-    "name": "string (max 60 chars, reflects the actual product name)",
-    "description": "string (1–2 sentences, specific to the domain)",
-    "icon": "single emoji matching the domain",
-    "color": "hex color (e.g. #3b82f6)"
-  },
-  "projects": [
-    {
-      "name": "string (max 60 chars)",
-      "description": "string",
-      "status": "PLANNING",
-      "milestones": [
-        { "name": "string", "description": "string", "dueDate": null }
-      ],
-      "boards": [
-        {
-          "name": "string (specific component name from the document)",
-          "description": "string",
-          "lists": [
-            {
-              "name": "Backlog",
-              "cards": [
-                {
-                  "title": "string",
-                  "description": "string (optional, 1 sentence max)",
-                  "priority": "LOW | MEDIUM | HIGH",
-                  "milestoneIndex": 1,
-                  "checklistItems": ["string"],
-                  "dependsOn": ["exact title of another card in this board's Backlog"]
-                }
-              ]
-            },
-            { "name": "In Progress", "cards": [] },
-            { "name": "Review", "cards": [] },
-            { "name": "Done", "cards": [] }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-Generate EXACTLY 1 project. Never output text outside the JSON object.`;
+Generate EXACTLY 1 project.`;
 
 class AiPlannerService {
   private client: Groq;
@@ -164,19 +70,18 @@ class AiPlannerService {
   }
 
   async generateWorkspacePlan(documentText: string): Promise<AiWorkspacePlan> {
-    // llama-3.1-8b-instant: 6 000 000 TPM en el free tier de Groq
-    const MAX_DOC_CHARS = 8_000;
+    const MAX_DOC_CHARS = 3_500;
     const doc = documentText.length > MAX_DOC_CHARS
       ? documentText.slice(0, MAX_DOC_CHARS) + '\n\n[documento truncado]'
       : documentText;
 
     const completion = await this.client.chat.completions.create({
       model: 'llama-3.1-8b-instant',
-      max_tokens: 8192,
+      max_tokens: 4800,
       temperature: 0.3,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Analyze this document and generate a complete workspace plan:\n\n${doc}` },
+        { role: 'user', content: `Analyze this project document and generate a complete Aether workspace plan:\n\n${doc}` },
       ],
     });
 
@@ -193,20 +98,49 @@ class AiPlannerService {
 
   private async generateReduced(doc: string): Promise<AiWorkspacePlan> {
     const reducedPrompt = SYSTEM_PROMPT
-      .replace('3–5 boards', '2 boards maximum')
-      .replace('4–8 cards', '3–5 cards');
+      .replace('3-5 boards total', '2 boards maximum')
+      .replace('4-8 cards total per board', '3-5 cards per board');
 
     const completion = await this.client.chat.completions.create({
       model: 'llama-3.1-8b-instant',
-      max_tokens: 6000,
+      max_tokens: 2500,
       temperature: 0.3,
       messages: [
         { role: 'system', content: reducedPrompt },
-        { role: 'user', content: `Analyze this document and generate a focused workspace plan (1 project, 2 boards max):\n\n${doc}` },
+        { role: 'user', content: `Analyze this document and generate a focused Aether workspace plan (1 project, 2 boards max):\n\n${doc}` },
       ],
     });
 
     return this.parseAndValidate(completion.choices[0]?.message?.content ?? '');
+  }
+
+  private attemptJsonRepair(text: string): string {
+    let out = text.trim();
+
+    // If truncated mid-string: cut back to the last safely closed value
+    // Find last position of a cleanly closed string followed by : or , or } or ]
+    const safeEnd = Math.max(
+      out.lastIndexOf('"}'),
+      out.lastIndexOf('"]'),
+      out.lastIndexOf('",'),
+      out.lastIndexOf('",\n'),
+    );
+    if (safeEnd > out.length * 0.5) {
+      // Only truncate if we found a safe point past the halfway mark
+      const cutAt = out.lastIndexOf('"', safeEnd) === safeEnd ? safeEnd + 1 : safeEnd + 2;
+      out = out.slice(0, cutAt);
+    }
+
+    // Remove trailing comma
+    out = out.replace(/,\s*$/, '');
+
+    // Close any open arrays and objects
+    const opens  = (out.match(/\[/g) || []).length - (out.match(/\]/g) || []).length;
+    const braces = (out.match(/\{/g) || []).length - (out.match(/\}/g) || []).length;
+    for (let i = 0; i < opens;  i++) out += ']';
+    for (let i = 0; i < braces; i++) out += '}';
+
+    return out;
   }
 
   private parseAndValidate(rawText: string): AiWorkspacePlan {
@@ -227,8 +161,15 @@ class AiPlannerService {
     try {
       plan = JSON.parse(text);
     } catch {
-      console.error('[AiPlannerService] Raw response (first 500 chars):', rawText.slice(0, 500));
-      throw new Error('[AiPlannerService] Failed to parse JSON response from AI');
+      // JSON may be truncated — try to close open brackets and parse
+      try {
+        const fixed = this.attemptJsonRepair(text);
+        plan = JSON.parse(fixed);
+        console.warn('[AiPlannerService] JSON was truncated — repaired successfully');
+      } catch {
+        console.error('[AiPlannerService] Raw response (first 500 chars):', rawText.slice(0, 500));
+        throw new Error('[AiPlannerService] Failed to parse JSON response from AI');
+      }
     }
 
     // Validate minimum structure

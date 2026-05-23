@@ -115,6 +115,8 @@ export class CommentRepository {
     if (data.content !== undefined) {
       updates.push(`content = $${paramIndex++}`);
       values.push(data.content);
+      updates.push(`edited = true`);
+      updates.push(`updated_at = NOW()`);
     }
 
     if (data.mentions !== undefined) {

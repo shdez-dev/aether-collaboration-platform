@@ -10,6 +10,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { Toaster } from '@/components/ui/toaster';
 import { RealtimeNotificationProvider } from '@/components/realtime/RealtimeNotificationProvider';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { openGuide } from '@/lib/utils/onboardingGuide';
 import { SocketProvider } from '@/components/providers/SocketProvider';
 import { NotificationListener } from '@/components/notifications/NotificationListener';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -18,6 +19,7 @@ import { useT } from '@/lib/i18n';
 import { useProjectStore } from '@/stores/projectStore';
 import { useTeamStore } from '@/stores/teamStore';
 import CommandPalette from '@/components/CommandPalette';
+import OnboardingCompanion from '@/components/OnboardingCompanion';
 import { C } from '@/lib/colors';
 
 // ── Color tokens exactos del diseño ────────────────────────────────────────────
@@ -106,7 +108,7 @@ function WorkspacesSection({
               >
                 <path d="M2 3.5l3 3 3-3" />
               </svg>
-              {expanded ? 'Ver menos' : `${hidden} más`}
+              {expanded ? t.sidebar_show_less : `${hidden} ${t.sidebar_more_suffix}`}
             </button>
           )}
         </>
@@ -188,7 +190,7 @@ function ProjectsSection({ router, pathname, t }: { router: ReturnType<typeof us
                 style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                 <path d="M2 3.5l3 3 3-3" />
               </svg>
-              {expanded ? 'Ver menos' : `${hidden} más`}
+              {expanded ? t.sidebar_show_less : `${hidden} ${t.sidebar_more_suffix}`}
             </button>
           )}
         </>
@@ -269,7 +271,7 @@ function TeamsSection({ router, pathname, t }: { router: ReturnType<typeof useRo
                 style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                 <path d="M2 3.5l3 3 3-3" />
               </svg>
-              {expanded ? 'Ver menos' : `${hidden} más`}
+              {expanded ? t.sidebar_show_less : `${hidden} ${t.sidebar_more_suffix}`}
             </button>
           )}
         </>
@@ -319,14 +321,13 @@ function SidebarContent({
       ),
     },
     {
-      label: t.ai_builder_nav_label,
-      href: '/dashboard/ai-builder',
-      active: pathname?.startsWith('/dashboard/ai-builder'),
-      badge: t.ai_builder_beta_label,
+      label: t.nav_calendar,
+      href: '/dashboard/calendar',
+      active: pathname?.startsWith('/dashboard/calendar'),
       icon: (
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-          <path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11l-1.5-3.5L3 6l3.5-1.5L8 1z" />
-          <path d="M13 10l.8 1.8L15.5 12.5l-1.7.7L13 15l-.8-1.7L10.5 12.5l1.7-.7L13 10z" />
+          <rect x="2" y="3" width="12" height="11" rx="1" />
+          <path d="M5 1v3M11 1v3M2 7h12" />
         </svg>
       ),
     },
@@ -350,28 +351,19 @@ function SidebarContent({
       <div style={{ padding: '10px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
         <Link href="/">
           <div
-            className="flex items-center gap-2.5 px-4 py-2 rounded-md cursor-pointer transition-colors"
+            className="flex items-center justify-center gap-2.5 px-4 py-2 rounded-md cursor-pointer transition-colors"
             style={{ color: C.text }}
             onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
-            <svg width="22" height="22" viewBox="0 0 220 220" fill="none" aria-label="Aether logo" style={{ flexShrink: 0 }}>
-              <path d="M 110 39 L 32 173" stroke="#3B82F6" strokeWidth="10" strokeLinecap="round" />
-              <path d="M 110 39 L 188 173" stroke="#3B82F6" strokeWidth="10" strokeLinecap="round" />
-              <path d="M 66 122 L 154 122" stroke="#3B82F6" strokeWidth="7" strokeLinecap="round" />
-              <circle cx="110" cy="39" r="9" fill="#3B82F6" />
-              <circle cx="32" cy="173" r="9" fill="#3B82F6" />
-              <circle cx="188" cy="173" r="9" fill="#3B82F6" />
+            <svg width="20" height="20" viewBox="0 0 220 220" fill="none" aria-label="Aether logo" style={{ flexShrink: 0 }}>
+              <path d="M110 39L32 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
+              <path d="M110 39L188 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
+              <path d="M66 122L154 122" stroke="#00e5cc" strokeWidth="7" strokeLinecap="round" />
+              <circle cx="110" cy="39" r="9" fill="#38b6ff" />
+              <circle cx="32" cy="173" r="9" fill="#38b6ff" />
+              <circle cx="188" cy="173" r="9" fill="#00e5cc" />
             </svg>
-            <span
-              style={{
-                fontSize: '15px',
-                fontWeight: 700,
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
-                letterSpacing: '0.04em',
-                color: C.text,
-              }}
-            >Aether</span>
           </div>
         </Link>
 
@@ -419,7 +411,7 @@ function SidebarContent({
                 {item.active && (
                   <div
                     className="absolute rounded-[2px]"
-                    style={{ left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '2px', height: '14px', background: C.accent }}
+                    style={{ left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '2px', height: '16px', background: 'linear-gradient(180deg, #38b6ff, #00e5cc)' }}
                   />
                 )}
                 <span style={{ color: item.active ? C.text : C.text3 }}>{item.icon}</span>
@@ -539,6 +531,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     : pathname?.startsWith('/dashboard/profile') ? t.nav_profile
     : pathname?.startsWith('/dashboard/users') ? t.nav_users
     : pathname?.startsWith('/dashboard/notifications') ? t.nav_notifications
+    : pathname?.startsWith('/dashboard/calendar') ? t.nav_calendar
     : t.nav_dashboard;
 
   const sidebarProps = { pathname, router, user, workspaces, userAvatarUrl, t, onLogout: handleLogout, onOpenSearch: () => setSearchOpen(true) };
@@ -598,8 +591,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </button>
 
               {/* Breadcrumbs */}
-              <div className="flex items-center gap-1.5 text-[13px]">
-                <span style={{ color: C.text3, cursor: 'pointer' }} onClick={() => router.push('/dashboard')}>Aether</span>
+              <div className="flex items-center gap-1.5 text-[13px]" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" }}>
+                <span style={{ color: '#38b6ff', cursor: 'pointer', opacity: 0.7 }} onClick={() => router.push('/dashboard')}>Aether</span>
                 <span style={{ color: C.text4 }}>/</span>
                 <span className="font-medium" style={{ color: C.text }}>{crumb}</span>
               </div>
@@ -609,13 +602,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* Notifications */}
                 <NotificationBell />
 
-                {/* Help */}
+                {/* Help / Onboarding */}
                 <button
                   className="flex items-center justify-center rounded-[5px] transition-colors"
                   style={{ width: '28px', height: '28px', color: C.text3 }}
                   onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
                   onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
-                  title="Ayuda"
+                  onClick={() => openGuide()}
+                  title="Guía de inicio"
                 >
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
                     <circle cx="8" cy="8" r="6" /><path d="M6 6a2 2 0 014 0c0 2-2 2-2 3M8 11.5v.5" />
@@ -635,6 +629,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <NotificationListener />
         <RealtimeNotificationProvider />
         <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
+        <OnboardingCompanion />
       </SocketProvider>
     </ProtectedRoute>
   );

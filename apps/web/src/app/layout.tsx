@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useIsAuthenticated } from '@/stores/authStore';
-import { useT } from '@/lib/i18n';
+import { useT, useLanguage } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { HydrationBoundary } from '@/components/HydrationBoundary';
 import { ThemeProvider } from '@/providers/ThemeProvider';
@@ -33,16 +33,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const isAuthenticated = useIsAuthenticated();
   const t = useT();
+  const lang = useLanguage();
 
   // No mostrar navegación en páginas de auth o dashboard (tienen su propio layout)
   const hideNav =
     pathname === '/' ||
     pathname === '/login' ||
     pathname === '/register' ||
+    pathname === '/forgot-password' ||
+    pathname?.startsWith('/verify-email') ||
     pathname?.startsWith('/dashboard');
 
   return (
-    <html lang="es">
+    <html lang={lang}>
       <head>
         <meta charSet="utf-8" />
         <meta
@@ -72,7 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ErrorBoundary>
-          <ThemeProvider defaultTheme="dark">
+          <ThemeProvider>
             <HydrationBoundary>
               {/* Navigation Bar */}
               {!hideNav && (

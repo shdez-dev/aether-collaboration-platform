@@ -36,9 +36,10 @@ interface DocumentsSectionProps {
   workspaceId: string;
   isOwnerOrAdmin: boolean;
   accentColor?: string;
+  refreshKey?: number;
 }
 
-export default function DocumentsSection({ workspaceId, isOwnerOrAdmin, accentColor = '#3b82f6' }: DocumentsSectionProps) {
+export default function DocumentsSection({ workspaceId, isOwnerOrAdmin, accentColor = '#3b82f6', refreshKey }: DocumentsSectionProps) {
   const router = useRouter();
   const t = useT();
   const { documents, isLoading, fetchDocuments, createDocument } = useDocumentStore();
@@ -55,7 +56,7 @@ export default function DocumentsSection({ workspaceId, isOwnerOrAdmin, accentCo
       fetchDocuments(workspaceId);
       setRecentIds(getRecentDocIds(workspaceId));
     }
-  }, [workspaceId, fetchDocuments]);
+  }, [workspaceId, fetchDocuments, refreshKey]);
 
   useEffect(() => {
     if (showModal) setTimeout(() => inputRef.current?.focus(), 50);

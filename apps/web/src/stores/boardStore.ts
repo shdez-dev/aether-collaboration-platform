@@ -260,7 +260,7 @@ export const useBoardStore = create<BoardState>()(
             break;
           }
 
-          case 'card.member.unassigned': {
+          case 'card.member.removed': {
             const { cardId, memberId } = event.payload as any;
             if (cardId && memberId) {
               // Obtener la card actual del store
@@ -470,7 +470,7 @@ export const useBoardStore = create<BoardState>()(
             break;
           }
 
-          case 'list.reordered': {
+          case 'list.order-changed': {
             const { boardId } = event.payload as any;
             if (boardId === get().currentBoard?.id) {
               // Recargar board para obtener orden actualizado

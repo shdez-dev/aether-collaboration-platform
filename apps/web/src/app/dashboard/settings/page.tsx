@@ -5,12 +5,10 @@
 import { useState, useEffect } from 'react';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import type { UserPreferences } from '@/stores/preferencesStore';
-import { useTheme } from '@/providers/ThemeProvider';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Loader2, Save, Bell, Palette, Layout,
-  Monitor, Sun, Moon, Check,
-  Mail, Smartphone, MessageSquare, Kanban, Table2,
+  Loader2, Save, Bell, Layout,
+  Check, Kanban, Table2,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
@@ -137,7 +135,6 @@ function Divider() {
 export default function SettingsPage() {
   const t = useT();
   const { preferences, isLoading, loadPreferences, updatePreferences } = usePreferencesStore();
-  const { theme: currentTheme, setTheme, actualTheme } = useTheme();
   const { toast } = useToast();
 
   const [localPrefs, setLocalPrefs] = useState<UserPreferences>({
@@ -157,23 +154,19 @@ export default function SettingsPage() {
   useEffect(() => { loadPreferences(); }, [loadPreferences]);
 
   useEffect(() => {
-    if (preferences) {
-      setLocalPrefs({ ...preferences, theme: currentTheme });
-    }
-  }, [preferences, currentTheme]);
+    if (preferences) setLocalPrefs(preferences);
+  }, [preferences]);
 
   useEffect(() => {
     if (preferences) {
-      setHasChanges(JSON.stringify(localPrefs) !== JSON.stringify({ ...preferences, theme: currentTheme }));
+      setHasChanges(JSON.stringify(localPrefs) !== JSON.stringify(preferences));
     }
-  }, [localPrefs, preferences, currentTheme]);
+  }, [localPrefs, preferences]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      setTheme(localPrefs.theme);
-      const { theme, ...prefsToSave } = localPrefs;
-      await updatePreferences({ ...prefsToSave, theme: localPrefs.theme });
+      await updatePreferences(localPrefs);
       setHasChanges(false);
       toast({ title: t.settings_toast_saved_title, description: t.settings_toast_saved_desc });
     } catch {
@@ -190,12 +183,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-
-  const themeOptions = [
-    { value: 'light', label: t.settings_theme_light, icon: Sun },
-    { value: 'dark',  label: t.settings_theme_dark,  icon: Moon },
-    { value: 'system',label: t.settings_theme_system, icon: Monitor },
-  ];
 
   const viewOptions = [
     { value: 'kanban', label: t.settings_view_kanban || 'Kanban', icon: Kanban },
@@ -242,44 +229,6 @@ export default function SettingsPage() {
 
         {/* Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-
-          {/* Apariencia */}
-          <SectionCard
-            icon={<Palette size={16} />}
-            title={t.settings_section_appearance}
-            desc={t.settings_section_appearance_desc}
-          >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' }}>
-              {themeOptions.map(({ value, label, icon: Icon }) => (
-                <OptionButton
-                  key={value}
-                  selected={localPrefs.theme === value}
-                  onClick={() => setLocalPrefs({ ...localPrefs, theme: value as any })}
-                >
-                  <Icon size={20} />
-                  <span style={{ fontSize: '11.5px', fontWeight: 500 }}>{label}</span>
-                </OptionButton>
-              ))}
-            </div>
-
-            <div style={{
-              padding: '10px 12px', borderRadius: '7px',
-              background: C.surface, border: `1px solid ${C.border}`,
-              display: 'flex', alignItems: 'center', gap: '8px',
-            }}>
-              <div style={{
-                width: '10px', height: '10px', borderRadius: '50%',
-                background: actualTheme === 'dark' ? '#1e293b' : '#f1f5f9',
-                border: `2px solid ${C.accent}`,
-              }} />
-              <span style={{ fontSize: '12px', color: C.text3 }}>
-                {t.settings_current_theme}{' '}
-                <span style={{ color: C.text, fontWeight: 500 }}>
-                  {actualTheme === 'dark' ? t.settings_theme_dark : t.settings_theme_light}
-                </span>
-              </span>
-            </div>
-          </SectionCard>
 
           {/* Vista de boards */}
           <SectionCard

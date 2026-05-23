@@ -198,7 +198,8 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             };
           });
 
-          return null;
+          // Rethrow so the hook can show the error toast and the form can preserve content
+          throw error;
         }
       },
 

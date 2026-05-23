@@ -20,7 +20,7 @@ describe('CardService', () => {
     };
 
     (pool.connect as jest.Mock) = jest.fn().mockResolvedValue(mockClient);
-    (pool.query as jest.Mock) = jest.fn();
+    (pool.query as jest.Mock) = jest.fn().mockResolvedValue({ rows: [] });
     (eventStore.emit as jest.Mock) = jest.fn().mockResolvedValue({});
   });
 
@@ -124,13 +124,14 @@ describe('CardService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}) // COMMIT
-        .mockResolvedValueOnce({ rows: [{ name: 'To Do' }] }); // SELECT list name
+        .mockResolvedValueOnce({}); // COMMIT
 
-      // Mock helper queries
+      // pool.query calls: getBoardIdFromList, getWorkspaceIdFromBoard, getUserName, list name
       (pool.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [{ board_id: 'board-123' }] }) // getBoardIdFromList
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-123' }] }); // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-123' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }) // getUserName
+        .mockResolvedValueOnce({ rows: [{ name: 'To Do' }] }); // list name
 
       const result = await CardService.createCard(listId, userId, cardData);
 
@@ -138,14 +139,11 @@ describe('CardService', () => {
       expect(result.position).toBe(6);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'card.created',
         expect.objectContaining({
-          cardId: 'card-new',
-          title: cardData.title,
-        }),
-        userId,
-        'board-123',
-        undefined
+          type: 'card.created',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: 'card-new' }),
+        })
       );
     });
 
@@ -165,12 +163,7 @@ describe('CardService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}) // COMMIT
-        .mockResolvedValueOnce({ rows: [{ name: 'Backlog' }] }); // SELECT list name
-
-      (pool.query as jest.Mock)
-        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] });
+        .mockResolvedValueOnce({}); // COMMIT
 
       const result = await CardService.createCard('list-1', 'user-1', { title: 'First Card' });
 
@@ -248,6 +241,8 @@ describe('CardService', () => {
               id: cardId,
               list_id: 'list-1',
               title: 'Old Title',
+              description: 'Old desc',
+              priority: 'LOW',
               completed: false,
               position: 1,
             },
@@ -271,11 +266,11 @@ describe('CardService', () => {
         })
         .mockResolvedValueOnce({}); // COMMIT
 
+      // pool.query calls: getBoardIdFromCard, getWorkspaceIdFromBoard, getUserName
       (pool.query as jest.Mock)
-        .mockResolvedValueOnce({
-          rows: [{ board_id: 'board-1' }],
-        })
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] });
+        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] }) // getBoardIdFromCard
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // getUserName
 
       const result = await CardService.updateCard(cardId, userId, updates);
 
@@ -283,21 +278,18 @@ describe('CardService', () => {
       expect(result.description).toBe(updates.description);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'card.updated',
         expect.objectContaining({
-          cardId,
-          changes: updates,
-        }),
-        userId,
-        'board-1',
-        undefined
+          type: 'card.updated',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: cardId }),
+        })
       );
     });
 
     it('should throw error if card not found', async () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
-        .mockResolvedValueOnce({ rows: [] }); // UPDATE returns nothing
+        .mockResolvedValueOnce({ rows: [] }); // SELECT returns nothing
 
       await expect(
         CardService.updateCard('non-existent', 'user-1', { title: 'New' })
@@ -315,19 +307,25 @@ describe('CardService', () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
-          // DELETE
+          // SELECT card
           rows: [
             {
               id: cardId,
               list_id: 'list-1',
+              title: 'Test Card',
+              position: 1,
             },
           ],
         })
+        .mockResolvedValueOnce({}) // DELETE
+        .mockResolvedValueOnce({}) // UPDATE positions
         .mockResolvedValueOnce({}); // COMMIT
 
+      // pool.query calls: getBoardIdFromList, getWorkspaceIdFromBoard, getUserName
       (pool.query as jest.Mock)
-        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] });
+        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] }) // getBoardIdFromList
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // getUserName
 
       await CardService.deleteCard(cardId, userId);
 
@@ -336,18 +334,18 @@ describe('CardService', () => {
       ]);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'card.deleted',
-        expect.objectContaining({ cardId }),
-        userId,
-        'board-1',
-        undefined
+        expect.objectContaining({
+          type: 'card.deleted',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: cardId }),
+        })
       );
     });
 
     it('should throw error if card not found', async () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
-        .mockResolvedValueOnce({ rows: [] });
+        .mockResolvedValueOnce({ rows: [] }); // SELECT returns nothing (card not found)
 
       await expect(CardService.deleteCard('non-existent', 'user-1')).rejects.toThrow(
         'Card not found'
@@ -394,13 +392,16 @@ describe('CardService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}) // COMMIT
-        .mockResolvedValueOnce({ rows: [{ name: 'Source List' }] }) // SELECT from list name
-        .mockResolvedValueOnce({ rows: [{ name: 'Target List' }] }); // SELECT to list name
+        .mockResolvedValueOnce({}); // COMMIT
 
+      // pool.query calls: getBoardIdFromList, getWorkspaceIdFromBoard, getUserName,
+      //                   fromList name, toList name
       (pool.query as jest.Mock)
-        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] });
+        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] }) // getBoardIdFromList
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }) // getUserName
+        .mockResolvedValueOnce({ rows: [{ name: 'Source List' }] }) // from list name
+        .mockResolvedValueOnce({ rows: [{ name: 'Target List' }] }); // to list name
 
       const result = await CardService.moveCard(cardId, userId, moveData);
 
@@ -408,14 +409,11 @@ describe('CardService', () => {
       expect(result.position).toBe(moveData.position);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'card.moved',
         expect.objectContaining({
-          cardId,
-          toListId: moveData.toListId,
-        }),
-        userId,
-        'board-1',
-        undefined
+          type: 'card.moved',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: cardId }),
+        })
       );
     });
   });
@@ -430,20 +428,16 @@ describe('CardService', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rows: [] }) // SELECT existing (not found, so can assign)
         .mockResolvedValueOnce({}) // INSERT into card_members
-        .mockResolvedValueOnce({}) // COMMIT
-        .mockResolvedValueOnce({
-          // SELECT card title
-          rows: [{ title: 'Card Title' }],
-        })
-        .mockResolvedValueOnce({
-          // SELECT user name/email
-          rows: [{ name: 'Assigner Name', email: 'assigner@example.com' }],
-        });
+        .mockResolvedValueOnce({}); // COMMIT
 
+      // pool.query calls: getBoardIdFromCard, getWorkspaceIdFromBoard,
+      //                   card title, actor name, member name
       (pool.query as jest.Mock)
-        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] })
-        .mockResolvedValueOnce({ rows: [{ name: 'Member Name' }] }); // SELECT name del usuario asignado
+        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] }) // getBoardIdFromCard
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ title: 'Card Title' }] }) // card title
+        .mockResolvedValueOnce({ rows: [{ name: 'Assigner Name' }] }) // actor name
+        .mockResolvedValueOnce({ rows: [{ name: 'Member Name' }] }); // member name
 
       await CardService.assignMember(cardId, userId, assignedBy);
 
@@ -453,12 +447,11 @@ describe('CardService', () => {
       );
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'card.member.assigned',
-        expect.objectContaining({ cardId, userId }),
-        assignedBy,
-        'board-1',
-        undefined,
-        userId // The service also sends notification directly to the assigned user
+        expect.objectContaining({
+          type: 'card.member.assigned',
+          actor: expect.objectContaining({ id: assignedBy }),
+          subject: expect.objectContaining({ id: userId }),
+        })
       );
     });
   });
@@ -472,17 +465,16 @@ describe('CardService', () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({}) // DELETE from card_members
-        .mockResolvedValueOnce({}) // COMMIT
-        .mockResolvedValueOnce({
-          // SELECT card title
-          rows: [{ title: 'Card Title' }],
-        });
+        .mockResolvedValueOnce({}); // COMMIT
 
+      // pool.query calls: getBoardIdFromCard, getWorkspaceIdFromBoard,
+      //                   card title, actor name, member name
       (pool.query as jest.Mock)
-        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] })
-        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] })
-        .mockResolvedValueOnce({ rows: [{ name: 'Remover Name' }] }) // SELECT name del que desasigna
-        .mockResolvedValueOnce({ rows: [{ name: 'Member Name' }] }); // SELECT name del desasignado
+        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] }) // getBoardIdFromCard
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ title: 'Card Title' }] }) // card title
+        .mockResolvedValueOnce({ rows: [{ name: 'Remover Name' }] }) // actor name
+        .mockResolvedValueOnce({ rows: [{ name: 'Member Name' }] }); // member name
 
       await CardService.unassignMember(cardId, userId, removedBy);
 
@@ -492,12 +484,11 @@ describe('CardService', () => {
       );
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'card.member.unassigned',
-        expect.objectContaining({ cardId, userId }),
-        removedBy,
-        'board-1',
-        undefined,
-        userId // The service also sends notification directly to the unassigned user
+        expect.objectContaining({
+          type: 'card.member.removed',
+          actor: expect.objectContaining({ id: removedBy }),
+          subject: expect.objectContaining({ id: userId }),
+        })
       );
     });
   });

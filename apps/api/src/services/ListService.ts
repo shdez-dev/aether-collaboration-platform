@@ -3,13 +3,7 @@
 import { pool } from '../lib/db';
 import { eventStore } from './EventStoreService';
 import { userActivityService } from './UserActivityService';
-import type {
-  List,
-  ListCreatedPayload,
-  ListUpdatedPayload,
-  ListReorderedPayload,
-  ListDeletedPayload,
-} from '@aether/types';
+import type { List } from '@aether/types';
 
 export class ListService {
   /**
@@ -57,21 +51,28 @@ export class ListService {
 
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId);
 
-      // Obtener nombre del board para el payload
-      const boardResult = await client.query('SELECT name FROM boards WHERE id = $1', [boardId]);
-      const boardTitle = boardResult.rows[0]?.name || 'Board desconocido';
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      const payload: ListCreatedPayload = {
-        listId: list.id as any,
-        boardId: boardId as any,
-        boardTitle,
-        name: list.name,
-        position: list.position,
-        createdBy: userId as any,
-        workspaceId,
-      };
+      const boardResult = await pool.query(
+        `SELECT b.name AS board_name, p.name AS project_name
+         FROM boards b
+         LEFT JOIN project_boards pb ON pb.board_id = b.id
+         LEFT JOIN projects p ON p.id = pb.project_id
+         WHERE b.id = $1
+         LIMIT 1`,
+        [boardId]
+      );
+      const boardName   = boardResult.rows[0]?.board_name ?? '';
+      const projectName = boardResult.rows[0]?.project_name ?? '';
 
-      await eventStore.emit('list.created', payload, userId as any, boardId);
+      await eventStore.emit({
+        type: 'list.created',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'list', id: list.id, name: list.name },
+        context: { workspaceId: workspaceId ?? '', boardId },
+        payload: { listName: list.name, boardId, boardName, projectName, workspaceId },
+      } as any);
 
       return this.formatList(list);
     } catch (error) {
@@ -132,8 +133,12 @@ export class ListService {
     try {
       await client.query('BEGIN');
 
+      // Fetch estado ANTES del UPDATE para el delta
+      const beforeResult = await client.query('SELECT name FROM lists WHERE id = $1', [listId]);
+      const oldName = beforeResult.rows[0]?.name;
+
       const result = await client.query(
-        `UPDATE lists 
+        `UPDATE lists
          SET name = COALESCE($1, name), updated_at = CURRENT_TIMESTAMP
          WHERE id = $2
          RETURNING *`,
@@ -150,26 +155,19 @@ export class ListService {
 
       const workspaceId = await this.getWorkspaceIdFromBoard(list.board_id);
 
-      const payload: ListUpdatedPayload = {
-        listId: list.id as any,
-        changes: data,
-        updatedBy: userId as any,
-        name: list.name,
-        boardId: list.board_id,
-        workspaceId,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('list.updated', payload, userId as any, list.board_id);
-
-      // Evento específico cuando se renombra la columna
-      if (data.name !== undefined) {
-        await eventStore.emit('list.renamed' as any, {
-          listId: list.id as any,
-          name: list.name,
-          boardId: list.board_id,
-          workspaceId,
-        }, userId as any, list.board_id);
-      }
+      await eventStore.emit({
+        type: 'list.updated',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'list', id: list.id, name: list.name },
+        context: { workspaceId: workspaceId ?? '', boardId: list.board_id },
+        delta: {
+          before: { name: oldName },
+          after: { name: list.name },
+        },
+      });
 
       return this.formatList(list);
     } catch (error) {
@@ -231,16 +229,19 @@ export class ListService {
 
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId);
 
-      const payload: ListReorderedPayload = {
-        listId: listId as any,
-        boardId: boardId as any,
-        oldPosition,
-        newPosition,
-        reorderedBy: userId as any,
-        workspaceId,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('list.reordered', payload, userId as any, boardId);
+      await eventStore.emit({
+        type: 'list.order-changed',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'list', id: listId, name: '' },
+        context: { workspaceId: workspaceId ?? '', boardId },
+        delta: {
+          before: { position: oldPosition },
+          after: { position: newPosition },
+        },
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -267,13 +268,14 @@ export class ListService {
         throw new Error('Cannot delete list with cards. Move or delete cards first.');
       }
 
-      const listResult = await client.query(`SELECT board_id FROM lists WHERE id = $1`, [listId]);
+      const listResult = await client.query(`SELECT board_id, name FROM lists WHERE id = $1`, [listId]);
 
       if (listResult.rows.length === 0) {
         throw new Error('List not found');
       }
 
       const boardId = listResult.rows[0].board_id;
+      const listName = listResult.rows[0].name ?? '';
 
       await client.query(`DELETE FROM lists WHERE id = $1`, [listId]);
 
@@ -281,14 +283,16 @@ export class ListService {
 
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId);
 
-      const payload: ListDeletedPayload = {
-        listId: listId as any,
-        boardId: boardId as any,
-        deletedBy: userId as any,
-        workspaceId,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('list.deleted', payload, userId as any, boardId);
+      await eventStore.emit({
+        type: 'list.deleted',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'list', id: listId, name: listName },
+        context: { workspaceId: workspaceId ?? '', boardId },
+        payload: { name: listName },
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

@@ -19,7 +19,7 @@ describe('DependencyService', () => {
     };
 
     (pool.connect as jest.Mock) = jest.fn().mockResolvedValue(mockClient);
-    (pool.query as jest.Mock) = jest.fn();
+    (pool.query as jest.Mock) = jest.fn().mockResolvedValue({ rows: [] });
     (eventStore.emit as jest.Mock) = jest.fn().mockResolvedValue({});
   });
 
@@ -89,13 +89,14 @@ describe('DependencyService', () => {
       const blockedCardId = 'card-blocked';
       const userId = 'user-123';
 
-      // Mock cycle check (no cycle) - pool.query
+      // pool.query calls: cycle check (BFS), getBoardAndWorkspace, actor name lookup
       (pool.query as jest.Mock)
-        .mockResolvedValueOnce({ rows: [] }) // cycle check
+        .mockResolvedValueOnce({ rows: [] }) // cycle check (no cards in BFS)
         .mockResolvedValueOnce({
-          // getBoardAndWorkspace after COMMIT
+          // getBoardAndWorkspace
           rows: [{ board_id: 'board-123', workspace_id: 'ws-123' }],
-        });
+        })
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // actor name lookup
 
       // Mock transaction queries
       mockClient.query
@@ -187,11 +188,6 @@ describe('DependencyService', () => {
       const cardId = 'card-1';
       const userId = 'user-123';
 
-      // Mock getBoardAndWorkspace (pool.query)
-      (pool.query as jest.Mock).mockResolvedValueOnce({
-        rows: [{ board_id: 'board-123', workspace_id: 'ws-123' }],
-      });
-
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
@@ -205,6 +201,11 @@ describe('DependencyService', () => {
           ],
         })
         .mockResolvedValueOnce({}); // COMMIT
+
+      // pool.query calls: getBoardAndWorkspace, actor name lookup
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ board_id: 'board-123', workspace_id: 'ws-123' }] }) // getBoardAndWorkspace
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // actor name lookup
 
       await DependencyService.removeDependency(dependencyId, cardId, userId);
 
@@ -278,13 +279,14 @@ describe('DependencyService', () => {
       // Existing: A → B → C
       // Adding: D → A is valid (no cycle)
 
-      // Mock: D does not have a path to A
+      // pool.query calls: cycle check, getBoardAndWorkspace, actor name lookup
       (pool.query as jest.Mock)
-        .mockResolvedValueOnce({ rows: [] }) // cycle check
+        .mockResolvedValueOnce({ rows: [] }) // cycle check (BFS from A finds no cycle back to D)
         .mockResolvedValueOnce({
           // getBoardAndWorkspace
           rows: [{ board_id: 'board-123', workspace_id: 'ws-123' }],
-        });
+        })
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // actor name lookup
 
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
@@ -327,13 +329,14 @@ describe('DependencyService', () => {
       const cardD = 'card-D';
       const cardE = 'card-E';
 
-      // Mock: D blocks nothing that leads back to D
+      // pool.query calls: cycle check, getBoardAndWorkspace, actor name lookup
       (pool.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [] }) // cycle check
         .mockResolvedValueOnce({
           // getBoardAndWorkspace
           rows: [{ board_id: 'board-1', workspace_id: 'ws-1' }],
-        });
+        })
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // actor name lookup
 
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN

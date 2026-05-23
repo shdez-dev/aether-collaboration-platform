@@ -15,24 +15,26 @@ import { C } from '@/lib/colors';
 // ── Color tokens ──────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
-  '#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899',
+  '#38b6ff','#00e5cc','#a855f7','#f59e0b','#ec4899',
   '#06b6d4','#fb923c','#84cc16','#14b8a6','#f43f5e',
 ];
 
 const GRADIENT_PAIR: Record<string, string> = {
-  '#3b82f6': '#a855f7', // azul      → morado
-  '#10b981': '#06b6d4', // verde     → cyan
-  '#f59e0b': '#f97316', // ámbar     → naranja
-  '#a855f7': '#ec4899', // morado    → rosa
-  '#ec4899': '#a855f7', // rosa      → morado
-  '#06b6d4': '#3b82f6', // cyan      → azul
-  '#fb923c': '#f59e0b', // naranja   → ámbar
-  '#84cc16': '#10b981', // lima      → verde
-  '#14b8a6': '#06b6d4', // teal      → cyan
-  '#f43f5e': '#fb923c', // rojo-rosa → naranja
-  '#f97316': '#ef4444', // naranja   → rojo
-  '#ef4444': '#f97316', // rojo      → naranja
-  '#6b7280': '#06b6d4', // gris      → cyan
+  '#38b6ff': '#00e5cc',
+  '#00e5cc': '#38b6ff',
+  '#3b82f6': '#00e5cc',
+  '#10b981': '#06b6d4',
+  '#f59e0b': '#f97316',
+  '#a855f7': '#ec4899',
+  '#ec4899': '#a855f7',
+  '#06b6d4': '#38b6ff',
+  '#fb923c': '#f59e0b',
+  '#84cc16': '#10b981',
+  '#14b8a6': '#06b6d4',
+  '#f43f5e': '#fb923c',
+  '#f97316': '#ef4444',
+  '#ef4444': '#f97316',
+  '#6b7280': '#06b6d4',
 };
 
 function gradientFor(color: string): string {
@@ -57,17 +59,17 @@ function timeAgo(date: string, t: Record<string, any>): string {
 }
 
 function getRoleBadge(role: string | undefined, t: { role_owner: string; role_admin: string; role_member: string }) {
-  if (role === 'OWNER') return { label: t.role_owner.toUpperCase(), bg: 'rgba(161,167,176,0.12)', color: '#a1a7b0', border: 'rgba(161,167,176,0.28)' };
-  if (role === 'ADMIN') return { label: t.role_admin.toUpperCase(), bg: 'rgba(16,185,129,0.15)', color: '#10b981', border: 'rgba(16,185,129,0.35)' };
-  return { label: t.role_member.toUpperCase(), bg: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: 'rgba(99,102,241,0.3)' };
+  if (role === 'OWNER') return { label: t.role_owner.toUpperCase(), bg: 'rgba(56,182,255,0.1)', color: '#38b6ff', border: 'rgba(56,182,255,0.25)' };
+  if (role === 'ADMIN') return { label: t.role_admin.toUpperCase(), bg: 'rgba(0,229,204,0.1)', color: '#00e5cc', border: 'rgba(0,229,204,0.25)' };
+  return { label: t.role_member.toUpperCase(), bg: 'rgba(56,182,255,0.06)', color: '#4a6480', border: 'rgba(56,182,255,0.15)' };
 }
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'ACTIVE':    return '#10b981';
-    case 'PLANNING':  return '#a5b4fc';
+    case 'ACTIVE':    return '#00e5cc';
+    case 'PLANNING':  return '#38b6ff';
     case 'ON_HOLD':   return '#f59e0b';
-    case 'COMPLETED': return '#3b82f6';
+    case 'COMPLETED': return 'rgba(56,182,255,0.4)';
     default:          return C.text4;
   }
 }
@@ -112,7 +114,7 @@ function SectionHeader({ label, count, icon }: { label: string; count: number; i
   return (
     <div className="flex items-center gap-2.5 mb-4">
       {icon}
-      <span className="text-[14px] font-semibold" style={{ color: C.text }}>{label}</span>
+      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: C.text3 }}>{label}</span>
       <span
         className="text-[11px] font-medium px-[7px] py-[1px] rounded-full"
         style={{ background: C.hover, color: C.text3, border: `1px solid ${C.border2}` }}
@@ -238,9 +240,9 @@ function WorkspaceCard({
     <div
       className="flex flex-col rounded-[10px] overflow-hidden transition-all"
       style={{
-        background: hovered ? '#171b21' : C.surface,
-        border: `1px solid ${hovered ? C.border2 : C.border}`,
-        boxShadow: hovered ? '0 4px 20px rgba(0,0,0,0.25)' : 'none',
+        background: C.surface,
+        border: `1px solid ${hovered ? 'rgba(56,182,255,0.35)' : C.border}`,
+        boxShadow: hovered ? '0 0 20px rgba(56,182,255,0.06)' : 'none',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -487,17 +489,20 @@ export default function WorkspacesPage() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-[24px] font-bold mb-1" style={{ color: C.text }}>{t.ws_page_title}</h1>
-          <p className="text-[13.5px]" style={{ color: C.text3 }}>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#00e5cc', marginBottom: '8px' }}>
+            Workspaces
+          </div>
+          <h1 className="text-[26px] mb-1" style={{ color: C.text, fontWeight: 300, letterSpacing: '-0.02em' }}>{t.ws_page_title}</h1>
+          <p className="text-[13px]" style={{ color: C.text3, fontWeight: 300 }}>
             {t.ws_page_subtitle}
           </p>
         </div>
         <button
           onClick={() => setIsCreateWsOpen(true)}
           className="flex items-center gap-2 rounded-[6px] text-[13px] font-medium transition-colors"
-          style={{ padding: '8px 14px', background: C.accent, color: '#fff', marginTop: '2px' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = '#2563eb')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = C.accent)}
+          style={{ padding: '8px 14px', background: C.accent, color: '#080c14', marginTop: '2px' }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
         >
           <Plus className="w-4 h-4" /> {t.ws_page_create_btn}
         </button>
@@ -579,7 +584,7 @@ export default function WorkspacesPage() {
 
       {/* ── Mis workspaces ── */}
       {(myWs.length > 0 || !searchQuery) && (
-        <div className="mb-8">
+        <div className="mb-8 mt-6">
           <SectionHeader label={t.ws_page_mine} count={myWs.length} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
             {myWs.map((ws, i) => <WorkspaceCard key={ws.id} {...cardProps(ws, i)} />)}

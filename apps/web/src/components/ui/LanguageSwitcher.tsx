@@ -10,7 +10,7 @@ interface LanguageSwitcherProps {
 export function LanguageSwitcher({ variant = 'topbar' }: LanguageSwitcherProps) {
   const { user, uiLanguage, setUiLanguage, updateProfile } = useAuthStore();
 
-  const currentLang = (user?.language ?? uiLanguage ?? 'es') as 'es' | 'en';
+  const currentLang = (uiLanguage ?? user?.language ?? 'es') as 'es' | 'en';
   const nextLang: 'es' | 'en' = currentLang === 'es' ? 'en' : 'es';
 
   const handleToggle = async () => {

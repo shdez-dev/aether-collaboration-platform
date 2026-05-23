@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useBoardStore } from '@/stores/boardStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { LayoutGrid, Plus } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
@@ -86,6 +87,7 @@ export default function CreateBoardModal({
         color: selectedColor,
         projectId: selectedProjectId || undefined,
       });
+      markStepDone('board');
       handleClose();
       if (onSuccess) onSuccess(board.id);
     } catch (err: any) {

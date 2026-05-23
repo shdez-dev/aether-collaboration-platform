@@ -9,50 +9,43 @@ import bcrypt from 'bcrypt';
 
 class UserController {
   /**
-   * GET /api/users/search?email=xxx
-   * Buscar usuario por email (para autocompletado en invitaciones)
+   * GET /api/users/search?q=xxx
+   * Buscar usuarios por nombre o email parcial (para autocompletado en invitaciones)
    */
   async searchByEmail(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
-      const { email } = req.query;
+      // Accept both `q` (new) and `email` (legacy) query params
+      const raw = (req.query.q ?? req.query.email) as string | undefined;
 
       if (!userId) {
         return res.status(401).json({
           success: false,
-          error: {
-            code: 'UNAUTHORIZED',
-            message: 'Authentication required',
-          },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         });
       }
 
-      if (!email || typeof email !== 'string') {
+      if (!raw || typeof raw !== 'string') {
         return res.status(400).json({
           success: false,
-          error: {
-            code: 'MISSING_EMAIL',
-            message: 'Email parameter is required',
-          },
+          error: { code: 'MISSING_QUERY', message: 'Query parameter q is required' },
         });
       }
 
-      // Require minimum 3 characters for search
-      if (email.trim().length < 3) {
+      const q = raw.trim();
+      if (q.length < 3) {
         return res.status(400).json({
           success: false,
-          error: {
-            code: 'SEARCH_TOO_SHORT',
-            message: 'Search query must be at least 3 characters',
-          },
+          error: { code: 'SEARCH_TOO_SHORT', message: 'Search query must be at least 3 characters' },
         });
       }
 
+      const pattern = `%${q}%`;
       const result = await pool.query(
-        `SELECT 
-          id, 
-          name, 
-          email, 
+        `SELECT
+          id,
+          name,
+          email,
           avatar,
           bio,
           position,
@@ -60,45 +53,41 @@ class UserController {
           timezone,
           created_at
          FROM users
-         WHERE LOWER(email) = LOWER($1)`,
-        [email.trim()]
+         WHERE id != $1
+           AND (
+             name  ILIKE $2
+             OR email ILIKE $2
+           )
+         ORDER BY
+           CASE WHEN LOWER(email) = LOWER($3) THEN 0
+                WHEN email ILIKE $2            THEN 1
+                ELSE 2
+           END,
+           name ASC
+         LIMIT 8`,
+        [userId, pattern, q]
       );
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: {
-            code: 'USER_NOT_FOUND',
-            message: 'No user found with this email',
-          },
-        });
-      }
-
-      const user = result.rows[0];
 
       return res.json({
         success: true,
         data: {
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            bio: user.bio,
-            position: user.position,
-            location: user.location,
-            timezone: user.timezone,
-            createdAt: user.created_at,
-          },
+          users: result.rows.map((u) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            avatar: u.avatar,
+            bio: u.bio,
+            position: u.position,
+            location: u.location,
+            timezone: u.timezone,
+            createdAt: u.created_at,
+          })),
         },
       });
     } catch (error) {
       return res.status(500).json({
         success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to search user',
-        },
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to search users' },
       });
     }
   }

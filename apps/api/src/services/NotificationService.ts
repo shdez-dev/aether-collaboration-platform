@@ -56,9 +56,12 @@ export class NotificationService {
 
     // Emitir evento WebSocket para notificación en tiempo real
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.authorId, name: data.authorName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: data.workspaceId ?? '' },
+        payload: {
           notificationId: notification.id,
           userId: data.mentionedUserId,
           type: notification.type,
@@ -66,11 +69,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.authorId as any, // userId: quien genera el evento
-        undefined, // boardId: no aplica
-        undefined, // socketId: no aplica
-        data.mentionedUserId as any // targetUserId: quien recibe la notificación
-      );
+        targetUserId: data.mentionedUserId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -118,9 +118,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.authorId, name: data.authorName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: '' },
+        payload: {
           notificationId: notification.id,
           userId: data.mentionedUserId,
           type: notification.type,
@@ -128,11 +131,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.authorId as any,
-        undefined,
-        undefined,
-        data.mentionedUserId as any
-      );
+        targetUserId: data.mentionedUserId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -158,14 +158,14 @@ export class NotificationService {
     const unreadCount = await notificationRepository.getUnreadCount(userId);
 
     try {
-      await eventStore.emit(
-        'notification.read',
-        { notificationId, unreadCount },
-        userId as any,
-        undefined,
-        undefined,
-        userId as any // targetUserId: enviar solo al usuario que marcó la notificación
-      );
+      await eventStore.emit({
+        type: 'notification.read',
+        actor: { id: userId, name: '' },
+        subject: { type: 'notification', id: notificationId, name: '' },
+        context: { workspaceId: '' },
+        payload: { notificationId, unreadCount },
+        targetUserId: userId,
+      } as any);
     } catch (error) {}
   }
 
@@ -177,14 +177,14 @@ export class NotificationService {
 
     // Emitir evento
     try {
-      await eventStore.emit(
-        'notification.read_all' as any,
-        { unreadCount: 0 },
-        userId as any,
-        undefined,
-        undefined,
-        userId as any // targetUserId
-      );
+      await eventStore.emit({
+        type: 'notification.read_all' as any,
+        actor: { id: userId, name: '' },
+        subject: { type: 'notification', id: '', name: '' },
+        context: { workspaceId: '' },
+        payload: { unreadCount: 0 },
+        targetUserId: userId,
+      } as any);
     } catch (error) {}
   }
 
@@ -205,14 +205,14 @@ export class NotificationService {
     const unreadCount = await notificationRepository.getUnreadCount(userId);
 
     try {
-      await eventStore.emit(
-        'notification.deleted',
-        { notificationId, unreadCount },
-        userId as any,
-        undefined,
-        undefined,
-        userId as any // targetUserId
-      );
+      await eventStore.emit({
+        type: 'notification.deleted',
+        actor: { id: userId, name: '' },
+        subject: { type: 'notification', id: notificationId, name: '' },
+        context: { workspaceId: '' },
+        payload: { notificationId, unreadCount },
+        targetUserId: userId,
+      } as any);
     } catch (error) {}
   }
 
@@ -242,9 +242,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.inviterId, name: data.inviterName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: data.workspaceId },
+        payload: {
           notificationId: notification.id,
           userId: data.userId,
           type: notification.type,
@@ -252,11 +255,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.inviterId as any,
-        undefined,
-        undefined,
-        data.userId as any
-      );
+        targetUserId: data.userId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -285,9 +285,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.inviterId, name: data.inviterName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: '' },
+        payload: {
           notificationId: notification.id,
           userId: data.userId,
           type: notification.type,
@@ -295,11 +298,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.inviterId as any,
-        undefined,
-        undefined,
-        data.userId as any
-      );
+        targetUserId: data.userId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -349,9 +349,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.assignerId, name: data.assignerName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: data.workspaceId ?? '' },
+        payload: {
           notificationId: notification.id,
           userId: data.assignedUserId,
           type: notification.type,
@@ -359,11 +362,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.assignerId as any, // userId: quien asigna
-        undefined, // boardId: no aplica
-        undefined, // socketId: no aplica
-        data.assignedUserId as any // targetUserId: quien recibe la asignación
-      );
+        targetUserId: data.assignedUserId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -407,9 +407,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: 'system', name: '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: '' },
+        payload: {
           notificationId: notification.id,
           userId: data.userId,
           type: notification.type,
@@ -417,11 +420,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        'system' as any, // userId: sistema
-        undefined, // boardId: no aplica
-        undefined, // socketId: no aplica
-        data.userId as any // targetUserId: usuario que recibe la notificación
-      );
+        targetUserId: data.userId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -462,9 +462,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: 'system', name: '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: '' },
+        payload: {
           notificationId: notification.id,
           userId: data.userId,
           type: notification.type,
@@ -472,11 +475,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        'system' as any, // userId: sistema
-        undefined, // boardId: no aplica
-        undefined, // socketId: no aplica
-        data.userId as any // targetUserId: usuario que recibe la notificación
-      );
+        targetUserId: data.userId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -530,9 +530,12 @@ export class NotificationService {
       });
 
       try {
-        await eventStore.emit(
-          'notification.created',
-          {
+        await eventStore.emit({
+          type: 'notification.created',
+          actor: { id: data.authorId, name: data.authorName || '' },
+          subject: { type: 'notification', id: notification.id, name: '' },
+          context: { workspaceId: data.workspaceId ?? '' },
+          payload: {
             notificationId: notification.id,
             userId: memberId,
             type: notification.type,
@@ -540,11 +543,8 @@ export class NotificationService {
             message: notification.message,
             data: notification.data,
           },
-          data.authorId as any, // userId: quien genera el evento (autor del comentario)
-          undefined, // boardId: no aplica
-          undefined, // socketId: no aplica
-          memberId as any // targetUserId: miembro que recibe la notificación
-        );
+          targetUserId: memberId,
+        } as any);
       } catch (error) {}
     }
   }
@@ -592,9 +592,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.removerId, name: data.removerName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: data.workspaceId ?? '' },
+        payload: {
           notificationId: notification.id,
           userId: data.unassignedUserId,
           type: notification.type,
@@ -602,11 +605,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.removerId as any,
-        undefined,
-        undefined,
-        data.unassignedUserId as any
-      );
+        targetUserId: data.unassignedUserId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -641,9 +641,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.removerId, name: data.removerName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: data.workspaceId },
+        payload: {
           notificationId: notification.id,
           userId: data.userId,
           type: notification.type,
@@ -651,11 +654,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.removerId as any,
-        undefined,
-        undefined,
-        data.userId as any
-      );
+        targetUserId: data.userId,
+      } as any);
     } catch (error) {}
 
     return notification;
@@ -693,9 +693,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.adderId, name: data.adderName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: '' },
+        payload: {
           notificationId: notification.id,
           userId: data.userId,
           type: notification.type,
@@ -703,11 +706,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.adderId as any,
-        undefined,
-        undefined,
-        data.userId as any
-      );
+        targetUserId: data.userId,
+      } as any);
     } catch {}
 
     return notification;
@@ -739,9 +739,12 @@ export class NotificationService {
     });
 
     try {
-      await eventStore.emit(
-        'notification.created',
-        {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: data.removerId, name: data.removerName || '' },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: '' },
+        payload: {
           notificationId: notification.id,
           userId: data.userId,
           type: notification.type,
@@ -749,11 +752,8 @@ export class NotificationService {
           message: notification.message,
           data: notification.data,
         },
-        data.removerId as any,
-        undefined,
-        undefined,
-        data.userId as any
-      );
+        targetUserId: data.userId,
+      } as any);
     } catch {}
 
     return notification;

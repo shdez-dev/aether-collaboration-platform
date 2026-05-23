@@ -45,34 +45,31 @@ export class UserActivityService {
       'workspace.member.invited',
       'workspace.member.joined',
       'workspace.member.removed',
-      'workspace.member.roleChanged',
+      'workspace.member.role-changed',
       // Board
       'board.created',
       'board.updated',
-      'board.renamed',
       'board.archived',
-      'board.unarchived',
+      'board.restored',
       'board.deleted',
       // List
       'list.created',
-      'list.renamed',
+      'list.updated',
+      'list.order-changed',
       'list.deleted',
       // Card
       'card.created',
       'card.moved',
-      'card.completed',
-      'card.uncompleted',
-      'card.renamed',
-      'card.description.changed',
-      'card.duedate.set',
-      'card.duedate.changed',
-      'card.duedate.removed',
+      'card.status-changed',
+      'card.updated',
+      'card.due-date.set',
+      'card.due-date.removed',
       'card.priority.changed',
       'card.archived',
-      'card.unarchived',
+      'card.restored',
       'card.deleted',
       'card.member.assigned',
-      'card.member.unassigned',
+      'card.member.removed',
       'card.label.added',
       'card.label.removed',
       'card.dependency.added',
@@ -84,27 +81,27 @@ export class UserActivityService {
       'comment.created',
       'comment.updated',
       'comment.deleted',
-      'comment.mentioned',
+      'comment.mention-added',
       // Document
       'document.created',
       'document.deleted',
-      'document.version.created',
+      'document.version.saved',
       'document.version.restored',
-      'document.permission.updated',
+      'document.permission.changed',
       // GitHub
-      'github.push',
+      'github.push.received',
       'github.pr.opened',
       'github.pr.closed',
       'github.pr.merged',
-      'github.pr.review.submitted',
-      'github.pr.review_requested',
+      'github.pr.review-submitted',
+      'github.pr.review-requested',
       // Project
       'project.created',
       'project.updated',
       'project.status.changed',
       'project.deleted',
-      'project.board.assigned',
-      'project.board.removed',
+      'project.board.linked',
+      'project.board.unlinked',
       'project.milestone.created',
       'project.milestone.completed',
       // Team
@@ -113,7 +110,7 @@ export class UserActivityService {
       'team.deleted',
       'team.member.added',
       'team.member.removed',
-      'team.member.roleChanged',
+      'team.member.role-changed',
     ];
 
     return relevantEvents.includes(eventType);
@@ -262,29 +259,33 @@ export class UserActivityService {
 
     switch (eventType) {
       case 'workspace.created':
-        metadata.name = payload.name;
+        metadata.name = payload.name || payload.subjectName;
         metadata.description = payload.description;
         metadata.icon = payload.icon;
         metadata.color = payload.color;
         break;
 
       case 'workspace.updated':
-        metadata.name = payload.name;
+        metadata.name = payload.name || payload.subjectName;
         metadata.description = payload.description;
         metadata.changes = payload.changes;
         break;
 
       case 'workspace.deleted':
         metadata.workspaceId = payload.workspaceId;
-        metadata.name = payload.name;
+        metadata.name = payload.name || payload.subjectName;
         metadata.deletedBy = payload.deletedBy;
         break;
 
       case 'workspace.member.invited':
         metadata.workspaceId = payload.workspaceId;
-        metadata.inviteeId = payload.inviteeId || payload.userId;
+        metadata.inviteeId = payload.inviteeId || payload.userId || payload.subjectId;
+        metadata.inviteeEmail = payload.inviteeEmail;
         if (metadata.inviteeId) {
           metadata.inviteeName = await this.getMemberName(metadata.inviteeId);
+        }
+        if (!metadata.inviteeName && payload.inviteeEmail) {
+          metadata.inviteeName = payload.inviteeEmail;
         }
         break;
 
@@ -293,53 +294,57 @@ export class UserActivityService {
         break;
 
       case 'board.created':
-        metadata.title = payload.title || payload.name;
-        metadata.name = payload.title || payload.name;
+        metadata.boardId   = payload.boardId || payload.subjectId;
+        metadata.boardName = payload.title || payload.name || payload.subjectName;
+        metadata.name      = metadata.boardName;
         metadata.description = payload.description;
-        metadata.boardId = payload.boardId;
         break;
 
       case 'board.updated':
-        metadata.title = payload.title || payload.name;
-        metadata.name = payload.title || payload.name;
-        metadata.boardId = payload.boardId;
+        metadata.boardId   = payload.boardId || payload.subjectId;
+        metadata.boardName = payload.title || payload.name || payload.subjectName;
+        metadata.name      = metadata.boardName;
+        if (!metadata.boardName && metadata.boardId) {
+          metadata.boardName = await this.getBoardName(metadata.boardId);
+          metadata.name      = metadata.boardName;
+        }
         metadata.changes = payload.changes;
         break;
 
       case 'board.deleted':
-        metadata.boardId = payload.boardId;
-        metadata.title = payload.title;
+        metadata.boardId   = payload.boardId || payload.subjectId;
+        metadata.boardName = payload.title || payload.name || payload.subjectName;
+        metadata.name      = metadata.boardName;
         metadata.deletedBy = payload.deletedBy;
         break;
 
-      case 'board.renamed':
-        metadata.boardId = payload.boardId;
-        metadata.name = payload.name || payload.title;
-        metadata.newName = payload.newName || payload.newTitle;
-        break;
-
       case 'board.archived':
-        metadata.boardId = payload.boardId;
-        metadata.name = payload.name || payload.title;
+        metadata.boardId     = payload.boardId || payload.subjectId;
+        metadata.boardName   = payload.name || payload.title || payload.subjectName;
+        metadata.name        = metadata.boardName;
         metadata.workspaceId = payload.workspaceId;
-        if (!metadata.name && payload.boardId) {
-          metadata.name = await this.getBoardName(payload.boardId);
+        if (!metadata.boardName && metadata.boardId) {
+          metadata.boardName = await this.getBoardName(metadata.boardId);
+          metadata.name      = metadata.boardName;
         }
         break;
 
-      case 'board.unarchived':
-        metadata.boardId = payload.boardId;
-        metadata.name = payload.name || payload.title;
+      case 'board.restored':
+        metadata.boardId     = payload.boardId || payload.subjectId;
+        metadata.boardName   = payload.name || payload.title || payload.subjectName;
+        metadata.name        = metadata.boardName;
         metadata.workspaceId = payload.workspaceId;
-        if (!metadata.name && payload.boardId) {
-          metadata.name = await this.getBoardName(payload.boardId);
+        if (!metadata.boardName && metadata.boardId) {
+          metadata.boardName = await this.getBoardName(metadata.boardId);
+          metadata.name      = metadata.boardName;
         }
         break;
 
       case 'workspace.member.removed':
         metadata.workspaceId = payload.workspaceId;
-        metadata.memberId = payload.userId;
-        if (metadata.memberId) {
+        metadata.memberId = payload.userId || payload.subjectId;
+        metadata.memberName = payload.memberName || payload.subjectName;
+        if (!metadata.memberName && metadata.memberId) {
           metadata.memberName = await this.getMemberName(metadata.memberId);
         }
         if (payload.workspaceId) {
@@ -347,12 +352,13 @@ export class UserActivityService {
         }
         break;
 
-      case 'workspace.member.roleChanged':
+      case 'workspace.member.role-changed':
         metadata.workspaceId = payload.workspaceId;
-        metadata.memberId = payload.userId;
+        metadata.memberId = payload.userId || payload.subjectId;
+        metadata.memberName = payload.memberName || payload.subjectName;
         metadata.oldRole = payload.oldRole;
         metadata.newRole = payload.newRole;
-        if (metadata.memberId) {
+        if (!metadata.memberName && metadata.memberId) {
           metadata.memberName = await this.getMemberName(metadata.memberId);
         }
         if (payload.workspaceId) {
@@ -361,158 +367,126 @@ export class UserActivityService {
         break;
 
       case 'list.created':
-        metadata.name = payload.name;
-        metadata.listId = payload.listId;
-        metadata.boardId = payload.boardId;
-        // Usar título del payload si está disponible
-        if (payload.boardTitle) {
-          metadata.boardTitle = payload.boardTitle;
-        } else if (payload.boardId) {
-          // Fallback: consultar título del board
-          metadata.boardTitle = await this.getBoardTitle(payload.boardId);
-        }
-        break;
-
-      case 'list.renamed':
-        metadata.listId = payload.listId;
-        metadata.name = payload.name;
-        metadata.boardId = payload.boardId;
-        metadata.workspaceId = payload.workspaceId;
+        metadata.listId     = payload.listId || payload.subjectId;
+        metadata.listName   = payload.listName || payload.name || payload.subjectName;
+        metadata.name       = metadata.listName;
+        metadata.boardId    = payload.boardId;
+        metadata.boardName  = payload.boardName || payload.boardTitle
+          || (metadata.boardId ? await this.getBoardName(metadata.boardId) : undefined);
+        metadata.projectName = payload.projectName || undefined;
         break;
 
       case 'list.updated':
-        metadata.name = payload.name;
-        metadata.listId = payload.listId;
-        metadata.oldName = payload.oldName;
+        metadata.listId   = payload.listId || payload.subjectId;
+        metadata.listName = payload.name || payload.subjectName;
+        metadata.name     = metadata.listName;
+        metadata.oldName  = payload.oldName;
+        metadata.boardId  = payload.boardId;
+        metadata.boardName = payload.boardName
+          || (metadata.boardId ? await this.getBoardName(metadata.boardId) : undefined);
         break;
 
-      case 'list.reordered':
-        metadata.listId = payload.listId;
-        metadata.name = payload.name;
+      case 'list.order-changed':
+        metadata.listId      = payload.listId;
+        metadata.listName    = payload.name;
+        metadata.name        = metadata.listName;
         metadata.oldPosition = payload.oldPosition;
         metadata.newPosition = payload.newPosition;
-        // Obtener nombre de la lista si no está en el payload
-        if (!metadata.name && payload.listId) {
-          metadata.name = await this.getListName(payload.listId);
+        metadata.boardId     = payload.boardId;
+        metadata.boardName   = payload.boardName
+          || (metadata.boardId ? await this.getBoardName(metadata.boardId) : undefined);
+        if (!metadata.listName && payload.listId) {
+          metadata.listName = await this.getListName(payload.listId);
+          metadata.name     = metadata.listName;
         }
         break;
 
       case 'list.deleted':
-        metadata.listId = payload.listId;
-        metadata.name = payload.name;
+        metadata.listId   = payload.listId;
+        metadata.listName = payload.name;
+        metadata.name     = metadata.listName;
+        metadata.boardId  = payload.boardId;
+        metadata.boardName = payload.boardName
+          || (metadata.boardId ? await this.getBoardName(metadata.boardId) : undefined);
         metadata.deletedBy = payload.deletedBy;
         break;
 
       case 'card.created':
-        metadata.title = payload.title;
-        metadata.cardId = payload.cardId;
+        metadata.title = payload.title || payload.subjectName;
+        metadata.cardId = payload.cardId || payload.subjectId;
         metadata.listId = payload.listId;
-        // Usar nombre del payload si está disponible
         if (payload.listName) {
           metadata.listName = payload.listName;
         } else if (payload.listId) {
-          // Fallback: consultar nombre de la lista
           metadata.listName = await this.getListName(payload.listId);
         }
         break;
 
       case 'card.updated':
-        metadata.title = payload.title;
-        metadata.cardId = payload.cardId;
+        metadata.title = payload.title || payload.subjectName;
+        metadata.cardId = payload.cardId || payload.subjectId;
         metadata.listId = payload.listId;
         metadata.changes = payload.changes;
         break;
 
       case 'card.deleted':
-        metadata.cardId = payload.cardId;
+        metadata.cardId = payload.cardId || payload.subjectId;
         metadata.listId = payload.listId;
-        metadata.title = payload.title;
+        metadata.title = payload.title || payload.subjectName;
         metadata.deletedBy = payload.deletedBy;
         break;
 
-      case 'card.completed':
-        metadata.cardId = payload.cardId;
-        metadata.title = payload.title;
-        metadata.boardId = payload.boardId;
-        metadata.workspaceId = payload.workspaceId;
-        metadata.completedAt = payload.completedAt;
-        break;
-
-      case 'card.uncompleted':
-        metadata.cardId = payload.cardId;
-        metadata.title = payload.title;
-        metadata.boardId = payload.boardId;
-        metadata.workspaceId = payload.workspaceId;
-        break;
-
       case 'card.archived':
-        metadata.cardId = payload.cardId;
-        metadata.title = payload.title;
+        metadata.cardId = payload.cardId || payload.subjectId;
+        metadata.title = payload.title || payload.subjectName;
         metadata.boardId = payload.boardId;
         metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'card.moved':
-        metadata.title = payload.title;
-        metadata.cardId = payload.cardId;
-        metadata.fromListId = payload.fromListId;
-        metadata.toListId = payload.toListId;
+        metadata.cardId    = payload.cardId || payload.subjectId;
+        metadata.cardTitle = payload.title || payload.cardTitle || payload.subjectName;
+        metadata.title     = metadata.cardTitle;
+        if (!metadata.cardTitle && metadata.cardId) {
+          metadata.cardTitle = await this.getCardTitle(metadata.cardId);
+          metadata.title     = metadata.cardTitle;
+        }
+        metadata.fromListId   = payload.fromListId;
+        metadata.toListId     = payload.toListId;
         metadata.fromPosition = payload.fromPosition;
-        metadata.toPosition = payload.toPosition;
+        metadata.toPosition   = payload.toPosition;
 
-        // Usar nombres del payload si están disponibles (desde CardService)
         if (payload.oldListName) metadata.fromListName = payload.oldListName;
-        if (payload.newListName) metadata.toListName = payload.newListName;
-        // También copiar como newListName para compatibilidad con frontend
-        if (payload.newListName) metadata.newListName = payload.newListName;
+        if (payload.newListName) { metadata.toListName = payload.newListName; metadata.newListName = payload.newListName; }
 
-        // Fallback: consultar nombres si no venían en el payload
         if (!metadata.fromListName || !metadata.toListName) {
           const listNames = await this.getListNames(payload.fromListId, payload.toListId);
-          if (!metadata.fromListName && listNames.fromList)
-            metadata.fromListName = listNames.fromList;
-          if (!metadata.toListName && listNames.toList) metadata.toListName = listNames.toList;
-          if (!metadata.newListName && listNames.toList) metadata.newListName = listNames.toList;
+          if (!metadata.fromListName && listNames.fromList) metadata.fromListName = listNames.fromList;
+          if (!metadata.toListName  && listNames.toList)   { metadata.toListName = listNames.toList; metadata.newListName = listNames.toList; }
         }
         break;
 
-      case 'card.renamed':
-        metadata.cardId = payload.cardId;
-        metadata.title = payload.title;       // nombre anterior
-        metadata.newTitle = payload.newTitle; // nombre nuevo
-        metadata.boardId = payload.boardId;
-        metadata.workspaceId = payload.workspaceId;
-        break;
-
-      case 'card.description.changed':
-        metadata.cardId = payload.cardId;
-        metadata.title = payload.title;
-        metadata.boardId = payload.boardId;
-        metadata.workspaceId = payload.workspaceId;
-        break;
-
-      case 'card.duedate.set':
-      case 'card.duedate.changed':
-      case 'card.duedate.removed':
-        metadata.cardId = payload.cardId;
-        metadata.title = payload.title;
+      case 'card.due-date.set':
+      case 'card.due-date.removed':
+        metadata.cardId = payload.cardId || payload.subjectId;
+        metadata.title = payload.title || payload.subjectName;
         metadata.dueDate = payload.dueDate || null;
         metadata.boardId = payload.boardId;
         metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'card.priority.changed':
-        metadata.cardId = payload.cardId;
-        metadata.title = payload.title;
+        metadata.cardId = payload.cardId || payload.subjectId;
+        metadata.title = payload.title || payload.subjectName;
         metadata.oldPriority = payload.oldPriority;
         metadata.newPriority = payload.newPriority;
         metadata.boardId = payload.boardId;
         metadata.workspaceId = payload.workspaceId;
         break;
 
-      case 'card.unarchived':
-        metadata.cardId = payload.cardId;
-        metadata.title = payload.title;
+      case 'card.restored':
+        metadata.cardId = payload.cardId || payload.subjectId;
+        metadata.title = payload.title || payload.subjectName;
         metadata.boardId = payload.boardId;
         metadata.workspaceId = payload.workspaceId;
         break;
@@ -568,8 +542,8 @@ export class UserActivityService {
         break;
 
       case 'document.created':
-        metadata.documentId  = payload.documentId;
-        metadata.title       = payload.title;
+        metadata.documentId  = payload.documentId || payload.subjectId;
+        metadata.title       = payload.title || payload.subjectName;
         metadata.workspaceId = payload.workspaceId;
         break;
 
@@ -584,7 +558,7 @@ export class UserActivityService {
         }
         break;
 
-      case 'document.version.created':
+      case 'document.version.saved':
         metadata.documentId  = payload.documentId;
         metadata.versionId   = payload.versionId;
         metadata.workspaceId = payload.workspaceId;
@@ -602,7 +576,7 @@ export class UserActivityService {
         }
         break;
 
-      case 'document.permission.updated':
+      case 'document.permission.changed':
         metadata.documentId  = payload.documentId;
         metadata.workspaceId = payload.workspaceId;
         metadata.targetUserId = payload.targetUserId;
@@ -615,7 +589,7 @@ export class UserActivityService {
         }
         break;
 
-      case 'comment.mentioned':
+      case 'comment.mention-added':
         metadata.commentId   = payload.commentId;
         metadata.cardId      = payload.cardId;
         metadata.workspaceId = payload.workspaceId;
@@ -669,7 +643,7 @@ export class UserActivityService {
         metadata.workspaceId = payload.workspaceId;
         break;
 
-      case 'card.member.unassigned':
+      case 'card.member.removed':
         metadata.cardId = payload.cardId;
         metadata.memberId = payload.userId || payload.memberId;
         metadata.cardTitle = payload.cardTitle || payload.title || (payload.cardId ? await this.getCardTitle(payload.cardId) : undefined);
@@ -721,7 +695,7 @@ export class UserActivityService {
         }
         break;
 
-      case 'github.push':
+      case 'github.push.received':
         metadata.workspaceId = payload.workspaceId;
         metadata.repo        = payload.repo;
         metadata.branch      = payload.branch;
@@ -733,7 +707,7 @@ export class UserActivityService {
       case 'github.pr.opened':
       case 'github.pr.closed':
       case 'github.pr.merged':
-      case 'github.pr.review_requested':
+      case 'github.pr.review-requested':
         metadata.workspaceId  = payload.workspaceId;
         metadata.repo         = payload.repo;
         metadata.prNumber     = payload.prNumber;
@@ -746,7 +720,7 @@ export class UserActivityService {
         metadata.reviewer     = payload.reviewer;
         break;
 
-      case 'github.pr.review.submitted':
+      case 'github.pr.review-submitted':
         metadata.workspaceId   = payload.workspaceId;
         metadata.repo          = payload.repo;
         metadata.prNumber      = payload.prNumber;
@@ -760,102 +734,108 @@ export class UserActivityService {
         break;
 
       case 'project.created':
-        metadata.projectId  = payload.projectId;
-        metadata.name       = payload.name;
+        metadata.projectId   = payload.projectId || payload.subjectId;
+        metadata.name        = payload.name || payload.subjectName;
         metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'project.updated':
-        metadata.projectId  = payload.projectId;
-        metadata.name       = payload.name || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
+        metadata.projectId   = payload.projectId || payload.subjectId;
+        metadata.name        = payload.name || payload.subjectName || (metadata.projectId ? await this.getProjectName(metadata.projectId) : undefined);
         metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'project.status.changed':
-        metadata.projectId  = payload.projectId;
-        metadata.name       = payload.name || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
-        metadata.oldStatus  = payload.oldStatus;
-        metadata.newStatus  = payload.newStatus;
+        metadata.projectId   = payload.projectId || payload.subjectId;
+        metadata.name        = payload.name || payload.subjectName || (metadata.projectId ? await this.getProjectName(metadata.projectId) : undefined);
+        metadata.oldStatus   = payload.oldStatus;
+        metadata.newStatus   = payload.newStatus;
         metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'project.deleted':
-        metadata.projectId  = payload.projectId;
-        metadata.name       = payload.name;
+        metadata.projectId   = payload.projectId || payload.subjectId;
+        metadata.name        = payload.name || payload.subjectName;
         metadata.workspaceId = payload.workspaceId;
         break;
 
-      case 'project.board.assigned':
-      case 'project.board.removed':
-        metadata.projectId   = payload.projectId;
-        metadata.projectName = payload.projectName || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
+      case 'project.board.linked':
+      case 'project.board.unlinked':
+        metadata.projectId   = payload.projectId || payload.subjectId;
+        metadata.projectName = payload.projectName || payload.subjectName || (metadata.projectId ? await this.getProjectName(metadata.projectId) : undefined);
         metadata.boardId     = payload.boardId;
         metadata.workspaceId = payload.workspaceId;
-        if (payload.boardId) {
-          metadata.boardName = await this.getBoardName(payload.boardId);
+        if (metadata.boardId) {
+          metadata.boardName = await this.getBoardName(metadata.boardId);
         }
         break;
 
       case 'project.milestone.created':
-        metadata.projectId    = payload.projectId;
-        metadata.projectName  = payload.projectName || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
-        metadata.milestoneName = payload.milestoneName;
+        metadata.projectId    = payload.projectId || payload.subjectId;
+        metadata.projectName  = payload.projectName || (metadata.projectId ? await this.getProjectName(metadata.projectId) : undefined);
+        metadata.milestoneName = payload.milestoneName || payload.subjectName;
         metadata.milestoneDate = payload.milestoneDate;
         metadata.workspaceId  = payload.workspaceId;
         break;
 
       case 'project.milestone.completed':
-        metadata.projectId    = payload.projectId;
-        metadata.projectName  = payload.projectName || (payload.projectId ? await this.getProjectName(payload.projectId) : undefined);
-        metadata.milestoneName = payload.milestoneName;
+        metadata.projectId    = payload.projectId || payload.subjectId;
+        metadata.projectName  = payload.projectName || (metadata.projectId ? await this.getProjectName(metadata.projectId) : undefined);
+        metadata.milestoneName = payload.milestoneName || payload.subjectName;
         metadata.workspaceId  = payload.workspaceId;
         break;
 
       case 'team.created':
-        metadata.teamId  = payload.teamId;
-        metadata.name    = payload.name || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        metadata.teamId  = payload.teamId || payload.subjectId;
+        metadata.name    = payload.name || payload.subjectName || (metadata.teamId ? await this.getTeamName(metadata.teamId) : undefined);
         break;
 
       case 'team.updated':
-        metadata.teamId  = payload.teamId;
-        metadata.name    = payload.name || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        metadata.teamId  = payload.teamId || payload.subjectId;
+        metadata.name    = payload.name || payload.subjectName || (metadata.teamId ? await this.getTeamName(metadata.teamId) : undefined);
         break;
 
       case 'team.deleted':
-        metadata.teamId  = payload.teamId;
-        metadata.name    = payload.name;
+        metadata.teamId  = payload.teamId || payload.subjectId;
+        metadata.name    = payload.name || payload.subjectName;
         break;
 
       case 'team.member.added':
-        metadata.teamId   = payload.teamId;
-        metadata.teamName = payload.teamName || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        metadata.teamId   = payload.teamId || payload.subjectId;
+        metadata.teamName = payload.teamName || (metadata.teamId ? await this.getTeamName(metadata.teamId) : undefined);
         metadata.memberId = payload.memberId;
-        if (payload.memberId) {
-          metadata.memberName = await this.getMemberName(payload.memberId);
+        if (metadata.memberId) {
+          metadata.memberName = await this.getMemberName(metadata.memberId);
         }
         break;
 
       case 'team.member.removed':
-        metadata.teamId   = payload.teamId;
-        metadata.teamName = payload.teamName || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+        metadata.teamId   = payload.teamId || payload.subjectId;
+        metadata.teamName = payload.teamName || (metadata.teamId ? await this.getTeamName(metadata.teamId) : undefined);
         metadata.memberId = payload.memberId;
-        if (payload.memberId) {
-          metadata.memberName = await this.getMemberName(payload.memberId);
+        if (metadata.memberId) {
+          metadata.memberName = await this.getMemberName(metadata.memberId);
         }
         break;
 
-      case 'team.member.roleChanged':
-        metadata.teamId   = payload.teamId;
-        metadata.teamName = payload.teamName || (payload.teamId ? await this.getTeamName(payload.teamId) : undefined);
+      case 'team.member.role-changed':
+        metadata.teamId   = payload.teamId || payload.subjectId;
+        metadata.teamName = payload.teamName || (metadata.teamId ? await this.getTeamName(metadata.teamId) : undefined);
         metadata.memberId = payload.memberId;
         metadata.newRole  = payload.newRole;
-        if (payload.memberId) {
-          metadata.memberName = await this.getMemberName(payload.memberId);
+        if (metadata.memberId) {
+          metadata.memberName = await this.getMemberName(metadata.memberId);
         }
         break;
 
       default:
-        return payload;
+        // For unknown event types, return the enriched payload itself so
+        // subjectName/workspaceId etc. are still available to the frontend.
+        return {
+          name: payload.subjectName,
+          workspaceId: payload.workspaceId,
+          ...payload,
+        };
     }
 
     return metadata;
@@ -872,12 +852,7 @@ export class UserActivityService {
     try {
       const params: any[] = [userId];
       const conditions: string[] = [
-        `(
-           (ual.workspace_id IS NOT NULL AND ual.workspace_id IN (
-             SELECT workspace_id FROM workspace_members WHERE user_id = $1
-           ))
-           OR (ual.workspace_id IS NULL AND ual.user_id = $1)
-         )`,
+        `ual.user_id = $1`,
       ];
 
       // Date filter done entirely in SQL to avoid JS timezone issues

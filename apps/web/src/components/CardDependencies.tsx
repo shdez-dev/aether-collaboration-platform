@@ -18,11 +18,11 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useCardStore } from '@/stores/cardStore';
+import { C } from '@/lib/colors';
 import type { CardDependency } from '@aether/types';
 
 interface CardDependenciesProps {
   cardId: string;
-  /** Callback cuando cambian las dependencias (para actualizar la mini-card) */
   onDepsChange?: (blockedByCount: number, blockingCount: number) => void;
 }
 
@@ -33,7 +33,6 @@ interface SearchResult {
   listId: string;
   listName: string;
 }
-
 
 // ── Sub-componente: ítem de dependencia ──────────────────────────────────────
 function DepItem({
@@ -47,42 +46,52 @@ function DepItem({
 }) {
   const t = useT();
   const card = dep.relatedCard;
+  const [hovered, setHovered] = useState(false);
 
   return (
     <div
-      className={`group flex items-center gap-2.5 px-3 py-2 border transition-colors ${
-        card?.completed
-          ? 'border-success/30 bg-success/5'
-          : 'border-border bg-surface/50 hover:border-border-light'
-      }`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '7px 10px',
+        borderRadius: '6px',
+        border: `1px solid ${card?.completed ? `${C.green}40` : C.border}`,
+        background: card?.completed ? `${C.green}08` : hovered ? C.hover : C.surface,
+        transition: 'background 0.12s, border-color 0.12s',
+      }}
     >
       {/* Estado */}
-      {card?.completed ? (
-        <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
-      ) : (
-        <Circle className="w-4 h-4 text-text-muted flex-shrink-0" />
-      )}
+      {card?.completed
+        ? <CheckCircle2 style={{ width: '14px', height: '14px', color: C.green, flexShrink: 0 }} />
+        : <Circle style={{ width: '14px', height: '14px', color: C.text4, flexShrink: 0 }} />
+      }
 
       {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm font-mono truncate ${
-            card?.completed ? 'line-through text-text-muted' : 'text-text-primary'
-          }`}
-        >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          fontSize: '12px', color: card?.completed ? C.text4 : C.text,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          textDecoration: card?.completed ? 'line-through' : 'none',
+        }}>
           {card?.title ?? '(card eliminada)'}
         </p>
-        {card?.listName && <p className="text-xs text-text-muted truncate">{card.listName}</p>}
+        {card?.listName && (
+          <p style={{ fontSize: '10.5px', color: C.text4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {card.listName}
+          </p>
+        )}
       </div>
 
       {/* Badge estado */}
-      <span
-        className={`text-[10px] px-1.5 py-0.5 border font-mono flex-shrink-0 ${
-          card?.completed
-            ? 'text-success border-success/40 bg-success/10'
-            : 'text-text-muted border-border'
-        }`}
-      >
+      <span style={{
+        fontSize: '10px', padding: '1px 6px',
+        borderRadius: '4px',
+        border: `1px solid ${card?.completed ? `${C.green}50` : C.border}`,
+        background: card?.completed ? `${C.green}14` : 'transparent',
+        color: card?.completed ? C.green : C.text4,
+        flexShrink: 0,
+      }}>
         {card?.completed ? t.dep_status_done : t.dep_status_pending}
       </span>
 
@@ -91,9 +100,17 @@ function DepItem({
         <button
           onClick={() => onRemove(dep.id)}
           title={t.dep_remove_confirm}
-          className="opacity-0 group-hover:opacity-100 p-0.5 text-text-muted hover:text-error transition-all flex-shrink-0"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '20px', height: '20px', borderRadius: '4px',
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: C.text4, padding: 0, flexShrink: 0,
+            opacity: hovered ? 1 : 0, transition: 'opacity 0.12s, color 0.12s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = C.red; e.currentTarget.style.background = `${C.red}14`; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = C.text4; e.currentTarget.style.background = 'transparent'; }}
         >
-          <X className="w-3.5 h-3.5" />
+          <X style={{ width: '12px', height: '12px' }} />
         </button>
       )}
     </div>
@@ -113,7 +130,6 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
   const [blocking, setBlocking] = useState<CardDependency[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Picker de nueva dependencia
   const [showPicker, setShowPicker] = useState<'blockedBy' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -121,7 +137,6 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
   const [isAdding, setIsAdding] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Collapse de secciones
   const [showBlockedBy, setShowBlockedBy] = useState(true);
   const [showBlocking, setShowBlocking] = useState(true);
 
@@ -144,27 +159,16 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
     }
   }, [cardId]);
 
-  useEffect(() => {
-    fetchDeps();
-  }, [fetchDeps]);
+  useEffect(() => { fetchDeps(); }, [fetchDeps]);
+  useEffect(() => { onDepsChange?.(blockedBy.length, blocking.length); }, [blockedBy.length, blocking.length, onDepsChange]);
 
   useEffect(() => {
-    onDepsChange?.(blockedBy.length, blocking.length);
-  }, [blockedBy.length, blocking.length, onDepsChange]);
-
-  // Focus en el input al abrir el picker
-  useEffect(() => {
-    if (showPicker) {
-      setTimeout(() => searchRef.current?.focus(), 50);
-    }
+    if (showPicker) setTimeout(() => searchRef.current?.focus(), 50);
   }, [showPicker]);
 
-  // Cerrar picker al hacer clic fuera
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        closePicker();
-      }
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) closePicker();
     };
     if (showPicker) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -180,9 +184,7 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
           `/api/cards/${cardId}/dependencies/search?q=${encodeURIComponent(searchQuery)}`,
           true
         );
-        if (res.success && res.data) {
-          setSearchResults(res.data.cards ?? []);
-        }
+        if (res.success && res.data) setSearchResults(res.data.cards ?? []);
       } finally {
         setIsSearching(false);
       }
@@ -202,37 +204,20 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
     if (isAdding) return;
     setIsAdding(true);
     setErrorMsg(null);
-
     try {
       const res = await apiService.post<{ dependency: any }>(
         `/api/cards/${cardId}/dependencies`,
         { blockingCardId },
         true
       );
-
       if (!res.success) {
-        if (res.error?.code === 'CIRCULAR_DEPENDENCY') {
-          setErrorMsg(t.dep_circular_error);
-        } else {
-          setErrorMsg(res.error?.message ?? 'Error');
-        }
+        setErrorMsg(res.error?.code === 'CIRCULAR_DEPENDENCY' ? t.dep_circular_error : (res.error?.message ?? 'Error'));
         return;
       }
-
       const newDep = res.data!.dependency;
       setBlockedBy((prev) => [...prev, newDep]);
-
-      // Calcular cuántas dependencias bloqueantes están incompletas
-      const pendingCount = [...blockedBy, newDep].filter(
-        (d) => d.relatedCard && !d.relatedCard.completed
-      ).length;
-
-      // Actualizar el contador en la card inmediatamente
-      updateCard(cardId, {
-        blockedByPendingCount: pendingCount,
-        blockedBy: [...blockedBy, newDep] as any,
-      });
-
+      const pendingCount = [...blockedBy, newDep].filter((d) => d.relatedCard && !d.relatedCard.completed).length;
+      updateCard(cardId, { blockedByPendingCount: pendingCount, blockedBy: [...blockedBy, newDep] as any });
       closePicker();
       invalidateTimeline();
     } finally {
@@ -242,53 +227,35 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
 
   // ── Eliminar dependencia ──────────────────────────────────────────────────
   const handleRemove = async (depId: string) => {
-    // Determinar si es blockedBy o blocking
     const isBlockedBy = blockedBy.some((d) => d.id === depId);
-
-    // Optimistic
     if (isBlockedBy) {
       const newBlockedBy = blockedBy.filter((d) => d.id !== depId);
       setBlockedBy(newBlockedBy);
-
-      // Actualizar el contador en la card inmediatamente
-      const pendingCount = newBlockedBy.filter(
-        (d) => d.relatedCard && !d.relatedCard.completed
-      ).length;
-
-      updateCard(cardId, {
-        blockedByPendingCount: pendingCount,
-        blockedBy: newBlockedBy as any,
-      });
+      const pendingCount = newBlockedBy.filter((d) => d.relatedCard && !d.relatedCard.completed).length;
+      updateCard(cardId, { blockedByPendingCount: pendingCount, blockedBy: newBlockedBy as any });
     } else {
       setBlocking((prev) => prev.filter((d) => d.id !== depId));
     }
-
     try {
       const res = await apiService.delete(`/api/cards/${cardId}/dependencies/${depId}`, true);
-      if (!res.success) {
-        await fetchDeps(); // rollback
-      } else {
-        invalidateTimeline();
-      }
+      if (!res.success) await fetchDeps();
+      else invalidateTimeline();
     } catch {
       await fetchDeps();
     }
   };
 
-  // ── Helpers visuales ─────────────────────────────────────────────────────
   const isCurrentlyBlocked = blockedBy.some((d) => !d.relatedCard?.completed);
   const totalDeps = blockedBy.length + blocking.length;
 
   if (isLoading) {
     return (
       <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Link2 className="w-4 h-4 text-text-muted" />
-          <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-            {t.dep_section_title}
-          </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <Link2 style={{ width: '15px', height: '15px', color: C.text4 }} />
+          <h3 style={{ fontSize: '12px', fontWeight: 700, color: C.text, margin: 0 }}>{t.dep_section_title}</h3>
         </div>
-        <div className="h-10 bg-surface border border-border animate-pulse" />
+        <div style={{ height: '40px', borderRadius: '6px', background: C.surface, border: `1px solid ${C.border}`, animation: 'pulse 1.5s ease-in-out infinite' }} />
       </section>
     );
   }
@@ -296,35 +263,40 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
   return (
     <section>
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Link2 className="w-4 h-4 text-text-muted" />
-          <h3 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-            {t.dep_section_title}
-          </h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Link2 style={{ width: '15px', height: '15px', color: C.text4 }} />
+          <h3 style={{ fontSize: '12px', fontWeight: 700, color: C.text, margin: 0 }}>{t.dep_section_title}</h3>
           {totalDeps > 0 && (
-            <span className="text-xs text-text-muted font-mono">({totalDeps})</span>
+            <span style={{ fontSize: '11px', color: C.text4 }}>({totalDeps})</span>
           )}
-          {/* Badge de bloqueo activo */}
           {isCurrentlyBlocked && (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-warning/10 border border-warning/40 text-warning font-mono">
-              <AlertTriangle className="w-3 h-3" />
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              padding: '2px 7px', fontSize: '10px', borderRadius: '4px',
+              background: `${C.amber}18`, border: `1px solid ${C.amber}50`, color: C.amber,
+            }}>
+              <AlertTriangle style={{ width: '10px', height: '10px' }} />
               {t.dep_badge_blocked}
             </span>
           )}
         </div>
 
-        {/* Botón agregar bloqueante */}
         {canEdit && (
           <button
             onClick={() => setShowPicker(showPicker ? null : 'blockedBy')}
-            className={`flex items-center gap-1 px-2 py-1 text-xs border transition-colors ${
-              showPicker
-                ? 'border-accent text-accent bg-accent/10'
-                : 'border-border text-text-muted hover:border-accent hover:text-accent'
-            }`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '4px 10px', borderRadius: '5px', fontSize: '11.5px', cursor: 'pointer',
+              border: `1px solid ${showPicker ? C.accent : C.border}`,
+              background: showPicker ? `${C.accent}14` : 'transparent',
+              color: showPicker ? C.accent : C.text3,
+              transition: 'all 0.12s',
+            }}
+            onMouseEnter={(e) => { if (!showPicker) { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; } }}
+            onMouseLeave={(e) => { if (!showPicker) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.text3; } }}
           >
-            <Link2 className="w-3 h-3" />
+            <Link2 style={{ width: '11px', height: '11px' }} />
             {t.dep_add_blocking}
           </button>
         )}
@@ -332,66 +304,97 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
 
       {/* ── Picker para agregar dependencia ─────────────────────────────── */}
       {showPicker && canEdit && (
-        <div ref={pickerRef} className="mb-4 border border-accent/40 bg-card shadow-lg">
-          {/* Explicación contextual */}
-          <div className="px-3 py-2 bg-accent/5 border-b border-accent/20 flex items-start gap-2">
-            <ArrowRight className="w-3.5 h-3.5 text-accent mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-text-secondary font-mono leading-relaxed">
+        <div
+          ref={pickerRef}
+          style={{
+            marginBottom: '16px', borderRadius: '8px',
+            border: `1px solid ${C.accent}50`,
+            background: C.surface,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Descripción contextual */}
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: '8px',
+            padding: '8px 12px',
+            background: `${C.accent}0a`,
+            borderBottom: `1px solid ${C.accent}25`,
+          }}>
+            <ArrowRight style={{ width: '13px', height: '13px', color: C.accent, marginTop: '1px', flexShrink: 0 }} />
+            <p style={{ fontSize: '11.5px', color: C.text3, margin: 0, lineHeight: 1.5 }}>
               {t.dep_blocked_by_desc}
             </p>
           </div>
 
           {/* Search input */}
-          <div className="relative p-2">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none" />
+          <div style={{ position: 'relative', padding: '8px' }}>
+            <Search style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', width: '13px', height: '13px', color: C.text4, pointerEvents: 'none' }} />
             <input
               ref={searchRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t.dep_search_placeholder}
-              className="w-full pl-8 pr-3 py-1.5 text-sm bg-surface border border-border focus:outline-none focus:border-accent transition-colors font-mono"
+              style={{
+                width: '100%', paddingLeft: '32px', paddingRight: '10px', paddingTop: '6px', paddingBottom: '6px',
+                fontSize: '12px', borderRadius: '6px',
+                background: C.bg2, border: `1px solid ${C.border}`,
+                color: C.text, outline: 'none', boxSizing: 'border-box',
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
+              onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
             />
           </div>
 
           {/* Error */}
           {errorMsg && (
-            <p className="px-3 pb-2 text-xs text-error font-mono flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" /> {errorMsg}
+            <p style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0 12px 8px', fontSize: '11.5px', color: C.red, margin: 0 }}>
+              <AlertTriangle style={{ width: '12px', height: '12px' }} /> {errorMsg}
             </p>
           )}
 
           {/* Resultados */}
-          <div className="max-h-48 overflow-y-auto border-t border-border">
+          <div style={{ maxHeight: '192px', overflowY: 'auto', borderTop: `1px solid ${C.border}` }}>
             {isSearching ? (
-              <div className="px-3 py-3 text-xs text-text-muted font-mono text-center">
-                Buscando...
-              </div>
+              <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: C.text4 }}>Buscando...</div>
             ) : searchResults.length === 0 ? (
-              <div className="px-3 py-3 text-xs text-text-muted font-mono text-center">
+              <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: C.text4 }}>
                 {searchQuery ? t.dep_no_cards_found : t.dep_search_placeholder}
               </div>
             ) : (
-              searchResults.map((card) => (
+              searchResults.map((card, idx) => (
                 <button
                   key={card.id}
                   onClick={() => handleAdd(card.id)}
                   disabled={isAdding}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-surface transition-colors border-b border-border/50 last:border-0 disabled:opacity-50"
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '8px 12px', textAlign: 'left',
+                    background: 'transparent', border: 'none',
+                    borderBottom: idx < searchResults.length - 1 ? `1px solid ${C.border}` : 'none',
+                    cursor: isAdding ? 'not-allowed' : 'pointer',
+                    opacity: isAdding ? 0.5 : 1,
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 >
-                  {card.completed ? (
-                    <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-text-muted flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm font-mono truncate ${card.completed ? 'line-through text-text-muted' : 'text-text-primary'}`}
-                    >
+                  {card.completed
+                    ? <CheckCircle2 style={{ width: '14px', height: '14px', color: C.green, flexShrink: 0 }} />
+                    : <Circle style={{ width: '14px', height: '14px', color: C.text4, flexShrink: 0 }} />
+                  }
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      fontSize: '12px', color: card.completed ? C.text4 : C.text, margin: 0,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      textDecoration: card.completed ? 'line-through' : 'none',
+                    }}>
                       {card.title}
                     </p>
-                    <p className="text-xs text-text-muted truncate">{card.listName}</p>
+                    <p style={{ fontSize: '10.5px', color: C.text4, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {card.listName}
+                    </p>
                   </div>
-                  <span className="text-[10px] text-text-muted font-mono flex-shrink-0">
+                  <span style={{ fontSize: '10px', color: C.text4, flexShrink: 0 }}>
                     {card.id.slice(0, 6)}
                   </span>
                 </button>
@@ -400,10 +403,12 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
           </div>
 
           {/* Cerrar */}
-          <div className="p-2 border-t border-border flex justify-end">
+          <div style={{ padding: '6px 8px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={closePicker}
-              className="text-xs text-text-muted hover:text-text-primary px-2 py-1"
+              style={{ padding: '4px 10px', fontSize: '11.5px', color: C.text3, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '5px' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = C.text; e.currentTarget.style.background = C.hover; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = C.text3; e.currentTarget.style.background = 'transparent'; }}
             >
               {t.btn_cancel}
             </button>
@@ -412,28 +417,39 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
       )}
 
       {/* ── Sección: Bloqueada por ───────────────────────────────────────── */}
-      <div className="space-y-1 mb-3">
+      <div style={{ marginBottom: '12px' }}>
         <button
           onClick={() => setShowBlockedBy((v) => !v)}
-          className="flex items-center gap-2 text-xs text-text-muted hover:text-text-primary transition-colors w-full text-left py-1"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            width: '100%', textAlign: 'left', padding: '3px 0',
+            background: 'transparent', border: 'none', cursor: 'pointer', color: C.text4,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
         >
-          {showBlockedBy ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          <span className="font-mono uppercase tracking-wider">{t.dep_blocked_by_title}</span>
+          {showBlockedBy
+            ? <ChevronUp style={{ width: '12px', height: '12px' }} />
+            : <ChevronDown style={{ width: '12px', height: '12px' }} />
+          }
+          <span style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            {t.dep_blocked_by_title}
+          </span>
           {blockedBy.length > 0 && (
-            <span
-              className={`ml-auto px-1.5 py-0 text-[10px] rounded-full font-mono ${
-                isCurrentlyBlocked ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'
-              }`}
-            >
+            <span style={{
+              marginLeft: 'auto', padding: '0 6px', fontSize: '10px', borderRadius: '10px',
+              background: isCurrentlyBlocked ? `${C.amber}20` : `${C.green}20`,
+              color: isCurrentlyBlocked ? C.amber : C.green,
+            }}>
               {blockedBy.length}
             </span>
           )}
         </button>
 
         {showBlockedBy && (
-          <div className="space-y-1 pl-1">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '4px', marginTop: '4px' }}>
             {blockedBy.length === 0 ? (
-              <p className="text-xs text-text-muted font-mono py-1 pl-2 italic">
+              <p style={{ fontSize: '11.5px', color: C.text4, fontStyle: 'italic', padding: '2px 6px', margin: 0 }}>
                 {t.dep_empty_blocked_by}
               </p>
             ) : (
@@ -447,20 +463,34 @@ export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps
 
       {/* ── Sección: Bloquea a ───────────────────────────────────────────── */}
       {blocking.length > 0 && (
-        <div className="space-y-1">
+        <div>
           <button
             onClick={() => setShowBlocking((v) => !v)}
-            className="flex items-center gap-2 text-xs text-text-muted hover:text-text-primary transition-colors w-full text-left py-1"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              width: '100%', textAlign: 'left', padding: '3px 0',
+              background: 'transparent', border: 'none', cursor: 'pointer', color: C.text4,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
           >
-            {showBlocking ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            <span className="font-mono uppercase tracking-wider">{t.dep_blocking_title}</span>
-            <span className="ml-auto px-1.5 py-0 text-[10px] rounded-full font-mono bg-surface text-text-muted">
+            {showBlocking
+              ? <ChevronUp style={{ width: '12px', height: '12px' }} />
+              : <ChevronDown style={{ width: '12px', height: '12px' }} />
+            }
+            <span style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {t.dep_blocking_title}
+            </span>
+            <span style={{
+              marginLeft: 'auto', padding: '0 6px', fontSize: '10px', borderRadius: '10px',
+              background: C.hover, color: C.text4,
+            }}>
               {blocking.length}
             </span>
           </button>
 
           {showBlocking && (
-            <div className="space-y-1 pl-1">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '4px', marginTop: '4px' }}>
               {blocking.map((dep) => (
                 <DepItem key={dep.id} dep={dep} onRemove={handleRemove} canEdit={canEdit} />
               ))}

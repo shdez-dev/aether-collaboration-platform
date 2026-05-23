@@ -19,7 +19,7 @@ export interface TeamMember {
   name: string;
   email: string;
   avatar?: string | null;
-  role: 'LEAD' | 'MEMBER';
+  role: 'ADMIN' | 'MEMBER' | 'VIEWER';
   joinedAt: string;
   workload: TeamMemberWorkload;
 }
@@ -42,6 +42,7 @@ export interface Team {
 
 export interface TeamActivity {
   id: string;
+  eventType?: string;
   userId: string;
   userName: string;
   userAvatar?: string | null;
@@ -94,7 +95,7 @@ interface TeamState {
 
   addMember: (teamId: string, email: string) => Promise<void>;
   removeMember: (teamId: string, userId: string) => Promise<void>;
-  changeMemberRole: (teamId: string, userId: string, role: 'LEAD' | 'MEMBER') => Promise<void>;
+  changeMemberRole: (teamId: string, userId: string, role: 'ADMIN' | 'MEMBER' | 'VIEWER') => Promise<void>;
 
   loadPendingTeamInvitations: () => Promise<void>;
   acceptTeamInvitation: (invitationId: string) => Promise<void>;
@@ -221,7 +222,7 @@ export const useTeamStore = create<TeamState>()(
         }));
       },
 
-      changeMemberRole: async (teamId: string, userId: string, role: 'LEAD' | 'MEMBER') => {
+      changeMemberRole: async (teamId: string, userId: string, role: 'ADMIN' | 'MEMBER' | 'VIEWER') => {
         const response = await apiService.put<{ member: TeamMember }>(
           `/api/teams/${teamId}/members/${userId}`,
           { role },

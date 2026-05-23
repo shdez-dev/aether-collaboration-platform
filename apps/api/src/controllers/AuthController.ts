@@ -86,16 +86,7 @@ export class AuthController {
       client.release();
       client = undefined;
 
-      // 7. Emitir evento auth.user.registered
-      await eventStore.emit(
-        'auth.user.registered',
-        {
-          userId: user.id as UserId,
-          email: user.email,
-          name: user.name,
-        },
-        user.id as UserId
-      );
+      // auth.user.registered queda fuera del workspace event store
 
       // 8. Send verification email (don't block on this)
       const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
@@ -210,7 +201,18 @@ export class AuthController {
         });
       }
 
-      // 5. Generar JWT access token y refresh token
+      // 5. Verificar que el email esté confirmado
+      if (!user.email_verified) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'EMAIL_NOT_VERIFIED',
+            message: 'Debes verificar tu correo electrónico antes de iniciar sesión',
+          },
+        });
+      }
+
+      // 6. Generar JWT access token y refresh token
       const tokenPayload = {
         userId: user.id as UserId,
         email: user.email,
@@ -218,16 +220,6 @@ export class AuthController {
 
       const accessToken = generateAccessToken(tokenPayload);
       const refreshToken = generateRefreshToken(tokenPayload);
-
-      // 6. Emitir evento auth.user.loggedIn
-      await eventStore.emit(
-        'auth.user.loggedIn',
-        {
-          userId: user.id as UserId,
-          email: user.email,
-        },
-        user.id as UserId
-      );
 
       // 7. Retornar tokens y datos de usuario
       return res.status(200).json({
@@ -279,13 +271,6 @@ export class AuthController {
    */
   async logout(req: Request, res: Response) {
     try {
-      // Cambio: user?.id en lugar de user?.userId
-      const userId = (req as any).user?.id;
-
-      if (userId) {
-        await eventStore.emit('auth.user.loggedOut', { userId }, userId);
-      }
-
       return res.status(200).json({
         success: true,
         data: {
@@ -611,14 +596,12 @@ export class AuthController {
         [email.toLowerCase().trim()]
       );
 
-      // Respuesta genérica para no revelar si el email existe
-      const okResponse = res.status(200).json({
-        success: true,
-        data: { message: 'Si el correo existe y no está verificado, recibirás un email.' },
-      });
-
       if (result.rows.length === 0 || result.rows[0].email_verified) {
-        return okResponse;
+        // Respuesta genérica para no revelar si el email existe o ya está verificado
+        return res.status(200).json({
+          success: true,
+          data: { message: 'Si el correo existe y no está verificado, recibirás un email.' },
+        });
       }
 
       const user = result.rows[0];
@@ -638,7 +621,10 @@ export class AuthController {
         verificationLink,
       });
 
-      return okResponse;
+      return res.status(200).json({
+        success: true,
+        data: { message: 'Si el correo existe y no está verificado, recibirás un email.' },
+      });
     } catch (error) {
       return res.status(500).json({
         success: false,
@@ -699,16 +685,6 @@ export class AuthController {
              email_verification_expires = NULL 
          WHERE id = $1`,
         [user.id]
-      );
-
-      // Emit event
-      await eventStore.emit(
-        'auth.email.verified',
-        {
-          userId: user.id as UserId,
-          email: user.email,
-        },
-        user.id as UserId
       );
 
       // Generar tokens para auto-login inmediato tras verificación
@@ -809,16 +785,6 @@ export class AuthController {
         resetLink,
       });
 
-      // Emit event
-      await eventStore.emit(
-        'auth.password.resetRequested',
-        {
-          userId: user.id as UserId,
-          email: user.email,
-        },
-        user.id as UserId
-      );
-
       return res.status(200).json({
         success: true,
         data: {
@@ -907,16 +873,6 @@ export class AuthController {
              password_reset_expires = NULL 
          WHERE id = $2`,
         [hashedPassword, user.id]
-      );
-
-      // Emit event
-      await eventStore.emit(
-        'auth.password.reset',
-        {
-          userId: user.id as UserId,
-          email: user.email,
-        },
-        user.id as UserId
       );
 
       return res.status(200).json({

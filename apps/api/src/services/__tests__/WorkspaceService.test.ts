@@ -23,7 +23,7 @@ describe('WorkspaceService', () => {
     };
 
     (pool.connect as jest.Mock) = jest.fn().mockResolvedValue(mockClient);
-    (pool.query as jest.Mock) = jest.fn();
+    (pool.query as jest.Mock) = jest.fn().mockResolvedValue({ rows: [] });
     (eventStore.emit as jest.Mock) = jest.fn().mockResolvedValue({});
   });
 
@@ -55,6 +55,9 @@ describe('WorkspaceService', () => {
         .mockResolvedValueOnce({}) // INSERT workspace_member
         .mockResolvedValueOnce({}); // COMMIT
 
+      // pool.query call: actor name lookup
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ name: 'Test User' }] });
+
       const result = await workspaceService.createWorkspace(userId, workspaceData);
 
       expect(result.name).toBe(workspaceData.name);
@@ -66,12 +69,11 @@ describe('WorkspaceService', () => {
       );
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'workspace.created',
         expect.objectContaining({
-          workspaceId: 'ws-new',
-          name: workspaceData.name,
-        }),
-        userId
+          type: 'workspace.created',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: 'ws-new' }),
+        })
       );
     });
 
@@ -187,19 +189,23 @@ describe('WorkspaceService', () => {
               role: newRole,
             },
           ],
+          rowCount: 1,
         })
         .mockResolvedValueOnce({}); // COMMIT
+
+      // pool.query calls: changer name, target name
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ name: 'Owner Name' }] }) // changer name
+        .mockResolvedValueOnce({ rows: [{ name: 'Member Name' }] }); // target name
 
       await workspaceService.changeMemberRole(workspaceId, memberId, newRole, updatedBy);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'workspace.member.roleChanged',
         expect.objectContaining({
-          workspaceId,
-          userId: memberId,
-          newRole,
-        }),
-        updatedBy
+          type: 'workspace.member.role-changed',
+          actor: expect.objectContaining({ id: updatedBy }),
+          subject: expect.objectContaining({ id: memberId }),
+        })
       );
     });
 
@@ -230,8 +236,14 @@ describe('WorkspaceService', () => {
               user_id: memberId,
             },
           ],
+          rowCount: 1,
         })
         .mockResolvedValueOnce({}); // COMMIT
+
+      // pool.query calls: remover name, target member name
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ name: 'Owner Name' }] }) // remover name
+        .mockResolvedValueOnce({ rows: [{ name: 'Member Name' }] }); // target member name
 
       await workspaceService.removeMember(workspaceId, memberId, removedBy);
 
@@ -241,12 +253,11 @@ describe('WorkspaceService', () => {
       );
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'workspace.member.removed',
         expect.objectContaining({
-          workspaceId,
-          userId: memberId,
-        }),
-        removedBy
+          type: 'workspace.member.removed',
+          actor: expect.objectContaining({ id: removedBy }),
+          subject: expect.objectContaining({ id: memberId }),
+        })
       );
     });
 

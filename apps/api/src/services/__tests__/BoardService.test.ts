@@ -23,7 +23,7 @@ describe('BoardService', () => {
     };
 
     (pool.connect as jest.Mock) = jest.fn().mockResolvedValue(mockClient);
-    (pool.query as jest.Mock) = jest.fn();
+    (pool.query as jest.Mock) = jest.fn().mockResolvedValue({ rows: [] });
     (eventStore.emit as jest.Mock) = jest.fn().mockResolvedValue({});
   });
 
@@ -59,6 +59,9 @@ describe('BoardService', () => {
         .mockResolvedValueOnce({}) // INSERT Backlog list
         .mockResolvedValueOnce({}); // COMMIT
 
+      // pool.query call: actor name lookup
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ name: 'Test User' }] });
+
       const result = await boardService.createBoard(workspaceId, userId, boardData);
 
       expect(result.id).toBe('board-new');
@@ -75,17 +78,12 @@ describe('BoardService', () => {
 
       // Verify event was emitted
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'board.created',
         expect.objectContaining({
-          boardId: 'board-new',
-          workspaceId,
-          name: boardData.name,
-        }),
-        userId,
-        'board-new',
-        undefined,
-        undefined,
-        workspaceId
+          type: 'board.created',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: 'board-new' }),
+          context: expect.objectContaining({ workspaceId }),
+        })
       );
     });
 
@@ -297,6 +295,10 @@ describe('BoardService', () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
+          // SELECT before
+          rows: [{ name: 'Old Name', description: 'Old desc' }],
+        })
+        .mockResolvedValueOnce({
           // UPDATE board
           rows: [
             {
@@ -313,28 +315,28 @@ describe('BoardService', () => {
         })
         .mockResolvedValueOnce({}); // COMMIT
 
+      // pool.query call: actor name lookup
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ name: 'Test User' }] });
+
       const result = await boardService.updateBoard(boardId, userId, updates);
 
       expect(result.name).toBe(updates.name);
       expect(result.description).toBe(updates.description);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'board.updated',
         expect.objectContaining({
-          boardId,
-          changes: updates,
-        }),
-        userId,
-        boardId,
-        undefined,
-        undefined,
-        'ws-123'
+          type: 'board.updated',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: boardId }),
+          context: expect.objectContaining({ workspaceId: 'ws-123' }),
+        })
       );
     });
 
     it('should throw error if board not found', async () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ name: 'Old Name', description: null }] }) // SELECT before
         .mockResolvedValueOnce({ rows: [] }); // UPDATE returns nothing
 
       await expect(
@@ -356,16 +358,15 @@ describe('BoardService', () => {
           // UPDATE board set archived = true
           rows: [
             {
-              id: boardId,
               workspace_id: 'ws-123',
               name: 'Board',
-              archived: true,
-              created_at: new Date(),
-              updated_at: new Date(),
             },
           ],
         })
         .mockResolvedValueOnce({}); // COMMIT
+
+      // pool.query call: actor name lookup
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ name: 'Test User' }] });
 
       await boardService.archiveBoard(boardId, userId);
 
@@ -375,15 +376,12 @@ describe('BoardService', () => {
       );
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'board.archived',
         expect.objectContaining({
-          boardId,
-        }),
-        userId,
-        boardId,
-        undefined,
-        undefined,
-        'ws-123'
+          type: 'board.archived',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: boardId }),
+          context: expect.objectContaining({ workspaceId: 'ws-123' }),
+        })
       );
     });
 
@@ -409,14 +407,13 @@ describe('BoardService', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({
           // SELECT board
-          rows: [{ id: boardId, workspace_id: 'ws-123', archived: true }],
-        })
-        .mockResolvedValueOnce({
-          // SELECT count lists
-          rows: [{ count: 0 }],
+          rows: [{ id: boardId, workspace_id: 'ws-123', archived: true, name: 'Board' }],
         })
         .mockResolvedValueOnce({}) // DELETE board
         .mockResolvedValueOnce({}); // COMMIT
+
+      // pool.query call: actor name lookup
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ name: 'Test User' }] });
 
       await boardService.deleteBoard(boardId, userId);
 
@@ -425,22 +422,19 @@ describe('BoardService', () => {
       ]);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'board.deleted',
         expect.objectContaining({
-          boardId,
-        }),
-        userId,
-        undefined,
-        undefined,
-        undefined,
-        'ws-123'
+          type: 'board.deleted',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: boardId }),
+          context: expect.objectContaining({ workspaceId: 'ws-123' }),
+        })
       );
     });
 
     it('should throw error if board not found', async () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
-        .mockResolvedValueOnce({ rows: [] }); // DELETE returns nothing
+        .mockResolvedValueOnce({ rows: [] }); // SELECT returns nothing
 
       await expect(boardService.deleteBoard('non-existent', 'user-123')).rejects.toThrow(
         'Board not found'

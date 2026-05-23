@@ -7,11 +7,6 @@ import type {
   Workspace,
   WorkspaceMembership,
   WorkspaceRole,
-  WorkspaceCreatedPayload,
-  WorkspaceUpdatedPayload,
-  WorkspaceMemberInvitedPayload,
-  WorkspaceMemberRoleChangedPayload,
-  WorkspaceMemberRemovedPayload,
 } from '@aether/types';
 
 export class WorkspaceService {
@@ -51,16 +46,15 @@ export class WorkspaceService {
 
       await client.query('COMMIT');
 
-      const payload: WorkspaceCreatedPayload = {
-        workspaceId: workspace.id as any,
-        name: workspace.name,
-        description: workspace.description,
-        ownerId: userId as any,
-        icon: workspace.icon,
-        color: workspace.color,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('workspace.created', payload, userId as any);
+      await eventStore.emit({
+        type: 'workspace.created',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'workspace', id: workspace.id, name: workspace.name },
+        context: { workspaceId: workspace.id },
+      });
 
       return {
         ...this.formatWorkspace(workspace),
@@ -205,13 +199,16 @@ export class WorkspaceService {
 
       await client.query('COMMIT');
 
-      const payload: WorkspaceUpdatedPayload = {
-        workspaceId: workspace.id as any,
-        changes: data,
-        updatedBy: userId as any,
-      };
+      const actorResult2 = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName2 = actorResult2.rows[0]?.name ?? '';
 
-      await eventStore.emit('workspace.updated', payload, userId as any);
+      await eventStore.emit({
+        type: 'workspace.updated',
+        actor: { id: userId, name: actorName2 },
+        subject: { type: 'workspace', id: workspace.id, name: workspace.name },
+        context: { workspaceId: workspace.id },
+        payload: { changes: data },
+      });
 
       return {
         ...this.formatWorkspace(workspace),
@@ -243,15 +240,23 @@ export class WorkspaceService {
         throw new Error('Only workspace owner can delete workspace');
       }
 
+      const wsNameResult = await client.query('SELECT name FROM workspaces WHERE id = $1', [workspaceId]);
+      const workspaceName = wsNameResult.rows[0]?.name ?? '';
+
       await client.query(`DELETE FROM workspaces WHERE id = $1`, [workspaceId]);
 
       await client.query('COMMIT');
 
-      await eventStore.emit(
-        'workspace.deleted',
-        { workspaceId: workspaceId as any, deletedBy: userId as any },
-        userId as any
-      );
+      const actorDelResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorDelName = actorDelResult.rows[0]?.name ?? '';
+
+      await eventStore.emit({
+        type: 'workspace.deleted',
+        actor: { id: userId, name: actorDelName },
+        subject: { type: 'workspace', id: workspaceId, name: workspaceName },
+        context: { workspaceId },
+        payload: { name: workspaceName },
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -325,15 +330,14 @@ export class WorkspaceService {
       const inviterResult = await pool.query('SELECT name FROM users WHERE id = $1', [inviterId]);
       const inviterName = inviterResult.rows[0]?.name || 'Someone';
 
-      const payload: WorkspaceMemberInvitedPayload = {
-        workspaceId: workspaceId as any,
-        inviterId: inviterId as any,
-        inviteeId: inviteeId as any,
-        inviteeEmail,
-        inviteeName: userResult.rows[0].name,
-        role,
-      };
-      await eventStore.emit('workspace.member.invited', payload, inviterId as any);
+      await eventStore.emit({
+        type: 'workspace.member.invited',
+        actor: { id: inviterId, name: inviterName },
+        subject: { type: 'workspace', id: workspaceId, name: workspaceName },
+        context: { workspaceId },
+        payload: { inviteeEmail, role, inviteeId },
+        targetUserId: inviteeId,
+      });
 
       try {
         const { notificationService } = await import('./NotificationService');
@@ -504,17 +508,23 @@ export class WorkspaceService {
         throw new Error('Member not found');
       }
 
-      await client.query('COMMIT'); //
+      await client.query('COMMIT');
 
-      const payload: WorkspaceMemberRoleChangedPayload = {
-        workspaceId: workspaceId as any,
-        userId: targetUserId as any,
-        oldRole: 'MEMBER',
-        newRole,
-        changedBy: changerId as any,
-      };
+      const [changerResult, targetResult] = await Promise.all([
+        pool.query('SELECT name FROM users WHERE id = $1', [changerId]),
+        pool.query('SELECT name FROM users WHERE id = $1', [targetUserId]),
+      ]);
+      const changerName = changerResult.rows[0]?.name ?? '';
+      const targetName  = targetResult.rows[0]?.name  ?? '';
 
-      await eventStore.emit('workspace.member.roleChanged', payload, changerId as any);
+      await eventStore.emit({
+        type: 'workspace.member.role-changed',
+        actor: { id: changerId, name: changerName },
+        subject: { type: 'member', id: targetUserId, name: targetName },
+        context: { workspaceId },
+        payload: { newRole, memberName: targetName },
+        targetUserId,
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -544,13 +554,21 @@ export class WorkspaceService {
 
       await client.query('COMMIT');
 
-      const payload: WorkspaceMemberRemovedPayload = {
-        workspaceId: workspaceId as any,
-        userId: targetUserId as any,
-        removedBy: removerId as any,
-      };
+      const [removerResult, targetMemberResult] = await Promise.all([
+        pool.query('SELECT name FROM users WHERE id = $1', [removerId]),
+        pool.query('SELECT name FROM users WHERE id = $1', [targetUserId]),
+      ]);
+      const removerNameForEvent = removerResult.rows[0]?.name    ?? '';
+      const removedMemberName   = targetMemberResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('workspace.member.removed', payload, removerId as any);
+      await eventStore.emit({
+        type: 'workspace.member.removed',
+        actor: { id: removerId, name: removerNameForEvent },
+        subject: { type: 'member', id: targetUserId, name: removedMemberName },
+        context: { workspaceId },
+        payload: { memberName: removedMemberName },
+        targetUserId,
+      });
 
       // Notificar al usuario eliminado
       try {
@@ -625,11 +643,16 @@ export class WorkspaceService {
       [workspaceId]
     );
 
-    await eventStore.emit(
-      'workspace.updated',
-      { workspaceId: workspaceId as any, changes: { archived: true }, updatedBy: userId as any },
-      userId as any
-    );
+    const archiveActorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+    const archiveActorName = archiveActorResult.rows[0]?.name ?? '';
+
+    await eventStore.emit({
+      type: 'workspace.updated',
+      actor: { id: userId, name: archiveActorName },
+      subject: { type: 'workspace', id: workspaceId, name: result.rows[0]?.name ?? '' },
+      context: { workspaceId },
+      delta: { before: { archived: false }, after: { archived: true } },
+    });
 
     return {
       ...this.formatWorkspace(result.rows[0]),
@@ -662,11 +685,16 @@ export class WorkspaceService {
       [workspaceId]
     );
 
-    await eventStore.emit(
-      'workspace.updated',
-      { workspaceId: workspaceId as any, changes: { archived: false }, updatedBy: userId as any },
-      userId as any
-    );
+    const restoreActorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+    const restoreActorName = restoreActorResult.rows[0]?.name ?? '';
+
+    await eventStore.emit({
+      type: 'workspace.updated',
+      actor: { id: userId, name: restoreActorName },
+      subject: { type: 'workspace', id: workspaceId, name: result.rows[0]?.name ?? '' },
+      context: { workspaceId },
+      delta: { before: { archived: true }, after: { archived: false } },
+    });
 
     return {
       ...this.formatWorkspace(result.rows[0]),
@@ -729,15 +757,15 @@ export class WorkspaceService {
 
       await client.query('COMMIT');
 
-      await eventStore.emit(
-        'workspace.created',
-        {
-          workspaceId: newWorkspace.id as any,
-          name: newWorkspace.name,
-          ownerId: userId as any,
-        },
-        userId as any
-      );
+      const dupActorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const dupActorName = dupActorResult.rows[0]?.name ?? '';
+
+      await eventStore.emit({
+        type: 'workspace.created',
+        actor: { id: userId, name: dupActorName },
+        subject: { type: 'workspace', id: newWorkspace.id, name: newWorkspace.name },
+        context: { workspaceId: newWorkspace.id },
+      });
 
       return {
         ...this.formatWorkspace(newWorkspace),
@@ -913,11 +941,16 @@ export class WorkspaceService {
       [visibility, workspaceId]
     );
 
-    await eventStore.emit(
-      'workspace.updated',
-      { workspaceId: workspaceId as any, changes: { visibility }, updatedBy: userId as any },
-      userId as any
-    );
+    const visActorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+    const visActorName = visActorResult.rows[0]?.name ?? '';
+
+    await eventStore.emit({
+      type: 'workspace.updated',
+      actor: { id: userId, name: visActorName },
+      subject: { type: 'workspace', id: workspaceId, name: result.rows[0]?.name ?? '' },
+      context: { workspaceId },
+      delta: { before: {}, after: { visibility } },
+    });
 
     return this.formatWorkspace(result.rows[0]);
   }
@@ -1120,15 +1153,15 @@ export class WorkspaceService {
 
       await client.query('COMMIT');
 
-      await eventStore.emit(
-        'workspace.created',
-        {
-          workspaceId: workspace.id as any,
-          name: workspace.name,
-          ownerId: userId as any,
-        },
-        userId as any
-      );
+      const tmplActorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const tmplActorName = tmplActorResult.rows[0]?.name ?? '';
+
+      await eventStore.emit({
+        type: 'workspace.created',
+        actor: { id: userId, name: tmplActorName },
+        subject: { type: 'workspace', id: workspace.id, name: workspace.name },
+        context: { workspaceId: workspace.id },
+      });
 
       return { ...this.formatWorkspace(workspace), userRole: 'OWNER' };
     } catch (error) {

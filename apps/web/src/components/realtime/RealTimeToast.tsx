@@ -113,7 +113,7 @@ function getToastConfigForEvent(event: any): ToastEvent | null {
         variant: 'destructive',
       };
 
-    case 'list.reordered':
+    case 'list.order-changed':
       return {
         type,
         message: `${userName} reordenó las listas`,
@@ -130,7 +130,7 @@ function getToastConfigForEvent(event: any): ToastEvent | null {
 
     // No mostrar notificación para estos eventos
     case 'card.member.assigned':
-    case 'card.member.unassigned':
+    case 'card.member.removed':
     case 'card.label.added':
     case 'card.label.removed':
       return null;

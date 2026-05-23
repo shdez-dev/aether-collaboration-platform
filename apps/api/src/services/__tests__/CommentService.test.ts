@@ -31,6 +31,7 @@ describe('CommentService', () => {
     };
 
     (getCommentRepository as jest.Mock).mockReturnValue(mockCommentRepository);
+    (pool.query as jest.Mock) = jest.fn().mockResolvedValue({ rows: [] });
     commentService = new CommentService();
   });
 
@@ -88,12 +89,12 @@ describe('CommentService', () => {
         mentions: commentData.mentions,
       });
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'comment.created',
         expect.objectContaining({
-          commentId: mockComment.id,
-          cardId: commentData.cardId,
-        }),
-        commentData.userId
+          type: 'comment.created',
+          actor: expect.objectContaining({ id: commentData.userId }),
+          subject: expect.objectContaining({ id: mockComment.id }),
+          context: expect.objectContaining({ cardId: commentData.cardId }),
+        })
       );
     });
 
@@ -209,11 +210,11 @@ describe('CommentService', () => {
       expect(mockCommentRepository.update).toHaveBeenCalledWith(commentId, updateData);
       expect(mockCommentRepository.findById).toHaveBeenCalledWith(commentId);
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'comment.updated',
         expect.objectContaining({
-          commentId,
-        }),
-        userId
+          type: 'comment.updated',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: commentId }),
+        })
       );
     });
   });
@@ -233,12 +234,12 @@ describe('CommentService', () => {
       expect(mockCommentRepository.isAuthor).toHaveBeenCalledWith(commentId, userId);
       expect(mockCommentRepository.delete).toHaveBeenCalledWith(commentId);
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'comment.deleted',
         expect.objectContaining({
-          commentId,
-          cardId,
-        }),
-        userId
+          type: 'comment.deleted',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: commentId }),
+          context: expect.objectContaining({ cardId }),
+        })
       );
     });
   });

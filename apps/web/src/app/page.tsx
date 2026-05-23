@@ -1,15 +1,22 @@
-import { HeroSection } from '@/components/home/HeroSection';
-import { FeaturesSection } from '@/components/home/FeaturesSection';
-import { ShowcaseSection } from '@/components/home/ShowcaseSection';
-import { Footer } from '@/components/home/Footer';
+import { LandingWrapper } from '@/components/landing/LandingWrapper';
+import { LandingNav } from '@/components/landing/LandingNav';
+import { LandingHero } from '@/components/landing/LandingHero';
+import { LandingFeatures } from '@/components/landing/LandingFeatures';
+import { LandingArchitecture } from '@/components/landing/LandingArchitecture';
+import { LandingCTA } from '@/components/landing/LandingCTA';
+import { LandingFooter } from '@/components/landing/LandingFooter';
 
 export default function Home() {
   return (
-    <div className="min-h-screen">
-      <HeroSection />
-      <FeaturesSection />
-      <ShowcaseSection />
-      <Footer />
-    </div>
+    <LandingWrapper>
+      <div style={{ background: '#080c14', minHeight: '100vh' }}>
+        <LandingNav />
+        <LandingHero />
+        <LandingFeatures />
+        <LandingArchitecture />
+        <LandingCTA />
+        <LandingFooter />
+      </div>
+    </LandingWrapper>
   );
 }

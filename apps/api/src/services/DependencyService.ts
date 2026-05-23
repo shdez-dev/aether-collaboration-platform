@@ -178,13 +178,17 @@ export class DependencyService {
       // Emitir evento realtime al board
       const meta = await this.getBoardAndWorkspace(blockedCardId);
       if (meta) {
-        await eventStore.emit(
-          'card.dependency.added' as any,
-          { blockingCardId, blockedCardId, dependency: dep },
-          userId as any,
-          meta.board_id,
-          socketId
-        );
+        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorResult.rows[0]?.name ?? '';
+        const dependsOnTitle = dep.relatedCard?.title ?? '';
+        await eventStore.emit({
+          type: 'card.dependency.added',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'dependency', id: dep.id, name: dependsOnTitle },
+          context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId: blockedCardId },
+          payload: { blockingCardId, blockedCardId },
+          socketId,
+        });
       }
 
       await client.query('COMMIT');
@@ -227,13 +231,16 @@ export class DependencyService {
 
       const meta = await this.getBoardAndWorkspace(cardId);
       if (meta) {
-        await eventStore.emit(
-          'card.dependency.removed' as any,
-          { dependencyId, cardId, blockingCardId, blockedCardId },
-          userId as any,
-          meta.board_id,
-          socketId
-        );
+        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorResult.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'card.dependency.removed',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'dependency', id: dependencyId, name: '' },
+          context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
+          payload: { blockingCardId, blockedCardId },
+          socketId,
+        });
       }
 
       await client.query('COMMIT');

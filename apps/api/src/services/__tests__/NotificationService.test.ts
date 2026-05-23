@@ -58,15 +58,15 @@ describe('NotificationService', () => {
       });
       expect(notificationRepository.create).toHaveBeenCalled();
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'notification.created',
         expect.objectContaining({
-          notificationId: 'notif-1',
-          userId: mentionData.mentionedUserId,
-        }),
-        mentionData.authorId,
-        undefined,
-        undefined,
-        mentionData.mentionedUserId
+          type: 'notification.created',
+          actor: expect.objectContaining({ id: mentionData.authorId }),
+          payload: expect.objectContaining({
+            notificationId: 'notif-1',
+            userId: mentionData.mentionedUserId,
+          }),
+          targetUserId: mentionData.mentionedUserId,
+        })
       );
     });
 
@@ -154,15 +154,15 @@ describe('NotificationService', () => {
       expect(notificationRepository.markAsRead).toHaveBeenCalledWith(notificationId, userId);
       expect(notificationRepository.getUnreadCount).toHaveBeenCalledWith(userId);
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'notification.read',
         expect.objectContaining({
-          notificationId,
-          unreadCount: 5,
-        }),
-        userId,
-        undefined,
-        undefined,
-        userId
+          type: 'notification.read',
+          actor: expect.objectContaining({ id: userId }),
+          payload: expect.objectContaining({
+            notificationId,
+            unreadCount: 5,
+          }),
+          targetUserId: userId,
+        })
       );
     });
   });
@@ -177,14 +177,14 @@ describe('NotificationService', () => {
 
       expect(notificationRepository.markAllAsRead).toHaveBeenCalledWith(userId);
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'notification.read_all',
         expect.objectContaining({
-          unreadCount: 0,
-        }),
-        userId,
-        undefined,
-        undefined,
-        userId
+          type: 'notification.read_all',
+          actor: expect.objectContaining({ id: userId }),
+          payload: expect.objectContaining({
+            unreadCount: 0,
+          }),
+          targetUserId: userId,
+        })
       );
     });
   });
@@ -214,15 +214,15 @@ describe('NotificationService', () => {
       expect(notificationRepository.delete).toHaveBeenCalledWith(notificationId, userId);
       expect(notificationRepository.getUnreadCount).toHaveBeenCalledWith(userId);
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'notification.deleted',
         expect.objectContaining({
-          notificationId,
-          unreadCount: 3,
-        }),
-        userId,
-        undefined,
-        undefined,
-        userId
+          type: 'notification.deleted',
+          actor: expect.objectContaining({ id: userId }),
+          payload: expect.objectContaining({
+            notificationId,
+            unreadCount: 3,
+          }),
+          targetUserId: userId,
+        })
       );
     });
   });

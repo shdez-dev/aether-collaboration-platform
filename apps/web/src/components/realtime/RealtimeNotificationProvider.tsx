@@ -7,7 +7,7 @@ import { socketService } from '@/services/socketService';
 import { useSocketContext } from '@/components/providers/SocketProvider';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/authStore';
-import { CheckCircle2, Trash2, Edit3, MoveRight, Plus, ListPlus } from 'lucide-react';
+import { type ToastVariant } from '@/components/ui/toast';
 
 interface RealtimeEvent {
   type: string;
@@ -23,10 +23,9 @@ interface RealtimeEvent {
 }
 
 interface NotificationConfig {
-  message: string;
+  title: string;
   description?: string;
-  icon: any;
-  variant?: 'default' | 'destructive';
+  variant: ToastVariant;
 }
 
 /**
@@ -37,13 +36,11 @@ export function RealtimeNotificationProvider() {
   const { toast } = useToast();
   const { user } = useAuthStore();
   const { isSocketConnected } = useSocketContext();
-  // Guardamos la referencia al handler activo para poder hacer off preciso
   const handlerRef = useRef<((event: any) => void) | null>(null);
 
   useEffect(() => {
     if (!isSocketConnected) return;
 
-    // Limpiar handler previo si existe (evita acumulación en re-renders)
     if (handlerRef.current) {
       socketService.off('event', handlerRef.current);
     }
@@ -57,21 +54,11 @@ export function RealtimeNotificationProvider() {
       const notification = mapEventToNotification(realtimeEvent);
       if (!notification) return;
 
-      const Icon = notification.icon;
       toast({
-        description: (
-          <div className="flex items-center gap-2">
-            <Icon className="h-4 w-4" />
-            <div className="flex flex-col gap-1">
-              <span className="font-medium">{notification.message}</span>
-              {notification.description && (
-                <span className="text-xs text-muted-foreground">{notification.description}</span>
-              )}
-            </div>
-          </div>
-        ),
-        variant: notification.variant || 'default',
-        duration: 3000,
+        title:       notification.title,
+        description: notification.description,
+        variant:     notification.variant,
+        duration:    3000,
       });
     };
 
@@ -89,49 +76,48 @@ export function RealtimeNotificationProvider() {
 
 function mapEventToNotification(event: RealtimeEvent): NotificationConfig | null {
   const userName =
-    event.payload?.assignedBy?.name ||
+    event.payload?.assignedBy?.name  ||
     event.payload?.unassignedBy?.name ||
-    event.payload?.completedBy?.name ||
-    event.payload?.updatedBy?.name ||
-    event.payload?.createdBy?.name ||
-    event.payload?.movedBy?.name ||
+    event.payload?.completedBy?.name  ||
+    event.payload?.updatedBy?.name    ||
+    event.payload?.createdBy?.name    ||
+    event.payload?.movedBy?.name      ||
     'Alguien';
 
   switch (event.type) {
     case 'card.member.assigned':
       return {
-        message: `${userName} te asignó una card`,
+        title:       `${userName} te asignó una card`,
         description: event.payload.title ? `"${event.payload.title}"` : undefined,
-        icon: Plus,
+        variant:     'success',
       };
 
-    case 'card.member.unassigned':
+    case 'card.member.removed':
       return {
-        message: `${userName} te quitó de una card`,
+        title:       `${userName} te quitó de una card`,
         description: event.payload.title ? `"${event.payload.title}"` : undefined,
-        icon: Trash2,
+        variant:     'warning',
       };
 
-    case 'card.completed':
+    case 'card.status-changed':
       return {
-        message: `${userName} completó una card`,
+        title:       `${userName} completó una card`,
         description: event.payload.title ? `"${event.payload.title}"` : undefined,
-        icon: CheckCircle2,
+        variant:     'success',
       };
 
     case 'workspace.member.invited':
       return {
-        message: `${userName} te agregó a un workspace`,
+        title:       `${userName} te agregó a un workspace`,
         description: event.payload.workspace?.name,
-        icon: Plus,
+        variant:     'info',
       };
 
     case 'workspace.member.removed':
       return {
-        message: `${userName} te quitó de un workspace`,
+        title:       `${userName} te quitó de un workspace`,
         description: event.payload.workspace?.name,
-        icon: Trash2,
-        variant: 'destructive',
+        variant:     'error',
       };
 
     default:

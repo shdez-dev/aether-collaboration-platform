@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiService } from '@/services/apiService';
+import { useProjectStore } from './projectStore';
 
 // ==================== TYPES ====================
 
@@ -249,11 +250,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             return;
           }
 
-          // Actualizar en la lista local
+          // Actualizar en la lista local (preservar userRole — no viene en mutations)
           set((state) => ({
-            workspaces: state.workspaces.map((w) => (w.id === id ? response.data!.workspace : w)),
+            workspaces: state.workspaces.map((w) => (w.id === id ? { ...response.data!.workspace, userRole: w.userRole } : w)),
             currentWorkspace:
-              state.currentWorkspace?.id === id ? response.data!.workspace : state.currentWorkspace,
+              state.currentWorkspace?.id === id
+                ? { ...response.data!.workspace, userRole: state.currentWorkspace.userRole }
+                : state.currentWorkspace,
             isLoading: false,
           }));
         } catch (error) {
@@ -284,6 +287,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             workspaces: state.workspaces.filter((w) => w.id !== id),
             currentWorkspace: state.currentWorkspace?.id === id ? null : state.currentWorkspace,
             isLoading: false,
+          }));
+
+          // Limpiar proyectos del workspace eliminado
+          useProjectStore.setState((state) => ({
+            projects: state.projects.filter((p) => p.workspaceId !== id),
+            currentProject: state.currentProject?.workspaceId === id ? null : state.currentProject,
           }));
         } catch (error) {
           set({
@@ -468,9 +477,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             return;
           }
           set((state) => ({
-            workspaces: state.workspaces.map((w) => (w.id === id ? response.data!.workspace : w)),
+            workspaces: state.workspaces.map((w) => (w.id === id ? { ...response.data!.workspace, userRole: w.userRole } : w)),
             currentWorkspace:
-              state.currentWorkspace?.id === id ? response.data!.workspace : state.currentWorkspace,
+              state.currentWorkspace?.id === id
+                ? { ...response.data!.workspace, userRole: state.currentWorkspace.userRole }
+                : state.currentWorkspace,
             isLoading: false,
           }));
         } catch {
@@ -495,9 +506,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             return;
           }
           set((state) => ({
-            workspaces: state.workspaces.map((w) => (w.id === id ? response.data!.workspace : w)),
+            workspaces: state.workspaces.map((w) => (w.id === id ? { ...response.data!.workspace, userRole: w.userRole } : w)),
             currentWorkspace:
-              state.currentWorkspace?.id === id ? response.data!.workspace : state.currentWorkspace,
+              state.currentWorkspace?.id === id
+                ? { ...response.data!.workspace, userRole: state.currentWorkspace.userRole }
+                : state.currentWorkspace,
             isLoading: false,
           }));
         } catch {
@@ -549,9 +562,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             return;
           }
           set((state) => ({
-            workspaces: state.workspaces.map((w) => (w.id === id ? response.data!.workspace : w)),
+            workspaces: state.workspaces.map((w) => (w.id === id ? { ...response.data!.workspace, userRole: w.userRole } : w)),
             currentWorkspace:
-              state.currentWorkspace?.id === id ? response.data!.workspace : state.currentWorkspace,
+              state.currentWorkspace?.id === id
+                ? { ...response.data!.workspace, userRole: state.currentWorkspace.userRole }
+                : state.currentWorkspace,
             isLoading: false,
           }));
         } catch {

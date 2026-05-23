@@ -4,10 +4,411 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { AvatarUpload } from '@/components/profile/AvatarUpload';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Key, User, MapPin, Phone, Globe, Languages, Mail, Briefcase } from 'lucide-react';
+import { Loader2, Save, Key, User, MapPin, Phone, Globe, Languages, Mail, Briefcase, ChevronDown } from 'lucide-react';
 import { formatPhoneDisplay, cleanPhoneValue, validatePhone } from '@/lib/utils/phone';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
+
+// ── Position presets ──────────────────────────────────────────────────────────
+
+const POSITION_GROUPS: { label: string; options: string[] }[] = [
+  {
+    label: 'Ingeniería',
+    options: ['Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Mobile Developer', 'DevOps / SRE', 'QA Engineer', 'Security Engineer'],
+  },
+  {
+    label: 'Diseño',
+    options: ['UI/UX Designer', 'Product Designer', 'Graphic Designer'],
+  },
+  {
+    label: 'Producto & Gestión',
+    options: ['Product Manager', 'Project Manager', 'Scrum Master', 'Tech Lead', 'Engineering Manager'],
+  },
+  {
+    label: 'Datos & IA',
+    options: ['Data Scientist', 'Data Analyst', 'Data Engineer', 'ML Engineer'],
+  },
+];
+
+const ALL_PRESETS = POSITION_GROUPS.flatMap((g) => g.options);
+
+function PositionPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const isPreset    = ALL_PRESETS.includes(value);
+  const [open, setOpen]     = useState(false);
+  const [custom, setCustom] = useState(!isPreset ? value : '');
+  const isOther = !isPreset && value !== '';
+
+  // Sync custom → parent when "Otro" is active
+  const handleCustom = (v: string) => {
+    setCustom(v);
+    onChange(v);
+  };
+
+  const selectPreset = (p: string) => {
+    setCustom('');
+    onChange(p);
+    setOpen(false);
+  };
+
+  const selectOther = () => {
+    onChange(custom);
+    setOpen(false);
+  };
+
+  const displayLabel = value || 'Sin especificar';
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-[13px] rounded-[6px] px-3 py-2 flex items-center justify-between outline-none transition-colors"
+        style={{
+          background: C.bg,
+          border: `1px solid ${open ? C.border2 : C.border}`,
+          color: value ? C.text : C.text4,
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <span className="truncate">{displayLabel}</span>
+        <ChevronDown
+          size={13}
+          style={{ color: C.text4, flexShrink: 0, marginLeft: '6px', transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}
+        />
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="absolute z-50 mt-1 w-full rounded-[8px] overflow-hidden"
+            style={{
+              background: C.surface,
+              border: `1px solid ${C.border2}`,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+              maxHeight: '320px',
+              overflowY: 'auto',
+            }}
+          >
+            {POSITION_GROUPS.map((group) => (
+              <div key={group.label}>
+                {/* Group label */}
+                <div
+                  className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest"
+                  style={{ color: C.text4 }}
+                >
+                  {group.label}
+                </div>
+                {/* Options */}
+                {group.options.map((opt) => {
+                  const selected = value === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => selectPreset(opt)}
+                      className="w-full text-left px-3 py-2 text-[12.5px] transition-colors"
+                      style={{
+                        background: selected ? `${C.accent}14` : 'transparent',
+                        color: selected ? C.accent : C.text2,
+                        fontWeight: selected ? 600 : 400,
+                        borderLeft: selected ? `2px solid ${C.accent}` : '2px solid transparent',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = C.hover; }}
+                      onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* Otro */}
+            <div style={{ borderTop: `1px solid ${C.border}`, padding: '10px 12px 12px' }}>
+              <button
+                type="button"
+                onClick={selectOther}
+                className="w-full text-left text-[12.5px] mb-2 flex items-center gap-2"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: isOther || !isPreset ? C.accent : C.text3,
+                  fontWeight: isOther || !isPreset ? 600 : 400,
+                  padding: '2px 0',
+                }}
+              >
+                <span
+                  style={{
+                    width: '14px', height: '14px', borderRadius: '50%', flexShrink: 0, display: 'inline-block',
+                    border: `2px solid ${isOther || !isPreset ? C.accent : C.border2}`,
+                    background: isOther || !isPreset ? C.accent : 'transparent',
+                  }}
+                />
+                Otro (personalizado)
+              </button>
+              <input
+                type="text"
+                value={custom}
+                onChange={(e) => handleCustom(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); selectOther(); } }}
+                placeholder="Escribe tu cargo..."
+                className="w-full text-[12.5px] rounded-[6px] px-3 py-1.5 outline-none"
+                style={{
+                  background: C.bg,
+                  border: `1px solid ${C.border2}`,
+                  color: C.text,
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
+                onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Country data ─────────────────────────────────────────────────────────────
+
+const flag = (code: string) =>
+  String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1e6 - 65 + c.charCodeAt(0)));
+
+const COUNTRIES: { code: string; name: string }[] = [
+  { code: 'AF', name: 'Afganistán' },       { code: 'AL', name: 'Albania' },
+  { code: 'DE', name: 'Alemania' },          { code: 'AD', name: 'Andorra' },
+  { code: 'AO', name: 'Angola' },            { code: 'AG', name: 'Antigua y Barbuda' },
+  { code: 'SA', name: 'Arabia Saudita' },    { code: 'DZ', name: 'Argelia' },
+  { code: 'AR', name: 'Argentina' },         { code: 'AM', name: 'Armenia' },
+  { code: 'AU', name: 'Australia' },         { code: 'AT', name: 'Austria' },
+  { code: 'AZ', name: 'Azerbaiyán' },        { code: 'BS', name: 'Bahamas' },
+  { code: 'BH', name: 'Baréin' },            { code: 'BD', name: 'Bangladés' },
+  { code: 'BB', name: 'Barbados' },          { code: 'BE', name: 'Bélgica' },
+  { code: 'BZ', name: 'Belice' },            { code: 'BJ', name: 'Benín' },
+  { code: 'BY', name: 'Bielorrusia' },       { code: 'BO', name: 'Bolivia' },
+  { code: 'BA', name: 'Bosnia y Herzegovina' },{ code: 'BW', name: 'Botsuana' },
+  { code: 'BR', name: 'Brasil' },            { code: 'BN', name: 'Brunéi' },
+  { code: 'BG', name: 'Bulgaria' },          { code: 'BF', name: 'Burkina Faso' },
+  { code: 'BI', name: 'Burundi' },           { code: 'BT', name: 'Bután' },
+  { code: 'CV', name: 'Cabo Verde' },        { code: 'KH', name: 'Camboya' },
+  { code: 'CM', name: 'Camerún' },           { code: 'CA', name: 'Canadá' },
+  { code: 'QA', name: 'Catar' },             { code: 'TD', name: 'Chad' },
+  { code: 'CL', name: 'Chile' },             { code: 'CN', name: 'China' },
+  { code: 'CY', name: 'Chipre' },            { code: 'CO', name: 'Colombia' },
+  { code: 'KM', name: 'Comoras' },           { code: 'CG', name: 'Congo' },
+  { code: 'CD', name: 'Congo (Rep. Dem.)' }, { code: 'KP', name: 'Corea del Norte' },
+  { code: 'KR', name: 'Corea del Sur' },     { code: 'CR', name: 'Costa Rica' },
+  { code: 'CI', name: 'Costa de Marfil' },   { code: 'HR', name: 'Croacia' },
+  { code: 'CU', name: 'Cuba' },              { code: 'DK', name: 'Dinamarca' },
+  { code: 'DJ', name: 'Djibouti' },          { code: 'DM', name: 'Dominica' },
+  { code: 'EC', name: 'Ecuador' },           { code: 'EG', name: 'Egipto' },
+  { code: 'SV', name: 'El Salvador' },       { code: 'AE', name: 'Emiratos Árabes Unidos' },
+  { code: 'ER', name: 'Eritrea' },           { code: 'SK', name: 'Eslovaquia' },
+  { code: 'SI', name: 'Eslovenia' },         { code: 'ES', name: 'España' },
+  { code: 'US', name: 'Estados Unidos' },    { code: 'EE', name: 'Estonia' },
+  { code: 'ET', name: 'Etiopía' },           { code: 'FJ', name: 'Fiyi' },
+  { code: 'PH', name: 'Filipinas' },         { code: 'FI', name: 'Finlandia' },
+  { code: 'FR', name: 'Francia' },           { code: 'GA', name: 'Gabón' },
+  { code: 'GM', name: 'Gambia' },            { code: 'GE', name: 'Georgia' },
+  { code: 'GH', name: 'Ghana' },             { code: 'GD', name: 'Granada' },
+  { code: 'GR', name: 'Grecia' },            { code: 'GT', name: 'Guatemala' },
+  { code: 'GN', name: 'Guinea' },            { code: 'GQ', name: 'Guinea Ecuatorial' },
+  { code: 'GW', name: 'Guinea-Bisáu' },      { code: 'GY', name: 'Guyana' },
+  { code: 'HT', name: 'Haití' },             { code: 'HN', name: 'Honduras' },
+  { code: 'HU', name: 'Hungría' },           { code: 'IN', name: 'India' },
+  { code: 'ID', name: 'Indonesia' },         { code: 'IQ', name: 'Irak' },
+  { code: 'IR', name: 'Irán' },              { code: 'IE', name: 'Irlanda' },
+  { code: 'IS', name: 'Islandia' },          { code: 'MH', name: 'Islas Marshall' },
+  { code: 'SB', name: 'Islas Salomón' },     { code: 'IL', name: 'Israel' },
+  { code: 'IT', name: 'Italia' },            { code: 'JM', name: 'Jamaica' },
+  { code: 'JP', name: 'Japón' },             { code: 'JO', name: 'Jordania' },
+  { code: 'KZ', name: 'Kazajistán' },        { code: 'KE', name: 'Kenia' },
+  { code: 'KG', name: 'Kirguistán' },        { code: 'KI', name: 'Kiribati' },
+  { code: 'KW', name: 'Kuwait' },            { code: 'LA', name: 'Laos' },
+  { code: 'LS', name: 'Lesoto' },            { code: 'LV', name: 'Letonia' },
+  { code: 'LB', name: 'Líbano' },            { code: 'LR', name: 'Liberia' },
+  { code: 'LY', name: 'Libia' },             { code: 'LI', name: 'Liechtenstein' },
+  { code: 'LT', name: 'Lituania' },          { code: 'LU', name: 'Luxemburgo' },
+  { code: 'MK', name: 'Macedonia del Norte' },{ code: 'MG', name: 'Madagascar' },
+  { code: 'MY', name: 'Malasia' },           { code: 'MW', name: 'Malaui' },
+  { code: 'MV', name: 'Maldivas' },          { code: 'ML', name: 'Malí' },
+  { code: 'MT', name: 'Malta' },             { code: 'MA', name: 'Marruecos' },
+  { code: 'MU', name: 'Mauricio' },          { code: 'MR', name: 'Mauritania' },
+  { code: 'MX', name: 'México' },            { code: 'FM', name: 'Micronesia' },
+  { code: 'MD', name: 'Moldavia' },          { code: 'MC', name: 'Mónaco' },
+  { code: 'MN', name: 'Mongolia' },          { code: 'ME', name: 'Montenegro' },
+  { code: 'MZ', name: 'Mozambique' },        { code: 'MM', name: 'Myanmar' },
+  { code: 'NA', name: 'Namibia' },           { code: 'NR', name: 'Nauru' },
+  { code: 'NP', name: 'Nepal' },             { code: 'NI', name: 'Nicaragua' },
+  { code: 'NE', name: 'Níger' },             { code: 'NG', name: 'Nigeria' },
+  { code: 'NO', name: 'Noruega' },           { code: 'NZ', name: 'Nueva Zelanda' },
+  { code: 'OM', name: 'Omán' },              { code: 'NL', name: 'Países Bajos' },
+  { code: 'PK', name: 'Pakistán' },          { code: 'PW', name: 'Palaos' },
+  { code: 'PA', name: 'Panamá' },            { code: 'PG', name: 'Papúa Nueva Guinea' },
+  { code: 'PY', name: 'Paraguay' },          { code: 'PE', name: 'Perú' },
+  { code: 'PL', name: 'Polonia' },           { code: 'PT', name: 'Portugal' },
+  { code: 'GB', name: 'Reino Unido' },       { code: 'CF', name: 'República Centroafricana' },
+  { code: 'CZ', name: 'República Checa' },   { code: 'DO', name: 'República Dominicana' },
+  { code: 'RW', name: 'Ruanda' },            { code: 'RO', name: 'Rumanía' },
+  { code: 'RU', name: 'Rusia' },             { code: 'WS', name: 'Samoa' },
+  { code: 'KN', name: 'San Cristóbal y Nieves' },{ code: 'SM', name: 'San Marino' },
+  { code: 'VC', name: 'San Vicente y las Granadinas' },{ code: 'LC', name: 'Santa Lucía' },
+  { code: 'ST', name: 'Santo Tomé y Príncipe' },{ code: 'SN', name: 'Senegal' },
+  { code: 'RS', name: 'Serbia' },            { code: 'SC', name: 'Seychelles' },
+  { code: 'SL', name: 'Sierra Leona' },      { code: 'SG', name: 'Singapur' },
+  { code: 'SY', name: 'Siria' },             { code: 'SO', name: 'Somalia' },
+  { code: 'LK', name: 'Sri Lanka' },         { code: 'SZ', name: 'Suazilandia' },
+  { code: 'ZA', name: 'Sudáfrica' },         { code: 'SD', name: 'Sudán' },
+  { code: 'SS', name: 'Sudán del Sur' },     { code: 'SE', name: 'Suecia' },
+  { code: 'CH', name: 'Suiza' },             { code: 'SR', name: 'Surinam' },
+  { code: 'TH', name: 'Tailandia' },         { code: 'TZ', name: 'Tanzania' },
+  { code: 'TJ', name: 'Tayikistán' },        { code: 'TL', name: 'Timor Oriental' },
+  { code: 'TG', name: 'Togo' },              { code: 'TO', name: 'Tonga' },
+  { code: 'TT', name: 'Trinidad y Tobago' }, { code: 'TN', name: 'Túnez' },
+  { code: 'TM', name: 'Turkmenistán' },      { code: 'TR', name: 'Turquía' },
+  { code: 'TV', name: 'Tuvalu' },            { code: 'UA', name: 'Ucrania' },
+  { code: 'UG', name: 'Uganda' },            { code: 'UY', name: 'Uruguay' },
+  { code: 'UZ', name: 'Uzbekistán' },        { code: 'VU', name: 'Vanuatu' },
+  { code: 'VE', name: 'Venezuela' },         { code: 'VN', name: 'Vietnam' },
+  { code: 'YE', name: 'Yemen' },             { code: 'ZM', name: 'Zambia' },
+  { code: 'ZW', name: 'Zimbabue' },
+];
+
+// ── Country Picker ────────────────────────────────────────────────────────────
+
+function CountryPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open,  setOpen]  = useState(false);
+  const [query, setQuery] = useState('');
+
+  const selected = COUNTRIES.find((c) => c.name === value) ?? null;
+
+  const filtered = query.trim()
+    ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
+    : COUNTRIES;
+
+  const handleSelect = (c: { code: string; name: string }) => {
+    onChange(c.name);
+    setOpen(false);
+    setQuery('');
+  };
+
+  const handleOpen = () => {
+    setOpen(true);
+    setQuery('');
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* Trigger / search input */}
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        {/* Flag display when closed */}
+        {selected && !open && (
+          <span style={{ position: 'absolute', left: '10px', fontSize: '16px', lineHeight: 1, pointerEvents: 'none', userSelect: 'none' }}>
+            {flag(selected.code)}
+          </span>
+        )}
+        <input
+          type="text"
+          value={open ? query : (value || '')}
+          placeholder={open ? 'Buscar país...' : 'Selecciona un país'}
+          onFocus={handleOpen}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full text-[13px] rounded-[6px] py-2 outline-none transition-colors"
+          style={{
+            background:  C.bg,
+            border:      `1px solid ${open ? C.border2 : C.border}`,
+            color:       value && !open ? C.text : C.text,
+            paddingLeft: selected && !open ? '34px' : '12px',
+            paddingRight: '32px',
+          }}
+          onBlur={() => {
+            // pequeño delay para que el click en opción se registre primero
+            setTimeout(handleClose, 150);
+          }}
+        />
+        {/* Chevron */}
+        <span style={{ position: 'absolute', right: '10px', pointerEvents: 'none' }}>
+          <ChevronDown
+            size={13}
+            style={{ color: C.text4, transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}
+          />
+        </span>
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div
+          style={{
+            position:   'absolute',
+            top:        'calc(100% + 4px)',
+            left:       0,
+            right:      0,
+            zIndex:     50,
+            background: C.surface,
+            border:     `1px solid ${C.border2}`,
+            borderRadius: '8px',
+            boxShadow:  '0 8px 32px rgba(0,0,0,0.45)',
+            maxHeight:  '260px',
+            overflowY:  'auto',
+          }}
+        >
+          {filtered.length === 0 ? (
+            <div style={{ padding: '14px 14px', fontSize: '12.5px', color: C.text4 }}>
+              Sin resultados para "{query}"
+            </div>
+          ) : (
+            filtered.map((c) => {
+              const isSelected = c.name === value;
+              return (
+                <button
+                  key={c.code}
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); handleSelect(c); }}
+                  style={{
+                    width:       '100%',
+                    display:     'flex',
+                    alignItems:  'center',
+                    gap:         '10px',
+                    padding:     '8px 12px',
+                    background:  isSelected ? `${C.accent}14` : 'transparent',
+                    border:      'none',
+                    borderLeft:  isSelected ? `2px solid ${C.accent}` : '2px solid transparent',
+                    cursor:      'pointer',
+                    textAlign:   'left',
+                    color:       isSelected ? C.accent : C.text2,
+                    fontSize:    '13px',
+                    fontWeight:  isSelected ? 600 : 400,
+                    transition:  'background 0.1s',
+                  }}
+                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = C.hover; }}
+                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <span style={{ fontSize: '17px', lineHeight: 1, flexShrink: 0 }}>{flag(c.code)}</span>
+                  <span>{c.name}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 
@@ -378,12 +779,18 @@ export default function ProfilePage() {
                     <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.position}</span>
                   </div>
                 )}
-                {profileForm.location && (
-                  <div className="flex items-center gap-2.5">
-                    <MapPin size={13} style={{ color: C.text4, flexShrink: 0 }} />
-                    <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.location}</span>
-                  </div>
-                )}
+                {profileForm.location && (() => {
+                  const country = COUNTRIES.find((c) => c.name === profileForm.location);
+                  return (
+                    <div className="flex items-center gap-2.5">
+                      {country
+                        ? <span style={{ fontSize: '14px', lineHeight: 1, flexShrink: 0 }}>{flag(country.code)}</span>
+                        : <MapPin size={13} style={{ color: C.text4, flexShrink: 0 }} />
+                      }
+                      <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.location}</span>
+                    </div>
+                  );
+                })()}
                 {profileForm.phone && (
                   <div className="flex items-center gap-2.5">
                     <Phone size={13} style={{ color: C.text4, flexShrink: 0 }} />
@@ -428,12 +835,10 @@ export default function ProfilePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <FieldLabel htmlFor="position">{t.profile_label_position}</FieldLabel>
-                    <FieldInput
-                      id="position"
+                    <FieldLabel>{t.profile_label_position}</FieldLabel>
+                    <PositionPicker
                       value={profileForm.position}
-                      onChange={(e) => setProfileForm({ ...profileForm, position: e.target.value })}
-                      placeholder={t.profile_placeholder_position}
+                      onChange={(v) => setProfileForm({ ...profileForm, position: v })}
                     />
                   </div>
                   <div>
@@ -454,12 +859,10 @@ export default function ProfilePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <FieldLabel htmlFor="location">{t.profile_label_location}</FieldLabel>
-                    <FieldInput
-                      id="location"
+                    <FieldLabel>{t.profile_label_location}</FieldLabel>
+                    <CountryPicker
                       value={profileForm.location}
-                      onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })}
-                      placeholder={t.profile_placeholder_location}
+                      onChange={(v) => setProfileForm({ ...profileForm, location: v })}
                     />
                   </div>
                   <div>

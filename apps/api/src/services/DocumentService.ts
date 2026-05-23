@@ -171,15 +171,16 @@ export class DocumentService {
 
       await client.query('COMMIT');
 
-      const payload = {
-        documentId: document.id as any,
-        workspaceId: workspaceId as any,
-        title: document.title,
-        createdBy: userId as any,
-        templateId: data.templateId,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('document.created', payload, userId as any);
+      await eventStore.emit({
+        type: 'document.created',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'document', id: document.id, name: document.title },
+        context: { workspaceId, documentId: document.id },
+        payload: { templateId: data.templateId },
+      });
 
       return document;
     } catch (error) {
@@ -362,6 +363,10 @@ export class DocumentService {
     try {
       await client.query('BEGIN');
 
+      // Fetch estado anterior del título para delta
+      const beforeDocResult = await client.query('SELECT title FROM documents WHERE id = $1', [documentId]);
+      const oldTitle = beforeDocResult.rows[0]?.title;
+
       const updates: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
@@ -380,7 +385,7 @@ export class DocumentService {
       values.push(documentId);
 
       const result = await client.query(
-        `UPDATE documents 
+        `UPDATE documents
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
          RETURNING *`,
@@ -391,14 +396,18 @@ export class DocumentService {
 
       await client.query('COMMIT');
 
-      const payload = {
-        documentId: document.id as any,
-        workspaceId: document.workspaceId as any,
-        changes: data,
-        updatedBy: userId as any,
-      };
+      const actorDocResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorDocName = actorDocResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('document.updated', payload, userId as any);
+      await eventStore.emit({
+        type: 'document.updated',
+        actor: { id: userId, name: actorDocName },
+        subject: { type: 'document', id: document.id, name: document.title },
+        context: { workspaceId: document.workspaceId, documentId: document.id },
+        ...(data.title !== undefined ? {
+          delta: { before: { title: oldTitle }, after: { title: document.title } },
+        } : {}),
+      });
 
       return document;
     } catch (error) {
@@ -432,13 +441,15 @@ export class DocumentService {
 
       await client.query('COMMIT');
 
-      const payload = {
-        documentId: documentId as any,
-        workspaceId: workspaceId as any,
-        deletedBy: userId as any,
-      };
+      const actorDelResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorDelName = actorDelResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('document.deleted', payload, userId as any);
+      await eventStore.emit({
+        type: 'document.deleted',
+        actor: { id: userId, name: actorDelName },
+        subject: { type: 'document', id: documentId, name: '' },
+        context: { workspaceId, documentId },
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -564,15 +575,16 @@ export class DocumentService {
       ]);
       const workspaceId = docResult.rows[0]?.workspace_id;
 
-      const payload = {
-        versionId: version.id as any,
-        documentId: documentId as any,
-        workspaceId: workspaceId as any,
-        metadata: metadata || {},
-        createdBy: userId as any,
-      };
+      const actorVerResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorVerName = actorVerResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('document.version.created', payload, userId as any);
+      await eventStore.emit({
+        type: 'document.version.saved',
+        actor: { id: userId, name: actorVerName },
+        subject: { type: 'document', id: documentId, name: '' },
+        context: { workspaceId: workspaceId ?? '', documentId },
+        payload: { versionId: version.id, metadata: metadata || {} },
+      });
 
       return version;
     } catch (error) {
@@ -631,14 +643,16 @@ export class DocumentService {
 
       await client.query('COMMIT');
 
-      const payload = {
-        versionId: versionId as any,
-        documentId: documentId as any,
-        workspaceId: document.workspaceId as any,
-        restoredBy: userId as any,
-      };
+      const actorRestResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorRestName = actorRestResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('document.version.restored', payload, userId as any);
+      await eventStore.emit({
+        type: 'document.version.restored',
+        actor: { id: userId, name: actorRestName },
+        subject: { type: 'document', id: documentId, name: document.title },
+        context: { workspaceId: document.workspaceId, documentId },
+        payload: { versionId },
+      });
 
       // CRÍTICO: Forzar recarga del documento en memoria si hay usuarios conectados
       // Esto evita que se pierdan datos cuando se restaura una versión
@@ -786,15 +800,17 @@ export class DocumentService {
 
       const workspaceId = await this.getDocumentWorkspace(documentId);
 
-      const payload = {
-        documentId: documentId as any,
-        workspaceId: workspaceId as any,
-        targetUserId: targetUserId as any,
-        permission,
-        updatedBy: updatedBy as any,
-      };
+      const actorPermResult = await pool.query('SELECT name FROM users WHERE id = $1', [updatedBy]);
+      const actorPermName = actorPermResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('document.permission.updated', payload, updatedBy as any);
+      await eventStore.emit({
+        type: 'document.permission.changed',
+        actor: { id: updatedBy, name: actorPermName },
+        subject: { type: 'document', id: documentId, name: '' },
+        context: { workspaceId: workspaceId ?? '', documentId },
+        payload: { permission },
+        targetUserId,
+      });
 
       // Broadcast real-time permission update via WebSocket
       const { getYjsGateway } = require('../websocket/Yjsgateway');

@@ -23,7 +23,7 @@ describe('ListService', () => {
     };
 
     (pool.connect as jest.Mock) = jest.fn().mockResolvedValue(mockClient);
-    (pool.query as jest.Mock) = jest.fn();
+    (pool.query as jest.Mock) = jest.fn().mockResolvedValue({ rows: [] });
     (eventStore.emit as jest.Mock) = jest.fn().mockResolvedValue({});
   });
 
@@ -49,12 +49,13 @@ describe('ListService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}) // COMMIT
-        .mockResolvedValueOnce({ rows: [{ name: 'Test Board' }] }); // SELECT board name
+        .mockResolvedValueOnce({}); // COMMIT
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({
-        rows: [{ workspace_id: 'ws-123' }],
-      });
+      // pool.query calls: getWorkspaceIdFromBoard, actor name lookup, board name lookup
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-123' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }) // actor name
+        .mockResolvedValueOnce({ rows: [{ board_name: 'Test Board', project_name: null }] }); // board name
 
       const result = await listService.createList(boardId, userId, listData);
 
@@ -62,14 +63,11 @@ describe('ListService', () => {
       expect(result.position).toBe(3);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'list.created',
         expect.objectContaining({
-          listId: 'list-new',
-          boardId,
-          name: listData.name,
-        }),
-        userId,
-        boardId
+          type: 'list.created',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: 'list-new' }),
+        })
       );
     });
 
@@ -89,12 +87,7 @@ describe('ListService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({}) // COMMIT
-        .mockResolvedValueOnce({ rows: [{ name: 'Test Board' }] }); // SELECT board name
-
-      (pool.query as jest.Mock).mockResolvedValueOnce({
-        rows: [{ workspace_id: 'ws-1' }],
-      });
+        .mockResolvedValueOnce({}); // COMMIT
 
       const result = await listService.createList('board-1', 'user-1', { name: 'First List' });
 
@@ -220,6 +213,7 @@ describe('ListService', () => {
 
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ name: 'Old Name' }] }) // SELECT before
         .mockResolvedValueOnce({
           // UPDATE
           rows: [
@@ -235,28 +229,28 @@ describe('ListService', () => {
         })
         .mockResolvedValueOnce({}); // COMMIT
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({
-        rows: [{ workspace_id: 'ws-1' }],
-      });
+      // pool.query calls: getWorkspaceIdFromBoard, actor name lookup
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // actor name
 
       const result = await listService.updateList(listId, userId, updates);
 
       expect(result.name).toBe(updates.name);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'list.updated',
         expect.objectContaining({
-          listId,
-          changes: updates,
-        }),
-        userId,
-        'board-1'
+          type: 'list.updated',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: listId }),
+        })
       );
     });
 
     it('should throw error if list not found', async () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ name: 'Old Name' }] }) // SELECT before
         .mockResolvedValueOnce({ rows: [] }); // UPDATE returns nothing
 
       await expect(
@@ -280,15 +274,15 @@ describe('ListService', () => {
         })
         .mockResolvedValueOnce({
           // SELECT board_id
-          rows: [{ board_id: 'board-1' }],
+          rows: [{ board_id: 'board-1', name: 'My List' }],
         })
         .mockResolvedValueOnce({}) // DELETE
         .mockResolvedValueOnce({}); // COMMIT
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({
-        // getWorkspaceIdFromBoard
-        rows: [{ workspace_id: 'ws-1' }],
-      });
+      // pool.query calls: getWorkspaceIdFromBoard, actor name lookup
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // actor name
 
       await listService.deleteList(listId, userId);
 
@@ -297,10 +291,11 @@ describe('ListService', () => {
       ]);
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'list.deleted',
-        expect.objectContaining({ listId }),
-        userId,
-        'board-1'
+        expect.objectContaining({
+          type: 'list.deleted',
+          actor: expect.objectContaining({ id: userId }),
+          subject: expect.objectContaining({ id: listId }),
+        })
       );
     });
 
@@ -343,9 +338,10 @@ describe('ListService', () => {
         .mockResolvedValueOnce({}) // UPDATE this list
         .mockResolvedValueOnce({}); // COMMIT
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({
-        rows: [{ workspace_id: 'ws-1' }],
-      });
+      // pool.query calls: getWorkspaceIdFromBoard, actor name lookup
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1' }] }) // getWorkspaceIdFromBoard
+        .mockResolvedValueOnce({ rows: [{ name: 'Test User' }] }); // actor name
 
       await listService.reorderList(listId, userId, newPosition);
 
@@ -353,10 +349,10 @@ describe('ListService', () => {
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
 
       expect(eventStore.emit).toHaveBeenCalledWith(
-        'list.reordered',
-        expect.anything(),
-        userId,
-        'board-1'
+        expect.objectContaining({
+          type: 'list.order-changed',
+          actor: expect.objectContaining({ id: userId }),
+        })
       );
     });
 

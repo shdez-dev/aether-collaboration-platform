@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -45,34 +45,34 @@ function hashColor(id: string): string {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getRoleBadge(role: string, t: T) {
-  if (role === 'OWNER')  return { label: t.role_owner,  bg: 'rgba(161,167,176,0.10)', color: '#a1a7b0', border: 'rgba(161,167,176,0.22)', dot: '#a1a7b0' };
-  if (role === 'ADMIN')  return { label: t.role_admin,  bg: 'rgba(16,185,129,0.14)',  color: '#10b981', border: 'rgba(16,185,129,0.3)',  dot: '#10b981' };
-  if (role === 'VIEWER') return { label: t.role_viewer, bg: 'rgba(107,114,128,0.14)', color: '#6b7280', border: 'rgba(107,114,128,0.3)', dot: '#6b7280' };
-  return                        { label: t.role_member, bg: 'rgba(139,92,246,0.13)',  color: '#a78bfa', border: 'rgba(139,92,246,0.28)', dot: '#8b5cf6' };
+  if (role === 'OWNER')  return { label: t.role_owner,  bg: 'rgba(56,182,255,0.10)',  color: '#38b6ff', border: 'rgba(56,182,255,0.25)',  dot: '#38b6ff' };
+  if (role === 'ADMIN')  return { label: t.role_admin,  bg: 'rgba(0,229,204,0.10)',   color: '#00e5cc', border: 'rgba(0,229,204,0.25)',   dot: '#00e5cc' };
+  if (role === 'VIEWER') return { label: t.role_viewer, bg: 'rgba(56,182,255,0.05)',  color: '#4a6480', border: 'rgba(56,182,255,0.12)',  dot: '#4a6480' };
+  return                        { label: t.role_member, bg: 'rgba(56,182,255,0.06)',  color: '#8aaac8', border: 'rgba(56,182,255,0.15)',  dot: '#8aaac8' };
 }
 
 function getStatusBadge(status: string, t: T) {
   switch (status) {
-    case 'ACTIVE':    return { label: t.projects_status_active,    color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.25)' };
-    case 'PLANNING':  return { label: t.projects_status_planning,  color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.25)' };
-    case 'ON_HOLD':   return { label: t.projects_status_on_hold,   color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.25)' };
-    case 'COMPLETED': return { label: t.projects_status_completed, color: '#a1a7b0', bg: 'rgba(161,167,176,0.1)',  border: 'rgba(161,167,176,0.2)' };
-    default:          return { label: status,                       color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.2)' };
+    case 'ACTIVE':    return { label: t.projects_status_active,    color: '#00e5cc', bg: 'rgba(0,229,204,0.10)',   border: 'rgba(0,229,204,0.25)' };
+    case 'PLANNING':  return { label: t.projects_status_planning,  color: '#38b6ff', bg: 'rgba(56,182,255,0.10)',  border: 'rgba(56,182,255,0.25)' };
+    case 'ON_HOLD':   return { label: t.projects_status_on_hold,   color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  border: 'rgba(245,158,11,0.25)' };
+    case 'COMPLETED': return { label: t.projects_status_completed, color: '#4a6480', bg: 'rgba(56,182,255,0.05)',  border: 'rgba(56,182,255,0.12)' };
+    default:          return { label: status,                       color: '#4a6480', bg: 'rgba(56,182,255,0.05)', border: 'rgba(56,182,255,0.12)' };
   }
 }
 
 function getHealthBadge(pct: number, t: T) {
-  if (pct >= 60) return { label: t.ws_health_healthy,          color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)' };
-  if (pct >= 30) return { label: t.projects_health_at_risk,    color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)' };
-  return               { label: t.ws_health_critical,          color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.25)' };
+  if (pct >= 60) return { label: t.ws_health_healthy,       color: '#00e5cc', bg: 'rgba(0,229,204,0.10)',  border: 'rgba(0,229,204,0.25)' };
+  if (pct >= 30) return { label: t.projects_health_at_risk, color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.25)' };
+  return               { label: t.ws_health_critical,       color: '#ef4444', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.25)' };
 }
 
 function getBoardStatus(updatedAt: string, isLive: boolean, t: T) {
-  if (isLive) return { label: t.ws_board_status_active,  color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.25)' };
+  if (isLive) return { label: t.ws_board_status_active,  color: '#00e5cc', bg: 'rgba(0,229,204,0.10)',  border: 'rgba(0,229,204,0.25)' };
   const days = (Date.now() - new Date(updatedAt).getTime()) / 86400000;
-  if (days < 4)  return { label: t.ws_board_status_active,  color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.25)' };
-  if (days < 14) return { label: t.ws_board_status_review,  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)' };
-  return               { label: t.ws_board_status_backlog, color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.2)' };
+  if (days < 4)  return { label: t.ws_board_status_active,  color: '#00e5cc', bg: 'rgba(0,229,204,0.10)',  border: 'rgba(0,229,204,0.25)' };
+  if (days < 14) return { label: t.ws_board_status_review,  color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.25)' };
+  return               { label: t.ws_board_status_backlog,  color: '#4a6480', bg: 'rgba(56,182,255,0.05)', border: 'rgba(56,182,255,0.12)' };
 }
 
 function timeAgo(dateStr: string, t: T): string {
@@ -119,6 +119,7 @@ export default function WorkspaceDetailPage() {
   // ── UI state ──────────────────────────────────────────────────────────────
   const initialTab = (searchParams.get('tab') as TabKey | null) ?? 'overview';
   const [activeTab,            setActiveTab]            = useState<TabKey>(initialTab);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
   const [showInviteModal,        setShowInviteModal]        = useState(false);
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
   const [memberToRemove,       setMemberToRemove]       = useState<{ userId: string; name: string } | null>(null);
@@ -140,6 +141,11 @@ export default function WorkspaceDetailPage() {
   const [sideGithub,           setSideGithub]           = useState(true);
   const [githubConnected,      setGithubConnected]      = useState(false);
   const [githubEvents,         setGithubEvents]         = useState<any[]>([]);
+  const [docRefreshKey,        setDocRefreshKey]        = useState(0);
+  const [activityRefreshKey,   setActivityRefreshKey]   = useState(0);
+
+  // Ref para evitar stale closure en el handler de socket
+  const activeTabRef = useRef<TabKey>(initialTab);
 
   // ── Activity tab ──────────────────────────────────────────────────────────
   const EVENTS_PER_PAGE = 20;
@@ -224,7 +230,7 @@ export default function WorkspaceDetailPage() {
     apiService.get<{ githubLogin: string; repos: string[]; connectedAt: string } | null>(`/api/workspaces/${workspaceId}/github`, true).then((r) => {
       if (r.success && r.data) {
         setGithubConnected(true);
-        const ghTypes = 'github.push,github.pr.opened,github.pr.closed,github.pr.merged,github.pr.review.submitted,github.pr.review_requested';
+        const ghTypes = 'github.push.received,github.pr.opened,github.pr.closed,github.pr.merged,github.pr.review-submitted,github.pr.review-requested';
         apiService.get<{ events: any[] }>(`/api/workspaces/${workspaceId}/activity?eventTypes=${ghTypes}&limit=10`, true).then((r2) => {
           if (r2.success && r2.data) setGithubEvents(r2.data.events || []);
         });
@@ -300,7 +306,7 @@ export default function WorkspaceDetailPage() {
         } catch { /* silencio */ }
         break;
       }
-      case 'project.board.assigned': {
+      case 'project.board.linked': {
         if (p.boardId) {
           setOrphanBoards((prev) => prev.filter((b) => b.id !== p.boardId));
         }
@@ -316,7 +322,7 @@ export default function WorkspaceDetailPage() {
         }
         break;
       }
-      case 'project.board.removed': {
+      case 'project.board.unlinked': {
         if (p.boardId) {
           try {
             const r = await apiService.get<{ board: any }>(`/api/boards/${p.boardId}`, true);
@@ -349,12 +355,57 @@ export default function WorkspaceDetailPage() {
     }
   }, []);
 
+  // ── Real-time workspace events ────────────────────────────────────────────
+  const handleWorkspaceEvent = useCallback((event: { type: string; payload: any }) => {
+    const type = event.type as string;
+
+    // Miembros
+    if (
+      type === 'workspace.member.invited' ||
+      type === 'workspace.member.removed' ||
+      type === 'workspace.member.role-changed'
+    ) {
+      fetchMembers(workspaceId);
+    }
+
+    // Workspace info
+    if (type === 'workspace.updated') {
+      fetchWorkspaceById(workspaceId);
+    }
+
+    // Documentos
+    if (type === 'document.created') {
+      setDocRefreshKey((k) => k + 1);
+    }
+
+    // Stats
+    if (
+      type === 'card.created' || type === 'card.updated' ||
+      type === 'card.deleted' || type === 'card.status-changed' || type === 'card.moved'
+    ) {
+      fetchStats(workspaceId);
+    }
+
+    // Activity feed del sidebar — refrescar en cualquier evento relevante
+    if (
+      !type.startsWith('github.') &&
+      !type.startsWith('presence.')
+    ) {
+      setActivityRefreshKey((k) => k + 1);
+      // Si el tab de actividad está abierto, prepend para respuesta inmediata
+      if (activeTabRef.current === 'activity') {
+        setActivityEvents((prev) => [event, ...prev]);
+      }
+    }
+  }, [workspaceId, fetchMembers, fetchWorkspaceById, fetchStats]);
+
   useEffect(() => {
     if (!workspaceId) return;
     const join = () => socketService.joinWorkspace(workspaceId);
     const onEvent = (event: any) => {
       handleEvent(event);
       handleProjectEvent(event);
+      handleWorkspaceEvent(event);
       if ((event.type as string)?.startsWith('github.')) {
         setGithubEvents((prev) => [event, ...prev].slice(0, 20));
         if (!githubConnected) setGithubConnected(true);
@@ -368,14 +419,17 @@ export default function WorkspaceDetailPage() {
       socketService.offConnect(join);
       socketService.off('event', onEvent);
     };
-  }, [workspaceId, handleEvent, handleProjectEvent]);
+  }, [workspaceId, handleEvent, handleProjectEvent, handleWorkspaceEvent]);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading && !currentWorkspace) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="w-7 h-7 rounded-full border-2 animate-spin"
-          style={{ borderColor: `${C.accent} transparent transparent transparent` }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite' }}>
+          <circle cx="12" cy="12" r="9" stroke="rgba(56,182,255,0.15)" strokeWidth="2" />
+          <path d="M12 3a9 9 0 0 1 9 9" stroke={C.accent} strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -973,22 +1027,22 @@ export default function WorkspaceDetailPage() {
 
                       {/* ── En planificación (colapsable) ─────────────────── */}
                       {planningProjects.length > 0 && (
-                        <div style={{ borderRadius: '10px', border: '1px solid rgba(59,130,246,0.28)', background: 'rgba(59,130,246,0.03)' }}>
+                        <div style={{ borderRadius: '10px', border: '1px solid rgba(56,182,255,0.28)', background: 'rgba(56,182,255,0.03)' }}>
                           {/* Header */}
                           <button
                             onClick={() => setPlanningOpen(!planningOpen)}
                             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '10px', transition: 'background 0.15s' }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.07)'; }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(56,182,255,0.07)'; }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                           >
                             {/* Chevron en caja azul */}
-                            <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(59,130,246,0.14)', border: '1px solid rgba(59,130,246,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.15s' }}>
-                              <ChevronDown style={{ width: '12px', height: '12px', color: '#3b82f6', transform: planningOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.22s ease', flexShrink: 0 }} />
+                            <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(56,182,255,0.14)', border: '1px solid rgba(56,182,255,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.15s' }}>
+                              <ChevronDown style={{ width: '12px', height: '12px', color: C.accent, transform: planningOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.22s ease', flexShrink: 0 }} />
                             </div>
 
                             {/* Título + badge */}
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6' }}>{t.projects_status_planning}</span>
-                            <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '1px 8px', borderRadius: '10px', background: 'rgba(59,130,246,0.13)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.28)', lineHeight: '18px', flexShrink: 0 }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: C.accent }}>{t.projects_status_planning}</span>
+                            <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '1px 8px', borderRadius: '10px', background: 'rgba(56,182,255,0.13)', color: C.accent, border: '1px solid rgba(56,182,255,0.28)', lineHeight: '18px', flexShrink: 0 }}>
                               {planningProjects.length}
                             </span>
 
@@ -996,13 +1050,13 @@ export default function WorkspaceDetailPage() {
                             <span style={{ fontSize: '11.5px', color: C.text4, marginLeft: 'auto', flexShrink: 0 }}>
                               {planningProjects.length === 1 ? '1 proyecto sin iniciar' : `${planningProjects.length} proyectos sin iniciar`}
                             </span>
-                            <Zap style={{ width: '11px', height: '11px', color: 'rgba(59,130,246,0.5)', flexShrink: 0 }} />
+                            <Zap style={{ width: '11px', height: '11px', color: 'rgba(56,182,255,0.5)', flexShrink: 0 }} />
                           </button>
 
                           {/* Contenido animado con grid */}
                           <div style={{ display: 'grid', gridTemplateRows: planningOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.28s ease' }}>
                             <div style={{ overflow: 'hidden' }}>
-                              <div style={{ borderTop: '1px solid rgba(59,130,246,0.18)' }}>
+                              <div style={{ borderTop: '1px solid rgba(56,182,255,0.18)' }}>
                                 {planningProjects.map((proj, idx) => (
                                   <div key={proj.id} style={{ borderTop: idx > 0 ? `1px solid ${C.border}` : 'none' }}>
                                     {renderCard(proj)}
@@ -1095,7 +1149,7 @@ export default function WorkspaceDetailPage() {
 
             {/* ── DOCS tab ────────────────────────────────────────────── */}
             {activeTab === 'docs' && (
-              <DocumentsSection workspaceId={workspaceId} isOwnerOrAdmin={isOwnerOrAdmin} accentColor={accentColor} />
+              <DocumentsSection workspaceId={workspaceId} isOwnerOrAdmin={isOwnerOrAdmin} accentColor={accentColor} refreshKey={docRefreshKey} />
             )}
 
             {/* ── MEMBERS tab ─────────────────────────────────────────── */}
@@ -1363,8 +1417,11 @@ export default function WorkspaceDetailPage() {
 
               {/* Proyectos panel */}
               <div style={{ borderBottom: `1px solid ${C.border}` }}>
-                <button onClick={() => setSideProjects(!sideProjects)}
-                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer' }}
+                <div
+                  role="button" tabIndex={0}
+                  onClick={() => setSideProjects(!sideProjects)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSideProjects(!sideProjects)}
+                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                     <FolderOpen style={{ ...ic(12), color: accentColor }} />
@@ -1383,7 +1440,7 @@ export default function WorkspaceDetailPage() {
                     </button>
                     <ChevronDown style={{ ...ic(11), color: C.text4, transform: sideProjects ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
                   </div>
-                </button>
+                </div>
                 {sideProjects && (
                   <div style={{ padding: '0 8px 8px' }}>
                     {(() => {
@@ -1440,8 +1497,11 @@ export default function WorkspaceDetailPage() {
 
               {/* Miembros panel */}
               <div style={{ borderBottom: `1px solid ${C.border}` }}>
-                <button onClick={() => setSideMembers(!sideMembers)}
-                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer' }}
+                <div
+                  role="button" tabIndex={0}
+                  onClick={() => setSideMembers(!sideMembers)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSideMembers(!sideMembers)}
+                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                     <Users style={{ ...ic(12), color: C.green }} />
@@ -1460,7 +1520,7 @@ export default function WorkspaceDetailPage() {
                     </button>
                     <ChevronDown style={{ ...ic(11), color: C.text4, transform: sideMembers ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
                   </div>
-                </button>
+                </div>
                 {sideMembers && (
                   <div style={{ padding: '0 8px 8px' }}>
                     {currentMembers.slice(0, 5).map((member) => {
@@ -1507,8 +1567,11 @@ export default function WorkspaceDetailPage() {
               {/* GitHub Activity panel */}
               {githubConnected && (
                 <div style={{ borderBottom: `1px solid ${C.border}` }}>
-                  <button onClick={() => setSideGithub(!sideGithub)}
-                    style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer' }}
+                  <div
+                    role="button" tabIndex={0}
+                    onClick={() => setSideGithub(!sideGithub)}
+                    onKeyDown={(e) => e.key === 'Enter' && setSideGithub(!sideGithub)}
+                    style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                       <Github style={{ ...ic(12), color: C.purple }} />
@@ -1520,7 +1583,7 @@ export default function WorkspaceDetailPage() {
                       )}
                     </div>
                     <ChevronDown style={{ ...ic(11), color: C.text4, transform: sideGithub ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
-                  </button>
+                  </div>
                   {sideGithub && (
                     <div style={{ padding: '0 8px 8px' }}>
                       {githubEvents.length === 0 ? (
@@ -1532,12 +1595,12 @@ export default function WorkspaceDetailPage() {
                         let icon: React.ReactNode;
                         let text = '';
 
-                        if (ev.type === 'github.push') {
+                        if (ev.type === 'github.push.received') {
                           const n = (p.commits as any[])?.length ?? 0;
                           icon = <GitBranch style={{ ...ic(11), color: C.green, flexShrink: 0 }} />;
                           text = `${p.pusher || 'Someone'} pushed ${n} commit${n !== 1 ? 's' : ''} to ${p.branch}`;
                         } else if (ev.type === 'github.pr.opened') {
-                          icon = <GitPullRequest style={{ ...ic(11), color: '#3b82f6', flexShrink: 0 }} />;
+                          icon = <GitPullRequest style={{ ...ic(11), color: C.accent, flexShrink: 0 }} />;
                           text = `${p.author || 'Someone'} opened PR #${p.prNumber}: ${p.title}`;
                         } else if (ev.type === 'github.pr.merged') {
                           icon = <GitMerge style={{ ...ic(11), color: C.purple, flexShrink: 0 }} />;
@@ -1545,11 +1608,11 @@ export default function WorkspaceDetailPage() {
                         } else if (ev.type === 'github.pr.closed') {
                           icon = <GitPullRequestClosed style={{ ...ic(11), color: C.red, flexShrink: 0 }} />;
                           text = `PR #${p.prNumber} cerrado`;
-                        } else if (ev.type === 'github.pr.review.submitted') {
+                        } else if (ev.type === 'github.pr.review-submitted') {
                           const state = (p.state as string)?.toLowerCase();
                           icon = <GitPullRequest style={{ ...ic(11), color: state === 'approved' ? C.green : C.amber, flexShrink: 0 }} />;
                           text = `${p.reviewer} ${state === 'approved' ? 'aprobó' : state === 'changes_requested' ? 'solicitó cambios en' : 'revisó'} PR #${p.prNumber}`;
-                        } else if (ev.type === 'github.pr.review_requested') {
+                        } else if (ev.type === 'github.pr.review-requested') {
                           icon = <GitPullRequest style={{ ...ic(11), color: C.amber, flexShrink: 0 }} />;
                           text = `Revisión pedida a ${p.reviewer} en PR #${p.prNumber}`;
                         } else {
@@ -1586,8 +1649,11 @@ export default function WorkspaceDetailPage() {
 
               {/* Actividad panel */}
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <button onClick={() => setSideActivity(!sideActivity)}
-                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                <div
+                  role="button" tabIndex={0}
+                  onClick={() => setSideActivity(!sideActivity)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSideActivity(!sideActivity)}
+                  style={{ width: '100%', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', flexShrink: 0 }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                     <Activity style={{ ...ic(12), color: C.amber }} />
@@ -1603,10 +1669,10 @@ export default function WorkspaceDetailPage() {
                     </button>
                     <ChevronDown style={{ ...ic(11), color: C.text4, transform: sideActivity ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
                   </div>
-                </button>
+                </div>
                 {sideActivity && (
                   <div style={{ flex: 1, overflowY: 'auto' }}>
-                    <ActivityFeed workspaceId={workspaceId} />
+                    <ActivityFeed workspaceId={workspaceId} refreshKey={activityRefreshKey} />
                   </div>
                 )}
               </div>

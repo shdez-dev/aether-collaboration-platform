@@ -35,7 +35,7 @@ function mapGithubEvent(ghEvent: string, body: any): MappedEvent | null {
     const branch: string = (body.ref as string)?.replace('refs/heads/', '') ?? '';
     const commits: any[] = body.commits ?? [];
     return {
-      type: 'github.push',
+      type: 'github.push.received',
       payload: {
         repo,
         branch,
@@ -75,30 +75,12 @@ function mapGithubEvent(ghEvent: string, body: any): MappedEvent | null {
         payload: { ...base, mergedBy: pr?.merged_by?.login },
       };
     }
-    if (action === 'review_requested') {
-      const reviewer = body.requested_reviewer?.login ?? body.requested_team?.name;
-      return { type: 'github.pr.review_requested', payload: { ...base, reviewer } };
-    }
     return null;
   }
 
   if (ghEvent === 'pull_request_review') {
-    const pr = body.pull_request;
-    const review = body.review;
-    return {
-      type: 'github.pr.review.submitted',
-      payload: {
-        repo,
-        prNumber: pr?.number,
-        title: pr?.title,
-        url: pr?.html_url,
-        prAuthor: pr?.user?.login,
-        reviewer: review?.user?.login,
-        reviewerAvatar: review?.user?.avatar_url,
-        state: review?.state,   // APPROVED | CHANGES_REQUESTED | COMMENTED
-        body: (review?.body as string)?.slice(0, 200),
-      },
-    };
+    // No está en el catálogo canónico de eventos
+    return null;
   }
 
   return null;
@@ -151,15 +133,16 @@ router.post('/:workspaceId', async (req: Request, res: Response) => {
   }
 
   // Emit event into the system using the connected user as the actor
-  await eventStore.emit(
-    mapped.type as any,
-    { ...mapped.payload, workspaceId },
-    connectedBy,
-    undefined,  // boardId
-    undefined,  // socketId
-    undefined,  // targetUserId
-    workspaceId,
-  );
+  const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [connectedBy]);
+  const actorName = actorResult.rows[0]?.name ?? 'GitHub';
+
+  await eventStore.emit({
+    type: mapped.type as any,
+    actor: { id: connectedBy, name: actorName },
+    subject: { type: 'repository', id: String(mapped.payload.repo ?? ''), name: String(mapped.payload.repo ?? '') },
+    context: { workspaceId },
+    payload: mapped.payload,
+  } as any);
 
   res.status(200).json({ ok: true });
 });

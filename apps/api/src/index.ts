@@ -24,6 +24,7 @@ import projectRoutes from './routes/projects';
 import teamRoutes from './routes/teams';
 import searchRoutes from './routes/search';
 import aiRoutes from './routes/ai';
+import eventRoutes from './routes/events';
 import { documentCommentController } from './controllers/DocumentCommentController';
 
 // Import middleware
@@ -206,6 +207,7 @@ app.use('/api/presence', presenceRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/events', eventRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/ai', aiRoutes);
 

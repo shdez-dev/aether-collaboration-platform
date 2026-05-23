@@ -3,8 +3,41 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useT } from '@/lib/i18n';
+
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+const MONO = 'JetBrains Mono, monospace';
+
+function LogoIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 220 220" fill="none" aria-hidden>
+      <path d="M110 39L32 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
+      <path d="M110 39L188 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
+      <path d="M66 122L154 122" stroke="#00e5cc" strokeWidth="7" strokeLinecap="round" />
+      <circle cx="110" cy="39" r="9" fill="#38b6ff" />
+      <circle cx="32" cy="173" r="9" fill="#38b6ff" />
+      <circle cx="188" cy="173" r="9" fill="#00e5cc" />
+    </svg>
+  );
+}
+
+function GlowBg() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: '20%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '600px',
+        height: '500px',
+        background: 'radial-gradient(ellipse, rgba(56,182,255,0.05) 0%, transparent 65%)',
+        filter: 'blur(40px)',
+        pointerEvents: 'none',
+      }}
+    />
+  );
+}
 
 export default function ForgotPasswordPage() {
   const t = useT();
@@ -22,9 +55,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/forgot-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
 
@@ -35,28 +66,79 @@ export default function ForgotPasswordPage() {
       } else {
         setError(data.error?.message || t.forgot_error_default);
       }
-    } catch (error) {
+    } catch {
       setError(t.forgot_error_network);
     } finally {
       setIsLoading(false);
     }
   };
 
+  /* ── Estado de éxito ─────────────────────────────────────────────── */
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
-          <div className="flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="w-10 h-10 text-green-600 dark:text-green-400" />
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#080c14',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2rem',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <GlowBg />
+        <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '420px' }}>
+          <div className="hud-panel" style={{ padding: '40px 32px', textAlign: 'center' }}>
+            {/* Icono check */}
+            <div
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                background: 'rgba(0,229,204,0.08)',
+                border: '1px solid rgba(0,229,204,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 24px',
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M4 11l5 5 9-9" stroke="#00e5cc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+
+            <h1
+              style={{
+                fontFamily: FONT,
+                fontWeight: 300,
+                fontSize: '22px',
+                color: '#f0f6ff',
+                letterSpacing: '-0.02em',
+                margin: '0 0 10px 0',
+              }}
+            >
               {t.forgot_success_title}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">{t.forgot_success_desc}</p>
+            <p
+              style={{
+                fontFamily: FONT,
+                fontSize: '14px',
+                fontWeight: 300,
+                lineHeight: 1.65,
+                color: 'rgba(180,210,255,0.5)',
+                margin: '0 0 32px 0',
+              }}
+            >
+              {t.forgot_success_desc}
+            </p>
+
             <button
               onClick={() => router.push('/login')}
-              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="landing-btn-primary"
+              style={{ width: '100%', justifyContent: 'center', padding: '12px', border: 'none', cursor: 'pointer' }}
             >
               {t.login_btn_back_to_login}
             </button>
@@ -66,70 +148,127 @@ export default function ForgotPasswordPage() {
     );
   }
 
+  /* ── Formulario ──────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
-        <div className="mb-6">
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {t.login_btn_back_to_login}
-          </Link>
-        </div>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#080c14',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <GlowBg />
 
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-4">
-            <Mail className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+      <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '420px' }}>
+
+        {/* Back link */}
+        <Link
+          href="/login"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontFamily: FONT,
+            fontSize: '13px',
+            color: 'rgba(180,210,255,0.45)',
+            textDecoration: 'none',
+            marginBottom: '32px',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(180,210,255,0.85)')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(180,210,255,0.45)')}
+        >
+          ← {t.login_btn_back_to_login}
+        </Link>
+
+        {/* Logo + título */}
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <LogoIcon />
+            <span style={{ fontFamily: FONT, fontWeight: 500, fontSize: '16px', color: '#f0f6ff', letterSpacing: '-0.01em' }}>
+              Aether
+            </span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 style={{ fontFamily: FONT, fontWeight: 300, fontSize: '26px', color: '#f0f6ff', letterSpacing: '-0.02em', margin: '0 0 8px 0' }}>
             {t.forgot_title}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-center">{t.forgot_subtitle}</p>
+          <p style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 300, color: 'rgba(180,210,255,0.5)', margin: 0 }}>
+            {t.forgot_subtitle}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t.forgot_label_email}
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder={t.forgot_placeholder_email}
-            />
-          </div>
+        {/* Card */}
+        <div className="hud-panel" style={{ padding: '28px 24px' }}>
+          <form onSubmit={handleSubmit} noValidate>
 
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
-              {error}
+            <div style={{ marginBottom: '28px' }}>
+              <label
+                htmlFor="email"
+                style={{
+                  display: 'block',
+                  fontFamily: MONO,
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  color: 'rgba(180,210,255,0.5)',
+                  marginBottom: '8px',
+                }}
+              >
+                {t.forgot_label_email}
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="auth-input"
+                placeholder={t.forgot_placeholder_email}
+                disabled={isLoading}
+                autoComplete="email"
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                {t.forgot_btn_submitting}
-              </>
-            ) : (
-              t.forgot_btn_submit
+            {error && (
+              <div
+                style={{
+                  background: 'rgba(255,80,80,0.07)',
+                  border: '1px solid rgba(255,80,80,0.3)',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  marginBottom: '20px',
+                }}
+              >
+                <p style={{ fontFamily: FONT, fontSize: '13px', color: 'rgba(255,100,100,0.9)', margin: 0 }}>
+                  {error}
+                </p>
+              </div>
             )}
-          </button>
-        </form>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="landing-btn-primary"
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                padding: '12px',
+                fontSize: '14px',
+                opacity: isLoading ? 0.6 : 1,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                border: 'none',
+              }}
+            >
+              {isLoading ? t.forgot_btn_submitting : t.forgot_btn_submit}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

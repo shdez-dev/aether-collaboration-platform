@@ -115,11 +115,15 @@ export function Card({ card }: CardProps) {
   const checklistDone  = checklistItems.filter((i) => i.completed).length;
   const checklistPct   = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
 
+  const description = card.description ?? '';
+
   // Derive base border/bg from card state
-  const baseBorder = card.completed ? `${C.green}2e` : isBlocked ? `${C.amber}33` : C.border;
-  const baseBg     = card.completed ? `${C.green}09` : isBlocked ? `${C.amber}09` : C.surface;
-  const hoverBorder = card.completed ? `${C.green}55` : isBlocked ? `${C.amber}55` : C.border2;
-  const hoverBg     = card.completed ? `${C.green}11` : isBlocked ? `${C.amber}11` : C.hover;
+  const baseBorder  = card.completed ? `${C.green}40` : isBlocked ? `${C.amber}88` : C.border;
+  const baseBg      = card.completed ? `${C.green}09` : isBlocked ? `${C.amber}0e` : C.surface;
+  const hoverBorder = card.completed ? `${C.green}66` : isBlocked ? `${C.amber}cc` : C.border2;
+  const hoverBg     = card.completed ? `${C.green}12` : isBlocked ? `${C.amber}16` : C.hover;
+  const baseShadow  = isBlocked ? `inset 3px 0 0 ${C.amber}cc` : 'none';
+  const hoverShadow = isBlocked ? `inset 3px 0 0 ${C.amber}` : 'none';
 
   return (
     <div
@@ -131,7 +135,8 @@ export function Card({ card }: CardProps) {
         borderRadius: '8px',
         padding: '9px 10px 8px',
         cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer',
-        transition: `${dndStyle.transition ?? ''}, border-color 0.12s, background 0.12s`.trimStart().replace(/^,\s*/, ''),
+        boxShadow: baseShadow,
+        transition: `${dndStyle.transition ?? ''}, border-color 0.12s, background 0.12s, box-shadow 0.12s`.trimStart().replace(/^,\s*/, ''),
       }}
       {...(canDrag ? attributes : {})}
       {...(canDrag ? listeners : {})}
@@ -140,11 +145,13 @@ export function Card({ card }: CardProps) {
         if (!isDragging) {
           e.currentTarget.style.borderColor = hoverBorder;
           e.currentTarget.style.background  = hoverBg;
+          e.currentTarget.style.boxShadow   = hoverShadow;
         }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = baseBorder;
         e.currentTarget.style.background  = baseBg;
+        e.currentTarget.style.boxShadow   = baseShadow;
       }}
       title={isBlocked ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}` : ''}
     >
@@ -211,6 +218,25 @@ export function Card({ card }: CardProps) {
           {card.title}
         </h4>
       </div>
+
+      {/* Description preview */}
+      {description && !card.completed && (
+        <p
+          style={{
+            fontSize: '11.5px',
+            color: C.text3,
+            lineHeight: 1.5,
+            margin: '5px 0 0 22px',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+          }}
+        >
+          {description}
+        </p>
+      )}
 
       {/* Checklist bar (only if there are items) */}
       {checklistTotal > 0 && (
@@ -347,6 +373,7 @@ export function Card({ card }: CardProps) {
 export default memo(Card, (prev, next) =>
   prev.card.id === next.card.id &&
   prev.card.title === next.card.title &&
+  (prev.card.description ?? '') === (next.card.description ?? '') &&
   prev.card.position === next.card.position &&
   prev.card.completed === next.card.completed &&
   prev.card.dueDate === next.card.dueDate &&

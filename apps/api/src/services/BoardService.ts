@@ -3,12 +3,7 @@
 import { pool } from '../lib/db';
 import { eventStore } from './EventStoreService';
 import { userActivityService } from './UserActivityService';
-import type {
-  Board,
-  BoardCreatedPayload,
-  BoardUpdatedPayload,
-  BoardArchivedPayload,
-} from '@aether/types';
+import type { Board } from '@aether/types';
 
 export class BoardService {
   /**
@@ -54,16 +49,16 @@ export class BoardService {
 
       await client.query('COMMIT');
 
-      const payload: BoardCreatedPayload = {
-        boardId: board.id as any,
-        workspaceId: workspaceId as any,
-        name: board.name,
-        description: board.description,
-        createdBy: userId as any,
-        position: board.position,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('board.created', payload, userId as any, board.id, undefined, undefined, workspaceId);
+      await eventStore.emit({
+        type: 'board.created',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'board', id: board.id, name: board.name },
+        context: { workspaceId },
+        payload: { description: board.description, position: board.position },
+      });
 
       return this.formatBoard(board);
     } catch (error) {
@@ -197,6 +192,13 @@ export class BoardService {
     try {
       await client.query('BEGIN');
 
+      // Fetch estado ANTES del UPDATE para el delta
+      const beforeResult = await client.query(
+        `SELECT name, description FROM boards WHERE id = $1`,
+        [boardId]
+      );
+      const before = beforeResult.rows[0] ?? {};
+
       const updates: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
@@ -218,7 +220,7 @@ export class BoardService {
       values.push(boardId);
 
       const result = await client.query(
-        `UPDATE boards 
+        `UPDATE boards
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
          RETURNING *`,
@@ -233,24 +235,19 @@ export class BoardService {
 
       await client.query('COMMIT');
 
-      const payload: BoardUpdatedPayload = {
-        boardId: board.id as any,
-        changes: data,
-        updatedBy: userId as any,
-        name: board.name,
-        workspaceId: board.workspace_id,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('board.updated', payload, userId as any, boardId, undefined, undefined, board.workspace_id);
-
-      // Evento específico cuando se renombra el tablero
-      if (data.name !== undefined) {
-        await eventStore.emit('board.renamed' as any, {
-          boardId: board.id as any,
-          name: board.name,
-          workspaceId: board.workspace_id,
-        }, userId as any, boardId, undefined, undefined, board.workspace_id);
-      }
+      await eventStore.emit({
+        type: 'board.updated',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'board', id: board.id, name: board.name },
+        context: { workspaceId: board.workspace_id },
+        delta: {
+          before: { name: before.name, description: before.description },
+          after: { name: board.name, description: board.description },
+        },
+      });
 
       return this.formatBoard(board);
     } catch (error) {
@@ -271,7 +268,7 @@ export class BoardService {
       await client.query('BEGIN');
 
       const boardResult = await client.query(
-        `UPDATE boards SET archived = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING workspace_id`,
+        `UPDATE boards SET archived = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING workspace_id, name`,
         [boardId]
       );
 
@@ -280,16 +277,20 @@ export class BoardService {
       }
 
       const workspaceId = boardResult.rows[0].workspace_id;
+      const boardName = boardResult.rows[0].name ?? '';
 
       await client.query('COMMIT');
 
-      const payload: BoardArchivedPayload = {
-        boardId: boardId as any,
-        archivedBy: userId as any,
-        workspaceId,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('board.archived', payload, userId as any, boardId, undefined, undefined, workspaceId);
+      await eventStore.emit({
+        type: 'board.archived',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'board', id: boardId, name: boardName },
+        context: { workspaceId },
+        payload: { name: boardName },
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -308,7 +309,7 @@ export class BoardService {
       await client.query('BEGIN');
 
       const boardResult = await client.query(
-        `SELECT archived, workspace_id FROM boards WHERE id = $1`,
+        `SELECT archived, workspace_id, name FROM boards WHERE id = $1`,
         [boardId]
       );
 
@@ -317,18 +318,22 @@ export class BoardService {
       }
 
       const workspaceId = boardResult.rows[0].workspace_id;
+      const boardName = boardResult.rows[0].name ?? '';
 
       await client.query(`DELETE FROM boards WHERE id = $1`, [boardId]);
 
       await client.query('COMMIT');
 
-      const payload = {
-        boardId: boardId as any,
-        deletedBy: userId as any,
-        workspaceId,
-      };
+      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const actorName = actorResult.rows[0]?.name ?? '';
 
-      await eventStore.emit('board.deleted', payload, userId as any, undefined, undefined, undefined, workspaceId);
+      await eventStore.emit({
+        type: 'board.deleted',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'board', id: boardId, name: boardName },
+        context: { workspaceId },
+        payload: { name: boardName },
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

@@ -286,11 +286,14 @@ class ProjectController {
         await client.query('COMMIT');
         const relations = await loadRelations(project.id);
         try {
-          await eventStore.emit('project.created' as any, {
-            projectId: project.id,
-            name: project.name,
-            workspaceId: wsId,
-          }, userId as any, undefined, undefined, undefined, wsId);
+          const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+          const actorName = actorInfo.rows[0]?.name ?? '';
+          await eventStore.emit({
+            type: 'project.created',
+            actor: { id: userId, name: actorName },
+            subject: { type: 'project', id: project.id, name: project.name },
+            context: { workspaceId: wsId },
+          } as any);
         } catch {}
         res.status(201).json({ success: true, data: { project: { ...fmtProject(project), ...relations } } });
       } catch (e) {
@@ -348,19 +351,27 @@ class ProjectController {
         const updated = result.rows[0];
         const wsId = updated.workspace_id;
         const oldStatus = oldProject.rows[0]?.status;
-        await eventStore.emit('project.updated' as any, {
-          projectId: id,
-          name: updated.name,
-          workspaceId: wsId,
-        }, (req as any).user?.id as any, undefined, undefined, undefined, wsId);
-        if (oldStatus && data.status && oldStatus !== data.status) {
-          await eventStore.emit('project.status.changed' as any, {
-            projectId: id,
-            name: updated.name,
-            oldStatus,
-            newStatus: data.status,
-            workspaceId: wsId,
-          }, (req as any).user?.id as any, undefined, undefined, undefined, wsId);
+        const actorId = (req as any).user?.id as string;
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        const actorName = actorInfo.rows[0]?.name ?? '';
+        const statusChanged = oldStatus && data.status && oldStatus !== data.status;
+        if (statusChanged) {
+          await eventStore.emit({
+            type: 'project.status.changed',
+            actor: { id: actorId, name: actorName },
+            subject: { type: 'project', id, name: updated.name },
+            context: { workspaceId: wsId },
+            payload: { name: updated.name, projectName: updated.name, oldStatus, newStatus: data.status },
+            delta: { before: { status: oldStatus }, after: { status: data.status } },
+          } as any);
+        } else {
+          await eventStore.emit({
+            type: 'project.updated',
+            actor: { id: actorId, name: actorName },
+            subject: { type: 'project', id, name: updated.name },
+            context: { workspaceId: wsId },
+            payload: { name: updated.name, projectName: updated.name },
+          } as any);
         }
       } catch {}
       res.json({ success: true, data: { project: { ...fmtProject(result.rows[0]), ...relations } } });
@@ -380,11 +391,15 @@ class ProjectController {
       await pool.query(`DELETE FROM projects WHERE id = $1`, [req.params.id]);
       try {
         if (wsId) {
-          await eventStore.emit('project.deleted' as any, {
-            projectId: req.params.id,
-            name: projectName,
-            workspaceId: wsId,
-          }, (req as any).user?.id as any, undefined, undefined, undefined, wsId);
+          const actorId = (req as any).user?.id as string;
+          const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+          const actorName = actorInfo.rows[0]?.name ?? '';
+          await eventStore.emit({
+            type: 'project.deleted',
+            actor: { id: actorId, name: actorName },
+            subject: { type: 'project', id: req.params.id, name: projectName ?? '' },
+            context: { workspaceId: wsId },
+          } as any);
         }
       } catch {}
       res.json({ success: true, data: null });
@@ -420,13 +435,18 @@ class ProjectController {
       const projectInfo = await pool.query(`SELECT name, workspace_id FROM projects WHERE id = $1`, [id]);
       const projectName = projectInfo.rows[0]?.name;
       const wsId = projectInfo.rows[0]?.workspace_id;
+      const boardName = boardResult.rows[0]?.name ?? '';
       try {
-        await eventStore.emit('project.board.assigned' as any, {
-          projectId: id,
-          projectName,
-          boardId: body.data.boardId,
-          workspaceId: wsId,
-        }, (req as any).user?.id as any, undefined, undefined, undefined, wsId);
+        const actorId = (req as any).user?.id as string;
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        const actorName = actorInfo.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'project.board.linked',
+          actor: { id: actorId, name: actorName },
+          subject: { type: 'project', id, name: projectName ?? '' },
+          context: { workspaceId: wsId, boardId: body.data.boardId },
+          payload: { projectId: id, projectName, boardId: body.data.boardId, boardName },
+        } as any);
       } catch {}
       res.status(201).json({ success: true, data: { board: boardResult.rows[0] ? fmtBoard(boardResult.rows[0]) : null } });
     } catch (error) {
@@ -442,15 +462,21 @@ class ProjectController {
       const projectInfo = await pool.query(`SELECT name, workspace_id FROM projects WHERE id = $1`, [req.params.id]);
       const projectName = projectInfo.rows[0]?.name;
       const wsId = projectInfo.rows[0]?.workspace_id;
+      const boardInfo = await pool.query(`SELECT name FROM boards WHERE id = $1`, [req.params.boardId]);
+      const boardName = boardInfo.rows[0]?.name ?? '';
       await pool.query(`DELETE FROM project_boards WHERE project_id = $1 AND board_id = $2`, [req.params.id, req.params.boardId]);
       try {
         if (wsId) {
-          await eventStore.emit('project.board.removed' as any, {
-            projectId: req.params.id,
-            projectName,
-            boardId: req.params.boardId,
-            workspaceId: wsId,
-          }, (req as any).user?.id as any, undefined, undefined, undefined, wsId);
+          const actorId = (req as any).user?.id as string;
+          const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+          const actorName = actorInfo.rows[0]?.name ?? '';
+          await eventStore.emit({
+            type: 'project.board.unlinked',
+            actor: { id: actorId, name: actorName },
+            subject: { type: 'project', id: req.params.id, name: projectName ?? '' },
+            context: { workspaceId: wsId, boardId: req.params.boardId },
+            payload: { projectId: req.params.id, projectName, boardId: req.params.boardId, boardName },
+          } as any);
         }
       } catch {}
       res.json({ success: true, data: null });
@@ -475,13 +501,16 @@ class ProjectController {
       const projectInfo = await pool.query(`SELECT name, workspace_id FROM projects WHERE id = $1`, [id]);
       const wsId = projectInfo.rows[0]?.workspace_id;
       try {
-        await eventStore.emit('project.milestone.created' as any, {
-          projectId: id,
-          projectName: projectInfo.rows[0]?.name,
-          milestoneName: body.data.name,
-          milestoneDate: body.data.date,
-          workspaceId: wsId,
-        }, (req as any).user?.id as any, undefined, undefined, undefined, wsId);
+        const actorId = (req as any).user?.id as string;
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        const actorName = actorInfo.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'project.milestone.created',
+          actor: { id: actorId, name: actorName },
+          subject: { type: 'milestone', id: result.rows[0].id, name: body.data.name },
+          context: { workspaceId: wsId },
+          payload: { projectId: id, milestoneDate: body.data.date },
+        } as any);
       } catch {}
       res.status(201).json({ success: true, data: { milestone: fmtMilestone(result.rows[0]) } });
     } catch (error) {
@@ -515,12 +544,16 @@ class ProjectController {
       const wsId = msInfo.rows[0]?.workspace_id;
       if (data.status === 'REACHED' && msInfo.rows[0]) {
         try {
-          await eventStore.emit('project.milestone.completed' as any, {
-            projectId: msInfo.rows[0].project_id,
-            projectName: msInfo.rows[0].project_name,
-            milestoneName: result.rows[0]?.name,
-            workspaceId: wsId,
-          }, (req as any).user?.id as any, undefined, undefined, undefined, wsId);
+          const actorId = (req as any).user?.id as string;
+          const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+          const actorName = actorInfo.rows[0]?.name ?? '';
+          await eventStore.emit({
+            type: 'project.milestone.completed',
+            actor: { id: actorId, name: actorName },
+            subject: { type: 'milestone', id: milestoneId, name: result.rows[0]?.name ?? '' },
+            context: { workspaceId: wsId },
+            payload: { projectId: msInfo.rows[0].project_id },
+          } as any);
         } catch {}
       }
       res.json({ success: true, data: { milestone: fmtMilestone(result.rows[0]) } });

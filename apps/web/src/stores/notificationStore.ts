@@ -39,26 +39,18 @@ const initialState: NotificationState = {
 // Guardamos la referencia del handler fuera del store para poder hacer off exacto
 let _socketHandler: ((event: any) => void) | null = null;
 
-function getNotificationIcon(type: string): string {
+function getNotificationVariant(type: string): 'info' | 'warning' | 'error' | 'success' {
   switch (type) {
-    case 'WORKSPACE_INVITE':
-      return '📩';
-    case 'WORKSPACE_REMOVED':
-      return '🚪';
-    case 'CARD_ASSIGNED':
-      return '📌';
-    case 'CARD_UNASSIGNED':
-      return '📋';
-    case 'COMMENT_MENTION':
-      return '💬';
-    case 'COMMENT_ADDED':
-      return '💭';
-    case 'CARD_DUE_SOON':
-      return '⏰';
     case 'CARD_OVERDUE':
-      return '⚠️';
+    case 'WORKSPACE_REMOVED':
+      return 'error';
+    case 'CARD_DUE_SOON':
+      return 'warning';
+    case 'WORKSPACE_INVITE':
+    case 'CARD_ASSIGNED':
+      return 'success';
     default:
-      return '🔔';
+      return 'info';
   }
 }
 
@@ -167,9 +159,10 @@ export const useNotificationStore = create<NotificationState & NotificationActio
             };
             get().addNotification(notification);
             showToast({
-              title: `${getNotificationIcon(notification.type)} ${notification.title}`,
+              title:       notification.title,
               description: notification.message,
-              duration: 5000,
+              variant:     getNotificationVariant(notification.type) as any,
+              duration:    5000,
             });
           }
 

@@ -4,11 +4,13 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useTeamStore } from '@/stores/teamStore';
 import { apiService } from '@/services/apiService';
-import { Users, ExternalLink, Plus, X, Check, Clock, FileText, MessageCircle, LayoutGrid, Archive, User, Tag, Edit, Trash2, Move } from 'lucide-react';
+import { Users, ExternalLink, Plus, X, Check } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
 import { C } from '@/lib/colors';
+
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 
@@ -27,31 +29,11 @@ interface UserCard {
   workspaceName: string;
 }
 
-interface Teammate {
-  id: string;
-  name: string;
-  email: string;
-  avatar: string | null;
-  totalCards: number;
-  overdueCards: number;
-  completedThisWeek: number;
-  lastActivity: string | null;
-}
-
 interface TodoItem {
   id: string;
   text: string;
   completed: boolean;
   createdAt: string;
-}
-
-interface UserActivityEvent {
-  id: string;
-  type: string;
-  payload: Record<string, any>;
-  timestamp: string;
-  userName: string;
-  userAvatar: string | null;
 }
 
 const TODO_LS_KEY = 'aether-today-todos';
@@ -183,25 +165,22 @@ function SectionLabel({ children, count }: { children: React.ReactNode; count?: 
 export default function DashboardPage() {
   const router   = useRouter();
   const { user } = useAuthStore();
-  const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const { workspaces, fetchWorkspaces, isLoading: wsLoading } = useWorkspaceStore();
+  const { teams, fetchTeams, isLoading: teamsLoading } = useTeamStore();
   const t = useT();
 
-  const [isCreateWsOpen, setIsCreateWsOpen] = useState(false);
+  const [isCreateWsOpen,  setIsCreateWsOpen]  = useState(false);
 
   // Cards
   const [overdue,  setOverdue]  = useState<UserCard[]>([]);
   const [today,    setToday]    = useState<UserCard[]>([]);
   const [upcoming, setUpcoming] = useState<UserCard[]>([]);
+  const [later,    setLater]    = useState<UserCard[]>([]);
   const [noDate,   setNoDate]   = useState<UserCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(true);
 
-  // Team
-  const [teammates,   setTeammates]   = useState<Teammate[]>([]);
-  const [teamLoading, setTeamLoading] = useState(true);
 
   // My activity
-  const [myActivity,       setMyActivity]       = useState<UserActivityEvent[]>([]);
-  const [activityLoading,  setActivityLoading]  = useState(true);
 
   // Todo list widget
   const [todoItems,    setTodoItems]    = useState<TodoItem[]>([]);
@@ -216,6 +195,7 @@ export default function DashboardPage() {
   // ── Fetch data ──────────────────────────────────────────────────────────────
 
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
+  useEffect(() => { fetchTeams(); }, [fetchTeams]);
 
   useEffect(() => {
     setCardsLoading(true);
@@ -235,29 +215,14 @@ export default function DashboardPage() {
 
         setOverdue(ov);
         setToday(todayCards);
-        setUpcoming([...upcomingCards, ...laterCards]);
+        setUpcoming(upcomingCards);
+        setLater(laterCards);
         setNoDate(noDateCards);
       })
       .finally(() => setCardsLoading(false));
   }, []);
 
-  useEffect(() => {
-    setTeamLoading(true);
-    apiService.get<{ teammates: Teammate[] }>('/api/users/me/teammates', true)
-      .then((res) => {
-        if (res.success && res.data) setTeammates(res.data.teammates);
-      })
-      .finally(() => setTeamLoading(false));
-  }, []);
 
-  useEffect(() => {
-    setActivityLoading(true);
-    apiService.get<{ events: UserActivityEvent[] }>('/api/users/me/activity?range=week', true)
-      .then((res) => {
-        if (res.success && res.data) setMyActivity(res.data.events || []);
-      })
-      .finally(() => setActivityLoading(false));
-  }, []);
 
   // Load + purge todo items from localStorage
   useEffect(() => {
@@ -317,7 +282,7 @@ export default function DashboardPage() {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
-  const totalPending  = overdue.length + today.length + upcoming.length + noDate.length;
+  const totalPending  = overdue.length + today.length + upcoming.length + later.length + noDate.length;
   const summaryLine   = overdue.length > 0
     ? t.dashboard_summary_overdue_today(overdue.length, today.length)
     : today.length > 0
@@ -325,112 +290,6 @@ export default function DashboardPage() {
     : totalPending > 0
     ? t.dashboard_summary_week(totalPending)
     : t.dashboard_summary_all_done;
-
-  // ── Activity helpers ────────────────────────────────────────────────────────
-
-  function getActivityIcon(type: string) {
-    const s = 12;
-    if (type.startsWith('comment'))   return <MessageCircle width={s} height={s} />;
-    if (type.startsWith('document'))  return <FileText width={s} height={s} />;
-    if (type.startsWith('board'))     return <LayoutGrid width={s} height={s} />;
-    if (type.startsWith('list'))      return <LayoutGrid width={s} height={s} />;
-    if (type.includes('archived'))    return <Archive width={s} height={s} />;
-    if (type.includes('assigned'))    return <User width={s} height={s} />;
-    if (type.includes('label'))       return <Tag width={s} height={s} />;
-    if (type.includes('moved'))       return <Move width={s} height={s} />;
-    if (type.includes('created'))     return <Plus width={s} height={s} />;
-    if (type.includes('deleted'))     return <Trash2 width={s} height={s} />;
-    if (type.includes('updated') || type.includes('renamed') || type.includes('changed')) return <Edit width={s} height={s} />;
-    return <Clock width={s} height={s} />;
-  }
-
-  function getActivityIconColor(type: string): string {
-    if (type.includes('deleted'))  return C.red;
-    if (type.includes('archived')) return C.amber;
-    if (type.includes('created'))  return C.green;
-    if (type.includes('completed')) return C.green;
-    if (type.includes('moved'))    return C.amber;
-    return C.accent;
-  }
-
-  function getActivityText(event: UserActivityEvent): { action: string; subject?: string; extra?: string } {
-    const { type, payload } = event;
-    const title = payload.cardTitle || payload.title || payload.name || '';
-    const newTitle = payload.newTitle || payload.newName || '';
-
-    switch (type) {
-      // Workspace
-      case 'workspace.created':      return { action: t.activity_workspace_created, subject: payload.name };
-      case 'workspace.updated':      return { action: t.activity_workspace_updated, subject: payload.name };
-      case 'workspace.member.invited': return { action: t.activity_workspace_member_invited, subject: payload.inviteeName, extra: payload.workspaceName };
-      case 'workspace.member.joined':  return { action: t.activity_workspace_member_joined };
-      case 'workspace.member.removed':     return { action: t.activity_workspace_member_removed, subject: payload.memberName };
-      case 'workspace.deleted':            return { action: t.activity_workspace_deleted, subject: payload.name };
-      case 'workspace.member.roleChanged': return { action: t.activity_workspace_member_role_changed, subject: payload.memberName, extra: payload.newRole };
-      // Board
-      case 'board.created':   return { action: t.activity_board_created, subject: payload.name || payload.title };
-      case 'board.updated':   return { action: t.activity_board_updated, subject: payload.name || payload.title };
-      case 'board.archived':  return { action: t.activity_board_archived, subject: payload.name || payload.title };
-      case 'board.unarchived':return { action: t.activity_board_unarchived, subject: payload.name || payload.title };
-      case 'board.deleted':   return { action: t.activity_board_deleted, subject: payload.name || payload.title };
-      case 'board.renamed':   return { action: t.activity_board_renamed, subject: newTitle || payload.name };
-      // List
-      case 'list.created':  return { action: t.activity_list_created, subject: payload.name, extra: payload.boardTitle || payload.boardName };
-      case 'list.renamed':  return { action: t.activity_list_renamed, subject: payload.name };
-      case 'list.deleted':  return { action: t.activity_list_deleted, subject: payload.name };
-      // Card
-      case 'card.created':   return { action: t.activity_card_created, subject: payload.title, extra: payload.listName };
-      case 'card.deleted':   return { action: t.activity_card_deleted, subject: payload.title };
-      case 'card.moved':     return { action: t.activity_card_moved, subject: payload.title, extra: payload.toListName || payload.newListName };
-      case 'card.completed': return { action: t.activity_card_completed, subject: payload.title };
-      case 'card.uncompleted': return { action: t.activity_card_uncompleted, subject: payload.title };
-      case 'card.renamed':   return { action: t.activity_card_renamed, subject: newTitle || payload.title };
-      case 'card.description.changed': return { action: t.activity_card_description_changed, subject: title };
-      case 'card.priority.changed':    return { action: t.activity_card_priority_changed, subject: title };
-      case 'card.archived':            return { action: t.activity_card_archived, subject: title };
-      case 'card.unarchived':          return { action: t.activity_card_unarchived, subject: title };
-      case 'card.duedate.set':         return { action: t.activity_card_duedate_set, subject: title };
-      case 'card.duedate.changed':     return { action: t.activity_card_duedate_changed, subject: title };
-      case 'card.duedate.removed':     return { action: t.activity_card_duedate_removed, subject: title };
-      case 'card.member.assigned':     return { action: t.activity_member_assigned, subject: payload.assignedUserName || payload.memberName, extra: title };
-      case 'card.member.unassigned':   return { action: t.activity_member_unassigned, subject: payload.unassignedUserName || payload.memberName, extra: title };
-      case 'card.label.added':           return { action: t.activity_label_added, subject: payload.labelName, extra: title };
-      case 'card.label.removed':         return { action: t.activity_label_removed, subject: payload.labelName, extra: title };
-      case 'card.dependency.added':      return { action: t.activity_card_dependency_added, subject: payload.blockingCardTitle || payload.blockingCardId, extra: payload.blockedCardTitle || payload.blockedCardId };
-      case 'card.dependency.removed':    return { action: t.activity_card_dependency_removed, subject: payload.cardTitle || payload.cardId };
-      // Comment
-      case 'comment.created':   return { action: t.activity_comment_created, subject: payload.cardTitle };
-      case 'comment.updated':   return { action: t.activity_comment_updated, subject: payload.cardTitle };
-      case 'comment.deleted':   return { action: t.activity_comment_deleted, subject: payload.cardTitle };
-      case 'comment.mentioned': return { action: t.activity_comment_mentioned, subject: payload.cardTitle };
-      // Checklist
-      case 'checklist.item.created': return { action: t.activity_checklist_item_created, subject: payload.cardTitle };
-      case 'checklist.item.deleted': return { action: t.activity_checklist_item_deleted, subject: payload.cardTitle };
-      // Document
-      case 'document.created':          return { action: t.activity_document_created, subject: payload.title };
-      case 'document.deleted':          return { action: t.activity_document_deleted, subject: payload.title };
-      case 'document.version.created':  return { action: t.activity_document_version, subject: payload.title };
-      case 'document.version.restored':    return { action: t.activity_document_version_restored, subject: payload.title };
-      case 'document.permission.updated':  return { action: t.activity_document_permission_updated, subject: payload.title };
-      // Project
-      case 'project.created':            return { action: t.activity_project_created, subject: payload.name };
-      case 'project.updated':            return { action: t.activity_project_updated, subject: payload.name };
-      case 'project.deleted':            return { action: t.activity_project_deleted, subject: payload.name };
-      case 'project.status.changed':     return { action: t.activity_project_status_changed, subject: payload.name, extra: payload.newStatus };
-      case 'project.board.assigned':     return { action: t.activity_project_board_assigned, subject: payload.boardName, extra: payload.projectName };
-      case 'project.board.removed':      return { action: t.activity_project_board_removed, subject: payload.boardName, extra: payload.projectName };
-      case 'project.milestone.created':  return { action: t.activity_project_milestone_created, subject: payload.milestoneName, extra: payload.projectName };
-      case 'project.milestone.completed':return { action: t.activity_project_milestone_completed, subject: payload.milestoneName, extra: payload.projectName };
-      // Team
-      case 'team.created':              return { action: t.activity_team_created, subject: payload.name };
-      case 'team.updated':              return { action: t.activity_team_updated, subject: payload.name };
-      case 'team.deleted':              return { action: t.activity_team_deleted, subject: payload.name };
-      case 'team.member.added':         return { action: t.activity_team_member_added, subject: payload.memberName, extra: payload.teamName };
-      case 'team.member.removed':       return { action: t.activity_team_member_removed, subject: payload.memberName, extra: payload.teamName };
-      case 'team.member.roleChanged':   return { action: t.activity_team_member_role_changed, subject: payload.memberName, extra: payload.teamName };
-      default: return { action: t.activity_default };
-    }
-  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -633,6 +492,14 @@ export default function DashboardPage() {
                     </div>
                   )}
 
+                  {/* Más adelante */}
+                  {later.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <SectionLabel count={later.length}>{t.dashboard_later}</SectionLabel>
+                      {later.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
+                    </div>
+                  )}
+
                   {/* Sin fecha */}
                   {noDate.length > 0 && (
                     <div>
@@ -648,105 +515,75 @@ export default function DashboardPage() {
           {/* ── COLUMNA DERECHA ──────────────────────────────────────── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-            {/* MI EQUIPO */}
+            {/* MIS EQUIPOS */}
             <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '7px' }}>
-                <Users style={{ width: '13px', height: '13px', color: C.text4 }} />
-                <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.teams_title}</span>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <Users style={{ width: '13px', height: '13px', color: C.text4 }} />
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.teams_title}</span>
+                  {teams.length > 0 && (
+                    <span style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '8px', background: C.hover, color: C.text4, border: `1px solid ${C.border2}` }}>
+                      {teams.length}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => router.push('/dashboard/teams')}
+                  style={{ fontSize: '11px', color: C.text4, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = C.accent)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+                >
+                  {t.teams_see_all}
+                </button>
               </div>
 
-              <div style={{ padding: '8px 0' }}>
-                {teamLoading ? (
+              <div style={{ padding: '6px 0' }}>
+                {teamsLoading ? (
                   <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
                     <div className="w-4 h-4 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
                   </div>
-                ) : teammates.length === 0 ? (
+                ) : teams.length === 0 ? (
                   <div style={{ padding: '18px 16px', fontSize: '12px', color: C.text4, textAlign: 'center' }}>
                     {t.teams_empty_title}
                   </div>
                 ) : (
-                  teammates.map((tm) => (
+                  teams.slice(0, 6).map((team) => (
                     <div
-                      key={tm.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 16px' }}
+                      key={team.id}
+                      onClick={() => router.push(`/dashboard/teams/${team.id}`)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '7px 16px', cursor: 'pointer', transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <MiniAvatar name={tm.name} size={26} />
+                      {/* Color dot / icon */}
+                      <div style={{
+                        width: '28px', height: '28px', borderRadius: '7px', flexShrink: 0,
+                        background: team.color ?? '#3b82f6',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '14px',
+                      }}>
+                        {team.icon ?? <Users style={{ width: '13px', height: '13px', color: '#fff' }} />}
+                      </div>
+
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '12.5px', fontWeight: 500, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {tm.name.split(' ')[0]}
+                          {team.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: tm.overdueCards > 0 ? C.red : C.text4 }}>
-                          {tm.totalCards} cards{tm.overdueCards > 0 ? ` · ${tm.overdueCards} ${t.dashboard_overdue_label(tm.overdueCards)}` : ''}
+                        <div style={{ fontSize: '11px', color: C.text4 }}>
+                          {t.teams_member_count(team.memberCount ?? 0)}
                         </div>
                       </div>
-                      <div style={{ fontSize: '10.5px', color: C.text4, flexShrink: 0 }}>
-                        {timeAgo(tm.lastActivity, t)}
-                      </div>
+
+                      <ExternalLink style={{ width: '11px', height: '11px', color: C.text4, flexShrink: 0, opacity: 0 }} className="team-ext-icon" />
                     </div>
                   ))
                 )}
               </div>
             </div>
 
-            {/* MI ACTIVIDAD RECIENTE */}
-            <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  <Clock style={{ width: '13px', height: '13px', color: C.text4 }} />
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.dashboard_my_activity_title}</span>
-                </div>
-                <span style={{ fontSize: '10.5px', color: C.text4 }}>{t.dashboard_my_activity_range}</span>
-              </div>
-
-              {activityLoading ? (
-                <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
-                  <div className="w-4 h-4 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
-                </div>
-              ) : myActivity.length === 0 ? (
-                <div style={{ padding: '18px 16px', fontSize: '12px', color: C.text4, textAlign: 'center' }}>
-                  {t.dashboard_my_activity_empty}
-                </div>
-              ) : (
-                <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
-                  {myActivity.map((event, i) => {
-                    const { action, subject, extra } = getActivityText(event);
-                    const iconColor = getActivityIconColor(event.type);
-                    return (
-                      <div
-                        key={event.id}
-                        style={{
-                          display: 'flex', alignItems: 'flex-start', gap: '9px',
-                          padding: '8px 16px',
-                          borderBottom: i < myActivity.length - 1 ? `1px solid ${C.border}` : 'none',
-                        }}
-                      >
-                        <div style={{
-                          width: '24px', height: '24px', borderRadius: '5px', flexShrink: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: `${iconColor}18`, color: iconColor,
-                          border: `1px solid ${iconColor}28`,
-                          marginTop: '1px',
-                        }}>
-                          {getActivityIcon(event.type)}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: '12px', color: C.text, lineHeight: 1.4, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            <span style={{ color: C.text3 }}>{action}</span>
-                            {subject && <> <strong style={{ color: C.text, fontWeight: 500 }}>{subject}</strong></>}
-                            {extra && <span style={{ color: C.text4 }}> · {extra}</span>}
-                          </p>
-                          <div style={{ fontSize: '10.5px', color: C.text4, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {[event.payload.workspaceName, event.payload.boardName].filter(Boolean).join(' › ')}
-                            {(event.payload.workspaceName || event.payload.boardName) && ' · '}
-                            {timeAgo(event.timestamp, t)}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
         </div>
 

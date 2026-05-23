@@ -22,12 +22,12 @@ import { C } from '@/lib/colors';
 
 function getStatusCfg(status: string, t: ReturnType<typeof useT>) {
   switch (status) {
-    case 'ACTIVE':    return { label: t.projects_status_active,    color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.25)' };
-    case 'PLANNING':  return { label: t.projects_status_planning,  color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.25)' };
-    case 'ON_HOLD':   return { label: t.projects_status_on_hold,   color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.25)' };
-    case 'COMPLETED': return { label: t.projects_status_completed, color: '#a1a7b0', bg: 'rgba(161,167,176,0.1)',  border: 'rgba(161,167,176,0.2)' };
-    case 'ARCHIVED':  return { label: t.projects_status_cancelled, color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.2)' };
-    default:          return { label: status,                       color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.2)' };
+    case 'ACTIVE':    return { label: t.projects_status_active,    color: '#00e5cc', bg: 'rgba(0,229,204,0.10)',   border: 'rgba(0,229,204,0.25)'   };
+    case 'PLANNING':  return { label: t.projects_status_planning,  color: '#38b6ff', bg: 'rgba(56,182,255,0.10)',  border: 'rgba(56,182,255,0.25)'  };
+    case 'ON_HOLD':   return { label: t.projects_status_on_hold,   color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  border: 'rgba(245,158,11,0.25)'  };
+    case 'COMPLETED': return { label: t.projects_status_completed, color: '#22c55e', bg: 'rgba(34,197,94,0.10)',   border: 'rgba(34,197,94,0.22)'   };
+    case 'ARCHIVED':  return { label: t.projects_status_cancelled, color: '#6b7280', bg: 'rgba(107,114,128,0.10)', border: 'rgba(107,114,128,0.2)'  };
+    default:          return { label: status,                       color: '#6b7280', bg: 'rgba(107,114,128,0.10)', border: 'rgba(107,114,128,0.2)'  };
   }
 }
 
@@ -859,8 +859,8 @@ function CreateMilestoneModal({ projectId, color, onClose }: { projectId: string
   const [error, setError] = useState('');
 
   const submit = async () => {
-    if (!name.trim()) { setError(t.create_ws_validation_name); return; }
-    if (!date)        { setError(t.create_ws_validation_name); return; }
+    if (!name.trim()) { setError('El nombre del hito es obligatorio'); return; }
+    if (!date)        { setError('La fecha es obligatoria'); return; }
     setLoading(true);
     try {
       await createMilestone(projectId, { name: name.trim(), description: desc.trim() || undefined, date: new Date(date).toISOString() });
@@ -1000,7 +1000,7 @@ export default function ProjectDetailPage() {
         {/* Identity row */}
         <div style={{ padding: '13px 20px 10px', display: 'flex', alignItems: 'flex-start', gap: '13px', background: `linear-gradient(to bottom, ${color}08, transparent)` }}>
           {/* Avatar */}
-          <div style={{ width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: '#fff', boxShadow: `0 0 0 1px ${color}55` }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0, background: `linear-gradient(135deg, ${color}, ${color}bb)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: '#fff', boxShadow: `0 0 0 1px ${color}44, 0 4px 16px ${color}33` }}>
             {initial}
           </div>
 
@@ -1059,12 +1059,26 @@ export default function ProjectDetailPage() {
         </div>
 
         {/* Progress band */}
-        <div style={{ padding: '8px 20px 10px', display: 'flex', alignItems: 'center', gap: '14px', borderTop: `1px solid ${C.border}` }}>
-          {/* % big */}
-          <span style={{ fontSize: '22px', fontWeight: 800, color, lineHeight: 1, flexShrink: 0 }}>{progress}%</span>
+        <div style={{ padding: '9px 20px 11px', display: 'flex', alignItems: 'center', gap: '14px', borderTop: `1px solid ${C.border}` }}>
+          {/* % big + card count */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, gap: '1px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 800, color, lineHeight: 1, letterSpacing: '-0.02em' }}>{progress}%</span>
+            {stats && stats.totalCards > 0 && (
+              <span style={{ fontSize: '10px', color: C.text4, letterSpacing: '0.04em' }}>
+                {stats.completedCards}/{stats.totalCards} tareas
+              </span>
+            )}
+          </div>
           {/* Bar */}
-          <div style={{ flex: 1, height: '8px', borderRadius: '4px', background: C.border2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${progress}%`, borderRadius: '4px', background: progress === 100 ? C.green : `linear-gradient(to right, ${color}, ${color}99)`, transition: 'width 0.5s' }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <div style={{ height: '6px', borderRadius: '3px', background: C.border2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${progress}%`, borderRadius: '3px', background: progress === 100 ? C.green : `linear-gradient(to right, ${color}, ${color}bb)`, transition: 'width 0.6s ease' }} />
+            </div>
+            {stats && stats.overdueCards > 0 && (
+              <div style={{ fontSize: '10px', color: C.red, letterSpacing: '0.02em' }}>
+                {stats.overdueCards} tarea{stats.overdueCards > 1 ? 's' : ''} vencida{stats.overdueCards > 1 ? 's' : ''}
+              </div>
+            )}
           </div>
           {/* Deadline */}
           {dl ? (
@@ -1105,7 +1119,7 @@ export default function ProjectDetailPage() {
         )}
 
         {/* Accent gradient line */}
-        <div style={{ height: '2px', background: `linear-gradient(90deg, ${color}cc, ${color}44, transparent)` }} />
+        <div style={{ height: '2px', background: `linear-gradient(90deg, ${color}, ${color}66, transparent)`, boxShadow: `0 0 8px ${color}55` }} />
       </header>
 
       {/* ── BODY — scrolleable ───────────────────────────────────────────────── */}
@@ -1115,9 +1129,9 @@ export default function ProjectDetailPage() {
         <section>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
             <div style={{ flex: 1, height: '1px', background: C.border }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Flag style={{ ...ic(12), color: C.amber }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '3px 10px 3px 8px', borderRadius: '20px', background: C.surface, border: `1px solid ${C.border}` }}>
+              <Flag style={{ ...ic(11), color: C.amber }} />
+              <span style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>
                 Hitos{milestones.length > 0 ? ` · ${milestones.length}` : ''}
               </span>
             </div>
@@ -1221,9 +1235,9 @@ export default function ProjectDetailPage() {
         <section>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
             <div style={{ flex: 1, height: '1px', background: C.border }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <LayoutDashboard style={{ ...ic(12), color }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '3px 10px 3px 8px', borderRadius: '20px', background: C.surface, border: `1px solid ${C.border}` }}>
+              <LayoutDashboard style={{ ...ic(11), color }} />
+              <span style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>
                 Boards{boards.length > 0 ? ` · ${boards.length}` : ''}
               </span>
             </div>
@@ -1264,32 +1278,38 @@ export default function ProjectDetailPage() {
           <section>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
               <div style={{ flex: 1, height: '1px', background: C.border }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>Resumen</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '3px 10px', borderRadius: '20px', background: C.surface, border: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>Resumen</span>
+              </div>
               <div style={{ flex: 1, height: '1px', background: C.border }} />
             </div>
 
             {/* Stat chips */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: stats.bottleneckBoardId ? '12px' : 0 }}>
               {[
-                { label: 'tareas totales',    value: stats.totalCards,     color: C.text2  },
-                { label: 'completadas',       value: stats.completedCards, color: C.green  },
-                { label: 'vencidas',          value: stats.overdueCards,   color: stats.overdueCards > 0 ? C.red : C.text4 },
-                ...(stats.totalDocuments > 0 ? [{ label: 'documentos', value: stats.totalDocuments, color: C.text3 }] : []),
-              ].map(({ label, value, color: col }) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '8px', background: C.surface, border: `1px solid ${C.border}` }}>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: col, lineHeight: 1 }}>{value}</span>
-                  <span style={{ fontSize: '11.5px', color: C.text4 }}>{label}</span>
+                { label: 'tareas totales',    value: stats.totalCards,     accent: C.text2,  stripe: C.border2 },
+                { label: 'completadas',       value: stats.completedCards, accent: C.green,  stripe: C.green   },
+                { label: 'vencidas',          value: stats.overdueCards,   accent: stats.overdueCards > 0 ? C.red : C.text4, stripe: stats.overdueCards > 0 ? C.red : C.border2 },
+                ...(stats.totalDocuments > 0 ? [{ label: 'documentos', value: stats.totalDocuments, accent: C.text3, stripe: C.border2 }] : []),
+              ].map(({ label, value, accent, stripe }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 14px 9px 12px', borderRadius: '8px', background: C.surface, border: `1px solid ${C.border}`, overflow: 'hidden', position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: stripe, borderRadius: '8px 0 0 8px' }} />
+                  <span style={{ fontSize: '20px', fontWeight: 800, color: accent, lineHeight: 1, letterSpacing: '-0.02em' }}>{value}</span>
+                  <span style={{ fontSize: '11.5px', color: C.text4, lineHeight: 1.2 }}>{label}</span>
                 </div>
               ))}
             </div>
 
             {/* Bottleneck alert */}
             {stats.bottleneckBoardId && (
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: `1px solid ${C.red}33` }}>
                 <AlertCircle style={{ ...ic(13), color: C.red, flexShrink: 0, marginTop: '1px' }} />
-                <span style={{ fontSize: '12.5px', color: C.text3 }}>
-                  Board más atrasado: <span style={{ color: C.red, fontWeight: 600 }}>{stats.bottleneckBoardName}</span>
-                </span>
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: C.red, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Cuello de botella</span>
+                  <span style={{ fontSize: '12.5px', color: C.text3 }}>
+                    El board más atrasado es <span style={{ color: C.text, fontWeight: 600 }}>{stats.bottleneckBoardName}</span>
+                  </span>
+                </div>
               </div>
             )}
           </section>
@@ -1299,9 +1319,9 @@ export default function ProjectDetailPage() {
         <section>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
             <div style={{ flex: 1, height: '1px', background: C.border }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <GitBranch style={{ width: '12px', height: '12px', color }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '3px 10px 3px 8px', borderRadius: '20px', background: C.surface, border: `1px solid ${C.border}` }}>
+              <GitBranch style={{ width: '11px', height: '11px', color }} />
+              <span style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>
                 Timeline
               </span>
             </div>
@@ -1332,7 +1352,7 @@ export default function ProjectDetailPage() {
           onClick={() => { if (!removingBoard) setBoardToRemove(null); }}
         >
           <div
-            style={{ width: '380px', maxWidth: 'calc(100vw - 32px)', background: '#13161b', border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
+            style={{ width: '380px', maxWidth: 'calc(100vw - 32px)', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

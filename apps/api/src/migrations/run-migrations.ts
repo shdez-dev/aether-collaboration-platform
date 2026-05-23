@@ -27,8 +27,24 @@ export async function runMigrations() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
-        CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
-        CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
+        DO $idx_guard$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_events_type') THEN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'event_type'
+            ) THEN
+              CREATE INDEX idx_events_type ON events(event_type);
+            END IF;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_events_user') THEN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'user_id'
+            ) THEN
+              CREATE INDEX idx_events_user ON events(user_id);
+            END IF;
+          END IF;
+        END $idx_guard$;
 
         CREATE TABLE IF NOT EXISTS users (
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -549,13 +565,6 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 012: Add password_reset_token and password_reset_expires to users');
 
-      // Migration 014: Add github_token to user_preferences
-      await client.query(`
-        ALTER TABLE user_preferences
-          ADD COLUMN IF NOT EXISTS github_token TEXT;
-      `);
-      console.log('  ✓ Migration 014: Add github_token to user_preferences');
-
       // Migration 013: Create standups table
       await client.query(`
         CREATE TABLE IF NOT EXISTS standups (
@@ -577,6 +586,13 @@ export async function runMigrations() {
         CREATE INDEX IF NOT EXISTS idx_standups_workspace_date ON standups(workspace_id, date);
       `);
       console.log('  ✓ Migration 013: Create standups table');
+
+      // Migration 014: Add github_token to user_preferences
+      await client.query(`
+        ALTER TABLE user_preferences
+          ADD COLUMN IF NOT EXISTS github_token TEXT;
+      `);
+      console.log('  ✓ Migration 014: Add github_token to user_preferences');
 
       // Migration 015: Create workspace_github_connections table
       await client.query(`
@@ -751,6 +767,108 @@ export async function runMigrations() {
           AND email_verification_token IS NULL;
       `);
       console.log('  ✓ Migration 023: Mark pre-existing users as email verified');
+
+      // Migration 024: Rebuild events table — schema v2
+      // Renombra la tabla vieja como backup y crea la nueva con
+      // actor / subject / context / delta como columnas top-level.
+      await client.query(`
+        DO $$
+        BEGIN
+          -- Renombrar tabla vieja solo si aún no se hizo
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'events' AND column_name = 'event_type'
+          ) THEN
+            ALTER TABLE events RENAME TO events_v0;
+          END IF;
+
+          -- Crear nueva tabla si no existe
+          CREATE TABLE IF NOT EXISTS events (
+            id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            type            VARCHAR(100) NOT NULL,
+            timestamp       BIGINT NOT NULL,
+            version         SMALLINT NOT NULL DEFAULT 1,
+
+            actor_id        TEXT NOT NULL,
+            actor_name      TEXT NOT NULL,
+
+            subject_type    VARCHAR(50)  NOT NULL,
+            subject_id      UUID         NOT NULL,
+            subject_name    TEXT         NOT NULL,
+
+            workspace_id    UUID,
+            board_id        UUID,
+            list_id         UUID,
+            card_id         UUID,
+            document_id     UUID,
+
+            delta           JSONB,
+            payload         JSONB NOT NULL DEFAULT '{}',
+
+            vector_clock    JSONB NOT NULL,
+            correlation_id  UUID,
+
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+        END
+        $$;
+
+        CREATE INDEX IF NOT EXISTS idx_events_v2_type         ON events(type);
+        CREATE INDEX IF NOT EXISTS idx_events_v2_timestamp    ON events(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_events_v2_actor        ON events(actor_id);
+        CREATE INDEX IF NOT EXISTS idx_events_v2_workspace    ON events(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_events_v2_board        ON events(board_id);
+        CREATE INDEX IF NOT EXISTS idx_events_v2_card         ON events(card_id);
+        CREATE INDEX IF NOT EXISTS idx_events_v2_document     ON events(document_id);
+      `);
+      console.log('  ✓ Migration 024: Rebuild events table to schema v2');
+
+      // Migration 025: Migrate team roles from LEAD/MEMBER to ADMIN/MEMBER/VIEWER
+      await client.query(`
+        UPDATE team_members SET role = 'ADMIN' WHERE role = 'LEAD';
+      `);
+      console.log('  ✓ Migration 025: Migrate team roles LEAD → ADMIN');
+
+      // Migration 026: Add missing `edited` column to comments table
+      await client.query(`
+        ALTER TABLE comments
+          ADD COLUMN IF NOT EXISTS edited BOOLEAN NOT NULL DEFAULT false;
+      `);
+      console.log('  ✓ Migration 026: Add edited column to comments');
+
+      // Migration 027: Create calendar_events and calendar_event_attendees tables
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS calendar_events (
+          id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title        VARCHAR(500) NOT NULL,
+          description  TEXT,
+          start_time   TIMESTAMPTZ NOT NULL,
+          end_time     TIMESTAMPTZ NOT NULL,
+          all_day      BOOLEAN NOT NULL DEFAULT false,
+          color        VARCHAR(50) NOT NULL DEFAULT '#5ec5ff',
+          type         VARCHAR(20) NOT NULL DEFAULT 'personal'
+                         CHECK (type IN ('personal', 'workspace', 'team')),
+          workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+          team_id      UUID REFERENCES teams(id) ON DELETE CASCADE,
+          created_by   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_cal_events_created_by   ON calendar_events(created_by);
+        CREATE INDEX IF NOT EXISTS idx_cal_events_workspace_id ON calendar_events(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_cal_events_team_id      ON calendar_events(team_id);
+        CREATE INDEX IF NOT EXISTS idx_cal_events_start_time   ON calendar_events(start_time);
+
+        CREATE TABLE IF NOT EXISTS calendar_event_attendees (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          event_id   UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          CONSTRAINT uq_cal_event_attendee UNIQUE (event_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_cal_attendees_event ON calendar_event_attendees(event_id);
+        CREATE INDEX IF NOT EXISTS idx_cal_attendees_user  ON calendar_event_attendees(user_id);
+      `);
+      console.log('  ✓ Migration 027: Create calendar_events and calendar_event_attendees tables');
 
       console.log('✅ All migrations completed successfully');
     } finally {

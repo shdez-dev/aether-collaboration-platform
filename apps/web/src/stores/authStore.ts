@@ -209,6 +209,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
             error: null,
+            emailNotVerified: null,
           });
 
           // Inicializar socket después de login exitoso
@@ -329,6 +330,8 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: tokens.refreshToken,
           isAuthenticated: true,
           error: null,
+          emailNotVerified: null,
+          pendingEmailVerification: null,
         });
         setSessionCookie();
         scheduleProactiveRefresh(tokens.accessToken, tokens.refreshToken);
@@ -343,11 +346,12 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           isAuthenticated: false,
           error: null,
+          emailNotVerified: null,
         });
       },
 
       clearError: () => {
-        set({ error: null, emailNotVerified: null });
+        set({ error: null });
       },
 
       clearPendingVerification: () => {

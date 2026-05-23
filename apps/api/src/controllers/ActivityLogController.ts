@@ -113,6 +113,7 @@ export class ActivityLogController {
         });
       }
 
+      console.error('[ActivityLog] getWorkspaceActivity error:', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Failed to get activity log' },

@@ -3,10 +3,35 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, RefreshCw, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+const MONO = 'JetBrains Mono, monospace';
 const POLL_INTERVAL_MS = 4000;
+
+function LogoIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 220 220" fill="none" aria-hidden>
+      <path d="M110 39L32 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
+      <path d="M110 39L188 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
+      <path d="M66 122L154 122" stroke="#00e5cc" strokeWidth="7" strokeLinecap="round" />
+      <circle cx="110" cy="39" r="9" fill="#38b6ff" />
+      <circle cx="32" cy="173" r="9" fill="#38b6ff" />
+      <circle cx="188" cy="173" r="9" fill="#00e5cc" />
+    </svg>
+  );
+}
+
+function GlowBg() {
+  return (
+    <div style={{
+      position: 'absolute', top: '20%', left: '50%',
+      transform: 'translateX(-50%)', width: '600px', height: '500px',
+      background: 'radial-gradient(ellipse, rgba(56,182,255,0.05) 0%, transparent 65%)',
+      filter: 'blur(40px)', pointerEvents: 'none',
+    }} />
+  );
+}
 
 function VerifyEmailPendingContent() {
   const searchParams = useSearchParams();
@@ -18,7 +43,6 @@ function VerifyEmailPendingContent() {
   const [verified, setVerified] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Polling: cada 4 segundos comprueba si el email ya fue verificado
   useEffect(() => {
     if (!email) return;
 
@@ -32,18 +56,12 @@ function VerifyEmailPendingContent() {
         const data = await res.json();
 
         if (data.data?.verified && data.data?.accessToken) {
-          // Detener polling
           if (intervalRef.current) clearInterval(intervalRef.current);
-
-          // Auto-login con los tokens
           setAuth(data.data.user, {
             accessToken: data.data.accessToken,
             refreshToken: data.data.refreshToken,
           });
-
           setVerified(true);
-
-          // Pequeña pausa para mostrar el mensaje de éxito
           setTimeout(() => router.push('/dashboard'), 1500);
         }
       } catch {
@@ -51,13 +69,9 @@ function VerifyEmailPendingContent() {
       }
     };
 
-    // Primer check inmediato
     poll();
     intervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [email, setAuth, router]);
 
   const handleResend = async () => {
@@ -70,129 +84,211 @@ function VerifyEmailPendingContent() {
         body: JSON.stringify({ email }),
       });
       setResendStatus(res.ok ? 'sent' : 'error');
-      // Después de reenviar, resetear para poder reenviar de nuevo más tarde
       if (res.ok) setTimeout(() => setResendStatus('idle'), 30000);
     } catch {
       setResendStatus('error');
     }
   };
 
+  /* ── Verificado ─────────────────────────────────────────────────── */
   if (verified) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="card-terminal">
-            <div className="flex flex-col items-center text-center py-6 gap-4">
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(34,197,94,0.15)' }}
-              >
-                <CheckCircle className="w-7 h-7" style={{ color: '#22c55e' }} />
-              </div>
-              <div>
-                <p className="text-text-primary font-medium mb-1">¡Email verificado!</p>
-                <p className="text-text-secondary text-sm">Ingresando al dashboard...</p>
-              </div>
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+      <div style={{
+        minHeight: '100vh', background: '#080c14',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '2rem', position: 'relative', overflow: 'hidden',
+      }}>
+        <GlowBg />
+        <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '420px' }}>
+          <div className="hud-panel" style={{ padding: '40px 28px', textAlign: 'center' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'rgba(0,229,204,0.08)', border: '1px solid rgba(0,229,204,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px',
+            }}>
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M4 11l5 5 9-9" stroke="#00e5cc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
+            <h1 style={{ fontFamily: FONT, fontWeight: 300, fontSize: '22px', color: '#f0f6ff', letterSpacing: '-0.02em', margin: '0 0 10px 0' }}>
+              ¡Email verificado!
+            </h1>
+            <p style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 300, color: 'rgba(180,210,255,0.5)', margin: 0 }}>
+              Ingresando al dashboard...
+            </p>
           </div>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
+  /* ── Pendiente ──────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div style={{
+      minHeight: '100vh', background: '#080c14',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '2rem', position: 'relative', overflow: 'hidden',
+    }}>
+      <GlowBg />
+
+      <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '420px' }}>
+
+        {/* Back */}
         <Link
           href="/login"
-          className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors mb-6"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            fontFamily: FONT, fontSize: '13px', color: 'rgba(180,210,255,0.45)',
+            textDecoration: 'none', marginBottom: '32px', transition: 'color 0.2s',
+          }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(180,210,255,0.85)')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(180,210,255,0.45)')}
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Volver a Iniciar Sesión</span>
+          ← Volver a iniciar sesión
         </Link>
 
-        <div className="mb-8">
-          <h1 className="text-2xl font-normal mb-2">[ Aether ]</h1>
-          <p className="text-text-secondary text-sm">~/ verify.email</p>
-          <div className="status-online mt-4">PENDING</div>
-        </div>
-
-        <div className="card-terminal">
-          <h2 className="section-header">EMAIL.VERIFICATION</h2>
-
-          <div className="flex flex-col items-center text-center py-4 gap-4">
-            <div
-              className="w-14 h-14 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--c-primary-alpha, rgba(99,102,241,0.15))' }}
-            >
-              <Mail className="w-7 h-7 text-primary" />
-            </div>
-
-            <div>
-              <p className="text-text-primary font-medium mb-1">Revisa tu correo electrónico</p>
-              <p className="text-text-secondary text-sm">
-                Enviamos un enlace de verificación a{' '}
-                <span className="text-primary font-mono">{email || 'tu correo'}</span>
-              </p>
-            </div>
-
-            <div
-              className="w-full rounded-terminal p-3 text-left"
-              style={{ background: 'var(--c-bg2)', border: '1px solid var(--c-border)' }}
-            >
-              <p className="text-text-secondary text-xs font-mono leading-relaxed">
-                {'>'} Abre el email de Aether
-                <br />
-                {'>'} Haz clic en "Verificar correo"
-                <br />
-                {'>'} Esta página te llevará al dashboard automáticamente
-              </p>
-            </div>
-
-            {/* Indicador de espera activa */}
-            <div className="flex items-center gap-2 text-text-muted text-xs">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Esperando verificación...</span>
-            </div>
-
-            {/* Botón de reenvío */}
-            {resendStatus === 'sent' ? (
-              <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--c-success, #22c55e)' }}>
-                <CheckCircle className="w-4 h-4" />
-                <span>Email reenviado correctamente</span>
-              </div>
-            ) : (
-              <button
-                onClick={handleResend}
-                disabled={resendStatus === 'sending'}
-                className="btn-ghost w-full flex items-center justify-center gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${resendStatus === 'sending' ? 'animate-spin' : ''}`} />
-                {resendStatus === 'sending' ? 'Enviando...' : 'Reenviar correo de verificación'}
-              </button>
-            )}
-
-            {resendStatus === 'error' && (
-              <p className="text-error text-xs">✗ Error al reenviar. Intenta de nuevo.</p>
-            )}
+        {/* Logo + título */}
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <LogoIcon />
+            <span style={{ fontFamily: FONT, fontWeight: 500, fontSize: '16px', color: '#f0f6ff', letterSpacing: '-0.01em' }}>
+              Aether
+            </span>
           </div>
+          <h1 style={{ fontFamily: FONT, fontWeight: 300, fontSize: '26px', color: '#f0f6ff', letterSpacing: '-0.02em', margin: '0 0 8px 0' }}>
+            Revisa tu correo
+          </h1>
+          <p style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 300, color: 'rgba(180,210,255,0.5)', margin: 0 }}>
+            Te enviamos un enlace de verificación.
+          </p>
         </div>
 
-        <p className="text-center text-text-muted text-xs mt-6">
+        {/* Card */}
+        <div className="hud-panel" style={{ padding: '28px 24px' }}>
+
+          {/* Email destacado */}
+          <div style={{
+            background: 'rgba(56,182,255,0.05)', border: '1px solid rgba(56,182,255,0.15)',
+            borderRadius: '6px', padding: '12px 14px', marginBottom: '24px',
+          }}>
+            <div style={{ fontFamily: MONO, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(180,210,255,0.4)', marginBottom: '4px' }}>
+              Enviado a
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: '13px', color: '#38b6ff' }}>
+              {email || '—'}
+            </div>
+          </div>
+
+          {/* Pasos */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+            {[
+              'Abre el correo de Aether',
+              'Haz clic en "Verificar correo"',
+              'Esta página avanzará automáticamente',
+            ].map((step, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{
+                  fontFamily: MONO, fontSize: '10px', color: 'rgba(56,182,255,0.5)',
+                  minWidth: '16px', lineHeight: '20px',
+                }}>
+                  {i + 1}.
+                </span>
+                <span style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 300, color: 'rgba(180,210,255,0.6)', lineHeight: '20px' }}>
+                  {step}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Indicador de espera */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            paddingBottom: '20px', marginBottom: '20px',
+            borderBottom: '1px solid rgba(56,182,255,0.08)',
+          }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+              <circle cx="6" cy="6" r="4.5" stroke="rgba(56,182,255,0.2)" strokeWidth="1.5" />
+              <path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5" stroke="#38b6ff" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <span style={{ fontFamily: MONO, fontSize: '11px', color: 'rgba(180,210,255,0.35)' }}>
+              Esperando verificación...
+            </span>
+          </div>
+
+          {/* Reenviar */}
+          {resendStatus === 'sent' ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2.5 7l3 3 6-6" stroke="#00e5cc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span style={{ fontFamily: FONT, fontSize: '13px', color: 'rgba(0,229,204,0.7)' }}>
+                Correo reenviado
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={handleResend}
+              disabled={resendStatus === 'sending'}
+              style={{
+                width: '100%', background: 'none', border: '1px solid rgba(56,182,255,0.2)',
+                borderRadius: '6px', padding: '10px', cursor: resendStatus === 'sending' ? 'not-allowed' : 'pointer',
+                fontFamily: FONT, fontSize: '13px', color: 'rgba(180,210,255,0.5)',
+                transition: 'border-color 0.2s, color 0.2s',
+                opacity: resendStatus === 'sending' ? 0.6 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (resendStatus !== 'sending') {
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(56,182,255,0.45)';
+                  (e.currentTarget as HTMLElement).style.color = 'rgba(180,210,255,0.8)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(56,182,255,0.2)';
+                (e.currentTarget as HTMLElement).style.color = 'rgba(180,210,255,0.5)';
+              }}
+            >
+              {resendStatus === 'sending' ? 'Enviando...' : 'Reenviar correo de verificación'}
+            </button>
+          )}
+
+          {resendStatus === 'error' && (
+            <p style={{ fontFamily: FONT, fontSize: '12px', color: 'rgba(255,100,100,0.8)', marginTop: '8px', textAlign: 'center' }}>
+              Error al reenviar. Intenta de nuevo.
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <p style={{ textAlign: 'center', fontFamily: FONT, fontSize: '13px', color: 'rgba(180,210,255,0.3)', marginTop: '20px' }}>
           ¿El correo es incorrecto?{' '}
-          <Link href="/register" className="link-terminal">
+          <Link
+            href="/register"
+            style={{ color: '#38b6ff', textDecoration: 'none' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+          >
             Crear otra cuenta
           </Link>
         </p>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
 
 export default function VerifyEmailPendingPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><span className="loading" /></div>}>
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', background: '#080c14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ animation: 'spin 1s linear infinite' }}>
+          <circle cx="10" cy="10" r="7.5" stroke="rgba(56,182,255,0.2)" strokeWidth="2" />
+          <path d="M10 2.5a7.5 7.5 0 0 1 7.5 7.5" stroke="#38b6ff" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    }>
       <VerifyEmailPendingContent />
     </Suspense>
   );

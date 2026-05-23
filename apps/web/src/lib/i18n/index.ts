@@ -17,12 +17,15 @@ const dictionaries = { es, en } as const;
  *   <p>{t('profile_title')}</p>
  *   <p>{t('dashboard_cards_total', 5)}</p>   // para funciones con argumentos
  */
-export function useT() {
+export function useLanguage(): Language {
   const userLanguage = useAuthStore((state) => state.user?.language);
   const uiLanguage = useAuthStore((state) => state.uiLanguage);
-  // uiLanguage (explicit user choice) takes priority; falls back to profile language
   const raw = uiLanguage ?? userLanguage;
-  const lang: Language = raw === 'en' ? 'en' : 'es';
+  return raw === 'en' ? 'en' : 'es';
+}
+
+export function useT() {
+  const lang = useLanguage();
   return dictionaries[lang];
 }
 

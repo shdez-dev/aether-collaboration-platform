@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useProjectStore, type Project } from '@/stores/projectStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { WorkspaceIcon, WORKSPACE_ICON_KEYS } from '@/components/WorkspaceIcon';
 import { X, Check, ChevronDown, LayoutDashboard } from 'lucide-react';
 import { apiService } from '@/services/apiService';
@@ -87,6 +88,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
         endDate: endDate || undefined,
         boardIds: selectedBoardIds,
       });
+      markStepDone('project');
       onCreated(project);
     } catch (e: any) {
       setError(e.message || 'Error al crear proyecto');

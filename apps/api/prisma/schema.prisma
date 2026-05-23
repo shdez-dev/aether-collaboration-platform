@@ -7,24 +7,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Event Store
-model Event {
-  id           String   @id @default(uuid()) @db.Uuid
-  eventType    String   @map("event_type") @db.VarChar(100)
-  payload      Json
-  userId       String   @map("user_id") @db.Uuid
-  timestamp    BigInt
-  version      Int
-  vectorClock  Json     @map("vector_clock")
-  createdAt    DateTime @default(now()) @map("created_at")
+// NOTE: The database is bootstrapped by apps/api/src/migrations/run-migrations.ts (raw SQL).
+// This schema reflects the actual DB state. To keep Prisma in sync without re-running DDL,
+// use: prisma migrate resolve --applied <migration_name>
 
+// ── Event Store (v2) ─────────────────────────────────────────────────────────
+// Migration 024 renamed the old `events` table to `events_v0` and created a new one.
+
+model Event {
+  id            String   @id @default(uuid()) @db.Uuid
+  type          String   @db.VarChar(100)
+  timestamp     BigInt
+  version       Int      @default(1) @db.SmallInt
+  actorId       String   @map("actor_id")
+  actorName     String   @map("actor_name")
+  subjectType   String   @map("subject_type") @db.VarChar(50)
+  subjectId     String   @map("subject_id") @db.Uuid
+  subjectName   String   @map("subject_name")
+  workspaceId   String?  @map("workspace_id") @db.Uuid
+  boardId       String?  @map("board_id") @db.Uuid
+  listId        String?  @map("list_id") @db.Uuid
+  cardId        String?  @map("card_id") @db.Uuid
+  documentId    String?  @map("document_id") @db.Uuid
+  delta         Json?
+  payload       Json     @default("{}")
+  vectorClock   Json     @map("vector_clock")
+  correlationId String?  @map("correlation_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([type])
   @@index([timestamp])
-  @@index([eventType])
-  @@index([userId])
+  @@index([actorId])
+  @@index([workspaceId])
+  @@index([boardId])
+  @@index([cardId])
+  @@index([documentId])
   @@map("events")
 }
 
-// User
+// ── User ─────────────────────────────────────────────────────────────────────
+
 model User {
   id                       String    @id @default(uuid()) @db.Uuid
   email                    String    @unique
@@ -34,7 +56,7 @@ model User {
   bio                      String?
   position                 String?   @db.VarChar(255)
   timezone                 String?   @default("UTC") @db.VarChar(100)
-  language                 String?   @default("en") @db.VarChar(10)
+  language                 String?   @default("es") @db.VarChar(10)
   phone                    String?   @db.VarChar(50)
   location                 String?   @db.VarChar(255)
   emailVerified            Boolean   @default(false) @map("email_verified")
@@ -42,56 +64,144 @@ model User {
   emailVerificationExpires DateTime? @map("email_verification_expires")
   passwordResetToken       String?   @unique @map("password_reset_token") @db.VarChar(255)
   passwordResetExpires     DateTime? @map("password_reset_expires")
+  aiPlannerCredits         Int       @default(3) @map("ai_planner_credits")
   createdAt                DateTime  @default(now()) @map("created_at")
   updatedAt                DateTime  @updatedAt @map("updated_at")
 
-  workspaces    WorkspaceMember[]
-  createdBoards Board[]
-  preferences   UserPreferences?
+  preferences                  UserPreferences?
+  workspaces                   WorkspaceMember[]
+  sessions                     UserSession[]
+  createdBoards                Board[]
+  createdLists                 List[]
+  createdCards                 Card[]
+  cardMemberships              CardMember[]
+  comments                     Comment[]
+  notifications                Notification[]
+  activityLogs                 UserActivityLog[]
+  standups                     Standup[]
+  aiBuilderDocuments           AiBuilderDocument[]
+  favoriteContacts             UserFavoriteContact[] @relation("UserFavorites")
+  favoritedBy                  UserFavoriteContact[] @relation("FavoritedUser")
+  teamMemberships              TeamMember[]
+  createdTeams                 Team[]                @relation("TeamCreator")
+  ledTeams                     Team[]                @relation("TeamLead")
+  workspaceInvitationsReceived WorkspaceInvitation[] @relation("WsInvitedUser")
+  workspaceInvitationsSent     WorkspaceInvitation[] @relation("WsInvitedBy")
+  teamInvitationsReceived      TeamInvitation[]      @relation("TeamInvitedUser")
+  teamInvitationsSent          TeamInvitation[]      @relation("TeamInvitedBy")
 
   @@map("users")
 }
 
-// User Preferences
+// ── User Preferences ─────────────────────────────────────────────────────────
+
 model UserPreferences {
-  id                     String   @id @default(uuid()) @db.Uuid
-  userId                 String   @unique @map("user_id") @db.Uuid
-  theme                  String   @default("dark") @db.VarChar(20)
-  emailNotifications     Boolean  @default(true) @map("email_notifications")
-  pushNotifications      Boolean  @default(true) @map("push_notifications")
-  inAppNotifications     Boolean  @default(true) @map("in_app_notifications")
-  notificationFrequency  String   @default("realtime") @map("notification_frequency") @db.VarChar(20)
-  compactMode            Boolean  @default(false) @map("compact_mode")
-  showArchived           Boolean  @default(false) @map("show_archived")
-  defaultBoardView       String   @default("kanban") @map("default_board_view") @db.VarChar(20)
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  id                    String   @id @default(uuid()) @db.Uuid
+  userId                String   @unique @map("user_id") @db.Uuid
+  theme                 String   @default("dark") @db.VarChar(20)
+  emailNotifications    Boolean  @default(true) @map("email_notifications")
+  pushNotifications     Boolean  @default(true) @map("push_notifications")
+  inAppNotifications    Boolean  @default(true) @map("in_app_notifications")
+  notificationFrequency String   @default("realtime") @map("notification_frequency") @db.VarChar(20)
+  compactMode           Boolean  @default(false) @map("compact_mode")
+  showArchived          Boolean  @default(false) @map("show_archived")
+  defaultBoardView      String   @default("kanban") @map("default_board_view") @db.VarChar(20)
+  githubToken           String?  @map("github_token")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_preferences")
 }
 
-// Workspace
+// ── User Session ─────────────────────────────────────────────────────────────
+
+model UserSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  socketId       String    @unique @map("socket_id") @db.VarChar(255)
+  boardId        String?   @map("board_id") @db.Uuid
+  workspaceId    String?   @map("workspace_id") @db.Uuid
+  connectedAt    DateTime  @default(now()) @map("connected_at")
+  lastPing       DateTime  @default(now()) @map("last_ping")
+  disconnectedAt DateTime? @map("disconnected_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  board     Board?     @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([boardId])
+  @@index([socketId])
+  @@map("user_sessions")
+}
+
+// ── User Favorite Contact ─────────────────────────────────────────────────────
+
+model UserFavoriteContact {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  favoriteUserId String   @map("favorite_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user         User @relation("UserFavorites", fields: [userId], references: [id], onDelete: Cascade)
+  favoriteUser User @relation("FavoritedUser", fields: [favoriteUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, favoriteUserId])
+  @@index([userId])
+  @@map("user_favorite_contacts")
+}
+
+// ── User Activity Log ─────────────────────────────────────────────────────────
+
+model UserActivityLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  activityType String   @map("activity_type") @db.VarChar(100)
+  metadata     Json     @default("{}")
+  boardId      String?  @map("board_id") @db.Uuid
+  workspaceId  String?  @map("workspace_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@map("user_activity_log")
+}
+
+// ── Workspace ─────────────────────────────────────────────────────────────────
+
 model Workspace {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
   name        String
   description String?
-  ownerId     String   @map("owner_id") @db.Uuid
+  ownerId     String    @map("owner_id") @db.Uuid
   icon        String?
   color       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  archived    Boolean   @default(false)
+  archivedAt  DateTime? @map("archived_at")
+  visibility  String    @default("private") @db.VarChar(20)
+  inviteToken String?   @unique @map("invite_token") @db.VarChar(100)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  members  WorkspaceMember[]
-  boards   Board[]
-  labels   Label[]
-  projects Project[]
+  members          WorkspaceMember[]
+  boards           Board[]
+  labels           Label[]
+  projects         Project[]
+  documents        Document[]
+  sessions         UserSession[]
+  standups         Standup[]
+  githubConnection WorkspaceGithubConnection?
+  invitations      WorkspaceInvitation[]
 
   @@map("workspaces")
 }
 
-// Workspace Member
+// ── Workspace Member ──────────────────────────────────────────────────────────
+
 model WorkspaceMember {
   id          String   @id @default(uuid()) @db.Uuid
   workspaceId String   @map("workspace_id") @db.Uuid
@@ -103,10 +213,54 @@ model WorkspaceMember {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
   @@map("workspace_members")
 }
 
-// Board
+// ── Workspace Invitation ──────────────────────────────────────────────────────
+
+model WorkspaceInvitation {
+  id            String   @id @default(uuid()) @db.Uuid
+  workspaceId   String   @map("workspace_id") @db.Uuid
+  invitedUserId String   @map("invited_user_id") @db.Uuid
+  invitedBy     String   @map("invited_by") @db.Uuid
+  role          String   @default("MEMBER") @db.VarChar(20)
+  status        String   @default("PENDING") @db.VarChar(20)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedUser User      @relation("WsInvitedUser", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  inviter     User      @relation("WsInvitedBy", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, invitedUserId])
+  @@index([invitedUserId])
+  @@index([workspaceId])
+  @@index([status])
+  @@map("workspace_invitations")
+}
+
+// ── Workspace GitHub Connection ───────────────────────────────────────────────
+
+model WorkspaceGithubConnection {
+  id            String   @id @default(uuid()) @db.Uuid
+  workspaceId   String   @unique @map("workspace_id") @db.Uuid
+  githubToken   String   @map("github_token")
+  repos         String[]
+  webhookSecret String   @map("webhook_secret")
+  githubLogin   String?  @map("github_login")
+  connectedBy   String?  @map("connected_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("workspace_github_connections")
+}
+
+// ── Board ─────────────────────────────────────────────────────────────────────
+
 model Board {
   id          String   @id @default(uuid()) @db.Uuid
   workspaceId String   @map("workspace_id") @db.Uuid
@@ -114,51 +268,407 @@ model Board {
   description String?
   position    Int
   archived    Boolean  @default(false)
+  color       String?  @default("#3b82f6") @db.VarChar(50)
   createdBy   String   @map("created_by") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator   User      @relation(fields: [createdBy], references: [id])
-  lists     List[]
+  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator    User             @relation(fields: [createdBy], references: [id])
+  lists      List[]
+  sprints    BoardSprint[]
+  milestones BoardMilestone[]
+  sessions   UserSession[]
+  projects   ProjectBoard[]
 
+  @@index([workspaceId])
   @@map("boards")
 }
 
-// List
+// ── List ──────────────────────────────────────────────────────────────────────
+
 model List {
   id        String   @id @default(uuid()) @db.Uuid
   boardId   String   @map("board_id") @db.Uuid
   name      String
   position  Int
+  createdBy String?  @map("created_by") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  cards Card[]
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  creator User?  @relation(fields: [createdBy], references: [id])
+  cards   Card[]
 
+  @@index([boardId])
+  @@index([createdBy])
   @@map("lists")
 }
 
-// Card
+// ── Card ──────────────────────────────────────────────────────────────────────
+
 model Card {
   id          String    @id @default(uuid()) @db.Uuid
   listId      String    @map("list_id") @db.Uuid
   title       String
   description String?
   position    Int
+  startDate   DateTime? @map("start_date")
   dueDate     DateTime? @map("due_date")
   priority    String?   @db.VarChar(20)
+  completed   Boolean   @default(false)
+  completedAt DateTime? @map("completed_at")
   createdBy   String    @map("created_by") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  list List @relation(fields: [listId], references: [id], onDelete: Cascade)
+  list           List               @relation(fields: [listId], references: [id], onDelete: Cascade)
+  creator        User               @relation(fields: [createdBy], references: [id])
+  members        CardMember[]
+  labels         CardLabel[]
+  comments       Comment[]
+  checklistItems CardChecklistItem[]
+  blocking       CardDependency[]   @relation("BlockingCard")
+  blocked        CardDependency[]   @relation("BlockedCard")
+  sprintCards    SprintCard[]
 
+  @@index([listId])
+  @@index([completed])
   @@map("cards")
 }
 
-// Project (belongs to a Workspace)
+// ── Card Member ───────────────────────────────────────────────────────────────
+
+model CardMember {
+  cardId     String   @map("card_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, userId])
+  @@map("card_members")
+}
+
+// ── Card Label ────────────────────────────────────────────────────────────────
+
+model CardLabel {
+  cardId  String @map("card_id") @db.Uuid
+  labelId String @map("label_id") @db.Uuid
+
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, labelId])
+  @@map("card_labels")
+}
+
+// ── Card Checklist Item ───────────────────────────────────────────────────────
+
+model CardChecklistItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  cardId    String   @map("card_id") @db.Uuid
+  title     String   @db.VarChar(500)
+  completed Boolean  @default(false)
+  position  Int      @default(0)
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+  @@index([cardId, position])
+  @@map("card_checklist_items")
+}
+
+// ── Card Dependency ───────────────────────────────────────────────────────────
+
+model CardDependency {
+  id             String   @id @default(uuid()) @db.Uuid
+  blockingCardId String   @map("blocking_card_id") @db.Uuid
+  blockedCardId  String   @map("blocked_card_id") @db.Uuid
+  createdBy      String   @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  blockingCard Card @relation("BlockingCard", fields: [blockingCardId], references: [id], onDelete: Cascade)
+  blockedCard  Card @relation("BlockedCard", fields: [blockedCardId], references: [id], onDelete: Cascade)
+
+  @@unique([blockingCardId, blockedCardId])
+  @@index([blockingCardId])
+  @@index([blockedCardId])
+  @@map("card_dependencies")
+}
+
+// ── Comment (card comment) ────────────────────────────────────────────────────
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  cardId    String   @map("card_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  content   String
+  mentions  String[] @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+  @@map("comments")
+}
+
+// ── Label ─────────────────────────────────────────────────────────────────────
+
+model Label {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  name        String
+  color       String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  cards     CardLabel[]
+
+  @@index([workspaceId])
+  @@map("labels")
+}
+
+// ── Notification ──────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @db.VarChar(100)
+  title     String   @db.VarChar(500)
+  message   String
+  data      Json     @default("{}")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+// ── Document ──────────────────────────────────────────────────────────────────
+
+model Document {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  title       String   @db.VarChar(500)
+  content     String   @default("")
+  yjsState    Bytes?   @map("yjs_state")
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  permissions DocumentPermission[]
+  comments    DocumentComment[]
+  versions    DocumentVersion[]
+
+  @@index([workspaceId])
+  @@map("documents")
+}
+
+// ── Document Permission ───────────────────────────────────────────────────────
+
+model DocumentPermission {
+  documentId String @map("document_id") @db.Uuid
+  userId     String @map("user_id") @db.Uuid
+  permission String @default("VIEW") @db.VarChar(20)
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, userId])
+  @@map("document_permissions")
+}
+
+// ── Document Comment ──────────────────────────────────────────────────────────
+
+model DocumentComment {
+  id         String   @id @default(uuid()) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_comments")
+}
+
+// ── Document Version ──────────────────────────────────────────────────────────
+
+model DocumentVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  yjsState   Bytes?   @map("yjs_state")
+  metadata   Json     @default("{}")
+  createdBy  String   @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_versions")
+}
+
+// ── Board Sprint ──────────────────────────────────────────────────────────────
+
+model BoardSprint {
+  id        String   @id @default(uuid()) @db.Uuid
+  boardId   String   @map("board_id") @db.Uuid
+  name      String   @db.VarChar(255)
+  goal      String?
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  status    String   @default("PLANNED") @db.VarChar(20)
+  position  Int      @default(0)
+  createdBy String   @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  board      Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards      SprintCard[]
+  milestones BoardMilestone[]
+
+  @@index([boardId])
+  @@map("board_sprints")
+}
+
+// ── Sprint Card ───────────────────────────────────────────────────────────────
+
+model SprintCard {
+  sprintId String   @map("sprint_id") @db.Uuid
+  cardId   String   @map("card_id") @db.Uuid
+  addedBy  String   @map("added_by") @db.Uuid
+  addedAt  DateTime @default(now()) @map("added_at")
+
+  sprint BoardSprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  card   Card        @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@id([sprintId, cardId])
+  @@index([sprintId])
+  @@index([cardId])
+  @@map("sprint_cards")
+}
+
+// ── Board Milestone ───────────────────────────────────────────────────────────
+
+model BoardMilestone {
+  id          String   @id @default(uuid()) @db.Uuid
+  boardId     String   @map("board_id") @db.Uuid
+  sprintId    String?  @map("sprint_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?
+  date        DateTime @db.Date
+  color       String?  @default("#f59e0b") @db.VarChar(7)
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  board  Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  sprint BoardSprint? @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+
+  @@index([boardId])
+  @@map("board_milestones")
+}
+
+// ── Standup ───────────────────────────────────────────────────────────────────
+
+model Standup {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  workspaceId    String    @map("workspace_id") @db.Uuid
+  date           DateTime  @db.Date
+  yesterdayItems Json      @default("[]") @map("yesterday_items")
+  todayItems     Json      @default("[]") @map("today_items")
+  blockers       Json      @default("[]")
+  publishedAt    DateTime? @map("published_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId, date])
+  @@index([userId])
+  @@index([workspaceId, date])
+  @@map("standups")
+}
+
+// ── Team ──────────────────────────────────────────────────────────────────────
+
+model Team {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?
+  color       String?  @default("#3b82f6") @db.VarChar(50)
+  icon        String?
+  leadId      String?  @map("lead_id") @db.Uuid
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  lead        User?            @relation("TeamLead", fields: [leadId], references: [id], onDelete: SetNull)
+  creator     User             @relation("TeamCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  projects    ProjectTeam[]
+  invitations TeamInvitation[]
+
+  @@index([createdBy])
+  @@index([leadId])
+  @@map("teams")
+}
+
+// ── Team Member ───────────────────────────────────────────────────────────────
+
+model TeamMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  teamId   String   @map("team_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     String   @default("MEMBER") @db.VarChar(50)
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+// ── Team Invitation ───────────────────────────────────────────────────────────
+
+model TeamInvitation {
+  id            String   @id @default(uuid()) @db.Uuid
+  teamId        String   @map("team_id") @db.Uuid
+  invitedUserId String   @map("invited_user_id") @db.Uuid
+  invitedBy     String   @map("invited_by") @db.Uuid
+  role          String   @default("MEMBER") @db.VarChar(20)
+  status        String   @default("PENDING") @db.VarChar(20)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  team        Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedUser User @relation("TeamInvitedUser", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  inviter     User @relation("TeamInvitedBy", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, invitedUserId])
+  @@index([invitedUserId])
+  @@index([teamId])
+  @@index([status])
+  @@map("team_invitations")
+}
+
+// ── Project ───────────────────────────────────────────────────────────────────
+
 model Project {
   id          String    @id @default(uuid()) @db.Uuid
   workspaceId String    @map("workspace_id") @db.Uuid
@@ -173,14 +683,18 @@ model Project {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   boards     ProjectBoard[]
   milestones ProjectMilestone[]
+  teams      ProjectTeam[]
 
+  @@index([workspaceId])
+  @@index([ownerId])
   @@map("projects")
 }
 
-// Project <-> Board pivot
+// ── Project Board ─────────────────────────────────────────────────────────────
+
 model ProjectBoard {
   id        String   @id @default(uuid()) @db.Uuid
   projectId String   @map("project_id") @db.Uuid
@@ -188,37 +702,64 @@ model ProjectBoard {
   addedAt   DateTime @default(now()) @map("added_at")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  board   Board   @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, boardId])
+  @@index([projectId])
+  @@index([boardId])
   @@map("project_boards")
 }
 
-// Project Milestone
+// ── Project Milestone ─────────────────────────────────────────────────────────
+
 model ProjectMilestone {
-  id          String   @id @default(uuid()) @db.Uuid
-  projectId   String   @map("project_id") @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
   name        String
   description String?
-  date        DateTime
-  status      String   @default("PENDING") @db.VarChar(20)
+  date        DateTime?
+  status      String    @default("PENDING") @db.VarChar(20)
   color       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  @@index([projectId])
   @@map("project_milestones")
 }
 
-// Label
-model Label {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @map("workspace_id") @db.Uuid
-  name        String
-  color       String
-  createdAt   DateTime @default(now()) @map("created_at")
+// ── Project Team ──────────────────────────────────────────────────────────────
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+model ProjectTeam {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  teamId     String   @map("team_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  assignedBy String?  @map("assigned_by") @db.Uuid
 
-  @@map("labels")
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, teamId])
+  @@index([projectId])
+  @@index([teamId])
+  @@map("project_teams")
+}
+
+// ── AI Builder Document ───────────────────────────────────────────────────────
+
+model AiBuilderDocument {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  title     String    @default("Untitled Plan") @db.VarChar(255)
+  content   String    @default("")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ai_builder_documents")
 }

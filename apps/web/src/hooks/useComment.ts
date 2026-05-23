@@ -8,14 +8,7 @@ import {
   selectIsLoading,
 } from '@/stores/commentStore';
 import { socketService } from '@/services/socketService';
-import type {
-  CommentWithUser,
-  Event,
-  CommentCreatedPayload,
-  CommentUpdatedPayload,
-  CommentDeletedPayload,
-  CommentMentionedPayload,
-} from '@aether/types';
+import type { Event } from '@aether/types';
 import { toast } from 'sonner';
 
 /**
@@ -32,8 +25,6 @@ export function useComments(cardId: string) {
   const createComment = useCommentStore((state) => state.createComment);
   const updateComment = useCommentStore((state) => state.updateComment);
   const deleteComment = useCommentStore((state) => state.deleteComment);
-  const addCommentOptimistic = useCommentStore((state) => state.addCommentOptimistic);
-  const updateCommentOptimistic = useCommentStore((state) => state.updateCommentOptimistic);
   const removeCommentOptimistic = useCommentStore((state) => state.removeCommentOptimistic);
 
   const hasLoadedRef = useRef(false);
@@ -57,46 +48,40 @@ export function useComments(cardId: string) {
     const handleRealtimeEvent = (event: Event) => {
       // Comment Created
       if (event.type === 'comment.created') {
-        const payload = event.payload as CommentCreatedPayload;
-        if (payload.cardId === cardId) {
+        if (event.context.cardId === cardId) {
           // Si no es del usuario actual, refetch para obtener datos completos
           const socketId = socketService.getSocketId();
-          if (event.meta.socketId !== socketId) {
+          if (event.socketId !== socketId) {
             fetchComments(cardId);
           }
         }
       }
 
-      // Comment Updated
+      // Comment Updated — en v2 el delta contiene before/after.content
       if (event.type === 'comment.updated') {
-        const payload = event.payload as CommentUpdatedPayload;
-        if (payload.cardId === cardId) {
+        if (event.context.cardId === cardId) {
           const socketId = socketService.getSocketId();
-          if (event.meta.socketId !== socketId) {
-            updateCommentOptimistic(payload.commentId, {
-              content: payload.changes.content,
-              mentions: payload.changes.mentions as string[],
-              edited: true,
-            } as Partial<CommentWithUser>);
+          if (event.socketId !== socketId) {
+            // Refetch para obtener el comentario actualizado con datos completos
+            fetchComments(cardId);
           }
         }
       }
 
       // Comment Deleted
       if (event.type === 'comment.deleted') {
-        const payload = event.payload as CommentDeletedPayload;
-        if (payload.cardId === cardId) {
+        if (event.context.cardId === cardId) {
           const socketId = socketService.getSocketId();
-          if (event.meta.socketId !== socketId) {
-            removeCommentOptimistic(payload.commentId, cardId);
+          if (event.socketId !== socketId) {
+            // El subject.id es el commentId en eventos de comentario
+            removeCommentOptimistic(event.subject.id, cardId);
           }
         }
       }
 
       // Comment Mentioned (notificación para el usuario mencionado)
-      if (event.type === 'comment.mentioned') {
-        const payload = event.payload as CommentMentionedPayload;
-        if (payload.cardId === cardId) {
+      if (event.type === 'comment.mention-added') {
+        if (event.context.cardId === cardId) {
           // Esto se manejará en el provider de notificaciones
         }
       }
@@ -107,7 +92,7 @@ export function useComments(cardId: string) {
     return () => {
       socketService.off('event', handleRealtimeEvent);
     };
-  }, [cardId, fetchComments, updateCommentOptimistic, removeCommentOptimistic]);
+  }, [cardId, fetchComments, removeCommentOptimistic]);
 
   // ============================================================================
   // ACTIONS
@@ -134,7 +119,7 @@ export function useComments(cardId: string) {
         return null;
       } catch (error: any) {
         toast.error(error.message || 'Error al crear comentario');
-        return null;
+        throw error; // Rethrow so CommentForm preserves typed content on failure
       }
     },
     [cardId, createComment]
@@ -249,15 +234,13 @@ export function useCommentCount(cardId: string) {
 
     const handleRealtimeEvent = (event: Event) => {
       if (event.type === 'comment.created') {
-        const payload = event.payload as CommentCreatedPayload;
-        if (payload.cardId === cardId) {
+        if (event.context.cardId === cardId) {
           fetchCommentCount(cardId);
         }
       }
 
       if (event.type === 'comment.deleted') {
-        const payload = event.payload as CommentDeletedPayload;
-        if (payload.cardId === cardId) {
+        if (event.context.cardId === cardId) {
           fetchCommentCount(cardId);
         }
       }
