@@ -332,7 +332,7 @@ function SidebarContent({
       ),
     },
     {
-      label: 'Inbox',
+      label: t.nav_inbox,
       href: '/dashboard/users',
       active: pathname?.startsWith('/dashboard/users'),
       icon: (
