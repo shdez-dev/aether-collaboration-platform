@@ -92,18 +92,16 @@ export class AuthController {
       const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
       const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
-      try {
-        emailService
-          .sendVerificationEmail(user.email, {
+      setImmediate(async () => {
+        try {
+          await emailService.sendVerificationEmail(user.email, {
             userName: user.name,
             verificationLink,
-          })
-          .catch((emailErr: any) => {
-            console.error('[register] Error enviando email de verificación:', emailErr?.message || emailErr);
           });
-      } catch (emailErr: any) {
-        console.error('[register] Error inicializando EmailService:', emailErr?.message || emailErr);
-      }
+        } catch (emailErr: any) {
+          console.error('[register] Error enviando email de verificación:', emailErr?.message || emailErr);
+        }
+      });
 
       // 9. Retornar usuario creado (SIN password)
       return res.status(201).json({
