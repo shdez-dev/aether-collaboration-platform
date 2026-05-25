@@ -56,6 +56,8 @@ import {
   Plus,
   Trash2,
   MessageSquare,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 import { CommentMarkExtension } from './CommentMarkExtension';
 import { DocumentCommentsSidebar, CommentGutterIndicators } from './DocumentCommentsSidebar';
@@ -1140,6 +1142,214 @@ function SaveBtn({ onClick, isSaving }: { onClick: () => void; isSaving: boolean
   );
 }
 
+// ── Link input popup ─────────────────────────────────────────────────────────
+function LinkInput({
+  editor,
+  wrapperRef,
+  onClose,
+}: {
+  editor: any;
+  wrapperRef: React.RefObject<HTMLDivElement>;
+  onClose: () => void;
+}) {
+  const isActive = editor.isActive('link');
+  const [url, setUrl] = useState<string>(() =>
+    isActive ? (editor.getAttributes('link').href ?? '') : ''
+  );
+  const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Focus the input as soon as the popup opens
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  // Close on outside mousedown
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (
+        panelRef.current && !panelRef.current.contains(e.target as Node) &&
+        wrapperRef.current && !wrapperRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [onClose, wrapperRef]);
+
+  const apply = () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    const href = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    editor.chain().focus().setLink({ href, target: '_blank' }).run();
+    onClose();
+  };
+
+  const remove = () => {
+    editor.chain().focus().unsetLink().run();
+    onClose();
+  };
+
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); apply(); }
+    if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+  };
+
+  const canApply = url.trim().length > 0;
+
+  return (
+    <div
+      ref={panelRef}
+      style={{
+        position: 'absolute',
+        top: 'calc(100% + 6px)',
+        left: 0,
+        zIndex: 100,
+        width: '292px',
+        background: C.surface,
+        border: `1px solid ${C.border2}`,
+        borderRadius: '10px',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(56,182,255,0.06)',
+        padding: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+          <div style={{
+            width: '22px', height: '22px', borderRadius: '5px', flexShrink: 0,
+            background: 'rgba(56,182,255,0.1)', border: `1px solid ${C.border2}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <LinkIcon style={{ width: '11px', height: '11px', color: C.accent }} />
+          </div>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: C.text }}>
+            {isActive ? 'Editar enlace' : 'Insertar enlace'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); onClose(); }}
+          style={{
+            width: '22px', height: '22px', borderRadius: '4px',
+            background: 'transparent', border: 'none',
+            color: C.text3, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.text3; }}
+        >
+          <X style={{ width: '11px', height: '11px' }} />
+        </button>
+      </div>
+
+      {/* URL input */}
+      <input
+        ref={inputRef}
+        type="text"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        onKeyDown={handleKey}
+        placeholder="https://example.com"
+        style={{
+          width: '100%',
+          background: C.bg,
+          border: `1px solid ${C.border}`,
+          borderRadius: '6px',
+          padding: '6px 10px',
+          fontSize: '12.5px',
+          color: C.text,
+          outline: 'none',
+          fontFamily: 'inherit',
+          boxSizing: 'border-box',
+          transition: 'border-color 0.15s',
+        }}
+        onFocus={(e) => (e.currentTarget.style.borderColor = C.border2)}
+        onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
+      />
+
+      {/* Hint */}
+      <p style={{ margin: 0, fontSize: '11px', color: C.text4, lineHeight: 1.5 }}>
+        Presiona <kbd style={{ fontSize: '10px', padding: '1px 4px', borderRadius: '3px', background: C.hover, border: `1px solid ${C.border}`, color: C.text3 }}>Enter</kbd> para aplicar •&nbsp;
+        <kbd style={{ fontSize: '10px', padding: '1px 4px', borderRadius: '3px', background: C.hover, border: `1px solid ${C.border}`, color: C.text3 }}>Esc</kbd> para cancelar
+      </p>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {isActive && (
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); remove(); }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              padding: '5px 9px', borderRadius: '5px',
+              fontSize: '11.5px', fontFamily: 'inherit',
+              background: 'transparent', color: C.red,
+              border: `1px solid rgba(239,68,68,0.3)`,
+              cursor: 'pointer', transition: 'border-color 0.15s',
+              marginRight: 'auto',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(239,68,68,0.6)')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)')}
+          >
+            <Minus style={{ width: '11px', height: '11px' }} />
+            Quitar
+          </button>
+        )}
+
+        {isActive && url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '4px',
+              padding: '5px 9px', borderRadius: '5px',
+              fontSize: '11.5px', fontFamily: 'inherit',
+              background: 'transparent', color: C.text3,
+              border: `1px solid ${C.border}`,
+              cursor: 'pointer', textDecoration: 'none',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text2; (e.currentTarget as HTMLElement).style.borderColor = C.border2; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.text3; (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
+          >
+            <ExternalLink style={{ width: '10px', height: '10px' }} />
+            Abrir
+          </a>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); apply(); }}
+          disabled={!canApply}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            padding: '5px 12px', borderRadius: '5px',
+            fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit',
+            background: canApply ? C.accent : C.border,
+            color: canApply ? '#080c14' : C.text3,
+            border: 'none', cursor: canApply ? 'pointer' : 'not-allowed',
+            transition: 'background 0.15s',
+          }}
+        >
+          <Check style={{ width: '11px', height: '11px' }} />
+          Aplicar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main toolbar ──────────────────────────────────────────────────────────────
 function EditorToolbar({
   editor,
@@ -1160,13 +1370,11 @@ function EditorToolbar({
   commentsOpen?: boolean;
   t: any;
 }) {
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const linkWrapperRef = useRef<HTMLDivElement>(null);
+
   const handleLinkToggle = () => {
-    if (editor.isActive('link')) {
-      editor.chain().focus().unsetLink().run();
-    } else {
-      const url = window.prompt('URL del enlace:');
-      if (url) editor.chain().focus().setLink({ href: url }).run();
-    }
+    setShowLinkInput((v) => !v);
   };
 
   // Indent / outdent — works on lists and paragraphs
@@ -1264,9 +1472,22 @@ function EditorToolbar({
         >
           <Code className="w-4 h-4" />
         </ToolbarButton>
-        <ToolbarButton onClick={handleLinkToggle} isActive={editor.isActive('link')} title="Enlace">
-          <LinkIcon className="w-4 h-4" />
-        </ToolbarButton>
+        <div ref={linkWrapperRef} style={{ position: 'relative' }}>
+          <ToolbarButton
+            onClick={handleLinkToggle}
+            isActive={editor.isActive('link') || showLinkInput}
+            title="Enlace (Ctrl+K)"
+          >
+            <LinkIcon className="w-4 h-4" />
+          </ToolbarButton>
+          {showLinkInput && (
+            <LinkInput
+              editor={editor}
+              wrapperRef={linkWrapperRef}
+              onClose={() => setShowLinkInput(false)}
+            />
+          )}
+        </div>
 
         <Divider />
 
@@ -1410,6 +1631,17 @@ export default function CollaborativeEditor({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const editorWrapRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // ── Bubble-menu inline link input state ───────────────────────────────────
+  const [bubbleLinkMode, setBubbleLinkModeState] = useState(false);
+  const [bubbleLinkValue, setBubbleLinkValue] = useState('');
+  const bubbleLinkModeRef = useRef(false); // ref for shouldShow closure
+  const bubbleLinkInputRef = useRef<HTMLInputElement>(null);
+
+  const setBubbleLinkMode = (v: boolean) => {
+    bubbleLinkModeRef.current = v;
+    setBubbleLinkModeState(v);
+  };
 
   // Snapshot del último estado completo recibido del servidor via document:sync.
   // Usado como fallback de guardado en el desmontaje si el yjsDoc local está vacío
@@ -1946,6 +2178,10 @@ export default function CollaborativeEditor({
         <BubbleMenu
           editor={editor}
           tippyOptions={{ duration: 100 }}
+          shouldShow={({ from, to }) => {
+            if (bubbleLinkModeRef.current) return true;
+            return from !== to;
+          }}
         >
           <div
             className="flex items-center gap-0.5 rounded-[8px] p-1"
@@ -1986,12 +2222,93 @@ export default function CollaborativeEditor({
 
           <div style={{ width: '1px', height: '16px', background: C.border2, margin: '0 2px' }} />
 
-          <BubbleBtn
-            onMouseDown={(e) => { e.preventDefault(); if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); } else { const url = window.prompt('URL:'); if (url) editor.chain().focus().setLink({ href: url }).run(); } }}
-            active={editor.isActive('link')} title="Enlace"
-          >
-            <LinkIcon style={{ width: '13px', height: '13px' }} />
-          </BubbleBtn>
+          {bubbleLinkMode ? (
+            /* ── Inline link input inside bubble menu ── */
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0 4px' }}>
+              <input
+                ref={bubbleLinkInputRef}
+                type="text"
+                value={bubbleLinkValue}
+                onChange={(e) => setBubbleLinkValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const trimmed = bubbleLinkValue.trim();
+                    if (trimmed) {
+                      const href = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+                      editor.chain().focus().setLink({ href, target: '_blank' }).run();
+                    }
+                    setBubbleLinkMode(false);
+                    setBubbleLinkValue('');
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setBubbleLinkMode(false);
+                    setBubbleLinkValue('');
+                    editor.commands.focus();
+                  }
+                }}
+                placeholder="https://..."
+                autoFocus
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  borderRadius: '4px',
+                  padding: '3px 8px',
+                  fontSize: '12px',
+                  color: '#f0f6ff',
+                  outline: 'none',
+                  width: '190px',
+                  fontFamily: 'inherit',
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(56,182,255,0.6)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)')}
+              />
+              <BubbleBtn
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  const trimmed = bubbleLinkValue.trim();
+                  if (trimmed) {
+                    const href = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+                    editor.chain().focus().setLink({ href, target: '_blank' }).run();
+                  }
+                  setBubbleLinkMode(false);
+                  setBubbleLinkValue('');
+                }}
+                title="Aplicar enlace"
+              >
+                <Check style={{ width: '12px', height: '12px' }} />
+              </BubbleBtn>
+              <BubbleBtn
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setBubbleLinkMode(false);
+                  setBubbleLinkValue('');
+                  editor.commands.focus();
+                }}
+                title="Cancelar"
+              >
+                <X style={{ width: '12px', height: '12px' }} />
+              </BubbleBtn>
+            </div>
+          ) : (
+            <BubbleBtn
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (editor.isActive('link')) {
+                  editor.chain().focus().unsetLink().run();
+                } else {
+                  setBubbleLinkValue(editor.getAttributes('link').href ?? '');
+                  setBubbleLinkMode(true);
+                  setTimeout(() => bubbleLinkInputRef.current?.focus(), 30);
+                }
+              }}
+              active={editor.isActive('link')}
+              title="Enlace"
+            >
+              <LinkIcon style={{ width: '13px', height: '13px' }} />
+            </BubbleBtn>
+          )}
 
           <div style={{ width: '1px', height: '16px', background: C.border2, margin: '0 2px' }} />
 
