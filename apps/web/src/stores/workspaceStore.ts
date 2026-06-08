@@ -141,7 +141,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       // ==================== FETCH WORKSPACES ====================
       fetchWorkspaces: async (includeArchived = false) => {
-        set({ isLoading: true, error: null, workspaces: [] });
+        set({ isLoading: true, error: null });
 
         try {
           const response = await apiService.get<{ workspaces: Workspace[] }>(

@@ -516,13 +516,20 @@ function SidebarContent({
       {/* ── Logo ─────────────────────────────────────────────────────────── */}
       <div style={{ padding: '12px 14px 10px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '9px', flexShrink: 0 }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none' }}>
-          <svg width="22" height="22" viewBox="0 0 220 220" fill="none" aria-label="Aether logo" style={{ flexShrink: 0 }}>
-            <path d="M110 39L32 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
-            <path d="M110 39L188 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
-            <path d="M66 122L154 122" stroke="#00e5cc" strokeWidth="7" strokeLinecap="round" />
-            <circle cx="110" cy="39" r="9" fill="#38b6ff" />
-            <circle cx="32" cy="173" r="9" fill="#38b6ff" />
-            <circle cx="188" cy="173" r="9" fill="#00e5cc" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="22" height="22" aria-label="Aether logo" style={{ flexShrink: 0 }}>
+            <defs>
+              <linearGradient id="sb-aether" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#22a5d6" />
+                <stop offset="100%" stopColor="#3fd0e8" />
+              </linearGradient>
+            </defs>
+            <path d="M18 20 C 38 38, 42 54, 50 78" fill="none" stroke="#1f8fc4" strokeWidth="6.5" strokeLinecap="round" />
+            <path d="M50 14 C 50 38, 50 54, 50 78" fill="none" stroke="url(#sb-aether)" strokeWidth="6.5" strokeLinecap="round" />
+            <path d="M82 20 C 62 38, 58 54, 50 78" fill="none" stroke="#3fd0e8" strokeWidth="6.5" strokeLinecap="round" />
+            <circle cx="18" cy="20" r="5.5" fill="#1f8fc4" />
+            <circle cx="50" cy="14" r="5.5" fill="#2bb4dd" />
+            <circle cx="82" cy="20" r="5.5" fill="#3fd0e8" />
+            <circle cx="50" cy="80" r="8" fill="url(#sb-aether)" />
           </svg>
           <span style={{ fontSize: '16px', fontWeight: 700, color: C.text, letterSpacing: '-0.2px' }}>Aether</span>
         </Link>

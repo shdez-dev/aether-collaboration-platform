@@ -1,15 +1,15 @@
-<svg width="512" height="512" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32" height="32" role="img" aria-label="Aether">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="220" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#22d3ee"/>
-      <stop offset="100%" stop-color="#818cf8"/>
+    <linearGradient id="fav" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22a5d6"/>
+      <stop offset="100%" stop-color="#3fd0e8"/>
     </linearGradient>
   </defs>
-  <rect width="220" height="220" rx="44" fill="#07080f"/>
-  <path d="M 110 39 L 32 173" stroke="url(#g)" stroke-width="10" stroke-linecap="round"/>
-  <path d="M 110 39 L 188 173" stroke="url(#g)" stroke-width="10" stroke-linecap="round"/>
-  <path d="M 66 122 L 154 122" stroke="url(#g)" stroke-width="7" stroke-linecap="round"/>
-  <circle cx="110" cy="39" r="9" fill="#22d3ee"/>
-  <circle cx="32" cy="173" r="9" fill="#818cf8"/>
-  <circle cx="188" cy="173" r="9" fill="#818cf8"/>
+  <path d="M18 20 C 38 38, 42 54, 50 78" fill="none" stroke="#1f8fc4" stroke-width="8" stroke-linecap="round"/>
+  <path d="M50 14 C 50 38, 50 54, 50 78" fill="none" stroke="url(#fav)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M82 20 C 62 38, 58 54, 50 78" fill="none" stroke="#3fd0e8" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="18" cy="20" r="6.5" fill="#1f8fc4"/>
+  <circle cx="50" cy="14" r="6.5" fill="#2bb4dd"/>
+  <circle cx="82" cy="20" r="6.5" fill="#3fd0e8"/>
+  <circle cx="50" cy="80" r="9" fill="url(#fav)"/>
 </svg>
