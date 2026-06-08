@@ -1,11 +1,12 @@
 // apps/web/src/app/dashboard/layout.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Toaster } from '@/components/ui/toaster';
 import { RealtimeNotificationProvider } from '@/components/realtime/RealtimeNotificationProvider';
@@ -16,269 +17,432 @@ import { NotificationListener } from '@/components/notifications/NotificationLis
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getAvatarUrl } from '@/lib/utils/avatar';
 import { useT } from '@/lib/i18n';
-import { useProjectStore } from '@/stores/projectStore';
-import { useTeamStore } from '@/stores/teamStore';
 import CommandPalette from '@/components/CommandPalette';
 import OnboardingCompanion from '@/components/OnboardingCompanion';
+import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
+import CreateBoardModal from '@/components/CreateBoardModal';
+import CreateProjectModal from '@/components/CreateProjectModal';
+import { socketService } from '@/services/socketService';
 import { C } from '@/lib/colors';
 
-// ── Color tokens exactos del diseño ────────────────────────────────────────────
+const SIDEBAR_W = 260;
+const UI_FONT = "-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif";
 
 function getInitials(name: string) {
-  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 }
 
-const WS_VISIBLE = 3;
+// ── Workspace Dropdown ─────────────────────────────────────────────────────────
 
-function WorkspacesSection({
+function WorkspaceDropdown({
   workspaces,
-  router,
-  wsColors,
-  t,
+  activeWorkspaceId,
+  onSelect,
+  onCreateNew,
 }: {
   workspaces: any[];
-  router: ReturnType<typeof useRouter>;
-  wsColors: string[];
-  t: any;
+  activeWorkspaceId: string | null;
+  onSelect: (id: string) => void;
+  onCreateNew: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? workspaces : workspaces.slice(0, WS_VISIBLE);
-  const hidden = workspaces.length - WS_VISIBLE;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
 
   return (
-    <div className="mb-3">
-      <div
-        className="flex items-center justify-between px-2 pb-1.5 font-mono text-[10px] uppercase tracking-[0.08em]"
-        style={{ color: C.text4 }}
+    <div ref={ref} style={{ position: 'relative', padding: '10px 10px 8px', borderBottom: `1px solid ${C.border}` }}>
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+          padding: '8px 10px', borderRadius: '8px',
+          background: open ? C.hover : 'transparent',
+          border: `1px solid ${open ? C.border2 : 'transparent'}`,
+          cursor: 'pointer', textAlign: 'left',
+          transition: 'background 0.12s, border-color 0.12s',
+          fontFamily: UI_FONT,
+        }}
+        onMouseEnter={(e) => { if (!open) { e.currentTarget.style.background = C.hover; e.currentTarget.style.borderColor = C.border; } }}
+        onMouseLeave={(e) => { if (!open) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; } }}
       >
-        <span>{t.nav_workspaces}</span>
-        <button
-          onClick={() => router.push('/dashboard/workspaces')}
-          className="flex items-center justify-center rounded-[3px] transition-colors"
-          style={{ width: '16px', height: '16px', color: C.text3 }}
-          onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-          onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
-        >
-          +
-        </button>
-      </div>
-
-      {workspaces.length === 0 ? (
-        <div
-          className="px-2 py-1.5 text-[12px] rounded-[5px] cursor-pointer transition-colors"
-          style={{ color: C.text3 }}
-          onClick={() => router.push('/dashboard/workspaces')}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text2; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.text3; }}
-        >
-          {t.dashboard_btn_create_workspace}
+        {/* Workspace color block */}
+        <div style={{
+          width: '30px', height: '30px', borderRadius: '7px', flexShrink: 0,
+          background: active?.color || '#38b6ff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '14px', fontWeight: 700, color: '#fff',
+        }}>
+          {active ? (active.name[0]?.toUpperCase() ?? '?') : '?'}
         </div>
-      ) : (
-        <>
-          {visible.map((ws, i) => (
-            <Link key={ws.id} href={`/dashboard/workspaces/${ws.id}`}>
-              <div
-                className="flex items-center gap-2 px-2 py-[5px] rounded-[5px] cursor-pointer transition-colors text-[13px]"
-                style={{ color: C.text2 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.text2; }}
-              >
-                <span
-                  className="flex-shrink-0 rounded-[3px]"
-                  style={{ width: '10px', height: '10px', background: ws.color || wsColors[i % wsColors.length] }}
-                />
-                <span className="truncate flex-1">{ws.name}</span>
-              </div>
-            </Link>
-          ))}
 
-          {/* Expand / collapse toggle */}
-          {hidden > 0 && (
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="flex items-center gap-1.5 px-2 py-[5px] w-full rounded-[5px] transition-colors text-[12px]"
-              style={{ color: C.text4 }}
-              onMouseEnter={(e) => { (e.currentTarget.style.color = C.text2); }}
-              onMouseLeave={(e) => { (e.currentTarget.style.color = C.text4); }}
-            >
-              <svg
-                viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"
-                width="9" height="9"
-                style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
-              >
-                <path d="M2 3.5l3 3 3-3" />
-              </svg>
-              {expanded ? t.sidebar_show_less : `${hidden} ${t.sidebar_more_suffix}`}
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-const PROJ_VISIBLE = 3;
-
-function ProjectsSection({ router, pathname, t }: { router: ReturnType<typeof useRouter>; pathname: string | null; t: any }) {
-  const { projects, fetchProjects } = useProjectStore();
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => { fetchProjects(); }, [fetchProjects]);
-
-  const active = projects.filter((p) => p.status === 'ACTIVE' || p.status === 'PLANNING');
-  const visible = expanded ? active : active.slice(0, PROJ_VISIBLE);
-  const hidden = active.length - PROJ_VISIBLE;
-
-  return (
-    <div className="mb-3">
-      <div
-        className="flex items-center justify-between px-2 pb-1.5 font-mono text-[10px] uppercase tracking-[0.08em]"
-        style={{ color: C.text4 }}
-      >
-        <span>{t.projects_title}</span>
-        <button
-          onClick={() => router.push('/dashboard/projects')}
-          className="flex items-center justify-center rounded-[3px] transition-colors"
-          style={{ width: '16px', height: '16px', color: C.text3 }}
-          onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-          onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
-        >
-          +
-        </button>
-      </div>
-
-      {active.length === 0 ? (
-        <div
-          className="px-2 py-1.5 text-[12px] rounded-[5px] cursor-pointer transition-colors"
-          style={{ color: C.text3 }}
-          onClick={() => router.push('/dashboard/projects')}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text2; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.text3; }}
-        >
-          {t.projects_btn_create}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '13.5px', fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
+            {active?.name ?? 'Select workspace'}
+          </div>
+          <div style={{ fontSize: '11px', color: C.text4, lineHeight: 1.3 }}>
+            {active?.memberCount !== undefined
+              ? `${active.memberCount} member${active.memberCount !== 1 ? 's' : ''}`
+              : 'No workspace'}
+          </div>
         </div>
-      ) : (
-        <>
-          {visible.map((proj) => {
-            const isActive = pathname?.startsWith(`/dashboard/projects/${proj.id}`);
-            return (
-              <Link key={proj.id} href={`/dashboard/projects/${proj.id}`}>
-                <div
-                  className="flex items-center gap-2 px-2 py-[5px] rounded-[5px] cursor-pointer transition-colors text-[13px]"
-                  style={{ color: isActive ? C.text : C.text2, background: isActive ? C.hover : 'transparent' }}
-                  onMouseEnter={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text; } }}
-                  onMouseLeave={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.text2; } }}
+
+        {/* Chevron */}
+        <svg
+          viewBox="0 0 12 12" fill="none" stroke={C.text4} strokeWidth="1.5"
+          width="11" height="11"
+          style={{ flexShrink: 0, transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}
+        >
+          <path d="M2 4.5l4 4 4-4" />
+        </svg>
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 2px)', left: '10px', right: '10px',
+          background: C.surface, border: `1px solid ${C.border2}`,
+          borderRadius: '10px', zIndex: 200,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+          overflow: 'hidden', fontFamily: UI_FONT,
+        }}>
+          <div style={{ padding: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+            {workspaces.filter((w) => !w.archived).map((ws) => {
+              const isActive = ws.id === activeWorkspaceId;
+              return (
+                <button
+                  key={ws.id}
+                  onClick={() => { onSelect(ws.id); setOpen(false); }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+                    padding: '8px 10px', borderRadius: '7px',
+                    background: isActive ? C.hover : 'transparent',
+                    border: 'none', cursor: 'pointer', textAlign: 'left',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = C.hover; }}
+                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <span
-                    className="flex-shrink-0 rounded-[3px]"
-                    style={{ width: '10px', height: '10px', background: proj.color ?? '#3b82f6' }}
-                  />
-                  <span className="truncate flex-1">{proj.name}</span>
-                </div>
-              </Link>
-            );
-          })}
-          {hidden > 0 && (
+                  <div style={{
+                    width: '26px', height: '26px', borderRadius: '6px', flexShrink: 0,
+                    background: ws.color || '#38b6ff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '12px', fontWeight: 700, color: '#fff',
+                  }}>
+                    {ws.name[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <span style={{ flex: 1, fontSize: '13px', fontWeight: isActive ? 600 : 400, color: isActive ? C.text : C.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {ws.name}
+                  </span>
+                  {isActive && (
+                    <svg viewBox="0 0 12 12" fill="none" stroke={C.accent} strokeWidth="2" width="11" height="11" style={{ flexShrink: 0 }}>
+                      <path d="M2 6l3 3 5-5" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: '6px' }}>
             <button
-              onClick={() => setExpanded((v) => !v)}
-              className="flex items-center gap-1.5 px-2 py-[5px] w-full rounded-[5px] transition-colors text-[12px]"
-              style={{ color: C.text4 }}
-              onMouseEnter={(e) => { (e.currentTarget.style.color = C.text2); }}
-              onMouseLeave={(e) => { (e.currentTarget.style.color = C.text4); }}
+              onClick={() => { setOpen(false); onCreateNew(); }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '7px 10px', borderRadius: '6px',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                fontSize: '12.5px', color: C.text3, transition: 'background 0.1s, color 0.1s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.text3; }}
             >
-              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" width="9" height="9"
-                style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-                <path d="M2 3.5l3 3 3-3" />
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" width="12" height="12">
+                <path d="M6 1v10M1 6h10" />
               </svg>
-              {expanded ? t.sidebar_show_less : `${hidden} ${t.sidebar_more_suffix}`}
+              New workspace
             </button>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-const TEAM_VISIBLE = 3;
+// ── Nav Item ──────────────────────────────────────────────────────────────────
 
-function TeamsSection({ router, pathname, t }: { router: ReturnType<typeof useRouter>; pathname: string | null; t: any }) {
-  const { teams, fetchTeams } = useTeamStore();
-  const [expanded, setExpanded] = useState(false);
+function NavItem({
+  href,
+  label,
+  icon,
+  active,
+  badge,
+  onClick,
+}: {
+  href?: string;
+  label: string;
+  icon: React.ReactNode;
+  active?: boolean;
+  badge?: number;
+  onClick?: () => void;
+}) {
+  const inner = (
+    <div
+      role="button"
+      style={{
+        position: 'relative',
+        display: 'flex', alignItems: 'center', gap: '9px',
+        padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
+        background: active ? C.hover : 'transparent',
+        color: active ? C.text : C.text2,
+        fontSize: '13.5px', fontFamily: UI_FONT,
+        transition: 'background 0.1s, color 0.1s',
+      }}
+      onMouseEnter={(e) => { if (!active) { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text; } }}
+      onMouseLeave={(e) => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.text2; } }}
+    >
+      {active && (
+        <div style={{
+          position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+          width: '2px', height: '16px', borderRadius: '0 2px 2px 0',
+          background: `linear-gradient(180deg, ${C.accent}, ${C.green})`,
+        }} />
+      )}
+      <span style={{ color: active ? C.accent : C.text3, display: 'flex', flexShrink: 0 }}>{icon}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span style={{
+          fontSize: '10px', fontWeight: 700, padding: '1px 5px', borderRadius: '8px',
+          background: C.accent + '22', color: C.accent, border: `1px solid ${C.accent}44`,
+          lineHeight: '16px', flexShrink: 0,
+        }}>
+          {badge}
+        </span>
+      )}
+    </div>
+  );
 
-  useEffect(() => { fetchTeams(); }, [fetchTeams]);
+  if (href) {
+    return (
+      <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>
+        {inner}
+      </Link>
+    );
+  }
+  return <div onClick={onClick} style={{ display: 'block' }}>{inner}</div>;
+}
 
-  const visible = expanded ? teams : teams.slice(0, TEAM_VISIBLE);
-  const hidden = teams.length - TEAM_VISIBLE;
+// ── Section Header ─────────────────────────────────────────────────────────────
+
+function SectionHeader({
+  label,
+  action,
+  onAction,
+  actionTitle,
+}: {
+  label: string;
+  action?: boolean;
+  onAction?: () => void;
+  actionTitle?: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 10px 4px', fontFamily: UI_FONT }}>
+      <span style={{ fontSize: '10.5px', fontWeight: 600, color: C.text4, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+        {label}
+      </span>
+      {action && onAction && (
+        <button
+          onClick={onAction}
+          title={actionTitle}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '16px', height: '16px', borderRadius: '3px', background: 'none', border: 'none', cursor: 'pointer', color: C.text4, transition: 'background 0.1s, color 0.1s', flexShrink: 0 }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text2; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text4; }}
+        >
+          <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" width="9" height="9">
+            <path d="M5 1v8M1 5h8" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Expandable Item List ───────────────────────────────────────────────────────
+
+function ExpandableSection({
+  label,
+  items,
+  loading,
+  empty,
+  onAdd,
+  addTitle,
+  children,
+}: {
+  label: string;
+  items: any[];
+  loading?: boolean;
+  empty?: React.ReactNode;
+  onAdd?: () => void;
+  addTitle?: string;
+  children: (items: any[]) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
 
   return (
-    <div className="mb-3">
-      <div
-        className="flex items-center justify-between px-2 pb-1.5 font-mono text-[10px] uppercase tracking-[0.08em]"
-        style={{ color: C.text4 }}
-      >
-        <span>{t.teams_title}</span>
+    <div style={{ marginBottom: '2px', fontFamily: UI_FONT }}>
+      {/* Section toggle row */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '4px 8px 2px', gap: '2px' }}>
         <button
-          onClick={() => router.push('/dashboard/teams')}
-          className="flex items-center justify-center rounded-[3px] transition-colors"
-          style={{ width: '16px', height: '16px', color: C.text3 }}
-          onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-          onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
+          onClick={() => setOpen((v) => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', minWidth: 0 }}
         >
-          +
+          <svg
+            viewBox="0 0 10 10" fill="none" stroke={C.text4} strokeWidth="1.5"
+            width="8" height="8"
+            style={{ flexShrink: 0, transition: 'transform 0.15s', transform: open ? 'rotate(90deg)' : 'none' }}
+          >
+            <path d="M3 2l4 3-4 3" />
+          </svg>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: C.text4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            {label}
+          </span>
         </button>
+        {onAdd && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onAdd(); }}
+            title={addTitle}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '16px', height: '16px', borderRadius: '3px', background: 'none', border: 'none', cursor: 'pointer', color: C.text4, transition: 'background 0.1s, color 0.1s', flexShrink: 0 }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text2; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text4; }}
+          >
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" width="9" height="9">
+              <path d="M5 1v8M1 5h8" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      {teams.length === 0 ? (
-        <div
-          className="px-2 py-1.5 text-[12px] rounded-[5px] cursor-pointer transition-colors"
-          style={{ color: C.text3 }}
-          onClick={() => router.push('/dashboard/teams')}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text2; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.text3; }}
-        >
-          {t.teams_btn_create}
-        </div>
-      ) : (
-        <>
-          {visible.map((team) => {
-            const isActive = pathname?.startsWith(`/dashboard/teams/${team.id}`);
-            return (
-              <Link key={team.id} href={`/dashboard/teams/${team.id}`}>
-                <div
-                  className="flex items-center gap-2 px-2 py-[5px] rounded-[5px] cursor-pointer transition-colors text-[13px]"
-                  style={{ color: isActive ? C.text : C.text2, background: isActive ? C.hover : 'transparent' }}
-                  onMouseEnter={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text; } }}
-                  onMouseLeave={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.text2; } }}
-                >
-                  <span
-                    className="flex-shrink-0 rounded-[3px]"
-                    style={{ width: '10px', height: '10px', background: team.color ?? '#3b82f6' }}
-                  />
-                  <span className="truncate flex-1">{team.name}</span>
-                </div>
-              </Link>
-            );
-          })}
-          {hidden > 0 && (
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="flex items-center gap-1.5 px-2 py-[5px] w-full rounded-[5px] transition-colors text-[12px]"
-              style={{ color: C.text4 }}
-              onMouseEnter={(e) => { (e.currentTarget.style.color = C.text2); }}
-              onMouseLeave={(e) => { (e.currentTarget.style.color = C.text4); }}
-            >
-              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" width="9" height="9"
-                style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-                <path d="M2 3.5l3 3 3-3" />
-              </svg>
-              {expanded ? t.sidebar_show_less : `${hidden} ${t.sidebar_more_suffix}`}
-            </button>
+      {open && (
+        <div>
+          {loading && (
+            <div style={{ padding: '4px 20px 4px 22px', fontSize: '11.5px', color: C.text4 }}>
+              Loading…
+            </div>
           )}
-        </>
+          {!loading && items.length === 0 && empty}
+          {!loading && children(items)}
+        </div>
       )}
     </div>
   );
 }
+
+// ── Board Item ─────────────────────────────────────────────────────────────────
+
+function BoardItem({
+  board,
+  workspaceId,
+  pathname,
+  router,
+}: {
+  board: any;
+  workspaceId: string;
+  pathname: string | null;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const path = `/dashboard/workspaces/${workspaceId}/boards/${board.id}`;
+  const isActive = pathname === path;
+  const color = board.color || '#38b6ff';
+
+  return (
+    <div
+      onClick={() => router.push(path)}
+      style={{
+        position: 'relative',
+        display: 'flex', alignItems: 'center', gap: '8px',
+        padding: '5px 8px 5px 22px', borderRadius: '5px', cursor: 'pointer',
+        background: isActive ? C.hover : 'transparent',
+        color: isActive ? C.text : C.text2,
+        transition: 'background 0.1s, color 0.1s',
+        fontFamily: UI_FONT,
+      }}
+      onMouseEnter={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text; } }}
+      onMouseLeave={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.text2; } }}
+    >
+      {isActive && (
+        <div style={{
+          position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+          width: '2px', height: '14px', borderRadius: '0 2px 2px 0',
+          background: `linear-gradient(180deg, ${C.accent}, ${C.green})`,
+        }} />
+      )}
+      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>
+        {board.name}
+      </span>
+    </div>
+  );
+}
+
+// ── Project Item ───────────────────────────────────────────────────────────────
+
+function ProjectItem({
+  project,
+  pathname,
+  router,
+}: {
+  project: any;
+  pathname: string | null;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const path = `/dashboard/projects/${project.id}`;
+  const isActive = pathname?.startsWith(path) ?? false;
+  const color = project.color || '#3b82f6';
+
+  return (
+    <div
+      onClick={() => router.push(path)}
+      style={{
+        position: 'relative',
+        display: 'flex', alignItems: 'center', gap: '8px',
+        padding: '5px 8px 5px 22px', borderRadius: '5px', cursor: 'pointer',
+        background: isActive ? C.hover : 'transparent',
+        color: isActive ? C.text : C.text2,
+        transition: 'background 0.1s, color 0.1s',
+        fontFamily: UI_FONT,
+      }}
+      onMouseEnter={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text; } }}
+      onMouseLeave={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.text2; } }}
+    >
+      {isActive && (
+        <div style={{
+          position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+          width: '2px', height: '14px', borderRadius: '0 2px 2px 0',
+          background: `linear-gradient(180deg, ${C.accent}, ${C.green})`,
+        }} />
+      )}
+      <span style={{ width: '6px', height: '6px', borderRadius: '2px', background: color, flexShrink: 0 }} />
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>
+        {project.name}
+      </span>
+    </div>
+  );
+}
+
+// ── Sidebar Content ────────────────────────────────────────────────────────────
 
 function SidebarContent({
   pathname,
@@ -289,6 +453,15 @@ function SidebarContent({
   t,
   onLogout,
   onOpenSearch,
+  activeWorkspaceId,
+  onSelectWorkspace,
+  onCreateWorkspace,
+  onCreateBoard,
+  onCreateProject,
+  sidebarBoards,
+  sidebarProjects,
+  boardsLoading,
+  projectsLoading,
 }: {
   pathname: string | null;
   router: ReturnType<typeof useRouter>;
@@ -298,190 +471,250 @@ function SidebarContent({
   t: any;
   onLogout: () => void;
   onOpenSearch: () => void;
+  activeWorkspaceId: string | null;
+  onSelectWorkspace: (id: string) => void;
+  onCreateWorkspace: () => void;
+  onCreateBoard: () => void;
+  onCreateProject: () => void;
+  sidebarBoards: any[];
+  sidebarProjects: any[];
+  boardsLoading: boolean;
+  projectsLoading: boolean;
 }) {
+  const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
+  const activeWs = workspaces.find((w) => w.id === activeWorkspaceId);
+
   const mainNav = [
     {
-      label: 'Dashboard',
+      label: 'Home',
       href: '/dashboard',
       active: pathname === '/dashboard',
-      icon: (
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-          <path d="M2 8L8 2l6 6v6H2V8z" /><path d="M6 14v-4h4v4" />
-        </svg>
-      ),
-    },
-    {
-      label: t.nav_workspaces,
-      href: '/dashboard/workspaces',
-      active: pathname?.startsWith('/dashboard/workspaces'),
-      icon: (
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-          <rect x="2" y="3" width="12" height="10" rx="1" /><path d="M5 3v10M10 3v10" />
-        </svg>
-      ),
+      icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" {...ic(15)}><path d="M2 8L8 2l6 6v6H2V8z" /><path d="M6 14v-4h4v4" /></svg>,
     },
     {
       label: t.nav_calendar,
       href: '/dashboard/calendar',
       active: pathname?.startsWith('/dashboard/calendar'),
-      icon: (
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-          <rect x="2" y="3" width="12" height="11" rx="1" />
-          <path d="M5 1v3M11 1v3M2 7h12" />
-        </svg>
-      ),
+      icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" {...ic(15)}><rect x="2" y="3" width="12" height="11" rx="1" /><path d="M5 1v3M11 1v3M2 7h12" /></svg>,
     },
     {
-      label: t.nav_inbox,
-      href: '/dashboard/users',
-      active: pathname?.startsWith('/dashboard/users'),
-      icon: (
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-          <path d="M2 3h12v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" /><path d="M2 9h3l1.5 2h3L11 9h3" />
-        </svg>
-      ),
+      label: t.nav_inbox || 'Notifications',
+      href: '/dashboard/notifications',
+      active: pathname?.startsWith('/dashboard/notifications'),
+      icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" {...ic(15)}><path d="M8 2a5 5 0 0 1 5 5v3l1 2H2l1-2V7a5 5 0 0 1 5-5zM6.5 13a1.5 1.5 0 0 0 3 0" /></svg>,
     },
   ];
 
-  const wsColors = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#fb923c'];
+  const activeBoards = sidebarBoards;
+  const activeProjects = sidebarProjects.filter(
+    (p) => p.status === 'ACTIVE' || p.status === 'PLANNING'
+  );
 
   return (
-    <>
-      {/* Workspace switcher + search */}
-      <div style={{ padding: '10px 10px 10px', borderBottom: `1px solid ${C.border}` }}>
-        <Link href="/">
-          <div
-            className="flex items-center justify-center gap-2.5 px-4 py-2 rounded-md cursor-pointer transition-colors"
-            style={{ color: C.text }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            <svg width="20" height="20" viewBox="0 0 220 220" fill="none" aria-label="Aether logo" style={{ flexShrink: 0 }}>
-              <path d="M110 39L32 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
-              <path d="M110 39L188 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
-              <path d="M66 122L154 122" stroke="#00e5cc" strokeWidth="7" strokeLinecap="round" />
-              <circle cx="110" cy="39" r="9" fill="#38b6ff" />
-              <circle cx="32" cy="173" r="9" fill="#38b6ff" />
-              <circle cx="188" cy="173" r="9" fill="#00e5cc" />
-            </svg>
-          </div>
-        </Link>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', fontFamily: UI_FONT }}>
 
-        {/* Search trigger */}
-        <div
-          className="flex items-center gap-2 px-2.5 rounded-md cursor-pointer transition-all mt-1.5"
-          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text3, height: '32px' }}
-          onClick={onOpenSearch}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = C.hover;
-            (e.currentTarget as HTMLElement).style.borderColor = C.border2;
-            (e.currentTarget as HTMLElement).style.color = C.text2;
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = C.surface;
-            (e.currentTarget as HTMLElement).style.borderColor = C.border;
-            (e.currentTarget as HTMLElement).style.color = C.text3;
-          }}
-        >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="13" height="13" style={{ flexShrink: 0 }}>
-            <circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" />
+      {/* ── Logo ─────────────────────────────────────────────────────────── */}
+      <div style={{ padding: '12px 14px 10px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '9px', flexShrink: 0 }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none' }}>
+          <svg width="22" height="22" viewBox="0 0 220 220" fill="none" aria-label="Aether logo" style={{ flexShrink: 0 }}>
+            <path d="M110 39L32 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
+            <path d="M110 39L188 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
+            <path d="M66 122L154 122" stroke="#00e5cc" strokeWidth="7" strokeLinecap="round" />
+            <circle cx="110" cy="39" r="9" fill="#38b6ff" />
+            <circle cx="32" cy="173" r="9" fill="#38b6ff" />
+            <circle cx="188" cy="173" r="9" fill="#00e5cc" />
           </svg>
-          <span className="flex-1" />
-          <span
-            className="font-mono text-[10.5px] px-[5px] py-[1px] rounded-[3px] flex-shrink-0"
-            style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text3 }}
-          >
-            ⌘K
-          </span>
+          <span style={{ fontSize: '16px', fontWeight: 700, color: C.text, letterSpacing: '-0.2px' }}>Aether</span>
+        </Link>
+      </div>
+
+      {/* ── Workspace Dropdown ───────────────────────────────────────────── */}
+      <WorkspaceDropdown
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onSelect={onSelectWorkspace}
+        onCreateNew={onCreateWorkspace}
+      />
+
+      {/* ── Search ──────────────────────────────────────────────────────── */}
+      <div style={{ padding: '8px 10px', flexShrink: 0 }}>
+        <div
+          onClick={onOpenSearch}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '7px',
+            padding: '7px 10px', borderRadius: '7px', cursor: 'pointer',
+            background: C.surface, border: `1px solid ${C.border}`,
+            color: C.text3, fontSize: '12.5px',
+            transition: 'border-color 0.1s, background 0.1s',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border2; (e.currentTarget as HTMLElement).style.background = C.hover; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.background = C.surface; }}
+        >
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12"><circle cx="6" cy="6" r="4" /><path d="M10 10l2.5 2.5" /></svg>
+          <span style={{ flex: 1 }}>Search...</span>
+          <span style={{ fontSize: '10.5px', padding: '1px 5px', borderRadius: '3px', background: C.bg, border: `1px solid ${C.border2}`, color: C.text3 }}>⌘K</span>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto" style={{ padding: '10px 8px' }}>
-        {/* Main group */}
-        <div className="mb-3">
+      {/* ── Scrollable nav ──────────────────────────────────────────────── */}
+      <nav style={{ flex: 1, overflowY: 'auto', padding: '2px 8px 8px' }}>
+
+        {/* Main navigation */}
+        <div style={{ marginBottom: '6px' }}>
           {mainNav.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <div
-                className="relative flex items-center gap-2 px-2 py-[5px] rounded-[5px] cursor-pointer transition-colors text-[13px]"
-                style={{ color: item.active ? C.text : C.text2, background: item.active ? C.hover : 'transparent' }}
-                onMouseEnter={(e) => { if (!item.active) (e.currentTarget as HTMLElement).style.background = C.hover; if (!item.active) (e.currentTarget as HTMLElement).style.color = C.text; }}
-                onMouseLeave={(e) => { if (!item.active) (e.currentTarget as HTMLElement).style.background = 'transparent'; if (!item.active) (e.currentTarget as HTMLElement).style.color = C.text2; }}
-              >
-                {item.active && (
-                  <div
-                    className="absolute rounded-[2px]"
-                    style={{ left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '2px', height: '16px', background: 'linear-gradient(180deg, #38b6ff, #00e5cc)' }}
-                  />
-                )}
-                <span style={{ color: item.active ? C.text : C.text3 }}>{item.icon}</span>
-                <span className="flex-1">{item.label}</span>
-                {(item as any).badge && (
-                  <span
-                    className="text-[9px] font-bold px-[5px] py-[1px] rounded-[3px] tracking-wider"
-                    style={{ background: C.accent + '22', color: C.accent, border: `1px solid ${C.accent}44` }}
-                  >
-                    {(item as any).badge}
-                  </span>
-                )}
-              </div>
-            </Link>
+            <NavItem
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              icon={item.icon}
+              active={!!item.active}
+            />
           ))}
         </div>
 
-        {/* Workspaces group */}
-        <WorkspacesSection workspaces={workspaces} router={router} wsColors={wsColors} t={t} />
-
-        {/* Proyectos group */}
-        <ProjectsSection router={router} pathname={pathname} t={t} />
-
-        {/* Equipos group */}
-        <TeamsSection router={router} pathname={pathname} t={t} />
-
-        {/* Settings */}
-        <div>
-          <div className="flex items-center justify-between px-2 pb-1.5 font-mono text-[10px] uppercase tracking-[0.08em]" style={{ color: C.text4 }}>
-            <span>{t.nav_settings}</span>
-          </div>
-          <Link href="/dashboard/settings">
-            <div
-              className="flex items-center gap-2 px-2 py-[5px] rounded-[5px] cursor-pointer transition-colors text-[13px]"
-              style={{ color: C.text2 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.text2; }}
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14" style={{ color: C.text3 }}>
-                <circle cx="8" cy="8" r="2" /><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.5 1.5M11 11l1.5 1.5M3.5 12.5L5 11M11 5l1.5-1.5" />
-              </svg>
-              {t.nav_settings}
+        {/* Workspace context section */}
+        {activeWorkspaceId && (
+          <>
+            {/* Divider + workspace label */}
+            <div style={{ height: '1px', background: C.border, margin: '6px 2px 4px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 10px 6px', fontFamily: UI_FONT }}>
+              <span style={{ fontSize: '10.5px', fontWeight: 600, color: C.text4, letterSpacing: '0.07em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                {activeWs?.name ?? 'Workspace'}
+              </span>
+              <button
+                onClick={() => router.push(`/dashboard/workspaces/${activeWorkspaceId}`)}
+                style={{ fontSize: '10px', color: C.text4, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, transition: 'color 0.1s', marginLeft: '8px' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = C.accent)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+              >
+                overview
+              </button>
             </div>
-          </Link>
-        </div>
+
+            {/* Docs */}
+            <NavItem
+              href={`/dashboard/workspaces/${activeWorkspaceId}/documents`}
+              label="Docs"
+              active={!!pathname?.startsWith(`/dashboard/workspaces/${activeWorkspaceId}/documents`)}
+              icon={<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" {...ic(15)}><path d="M10 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6z" /><path d="M10 2v4h4" /></svg>}
+            />
+
+            {/* Tasks / Boards — expandable */}
+            <ExpandableSection
+              label="Tasks"
+              items={activeBoards}
+              loading={boardsLoading}
+              onAdd={onCreateBoard}
+              addTitle="New board"
+              empty={
+                <div
+                  onClick={onCreateBoard}
+                  style={{ padding: '4px 22px', fontSize: '12px', color: C.text4, cursor: 'pointer', fontFamily: UI_FONT, transition: 'color 0.1s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+                >
+                  + New board
+                </div>
+              }
+            >
+              {(boards) =>
+                boards.map((b) => (
+                  <BoardItem
+                    key={b.id}
+                    board={b}
+                    workspaceId={activeWorkspaceId}
+                    pathname={pathname}
+                    router={router}
+                  />
+                ))
+              }
+            </ExpandableSection>
+
+            {/* Projects — expandable */}
+            <ExpandableSection
+              label="Projects"
+              items={activeProjects}
+              loading={projectsLoading}
+              onAdd={onCreateProject}
+              addTitle="New project"
+              empty={
+                <div
+                  onClick={onCreateProject}
+                  style={{ padding: '4px 22px', fontSize: '12px', color: C.text4, cursor: 'pointer', fontFamily: UI_FONT, transition: 'color 0.1s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+                >
+                  + New project
+                </div>
+              }
+            >
+              {(projects) =>
+                projects.map((p) => (
+                  <ProjectItem
+                    key={p.id}
+                    project={p}
+                    pathname={pathname}
+                    router={router}
+                  />
+                ))
+              }
+            </ExpandableSection>
+
+            {/* Activity */}
+            <NavItem
+              href={`/dashboard/workspaces/${activeWorkspaceId}?tab=activity`}
+              label="Activity"
+              active={pathname === `/dashboard/workspaces/${activeWorkspaceId}` && false}
+              icon={<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" {...ic(15)}><path d="M1 8h2l2 5 4-10 2 5h4" /></svg>}
+            />
+
+            {/* Members */}
+            <NavItem
+              href={`/dashboard/workspaces/${activeWorkspaceId}?tab=members`}
+              label="Members"
+              active={false}
+              icon={<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" {...ic(15)}><circle cx="6" cy="5" r="2.5" /><path d="M1 14a5 5 0 0 1 10 0" /><circle cx="12.5" cy="5.5" r="2" /><path d="M14.5 14a3.5 3.5 0 0 0-3.5-3.5" /></svg>}
+            />
+          </>
+        )}
+
+        {/* Global section */}
+        <div style={{ height: '1px', background: C.border, margin: '8px 2px' }} />
+
+        <NavItem
+          href="/dashboard/teams"
+          label={t.teams_title || 'Teams'}
+          active={!!pathname?.startsWith('/dashboard/teams')}
+          icon={<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" {...ic(15)}><rect x="2" y="3" width="12" height="10" rx="1" /><path d="M5 3v10M10 3v10" /></svg>}
+        />
+        <NavItem
+          href="/dashboard/settings"
+          label={t.nav_settings}
+          active={!!pathname?.startsWith('/dashboard/settings')}
+          icon={<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" {...ic(15)}><circle cx="8" cy="8" r="2" /><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.5 1.5M11 11l1.5 1.5M3.5 12.5L5 11M11 5l1.5-1.5" /></svg>}
+        />
       </nav>
 
-      {/* User */}
-      <div
-        className="flex items-center gap-2.5 flex-shrink-0"
-        style={{ padding: '10px 12px', borderTop: `1px solid ${C.border}` }}
-      >
-        <Link href="/dashboard/profile" className="flex items-center gap-2.5 flex-1 min-w-0 group">
-          <Avatar className="w-[26px] h-[26px] flex-shrink-0">
+      {/* ── User footer ──────────────────────────────────────────────────── */}
+      <div style={{ padding: '10px 12px', borderTop: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '9px', flexShrink: 0 }}>
+        <Link href="/dashboard/profile" style={{ display: 'flex', alignItems: 'center', gap: '9px', flex: 1, minWidth: 0, textDecoration: 'none' }}>
+          <Avatar style={{ width: '28px', height: '28px', flexShrink: 0 }}>
             {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt={user?.name || ''} crossOrigin="anonymous" />}
             <AvatarFallback
-              className="text-[11px] font-semibold text-white"
-              style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
+              style={{ fontSize: '11px', fontWeight: 600, color: '#fff', background: 'linear-gradient(135deg, #a855f7, #ec4899)', width: '28px', height: '28px' }}
             >
               {user && getInitials(user.name)}
             </AvatarFallback>
           </Avatar>
-          <span className="text-[12.5px] font-medium truncate flex-1 min-w-0" style={{ color: C.text }}>{user?.name}</span>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+            {user?.name}
+          </span>
         </Link>
         <button
           onClick={onLogout}
-          className="flex items-center justify-center rounded-[5px] flex-shrink-0 transition-colors"
-          style={{ width: '24px', height: '24px', color: C.text3 }}
-          onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-          onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '5px', background: 'none', border: 'none', cursor: 'pointer', color: C.text4, transition: 'background 0.1s, color 0.1s', flexShrink: 0 }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text4; }}
           title={t.nav_logout}
           data-testid="logout-button"
         >
@@ -490,24 +723,80 @@ function SidebarContent({
           </svg>
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Dashboard Layout ───────────────────────────────────────────────────────────
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const {
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    fetchSidebarBoards,
+    fetchSidebarProjects,
+    sidebarBoards,
+    sidebarProjects,
+    boardsLoading,
+    projectsLoading,
+  } = useActiveWorkspaceStore();
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [createWsOpen, setCreateWsOpen] = useState(false);
+  const [createBoardOpen, setCreateBoardOpen] = useState(false);
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
 
-  useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
+  const t = useT();
   const userAvatarUrl = getAvatarUrl(user?.avatar ?? null);
 
-  // ⌘K / Ctrl+K global shortcut
+  // Load workspaces on mount
+  useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
+
+  // Auto-select first workspace if none set
+  useEffect(() => {
+    if (workspaces.length > 0 && !activeWorkspaceId) {
+      setActiveWorkspaceId(workspaces[0].id);
+    }
+  }, [workspaces, activeWorkspaceId, setActiveWorkspaceId]);
+
+  // Sync active workspace from URL when navigating to workspace pages
+  useEffect(() => {
+    const match = pathname?.match(/\/dashboard\/workspaces\/([^\/\?]+)/);
+    if (match && match[1] !== activeWorkspaceId) {
+      setActiveWorkspaceId(match[1]);
+    }
+  }, [pathname, activeWorkspaceId, setActiveWorkspaceId]);
+
+  // Fetch sidebar data whenever active workspace changes
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    fetchSidebarBoards(activeWorkspaceId);
+    fetchSidebarProjects(activeWorkspaceId);
+  }, [activeWorkspaceId, fetchSidebarBoards, fetchSidebarProjects]);
+
+  // Keep sidebar in sync with real-time board/project events
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    const handler = (event: any) => {
+      const { type, payload } = event ?? {};
+      if (!payload?.workspaceId || payload.workspaceId !== activeWorkspaceId) return;
+      if (type === 'board.created' || type === 'board.archived' || type === 'board.deleted') {
+        fetchSidebarBoards(activeWorkspaceId);
+      }
+      if (type === 'project.created' || type === 'project.deleted' || type === 'project.updated') {
+        fetchSidebarProjects(activeWorkspaceId);
+      }
+    };
+    socketService.on('event', handler);
+    return () => socketService.off('event', handler);
+  }, [activeWorkspaceId, fetchSidebarBoards, fetchSidebarProjects]);
+
+  // ⌘K global shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -518,28 +807,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
-  const t = useT();
+
+  const handleSelectWorkspace = useCallback((id: string) => {
+    setActiveWorkspaceId(id);
+    router.push(`/dashboard/workspaces/${id}`);
+  }, [setActiveWorkspaceId, router]);
 
   const handleLogout = async () => {
     await logout();
     router.push('/login');
   };
 
-  // Breadcrumb label
-  const crumb = pathname?.startsWith('/dashboard/workspaces') ? t.nav_workspaces
+  // Breadcrumb
+  const activeWs = workspaces.find((w) => w.id === activeWorkspaceId);
+  const crumb =
+    pathname?.startsWith('/dashboard/workspaces') ? (activeWs?.name || t.nav_workspaces)
+    : pathname?.startsWith('/dashboard/projects') ? t.projects_title
+    : pathname?.startsWith('/dashboard/teams') ? (t.teams_title || 'Teams')
     : pathname?.startsWith('/dashboard/settings') ? t.nav_settings
     : pathname?.startsWith('/dashboard/profile') ? t.nav_profile
-    : pathname?.startsWith('/dashboard/users') ? t.nav_users
-    : pathname?.startsWith('/dashboard/notifications') ? t.nav_notifications
+    : pathname?.startsWith('/dashboard/notifications') ? t.nav_inbox || 'Notifications'
     : pathname?.startsWith('/dashboard/calendar') ? t.nav_calendar
     : t.nav_dashboard;
 
-  const sidebarProps = { pathname, router, user, workspaces, userAvatarUrl, t, onLogout: handleLogout, onOpenSearch: () => setSearchOpen(true) };
+  const sidebarProps = {
+    pathname, router, user, workspaces, userAvatarUrl, t,
+    onLogout: handleLogout,
+    onOpenSearch: () => setSearchOpen(true),
+    activeWorkspaceId,
+    onSelectWorkspace: handleSelectWorkspace,
+    onCreateWorkspace: () => setCreateWsOpen(true),
+    onCreateBoard: () => setCreateBoardOpen(true),
+    onCreateProject: () => setCreateProjectOpen(true),
+    sidebarBoards,
+    sidebarProjects,
+    boardsLoading,
+    projectsLoading,
+  };
 
   return (
     <ProtectedRoute>
       <SocketProvider>
-        <div className="flex" style={{ height: '100vh', overflow: 'hidden', background: C.bg, color: C.text }}>
+        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: C.bg, color: C.text }}>
 
           {/* Mobile overlay */}
           {isSidebarOpen && (
@@ -549,40 +858,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
           )}
 
-          {/* Sidebar — mobile: fixed overlay, desktop: flex item */}
+          {/* Sidebar */}
           <aside
-            className="fixed md:relative md:flex-shrink-0 flex flex-col z-30 transition-all duration-200"
+            className="fixed md:relative md:flex-shrink-0 z-30 transition-all duration-200"
             style={{
-              width: isSidebarOpen ? '220px' : '0',
-              minWidth: isSidebarOpen ? '220px' : '0',
+              width: isSidebarOpen ? `${SIDEBAR_W}px` : '0',
+              minWidth: isSidebarOpen ? `${SIDEBAR_W}px` : '0',
               height: '100%',
               background: C.bg2,
               borderRight: `1px solid ${C.border}`,
               overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            <div style={{ width: '220px', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+            <div style={{ width: `${SIDEBAR_W}px`, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
               <SidebarContent {...sidebarProps} />
             </div>
           </aside>
 
           {/* Main content */}
-          <div
-            className="flex flex-col min-w-0 flex-1 overflow-hidden transition-all duration-200"
-            style={{ marginLeft: isSidebarOpen ? '0' : '0' }}
-          >
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
+
             {/* Topbar */}
-            <header
-              className="flex items-center flex-shrink-0"
-              style={{ height: '44px', background: C.bg2, borderBottom: `1px solid ${C.border}`, padding: '0 16px', gap: '14px' }}
-            >
-              {/* Toggle sidebar */}
+            <header style={{
+              height: '44px', background: C.bg2,
+              borderBottom: `1px solid ${C.border}`,
+              padding: '0 16px', gap: '12px',
+              display: 'flex', alignItems: 'center', flexShrink: 0,
+              fontFamily: UI_FONT,
+            }}>
               <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="flex items-center justify-center rounded-[5px] transition-colors"
-                style={{ width: '28px', height: '28px', color: C.text3 }}
-                onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-                onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
+                onClick={() => setIsSidebarOpen((v) => !v)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '5px', color: C.text3, background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.1s, color 0.1s', flexShrink: 0 }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; }}
                 aria-label="Toggle sidebar"
               >
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
@@ -590,24 +900,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </svg>
               </button>
 
-              {/* Breadcrumbs */}
-              <div className="flex items-center gap-1.5 text-[13px]" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" }}>
-                <span style={{ color: '#38b6ff', cursor: 'pointer', opacity: 0.7 }} onClick={() => router.push('/dashboard')}>Aether</span>
-                <span style={{ color: C.text4 }}>/</span>
-                <span className="font-medium" style={{ color: C.text }}>{crumb}</span>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', flex: 1, minWidth: 0 }}>
+                <span
+                  style={{ color: '#38b6ff', cursor: 'pointer', opacity: 0.7, flexShrink: 0 }}
+                  onClick={() => router.push('/dashboard')}
+                >
+                  Aether
+                </span>
+                <span style={{ color: C.text4, flexShrink: 0 }}>/</span>
+                <span style={{ fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {crumb}
+                </span>
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1.5 ml-auto">
-                {/* Notifications */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                 <NotificationBell />
-
-                {/* Help / Onboarding */}
                 <button
-                  className="flex items-center justify-center rounded-[5px] transition-colors"
-                  style={{ width: '28px', height: '28px', color: C.text3 }}
-                  onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-                  onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '5px', color: C.text3, background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.1s, color 0.1s' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; }}
                   onClick={() => openGuide()}
                   title="Guía de inicio"
                 >
@@ -618,8 +931,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </header>
 
-            {/* Page content */}
-            <main className="flex-1 overflow-auto" style={{ background: C.bg }}>
+            {/* Page */}
+            <main style={{ flex: 1, overflow: 'auto', background: C.bg }}>
               {children}
             </main>
           </div>
@@ -630,6 +943,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <RealtimeNotificationProvider />
         <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
         <OnboardingCompanion />
+
+        {/* Workspace creation modal */}
+        <CreateWorkspaceModal
+          isOpen={createWsOpen}
+          onClose={() => setCreateWsOpen(false)}
+        />
+
+        {/* Board creation modal — only renders when workspace is active */}
+        {activeWorkspaceId && (
+          <CreateBoardModal
+            workspaceId={activeWorkspaceId}
+            isOpen={createBoardOpen}
+            onClose={() => setCreateBoardOpen(false)}
+            onSuccess={(boardId) => {
+              setCreateBoardOpen(false);
+              fetchSidebarBoards(activeWorkspaceId);
+              router.push(`/dashboard/workspaces/${activeWorkspaceId}/boards/${boardId}`);
+            }}
+          />
+        )}
+
+        {/* Project creation modal */}
+        {createProjectOpen && (
+          <CreateProjectModal
+            onClose={() => setCreateProjectOpen(false)}
+            defaultWorkspaceId={activeWorkspaceId ?? undefined}
+            onCreated={(project) => {
+              setCreateProjectOpen(false);
+              fetchSidebarProjects(activeWorkspaceId!);
+              router.push(`/dashboard/projects/${project.id}`);
+            }}
+          />
+        )}
       </SocketProvider>
     </ProtectedRoute>
   );
