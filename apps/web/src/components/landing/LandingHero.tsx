@@ -10,40 +10,49 @@ import { useT } from '@/lib/i18n';
 
 gsap.registerPlugin(ScrollTrigger);
 
-/* ── Network data ──────────────────────────────────────────────────────── */
+/* ── Network ─────────────────────────────────────────────────────────────
+   Topology: outer ring of 8 nodes + 2 inner satellites + 1 center.
+   Max 4 connections per node — no single hub dominates.
+   ──────────────────────────────────────────────────────────────────────── */
 
 const NODES = [
-  { id: 0,  cx: 260, cy: 170, r: 9,   color: '#38b6ff' }, // central hub
-  { id: 1,  cx: 88,  cy: 72,  r: 5.5, color: '#00e5cc' },
-  { id: 2,  cx: 260, cy: 42,  r: 5,   color: '#38b6ff' },
-  { id: 3,  cx: 428, cy: 72,  r: 4.5, color: '#a78bfa' },
-  { id: 4,  cx: 476, cy: 195, r: 6,   color: '#38b6ff' },
-  { id: 5,  cx: 404, cy: 312, r: 5,   color: '#00e5cc' },
-  { id: 6,  cx: 260, cy: 330, r: 5.5, color: '#a78bfa' },
-  { id: 7,  cx: 108, cy: 308, r: 4.5, color: '#38b6ff' },
-  { id: 8,  cx: 48,  cy: 200, r: 4,   color: '#00e5cc' },
-  { id: 9,  cx: 152, cy: 168, r: 5.5, color: '#38b6ff' },
-  { id: 10, cx: 368, cy: 162, r: 5.5, color: '#00e5cc' },
-  { id: 11, cx: 174, cy: 268, r: 4,   color: '#a78bfa' },
-  { id: 12, cx: 358, cy: 264, r: 4.5, color: '#38b6ff' },
+  // Outer ring (8 nodes — loose, organic, not a perfect circle)
+  { id: 0, cx: 90,  cy: 78,  r: 4,   color: '#00e5cc' },
+  { id: 1, cx: 268, cy: 50,  r: 5,   color: '#38b6ff' },
+  { id: 2, cx: 432, cy: 84,  r: 4,   color: '#a78bfa' },
+  { id: 3, cx: 466, cy: 208, r: 4.5, color: '#38b6ff' },
+  { id: 4, cx: 406, cy: 318, r: 4,   color: '#00e5cc' },
+  { id: 5, cx: 256, cy: 340, r: 5,   color: '#a78bfa' },
+  { id: 6, cx: 102, cy: 314, r: 4,   color: '#38b6ff' },
+  { id: 7, cx: 50,  cy: 200, r: 4,   color: '#00e5cc' },
+  // Inner satellites
+  { id: 8, cx: 170, cy: 168, r: 5.5, color: '#38b6ff' }, // inner-left
+  { id: 9, cx: 350, cy: 164, r: 5.5, color: '#00e5cc' }, // inner-right
+  // Center
+  { id: 10, cx: 256, cy: 224, r: 7,  color: '#38b6ff' },
 ];
 
+/*
+  Edge layout (18 total, max 4 per node):
+  – Outer ring connects adjacent nodes
+  – Inner-left (8) reaches into the left arc of the ring
+  – Inner-right (9) reaches into the right arc
+  – Center (10) bridges top, bottom and both satellites
+*/
 const EDGES: [number, number][] = [
-  // Hub to inner satellites
-  [0, 9], [0, 10], [0, 2], [0, 11], [0, 12], [0, 4], [0, 6],
-  // Inner left to outer
-  [9, 1], [9, 8], [9, 7], [9, 11],
-  // Inner right to outer
-  [10, 3], [10, 4], [10, 5], [10, 12],
   // Outer ring
-  [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 1],
-  // Inner shortcuts
-  [11, 6], [12, 5],
+  [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0],
+  // Inner-left (8) → left section of ring
+  [8, 0], [8, 7], [8, 6],
+  // Inner-right (9) → right section of ring
+  [9, 2], [9, 3], [9, 4],
+  // Center (10) → bridges
+  [10, 8], [10, 9], [10, 1], [10, 5],
 ];
 
-/* ── Adjacency list ────────────────────────────────────────────────────── */
+/* ── Adjacency ───────────────────────────────────────────────────────── */
 
-function buildAdj(): Map<number, number[]> {
+function buildAdj() {
   const m = new Map<number, number[]>();
   NODES.forEach(n => m.set(n.id, []));
   EDGES.forEach(([a, b]) => { m.get(a)!.push(b); m.get(b)!.push(a); });
@@ -51,54 +60,59 @@ function buildAdj(): Map<number, number[]> {
 }
 const ADJ = buildAdj();
 
-/* ── Background particles (deterministic for SSR safety) ──────────────── */
+/* ── Particles (sparse, deterministic) ──────────────────────────────── */
 
-const PARTICLES = Array.from({ length: 26 }, (_, i) => ({
+const PARTICLES = Array.from({ length: 16 }, (_, i) => ({
   id: i,
-  x: ((i * 37 + 11) % 90) + 4,
-  y: ((i * 53 + 23) % 90) + 4,
-  size: i % 3 === 0 ? 2.3 : 1.5,
+  x: ((i * 43 + 11) % 88) + 5,
+  y: ((i * 59 + 27) % 86) + 6,
+  size: i % 5 === 0 ? 2.2 : 1.4,
   color: (['#38b6ff', '#00e5cc', '#a78bfa'] as const)[i % 3],
-  opacity: 0.12 + (i % 5) * 0.04,
+  opacity: 0.1 + (i % 4) * 0.025,
 }));
 
-const NUM_PACKETS = 7;
-const PACKET_COLORS = ['#38b6ff', '#00e5cc', '#a78bfa', '#38b6ff', '#00e5cc', '#a78bfa', '#38b6ff'];
+const NUM_PACKETS = 4;
+const PACKET_COLORS: string[] = ['#38b6ff', '#00e5cc', '#a78bfa', '#38b6ff'];
 
-/* ── Component ─────────────────────────────────────────────────────────── */
+/* ── Component ───────────────────────────────────────────────────────── */
 
 export function LandingHero() {
   const isAuthenticated = useIsAuthenticated();
   const t = useT();
 
-  const containerRef  = useRef<HTMLElement>(null);
-  const particlesRef  = useRef<HTMLDivElement>(null);
-  const svgRef        = useRef<SVGSVGElement>(null);
-  const nodeRefs      = useRef<(SVGGElement | null)[]>(new Array(NODES.length).fill(null));
-  const edgeRefs      = useRef<(SVGLineElement | null)[]>(new Array(EDGES.length).fill(null));
-  const packetRefs    = useRef<(SVGGElement | null)[]>(new Array(NUM_PACKETS).fill(null));
-  const vpos          = useRef(NODES.map(n => ({ x: n.cx, y: n.cy })));
+  const containerRef = useRef<HTMLElement>(null);
+  const particlesRef = useRef<HTMLDivElement>(null);
+  const svgRef       = useRef<SVGSVGElement>(null);
+  const nodeRefs     = useRef<(SVGGElement | null)[]>(new Array(NODES.length).fill(null));
+  const edgeRefs     = useRef<(SVGLineElement | null)[]>(new Array(EDGES.length).fill(null));
+  const packetRefs   = useRef<(SVGGElement | null)[]>(new Array(NUM_PACKETS).fill(null));
+  const vpos         = useRef(NODES.map(n => ({ x: n.cx, y: n.cy })));
+  const lastVisited  = useRef<number[]>(new Array(NUM_PACKETS).fill(-1));
 
   useGSAP(() => {
-    const pos = vpos.current;
+    const pos  = vpos.current;
+    const last = lastVisited.current;
 
-    /* ─ 1. Node drift ───────────────────────────────────────────── */
+    /* ── 1. Gentle drift per node ──────────────────────────────
+       Outer ring nodes: ±5 px. Inner/center: ±9 px.
+       Very slow — 7–13 s per half-cycle.
+    ─────────────────────────────────────────────────────────── */
     NODES.forEach((n, i) => {
-      const amp = 7 + (i % 4) * 2.5;
-      const dur = 5.5 + (i % 5) * 1.2;
-      const tx  = n.cx + ((i % 7) - 3) * (amp / 3);
-      const ty  = n.cy + ((i % 5) - 2) * (amp / 3);
+      const amp = i < 8 ? 5 : 9;
+      const dur = 7 + (i % 6) * 1.1;
+      const tx  = n.cx + (((i * 3 + 1) % 7) - 3) * (amp / 3.5);
+      const ty  = n.cy + (((i * 5 + 2) % 7) - 3) * (amp / 3.5);
       gsap.to(pos[i], {
         x: tx, y: ty,
         duration: dur,
         ease: 'sine.inOut',
         yoyo: true,
         repeat: -1,
-        delay: i * 0.35,
+        delay: i * 0.6,
       });
     });
 
-    /* ─ 2. Ticker: sync node transforms + edge endpoints ────────── */
+    /* ── 2. Ticker: keep edges + node positions in sync ─────── */
     const tick = () => {
       NODES.forEach((n, i) => {
         const el = nodeRefs.current[i];
@@ -116,7 +130,7 @@ export function LandingHero() {
     };
     gsap.ticker.add(tick);
 
-    /* ─ 3. Sonar rings on each node ─────────────────────────────── */
+    /* ── 3. Sonar rings — slow, periodic ────────────────────── */
     NODES.forEach((n, i) => {
       const el = nodeRefs.current[i];
       if (!el) return;
@@ -125,154 +139,132 @@ export function LandingHero() {
       const fire = () => {
         rings.forEach((ring, j) => {
           gsap.fromTo(ring,
-            { attr: { r: n.r, opacity: 0.6 } },
-            {
-              attr: { r: n.r * 9, opacity: 0 },
-              duration: 2.4,
-              ease: 'power2.out',
-              delay: j * 0.5,
-            }
+            { attr: { r: n.r, opacity: 0.45 } },
+            { attr: { r: n.r * 7, opacity: 0 }, duration: 3.2, ease: 'power1.out', delay: j * 0.65 }
           );
         });
-        gsap.delayedCall(4.5 + (i % 6) * 0.8, fire);
+        // Fire next ring 6–11 s later, staggered per node
+        gsap.delayedCall(6 + (i % 7) * 0.8, fire);
       };
-      gsap.delayedCall(0.6 + i * 0.45, fire);
+      gsap.delayedCall(1.2 + i * 0.75, fire);
     });
 
-    /* ─ 4. Traveling data packets ───────────────────────────────── */
+    /* ── 4. Data packets — unhurried, no backtracking ────────── */
     const travel = (pIdx: number, fromId: number) => {
       const neighbors = ADJ.get(fromId) ?? [];
-      if (!neighbors.length) return;
-      const toId = neighbors[Math.floor((pIdx * 7 + fromId * 3) % neighbors.length)];
+      // Avoid going straight back
+      const pool = neighbors.filter(id => id !== last[pIdx]);
+      const candidates = pool.length > 0 ? pool : neighbors;
+      const toId = candidates[(pIdx * 3 + fromId) % candidates.length];
+      last[pIdx] = fromId;
 
       const pEl = packetRefs.current[pIdx];
       if (!pEl) return;
 
-      const src = pos[fromId];
-      const dst = pos[toId];
+      const src  = pos[fromId];
+      const dst  = pos[toId];
+      const dist = Math.sqrt((dst.x - src.x) ** 2 + (dst.y - src.y) ** 2);
+      // ~2–4 s per edge depending on length
+      const dur  = Math.max(1.1, dist / 105);
 
-      // Find edge index
+      // Find and illuminate the traversed edge
       const eIdx = EDGES.findIndex(([a, b]) =>
         (a === fromId && b === toId) || (a === toId && b === fromId)
       );
       const eEl = eIdx >= 0 ? edgeRefs.current[eIdx] : null;
-
-      // Light up edge
       if (eEl) {
-        gsap.to(eEl, {
-          attr: { opacity: 0.75, 'stroke-width': 2 },
-          duration: 0.12,
-          overwrite: 'auto',
-        });
+        gsap.to(eEl, { attr: { opacity: 0.65, 'stroke-width': 1.8 }, duration: 0.25, overwrite: 'auto' });
       }
 
-      // Position packet at source
       gsap.set(pEl, { x: src.x, y: src.y, opacity: 1, scale: 1 });
-
-      // Distance-based duration
-      const dist = Math.sqrt((dst.x - src.x) ** 2 + (dst.y - src.y) ** 2);
-      const dur  = Math.max(0.45, dist / 195);
-
       gsap.to(pEl, {
-        x: dst.x,
-        y: dst.y,
+        x: dst.x, y: dst.y,
         duration: dur,
         ease: 'power1.inOut',
         onComplete() {
-          // Dim edge back
+          // Dim edge back — let it breathe for a moment before fading
           if (eEl) {
-            gsap.to(eEl, {
-              attr: { opacity: 0.2, 'stroke-width': 1 },
-              duration: 0.55,
-              overwrite: 'auto',
-            });
+            gsap.to(eEl, { attr: { opacity: 0.18, 'stroke-width': 1 }, duration: 1.2, delay: 0.15, overwrite: 'auto' });
           }
-
-          // Arrival pulse on destination node
+          // Brief arrival pulse on destination
           const destEl = nodeRefs.current[toId];
           if (destEl) {
             const rings = destEl.querySelectorAll<SVGCircleElement>('.nring');
             rings.forEach((ring, j) => {
               gsap.fromTo(ring,
-                { attr: { r: NODES[toId].r, opacity: 0.8 } },
-                { attr: { r: NODES[toId].r * 6, opacity: 0 }, duration: 0.9, ease: 'power3.out', delay: j * 0.28 }
+                { attr: { r: NODES[toId].r, opacity: 0.6 } },
+                { attr: { r: NODES[toId].r * 5, opacity: 0 }, duration: 0.9, ease: 'power2.out', delay: j * 0.3 }
               );
             });
           }
-
-          // Scale flash on arrival
-          gsap.fromTo(pEl, { scale: 1.8 }, { scale: 1, duration: 0.25, ease: 'power2.out' });
-
-          // Continue to next node
-          gsap.delayedCall(0.12 + (pIdx % 4) * 0.08, () => travel(pIdx, toId));
+          // Pause at destination before moving on
+          const pause = 0.55 + (pIdx % 4) * 0.15;
+          gsap.delayedCall(pause, () => travel(pIdx, toId));
         },
       });
     };
 
-    // Staggered start from different nodes
-    const origins = [0, 1, 3, 5, 7, 10, 2];
+    // Start packets at spread-out origin nodes, well staggered
+    const origins = [1, 4, 7, 10];
     for (let i = 0; i < NUM_PACKETS; i++) {
-      gsap.delayedCall(0.2 + i * 0.42, () => travel(i, origins[i]));
+      gsap.delayedCall(0.8 + i * 1.1, () => travel(i, origins[i]));
     }
 
-    /* ─ 5. Ambient edge pulse (edges not currently lit) ─────────── */
+    /* ── 5. Ambient edge breathing (very subtle) ─────────────── */
     gsap.to(edgeRefs.current.filter(Boolean), {
-      attr: { opacity: 0.28 },
-      duration: 3.5,
+      attr: { opacity: 0.24 },
+      duration: 5.5,
       ease: 'sine.inOut',
       yoyo: true,
       repeat: -1,
-      stagger: { each: 0.18, from: 'random' },
+      stagger: { each: 0.35, from: 'random' },
     });
 
-    /* ─ 6. Background particles ─────────────────────────────────── */
+    /* ── 6. Particles — slow, lazy drift ────────────────────── */
     const dots = particlesRef.current?.querySelectorAll('.hero-particle');
     dots?.forEach((dot, i) => {
-      const go = () => {
+      const drift = () => {
         gsap.to(dot, {
-          x: ((i * 41 + Date.now() % 200) % 100) - 50,
-          y: ((i * 29 + Date.now() % 150) % 100) - 50,
-          duration: 6 + (i % 5) * 1.5,
-          ease: 'power1.inOut',
-          onComplete: go,
+          x: (((i * 47) % 70) - 35),
+          y: (((i * 37) % 60) - 30),
+          duration: 9 + (i % 5) * 2.5,
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: 1,
+          onComplete: drift,
         });
       };
-      gsap.delayedCall(i * 0.15, go);
+      gsap.delayedCall(i * 0.25, drift);
     });
 
-    /* ─ 7. Mouse parallax ───────────────────────────────────────── */
+    /* ── 7. Mouse parallax (subtle depth) ───────────────────── */
     const onMove = (e: MouseEvent) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect || !svgRef.current) return;
       const nx = (e.clientX - rect.left) / rect.width - 0.5;
       const ny = (e.clientY - rect.top) / rect.height - 0.5;
-      gsap.to(svgRef.current, {
-        x: nx * 20,
-        y: ny * 12,
-        duration: 1.6,
-        ease: 'power2.out',
-      });
+      gsap.to(svgRef.current, { x: nx * 16, y: ny * 9, duration: 2.2, ease: 'power2.out' });
     };
     containerRef.current?.addEventListener('mousemove', onMove);
 
-    /* ─ 8. Entrance animation ───────────────────────────────────── */
+    /* ── 8. Entrance ─────────────────────────────────────────── */
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
     tl.fromTo('.hero-tagline',       { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5 }, 0.1);
     tl.fromTo('.hero-headline-line', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.15 }, 0.25);
     tl.fromTo('.hero-sub',           { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5 }, 0.55);
     tl.fromTo('.hero-btns',          { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.45 }, 0.7);
-    tl.fromTo('.hero-visual',        { opacity: 0, x: 20 }, { opacity: 1, x: 0, duration: 0.65 }, 0.3);
+    tl.fromTo('.hero-visual',        { opacity: 0, x: 20 }, { opacity: 1, x: 0, duration: 0.85 }, 0.3);
 
-    // Staggered edge + node entrance
+    // Edges and nodes fade/scale in with a calm stagger
     gsap.fromTo(
       edgeRefs.current.filter(Boolean),
       { attr: { opacity: 0 } },
-      { attr: { opacity: 0.2 }, duration: 0.6, stagger: { each: 0.04, from: 'random' }, delay: 0.4 }
+      { attr: { opacity: 0.18 }, duration: 1.4, stagger: { each: 0.07, from: 'random' }, delay: 0.6 }
     );
     gsap.fromTo(
       nodeRefs.current.filter(Boolean),
       { scale: 0, transformOrigin: '50% 50%' },
-      { scale: 1, duration: 0.5, ease: 'back.out(1.6)', stagger: { each: 0.06, from: 'center' }, delay: 0.5 }
+      { scale: 1, duration: 0.55, ease: 'back.out(1.7)', stagger: { each: 0.08, from: 'edges' }, delay: 0.7 }
     );
 
     return () => {
@@ -294,7 +286,7 @@ export function LandingHero() {
         padding: '80px 0',
       }}
     >
-      {/* Background particles */}
+      {/* Sparse background particles */}
       <div
         ref={particlesRef}
         style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}
@@ -319,47 +311,36 @@ export function LandingHero() {
 
       {/* Ambient glows */}
       <div style={{
-        position: 'absolute', top: '15%', left: '-8%',
-        width: '700px', height: '700px',
-        background: 'radial-gradient(circle, rgba(56,182,255,0.055) 0%, transparent 65%)',
-        filter: 'blur(40px)', pointerEvents: 'none',
+        position: 'absolute', top: '12%', left: '-10%',
+        width: '680px', height: '680px',
+        background: 'radial-gradient(circle, rgba(56,182,255,0.048) 0%, transparent 65%)',
+        filter: 'blur(48px)', pointerEvents: 'none',
       }} />
       <div style={{
-        position: 'absolute', bottom: '10%', right: '-5%',
-        width: '520px', height: '520px',
-        background: 'radial-gradient(circle, rgba(167,139,250,0.04) 0%, transparent 65%)',
-        filter: 'blur(40px)', pointerEvents: 'none',
-      }} />
-      <div style={{
-        position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: '400px', height: '400px',
-        background: 'radial-gradient(circle, rgba(0,229,204,0.03) 0%, transparent 65%)',
-        filter: 'blur(50px)', pointerEvents: 'none',
+        position: 'absolute', bottom: '8%', right: '-6%',
+        width: '500px', height: '500px',
+        background: 'radial-gradient(circle, rgba(167,139,250,0.038) 0%, transparent 65%)',
+        filter: 'blur(48px)', pointerEvents: 'none',
       }} />
 
-      {/* Main content */}
+      {/* Content */}
       <div style={{
         position: 'relative', zIndex: 10,
         maxWidth: '1200px', margin: '0 auto',
         padding: '0 2rem', width: '100%',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '80px',
-        alignItems: 'center',
+        display: 'grid', gridTemplateColumns: '1fr 1fr',
+        gap: '80px', alignItems: 'center',
       }}>
 
-        {/* Left: text */}
+        {/* Left: copy */}
         <div>
-          <div
-            className="hero-tagline"
-            style={{
-              opacity: 0,
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: '11px', fontWeight: 400,
-              textTransform: 'uppercase', letterSpacing: '0.2em',
-              color: '#00e5cc', marginBottom: '28px',
-            }}
-          >
+          <div className="hero-tagline" style={{
+            opacity: 0,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '11px', fontWeight: 400,
+            textTransform: 'uppercase', letterSpacing: '0.2em',
+            color: '#00e5cc', marginBottom: '28px',
+          }}>
             {t.landing_hero_tagline}
           </div>
 
@@ -406,43 +387,27 @@ export function LandingHero() {
           </div>
         </div>
 
-        {/* Right: network visualization */}
+        {/* Right: network */}
         <div className="hero-visual" style={{ opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg
             ref={svgRef}
-            viewBox="0 0 524 374"
+            viewBox="0 0 520 390"
             width="100%"
-            style={{ maxWidth: '524px', overflow: 'visible' }}
+            style={{ maxWidth: '520px', overflow: 'visible' }}
             aria-hidden
           >
             <defs>
-              {/* Glow filter for packets */}
               <filter id="hpglow" x="-120%" y="-120%" width="340%" height="340%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="2.8" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-              {/* Soft glow for node cores */}
-              <filter id="hnglow" x="-80%" y="-80%" width="260%" height="260%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
-              {/* Strong glow for hub node */}
-              <filter id="hhubglow" x="-100%" y="-100%" width="300%" height="300%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
+              <filter id="hnglow" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
             </defs>
 
-            {/* ── Edges ─────────────────────────────────────────── */}
+            {/* Edges */}
             {EDGES.map(([a, b], i) => (
               <line
                 key={i}
@@ -455,47 +420,30 @@ export function LandingHero() {
               />
             ))}
 
-            {/* ── Nodes ─────────────────────────────────────────── */}
+            {/* Nodes */}
             {NODES.map((n, i) => (
               <g key={n.id} ref={el => { nodeRefs.current[i] = el; }}>
-                {/* Sonar rings (animated) */}
-                <circle className="nring" cx={n.cx} cy={n.cy} r={n.r}
-                  fill="none" stroke={n.color} strokeWidth="1.5" opacity="0" />
-                <circle className="nring" cx={n.cx} cy={n.cy} r={n.r}
-                  fill="none" stroke={n.color} strokeWidth="1" opacity="0" />
-
-                {/* Halo layers */}
-                <circle cx={n.cx} cy={n.cy} r={n.r * 5.5} fill={n.color} opacity="0.04" />
-                <circle cx={n.cx} cy={n.cy} r={n.r * 3}   fill={n.color} opacity="0.08" />
-                <circle cx={n.cx} cy={n.cy} r={n.r * 1.8} fill={n.color} opacity="0.15" />
-
+                {/* Two sonar rings */}
+                <circle className="nring" cx={n.cx} cy={n.cy} r={n.r} fill="none" stroke={n.color} strokeWidth="1.5" opacity="0" />
+                <circle className="nring" cx={n.cx} cy={n.cy} r={n.r} fill="none" stroke={n.color} strokeWidth="1"   opacity="0" />
+                {/* Layered halo */}
+                <circle cx={n.cx} cy={n.cy} r={n.r * 5} fill={n.color} opacity="0.04" />
+                <circle cx={n.cx} cy={n.cy} r={n.r * 2.8} fill={n.color} opacity="0.08" />
+                <circle cx={n.cx} cy={n.cy} r={n.r * 1.7} fill={n.color} opacity="0.14" />
                 {/* Core */}
-                <circle
-                  cx={n.cx} cy={n.cy} r={n.r}
-                  fill={n.color}
-                  filter={i === 0 ? 'url(#hhubglow)' : 'url(#hnglow)'}
-                  opacity="0.92"
-                />
+                <circle cx={n.cx} cy={n.cy} r={n.r} fill={n.color} filter="url(#hnglow)" opacity="0.9" />
                 {/* Bright center */}
-                <circle cx={n.cx} cy={n.cy} r={n.r * 0.38} fill="#fff" opacity="0.75" />
+                <circle cx={n.cx} cy={n.cy} r={n.r * 0.35} fill="#fff" opacity="0.7" />
               </g>
             ))}
 
-            {/* ── Traveling packets ─────────────────────────────── */}
+            {/* Traveling packets */}
             {Array.from({ length: NUM_PACKETS }, (_, i) => (
-              <g
-                key={i}
-                ref={el => { packetRefs.current[i] = el; }}
-                style={{ opacity: 0 }}
-              >
-                {/* Outer glow */}
-                <circle cx={0} cy={0} r={7}   fill={PACKET_COLORS[i]} opacity="0.18" filter="url(#hpglow)" />
-                {/* Mid ring */}
-                <circle cx={0} cy={0} r={4}   fill={PACKET_COLORS[i]} opacity="0.45" />
-                {/* Core */}
-                <circle cx={0} cy={0} r={2.4} fill={PACKET_COLORS[i]} filter="url(#hpglow)" />
-                {/* White center */}
-                <circle cx={0} cy={0} r={1}   fill="#fff" opacity="0.9" />
+              <g key={i} ref={el => { packetRefs.current[i] = el; }} style={{ opacity: 0 }}>
+                <circle cx={0} cy={0} r={6.5} fill={PACKET_COLORS[i]} opacity="0.15" filter="url(#hpglow)" />
+                <circle cx={0} cy={0} r={3.5} fill={PACKET_COLORS[i]} opacity="0.5"  />
+                <circle cx={0} cy={0} r={2}   fill={PACKET_COLORS[i]} filter="url(#hpglow)" />
+                <circle cx={0} cy={0} r={0.9} fill="#fff"             opacity="0.88" />
               </g>
             ))}
           </svg>
