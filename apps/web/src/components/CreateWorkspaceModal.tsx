@@ -7,7 +7,8 @@ import { WorkspaceIcon, WORKSPACE_ICON_KEYS } from '@/components/WorkspaceIcon';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
 
-// ── Color tokens ──────────────────────────────────────────────────────────────
+const SORA    = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
 
 const COLORS = [
   '#3b82f6', // blue
@@ -103,6 +104,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
           opacity: animIn ? 1 : 0,
           transform: animIn ? 'scale(1) translateY(0)' : 'scale(0.97) translateY(6px)',
           transition: 'opacity 0.16s ease, transform 0.16s ease',
+          fontFamily: MANROPE,
         }}
       >
         {/* ── Header ──────────────────────────────────────────────────── */}
@@ -110,7 +112,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
           className="flex items-center justify-between flex-shrink-0"
           style={{ padding: '18px 20px 16px', borderBottom: `1px solid ${C.border}` }}
         >
-          <span className="text-[15px] font-semibold" style={{ color: C.text }}>{t.create_ws_title}</span>
+          <span style={{ fontSize: '15px', fontWeight: 600, color: C.text, fontFamily: SORA }}>{t.create_ws_title}</span>
           <button
             onClick={handleClose}
             disabled={isLoading}
@@ -148,13 +150,10 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                 <WorkspaceIcon icon={selectedIcon} className="w-5 h-5" style={{ color: '#fff' } as any} />
               </div>
               <div className="min-w-0">
-                <div
-                  className="text-[14px] font-semibold truncate"
-                  style={{ color: name ? C.text : C.text4 }}
-                >
+                <div style={{ fontSize: '14px', fontWeight: 600, fontFamily: SORA, color: name ? C.text : C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {name || 'Nombre del workspace'}
                 </div>
-                <div className="text-[12px] truncate" style={{ color: C.text4 }}>
+                <div style={{ fontSize: '12px', fontFamily: MANROPE, color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {description || 'Descripción opcional'}
                 </div>
               </div>
@@ -165,7 +164,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               const nameError = nameTouched && !name.trim();
               return (
                 <div className="mb-4">
-                  <label className="block text-[12px] font-medium mb-1.5" style={{ color: C.text2 }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '7px' }}>
                     {t.create_ws_label_name} <span style={{ color: C.red }}>*</span>
                   </label>
                   <input
@@ -175,12 +174,14 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                     placeholder={t.create_ws_placeholder_name}
                     disabled={isLoading}
                     maxLength={255}
-                    className="w-full rounded-[7px] text-[13px] outline-none transition-colors"
+                    className="w-full rounded-[7px] outline-none transition-colors"
                     style={{
                       padding: '9px 12px',
                       background: C.surface,
                       border: `1px solid ${nameError ? C.red : C.border}`,
                       color: C.text,
+                      fontSize: '13px',
+                      fontFamily: MANROPE,
                     }}
                     onFocus={(e) => (e.currentTarget.style.borderColor = nameError ? C.red : C.accent)}
                     onBlur={(e) => { setNameTouched(true); e.currentTarget.style.borderColor = !e.currentTarget.value.trim() ? C.red : C.border; }}
@@ -196,7 +197,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
             {/* ── Descripción ──────────────────────────────────────────── */}
             <div className="mb-4">
-              <label className="block text-[12px] font-medium mb-1.5" style={{ color: C.text2 }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '7px' }}>
                 {t.create_ws_label_description}
               </label>
               <textarea
@@ -206,12 +207,14 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                 disabled={isLoading}
                 maxLength={1000}
                 rows={2}
-                className="w-full rounded-[7px] text-[13px] outline-none transition-colors resize-none"
+                className="w-full rounded-[7px] outline-none transition-colors resize-none"
                 style={{
                   padding: '9px 12px',
                   background: C.surface,
                   border: `1px solid ${C.border}`,
                   color: C.text,
+                  fontSize: '13px',
+                  fontFamily: MANROPE,
                 }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
                 onBlur={(e)  => (e.currentTarget.style.borderColor = C.border)}
@@ -220,7 +223,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
             {/* ── Color del icono ──────────────────────────────────────── */}
             <div className="mb-4">
-              <label className="block text-[12px] font-medium mb-2" style={{ color: C.text2 }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
                 {t.create_ws_label_color}
               </label>
               <div className="flex gap-2 flex-wrap">
@@ -245,7 +248,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
             {/* ── Icono ────────────────────────────────────────────────── */}
             <div className="mb-4">
-              <label className="block text-[12px] font-medium mb-2" style={{ color: C.text2 }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
                 {t.create_ws_label_icon}
               </label>
               <div
@@ -309,7 +312,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
           className="flex-shrink-0"
           style={{ padding: '12px 20px 14px', borderTop: `1px solid ${C.border}`, background: C.bg }}
         >
-          <p className="text-[11.5px] mb-3" style={{ color: C.text4 }}>
+          <p style={{ fontSize: '11.5px', marginBottom: '12px', color: C.text4, fontFamily: MANROPE }}>
             Podrás invitar a miembros una vez creado.
           </p>
           <div className="flex items-center gap-2">
@@ -317,12 +320,11 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               type="button"
               onClick={handleClose}
               disabled={isLoading}
-              className="flex-1 rounded-[7px] text-[13px] font-medium transition-colors"
               style={{
-                padding: '8px 0',
-                background: C.hover,
-                border: `1px solid ${C.border2}`,
-                color: C.text2,
+                flex: 1, padding: '8px 0', borderRadius: '7px',
+                fontSize: '13px', fontWeight: 500, fontFamily: MANROPE,
+                background: C.hover, border: `1px solid ${C.border2}`, color: C.text2,
+                cursor: 'pointer', transition: 'all 0.12s',
               }}
               onMouseEnter={(e) => { (e.currentTarget.style.borderColor = C.text4); (e.currentTarget.style.color = C.text); }}
               onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border2); (e.currentTarget.style.color = C.text2); }}
@@ -333,8 +335,14 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               type="submit"
               form="ws-form"
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-[7px] text-[13px] font-medium text-white transition-colors"
-              style={{ padding: '8px 0', background: C.accent }}
+              style={{
+                flex: 1, padding: '8px 0', borderRadius: '7px',
+                fontSize: '13px', fontWeight: 600, fontFamily: SORA,
+                background: C.accent, border: 'none', color: '#fff',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                transition: 'background 0.12s',
+              }}
               onMouseEnter={(e) => (e.currentTarget.style.background = '#d94e18')}
               onMouseLeave={(e) => (e.currentTarget.style.background = C.accent)}
             >
