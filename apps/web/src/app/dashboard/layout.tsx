@@ -18,6 +18,7 @@ import { useT } from '@/lib/i18n';
 import CommandPalette from '@/components/CommandPalette';
 import OnboardingCompanion from '@/components/OnboardingCompanion';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
+import EditWorkspaceModal from '@/components/EditWorkspaceModal';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import CreateBoardModal from '@/components/CreateBoardModal';
 import CreateProjectModal from '@/components/CreateProjectModal';
@@ -38,13 +39,16 @@ function WorkspaceSwitcher({
   activeWorkspaceId,
   onSelect,
   onCreateNew,
+  onEdit,
 }: {
   workspaces: any[];
   activeWorkspaceId: string | null;
   onSelect: (id: string) => void;
   onCreateNew: () => void;
+  onEdit: (ws: any) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null;
 
@@ -59,6 +63,7 @@ function WorkspaceSwitcher({
 
   return (
     <div ref={ref} style={{ position: 'relative', marginBottom: '14px' }}>
+      {/* ── Trigger ── */}
       <button
         onClick={() => setOpen(v => !v)}
         style={{
@@ -72,24 +77,21 @@ function WorkspaceSwitcher({
         onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
       >
         <span style={{
-          width: '26px', height: '26px', borderRadius: '7px',
+          width: '26px', height: '26px', borderRadius: '7px', flexShrink: 0,
           background: `linear-gradient(135deg, ${color}cc, ${color}77)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
         }}>
           <WorkspaceIcon icon={active?.icon ?? 'briefcase'} style={{ width: '13px', height: '13px', color: '#fff' } as any} />
         </span>
-        <span style={{ textAlign: 'left', lineHeight: 1.15, flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'block', fontFamily: SORA, fontSize: '13.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {active?.name ?? 'Tu espacio'}
-          </span>
-          <span style={{ display: 'block', fontSize: '11px', color: '#827A6D' }}>Tu espacio</span>
+        <span style={{ fontFamily: SORA, fontSize: '13.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, textAlign: 'left' }}>
+          {active?.name ?? 'Tu espacio'}
         </span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
           <path d="M8 9l4 4 4-4M8 15l4-4 4 4" stroke="#827A6D" strokeWidth="1.6" strokeLinecap="round"/>
         </svg>
       </button>
 
+      {/* ── Dropdown ── */}
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
@@ -99,29 +101,48 @@ function WorkspaceSwitcher({
           <div style={{ padding: '6px', maxHeight: '220px', overflowY: 'auto' }}>
             {workspaces.filter(w => !w.archived).map(ws => {
               const isAct = ws.id === activeWorkspaceId;
+              const isHov = ws.id === hoveredId;
               return (
-                <button key={ws.id} onClick={() => { onSelect(ws.id); setOpen(false); }}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
-                    padding: '8px 10px', borderRadius: '7px',
-                    background: isAct ? 'rgba(255,255,255,0.06)' : 'transparent',
-                    border: 'none', cursor: 'pointer', fontFamily: MANROPE,
-                  }}
-                  onMouseEnter={e => { if (!isAct) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
-                  onMouseLeave={e => { if (!isAct) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                <div
+                  key={ws.id}
+                  style={{ position: 'relative', display: 'flex', alignItems: 'center', borderRadius: '7px', background: isAct ? 'rgba(255,255,255,0.06)' : isHov ? 'rgba(255,255,255,0.04)' : 'transparent' }}
+                  onMouseEnter={() => setHoveredId(ws.id)}
+                  onMouseLeave={() => setHoveredId(null)}
                 >
-                  <span style={{ width: '22px', height: '22px', borderRadius: '6px', background: `linear-gradient(135deg, ${ws.color ?? '#F2571E'}cc, ${ws.color ?? '#F2571E'}77)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <WorkspaceIcon icon={ws.icon ?? 'briefcase'} style={{ width: '11px', height: '11px', color: '#fff' } as any} />
-                  </span>
-                  <span style={{ flex: 1, fontSize: '13px', fontWeight: isAct ? 600 : 400, color: isAct ? '#E8E1D2' : '#9C9486', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {ws.name}
-                  </span>
-                  {isAct && (
-                    <svg viewBox="0 0 12 12" fill="none" stroke="#F2571E" strokeWidth="2" width="11" height="11">
-                      <path d="M2 6l3 3 5-5" />
+                  <button
+                    onClick={() => { onSelect(ws.id); setOpen(false); }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 10px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: MANROPE, minWidth: 0, textAlign: 'left' }}
+                  >
+                    <span style={{ width: '22px', height: '22px', borderRadius: '6px', flexShrink: 0, background: `linear-gradient(135deg, ${ws.color ?? '#F2571E'}cc, ${ws.color ?? '#F2571E'}77)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <WorkspaceIcon icon={ws.icon ?? 'briefcase'} style={{ width: '11px', height: '11px', color: '#fff' } as any} />
+                    </span>
+                    <span style={{ flex: 1, fontSize: '13px', fontWeight: isAct ? 600 : 400, color: isAct ? '#E8E1D2' : '#9C9486', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>
+                      {ws.name}
+                    </span>
+                    {isAct && (
+                      <svg viewBox="0 0 12 12" fill="none" stroke="#F2571E" strokeWidth="2" width="11" height="11" style={{ flexShrink: 0 }}>
+                        <path d="M2 6l3 3 5-5" />
+                      </svg>
+                    )}
+                  </button>
+                  {/* Edit button — visible on hover */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(ws); }}
+                    title="Editar espacio"
+                    style={{
+                      flexShrink: 0, marginRight: '6px', width: '24px', height: '24px', borderRadius: '5px',
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#827A6D', opacity: isHov ? 1 : 0, transition: 'opacity 0.12s, background 0.12s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#E8E1D2'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#827A6D'; }}
+                  >
+                    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
+                      <path d="M10 2.5a1.41 1.41 0 0 1 2 2L5 12l-3 1 1-3Z" />
                     </svg>
-                  )}
-                </button>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -185,13 +206,14 @@ function NavItem({ href, label, icon, active, badge, onClick }: {
 function Sidebar({
   pathname, router, user, workspaces, userAvatarUrl,
   onLogout, onOpenSearch, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace,
-  onCreateBoard, onCreateProject, sidebarProjects, projectsLoading,
+  onEditWorkspace, onCreateBoard, onCreateProject, sidebarProjects, projectsLoading,
 }: {
   pathname: string | null; router: ReturnType<typeof useRouter>;
   user: any; workspaces: any[]; userAvatarUrl: string | null;
   onLogout: () => void; onOpenSearch: () => void;
   activeWorkspaceId: string | null; onSelectWorkspace: (id: string) => void;
-  onCreateWorkspace: () => void; onCreateBoard: () => void; onCreateProject: () => void;
+  onCreateWorkspace: () => void; onEditWorkspace: (ws: any) => void;
+  onCreateBoard: () => void; onCreateProject: () => void;
   sidebarProjects: any[]; projectsLoading: boolean;
 }) {
   const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
@@ -264,6 +286,7 @@ function Sidebar({
         activeWorkspaceId={activeWorkspaceId}
         onSelect={onSelectWorkspace}
         onCreateNew={onCreateWorkspace}
+        onEdit={onEditWorkspace}
       />
 
       {/* Search */}
@@ -473,6 +496,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [createWsOpen, setCreateWsOpen] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState<any | null>(null);
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -536,6 +560,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const handleLogout = async () => { await logout(); router.push('/login'); };
 
+  const handleWorkspaceDeleted = useCallback((deletedId: string) => {
+    setEditingWorkspace(null);
+    const remaining = workspaces.filter(w => w.id !== deletedId && !w.archived);
+    if (remaining.length > 0) {
+      setActiveWorkspaceId(remaining[0].id);
+    }
+    router.push('/dashboard');
+    fetchWorkspaces();
+  }, [workspaces, setActiveWorkspaceId, router, fetchWorkspaces]);
+
   const sidebarProps = {
     pathname, router, user, workspaces, userAvatarUrl,
     onLogout: handleLogout,
@@ -543,6 +577,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     activeWorkspaceId,
     onSelectWorkspace: handleSelectWorkspace,
     onCreateWorkspace: () => setCreateWsOpen(true),
+    onEditWorkspace: (ws: any) => setEditingWorkspace(ws),
     onCreateBoard: () => setCreateBoardOpen(true),
     onCreateProject: () => setCreateProjectOpen(true),
     sidebarBoards, sidebarProjects, boardsLoading, projectsLoading,
@@ -581,6 +616,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <OnboardingCompanion />
 
         <CreateWorkspaceModal isOpen={createWsOpen} onClose={() => setCreateWsOpen(false)} />
+
+        {editingWorkspace && (
+          <EditWorkspaceModal
+            workspace={editingWorkspace}
+            onClose={() => setEditingWorkspace(null)}
+            onDeleted={handleWorkspaceDeleted}
+          />
+        )}
 
         {activeWorkspaceId && (
           <CreateBoardModal
