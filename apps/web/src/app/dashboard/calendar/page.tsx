@@ -577,9 +577,17 @@ export default function CalendarPage() {
       const end = addHours(quickCreate.hour, quickCreate.minute, quickCreate.durationH);
       const endH = Math.min(end.hour, 23), endM = end.hour > 23 ? 59 : end.minute;
       const endISO = new Date(`${dateStr}T${pad2(endH)}:${pad2(endM)}:00`).toISOString();
-      await createEvent({ title: quickCreate.title, startTime: startISO, endTime: endISO } as CreateEventInput);
-      fetchEvents();
-      setQuickCreate(null);
+      const result = await createEvent({
+        title:     quickCreate.title,
+        startTime: startISO,
+        endTime:   endISO,
+        type:      'personal',
+        color:     '#F2571E',
+      });
+      if (result) {
+        fetchEvents();
+        setQuickCreate(null);
+      }
     } catch {
       // keep form open on error
     } finally {
