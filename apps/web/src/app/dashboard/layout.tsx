@@ -468,6 +468,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetchSidebarBoards, fetchSidebarProjects,
     sidebarBoards, sidebarProjects,
     boardsLoading, projectsLoading,
+    addSidebarProject,
   } = useActiveWorkspaceStore();
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -599,8 +600,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClose={() => setCreateProjectOpen(false)}
             defaultWorkspaceId={activeWorkspaceId ?? undefined}
             onCreated={(project) => {
+              addSidebarProject({
+                id: project.id,
+                name: project.name,
+                color: project.color ?? null,
+                status: project.status ?? 'ACTIVE',
+                workspaceId: project.workspaceId,
+              });
               setCreateProjectOpen(false);
-              fetchSidebarProjects(activeWorkspaceId!);
+              fetchSidebarProjects(project.workspaceId);
               router.push(`/dashboard/projects/${project.id}`);
             }}
           />

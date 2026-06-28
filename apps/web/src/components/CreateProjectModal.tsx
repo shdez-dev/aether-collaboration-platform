@@ -44,6 +44,13 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
 
+  // Sync selected workspace when workspaces load or defaultWorkspaceId arrives late
+  useEffect(() => {
+    if (defaultWorkspaceId && (!selectedWsId || !workspaces.find((w) => w.id === selectedWsId))) {
+      setSelectedWsId(defaultWorkspaceId);
+    }
+  }, [defaultWorkspaceId, workspaces, selectedWsId]);
+
   const handleClose = () => {
     if (isLoading) return;
     setClosing(true);
