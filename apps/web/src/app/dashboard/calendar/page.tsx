@@ -182,6 +182,7 @@ function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
   return (
     <div
       onClick={e => e.stopPropagation()}
+      onMouseDown={e => e.stopPropagation()}
       style={{
         position: 'absolute', left: '68px', right: '8px',
         top: `${(qc.hour + qc.minute / 60 - START_HOUR) * HOUR_PX}px`,
@@ -260,7 +261,7 @@ function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
 
 // ── Day View ──────────────────────────────────────────────────────────────────
 
-function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, onQcCancel, onQcSave, qcSaving }: {
+function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, onQcCancel, onQcSave, qcSaving, onEventClick }: {
   date: Date; events: CalendarEvent[]; cards: UserCard[];
   quickCreate: QuickCreate | null;
   onGridClick: (h: number, m: number) => void;
@@ -268,6 +269,7 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
   onQcCancel: () => void;
   onQcSave: () => void;
   qcSaving: boolean;
+  onEventClick: (ev: CalendarEvent) => void;
 }) {
   const [nowTop, setNowTop] = useState(nowTopPx());
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -352,7 +354,7 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
             return (
               <div key={ev.id} data-event="true"
                 style={{ position: 'absolute', left: '68px', right: '8px', top: `${eventTop(ev)}px`, height: `${eventHeight(ev)}px`, borderRadius: '8px', background: `${color}18`, borderLeft: `3px solid ${color}`, padding: '6px 10px', cursor: 'pointer', overflow: 'hidden', zIndex: 2, transition: 'filter 0.14s, transform 0.14s' }}
-                onClick={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); onEventClick(ev); }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.12)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}>
                 <div style={{ fontSize: '13px', fontWeight: 600, color: '#E8E1D2' }}>{ev.title}</div>
@@ -401,9 +403,10 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
 
 // ── Week View ─────────────────────────────────────────────────────────────────
 
-function WeekView({ selectedDate, events, cards, onSelectDay }: {
+function WeekView({ selectedDate, events, cards, onSelectDay, onEventClick }: {
   selectedDate: Date; events: CalendarEvent[]; cards: UserCard[];
   onSelectDay: (d: Date) => void;
+  onEventClick: (ev: CalendarEvent) => void;
 }) {
   const weekDays = getWeekDays(selectedDate);
   const today    = new Date();
@@ -451,6 +454,7 @@ function WeekView({ selectedDate, events, cards, onSelectDay }: {
                   const color = hashColor(ev.id);
                   return (
                     <div key={ev.id} style={{ position: 'absolute', left: colL, width: colW, top: `${eventTop(ev)}px`, height: `${eventHeight(ev)}px`, borderRadius: '6px', background: `${color}18`, borderLeft: `3px solid ${color}`, padding: '3px 6px', overflow: 'hidden', cursor: 'pointer', zIndex: 2, transition: 'filter 0.14s' }}
+                      onClick={() => onEventClick(ev)}
                       onMouseEnter={e => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.1)')}
                       onMouseLeave={e => ((e.currentTarget as HTMLElement).style.filter = 'none')}>
                       <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#E8E1D2' }}>{ev.title}</div>
@@ -516,12 +520,108 @@ function MonthView({ year, month, selectedDate, events, cards, onSelectDay }: {
   );
 }
 
+// ── Event Detail Modal ────────────────────────────────────────────────────────
+
+function DetailRow({ icon, text, muted }: { icon: React.ReactNode; text: string; muted?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+      <span style={{ color: '#5C5447', flexShrink: 0, marginTop: '1px', lineHeight: 0 }}>{icon}</span>
+      <span style={{ fontSize: '13.5px', color: muted ? '#827A6D' : '#C8C0B1', lineHeight: 1.55, wordBreak: 'break-word' }}>{text}</span>
+    </div>
+  );
+}
+
+function EventDetailModal({ event, onClose, onDelete }: {
+  event: CalendarEvent;
+  onClose: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const color  = hashColor(event.id);
+  const start  = new Date(event.startTime);
+  const end    = new Date(event.endTime);
+  const dMs    = end.getTime() - start.getTime();
+  const dH     = Math.floor(dMs / 3600000);
+  const dM     = Math.round((dMs % 3600000) / 60000);
+  const durStr = dH > 0 ? (dM > 0 ? `${dH}h ${dM}m` : `${dH}h`) : `${dM}m`;
+  const typeLabel = event.type === 'personal' ? 'Personal' : event.type === 'workspace' ? 'Workspace' : 'Equipo';
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    await onDelete();
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: '#13171D', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.6)', width: '400px', maxWidth: 'calc(100vw - 32px)', overflow: 'hidden', animation: 'qcIn 0.22s cubic-bezier(0.16,1,0.3,1)', transformOrigin: 'center' }}
+      >
+        {/* Color bar */}
+        <div style={{ height: '4px', background: color }} />
+
+        <div style={{ padding: '22px 24px 24px' }}>
+          {/* Title row */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '2px' }}>
+                <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#615846', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: SORA }}>{typeLabel}</span>
+              </div>
+              <h2 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '19px', color: '#E8E1D2', margin: 0, lineHeight: 1.2 }}>{event.title}</h2>
+            </div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#5C5447', cursor: 'pointer', padding: '2px', lineHeight: 0, flexShrink: 0, marginTop: '2px', transition: 'color 0.13s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#9C9486')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#5C5447')}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            </button>
+          </div>
+
+          {/* Details */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+            <DetailRow
+              icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.8"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+              text={`${DAYS_FULL[start.getDay()]}, ${start.getDate()} de ${MONTHS_ES[start.getMonth()]} ${start.getFullYear()}`}
+            />
+            <DetailRow
+              icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+              text={`${fmtHM(start.getHours(), start.getMinutes())} → ${fmtHM(end.getHours(), end.getMinutes())}  ·  ${durStr}`}
+            />
+            {event.description && (
+              <DetailRow
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 10h16M4 14h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+                text={event.description}
+                muted
+              />
+            )}
+          </div>
+
+          {/* Delete */}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ marginTop: '22px', width: '100%', padding: '10px 0', borderRadius: '9px', border: '1px solid rgba(224,82,82,0.32)', background: 'rgba(224,82,82,0.07)', color: deleting ? '#7A4040' : '#E05252', fontFamily: SORA, fontWeight: 600, fontSize: '13.5px', cursor: deleting ? 'not-allowed' : 'pointer', transition: 'background 0.14s, border-color 0.14s, color 0.14s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}
+            onMouseEnter={e => { if (!deleting) { e.currentTarget.style.background = 'rgba(224,82,82,0.15)'; e.currentTarget.style.borderColor = 'rgba(224,82,82,0.5)'; }}}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(224,82,82,0.07)'; e.currentTarget.style.borderColor = 'rgba(224,82,82,0.32)'; }}
+          >
+            {!deleting && <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            {deleting ? 'Eliminando…' : 'Eliminar evento'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 type ViewType = 'dia' | 'semana' | 'mes';
 
 export default function CalendarPage() {
-  const { events, fetchEvents, createEvent } = useCalendarEventStore();
+  const { events, fetchEvents, createEvent, deleteEvent } = useCalendarEventStore();
 
   const [view,         setView]         = useState<ViewType>('dia');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -531,6 +631,7 @@ export default function CalendarPage() {
   const [modalHour,    setModalHour]    = useState<number | undefined>(undefined);
   const [quickCreate,  setQuickCreate]  = useState<QuickCreate | null>(null);
   const [qcSaving,     setQcSaving]     = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   const today = useMemo(() => new Date(), []);
 
@@ -593,6 +694,12 @@ export default function CalendarPage() {
     } finally {
       setQcSaving(false);
     }
+  }
+
+  async function handleDeleteEvent() {
+    if (!selectedEvent) return;
+    await deleteEvent(selectedEvent.id);
+    setSelectedEvent(null);
   }
 
   const eventDays = useMemo(() => {
@@ -712,11 +819,13 @@ export default function CalendarPage() {
               onQcCancel={() => setQuickCreate(null)}
               onQcSave={handleQcSave}
               qcSaving={qcSaving}
+              onEventClick={setSelectedEvent}
             />
           )}
           {view === 'semana' && (
             <WeekView selectedDate={selectedDate} events={events} cards={cards}
-              onSelectDay={d => { setSelectedDate(d); setView('dia'); }} />
+              onSelectDay={d => { setSelectedDate(d); setView('dia'); }}
+              onEventClick={setSelectedEvent} />
           )}
           {view === 'mes' && (
             <MonthView year={selectedDate.getFullYear()} month={selectedDate.getMonth()}
@@ -767,6 +876,14 @@ export default function CalendarPage() {
         initialDate={dateStr}
         initialHour={modalHour}
       />
+
+      {selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onDelete={handleDeleteEvent}
+        />
+      )}
     </div>
   );
 }
