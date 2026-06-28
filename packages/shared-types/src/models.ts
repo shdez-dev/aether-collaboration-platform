@@ -245,6 +245,10 @@ export interface Card {
   blockedByPendingCount?: number;
   /** Número de cards que esta card está bloqueando */
   blockingCount?: number;
+  /** Hito del proyecto al que pertenece esta card */
+  milestoneId?: string | null;
+  /** Días de colchón adicionales para absorber complejidad (null = auto por prioridad) */
+  bufferDays?: number | null;
 }
 
 export interface CardMember {
@@ -850,7 +854,11 @@ export type NotificationType =
   | 'TEAM_INVITE'
   | 'DOCUMENT_MENTION'
   | 'DOCUMENT_SHARED'
-  | 'DOCUMENT_COMMENT';
+  | 'DOCUMENT_COMMENT'
+  | 'PROJECT_INVITE'
+  | 'MILESTONE_MISSED'
+  | 'MILESTONE_COMPLETED'
+  | 'PROJECT_STATUS_CHANGED';
 
 /**
  * Notification
@@ -913,6 +921,17 @@ export interface NotificationData {
   sharedBy?: string;
   sharedByName?: string;
   permission?: DocumentPermission;
+
+  // Para PROJECT_INVITE / MILESTONE_MISSED / MILESTONE_COMPLETED / PROJECT_STATUS_CHANGED
+  projectId?: string;
+  projectName?: string;
+  milestoneId?: string;
+  milestoneName?: string;
+  milestoneDate?: string;
+  addedById?: string;
+  addedByName?: string;
+  newStatus?: string;
+  oldStatus?: string;
 
   // Otros datos genéricos
   [key: string]: any;

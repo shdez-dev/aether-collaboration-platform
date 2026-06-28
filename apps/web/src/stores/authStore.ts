@@ -167,7 +167,7 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          // Registro exitoso — el usuario debe verificar su correo antes de poder entrar
+          // Registro exitoso — pendiente de verificación de correo
           set({ isLoading: false, pendingEmailVerification: email });
         } catch (error: any) {
           set({

@@ -1,123 +1,398 @@
+// apps/web/src/app/dashboard/notifications/page.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/hooks/useNotifications';
-import { NotificationItem } from '@/components/notifications/NotificationItem';
-import { useT } from '@/lib/i18n';
-import { C } from '@/lib/colors';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-export default function NotificationsPage() {
-  const t = useT();
-  const {
-    notifications,
-    isLoading,
-    loadNotifications,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-  } = useNotifications();
+const SORA   = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
 
-  useEffect(() => {
-    loadNotifications();
-  }, []);
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+const AVATAR_PALETTE = ['#4B607F', '#76A878', '#DB8A66', '#8C7C9E', '#F2571E', '#5B8FA8', '#A87876'];
+function hashColor(str: string): string {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
+}
+
+function relativeTime(dateStr: string): string {
+  try { return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: es }); }
+  catch { return ''; }
+}
+
+function isToday(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+}
+
+// Map notification type → human action text and target extraction
+function parseNotification(n: any): { who: string; action: string; target: string; project: string } {
+  const data = (n.data ?? {}) as Record<string, any>;
+  const actor  = data.actorName ?? data.senderName ?? data.actor ?? '';
+  const board  = data.boardName ?? data.board ?? '';
+  const card   = data.cardTitle ?? data.card ?? '';
+  const ws     = data.workspaceName ?? data.workspace ?? '';
+
+  const typeMap: Record<string, { action: string; target: string }> = {
+    COMMENT_MENTION:  { action: 'te mencionó en',        target: card || board },
+    COMMENT_ADDED:    { action: 'comentó en',             target: card || board },
+    CARD_ASSIGNED:    { action: 'te asignó a',            target: card },
+    CARD_UNASSIGNED:  { action: 'te desasignó de',        target: card },
+    CARD_DUE_SOON:    { action: 'vence pronto:',          target: card },
+    CARD_OVERDUE:     { action: 'está vencida:',          target: card },
+    BOARD_INVITE:     { action: 'te invitó al tablero',   target: board },
+    WORKSPACE_INVITE: { action: 'te invitó al espacio',   target: ws || board },
+    TEAM_INVITE:      { action: 'te invitó al equipo',    target: data.teamName ?? '' },
+    WORKSPACE_REMOVED:{ action: 'te removió de',          target: ws || board },
+  };
+
+  const parsed = typeMap[n.type] ?? { action: n.title ?? 'realizó una acción', target: '' };
+
+  // Fallback: try to parse from message if no actor
+  const effectiveActor = actor || extractActorFromMessage(n.message ?? '');
+  const project = board || ws || '';
+
+  return {
+    who: effectiveActor || 'Aether',
+    action: parsed.action,
+    target: parsed.target || card || board,
+    project,
+  };
+}
+
+function extractActorFromMessage(message: string): string {
+  // Messages often start with "Juan comentó..." — extract first word(s)
+  const match = message.match(/^([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)/);
+  return match ? match[1] : '';
+}
+
+function getInitials(name: string): string {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+}
+
+// ── Filter tabs ───────────────────────────────────────────────────────────────
+
+type Filter = 'todo' | 'sin-leer' | 'menciones' | 'asignaciones';
+
+const FILTER_LABELS: { key: Filter; label: string }[] = [
+  { key: 'todo',         label: 'Todo' },
+  { key: 'sin-leer',     label: 'Sin leer' },
+  { key: 'menciones',    label: 'Menciones' },
+  { key: 'asignaciones', label: 'Asignaciones' },
+];
+
+function filterMatch(n: any, filter: Filter): boolean {
+  if (filter === 'todo')         return true;
+  if (filter === 'sin-leer')     return !n.read;
+  if (filter === 'menciones')    return n.type === 'COMMENT_MENTION';
+  if (filter === 'asignaciones') return n.type === 'CARD_ASSIGNED';
+  return true;
+}
+
+// ── Notification row ──────────────────────────────────────────────────────────
+
+function NotifRow({ n, isOld, onRead, onDelete, onClick }: {
+  n: any; isOld?: boolean;
+  onRead: () => void; onDelete: () => void; onClick: () => void;
+}) {
+  const [hov, setHov] = useState(false);
+  const { who, action, target, project } = parseNotification(n);
+  const avatarColor = hashColor(who);
+  const initials    = getInitials(who);
+  const time        = relativeTime(n.createdAt);
+  const unread      = !n.read;
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '720px' }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'flex-start',
-        justifyContent: 'space-between', marginBottom: '28px',
-      }}>
-        <div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            fontFamily: 'monospace', fontSize: '10.5px',
-            textTransform: 'uppercase', letterSpacing: '0.08em',
-            color: C.accent, marginBottom: '10px',
-          }}>
-            <span style={{ width: '16px', height: '1px', background: C.accent, opacity: 0.6, display: 'inline-block' }} />
-            {t.notifications_title}
-          </div>
-          <h1 style={{
-            fontSize: '22px', fontWeight: 700, color: C.text,
-            letterSpacing: '-0.02em', marginBottom: '5px', lineHeight: 1.1,
-          }}>
-            {t.notifications_title}
-          </h1>
-          <p style={{ fontSize: '13px', color: C.text3 }}>
-            {unreadCount > 0
-              ? t.notifications_unread_count(unreadCount)
-              : t.notifications_no_unread}
-          </p>
-        </div>
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '13px',
+        padding: '14px', borderRadius: '8px', cursor: 'pointer',
+        background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
+        position: 'relative',
+      }}
+    >
+      {/* Unread dot */}
+      <span style={{
+        width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+        background: unread ? '#F2571E' : 'transparent',
+      }} />
 
-        {unreadCount > 0 && (
-          <button
-            onClick={markAllAsRead}
-            style={{
-              marginTop: '6px', padding: '6px 12px',
-              borderRadius: '6px', fontSize: '12.5px',
-              color: C.text2, background: C.bg2,
-              border: `1px solid ${C.border2}`, cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = C.accent;
-              e.currentTarget.style.color = C.accent;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = C.border2;
-              e.currentTarget.style.color = C.text2;
-            }}
-          >
-            {t.notifications_btn_mark_all_read}
-          </button>
+      {/* Avatar */}
+      <span style={{
+        width: '34px', height: '34px', borderRadius: '50%',
+        background: avatarColor, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '12px', fontWeight: 700, color: '#24180A',
+      }}>
+        {initials}
+      </span>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: '14px', lineHeight: 1.4,
+          color: isOld ? '#A9B4C6' : '#D8D0C1',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          <strong style={{ color: isOld ? '#D8D0C1' : '#F4EEE2' }}>{who} </strong>
+          {action}
+          {target && (
+            <> <strong style={{ color: isOld ? '#9AB6D8' : '#F2571E' }}>{target}</strong></>
+          )}
+        </div>
+        {project && (
+          <div style={{ fontSize: '12px', color: isOld ? '#736B5E' : '#827A6D', marginTop: '2px' }}>
+            {project}
+          </div>
+        )}
+        {!project && (
+          <div style={{ fontSize: '12px', color: '#736B5E', marginTop: '2px' }}>
+            {n.message ? n.message.slice(0, 72) + (n.message.length > 72 ? '…' : '') : ''}
+          </div>
         )}
       </div>
 
-      {/* Content */}
-      {isLoading ? (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          height: '200px', color: C.text4, fontSize: '13px',
-        }}>
-          {t.notifications_loading}
+      {/* Time + actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        {hov ? (
+          <>
+            {unread && (
+              <button
+                onClick={e => { e.stopPropagation(); onRead(); }}
+                title="Marcar como leída"
+                style={{
+                  width: '26px', height: '26px', borderRadius: '6px',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#827A6D',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(118,168,120,0.12)'; (e.currentTarget as HTMLElement).style.color = '#76A878'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = '#827A6D'; }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(); }}
+              title="Eliminar"
+              style={{
+                width: '26px', height: '26px', borderRadius: '6px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#827A6D',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.1)'; (e.currentTarget as HTMLElement).style.color = '#E05252'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = '#827A6D'; }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </>
+        ) : (
+          <span style={{ fontSize: '12px', color: '#736B5E' }}>{time}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function BandejaPage() {
+  const router = useRouter();
+  const { notifications, isLoading, loadNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const [filter, setFilter] = useState<Filter>('todo');
+
+  useEffect(() => { loadNotifications(); }, []);
+
+  // Filter
+  const filtered = notifications.filter(n => filterMatch(n, filter));
+
+  // Split today vs before
+  const hoy   = filtered.filter(n => isToday(n.createdAt));
+  const antes  = filtered.filter(n => !isToday(n.createdAt));
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const isEmpty = filtered.length === 0;
+
+  function handleClick(n: any) {
+    if (!n.read) markAsRead(n.id);
+    const data = (n.data ?? {}) as any;
+    if (n.type === 'WORKSPACE_INVITE' || n.type === 'WORKSPACE_REMOVED') {
+      router.push('/dashboard/projects');
+    } else if (data.boardId) {
+      router.push(`/dashboard/boards/${data.boardId}`);
+    } else {
+      router.push('/dashboard/projects');
+    }
+  }
+
+  // Filter pill style
+  function pillStyle(key: Filter): React.CSSProperties {
+    const active = filter === key;
+    return {
+      padding: '7px 16px', borderRadius: '8px', cursor: 'pointer',
+      fontFamily: SORA, fontWeight: 600, fontSize: '13px',
+      border: active ? '1px solid rgba(242,87,30,0.4)' : '1px solid rgba(255,255,255,0.09)',
+      background: active ? 'rgba(242,87,30,0.1)' : 'rgba(255,255,255,0.02)',
+      color: active ? '#F2571E' : '#9C9486',
+      transition: 'all 0.15s',
+    };
+  }
+
+  return (
+    <div style={{
+      maxWidth: '760px', margin: '0 auto',
+      padding: 'clamp(24px,3.5vw,44px) clamp(20px,4vw,48px) 80px',
+      fontFamily: MANROPE, animation: 'fadeUp .4s ease both',
+    }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{
+            fontFamily: SORA, fontWeight: 700,
+            fontSize: 'clamp(1.7rem,3vw,2.2rem)',
+            letterSpacing: '-0.02em', color: '#F4EEE2', margin: 0,
+          }}>
+            Bandeja
+          </h1>
+          <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: '#9C9486' }}>
+            Lo que necesita tu atención, en un solo lugar.
+          </p>
         </div>
-      ) : notifications.length === 0 ? (
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', padding: '64px 20px', gap: '12px',
-          border: `1px dashed ${C.border}`, borderRadius: '10px',
-          background: `${C.bg2}80`,
-        }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"
-            width="40" height="40" style={{ color: C.text4 }}>
-            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-          </svg>
-          <span style={{ fontSize: '14px', fontWeight: 500, color: C.text3 }}>
-            {t.notifications_empty_title}
+        {unreadCount > 0 && (
+          <span
+            onClick={() => markAllAsRead()}
+            style={{ fontSize: '13.5px', color: '#F2571E', fontWeight: 600, cursor: 'pointer' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+          >
+            Marcar todo como leído
           </span>
-          <span style={{ fontSize: '12.5px', color: C.text4 }}>
-            {t.notifications_empty_desc}
-          </span>
-        </div>
-      ) : (
-        <div style={{
-          border: `1px solid ${C.border}`, borderRadius: '10px',
-          overflow: 'hidden', background: C.bg2,
-        }}>
-          {notifications.map((n, i) => (
-            <NotificationItem
-              key={n.id}
-              notification={n}
-              onMarkAsRead={markAsRead}
-              onDelete={deleteNotification}
-              hasBorder={i < notifications.length - 1}
-            />
-          ))}
+        )}
+      </div>
+
+      {/* Filter tabs */}
+      <div style={{ display: 'flex', gap: '8px', margin: '24px 0 6px', flexWrap: 'wrap' }}>
+        {FILTER_LABELS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            style={pillStyle(key)}
+            onMouseEnter={e => { if (filter !== key) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; } }}
+            onMouseLeave={e => { if (filter !== key) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; } }}
+          >
+            {label}
+            {key === 'sin-leer' && unreadCount > 0 && (
+              <span style={{
+                marginLeft: '6px', fontSize: '11px', fontWeight: 700,
+                color: filter === 'sin-leer' ? '#24180A' : '#9C9486',
+                background: filter === 'sin-leer' ? '#F2571E' : 'rgba(255,255,255,0.1)',
+                borderRadius: '8px', padding: '0 6px', minWidth: '18px',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                height: '18px', verticalAlign: 'middle',
+              }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Loading */}
+      {isLoading && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+          <div style={{
+            width: '22px', height: '22px', borderRadius: '50%',
+            border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E',
+            animation: 'spin 0.8s linear infinite',
+          }} />
         </div>
       )}
+
+      {/* Empty state */}
+      {!isLoading && isEmpty && (
+        <div style={{ textAlign: 'center', padding: '70px 0', color: '#827A6D' }}>
+          <div style={{
+            width: '56px', height: '56px', borderRadius: '50%',
+            background: 'rgba(118,168,120,0.1)', border: '1px solid rgba(118,168,120,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
+          }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+              <path d="M5 13l4 4L19 7" stroke="#76A878" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <p style={{ fontSize: '15px', margin: 0, color: '#827A6D' }}>
+            {filter === 'todo'
+              ? 'No hay nada por aquí. Estás al día.'
+              : `Sin notificaciones en "${FILTER_LABELS.find(f => f.key === filter)?.label}".`}
+          </p>
+        </div>
+      )}
+
+      {/* Hoy */}
+      {!isLoading && hoy.length > 0 && (
+        <>
+          <div style={{
+            fontFamily: SORA, fontSize: '12px', fontWeight: 600,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: '#615846', margin: '20px 4px 6px',
+          }}>
+            Hoy
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {hoy.map(n => (
+              <NotifRow
+                key={n.id}
+                n={n}
+                onRead={() => markAsRead(n.id)}
+                onDelete={() => deleteNotification(n.id)}
+                onClick={() => handleClick(n)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Antes */}
+      {!isLoading && antes.length > 0 && (
+        <>
+          <div style={{
+            fontFamily: SORA, fontSize: '12px', fontWeight: 600,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: '#615846', margin: '22px 4px 6px',
+          }}>
+            Antes
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {antes.map(n => (
+              <NotifRow
+                key={n.id}
+                n={n}
+                isOld
+                onRead={() => markAsRead(n.id)}
+                onDelete={() => deleteNotification(n.id)}
+                onClick={() => handleClick(n)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

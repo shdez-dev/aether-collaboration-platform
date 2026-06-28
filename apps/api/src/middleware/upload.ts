@@ -47,9 +47,32 @@ export const uploadAvatar = (req: Request, res: Response, next: NextFunction) =>
   });
 };
 
-// Middleware genérico para subir cualquier tipo de archivo (PDFs, imágenes, etc.)
+// Middleware genérico para subir archivos (PDFs, imágenes, documentos ofimáticos).
+// Se filtran los tipos a una allowlist segura: NO se permite SVG/HTML/JS, que
+// servidos desde una URL pública podrían ejecutar scripts (XSS almacenado).
+const ALLOWED_FILE_MIMES = [
+  'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+  'application/pdf',
+  'text/plain', 'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+];
+
+const fileTypeFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (ALLOWED_FILE_MIMES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de archivo no permitido.'));
+  }
+};
+
 const multerFileUpload = multer({
   storage,
+  fileFilter: fileTypeFilter,
   limits: {
     fileSize: 20 * 1024 * 1024, // 20MB máximo
   },

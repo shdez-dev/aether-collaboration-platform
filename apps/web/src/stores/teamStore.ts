@@ -38,6 +38,7 @@ export interface Team {
   updatedAt: string;
   memberCount?: number;
   members?: TeamMember[];
+  sampleMembers?: { id: string; name: string }[];
 }
 
 export interface TeamActivity {
@@ -48,6 +49,8 @@ export interface TeamActivity {
   userAvatar?: string | null;
   action: string;
   entityName?: string | null;
+  projectName?: string | null;
+  projectId?: string | null;
   createdAt: string;
 }
 

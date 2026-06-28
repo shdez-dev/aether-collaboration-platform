@@ -230,6 +230,8 @@ export class CardService {
       completed?: boolean;
       completedAt?: string | null;
       listId?: string;
+      milestoneId?: string | null;
+      bufferDays?:  number | null;
     },
     socketId?: string
   ): Promise<Card> {
@@ -272,7 +274,9 @@ export class CardService {
       if (data.description !== undefined) { updates.push(`description = $${paramCount++}`); values.push(data.description); }
       if (data.startDate !== undefined)   { updates.push(`start_date = $${paramCount++}`);  values.push(data.startDate); }
       if (data.dueDate !== undefined)     { updates.push(`due_date = $${paramCount++}`);    values.push(data.dueDate); }
-      if (data.priority !== undefined)    { updates.push(`priority = $${paramCount++}`);    values.push(data.priority); }
+      if (data.priority !== undefined)    { updates.push(`priority = $${paramCount++}`);     values.push(data.priority); }
+      if (data.milestoneId !== undefined) { updates.push(`milestone_id = $${paramCount++}`); values.push(data.milestoneId); }
+      if (data.bufferDays  !== undefined) { updates.push(`buffer_days = $${paramCount++}`);  values.push(data.bufferDays); }
 
       if (data.completed !== undefined) {
         updates.push(`completed = $${paramCount++}`);
@@ -827,6 +831,8 @@ export class CardService {
       checklistItems:       row.checklist_items || [],
       blockedByPendingCount: row.blocked_by_pending_count ?? 0,
       blockingCount:        row.blocking_count ?? 0,
+      milestoneId:          row.milestone_id ?? null,
+      bufferDays:           row.buffer_days   ?? null,
     };
 
     if (row.comment_count !== undefined) {

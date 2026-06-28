@@ -264,7 +264,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
             <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 {listCards.length > 0 ? (
-                  listCards.map((card) => <Card key={card.id} card={card} />)
+                  listCards.map((card) => <Card key={card.id} card={card} boardId={list.boardId} />)
                 ) : (
                   <div
                     style={{

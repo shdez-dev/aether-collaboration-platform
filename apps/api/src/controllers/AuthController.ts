@@ -9,11 +9,27 @@ import { eventStore } from '../services/EventStoreService';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { pool } from '../lib/db';
 import { emailService } from '../services/EmailService';
+import { RefreshTokenService } from '../services/RefreshTokenService';
+
+// Hash usado para nunca almacenar tokens de reset/verificación en claro en la BD.
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+// Política de contraseña: longitud mínima razonable + al menos una letra y un dígito,
+// con tope superior para evitar abuso de coste de bcrypt.
+const passwordSchema = z
+  .string()
+  .min(8, 'Password debe tener mínimo 8 caracteres')
+  .max(128, 'Password no puede superar 128 caracteres')
+  .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), {
+    message: 'Password debe incluir al menos una letra y un número',
+  });
 
 // Esquemas de validación con Zod
 const registerSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(8, 'Password debe tener mínimo 8 caracteres'),
+  password: passwordSchema,
   name: z.string().min(2, 'Nombre debe tener mínimo 2 caracteres'),
 });
 
@@ -28,8 +44,12 @@ const forgotPasswordSchema = z.object({
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Token es requerido'),
-  newPassword: z.string().min(8, 'Password debe tener mínimo 8 caracteres'),
+  newPassword: passwordSchema,
 });
+
+// Hash bcrypt de relleno con coste 12 para igualar la latencia cuando el email
+// no existe — evita un oráculo de enumeración de usuarios por tiempo de respuesta.
+const DUMMY_BCRYPT_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEeO3J0Poy3xWg6m9rJ0sQ5kJ0aQ8zq5n2u';
 
 const verifyEmailSchema = z.object({
   token: z.string().min(1, 'Token es requerido'),
@@ -68,42 +88,39 @@ export class AuthController {
       // 4. Hashear password con bcrypt
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // 5. Generate email verification token
+      // 5. Generar token de verificación de email (se almacena hasheado)
       const verificationToken = crypto.randomBytes(32).toString('hex');
-      const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
-      // 6. Crear usuario en la base de datos con token de verificación
+      // 6. Crear usuario en la base de datos con email_verified=FALSE
       const result = await client.query(
-        `INSERT INTO users (id, email, password, name, email_verified, email_verification_token, email_verification_expires, created_at, updated_at) 
-         VALUES (uuid_generate_v4(), $1, $2, $3, FALSE, $4, $5, NOW(), NOW()) 
+        `INSERT INTO users (id, email, password, name, email_verified, email_verification_token, email_verification_expires, created_at, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, FALSE, $4, $5, NOW(), NOW())
          RETURNING id, email, name, avatar, created_at`,
-        [email, hashedPassword, name, verificationToken, verificationExpires]
+        [email, hashedPassword, name, hashToken(verificationToken), verificationExpires]
       );
 
       const user = result.rows[0];
-
-      // Liberar conexión antes de operaciones que no requieren DB
-      client.release();
-      client = undefined;
-
-      // auth.user.registered queda fuera del workspace event store
-
-      // 8. Send verification email (don't block on this)
       const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
       const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
+      // Liberar conexión antes de enviar el email
+      client.release();
+      client = undefined;
+
+      // 7. Enviar email de verificación en background (no bloquea la respuesta)
       setImmediate(async () => {
         try {
           await emailService.sendVerificationEmail(user.email, {
             userName: user.name,
             verificationLink,
           });
-        } catch (emailErr: any) {
-          console.error('[register] Error enviando email de verificación:', emailErr?.message || emailErr);
+        } catch (emailError) {
+          console.error('[register] Error sending verification email:', emailError);
         }
       });
 
-      // 9. Retornar usuario creado (SIN password)
+      // 8. Retornar usuario creado — el cliente debe verificar su email antes de iniciar sesión
       return res.status(201).json({
         success: true,
         data: {
@@ -114,6 +131,7 @@ export class AuthController {
             avatar: user.avatar,
             createdAt: user.created_at,
           },
+          requiresEmailVerification: true,
         },
         meta: {
           timestamp: Date.now(),
@@ -171,6 +189,9 @@ export class AuthController {
       if (result.rows.length === 0) {
         client.release();
         client = undefined;
+        // Comparación de relleno para igualar el tiempo de respuesta del caso
+        // "usuario existe" y no filtrar la existencia del email por timing.
+        await bcrypt.compare(password, DUMMY_BCRYPT_HASH);
         return res.status(401).json({
           success: false,
           error: {
@@ -199,14 +220,10 @@ export class AuthController {
         });
       }
 
-      // 5. Verificar que el email esté confirmado
       if (!user.email_verified) {
         return res.status(403).json({
           success: false,
-          error: {
-            code: 'EMAIL_NOT_VERIFIED',
-            message: 'Debes verificar tu correo electrónico antes de iniciar sesión',
-          },
+          error: { code: 'EMAIL_NOT_VERIFIED', message: 'Debes verificar tu correo electrónico antes de iniciar sesión' },
         });
       }
 
@@ -218,6 +235,9 @@ export class AuthController {
 
       const accessToken = generateAccessToken(tokenPayload);
       const refreshToken = generateRefreshToken(tokenPayload);
+
+      // Registrar el refresh token en la allowlist (permite revocación y rotación)
+      await RefreshTokenService.issue(user.id, refreshToken);
 
       // 7. Retornar tokens y datos de usuario
       return res.status(200).json({
@@ -269,6 +289,13 @@ export class AuthController {
    */
   async logout(req: Request, res: Response) {
     try {
+      // Revocar todos los refresh tokens del usuario para que no puedan reutilizarse
+      // tras cerrar sesión (logout efectivo, no un no-op).
+      const userId = (req as any).user?.id;
+      if (userId) {
+        await RefreshTokenService.revokeAllForUser(userId);
+      }
+
       return res.status(200).json({
         success: true,
         data: {
@@ -306,8 +333,28 @@ export class AuthController {
         });
       }
 
-      // Verificar el refresh token
+      // Verificar la firma/expiración del refresh token
       const decoded = verifyRefreshToken(refreshToken);
+
+      // Validar contra la allowlist de tokens (permite revocación)
+      const tokenState = await RefreshTokenService.check(refreshToken);
+
+      if (tokenState === 'revoked') {
+        // Reuso de un token ya rotado/revocado → posible robo. Revocar toda la
+        // familia de tokens del usuario como respuesta defensiva.
+        await RefreshTokenService.revokeAllForUser(decoded.userId);
+        return res.status(401).json({
+          success: false,
+          error: { code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token inválido o expirado' },
+        });
+      }
+
+      if (tokenState !== 'valid') {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token inválido o expirado' },
+        });
+      }
 
       // Buscar usuario en la base de datos
       const result = await client.query('SELECT id, email, name, avatar FROM users WHERE id = $1', [
@@ -334,6 +381,9 @@ export class AuthController {
 
       const newAccessToken = generateAccessToken(tokenPayload);
       const newRefreshToken = generateRefreshToken(tokenPayload);
+
+      // Rotar: revocar el viejo y registrar el nuevo de forma atómica
+      await RefreshTokenService.rotate(user.id, refreshToken, newRefreshToken);
 
       return res.status(200).json({
         success: true,
@@ -489,12 +539,12 @@ export class AuthController {
       const token = crypto.randomBytes(32).toString('hex');
       const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-      // Save token to database
+      // Guardar SOLO el hash del token (el token en claro viaja en el email)
       await client.query(
-        `UPDATE users 
-         SET email_verification_token = $1, email_verification_expires = $2 
+        `UPDATE users
+         SET email_verification_token = $1, email_verification_expires = $2
          WHERE id = $3`,
-        [token, expires, userId]
+        [hashToken(token), expires, userId]
       );
 
       // Send verification email
@@ -554,6 +604,7 @@ export class AuthController {
       const tokenPayload = { userId: user.id as UserId, email: user.email };
       const accessToken = generateAccessToken(tokenPayload);
       const refreshToken = generateRefreshToken(tokenPayload);
+      await RefreshTokenService.issue(user.id, refreshToken);
 
       return res.status(200).json({
         success: true,
@@ -608,7 +659,7 @@ export class AuthController {
 
       await client.query(
         `UPDATE users SET email_verification_token = $1, email_verification_expires = $2 WHERE id = $3`,
-        [token, expires, user.id]
+        [hashToken(token), expires, user.id]
       );
 
       const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
@@ -644,12 +695,12 @@ export class AuthController {
       const validatedData = verifyEmailSchema.parse(req.body);
       const { token } = validatedData;
 
-      // Find user with this token
+      // Find user with this token (se compara contra el hash almacenado)
       const result = await client.query(
-        `SELECT id, email, name, email_verification_token, email_verification_expires 
-         FROM users 
+        `SELECT id, email, name, email_verification_token, email_verification_expires
+         FROM users
          WHERE email_verification_token = $1`,
-        [token]
+        [hashToken(token)]
       );
 
       if (result.rows.length === 0) {
@@ -689,6 +740,7 @@ export class AuthController {
       const tokenPayload = { userId: user.id as UserId, email: user.email };
       const accessToken = generateAccessToken(tokenPayload);
       const refreshToken = generateRefreshToken(tokenPayload);
+      await RefreshTokenService.issue(user.id, refreshToken);
 
       // Obtener avatar del usuario
       const profileResult = await client.query('SELECT avatar FROM users WHERE id = $1', [user.id]);
@@ -766,12 +818,12 @@ export class AuthController {
       const token = crypto.randomBytes(32).toString('hex');
       const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-      // Save token to database
+      // Guardar SOLO el hash del token (el token en claro viaja en el email)
       await client.query(
-        `UPDATE users 
-         SET password_reset_token = $1, password_reset_expires = $2 
+        `UPDATE users
+         SET password_reset_token = $1, password_reset_expires = $2
          WHERE id = $3`,
-        [token, expires, user.id]
+        [hashToken(token), expires, user.id]
       );
 
       // Send password reset email
@@ -829,12 +881,12 @@ export class AuthController {
       const validatedData = resetPasswordSchema.parse(req.body);
       const { token, newPassword } = validatedData;
 
-      // Find user with this token
+      // Find user with this token (se compara contra el hash almacenado)
       const result = await client.query(
-        `SELECT id, email, password_reset_token, password_reset_expires 
-         FROM users 
+        `SELECT id, email, password_reset_token, password_reset_expires
+         FROM users
          WHERE password_reset_token = $1`,
-        [token]
+        [hashToken(token)]
       );
 
       if (result.rows.length === 0) {
@@ -865,13 +917,16 @@ export class AuthController {
 
       // Update password and clear token
       await client.query(
-        `UPDATE users 
-         SET password = $1, 
-             password_reset_token = NULL, 
-             password_reset_expires = NULL 
+        `UPDATE users
+         SET password = $1,
+             password_reset_token = NULL,
+             password_reset_expires = NULL
          WHERE id = $2`,
         [hashedPassword, user.id]
       );
+
+      // Al cambiar la contraseña, invalidar todas las sesiones activas (refresh tokens)
+      await RefreshTokenService.revokeAllForUser(user.id);
 
       return res.status(200).json({
         success: true,

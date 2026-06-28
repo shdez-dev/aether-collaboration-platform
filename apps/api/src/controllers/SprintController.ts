@@ -4,6 +4,29 @@ import { Response } from 'express';
 import { z } from 'zod';
 import { SprintService } from '../services/SprintService';
 import { WorkspaceRequest } from '../middleware/workspace';
+import { eventStore } from '../services/EventStoreService';
+import { pool } from '../lib/db';
+
+async function resolveSprintContext(boardId: string): Promise<{ workspaceId: string; projectId: string | null; boardName: string }> {
+  const r = await pool.query(
+    `SELECT b.workspace_id, b.name AS board_name, pb.project_id
+     FROM boards b
+     LEFT JOIN project_boards pb ON pb.board_id = b.id
+     WHERE b.id = $1`,
+    [boardId]
+  );
+  const row = r.rows[0];
+  return {
+    workspaceId: row?.workspace_id ?? '',
+    projectId: row?.project_id ?? null,
+    boardName: row?.board_name ?? '',
+  };
+}
+
+async function getActorName(userId: string): Promise<string> {
+  const r = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+  return r.rows[0]?.name ?? '';
+}
 
 const createSprintSchema = z.object({
   name: z.string().min(1).max(255),
@@ -89,6 +112,16 @@ export class SprintController {
           .json({ success: false, error: { code: 'VALIDATION_ERROR', details: v.error.errors } });
 
       const sprint = await SprintService.createSprint(boardId, userId, v.data);
+
+      const [actorName, ctx] = await Promise.all([getActorName(userId), resolveSprintContext(boardId)]);
+      await eventStore.emit({
+        type: 'sprint.created',
+        actor: { id: userId, name: actorName },
+        subject: { type: 'sprint', id: sprint.id, name: sprint.name },
+        context: { workspaceId: ctx.workspaceId },
+        payload: { projectId: ctx.projectId, boardId, boardName: ctx.boardName, sprintName: sprint.name },
+      }).catch(() => {});
+
       return res.status(201).json({ success: true, data: { sprint } });
     } catch (e: any) {
       return res
@@ -112,6 +145,22 @@ export class SprintController {
           .json({ success: false, error: { code: 'VALIDATION_ERROR', details: v.error.errors } });
 
       const sprint = await SprintService.updateSprint(sprintId, v.data);
+
+      if (v.data.status === 'ACTIVE' || v.data.status === 'COMPLETED') {
+        const userId = req.user?.id;
+        if (userId) {
+          const [actorName, ctx] = await Promise.all([getActorName(userId), resolveSprintContext(sprint.boardId)]);
+          const eventType = v.data.status === 'ACTIVE' ? 'sprint.started' : 'sprint.completed';
+          await eventStore.emit({
+            type: eventType,
+            actor: { id: userId, name: actorName },
+            subject: { type: 'sprint', id: sprint.id, name: sprint.name },
+            context: { workspaceId: ctx.workspaceId },
+            payload: { projectId: ctx.projectId, boardId: sprint.boardId, boardName: ctx.boardName, sprintName: sprint.name },
+          }).catch(() => {});
+        }
+      }
+
       return res.json({ success: true, data: { sprint } });
     } catch (e: any) {
       if (e.message === 'Sprint not found')

@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { workspaceService } from '../services/WorkspaceService';
+import { pool } from '../lib/db';
 import { userActivityService } from '../services/UserActivityService';
 import type { WorkspaceRequest } from '../middleware/workspace';
 import type { WorkspaceRole, UserId } from '@aether/types';
@@ -533,6 +534,29 @@ class WorkspaceController {
           message: 'Failed to fetch members',
         },
       });
+    }
+  }
+
+  /** GET /api/workspaces/:id/pending-invitations — invitaciones salientes pendientes */
+  async getPendingOutgoingInvitations(req: WorkspaceRequest, res: Response) {
+    try {
+      const workspaceId = req.params.id;
+      const result = await pool.query(
+        `SELECT wi.id, u.email, wi.created_at
+         FROM workspace_invitations wi
+         JOIN users u ON u.id = wi.invited_user_id
+         WHERE wi.workspace_id = $1 AND wi.status = 'PENDING'
+         ORDER BY wi.created_at DESC`,
+        [workspaceId]
+      );
+      const invitations = result.rows.map((r: any) => ({
+        id:      r.id,
+        email:   r.email,
+        sentAt:  new Date(r.created_at).toISOString(),
+      }));
+      return res.json({ success: true, data: { invitations } });
+    } catch (error) {
+      return res.status(500).json({ success: false });
     }
   }
 

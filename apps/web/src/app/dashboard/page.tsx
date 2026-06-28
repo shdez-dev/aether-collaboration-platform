@@ -1,18 +1,17 @@
+// apps/web/src/app/dashboard/page.tsx
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useTeamStore } from '@/stores/teamStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { apiService } from '@/services/apiService';
-import { Users, ExternalLink, Plus, X, Check } from 'lucide-react';
 import { useT } from '@/lib/i18n';
-import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
-import { C } from '@/lib/colors';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 
-
-// ── Color tokens ──────────────────────────────────────────────────────────────
+const SORA = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,122 +38,115 @@ interface TodoItem {
 const TODO_LS_KEY = 'aether-today-todos';
 const TODO_TTL_MS = 24 * 60 * 60 * 1000;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const PRIORITY_COLORS: Record<string, string> = {
+  HIGH: '#E05252',
+  MEDIUM: '#DB8A66',
+  LOW: '#76A878',
+};
 
-function timeAgo(date: string | null | undefined, t: Record<string, any>): string {
-  if (!date) return '';
-  const diff = Date.now() - new Date(date).getTime();
-  const m = Math.floor(diff / 60000);
-  const h = Math.floor(diff / 3600000);
-  const d = Math.floor(diff / 86400000);
-  if (m < 1)   return t.activity_time_just_now;
-  if (m < 60)  return t.activity_time_minutes(m);
-  if (h < 24)  return t.activity_time_hours(h);
-  if (d < 30)  return t.activity_time_days(d);
-  return t.activity_time_days(Math.floor(d / 30) * 30);
-}
-
-function greeting(name: string, t: ReturnType<typeof useT>): string {
-  const h = new Date().getHours();
-  const firstName = name.split(' ')[0];
-  if (h < 12) return `${t.dashboard_greeting_morning}, ${firstName}.`;
-  if (h < 19) return `${t.dashboard_greeting_afternoon}, ${firstName}.`;
-  return `${t.dashboard_greeting_evening}, ${firstName}.`;
-}
-
-function dueSoon(dueDate: string | null): boolean {
-  if (!dueDate) return false;
-  const d = Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000);
-  return d >= 0 && d <= 2;
-}
-
-const AVATAR_PALETTE = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#fb923c'];
+const WS_PALETTE = ['#4B607F', '#76A878', '#DB8A66', '#8C7C9E', '#F2571E', '#5B8FA8'];
 function hashColor(str: string): string {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
+  return WS_PALETTE[Math.abs(h) % WS_PALETTE.length];
 }
 
-function MiniAvatar({ name, size = 24 }: { name: string; size?: number }) {
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%',
-      background: hashColor(name),
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size < 28 ? '10px' : '12px', fontWeight: 700, color: '#fff', flexShrink: 0,
-    }}>
-      {name.trim()[0]?.toUpperCase() ?? '?'}
-    </div>
-  );
+function greetingText(name: string): string {
+  const h = new Date().getHours();
+  const first = name.split(' ')[0];
+  if (h < 12) return `Buenos días, ${first}.`;
+  if (h < 19) return `Buenas tardes, ${first}.`;
+  return `Buenas noches, ${first}.`;
 }
 
-// ── Card item row ─────────────────────────────────────────────────────────────
+function formatDueShort(dueDate: string): string {
+  const d = new Date(dueDate);
+  const now = new Date(); now.setHours(0,0,0,0);
+  const diffDays = Math.ceil((d.getTime() - now.getTime()) / 86400000);
+  if (diffDays < 0) return `Hace ${Math.abs(diffDays)}d`;
+  if (diffDays === 0) return 'Hoy';
+  if (diffDays === 1) return 'Mañana';
+  return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
+}
 
-function CardRow({ card, router, t }: { card: UserCard; router: ReturnType<typeof useRouter>; t: Record<string, any> }) {
+function getDayLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  const days = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+  return days[d.getDay()];
+}
+
+// ── Task item — matches design exactly ────────────────────────────────────────
+
+function TaskItem({ title, project, dotColor, done, time, isOverdue, onToggle, onClick }: {
+  title: string;
+  project?: string;
+  dotColor?: string;
+  done: boolean;
+  time?: string | null;
+  isOverdue?: boolean;
+  onToggle: () => void;
+  onClick?: () => void;
+}) {
   const [hov, setHov] = useState(false);
-  const isOverdue = !card.completed && card.dueDate && new Date(card.dueDate) < new Date();
-  const soon = dueSoon(card.dueDate);
 
   return (
     <div
-      onClick={() => router.push(`/dashboard/workspaces/${card.workspaceId}/boards/${card.boardId}`)}
+      onClick={onClick ?? onToggle}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: 'flex', alignItems: 'center', gap: '10px',
-        padding: '8px 10px', borderRadius: '7px', cursor: 'pointer',
-        background: hov ? C.hover : 'transparent',
-        transition: 'background 0.1s',
+        display: 'flex', alignItems: 'center', gap: '13px',
+        padding: '13px 14px', borderRadius: '8px', cursor: 'pointer',
+        background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
       }}
     >
-      {/* Priority dot */}
-      <div style={{
+      {/* Circle checkbox */}
+      <span
+        onClick={e => { e.stopPropagation(); onToggle(); }}
+        style={{
+          width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
+          background: done ? '#76A878' : 'transparent',
+          border: done ? '2px solid #76A878' : '1.8px solid #3F3930',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+        }}
+      >
+        {done && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M5 13l4 4L19 7" stroke="#24180A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </span>
+
+      {/* Color dot */}
+      <span style={{
         width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
-        background: card.priority === 'HIGH' ? C.red : card.priority === 'MEDIUM' ? C.amber : C.border2,
+        background: dotColor ?? '#615846',
       }} />
 
-      {/* Title + context */}
+      {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '13px', color: C.text, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {card.title}
+        <div style={{
+          fontSize: '14.5px',
+          color: done ? '#615846' : '#D8D0C1',
+          textDecoration: done ? 'line-through' : 'none',
+        }}>
+          {title}
         </div>
-        <div style={{ fontSize: '11px', color: C.text4, marginTop: '1px' }}>
-          {card.boardName} · {card.workspaceName}
-        </div>
+        {project && (
+          <div style={{ fontSize: '12px', color: '#827A6D', marginTop: '2px' }}>{project}</div>
+        )}
       </div>
 
-      {/* Due date */}
-      {card.dueDate && (
-        <div style={{
-          fontSize: '11px', fontWeight: 600, flexShrink: 0,
-          color: isOverdue ? C.red : soon ? C.amber : C.text4,
+      {/* Time badge */}
+      {time && (
+        <span style={{
+          fontSize: '12px', color: isOverdue ? '#E05252' : '#8B8275',
+          background: 'rgba(255,255,255,0.05)',
+          padding: '3px 9px', borderRadius: '8px', flexShrink: 0,
         }}>
-          {isOverdue
-            ? t.dashboard_card_overdue_days(Math.abs(Math.ceil((new Date(card.dueDate).getTime() - Date.now()) / 86400000)))
-            : soon
-            ? `${Math.ceil((new Date(card.dueDate).getTime() - Date.now()) / 86400000)}d`
-            : new Date(card.dueDate).toLocaleDateString(t.locale, { day: 'numeric', month: 'short' })
-          }
-        </div>
-      )}
-
-      {hov && (
-        <ExternalLink style={{ width: '11px', height: '11px', color: C.text4, flexShrink: 0 }} />
-      )}
-    </div>
-  );
-}
-
-// ── Section label ─────────────────────────────────────────────────────────────
-
-function SectionLabel({ children, count }: { children: React.ReactNode; count?: number }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 10px', marginBottom: '4px' }}>
-      <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text4 }}>
-        {children}
-      </span>
-      {count !== undefined && (
-        <span style={{ fontSize: '10px', color: C.text4 }}>({count})</span>
+          {time}
+        </span>
       )}
     </div>
   );
@@ -163,432 +155,455 @@ function SectionLabel({ children, count }: { children: React.ReactNode; count?: 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const router   = useRouter();
+  const router = useRouter();
   const { user } = useAuthStore();
-  const { workspaces, fetchWorkspaces, isLoading: wsLoading } = useWorkspaceStore();
-  const { teams, fetchTeams, isLoading: teamsLoading } = useTeamStore();
-  const t = useT();
+  const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const { projects, fetchProjects } = useProjectStore();
+  useT(); // keep i18n initialised
 
-  const [isCreateWsOpen,  setIsCreateWsOpen]  = useState(false);
-
-  // Cards
-  const [overdue,  setOverdue]  = useState<UserCard[]>([]);
-  const [today,    setToday]    = useState<UserCard[]>([]);
-  const [upcoming, setUpcoming] = useState<UserCard[]>([]);
-  const [later,    setLater]    = useState<UserCard[]>([]);
-  const [noDate,   setNoDate]   = useState<UserCard[]>([]);
+  const [cards, setCards] = useState<{ overdue: UserCard[]; today: UserCard[]; upcoming: UserCard[] }>({
+    overdue: [], today: [], upcoming: [],
+  });
   const [cardsLoading, setCardsLoading] = useState(true);
+  const [togglingCards, setTogglingCards] = useState<Set<string>>(new Set());
 
-
-  // My activity
-
-  // Todo list widget
-  const [todoItems,    setTodoItems]    = useState<TodoItem[]>([]);
-  const [newItemText,  setNewItemText]  = useState('');
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const newItemRef = useRef<HTMLInputElement>(null);
+  const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
+  const [quickText, setQuickText] = useState('');
+  const quickRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // First workspace for standup API sync
   const firstWsId = workspaces[0]?.id ?? null;
 
-  // ── Fetch data ──────────────────────────────────────────────────────────────
-
+  // ── Fetch ────────────────────────────────────────────────────────────────────
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
-  useEffect(() => { fetchTeams(); }, [fetchTeams]);
+  useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   useEffect(() => {
     setCardsLoading(true);
     apiService.get<{ pending: UserCard[]; overdue: UserCard[] }>('/api/users/me/cards', true)
-      .then((res) => {
+      .then(res => {
         if (!res.success || !res.data) return;
         const { pending = [], overdue: ov = [] } = res.data;
-
         const now = new Date();
         const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
-        const weekEnd  = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
-
-        const todayCards    = pending.filter((c) => c.dueDate && new Date(c.dueDate) <= todayEnd);
-        const upcomingCards = pending.filter((c) => c.dueDate && new Date(c.dueDate) > todayEnd && new Date(c.dueDate) <= weekEnd);
-        const laterCards    = pending.filter((c) => c.dueDate && new Date(c.dueDate) > weekEnd);
-        const noDateCards   = pending.filter((c) => !c.dueDate);
-
-        setOverdue(ov);
-        setToday(todayCards);
-        setUpcoming(upcomingCards);
-        setLater(laterCards);
-        setNoDate(noDateCards);
+        const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
+        setCards({
+          overdue: ov,
+          today: pending.filter(c => c.dueDate && new Date(c.dueDate) <= todayEnd),
+          upcoming: pending.filter(c => c.dueDate && new Date(c.dueDate) > todayEnd && new Date(c.dueDate) <= weekEnd),
+        });
       })
       .finally(() => setCardsLoading(false));
   }, []);
 
-
-
-  // Load + purge todo items from localStorage
+  // LocalStorage todos
   useEffect(() => {
     try {
       const raw = localStorage.getItem(TODO_LS_KEY);
       if (!raw) return;
       const items: TodoItem[] = JSON.parse(raw);
-      const cutoff = Date.now() - TODO_TTL_MS;
-      const fresh = items.filter((i) => new Date(i.createdAt).getTime() > cutoff);
-      localStorage.setItem(TODO_LS_KEY, JSON.stringify(fresh));
+      const fresh = items.filter(i => new Date(i.createdAt).getTime() > Date.now() - TODO_TTL_MS);
       setTodoItems(fresh);
+      localStorage.setItem(TODO_LS_KEY, JSON.stringify(fresh));
     } catch {}
   }, []);
 
   function persistTodos(items: TodoItem[]) {
     setTodoItems(items);
     try { localStorage.setItem(TODO_LS_KEY, JSON.stringify(items)); } catch {}
-    // Sync non-completed items to standup API for team visibility (debounced)
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (!firstWsId) return;
-      const pendingItems = items.filter((i) => !i.completed);
+      const pending = items.filter(i => !i.completed);
       apiService.put('/api/users/me/standup', {
-        workspaceId:    firstWsId,
-        todayItems:     pendingItems.map((i) => ({ id: i.id, text: i.text })),
-        yesterdayItems: [],
-        blockers:       [],
-      }, true).then((res) => {
-        if (res.success && pendingItems.length > 0) {
-          apiService.post('/api/users/me/standup/publish', { workspaceId: firstWsId }, true);
-        }
+        workspaceId: firstWsId,
+        todayItems: pending.map(i => ({ id: i.id, text: i.text })),
+        yesterdayItems: [], blockers: [],
+      }, true).then(res => {
+        if (res.success && pending.length > 0) apiService.post('/api/users/me/standup/publish', { workspaceId: firstWsId }, true);
       }).catch(() => {});
     }, 1500);
   }
 
-  function addTodoItem() {
-    const text = newItemText.trim();
+  async function toggleCard(card: UserCard) {
+    if (togglingCards.has(card.id)) return;
+    setTogglingCards(prev => new Set([...prev, card.id]));
+
+    const newCompleted = !card.completed;
+
+    const applyToAll = (completed: boolean) =>
+      setCards(prev => ({
+        overdue: prev.overdue.map(c => c.id === card.id ? { ...c, completed } : c),
+        today:   prev.today.map(c => c.id === card.id ? { ...c, completed } : c),
+        upcoming: prev.upcoming.map(c => c.id === card.id ? { ...c, completed } : c),
+      }));
+
+    applyToAll(newCompleted);
+
+    try {
+      const res = await apiService.put(`/api/cards/${card.id}`, { completed: newCompleted }, true);
+      if (res.success && newCompleted) {
+        // Remove from lists after brief visual confirmation
+        setTimeout(() => {
+          setCards(prev => ({
+            overdue:  prev.overdue.filter(c => c.id !== card.id),
+            today:    prev.today.filter(c => c.id !== card.id),
+            upcoming: prev.upcoming.filter(c => c.id !== card.id),
+          }));
+        }, 750);
+      } else if (!res.success) {
+        applyToAll(card.completed);
+      }
+    } catch {
+      applyToAll(card.completed);
+    } finally {
+      setTogglingCards(prev => { const s = new Set(prev); s.delete(card.id); return s; });
+    }
+  }
+
+  function addQuickTask() {
+    const text = quickText.trim();
     if (!text) return;
     const item: TodoItem = {
       id: Math.random().toString(36).slice(2) + Date.now().toString(36),
-      text,
-      completed: false,
-      createdAt: new Date().toISOString(),
+      text, completed: false, createdAt: new Date().toISOString(),
     };
     persistTodos([...todoItems, item]);
-    setNewItemText('');
-    setTimeout(() => newItemRef.current?.focus(), 0);
+    setQuickText('');
   }
 
   function toggleTodo(id: string) {
-    persistTodos(todoItems.map((i) => i.id === id ? { ...i, completed: !i.completed } : i));
+    persistTodos(todoItems.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
   }
 
-  function deleteTodo(id: string) {
-    persistTodos(todoItems.filter((i) => i.id !== id));
+  // ── Derived ──────────────────────────────────────────────────────────────────
+  const greetMsg = greetingText(user?.name ?? 'equipo');
+
+  const recentProjects = [...projects]
+    .filter(p => p.status !== 'ARCHIVED')
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 3);
+
+  const pendingTodos = todoItems.filter(i => !i.completed);
+  const doneTodos = todoItems.filter(i => i.completed);
+  const totalToday = cards.today.length + pendingTodos.length;
+  const totalOverdue = cards.overdue.length;
+
+  const summaryText = (() => {
+    if (totalOverdue > 0) return `Tienes ${totalOverdue} ${totalOverdue === 1 ? 'tarea vencida' : 'tareas vencidas'} y ${totalToday} para hoy.`;
+    if (totalToday > 0) return `Tienes ${totalToday} ${totalToday === 1 ? 'tarea pendiente' : 'tareas pendientes'} para hoy.`;
+    return 'Todo al día. ¡Buen trabajo!';
+  })();
+
+  const pendingLabel = (() => {
+    const n = totalToday + totalOverdue;
+    if (n === 0) return 'Sin pendientes';
+    return `${n} ${n === 1 ? 'tarea' : 'tareas'}`;
+  })();
+
+  // Agenda grouped by day label
+  const agendaByDay: { day: string; color: string; tasks: UserCard[] }[] = [];
+  const dayColors = ['#4B607F', '#76A878', '#DB8A66', '#8C7C9E', '#F2571E', '#5B8FA8'];
+  const seenDays: Record<string, number> = {};
+  for (const c of cards.upcoming) {
+    if (!c.dueDate) continue;
+    const day = getDayLabel(c.dueDate);
+    if (seenDays[day] === undefined) { seenDays[day] = agendaByDay.length; agendaByDay.push({ day, color: dayColors[agendaByDay.length % dayColors.length], tasks: [] }); }
+    agendaByDay[seenDays[day]].tasks.push(c);
   }
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
-
-  const totalPending  = overdue.length + today.length + upcoming.length + later.length + noDate.length;
-  const summaryLine   = overdue.length > 0
-    ? t.dashboard_summary_overdue_today(overdue.length, today.length)
-    : today.length > 0
-    ? t.dashboard_summary_today(today.length)
-    : totalPending > 0
-    ? t.dashboard_summary_week(totalPending)
-    : t.dashboard_summary_all_done;
-
-  // ── Render ──────────────────────────────────────────────────────────────────
-
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <>
-    {isCreateWsOpen && (
-      <CreateWorkspaceModal isOpen={isCreateWsOpen} onClose={() => setIsCreateWsOpen(false)} />
-    )}
-    <div style={{ height: '100%', overflow: 'auto', background: C.bg }}>
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div style={{ padding: 'clamp(24px,3.5vw,44px) clamp(20px,4vw,48px) 80px', fontFamily: MANROPE }}>
 
-        {/* ── GREETING + SUMMARY + STANDUP ─────────────────────────────── */}
-        <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+      {/* Greeting */}
+      <div style={{ animation: 'fadeUp .4s ease both' }}>
+        <h1 style={{
+          fontFamily: SORA, fontWeight: 700,
+          fontSize: 'clamp(1.7rem,3vw,2.2rem)',
+          letterSpacing: '-0.02em', color: '#F4EEE2', margin: 0,
+        }}>
+          {greetMsg}
+        </h1>
+        <p style={{ margin: '8px 0 0', fontSize: '1.05rem', color: totalOverdue > 0 ? '#E05252' : '#9C9486' }}>
+          {summaryText}
+        </p>
+      </div>
 
-          {/* Greeting row */}
-          <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: C.text, marginBottom: '4px' }}>
-              {greeting(user?.name ?? t.sidebar_unknown_user, t)}
-            </div>
-            <div style={{ fontSize: '13px', color: overdue.length > 0 ? C.red : C.text3 }}>
-              {summaryLine}
-            </div>
+      {/* Quick-add bar — exact design spec */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '12px',
+        marginTop: '26px',
+        padding: '4px 4px 4px 18px', borderRadius: '8px',
+        border: '1px solid rgba(255,255,255,0.09)',
+        background: 'rgba(255,255,255,0.03)',
+      }}>
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M12 5v14M5 12h14" stroke="#F2571E" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+        <input
+          ref={quickRef}
+          className="dshInput"
+          value={quickText}
+          onChange={e => setQuickText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') addQuickTask(); }}
+          placeholder="Añade una tarea para hoy y pulsa Enter"
+          style={{
+            flex: 1, minWidth: 0, padding: '13px 0',
+            border: 'none', background: 'transparent',
+            color: '#E8E1D2', fontFamily: MANROPE, fontSize: '15.5px', outline: 'none',
+          }}
+        />
+        <span style={{
+          fontSize: '11.5px', color: '#5C5447',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '8px', padding: '3px 8px', marginRight: '10px',
+        }}>
+          Enter
+        </span>
+      </div>
+
+      {/* Two-column layout */}
+      <div style={{ display: 'flex', gap: '26px', alignItems: 'flex-start', marginTop: '30px', flexWrap: 'wrap' }}>
+
+        {/* ── Left: Para hoy ─────────────────────────────────────────────── */}
+        <section style={{ flex: '1 1 440px', minWidth: 0 }}>
+
+          {/* Section header — Sora h2, same as design */}
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: 0 }}>
+              Para hoy
+            </h2>
+            <span style={{ fontSize: '13px', color: '#827A6D' }}>{pendingLabel}</span>
           </div>
 
-          {/* Todo list widget */}
-          <div style={{ padding: '14px 24px 16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text4, marginBottom: '10px' }}>
-              {t.dashboard_standup_placeholder}
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {/* Overdue */}
+            {cards.overdue.map(c => (
+              <TaskItem
+                key={c.id}
+                title={c.title}
+                project={`${c.boardName} · ${c.workspaceName}`}
+                dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? '#E05252'}
+                done={c.completed}
+                time={c.dueDate ? formatDueShort(c.dueDate) : undefined}
+                isOverdue
+                onToggle={() => toggleCard(c)}
+                onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
+              />
+            ))}
 
-            {/* Items list — scrollable when > 5 */}
-            {todoItems.length > 0 && (
-              <div style={{
-                maxHeight: todoItems.length > 5 ? '168px' : 'none',
-                overflowY: todoItems.length > 5 ? 'auto' : 'visible',
-                marginBottom: '4px',
-              }}>
-                {todoItems.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', minHeight: '30px' }}
-                  >
-                    {/* Text */}
-                    <span style={{
-                      flex: 1, fontSize: '13.5px', lineHeight: 1.4,
-                      color: item.completed ? C.green : C.text,
-                    }}>
-                      {item.text}
-                    </span>
+            {/* Today cards */}
+            {cards.today.map(c => (
+              <TaskItem
+                key={c.id}
+                title={c.title}
+                project={`${c.boardName} · ${c.workspaceName}`}
+                dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? hashColor(c.boardId)}
+                done={c.completed}
+                time={c.dueDate ? formatDueShort(c.dueDate) : undefined}
+                onToggle={() => toggleCard(c)}
+                onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
+              />
+            ))}
 
-                    {/* Actions: check + delete */}
-                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                      <button
-                        onClick={() => toggleTodo(item.id)}
-                        style={{
-                          width: '22px', height: '22px', borderRadius: '5px',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: item.completed ? `${C.green}20` : 'none',
-                          border: 'none', cursor: 'pointer', color: C.green,
-                          transition: 'background 0.12s',
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = `${C.green}28`; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = item.completed ? `${C.green}20` : 'none'; }}
-                      >
-                        <Check size={13} strokeWidth={2.5} />
-                      </button>
-                      <button
-                        onClick={() => deleteTodo(item.id)}
-                        style={{
-                          width: '22px', height: '22px', borderRadius: '5px',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: 'none', border: 'none', cursor: 'pointer', color: C.text4,
-                          transition: 'background 0.12s',
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = `${C.red}20`; e.currentTarget.style.color = C.red; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text4; }}
-                      >
-                        <X size={12} strokeWidth={2} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            {/* Quick-add todos */}
+            {pendingTodos.map(item => (
+              <TaskItem
+                key={item.id}
+                title={item.text}
+                dotColor="#9C9486"
+                done={false}
+                onToggle={() => toggleTodo(item.id)}
+              />
+            ))}
+
+            {/* Done todos */}
+            {doneTodos.map(item => (
+              <TaskItem
+                key={item.id}
+                title={item.text}
+                dotColor="#76A878"
+                done
+                onToggle={() => toggleTodo(item.id)}
+              />
+            ))}
+
+            {/* Loading */}
+            {cardsLoading && totalToday === 0 && (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E',
+                  animation: 'spin 0.8s linear infinite',
+                }} />
               </div>
             )}
 
-            {/* Add item: input when active, + button otherwise */}
-            {isAddingItem ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', marginTop: todoItems.length > 0 ? '4px' : '0' }}>
-                <input
-                  ref={newItemRef}
-                  autoFocus
-                  value={newItemText}
-                  onChange={(e) => setNewItemText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') addTodoItem();
-                    if (e.key === 'Escape') { setIsAddingItem(false); setNewItemText(''); }
-                  }}
-                  placeholder={t.dashboard_todo_add_placeholder}
-                  style={{
-                    flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                    fontSize: '13.5px', color: C.text,
-                    borderBottom: `1px solid ${C.border2}`, paddingBottom: '2px',
-                  }}
-                />
+            {/* Empty */}
+            {!cardsLoading && totalToday === 0 && totalOverdue === 0 && todoItems.length === 0 && (
+              <div style={{ padding: '40px 14px', textAlign: 'center' }}>
+                <p style={{ color: '#615846', fontSize: '14px', margin: '0 0 14px' }}>
+                  Sin tareas para hoy
+                </p>
                 <button
-                  onClick={addTodoItem}
-                  disabled={!newItemText.trim()}
+                  onClick={() => quickRef.current?.focus()}
                   style={{
-                    width: '22px', height: '22px', borderRadius: '5px', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: newItemText.trim() ? C.accent : C.hover,
-                    border: 'none', cursor: newItemText.trim() ? 'pointer' : 'default',
-                    transition: 'background 0.12s',
+                    background: 'rgba(242,87,30,0.1)', border: '1px solid rgba(242,87,30,0.2)',
+                    color: '#F2571E', borderRadius: '8px', padding: '8px 18px',
+                    fontFamily: SORA, fontWeight: 600, fontSize: '13px', cursor: 'pointer',
                   }}
                 >
-                  <Plus size={12} color="#fff" strokeWidth={2.5} />
+                  + Añadir tarea
                 </button>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginTop: todoItems.length > 0 ? '8px' : '0' }}>
-                <button
-                  onClick={() => setIsAddingItem(true)}
-                  style={{
-                    width: '22px', height: '22px', borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'none', border: `1.5px dashed ${C.border2}`,
-                    cursor: 'pointer', color: C.text4, transition: 'all 0.12s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = C.accent;
-                    e.currentTarget.style.color = C.accent;
-                    e.currentTarget.style.background = `${C.accent}12`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = C.border2;
-                    e.currentTarget.style.color = C.text4;
-                    e.currentTarget.style.background = 'none';
-                  }}
+            )}
+          </div>
+        </section>
+
+        {/* ── Right: Aside ──────────────────────────────────────────────── */}
+        <aside style={{ flex: '1 1 320px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Necesita tu atención */}
+          <section>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: '0 0 14px' }}>
+              Necesita tu atención
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              {cards.overdue.length > 0 ? cards.overdue.slice(0, 3).map(c => (
+                <div
+                  key={c.id}
+                  onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '8px', cursor: 'pointer' }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
                 >
-                  <Plus size={11} strokeWidth={2.5} />
-                </button>
-                {todoItems.length === 0 && (
-                  <span style={{ fontSize: '11.5px', color: C.text4 }}>
-                    {t.dashboard_standup_hint}
+                  <span style={{
+                    width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                    background: hashColor(c.workspaceId),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '12px', fontWeight: 700, color: '#24180A',
+                  }}>
+                    {c.workspaceName?.[0]?.toUpperCase() ?? '?'}
                   </span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── MAIN GRID ────────────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
-
-          {/* ── MIS TAREAS ───────────────────────────────────────────── */}
-          <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>{t.dashboard_section_my_cards}</span>
-              {totalPending > 0 && (
-                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', background: C.hover, color: C.text3, border: `1px solid ${C.border2}` }}>
-                  {totalPending}
-                </span>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: '13px', color: '#C8BFAE', lineHeight: 1.4 }}>
+                    <strong style={{ color: '#E8E1D2' }}>{c.boardName}</strong>{' '}
+                    tiene una tarea en{' '}
+                    <strong style={{ color: '#F2571E' }}>{c.title}</strong>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#736B5E', flexShrink: 0 }}>
+                    {c.dueDate ? formatDueShort(c.dueDate) : ''}
+                  </span>
+                </div>
+              )) : (
+                <div style={{ padding: '16px 12px', fontSize: '13px', color: '#615846' }}>
+                  Sin elementos urgentes — <span style={{ color: '#76A878' }}>¡todo bien!</span>
+                </div>
               )}
             </div>
+          </section>
 
-            <div style={{ padding: '12px 10px' }}>
-              {cardsLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-                  <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
-                </div>
-              ) : totalPending === 0 && overdue.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '36px 0', color: C.text4, fontSize: '13px' }}>
-                  {t.dashboard_empty_pending_title}
-                </div>
-              ) : (
-                <>
-                  {/* Vencidas */}
-                  {overdue.length > 0 && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <SectionLabel count={overdue.length}>
-                        <span style={{ color: C.red }}>⚠ {t.dashboard_tab_overdue}</span>
-                      </SectionLabel>
-                      {overdue.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
-                    </div>
-                  )}
-
-                  {/* Hoy */}
-                  {today.length > 0 && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <SectionLabel count={today.length}>{t.dashboard_due_today}</SectionLabel>
-                      {today.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
-                    </div>
-                  )}
-
-                  {/* Esta semana */}
-                  {upcoming.length > 0 && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <SectionLabel count={upcoming.length}>{t.dashboard_this_week}</SectionLabel>
-                      {upcoming.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
-                    </div>
-                  )}
-
-                  {/* Más adelante */}
-                  {later.length > 0 && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <SectionLabel count={later.length}>{t.dashboard_later}</SectionLabel>
-                      {later.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
-                    </div>
-                  )}
-
-                  {/* Sin fecha */}
-                  {noDate.length > 0 && (
-                    <div>
-                      <SectionLabel count={noDate.length}>{t.board_filter_date_none}</SectionLabel>
-                      {noDate.map((c) => <CardRow key={c.id} card={c} router={router} t={t} />)}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* ── COLUMNA DERECHA ──────────────────────────────────────── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-            {/* MIS EQUIPOS */}
-            <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  <Users style={{ width: '13px', height: '13px', color: C.text4 }} />
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text }}>{t.teams_title}</span>
-                  {teams.length > 0 && (
-                    <span style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '8px', background: C.hover, color: C.text4, border: `1px solid ${C.border2}` }}>
-                      {teams.length}
+          {/* Continúa donde lo dejaste */}
+          <section>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: '0 0 14px' }}>
+              Continúa donde lo dejaste
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {recentProjects.map(p => {
+                const color = p.color ?? '#4B607F';
+                const pct   = p.progressPercent ?? p.stats?.progressPercent ?? 0;
+                const statusLabel = p.status === 'ACTIVE' ? 'Activo' : p.status === 'PLANNING' ? 'Planificación' : p.status === 'ON_HOLD' ? 'En pausa' : p.status === 'COMPLETED' ? 'Completado' : p.status;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => router.push(`/dashboard/projects/${p.id}`)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '13px',
+                      padding: '13px', borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.07)',
+                      background: 'rgba(255,255,255,0.02)', cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.16)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'; }}
+                  >
+                    {/* Project icon */}
+                    <span style={{
+                      width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                      background: `${color}22`, border: `1px solid ${color}33`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {p.icon
+                        ? <WorkspaceIcon icon={p.icon} style={{ width: '17px', height: '17px', color }} />
+                        : <span style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color }}>{(p.name.trim()[0] ?? '?').toUpperCase()}</span>
+                      }
                     </span>
-                  )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.name}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '11px', color: '#827A6D' }}>{statusLabel}</span>
+                        {pct > 0 && (
+                          <>
+                            <span style={{ fontSize: '11px', color: '#5C5447' }}>·</span>
+                            <span style={{ fontSize: '11px', color }}>{ pct}%</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                      <path d="M9 6l6 6-6 6" stroke="#5C5447" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                );
+              })}
+              {recentProjects.length === 0 && (
+                <div style={{
+                  padding: '20px', textAlign: 'center', fontSize: '13px', color: '#615846',
+                  border: '1px dashed rgba(255,255,255,0.07)', borderRadius: '8px',
+                }}>
+                  Sin proyectos aún
                 </div>
-                <button
-                  onClick={() => router.push('/dashboard/teams')}
-                  style={{ fontSize: '11px', color: C.text4, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = C.accent)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
-                >
-                  {t.teams_see_all}
-                </button>
-              </div>
+              )}
+            </div>
+          </section>
 
-              <div style={{ padding: '6px 0' }}>
-                {teamsLoading ? (
-                  <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
-                    <div className="w-4 h-4 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
-                  </div>
-                ) : teams.length === 0 ? (
-                  <div style={{ padding: '18px 16px', fontSize: '12px', color: C.text4, textAlign: 'center' }}>
-                    {t.teams_empty_title}
-                  </div>
-                ) : (
-                  teams.slice(0, 6).map((team) => (
+          {/* Tu semana */}
+          {agendaByDay.length > 0 && (
+            <section>
+              <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: '0 0 14px' }}>
+                Tu semana
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {agendaByDay.slice(0, 5).flatMap(grp =>
+                  grp.tasks.map(c => (
                     <div
-                      key={team.id}
-                      onClick={() => router.push(`/dashboard/teams/${team.id}`)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '10px',
-                        padding: '7px 16px', cursor: 'pointer', transition: 'background 0.1s',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      key={c.id}
+                      onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
                     >
-                      {/* Color dot / icon */}
-                      <div style={{
-                        width: '28px', height: '28px', borderRadius: '7px', flexShrink: 0,
-                        background: team.color ?? '#3b82f6',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '14px',
-                      }}>
-                        {team.icon ?? <Users style={{ width: '13px', height: '13px', color: '#fff' }} />}
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12.5px', fontWeight: 500, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {team.name}
-                        </div>
-                        <div style={{ fontSize: '11px', color: C.text4 }}>
-                          {t.teams_member_count(team.memberCount ?? 0)}
-                        </div>
-                      </div>
-
-                      <ExternalLink style={{ width: '11px', height: '11px', color: C.text4, flexShrink: 0, opacity: 0 }} className="team-ext-icon" />
+                      <span style={{ fontFamily: SORA, fontSize: '11px', fontWeight: 700, color: '#827A6D', width: '34px', flexShrink: 0 }}>
+                        {grp.day}
+                      </span>
+                      <span style={{ width: '3px', height: '26px', borderRadius: '8px', background: grp.color, flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: '13.5px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.title}
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#827A6D' }}>
+                        {c.dueDate ? formatDueShort(c.dueDate) : ''}
+                      </span>
                     </div>
                   ))
                 )}
               </div>
-            </div>
-
-          </div>
-        </div>
-
+            </section>
+          )}
+        </aside>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
-    </>
   );
 }

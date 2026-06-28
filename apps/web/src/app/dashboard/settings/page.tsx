@@ -6,16 +6,9 @@ import { useState, useEffect } from 'react';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import type { UserPreferences } from '@/stores/preferencesStore';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Loader2, Save, Bell, Layout,
-  Check, Kanban, Table2,
-} from 'lucide-react';
+import { Loader2, Save, Bell, Check } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
-
-// ── Color tokens (mismo sistema que el resto de la app) ───────────────────────
-
-// ── Componentes locales ───────────────────────────────────────────────────────
 
 function SectionCard({ icon, title, desc, children }: {
   icon: React.ReactNode;
@@ -54,39 +47,6 @@ function SectionCard({ icon, title, desc, children }: {
         {children}
       </div>
     </div>
-  );
-}
-
-function OptionButton({ selected, onClick, children }: {
-  selected: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-        padding: '12px', borderRadius: '8px', cursor: 'pointer',
-        border: `1.5px solid ${selected ? C.accent : C.border2}`,
-        background: selected ? `${C.accent}12` : 'transparent',
-        color: selected ? C.accent : C.text3,
-        transition: 'all 0.15s', position: 'relative',
-      }}
-      onMouseEnter={(e) => { if (!selected) { e.currentTarget.style.borderColor = `${C.accent}50`; e.currentTarget.style.color = C.text2; } }}
-      onMouseLeave={(e) => { if (!selected) { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3; } }}
-    >
-      {selected && (
-        <div style={{
-          position: 'absolute', top: '6px', right: '6px',
-          width: '14px', height: '14px', borderRadius: '50%',
-          background: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Check size={9} color="#fff" />
-        </div>
-      )}
-      {children}
-    </button>
   );
 }
 
@@ -129,8 +89,6 @@ function ToggleRow({ label, desc, checked, onChange, disabled }: {
 function Divider() {
   return <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />;
 }
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
   const t = useT();
@@ -184,11 +142,6 @@ export default function SettingsPage() {
     );
   }
 
-  const viewOptions = [
-    { value: 'kanban', label: t.settings_view_kanban || 'Kanban', icon: Kanban },
-    { value: 'table',  label: t.settings_view_table  || 'Table',  icon: Table2 },
-  ];
-
   const frequencyOptions = [
     { value: 'realtime', label: t.settings_freq_realtime_label, desc: t.settings_freq_realtime_desc },
     { value: 'daily',    label: t.settings_freq_daily_label,    desc: t.settings_freq_daily_desc },
@@ -197,7 +150,7 @@ export default function SettingsPage() {
 
   return (
     <div style={{ height: '100%', overflow: 'auto', background: C.bg }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 28px 56px' }}>
+      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '32px 28px 56px' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
@@ -227,114 +180,84 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-
-          {/* Vista de boards */}
-          <SectionCard
-            icon={<Layout size={16} />}
-            title={t.settings_section_board_view}
-            desc={t.settings_section_board_view_desc}
-          >
-            <p style={{ fontSize: '12px', color: C.text3, marginBottom: '10px' }}>
-              {t.settings_label_default_view}
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-              {viewOptions.map(({ value, label, icon: Icon }) => (
-                <OptionButton
-                  key={value}
-                  selected={localPrefs.defaultBoardView === value}
-                  onClick={() => setLocalPrefs({ ...localPrefs, defaultBoardView: value as any })}
-                >
-                  <Icon size={20} />
-                  <span style={{ fontSize: '11.5px', fontWeight: 500 }}>{label}</span>
-                </OptionButton>
-              ))}
-            </div>
-          </SectionCard>
-
-          {/* Notificaciones (col-span 2) */}
-          <div style={{ gridColumn: '1 / -1' }}>
-            <SectionCard
-              icon={<Bell size={16} />}
-              title={t.settings_section_notifications}
-              desc={t.settings_section_notifications_desc}
-            >
-              {/* Badge "En desarrollo" */}
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                padding: '4px 10px', borderRadius: '20px', marginBottom: '20px',
-                background: `${C.amber}12`, border: `1px solid ${C.amber}30`,
-              }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: C.amber }} />
-                <span style={{ fontSize: '11px', color: C.amber, fontWeight: 600 }}>En desarrollo — próximamente</span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', opacity: 0.5, pointerEvents: 'none' }}>
-                {/* Canales */}
-                <div>
-                  <p style={{ fontSize: '11px', fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
-                    {t.settings_notifications_channels}
-                  </p>
-                  <ToggleRow
-                    label={t.settings_label_email_notif}
-                    desc={t.settings_email_notif_desc}
-                    checked={localPrefs.emailNotifications}
-                    onChange={(v) => setLocalPrefs({ ...localPrefs, emailNotifications: v })}
-                    disabled
-                  />
-                  <Divider />
-                  <ToggleRow
-                    label={t.settings_label_push_notif}
-                    desc={t.settings_push_notif_desc}
-                    checked={localPrefs.pushNotifications}
-                    onChange={(v) => setLocalPrefs({ ...localPrefs, pushNotifications: v })}
-                    disabled
-                  />
-                  <Divider />
-                  <ToggleRow
-                    label={t.settings_label_inapp_notif}
-                    desc={t.settings_inapp_notif_desc}
-                    checked={localPrefs.inAppNotifications}
-                    onChange={(v) => setLocalPrefs({ ...localPrefs, inAppNotifications: v })}
-                    disabled
-                  />
-                </div>
-
-                {/* Frecuencia */}
-                <div>
-                  <p style={{ fontSize: '11px', fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
-                    {t.settings_notifications_frequency}
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {frequencyOptions.map(({ value, label, desc }) => (
-                      <button
-                        key={value}
-                        onClick={() => setLocalPrefs({ ...localPrefs, notificationFrequency: value as any })}
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
-                          border: `1px solid ${localPrefs.notificationFrequency === value ? C.accent : C.border2}`,
-                          background: localPrefs.notificationFrequency === value ? `${C.accent}12` : 'transparent',
-                        }}
-                      >
-                        <div>
-                          <p style={{ fontSize: '13px', fontWeight: 500, color: localPrefs.notificationFrequency === value ? C.accent : C.text }}>
-                            {label}
-                          </p>
-                          <p style={{ fontSize: '11.5px', color: C.text3, marginTop: '1px' }}>{desc}</p>
-                        </div>
-                        {localPrefs.notificationFrequency === value && <Check size={14} color={C.accent} />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
+        {/* Notificaciones */}
+        <SectionCard
+          icon={<Bell size={16} />}
+          title={t.settings_section_notifications}
+          desc={t.settings_section_notifications_desc}
+        >
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            padding: '4px 10px', borderRadius: '20px', marginBottom: '20px',
+            background: `${C.amber}12`, border: `1px solid ${C.amber}30`,
+          }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: C.amber }} />
+            <span style={{ fontSize: '11px', color: C.amber, fontWeight: 600 }}>En desarrollo — próximamente</span>
           </div>
-        </div>
 
-        {/* Botón guardar mobile */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', opacity: 0.5, pointerEvents: 'none' }}>
+            {/* Canales */}
+            <div>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+                {t.settings_notifications_channels}
+              </p>
+              <ToggleRow
+                label={t.settings_label_email_notif}
+                desc={t.settings_email_notif_desc}
+                checked={localPrefs.emailNotifications}
+                onChange={(v) => setLocalPrefs({ ...localPrefs, emailNotifications: v })}
+                disabled
+              />
+              <Divider />
+              <ToggleRow
+                label={t.settings_label_push_notif}
+                desc={t.settings_push_notif_desc}
+                checked={localPrefs.pushNotifications}
+                onChange={(v) => setLocalPrefs({ ...localPrefs, pushNotifications: v })}
+                disabled
+              />
+              <Divider />
+              <ToggleRow
+                label={t.settings_label_inapp_notif}
+                desc={t.settings_inapp_notif_desc}
+                checked={localPrefs.inAppNotifications}
+                onChange={(v) => setLocalPrefs({ ...localPrefs, inAppNotifications: v })}
+                disabled
+              />
+            </div>
+
+            {/* Frecuencia */}
+            <div>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+                {t.settings_notifications_frequency}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {frequencyOptions.map(({ value, label, desc }) => (
+                  <button
+                    key={value}
+                    onClick={() => setLocalPrefs({ ...localPrefs, notificationFrequency: value as any })}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
+                      border: `1px solid ${localPrefs.notificationFrequency === value ? C.accent : C.border2}`,
+                      background: localPrefs.notificationFrequency === value ? `${C.accent}12` : 'transparent',
+                    }}
+                  >
+                    <div>
+                      <p style={{ fontSize: '13px', fontWeight: 500, color: localPrefs.notificationFrequency === value ? C.accent : C.text }}>
+                        {label}
+                      </p>
+                      <p style={{ fontSize: '11.5px', color: C.text3, marginTop: '1px' }}>{desc}</p>
+                    </div>
+                    {localPrefs.notificationFrequency === value && <Check size={14} color={C.accent} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Botón guardar sticky */}
         {hasChanges && (
           <div style={{ position: 'sticky', bottom: '16px', display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
             <button

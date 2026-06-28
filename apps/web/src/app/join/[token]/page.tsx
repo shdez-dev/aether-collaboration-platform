@@ -88,7 +88,7 @@ export default function JoinWorkspacePage() {
               {workspaceName && <p className="text-xs text-text-secondary mt-1">{workspaceName}</p>}
             </div>
             <Link
-              href={`/dashboard/workspaces/${workspaceId}`}
+              href="/dashboard/projects"
               className="block w-full px-4 py-2.5 bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors text-center"
             >
               {t.join_btn_go}
@@ -114,7 +114,7 @@ export default function JoinWorkspacePage() {
                 </button>
               )}
               <Link
-                href="/dashboard/workspaces"
+                href="/dashboard/projects"
                 className="flex-1 px-4 py-2.5 bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors text-center"
               >
                 {status === 'error_already' ? t.join_btn_go : t.join_btn_home}

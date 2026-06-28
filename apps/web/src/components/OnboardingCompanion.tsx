@@ -42,14 +42,14 @@ export default function OnboardingCompanion() {
       title: t.guide_step_workspace_title,
       instruction: t.guide_step_workspace_instruction,
       cta: t.guide_step_workspace_cta,
-      href: '/dashboard/workspaces',
+      href: '/dashboard/projects',
     },
     {
       id: 'invite',
       title: t.guide_step_invite_title,
       instruction: t.guide_step_invite_instruction,
       cta: t.guide_step_invite_cta,
-      href: '/dashboard/workspaces',
+      href: '/dashboard/projects',
     },
     {
       id: 'project',
@@ -63,14 +63,14 @@ export default function OnboardingCompanion() {
       title: t.guide_step_board_title,
       instruction: t.guide_step_board_instruction,
       cta: t.guide_step_board_cta,
-      href: '/dashboard/workspaces',
+      href: '/dashboard/projects',
     },
     {
       id: 'card',
       title: t.guide_step_card_title,
       instruction: t.guide_step_card_instruction,
       cta: t.guide_step_card_cta,
-      href: '/dashboard/workspaces',
+      href: '/dashboard/projects',
     },
   ];
 

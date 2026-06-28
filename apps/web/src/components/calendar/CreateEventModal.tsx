@@ -1,248 +1,139 @@
 // apps/web/src/components/calendar/CreateEventModal.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, AlignLeft, Palette, Users, Globe, User } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useCalendarEventStore, type CalendarEvent, type CreateEventInput } from '@/stores/calendarEventStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTeamStore } from '@/stores/teamStore';
 
-// ─── Colores de la paleta de la referencia ────────────────────────────────────
+// ── Design tokens ─────────────────────────────────────────────────────────────
+
+const SORA   = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
+
 const COLORS = [
-  { label: 'Cyan',    value: '#5ec5ff' },
-  { label: 'Rosa',    value: '#ff6b9d' },
-  { label: 'Violeta', value: '#a78bfa' },
-  { label: 'Ámbar',   value: '#fbbf24' },
-  { label: 'Verde',   value: '#4ade80' },
-  { label: 'Rojo',    value: '#f87171' },
-  { label: 'Índigo',  value: '#818cf8' },
-  { label: 'Esmeralda',value:'#34d399' },
+  { label: 'Naranja',   value: '#F2571E' },
+  { label: 'Azul',      value: '#4B607F' },
+  { label: 'Verde',     value: '#76A878' },
+  { label: 'Ámbar',     value: '#DB8A66' },
+  { label: 'Violeta',   value: '#8C7C9E' },
+  { label: 'Celeste',   value: '#5B8FA8' },
+  { label: 'Rojo',      value: '#E05252' },
+  { label: 'Terracota', value: '#A87876' },
 ];
 
-// ─── Tokens del diseño (igual que la referencia) ──────────────────────────────
-const R = {
-  bg:    '#0b1320',
-  bg2:   '#0f1d2e',
-  bg3:   '#142536',
-  line:  '#1a2a3d',
-  line2: '#233649',
-  text:  '#cfe0f2',
-  text2: '#8fa6bf',
-  text3: '#5d7491',
-  text4: '#3f5571',
-  cyan:  '#5ec5ff',
-};
+// ── Props ─────────────────────────────────────────────────────────────────────
 
-// ─── Props ────────────────────────────────────────────────────────────────────
 interface Props {
-  open:         boolean;
-  onClose:      () => void;
-  initialDate?: string;       // YYYY-MM-DD
-  initialHour?: number;       // 0-23
-  eventToEdit?: CalendarEvent | null;
+  open:          boolean;
+  onClose:       () => void;
+  initialDate?:  string;          // YYYY-MM-DD
+  initialHour?:  number;          // 0-23
+  eventToEdit?:  CalendarEvent | null;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function pad(n: number) { return String(n).padStart(2, '0'); }
-
-function toTimeStr(date: Date) {
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 function buildISO(dateStr: string, timeStr: string): string {
   return new Date(`${dateStr}T${timeStr}:00`).toISOString();
 }
 
-const ROW = 26;
+// ── Field component ───────────────────────────────────────────────────────────
 
-const MIN_HOUR = 6;
-const MAX_HOUR = 23;
-
-function TimeSelect({ value, onChange, minHour = MIN_HOUR, maxHour = MAX_HOUR }: {
-  value: string; onChange: (v: string) => void; minHour?: number; maxHour?: number;
-}) {
-  const [h, m] = value.split(':').map(Number);
-  const [dirH, setDirH] = useState(0);
-  const [dirM, setDirM] = useState(0);
-
-  const stepH = (d: number) => {
-    const next = h + d;
-    if (next < minHour || next > maxHour) return;
-    setDirH(d);
-    onChange(`${pad(next)}:${pad(m)}`);
-  };
-  const stepM = (d: number) => {
-    const newM = (m + d * 5 + 60) % 60;
-    // Si estamos en el límite de hora y los minutos van a cruzar, no permitir
-    if (d > 0 && h >= maxHour) return;
-    if (d < 0 && h <= minHour && m === 0) return;
-    setDirM(d);
-    onChange(`${pad(h)}:${pad(newM)}`);
-  };
-
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 0,
-      background: '#0f1d2e', border: '1px solid #1a2a3d', borderRadius: 7,
-    }}>
-      <DrumUnit
-        value={pad(h)}
-        prevVal={h - 1 >= minHour ? pad(h - 1) : null}
-        nextVal={h + 1 <= maxHour ? pad(h + 1) : null}
-        dir={dirH}
-        onUp={() => stepH(-1)}
-        onDown={() => stepH(1)}
-      />
-      <span style={{ fontSize: 13, color: '#233649', fontFamily: "'JetBrains Mono', monospace", userSelect: 'none', padding: '0 1px' }}>:</span>
-      <DrumUnit
-        value={pad(m)}
-        prevVal={!(h <= minHour && m === 0) ? pad((m - 5 + 60) % 60) : null}
-        nextVal={h < maxHour ? pad((m + 5) % 60) : null}
-        dir={dirM}
-        onUp={() => stepM(-1)}
-        onDown={() => stepM(1)}
-      />
-    </div>
-  );
-}
-
-function DrumUnit({ value, prevVal, nextVal, dir, onUp, onDown }: {
-  value: string; prevVal: string | null; nextVal: string | null;
-  dir: number; onUp: () => void; onDown: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const ghostStyle: React.CSSProperties = {
-    height: ROW, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
-    color: '#3a5570', cursor: 'pointer', userSelect: 'none',
-    transition: 'color 0.1s, background 0.1s',
-  };
-
-  return (
-    <div
-      style={{ width: 38, position: 'relative' }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onWheel={e => { e.preventDefault(); e.deltaY < 0 ? onUp() : onDown(); }}
-    >
-      {/* fila anterior — flota encima sin afectar layout */}
-      <AnimatePresence>
-        {open && prevVal !== null && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            style={{
-              position: 'absolute', bottom: '100%', left: 0, right: 0,
-              background: '#0f1d2e', borderRadius: '5px 5px 0 0',
-              borderTop: '1px solid #1a2a3d', borderLeft: '1px solid #1a2a3d', borderRight: '1px solid #1a2a3d',
-              overflow: 'hidden', zIndex: 10,
-            }}
-          >
-            <div
-              style={ghostStyle}
-              onClick={onUp}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = '#8fa6bf'; (e.currentTarget as HTMLDivElement).style.background = 'rgba(94,197,255,0.05)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = '#3a5570'; (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-            >
-              {prevVal}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* fila actual — siempre en el flujo normal */}
-      <div style={{
-        height: ROW, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'default',
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      <label style={{
+        fontFamily: SORA, fontSize: '11px', fontWeight: 600,
+        letterSpacing: '0.09em', textTransform: 'uppercase', color: '#615846',
       }}>
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
-            key={value}
-            initial={{ y: dir > 0 ? 9 : -9, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: dir > 0 ? -9 : 9, opacity: 0 }}
-            transition={{ duration: 0.13, ease: 'easeOut' }}
-            style={{
-              display: 'block', fontSize: 13,
-              fontFamily: "'JetBrains Mono', monospace",
-              color: open ? '#5ec5ff' : '#cfe0f2',
-              fontWeight: 600, userSelect: 'none',
-              transition: 'color 0.12s',
-            }}
-          >
-            {value}
-          </motion.span>
-        </AnimatePresence>
-      </div>
-
-      {/* fila siguiente — flota debajo sin afectar layout */}
-      <AnimatePresence>
-        {open && nextVal !== null && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            style={{
-              position: 'absolute', top: '100%', left: 0, right: 0,
-              background: '#0f1d2e', borderRadius: '0 0 5px 5px',
-              borderBottom: '1px solid #1a2a3d', borderLeft: '1px solid #1a2a3d', borderRight: '1px solid #1a2a3d',
-              overflow: 'hidden', zIndex: 10,
-            }}
-          >
-            <div
-              style={ghostStyle}
-              onClick={onDown}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = '#8fa6bf'; (e.currentTarget as HTMLDivElement).style.background = 'rgba(94,197,255,0.05)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = '#3a5570'; (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-            >
-              {nextVal}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {label}
+      </label>
+      {children}
     </div>
   );
 }
 
-// ─── Input styles ─────────────────────────────────────────────────────────────
-const inputStyle: React.CSSProperties = {
-  width:        '100%',
-  background:   R.bg3,
-  border:       `1px solid ${R.line2}`,
-  borderRadius: 5,
-  padding:      '8px 11px',
-  color:        R.text,
-  fontSize:     12,
-  fontFamily:   "'JetBrains Mono', monospace",
-  outline:      'none',
+const inputBase: React.CSSProperties = {
+  width: '100%', fontFamily: MANROPE, fontSize: '14.5px', color: '#E8E1D2',
+  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)',
+  borderRadius: '8px', padding: '11px 14px', outline: 'none',
+  colorScheme: 'dark',
 };
 
-const labelStyle: React.CSSProperties = {
-  fontSize:      9,
-  letterSpacing: '.14em',
-  textTransform: 'uppercase' as const,
-  color:         R.text4,
-  marginBottom:  5,
-  display:       'block',
-};
+function AInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <input
+      ref={ref}
+      {...props}
+      style={{ ...inputBase, ...props.style }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; props.onFocus?.(e); }}
+      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; props.onBlur?.(e); }}
+    />
+  );
+}
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+function ATextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      style={{ ...inputBase, resize: 'none', lineHeight: 1.55, ...props.style }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; }}
+      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; }}
+    />
+  );
+}
+
+function ASelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      style={{ ...inputBase, cursor: 'pointer', ...props.style }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; }}
+      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; }}
+    />
+  );
+}
+
+// ── Toggle ────────────────────────────────────────────────────────────────────
+
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: '9px', cursor: 'pointer', userSelect: 'none' }}>
+      <div
+        onClick={onChange}
+        style={{
+          width: '34px', height: '20px', borderRadius: '10px',
+          background: checked ? '#F2571E' : 'rgba(255,255,255,0.1)',
+          position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+        }}
+      >
+        <div style={{
+          position: 'absolute', top: '3px', left: checked ? '17px' : '3px',
+          width: '14px', height: '14px', borderRadius: '50%', background: '#fff',
+          transition: 'left 0.2s',
+        }} />
+      </div>
+      <span style={{ fontFamily: MANROPE, fontSize: '13.5px', color: '#9C9486' }}>{label}</span>
+    </label>
+  );
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+
 export default function CreateEventModal({ open, onClose, initialDate, initialHour, eventToEdit }: Props) {
   const createEvent = useCalendarEventStore(s => s.createEvent);
   const updateEvent = useCalendarEventStore(s => s.updateEvent);
   const deleteEvent = useCalendarEventStore(s => s.deleteEvent);
-
   const workspaces  = useWorkspaceStore(s => s.workspaces);
   const teams       = useTeamStore(s => s.teams);
 
   const isEdit = !!eventToEdit;
 
-  // ── Estado del formulario ────────────────────────────────────────────────────
-  const today = new Date();
+  const today       = new Date();
   const defaultDate = initialDate ?? `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
   const defaultHour = initialHour ?? today.getHours();
 
@@ -250,7 +141,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
   const [description, setDescription] = useState('');
   const [date,        setDate]        = useState(defaultDate);
   const [startTime,   setStartTime]   = useState(`${pad(defaultHour)}:00`);
-  const [endTime,     setEndTime]     = useState(`${pad(defaultHour + 1)}:00`);
+  const [endTime,     setEndTime]     = useState(`${pad(Math.min(defaultHour + 1, 23))}:00`);
   const [allDay,      setAllDay]      = useState(false);
   const [color,       setColor]       = useState(COLORS[0].value);
   const [type,        setType]        = useState<'personal' | 'workspace' | 'team'>('personal');
@@ -259,8 +150,15 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
   const [saving,      setSaving]      = useState(false);
   const [deleting,    setDeleting]    = useState(false);
   const [error,       setError]       = useState('');
+  const [visible,     setVisible]     = useState(false);
 
-  // ── Precargar datos al editar ────────────────────────────────────────────────
+  // Animation state
+  useEffect(() => {
+    if (open) { setTimeout(() => setVisible(true), 10); }
+    else      { setVisible(false); }
+  }, [open]);
+
+  // Prefill on edit
   useEffect(() => {
     if (eventToEdit) {
       const start = new Date(eventToEdit.startTime);
@@ -268,8 +166,8 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
       setTitle(eventToEdit.title);
       setDescription(eventToEdit.description ?? '');
       setDate(`${start.getFullYear()}-${pad(start.getMonth()+1)}-${pad(start.getDate())}`);
-      setStartTime(toTimeStr(start));
-      setEndTime(toTimeStr(end));
+      setStartTime(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
+      setEndTime(`${pad(end.getHours())}:${pad(end.getMinutes())}`);
       setAllDay(eventToEdit.allDay);
       setColor(eventToEdit.color);
       setType(eventToEdit.type);
@@ -287,21 +185,26 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventToEdit, open]);
 
-  // ── Validación rápida ────────────────────────────────────────────────────────
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open, onClose]);
+
   function validate(): string {
-    if (!title.trim())                         return 'El título es requerido';
-    if (!allDay && startTime >= endTime)       return 'La hora de fin debe ser posterior al inicio';
-    if (type === 'workspace' && !workspaceId)  return 'Selecciona un workspace';
-    if (type === 'team'      && !teamId)       return 'Selecciona un equipo';
+    if (!title.trim())                        return 'El título es requerido';
+    if (!allDay && startTime >= endTime)      return 'La hora de fin debe ser posterior al inicio';
+    if (type === 'workspace' && !workspaceId) return 'Selecciona un workspace';
+    if (type === 'team'      && !teamId)      return 'Selecciona un equipo';
     return '';
   }
 
-  // ── Submit ───────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const err = validate();
     if (err) { setError(err); return; }
-
     setSaving(true); setError('');
 
     const startISO = allDay
@@ -316,26 +219,22 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
       description: description.trim() || undefined,
       startTime:   startISO,
       endTime:     endISO,
-      allDay,
-      color,
-      type,
+      allDay, color, type,
       workspaceId: type === 'workspace' ? workspaceId : undefined,
       teamId:      type === 'team'      ? teamId      : undefined,
     };
 
     if (isEdit && eventToEdit) {
-      const updated = await updateEvent(eventToEdit.id, input);
-      if (!updated) setError('No se pudo actualizar el evento');
-      else          onClose();
+      const ok = await updateEvent(eventToEdit.id, input);
+      if (!ok) { setError('No se pudo actualizar el evento'); setSaving(false); return; }
     } else {
-      const created = await createEvent(input);
-      if (!created) setError('No se pudo crear el evento');
-      else          onClose();
+      const ok = await createEvent(input);
+      if (!ok) { setError('No se pudo crear el evento'); setSaving(false); return; }
     }
     setSaving(false);
+    onClose();
   }
 
-  // ── Eliminar ─────────────────────────────────────────────────────────────────
   async function handleDelete() {
     if (!eventToEdit) return;
     setDeleting(true);
@@ -344,151 +243,146 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
     onClose();
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
-  return (
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Overlay + centering wrapper */}
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={onClose}
-            style={{
-              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 50,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '16px',
-            }}
-          >
-          {/* Panel */}
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0,  scale: 1     }}
-            exit={{ opacity: 0,    y: 12, scale: 0.97  }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            onClick={e => e.stopPropagation()}
-            style={{
-              position:      'relative',
-              zIndex:        51,
-              width:         '100%',
-              maxWidth:      420,
-              background:    R.bg2,
-              border:        `1px solid ${R.line2}`,
-              borderRadius:  10,
-              boxShadow:     '0 24px 64px rgba(0,0,0,0.7)',
-              fontFamily:    "'JetBrains Mono', monospace",
-              overflow:      'hidden',
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${R.line}` }}>
-              <div style={{ fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: R.cyan }}>
-                — {isEdit ? 'EDITAR EVENTO' : 'NUEVO EVENTO'}
-              </div>
-              <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: R.text3, display: 'flex', padding: 2 }}>
-                <X size={14} />
-              </button>
-            </div>
+  if (!open) return null;
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.6)',
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.18s ease',
+        }}
+      />
+
+      {/* Panel */}
+      <div
+        style={{
+          position: 'fixed', inset: 0, zIndex: 101,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '16px', pointerEvents: 'none',
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: '100%', maxWidth: '460px', pointerEvents: 'all',
+            background: '#1E2438',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '14px',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+            overflow: 'hidden',
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0) scale(1)' : 'translateY(12px) scale(0.97)',
+            transition: 'opacity 0.2s ease, transform 0.2s ease',
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '18px 22px',
+            borderBottom: '1px solid rgba(255,255,255,0.07)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                width: '28px', height: '28px', borderRadius: '7px',
+                background: color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="#24180A" strokeWidth="1.8"/>
+                  <path d="M3.5 9h17M8 3.5v3M16 3.5v3" stroke="#24180A" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              </span>
+              <h2 style={{
+                fontFamily: SORA, fontWeight: 700, fontSize: '16px',
+                color: '#F4EEE2', margin: 0,
+              }}>
+                {isEdit ? 'Editar evento' : 'Nuevo evento'}
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                width: '30px', height: '30px', borderRadius: '7px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#827A6D',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = '#827A6D'; }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
+            <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '18px', maxHeight: '70vh', overflowY: 'auto' }}>
 
               {/* Título */}
-              <div>
-                <label style={labelStyle}>Título</label>
-                <input
+              <Field label="Título">
+                <AInput
                   autoFocus
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  placeholder="Ej. Daily meeting"
-                  style={{ ...inputStyle }}
-                  onFocus={e => (e.target.style.borderColor = R.cyan)}
-                  onBlur={e  => (e.target.style.borderColor = R.line2)}
+                  placeholder="Nombre del evento"
+                  style={{ fontSize: '15px', fontWeight: 600 }}
                 />
-              </div>
+              </Field>
 
               {/* Descripción */}
-              <div>
-                <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <AlignLeft size={10} /> Descripción
-                </label>
-                <textarea
+              <Field label="Descripción">
+                <ATextarea
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   placeholder="Detalles opcionales..."
                   rows={2}
-                  style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
-                  onFocus={e => (e.target.style.borderColor = R.cyan)}
-                  onBlur={e  => (e.target.style.borderColor = R.line2)}
                 />
-              </div>
+              </Field>
 
               {/* Fecha + Todo el día */}
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Fecha</label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    style={{ ...inputStyle, colorScheme: 'dark' }}
-                    onFocus={e => (e.target.style.borderColor = R.cyan)}
-                    onBlur={e  => (e.target.style.borderColor = R.line2)}
-                  />
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <Field label="Fecha">
+                    <AInput type="date" value={date} onChange={e => setDate(e.target.value)} />
+                  </Field>
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', paddingBottom: 9, whiteSpace: 'nowrap' }}>
-                  <div
-                    onClick={() => setAllDay(v => !v)}
-                    style={{
-                      width: 28, height: 16, borderRadius: 8,
-                      background: allDay ? R.cyan : R.line2,
-                      position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div style={{
-                      position: 'absolute', top: 2, left: allDay ? 14 : 2,
-                      width: 12, height: 12, borderRadius: '50%', background: '#fff',
-                      transition: 'left 0.2s',
-                    }} />
-                  </div>
-                  <span style={{ fontSize: 10, color: R.text3 }}>Todo el día</span>
-                </label>
+                <div style={{ paddingBottom: '2px' }}>
+                  <Toggle checked={allDay} onChange={() => setAllDay(v => !v)} label="Todo el día" />
+                </div>
               </div>
 
-              {/* Horas */}
+              {/* Hora inicio / fin */}
               {!allDay && (
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <Clock size={9} /> Inicio
-                    </label>
-                    <TimeSelect value={startTime} onChange={v => {
-                      setStartTime(v);
-                      // Auto-push endTime si el inicio la alcanza o supera
-                      const [sh, sm] = v.split(':').map(Number);
-                      const [eh, em] = endTime.split(':').map(Number);
-                      if (sh * 60 + sm >= eh * 60 + em) {
-                        const newEh = Math.min(sh + 1, MAX_HOUR);
-                        setEndTime(`${pad(newEh)}:${pad(sm)}`);
-                      }
-                    }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <Clock size={9} /> Fin
-                    </label>
-                    <TimeSelect value={endTime} onChange={setEndTime} />
-                  </div>
+                <div style={{ display: 'flex', gap: '14px' }}>
+                  <Field label="Inicio">
+                    <AInput
+                      type="time"
+                      value={startTime}
+                      onChange={e => {
+                        setStartTime(e.target.value);
+                        if (e.target.value >= endTime) {
+                          const [h] = e.target.value.split(':').map(Number);
+                          setEndTime(`${pad(Math.min(h + 1, 23))}:00`);
+                        }
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                  </Field>
+                  <Field label="Fin">
+                    <AInput type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ flex: 1 }} />
+                  </Field>
                 </div>
               )}
 
               {/* Color */}
-              <div>
-                <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Palette size={9} /> Color
-                </label>
-                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              <Field label="Color">
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {COLORS.map(c => (
                     <button
                       key={c.value}
@@ -496,137 +390,144 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                       title={c.label}
                       onClick={() => setColor(c.value)}
                       style={{
-                        width:  20, height: 20, borderRadius: '50%',
+                        width: '24px', height: '24px', borderRadius: '50%',
                         background: c.value, border: 'none', cursor: 'pointer',
-                        boxShadow:  color === c.value ? `0 0 0 2px ${R.bg2}, 0 0 0 4px ${c.value}` : 'none',
-                        transition: 'box-shadow 0.15s',
+                        outline: color === c.value ? `3px solid ${c.value}` : 'none',
+                        outlineOffset: '2px',
+                        transform: color === c.value ? 'scale(1.15)' : 'scale(1)',
+                        transition: 'transform 0.15s, outline 0.15s',
                       }}
                     />
                   ))}
                 </div>
-              </div>
+              </Field>
 
               {/* Tipo */}
-              <div>
-                <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Users size={9} /> Tipo
-                </label>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {(['personal', 'workspace', 'team'] as const).map(t => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setType(t)}
-                      style={{
-                        flex:         1,
-                        padding:      '6px 0',
-                        borderRadius: 5,
-                        fontSize:     10,
-                        cursor:       'pointer',
-                        border:       `1px solid ${type === t ? color : R.line2}`,
-                        background:   type === t ? `${color}18` : 'transparent',
-                        color:        type === t ? color : R.text3,
-                        display:      'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                        transition:   'all 0.15s',
-                      }}
-                    >
-                      {t === 'personal'  && <User  size={9} />}
-                      {t === 'workspace' && <Globe size={9} />}
-                      {t === 'team'      && <Users size={9} />}
-                      {t === 'personal' ? 'Personal' : t === 'workspace' ? 'Workspace' : 'Equipo'}
-                    </button>
-                  ))}
+              <Field label="Tipo">
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {(['personal', 'workspace', 'team'] as const).map(t => {
+                    const isActive = type === t;
+                    const labels = { personal: 'Personal', workspace: 'Workspace', team: 'Equipo' };
+                    const icons = {
+                      personal: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.7"/><path d="M4 20a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>,
+                      workspace: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.7"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" stroke="currentColor" strokeWidth="1.7"/></svg>,
+                      team: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><path d="M16 6a3 3 0 0 1 0 6M18.5 19a5.5 5.5 0 0 0-3-4.9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>,
+                    };
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setType(t)}
+                        style={{
+                          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                          padding: '9px 0', borderRadius: '8px', cursor: 'pointer',
+                          border: `1px solid ${isActive ? color : 'rgba(255,255,255,0.09)'}`,
+                          background: isActive ? `${color}18` : 'rgba(255,255,255,0.02)',
+                          color: isActive ? color : '#9C9486',
+                          fontFamily: MANROPE, fontSize: '13px', fontWeight: isActive ? 600 : 400,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {icons[t]}
+                        {labels[t]}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
+              </Field>
 
-              {/* Selector workspace */}
+              {/* Workspace selector */}
               {type === 'workspace' && (
-                <div>
-                  <label style={labelStyle}>Workspace</label>
-                  <select
-                    value={workspaceId}
-                    onChange={e => setWorkspaceId(e.target.value)}
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
+                <Field label="Workspace">
+                  <ASelect value={workspaceId} onChange={e => setWorkspaceId(e.target.value)}>
                     <option value="">Selecciona un workspace…</option>
                     {workspaces.map(ws => (
                       <option key={ws.id} value={ws.id}>{ws.name}</option>
                     ))}
-                  </select>
-                </div>
+                  </ASelect>
+                </Field>
               )}
 
-              {/* Selector equipo */}
+              {/* Team selector */}
               {type === 'team' && (
-                <div>
-                  <label style={labelStyle}>Equipo</label>
-                  <select
-                    value={teamId}
-                    onChange={e => setTeamId(e.target.value)}
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
+                <Field label="Equipo">
+                  <ASelect value={teamId} onChange={e => setTeamId(e.target.value)}>
                     <option value="">Selecciona un equipo…</option>
                     {teams.map(team => (
                       <option key={team.id} value={team.id}>{team.name}</option>
                     ))}
-                  </select>
-                </div>
+                  </ASelect>
+                </Field>
               )}
 
               {/* Error */}
               {error && (
-                <div style={{ fontSize: 10, color: '#f87171', padding: '6px 10px', background: 'rgba(248,113,113,.08)', borderRadius: 5, border: '1px solid rgba(248,113,113,.2)' }}>
-                  {error}
+                <div style={{
+                  background: 'rgba(224,82,82,0.08)', border: '1px solid rgba(224,82,82,0.25)',
+                  borderRadius: '8px', padding: '10px 14px',
+                }}>
+                  <span style={{ fontFamily: MANROPE, fontSize: '13px', color: '#E05252' }}>{error}</span>
                 </div>
               )}
+            </div>
 
-              {/* Acciones */}
-              <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
-                {isEdit && (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    style={{
-                      padding: '8px 14px', borderRadius: 5, fontSize: 11, cursor: 'pointer',
-                      background: 'transparent', border: '1px solid rgba(248,113,113,.4)',
-                      color: '#f87171', opacity: deleting ? 0.5 : 1,
-                    }}
-                  >
-                    {deleting ? '…' : 'Eliminar'}
-                  </button>
-                )}
-                <div style={{ flex: 1 }} />
+            {/* Footer actions */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              padding: '16px 22px',
+              borderTop: '1px solid rgba(255,255,255,0.07)',
+            }}>
+              {isEdit && (
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleDelete}
+                  disabled={deleting}
                   style={{
-                    padding: '8px 16px', borderRadius: 5, fontSize: 11, cursor: 'pointer',
-                    background: 'transparent', border: `1px solid ${R.line2}`, color: R.text3,
+                    padding: '9px 16px', borderRadius: '8px', cursor: deleting ? 'not-allowed' : 'pointer',
+                    background: 'rgba(224,82,82,0.08)', border: '1px solid rgba(224,82,82,0.25)',
+                    color: '#E05252', fontFamily: MANROPE, fontWeight: 600, fontSize: '13.5px',
+                    opacity: deleting ? 0.5 : 1,
                   }}
                 >
-                  Cancelar
+                  {deleting ? 'Eliminando…' : 'Eliminar'}
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  style={{
-                    padding:    '8px 20px', borderRadius: 5, fontSize: 11, cursor: 'pointer',
-                    background: color, border: 'none', color: '#031322',
-                    fontWeight: 600, opacity: saving ? 0.6 : 1,
-                    fontFamily: "'JetBrains Mono', monospace",
-                    transition: 'opacity 0.15s',
-                  }}
-                >
-                  {saving ? '…' : isEdit ? 'Guardar' : 'Crear evento'}
-                </button>
-              </div>
+              )}
 
-            </form>
-          </motion.div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+              <div style={{ flex: 1 }} />
+
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  padding: '9px 18px', borderRadius: '8px', cursor: 'pointer',
+                  background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#9C9486', fontFamily: MANROPE, fontWeight: 600, fontSize: '13.5px',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="submit"
+                disabled={saving}
+                style={{
+                  padding: '9px 22px', borderRadius: '8px',
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                  background: '#F2571E', border: 'none',
+                  color: '#24180A', fontFamily: SORA, fontWeight: 700, fontSize: '13.5px',
+                  opacity: saving ? 0.65 : 1,
+                }}
+                onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; }}
+              >
+                {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Crear evento'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
   );
 }

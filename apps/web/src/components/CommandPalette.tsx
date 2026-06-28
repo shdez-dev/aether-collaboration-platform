@@ -217,7 +217,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   if (results) {
     results.workspaces.forEach((w) => flat.push({
       type: 'workspace', id: w.id, label: w.name, sub: w.description ?? undefined,
-      action: () => { router.push(`/dashboard/workspaces/${w.id}`); onClose(); },
+      action: () => { router.push('/dashboard/projects'); onClose(); },
     }));
     results.projects.forEach((p) => flat.push({
       type: 'project', id: p.id, label: p.name, sub: p.workspaceName,
@@ -226,13 +226,13 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }));
     results.boards.forEach((b) => flat.push({
       type: 'board', id: b.id, label: b.name, sub: b.workspaceName,
-      action: () => { router.push(`/dashboard/workspaces/${b.workspaceId}?board=${b.id}`); onClose(); },
+      action: () => { router.push(`/dashboard/boards/${b.id}`); onClose(); },
     }));
     results.cards.forEach((c) => flat.push({
       type: 'card', id: c.id, label: c.title,
       sub: `${c.boardName} · ${c.listName}`,
       accent: c.priority ? PRIORITY_COLOR[c.priority] : undefined,
-      action: () => { router.push(`/dashboard/workspaces/${c.workspaceId}?board=${c.boardId}&card=${c.id}`); onClose(); },
+      action: () => { router.push(`/dashboard/boards/${c.boardId}?card=${c.id}`); onClose(); },
     }));
     results.documents.forEach((d) => flat.push({
       type: 'document', id: d.id, label: d.title, sub: d.workspaceName,

@@ -190,6 +190,60 @@ export class ActivityLogService {
   }
 
   /**
+   * GET /api/projects/:id/activity
+   * Returns events related to a specific project (subject_id match OR payload.projectId match)
+   */
+  async getProjectActivity(
+    projectId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<{ entries: ActivityLogEntry[]; total: number; hasMore: boolean }> {
+    const limit  = opts.limit  ?? 50;
+    const offset = opts.offset ?? 0;
+
+    const excluded = EXCLUDED_EVENTS;
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) AS total FROM events e
+       WHERE ((e.subject_id::text = $1 AND e.subject_type = 'project') OR e.payload->>'projectId' = $1)
+         AND e.type != ALL($2::text[])`,
+      [projectId, excluded]
+    );
+    const total = parseInt(countResult.rows[0]?.total ?? '0');
+
+    const result = await pool.query(
+      `SELECT e.id, e.type AS event_type, e.payload, e.delta,
+              e.actor_id AS user_id, e.actor_name AS user_name,
+              e.timestamp, e.created_at,
+              e.workspace_id, e.board_id,
+              e.subject_type, e.subject_id, e.subject_name
+       FROM events e
+       WHERE ((e.subject_id::text = $1 AND e.subject_type = 'project') OR e.payload->>'projectId' = $1)
+         AND e.type != ALL($2::text[])
+       ORDER BY e.created_at DESC
+       LIMIT $3 OFFSET $4`,
+      [projectId, excluded, limit, offset]
+    );
+
+    const entries: ActivityLogEntry[] = result.rows.map((row) => ({
+      id:          row.id,
+      eventType:   row.event_type as EventType,
+      payload:     row.payload ?? {},
+      delta:       row.delta,
+      userId:      row.user_id,
+      userName:    row.user_name,
+      timestamp:   typeof row.timestamp === 'bigint' ? Number(row.timestamp) : parseInt(row.timestamp),
+      createdAt:   row.created_at,
+      targetType:  row.subject_type,
+      targetId:    row.subject_id,
+      targetName:  row.subject_name,
+      workspaceId: row.workspace_id ?? undefined,
+      boardId:     row.board_id ?? undefined,
+    }));
+
+    return { entries, total, hasMore: offset + limit < total };
+  }
+
+  /**
    * Get activity summary/stats for a workspace (events table v2 schema)
    */
   async getActivityStats(

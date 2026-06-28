@@ -4,6 +4,8 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { pool } from '../lib/db';
 import { eventStore } from '../services/EventStoreService';
+import { activityLogService } from '../services/ActivityLogService';
+import { notificationService } from '../services/NotificationService';
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -195,6 +197,23 @@ async function loadRelations(projectId: string) {
   };
 }
 
+/** Devuelve todos los user_ids únicos del proyecto (dueño + miembros directos + miembros de equipos) */
+async function getProjectMemberIds(projectId: string, excludeUserId?: string): Promise<string[]> {
+  const result = await pool.query(
+    `SELECT DISTINCT u_id FROM (
+       SELECT owner_id   AS u_id FROM projects       WHERE id = $1
+       UNION
+       SELECT user_id    AS u_id FROM project_members WHERE project_id = $1
+       UNION
+       SELECT tm.user_id AS u_id FROM team_members tm
+         JOIN project_teams pt ON pt.team_id = tm.team_id WHERE pt.project_id = $1
+     ) sub
+     WHERE u_id != $2`,
+    [projectId, excludeUserId ?? '00000000-0000-0000-0000-000000000000']
+  );
+  return result.rows.map((r: any) => r.u_id as string);
+}
+
 // ── Controller ────────────────────────────────────────────────────────────────
 
 class ProjectController {
@@ -364,6 +383,22 @@ class ProjectController {
             payload: { name: updated.name, projectName: updated.name, oldStatus, newStatus: data.status },
             delta: { before: { status: oldStatus }, after: { status: data.status } },
           } as any);
+          // Notify project members about status change (skip PLANNING/ACTIVE — low signal)
+          if (data.status === 'ON_HOLD' || data.status === 'COMPLETED' || data.status === 'ARCHIVED') {
+            const memberIds = await getProjectMemberIds(id, actorId);
+            await Promise.all(memberIds.map((uid) =>
+              notificationService.createProjectStatusChangedNotification({
+                targetUserId: uid,
+                actorId,
+                actorName,
+                projectId: id,
+                projectName: updated.name,
+                oldStatus,
+                newStatus: data.status!,
+                workspaceId: wsId,
+              }).catch(() => {})
+            ));
+          }
         } else {
           await eventStore.emit({
             type: 'project.updated',
@@ -542,20 +577,60 @@ class ProjectController {
       // Get project info for milestone event
       const msInfo = await pool.query(`SELECT pm.project_id, p.name AS project_name, p.workspace_id FROM project_milestones pm JOIN projects p ON p.id = pm.project_id WHERE pm.id = $1`, [milestoneId]);
       const wsId = msInfo.rows[0]?.workspace_id;
-      if (data.status === 'REACHED' && msInfo.rows[0]) {
-        try {
-          const actorId = (req as any).user?.id as string;
-          const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
-          const actorName = actorInfo.rows[0]?.name ?? '';
+      try {
+        const actorId   = (req as any).user?.id as string;
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        const actorName = actorInfo.rows[0]?.name ?? '';
+        const msProjId  = msInfo.rows[0]?.project_id;
+        const msProjName = msInfo.rows[0]?.project_name ?? '';
+        const msName     = result.rows[0]?.name ?? '';
+
+        if (data.status === 'REACHED' && msInfo.rows[0]) {
           await eventStore.emit({
             type: 'project.milestone.completed',
             actor: { id: actorId, name: actorName },
-            subject: { type: 'milestone', id: milestoneId, name: result.rows[0]?.name ?? '' },
+            subject: { type: 'milestone', id: milestoneId, name: msName },
             context: { workspaceId: wsId },
-            payload: { projectId: msInfo.rows[0].project_id },
+            payload: { projectId: msProjId, projectName: msProjName },
           } as any);
-        } catch {}
-      }
+          const memberIds = await getProjectMemberIds(msProjId, actorId);
+          await Promise.all(memberIds.map((uid) =>
+            notificationService.createMilestoneCompletedNotification({
+              targetUserId: uid, actorId, actorName,
+              projectId: msProjId, projectName: msProjName,
+              milestoneId, milestoneName: msName,
+              milestoneDate: result.rows[0]?.date ?? '',
+              workspaceId: wsId,
+            }).catch(() => {})
+          ));
+        } else if (data.status === 'MISSED' && msInfo.rows[0]) {
+          await eventStore.emit({
+            type: 'project.milestone.missed',
+            actor: { id: actorId, name: actorName },
+            subject: { type: 'milestone', id: milestoneId, name: msName },
+            context: { workspaceId: wsId },
+            payload: { projectId: msProjId, projectName: msProjName },
+          } as any);
+          const memberIds = await getProjectMemberIds(msProjId, actorId);
+          await Promise.all(memberIds.map((uid) =>
+            notificationService.createMilestoneMissedNotification({
+              targetUserId: uid, actorId, actorName,
+              projectId: msProjId, projectName: msProjName,
+              milestoneId, milestoneName: msName,
+              milestoneDate: result.rows[0]?.date ?? '',
+              workspaceId: wsId,
+            }).catch(() => {})
+          ));
+        } else if (!data.status && msInfo.rows[0]) {
+          await eventStore.emit({
+            type: 'project.milestone.updated',
+            actor: { id: actorId, name: actorName },
+            subject: { type: 'milestone', id: milestoneId, name: msName },
+            context: { workspaceId: wsId },
+            payload: { projectId: msProjId, projectName: msProjName },
+          } as any);
+        }
+      } catch {}
       res.json({ success: true, data: { milestone: fmtMilestone(result.rows[0]) } });
     } catch (error) {
       console.error('[ProjectController.updateMilestone]', error);
@@ -566,7 +641,26 @@ class ProjectController {
   /** DELETE /api/projects/:id/milestones/:milestoneId */
   async deleteMilestone(req: Request, res: Response) {
     try {
-      await pool.query(`DELETE FROM project_milestones WHERE id = $1`, [req.params.milestoneId]);
+      const { milestoneId } = req.params;
+      const msInfo = await pool.query(
+        `SELECT pm.name, pm.project_id, p.name AS project_name, p.workspace_id
+         FROM project_milestones pm JOIN projects p ON p.id = pm.project_id
+         WHERE pm.id = $1`, [milestoneId]
+      );
+      await pool.query(`DELETE FROM project_milestones WHERE id = $1`, [milestoneId]);
+      try {
+        if (msInfo.rows[0]) {
+          const actorId   = (req as any).user?.id as string;
+          const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+          await eventStore.emit({
+            type: 'project.milestone.deleted',
+            actor: { id: actorId, name: actorInfo.rows[0]?.name ?? '' },
+            subject: { type: 'milestone', id: milestoneId, name: msInfo.rows[0].name },
+            context: { workspaceId: msInfo.rows[0].workspace_id },
+            payload: { projectId: msInfo.rows[0].project_id, projectName: msInfo.rows[0].project_name },
+          } as any);
+        }
+      } catch {}
       res.json({ success: true, data: null });
     } catch (error) {
       console.error('[ProjectController.deleteMilestone]', error);
@@ -628,7 +722,7 @@ class ProjectController {
 
       const result = await pool.query(
         `SELECT c.id, c.title, c.due_date, c.start_date, c.priority, c.completed,
-                b.id AS board_id, b.name AS board_name, l.name AS list_name
+                c.buffer_days, b.id AS board_id, b.name AS board_name, l.name AS list_name
          FROM cards c
          JOIN lists l ON l.id = c.list_id
          JOIN boards b ON b.id = l.board_id
@@ -640,15 +734,16 @@ class ProjectController {
       );
 
       const cards = result.rows.map((r: any) => ({
-        id:        r.id,
-        title:     r.title,
-        dueDate:   r.due_date  ? new Date(r.due_date).toISOString()  : null,
-        startDate: r.start_date ? new Date(r.start_date).toISOString() : null,
-        priority:  r.priority,
-        completed: r.completed,
-        boardId:   r.board_id,
-        boardName: r.board_name,
-        listName:  r.list_name,
+        id:         r.id,
+        title:      r.title,
+        dueDate:    r.due_date   ? new Date(r.due_date).toISOString()   : null,
+        startDate:  r.start_date ? new Date(r.start_date).toISOString() : null,
+        priority:   r.priority,
+        completed:  r.completed,
+        bufferDays: r.buffer_days ?? null,
+        boardId:    r.board_id,
+        boardName:  r.board_name,
+        listName:   r.list_name,
       }));
 
       return res.json({ success: true, data: { cards } });
@@ -672,6 +767,34 @@ class ProjectController {
          ON CONFLICT (project_id, team_id) DO NOTHING`,
         [id, teamId, userId]
       );
+
+      // Grant workspace access to all current team members
+      await pool.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role)
+         SELECT p.workspace_id, tm.user_id, 'MEMBER'
+         FROM projects p
+         JOIN team_members tm ON tm.team_id = $2
+         WHERE p.id = $1
+         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+        [id, teamId]
+      );
+
+      try {
+        const info = await pool.query(
+          `SELECT p.name AS project_name, p.workspace_id, t.name AS team_name
+           FROM projects p, teams t WHERE p.id = $1 AND t.id = $2`, [id, teamId]
+        );
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        if (info.rows[0]) {
+          await eventStore.emit({
+            type: 'project.team.assigned',
+            actor: { id: userId, name: actorInfo.rows[0]?.name ?? '' },
+            subject: { type: 'project', id, name: info.rows[0].project_name },
+            context: { workspaceId: info.rows[0].workspace_id },
+            payload: { projectId: id, projectName: info.rows[0].project_name, teamId, teamName: info.rows[0].team_name },
+          } as any);
+        }
+      } catch {}
       res.status(201).json({ success: true, data: null });
     } catch (error) {
       console.error('[ProjectController.assignTeam]', error);
@@ -683,14 +806,183 @@ class ProjectController {
   async removeTeam(req: Request, res: Response) {
     try {
       const { id, teamId } = req.params;
+      const info = await pool.query(
+        `SELECT p.name AS project_name, p.workspace_id, t.name AS team_name
+         FROM projects p, teams t WHERE p.id = $1 AND t.id = $2`, [id, teamId]
+      );
       await pool.query(
         `DELETE FROM project_teams WHERE project_id = $1 AND team_id = $2`,
         [id, teamId]
       );
+      try {
+        const actorId   = (req as any).user?.id as string;
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        if (info.rows[0]) {
+          await eventStore.emit({
+            type: 'project.team.removed',
+            actor: { id: actorId, name: actorInfo.rows[0]?.name ?? '' },
+            subject: { type: 'project', id, name: info.rows[0].project_name },
+            context: { workspaceId: info.rows[0].workspace_id },
+            payload: { projectId: id, projectName: info.rows[0].project_name, teamId, teamName: info.rows[0].team_name },
+          } as any);
+        }
+      } catch {}
       res.json({ success: true, data: null });
     } catch (error) {
       console.error('[ProjectController.removeTeam]', error);
       res.status(500).json({ success: false, error: { message: 'Error al quitar equipo' } });
+    }
+  }
+
+  // ── Direct members ───────────────────────────────────────────────────────────
+
+  /** GET /api/projects/:id/members */
+  async getDirectMembers(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await pool.query(
+        `SELECT u.id, u.name, u.email, u.avatar, pm.role, pm.added_at
+         FROM project_members pm
+         JOIN users u ON u.id = pm.user_id
+         WHERE pm.project_id = $1
+         ORDER BY pm.added_at ASC`,
+        [id]
+      );
+      res.json({
+        success: true,
+        data: {
+          members: result.rows.map((r) => ({
+            id:       r.id,
+            name:     r.name,
+            email:    r.email,
+            avatar:   r.avatar ?? null,
+            role:     r.role,
+            addedAt:  new Date(r.added_at).toISOString(),
+          })),
+        },
+      });
+    } catch (error) {
+      console.error('[ProjectController.getDirectMembers]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al obtener miembros del proyecto' } });
+    }
+  }
+
+  /** POST /api/projects/:id/members  body: { userId, role? } */
+  async addDirectMember(req: Request, res: Response) {
+    try {
+      const actorId = req.user?.id;
+      const { id }  = req.params;
+      const { userId, role = 'MEMBER' } = req.body;
+      if (!userId) return res.status(400).json({ success: false, error: { message: 'userId requerido' } });
+
+      // Fetch workspace for auto-linking
+      const projRow = await pool.query(`SELECT workspace_id FROM projects WHERE id = $1`, [id]);
+      if (!projRow.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
+      const workspaceId = projRow.rows[0].workspace_id;
+
+      // Auto-add user to workspace if not already a member
+      await pool.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role)
+         VALUES ($1, $2, 'MEMBER')
+         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+        [workspaceId, userId]
+      );
+
+      // Add (or update role) in project_members
+      await pool.query(
+        `INSERT INTO project_members (project_id, user_id, role, added_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+        [id, userId, role, actorId]
+      );
+
+      const userRow = await pool.query(
+        `SELECT id, name, email, avatar FROM users WHERE id = $1`,
+        [userId]
+      );
+      if (!userRow.rows.length) return res.status(404).json({ success: false, error: { message: 'Usuario no encontrado' } });
+
+      const u = userRow.rows[0];
+      try {
+        const projInfo  = await pool.query(`SELECT name FROM projects WHERE id = $1`, [id]);
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        const projName  = projInfo.rows[0]?.name ?? '';
+        const actorName = actorInfo.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'project.member.added',
+          actor: { id: actorId, name: actorName },
+          subject: { type: 'project', id, name: projName },
+          context: { workspaceId },
+          payload: { projectId: id, projectName: projName, memberName: u.name, memberEmail: u.email },
+        } as any);
+        // Notificar al usuario añadido
+        notificationService.createProjectInviteNotification({
+          invitedUserId: userId,
+          addedById: actorId!,
+          addedByName: actorName,
+          projectId: id,
+          projectName: projName,
+          workspaceId,
+        }).catch(() => {});
+      } catch {}
+      res.status(201).json({
+        success: true,
+        data: {
+          member: { id: u.id, name: u.name, email: u.email, avatar: u.avatar ?? null, role, addedAt: new Date().toISOString() },
+        },
+      });
+    } catch (error) {
+      console.error('[ProjectController.addDirectMember]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al agregar miembro al proyecto' } });
+    }
+  }
+
+  /** DELETE /api/projects/:id/members/:userId */
+  async removeDirectMember(req: Request, res: Response) {
+    try {
+      const { id, userId } = req.params;
+      const info = await pool.query(
+        `SELECT u.name AS member_name, p.name AS project_name, p.workspace_id
+         FROM users u, projects p WHERE u.id = $1 AND p.id = $2`, [userId, id]
+      );
+      await pool.query(`DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`, [id, userId]);
+      try {
+        const actorId   = (req as any).user?.id as string;
+        const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        if (info.rows[0]) {
+          await eventStore.emit({
+            type: 'project.member.removed',
+            actor: { id: actorId, name: actorInfo.rows[0]?.name ?? '' },
+            subject: { type: 'project', id, name: info.rows[0].project_name },
+            context: { workspaceId: info.rows[0].workspace_id },
+            payload: { projectId: id, projectName: info.rows[0].project_name, memberName: info.rows[0].member_name },
+          } as any);
+        }
+      } catch {}
+      res.json({ success: true, data: null });
+    } catch (error) {
+      console.error('[ProjectController.removeDirectMember]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al quitar miembro del proyecto' } });
+    }
+  }
+
+  /** GET /api/projects/:id/activity */
+  async getActivity(req: Request, res: Response) {
+    try {
+      const { id }   = req.params;
+      const limit    = parseInt(req.query.limit  as string ?? '50');
+      const offset   = parseInt(req.query.offset as string ?? '0');
+      const result   = await activityLogService.getProjectActivity(id, { limit, offset });
+      res.json({
+        success: true,
+        data: {
+          events: result.entries,
+          pagination: { total: result.total, limit, offset, hasMore: result.hasMore },
+        },
+      });
+    } catch (error) {
+      console.error('[ProjectController.getActivity]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al obtener actividad' } });
     }
   }
 }

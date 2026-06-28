@@ -26,6 +26,8 @@ const updateCardSchema = z.object({
   completed: z.boolean().optional(),
   completedAt: z.string().datetime().optional().or(z.null()),
   listId: z.string().uuid().optional(),
+  milestoneId: z.string().uuid().optional().or(z.null()),
+  bufferDays:  z.number().int().min(0).max(365).nullable().optional(),
 });
 
 const moveCardSchema = z.object({

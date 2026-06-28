@@ -121,6 +121,8 @@ interface ProjectState {
   updateMilestone: (projectId: string, milestoneId: string, data: UpdateMilestoneData) => Promise<void>;
   deleteMilestone: (projectId: string, milestoneId: string) => Promise<void>;
 
+  patchBoard: (boardId: string, data: Partial<ProjectBoard>) => void;
+
   clearError: () => void;
   reset: () => void;
 }
@@ -333,6 +335,19 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       // ── Helpers ─────────────────────────────────────────────────────────────
+
+      patchBoard: (boardId: string, data: Partial<ProjectBoard>) => {
+        set((state) => ({
+          currentProject: state.currentProject
+            ? {
+                ...state.currentProject,
+                boards: (state.currentProject.boards ?? []).map((b) =>
+                  b.id === boardId ? { ...b, ...data } : b
+                ),
+              }
+            : null,
+        }));
+      },
 
       clearError: () => set({ error: null }),
 

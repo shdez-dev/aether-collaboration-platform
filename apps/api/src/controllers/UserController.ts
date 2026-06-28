@@ -1131,6 +1131,25 @@ class UserController {
         [id, requestingUserId]
       );
 
+      const sharedTeams = await pool.query(
+        `SELECT DISTINCT t.id, t.name
+         FROM team_members tm1
+         JOIN team_members tm2 ON tm2.team_id = tm1.team_id
+         JOIN teams t ON t.id = tm1.team_id
+         WHERE tm1.user_id = $1 AND tm2.user_id = $2
+         ORDER BY t.name ASC`,
+        [id, requestingUserId]
+      );
+
+      const sharedProjects = await pool.query(
+        `SELECT DISTINCT p.id, p.name
+         FROM projects p
+         WHERE (p.owner_id = $1 OR EXISTS(SELECT 1 FROM project_members WHERE project_id = p.id AND user_id = $1))
+           AND (p.owner_id = $2 OR EXISTS(SELECT 1 FROM project_members WHERE project_id = p.id AND user_id = $2))
+         ORDER BY p.name ASC`,
+        [id, requestingUserId]
+      );
+
       return res.json({
         success: true,
         data: {
@@ -1151,6 +1170,8 @@ class UserController {
             color: w.color,
             role: w.role,
           })),
+          sharedTeams: sharedTeams.rows.map((t) => ({ id: t.id, name: t.name })),
+          sharedProjects: sharedProjects.rows.map((p) => ({ id: p.id, name: p.name })),
         },
       });
     } catch (error) {

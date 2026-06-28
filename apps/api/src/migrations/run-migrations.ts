@@ -870,6 +870,46 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 027: Create calendar_events and calendar_event_attendees tables');
 
+      // Migration 028: Add milestone_id FK to cards
+      await client.query(`
+        ALTER TABLE cards ADD COLUMN IF NOT EXISTS milestone_id UUID;
+        DO $$ BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'cards_milestone_id_fkey' AND table_name = 'cards'
+          ) THEN
+            ALTER TABLE cards
+              ADD CONSTRAINT cards_milestone_id_fkey
+              FOREIGN KEY (milestone_id) REFERENCES project_milestones(id)
+              ON DELETE SET NULL ON UPDATE CASCADE;
+          END IF;
+        END $$;
+      `);
+      console.log('  ✓ Migration 028: Add milestone_id to cards');
+
+      // Migration 029: Add buffer_days to cards
+      await client.query(`
+        ALTER TABLE cards ADD COLUMN IF NOT EXISTS buffer_days INTEGER;
+      `);
+      console.log('  ✓ Migration 029: Add buffer_days to cards');
+
+      // Migration 030: Create refresh_tokens table (token revocation + rotation)
+      // Almacena solo el hash SHA-256 del refresh token, nunca el token en claro.
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS refresh_tokens (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash  CHAR(64) NOT NULL UNIQUE,
+          expires_at  TIMESTAMPTZ NOT NULL,
+          revoked     BOOLEAN NOT NULL DEFAULT FALSE,
+          replaced_by CHAR(64),
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+        CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+      `);
+      console.log('  ✓ Migration 030: Create refresh_tokens table');
+
       console.log('✅ All migrations completed successfully');
     } finally {
       client.release();

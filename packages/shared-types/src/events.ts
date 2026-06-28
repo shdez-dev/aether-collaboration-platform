@@ -115,6 +115,11 @@ export type ProjectEventType =
   | 'project.milestone.created'
   | 'project.milestone.completed';
 
+export type SprintEventType =
+  | 'sprint.created'
+  | 'sprint.started'
+  | 'sprint.completed';
+
 export type TeamEventType =
   | 'team.created'
   | 'team.updated'
@@ -152,6 +157,7 @@ export type EventType =
   | ChecklistEventType
   | DocumentEventType
   | ProjectEventType
+  | SprintEventType
   | TeamEventType
   | GithubEventType
   | EphemeralEventType;
@@ -177,7 +183,8 @@ export type SubjectType =
   | 'label'
   | 'dependency'
   | 'version'
-  | 'repository';
+  | 'repository'
+  | 'sprint';
 
 // ============================================================================
 // CANONICAL BASE EVENT STRUCTURE

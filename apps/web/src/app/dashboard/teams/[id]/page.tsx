@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useTeamStore, type Team, type TeamMember, type TeamActivity, type TeamInvitation } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -661,6 +662,11 @@ export default function TeamDetailPage() {
   const [showAssignProject, setShowAssignProject] = useState(false);
   const [invActionLoading, setInvActionLoading] = useState<string | null>(null);
 
+  // Standup
+  interface TeamStandup { id: string; userId: string; userName: string; userAvatar: string | null; todayItems: { id: string; text: string }[]; blockers: { id: string; text: string }[]; publishedAt: string }
+  const [teamStandups, setTeamStandups] = useState<TeamStandup[]>([]);
+  const [standupsLoading, setStandupsLoading] = useState(false);
+
   // Load team
   useEffect(() => {
     if (teamId) fetchTeamById(teamId);
@@ -683,12 +689,14 @@ export default function TeamDetailPage() {
     }
   }, [teamId]);
 
-  // Load activity
-  const loadActivity = useCallback(async () => {
+  // Load activity — se dispara cuando cambia el miembro seleccionado
+  const loadActivity = useCallback(async (userId?: string) => {
     if (!teamId) return;
     setActivityLoading(true);
+    setActivity([]);
     try {
-      const res = await apiService.get<{ events: TeamActivity[] }>(`/api/teams/${teamId}/activity`, true);
+      const qs = userId ? `?userId=${userId}&limit=50` : '?limit=20';
+      const res = await apiService.get<{ events: TeamActivity[] }>(`/api/teams/${teamId}/activity${qs}`, true);
       if (res.success && res.data) setActivity(res.data.events);
     } finally {
       setActivityLoading(false);
@@ -706,10 +714,24 @@ export default function TeamDetailPage() {
 
   useEffect(() => {
     loadMembers();
-    loadActivity();
     loadWorkspaces();
     loadPendingTeamInvitations();
-  }, [loadMembers, loadActivity, loadWorkspaces, loadPendingTeamInvitations]);
+  }, [loadMembers, loadWorkspaces, loadPendingTeamInvitations]);
+
+  // Load team standups (published today by teammates)
+  useEffect(() => {
+    if (!teamId) return;
+    setStandupsLoading(true);
+    apiService.get<{ standups: TeamStandup[] }>('/api/users/me/team-standups', true)
+      .then(r => { if (r.success && r.data) setTeamStandups(r.data.standups); })
+      .finally(() => setStandupsLoading(false));
+  }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Recarga actividad cada vez que cambia el miembro seleccionado
+  useEffect(() => {
+    if (activityUser) loadActivity(activityUser);
+    else setActivity([]);
+  }, [activityUser, loadActivity]);
 
   async function handleAcceptTeamInvitation(id: string) {
     setInvActionLoading(id);
@@ -936,6 +958,83 @@ export default function TeamDetailPage() {
             </section>
           )}
 
+          {/* ── HOY EN EL EQUIPO ── */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.text4 }}>
+                  Hoy en el equipo
+                </div>
+                <span className="text-[10px] px-2 py-[1px] rounded-full" style={{ background: 'rgba(118,168,120,0.15)', color: '#76A878', border: '1px solid rgba(118,168,120,0.3)' }}>
+                  {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
+                </span>
+              </div>
+            </div>
+
+            {standupsLoading ? (
+              <div className="flex justify-center py-6">
+                <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
+              </div>
+            ) : members.length === 0 ? null : (
+              <div className="flex flex-col gap-2">
+                {members.map((m) => {
+                  const standup = teamStandups.find(s => s.userId === m.id || s.userId === m.memberId);
+                  return (
+                    <div
+                      key={m.id}
+                      className="rounded-[8px] px-4 py-3"
+                      style={{ background: C.surface, border: `1px solid ${C.border}` }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Avatar name={m.name} size={30} color={hashColor(m.id)} />
+                        <div className="flex flex-col gap-1 flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-medium" style={{ color: C.text }}>{m.name}</span>
+                            {standup ? (
+                              <span className="text-[10px] px-1.5 py-[1px] rounded" style={{ background: 'rgba(118,168,120,0.14)', color: '#76A878', border: '1px solid rgba(118,168,120,0.28)' }}>
+                                publicó hoy
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-1.5 py-[1px] rounded" style={{ background: 'rgba(255,255,255,0.05)', color: C.text4, border: `1px solid ${C.border}` }}>
+                                sin actualización
+                              </span>
+                            )}
+                          </div>
+
+                          {standup && standup.todayItems.length > 0 ? (
+                            <ul className="flex flex-col gap-0.5 mt-0.5" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                              {standup.todayItems.map((item) => (
+                                <li key={item.id} className="flex items-start gap-1.5 text-[12px]" style={{ color: C.text3 }}>
+                                  <span style={{ color: C.accent, marginTop: '2px', flexShrink: 0 }}>›</span>
+                                  {item.text}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : standup ? (
+                            <span className="text-[12px]" style={{ color: C.text4 }}>Sin tareas listadas para hoy</span>
+                          ) : (
+                            <span className="text-[12px]" style={{ color: C.text4 }}>No ha publicado su standup de hoy</span>
+                          )}
+
+                          {standup && standup.blockers.length > 0 && (
+                            <div className="flex flex-col gap-0.5 mt-1">
+                              <span className="text-[10.5px] font-semibold" style={{ color: '#E05252' }}>Bloqueantes:</span>
+                              {standup.blockers.map((b) => (
+                                <span key={b.id} className="text-[11.5px]" style={{ color: '#E05252', opacity: 0.85 }}>
+                                  ⚠ {b.text}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           {/* ── MIEMBROS ── */}
           <section>
             <div className="flex items-center justify-between mb-4">
@@ -1001,9 +1100,9 @@ export default function TeamDetailPage() {
               </div>
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
                 {activeWorkspaces.map((ws) => (
-                  <a
+                  <Link
                     key={ws.id}
-                    href={`/dashboard/workspaces/${ws.id}`}
+                    href="/dashboard/projects"
                     className="rounded-[8px] flex items-center gap-3 p-3 transition-all no-underline"
                     style={{ background: C.surface, border: `1px solid ${C.border}`, textDecoration: 'none' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.borderColor = C.border2; }}
@@ -1019,7 +1118,7 @@ export default function TeamDetailPage() {
                         {t.teams_ws_projects(ws.projectCount)} · {t.teams_ws_cards(ws.activeCards)}
                       </div>
                     </div>
-                  </a>
+                  </Link>
                 ))}
               </div>
             </section>
@@ -1161,15 +1260,26 @@ export default function TeamDetailPage() {
 
                       {/* Contenido */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12.5px', lineHeight: 1.4 }}>
+                        <div style={{ fontSize: '12.5px', lineHeight: 1.5 }}>
                           <span style={{ fontWeight: 600, color: C.text }}>{ev.userName}</span>
                           <span style={{ color: C.text3 }}> {getActivityAction(ev.eventType, ev.action, t)}</span>
                           {ev.entityName && (
                             <span style={{ fontWeight: 500, color: C.text2 }}> "{ev.entityName}"</span>
                           )}
                         </div>
-                        <div style={{ fontSize: '11px', color: C.text4, marginTop: '2px' }}>
-                          {new Date(ev.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', flexWrap: 'wrap' }}>
+                          {ev.projectName && (
+                            <span style={{
+                              fontSize: '10.5px', fontWeight: 500, padding: '1px 7px',
+                              borderRadius: '4px', background: 'rgba(242,87,30,0.1)',
+                              border: '1px solid rgba(242,87,30,0.2)', color: '#F4905A',
+                            }}>
+                              {ev.projectName}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '11px', color: C.text4 }}>
+                            {new Date(ev.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
                       </div>
 

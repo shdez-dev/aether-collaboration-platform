@@ -7,19 +7,19 @@ import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
 import { useBoardStore } from '@/stores/boardStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useTypingIndicator, useTypingListeners } from '@/hooks/useTypingIndicator';
 import { TypingIndicator } from './realtime/TypingIndicator';
 import { MemberPicker } from './MemberPicker';
 import { LabelPicker } from './LabelPicker';
 import { CommentList } from './comments/CommentList';
-import { X, Calendar, Flag, Tag, Users as UsersIcon, Zap, ChevronLeft, ChevronRight, Trash2, Edit2, Save } from 'lucide-react';
+import { X, Calendar, Zap, ChevronLeft, ChevronRight, Trash2, Flag } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
 import { CardChecklist } from './CardChecklist';
 import { CardDependencies } from './CardDependencies';
 import type { Sprint } from '@aether/types';
-import { motion, PanInfo } from 'framer-motion';
 import { C } from '@/lib/colors';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
@@ -153,45 +153,61 @@ export function CardDetailModal() {
   const { currentWorkspace } = useWorkspaceStore();
   const { currentBoard } = useBoardStore();
   const invalidateTimeline = useTimelineStore((s) => s.invalidate);
+  const projectMilestones = useProjectStore((s) => s.currentProject?.milestones ?? []);
   const userRole = currentWorkspace?.userRole;
+  // Allow editing unless the user is an explicit VIEWER; undefined role (no board/workspace
+  // context, e.g. opened from Gantt) is treated as editable.
+  const canEdit  = userRole !== 'VIEWER';
+
+  const SORA    = "'Sora', system-ui, sans-serif";
+  const MANROPE = "'Manrope', system-ui, sans-serif";
 
   const priorityOptions = [
-    { value: null,     label: t.card_priority_none,   color: C.text3,  bg: 'transparent', border: C.border2, symbol: '' },
-    { value: 'LOW',    label: t.card_priority_low,    color: C.accent, bg: `${C.accent}12`, border: `${C.accent}35`, symbol: '▼' },
-    { value: 'MEDIUM', label: t.card_priority_medium, color: C.amber,  bg: `${C.amber}12`,  border: `${C.amber}35`,  symbol: '■' },
-    { value: 'HIGH',   label: t.card_priority_high,   color: C.red,    bg: `${C.red}12`,    border: `${C.red}35`,    symbol: '▲' },
+    { value: null,     label: t.card_priority_none,   color: '#615846',  bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.08)', symbol: '' },
+    { value: 'LOW',    label: t.card_priority_low,    color: C.accent,   bg: `${C.accent}15`,          border: `${C.accent}40`,          symbol: '▼' },
+    { value: 'MEDIUM', label: t.card_priority_medium, color: C.amber,    bg: `${C.amber}15`,           border: `${C.amber}40`,           symbol: '■' },
+    { value: 'HIGH',   label: t.card_priority_high,   color: C.red,      bg: `${C.red}15`,             border: `${C.red}40`,             symbol: '▲' },
   ];
 
-  const [isEditing,          setIsEditing]          = useState(false);
-  const [editedTitle,        setEditedTitle]        = useState('');
-  const [editedDescription,  setEditedDescription]  = useState('');
-  const [editedPriority,     setEditedPriority]     = useState<'LOW' | 'MEDIUM' | 'HIGH' | null>(null);
-  const [editedStartDate,    setEditedStartDate]    = useState('');
-  const [editedDueDate,      setEditedDueDate]      = useState('');
-  const [isUpdating,         setIsUpdating]         = useState(false);
-  const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(false);
-  const [isDeleting,         setIsDeleting]         = useState(false);
-  const [showStartCalendar,  setShowStartCalendar]  = useState(false);
-  const [showCalendar,       setShowCalendar]       = useState(false);
-  const [commentCount,       setCommentCount]       = useState(0);
-  const [isVisible,          setIsVisible]          = useState(false);
-  const [checklistProgress,  setChecklistProgress]  = useState<{ done: number; total: number }>({ done: 0, total: 0 });
-  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
+  // ── state ──────────────────────────────────────────────────────────────────
+  const [editedTitle,       setEditedTitle]       = useState('');
+  const [editedDescription, setEditedDescription] = useState('');
+  const [editedPriority,    setEditedPriority]    = useState<'LOW' | 'MEDIUM' | 'HIGH' | null>(null);
+  const [editedStartDate,   setEditedStartDate]   = useState('');
+  const [editedDueDate,     setEditedDueDate]     = useState('');
+  const [bufferDays,        setBufferDays]        = useState<number | null>(null);
+  const [bufferSaving,      setBufferSaving]      = useState(false);
+  const [editingTitle,      setEditingTitle]      = useState(false);
+  const [editingDesc,       setEditingDesc]       = useState(false);
+  const [savingTitle,       setSavingTitle]       = useState(false);
+  const [savingDesc,        setSavingDesc]        = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting,        setIsDeleting]        = useState(false);
+  const [showStartCalendar, setShowStartCalendar] = useState(false);
+  const [showCalendar,      setShowCalendar]      = useState(false);
+  const [,                  setCommentCount]      = useState(0);
+  const [isVisible,         setIsVisible]         = useState(false);
+  const [isDescFocused,     setIsDescFocused]     = useState(false);
+  const [,                  setChecklistProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
 
-  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
+  const [boardSprints,      setBoardSprints]      = useState<Sprint[]>([]);
+  const [cardSprintId,      setCardSprintId]      = useState<string | null>(null);
+  const [sprintUpdating,    setSprintUpdating]    = useState(false);
+  // boardId captured from the card stub (may come from Gantt where currentBoard is null)
+  const [boardIdContext,    setBoardIdContext]     = useState<string | null>(null);
+  const [cardMilestoneId,   setCardMilestoneId]   = useState<string | null>(null);
+  const [milestoneUpdating, setMilestoneUpdating] = useState(false);
 
-  const handleCommentCountChange   = useCallback((count: number) => setCommentCount(count), []);
+  const handleCommentCountChange      = useCallback((n: number) => setCommentCount(n), []);
   const handleChecklistProgressChange = useCallback((done: number, total: number) => setChecklistProgress({ done, total }), []);
 
-  const [boardSprints,  setBoardSprints]  = useState<Sprint[]>([]);
-  const [cardSprintId,  setCardSprintId]  = useState<string | null>(null);
-  const [sprintUpdating, setSprintUpdating] = useState(false);
-
-  useTypingIndicator({ cardId: selectedCard?.id || '', isTyping: isDescriptionFocused && isEditing, debounceMs: 500, disabled: !selectedCard });
+  useTypingIndicator({ cardId: selectedCard?.id || '', isTyping: isDescFocused, debounceMs: 500, disabled: !selectedCard });
   const typingUsers = useTypingListeners(selectedCard?.id || '');
+
   const startCalendarRef = useRef<HTMLDivElement>(null);
   const calendarRef      = useRef<HTMLDivElement>(null);
 
+  // ── effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (selectedCard) {
       setEditedTitle(selectedCard.title);
@@ -199,452 +215,614 @@ export function CardDetailModal() {
       setEditedPriority(selectedCard.priority || null);
       setEditedStartDate(selectedCard.startDate || '');
       setEditedDueDate(selectedCard.dueDate || '');
+      setBufferDays((selectedCard as any).bufferDays ?? null);
+      // Capture boardId from stub (passed from Gantt) before the full fetch overwrites it
+      const stubBoardId = (selectedCard as any)._boardId as string | undefined;
+      if (stubBoardId) setBoardIdContext(stubBoardId);
+      setEditingTitle(false); setEditingDesc(false);
       setTimeout(() => setIsVisible(true), 10);
       document.body.classList.add('card-detail-drawer-open');
       apiService.get<{ card: any }>(`/api/cards/${selectedCard.id}`, true)
-        .then((res) => { if (res.success && res.data) { setSelectedCard(res.data.card); updateCard(selectedCard.id, res.data.card); } })
+        .then((r) => { if (r.success && r.data) { setSelectedCard(r.data.card); updateCard(selectedCard.id, r.data.card); } })
         .catch(() => {});
     } else {
       setIsVisible(false);
       document.body.classList.remove('card-detail-drawer-open');
     }
     return () => { document.body.classList.remove('card-detail-drawer-open'); };
-  }, [selectedCard?.id]);
+  }, [selectedCard?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const h = (e: MouseEvent) => {
       if (startCalendarRef.current && !startCalendarRef.current.contains(e.target as Node)) setShowStartCalendar(false);
       if (calendarRef.current      && !calendarRef.current.contains(e.target as Node))      setShowCalendar(false);
     };
-    if (showStartCalendar || showCalendar) { document.addEventListener('mousedown', handler); return () => document.removeEventListener('mousedown', handler); }
+    if (showStartCalendar || showCalendar) { document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }
   }, [showStartCalendar, showCalendar]);
 
   useEffect(() => {
-    if (!selectedCard || !currentBoard?.id) return;
-    apiService.get<{ sprints: Sprint[] }>(`/api/boards/${currentBoard.id}/sprints`, true)
-      .then((res) => {
-        if (!res.success || !res.data) return;
-        setBoardSprints(res.data.sprints);
-        const found = res.data.sprints.find((s) => (s.cards ?? []).some((c: any) => c.id === selectedCard.id));
+    if (!selectedCard) return;
+    const boardId = currentBoard?.id ?? boardIdContext;
+    if (!boardId) return;
+    apiService.get<{ sprints: Sprint[] }>(`/api/boards/${boardId}/sprints`, true)
+      .then((r) => {
+        if (!r.success || !r.data) return;
+        setBoardSprints(r.data.sprints);
+        const found = r.data.sprints.find((s) => s.status !== 'COMPLETED' && (s.cards ?? []).some((c: any) => c.id === selectedCard.id));
         setCardSprintId(found?.id ?? null);
       }).catch(() => {});
-  }, [selectedCard?.id, currentBoard?.id]);
+    setCardMilestoneId(selectedCard.milestoneId ?? null);
+  }, [selectedCard?.id, currentBoard?.id, boardIdContext]);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+    if (selectedCard) { document.addEventListener('keydown', h); return () => document.removeEventListener('keydown', h); }
+  }, [selectedCard?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── guard ──────────────────────────────────────────────────────────────────
+  if (!selectedCard) return null;
+
+  // ── handlers ───────────────────────────────────────────────────────────────
+  const handleClose = () => {
+    setIsVisible(false);
+    setEditingTitle(false); setEditingDesc(false);
+    setTimeout(() => { setSelectedCard(null); setShowDeleteConfirm(false); setShowStartCalendar(false); setShowCalendar(false); setIsDescFocused(false); }, 280);
+  };
+
+  const saveTitle = async () => {
+    const v = editedTitle.trim();
+    if (!v || v === selectedCard.title) { setEditedTitle(selectedCard.title); setEditingTitle(false); return; }
+    setSavingTitle(true);
+    try {
+      const r = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, { title: v }, true);
+      if (r.success && r.data) { updateCard(selectedCard.id, r.data.card); setSelectedCard(r.data.card); invalidateTimeline(); }
+    } catch {} finally { setSavingTitle(false); setEditingTitle(false); }
+  };
+
+  const saveDesc = async () => {
+    setIsDescFocused(false);
+    const next = editedDescription.trim() || null;
+    const curr = selectedCard.description || null;
+    if (next === curr) { setEditingDesc(false); return; }
+    setSavingDesc(true);
+    try {
+      const r = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, { description: next }, true);
+      if (r.success && r.data) { updateCard(selectedCard.id, r.data.card); setSelectedCard(r.data.card); }
+    } catch {} finally { setSavingDesc(false); setEditingDesc(false); }
+  };
+
+  const savePriority = async (priority: 'LOW' | 'MEDIUM' | 'HIGH' | null) => {
+    if (!canEdit || priority === editedPriority) return;
+    const prev = editedPriority;
+    setEditedPriority(priority);
+    try {
+      const r = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, { priority }, true);
+      if (r.success && r.data) { updateCard(selectedCard.id, r.data.card); setSelectedCard(r.data.card); invalidateTimeline(); }
+    } catch { setEditedPriority(prev); }
+  };
 
   const handleDateChange = async (field: 'startDate' | 'dueDate', value: string) => {
     if (!selectedCard) return;
     if (field === 'startDate') setEditedStartDate(value); else setEditedDueDate(value);
     try {
-      const res = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, { [field]: value || null }, true);
-      if (res.success && res.data) { updateCard(selectedCard.id, res.data.card); setSelectedCard(res.data.card); }
+      const r = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, { [field]: value || null }, true);
+      if (r.success && r.data) { updateCard(selectedCard.id, r.data.card); setSelectedCard(r.data.card); invalidateTimeline(); }
     } catch {}
   };
 
-  const handleSprintChange = async (newSprintId: string | null) => {
+  const handleBufferChange = async (days: number | null) => {
+    if (!selectedCard || bufferSaving) return;
+    const prev = bufferDays;
+    setBufferDays(days);            // optimistic
+    setBufferSaving(true);
+    try {
+      const r = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, { bufferDays: days }, true);
+      if (r.success && r.data) {
+        updateCard(selectedCard.id, r.data.card);
+        setSelectedCard(r.data.card);
+        invalidateTimeline();
+      } else {
+        setBufferDays(prev);        // revert on failure
+      }
+    } catch { setBufferDays(prev); } finally { setBufferSaving(false); }
+  };
+
+  const handleSprintChange = async (newId: string | null) => {
     if (!selectedCard || sprintUpdating) return;
     setSprintUpdating(true);
     try {
       if (cardSprintId) await apiService.delete(`/api/sprints/${cardSprintId}/cards/${selectedCard.id}`, true);
-      if (newSprintId) await apiService.post(`/api/sprints/${newSprintId}/cards`, { cardId: selectedCard.id }, true);
-      setCardSprintId(newSprintId);
+      if (newId)        await apiService.post(`/api/sprints/${newId}/cards`, { cardId: selectedCard.id }, true);
+      setCardSprintId(newId);
       invalidateTimeline();
     } catch {} finally { setSprintUpdating(false); }
   };
 
-  if (!selectedCard) return null;
-
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(() => { setSelectedCard(null); setIsEditing(false); setShowDeleteConfirm(false); setShowStartCalendar(false); setShowCalendar(false); setIsDescriptionFocused(false); }, 300);
-  };
-
-  const handleUpdate = async () => {
-    if (!canEdit || !editedTitle.trim()) return;
-    setIsUpdating(true);
+  const handleMilestoneChange = async (newId: string | null) => {
+    if (!selectedCard || milestoneUpdating) return;
+    const prev = cardMilestoneId;
+    setCardMilestoneId(newId);      // optimistic
+    setMilestoneUpdating(true);
     try {
-      const updates: any = {};
-      if (editedTitle !== selectedCard.title) updates.title = editedTitle;
-      if (editedDescription !== (selectedCard.description || '')) updates.description = editedDescription || null;
-      if (editedPriority !== selectedCard.priority) updates.priority = editedPriority;
-      if (Object.keys(updates).length === 0) { setIsEditing(false); setIsUpdating(false); return; }
-      const res = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, updates, true);
-      if (!res.success) throw new Error(res.error?.message || 'Error al actualizar');
-      updateCard(selectedCard.id, res.data!.card);
-      setSelectedCard(res.data!.card);
-      setIsEditing(false);
-      setIsDescriptionFocused(false);
-    } catch (err: any) { alert(`Error: ${err.message}`); } finally { setIsUpdating(false); }
+      const r = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, { milestoneId: newId }, true);
+      if (r.success && r.data) {
+        updateCard(selectedCard.id, r.data.card);
+        setSelectedCard(r.data.card);
+      } else {
+        setCardMilestoneId(prev);   // revert on failure
+      }
+    } catch { setCardMilestoneId(prev); } finally { setMilestoneUpdating(false); }
   };
 
   const handleDelete = async () => {
     if (!canEdit) return;
     setIsDeleting(true);
     try {
-      const res = await apiService.delete(`/api/cards/${selectedCard.id}`, true);
-      if (!res.success) throw new Error(res.error?.message || 'Error al eliminar');
+      const r = await apiService.delete(`/api/cards/${selectedCard.id}`, true);
+      if (!r.success) throw new Error(r.error?.message || 'Error');
       removeCard(selectedCard.id, selectedCard.listId);
       handleClose();
-    } catch (err: any) { alert(`Error: ${err.message}`); } finally { setIsDeleting(false); }
+    } catch (e: any) { alert(`Error: ${e.message}`); } finally { setIsDeleting(false); }
   };
 
-  const handleMemberAssigned = (member: any) => { const m = [...(selectedCard.members || []), member]; updateCard(selectedCard.id, { members: m }); setSelectedCard({ ...selectedCard, members: m }); };
-  const handleMemberRemoved  = (memberId: string) => { const m = (selectedCard.members || []).filter((x) => x.id !== memberId); updateCard(selectedCard.id, { members: m }); setSelectedCard({ ...selectedCard, members: m }); };
-  const handleLabelAssigned  = (label: any) => { const l = [...(selectedCard.labels || []), label]; updateCard(selectedCard.id, { labels: l }); setSelectedCard({ ...selectedCard, labels: l }); };
-  const handleLabelRemoved   = (labelId: string) => { const l = (selectedCard.labels || []).filter((x) => x.id !== labelId); updateCard(selectedCard.id, { labels: l }); setSelectedCard({ ...selectedCard, labels: l }); };
+  const handleMemberAssigned = (m: any) => { const ms = [...(selectedCard.members || []), m]; updateCard(selectedCard.id, { members: ms }); setSelectedCard({ ...selectedCard, members: ms }); };
+  const handleMemberRemoved  = (id: string) => { const ms = (selectedCard.members || []).filter((x) => x.id !== id); updateCard(selectedCard.id, { members: ms }); setSelectedCard({ ...selectedCard, members: ms }); };
+  const handleLabelAssigned  = (l: any) => { const ls = [...(selectedCard.labels || []), l]; updateCard(selectedCard.id, { labels: ls }); setSelectedCard({ ...selectedCard, labels: ls }); };
+  const handleLabelRemoved   = (id: string) => { const ls = (selectedCard.labels || []).filter((x) => x.id !== id); updateCard(selectedCard.id, { labels: ls }); setSelectedCard({ ...selectedCard, labels: ls }); };
 
-  const formatDate = (ds: string) => formatShort(ds, user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone, user?.language as 'es' | 'en');
-  const currentPriority = priorityOptions.find((p) => p.value === editedPriority);
+  const fmt = (ds: string) => formatShort(ds, user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone, user?.language as 'es' | 'en');
+  const activePriority = priorityOptions.find((p) => p.value === editedPriority);
 
-  // shared styles
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', borderRadius: '6px', background: C.bg2, border: `1px solid ${C.border}`, color: C.text, fontSize: '12.5px', outline: 'none', boxSizing: 'border-box' };
-  const fieldBtn: React.CSSProperties  = { width: '100%', padding: '7px 10px', borderRadius: '6px', background: C.bg2, border: `1px solid ${C.border}`, color: C.text2, fontSize: '12.5px', textAlign: 'left', cursor: canEdit ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '6px' };
+  // ── sidebar row helper ────────────────────────────────────────────────────
+  const SbLabel = ({ children }: { children: React.ReactNode }) => (
+    <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: '#615846', textTransform: 'uppercase', fontFamily: SORA, display: 'block', marginBottom: '8px' }}>
+      {children}
+    </span>
+  );
 
+  // ── render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Overlay */}
+      <style>{`
+        @keyframes cdmIn {
+          0%   { opacity:0; transform:scale(0.88) translateY(40px); }
+          55%  { opacity:1; transform:scale(1.018) translateY(-5px); }
+          78%  { transform:scale(0.999) translateY(1px); }
+          100% { opacity:1; transform:scale(1) translateY(0); }
+        }
+        @keyframes cdmOut {
+          0%   { opacity:1; transform:scale(1) translateY(0); }
+          30%  { transform:scale(0.99) translateY(-3px); }
+          100% { opacity:0; transform:scale(0.91) translateY(24px); }
+        }
+        @keyframes cdmColIn {
+          from { opacity:0; transform:translateY(20px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes cdmSbIn {
+          from { opacity:0; transform:translateX(20px); }
+          to   { opacity:1; transform:translateX(0); }
+        }
+        @keyframes cdmTopIn {
+          from { opacity:0; transform:translateY(-10px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes cdmSpin { to { transform:rotate(360deg) } }
+        .cdm-l { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent; }
+        .cdm-l::-webkit-scrollbar { width:4px; }
+        .cdm-l::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:2px; }
+        .cdm-title::placeholder { color:#615846; }
+        .cdm-desc::placeholder  { color:#403832; font-style:italic; }
+        .cdm-desc:focus { border-color:rgba(255,255,255,0.18) !important; }
+      `}</style>
+
+      {/* ── Backdrop ──────────────────────────────────────────────────────── */}
       <div
-        style={{ position: 'fixed', inset: 0, background: 'transparent', zIndex: 40, transition: 'opacity 0.3s', opacity: isVisible ? 1 : 0, pointerEvents: isVisible ? 'auto' : 'none' }}
+        style={{
+          position:'fixed', inset:0,
+          background:'rgba(0,0,0,0.45)',
+          backdropFilter:'blur(4px)',
+          WebkitBackdropFilter:'blur(4px)',
+          zIndex:40,
+          transition:'opacity 0.18s cubic-bezier(0.4,0,0.2,1)',
+          opacity:isVisible?1:0,
+          pointerEvents:isVisible?'auto':'none',
+        }}
         onClick={handleClose}
       />
 
-      {/* Drawer */}
-      <motion.div
-        drag={typeof window !== 'undefined' && window.innerWidth < 640 ? 'x' : false}
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.2}
-        onDragEnd={(_e, info: PanInfo) => { if (info.offset.x > 100 || info.velocity.x > 500) handleClose(); }}
-        initial={{ x: '100%' }}
-        animate={{ x: isVisible ? 0 : '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        style={{
-          position: 'fixed', top: 0, right: 0, height: '100%',
-          width: '100%', maxWidth: '580px',
-          background: C.surface2, borderLeft: `1px solid ${C.border}`,
-          boxShadow: '-20px 0 60px rgba(0,0,0,0.5)',
-          zIndex: 50, display: 'flex', flexDirection: 'column',
-        }}
-      >
-        {/* Header */}
-        <div style={{ padding: '16px 20px 14px', borderBottom: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {isEditing && canEdit ? (
-                <input
-                  type="text" value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)}
-                  autoFocus maxLength={255}
-                  style={{ ...inputStyle, fontSize: '15px', fontWeight: 700, background: C.bg2, padding: '6px 10px' }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
-                />
-              ) : (
-                <h2 style={{ fontSize: '15px', fontWeight: 700, color: C.text, lineHeight: 1.3, wordBreak: 'break-word' }}>
-                  {selectedCard.title}
-                </h2>
-              )}
+      {/* ── Modal wrapper ─────────────────────────────────────────────────── */}
+      <div onClick={handleClose} style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px', pointerEvents:isVisible?'auto':'none' }}>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width:'100%', maxWidth:'1080px', height:'min(88vh, 860px)',
+            background:'#161B2E', border:'1px solid rgba(255,255,255,0.09)',
+            borderRadius:'16px', overflow:'hidden', display:'flex', flexDirection:'column',
+            boxShadow:'0 48px 120px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04) inset',
+            animation: isVisible
+              ? 'cdmIn 0.22s cubic-bezier(0.16,1,0.3,1) both'
+              : 'cdmOut 0.18s cubic-bezier(0.4,0,1,1) forwards',
+          }}
+        >
+
+          {/* ── Top bar ─────────────────────────────────────────────────── */}
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'11px 20px', borderBottom:'1px solid rgba(255,255,255,0.07)', background:'rgba(255,255,255,0.015)', flexShrink:0, animation:'cdmTopIn 0.18s cubic-bezier(0.16,1,0.3,1) 0.02s both' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'6px', flex:1, minWidth:0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="5" height="16" rx="1.4" stroke="#403832" strokeWidth="1.8"/>
+                <rect x="10" y="4" width="5" height="11" rx="1.4" stroke="#403832" strokeWidth="1.8"/>
+                <rect x="17" y="4" width="5" height="13" rx="1.4" stroke="#403832" strokeWidth="1.8"/>
+              </svg>
+              <span style={{ fontSize:'12px', color:'#615846', fontFamily:MANROPE }}>{currentBoard?.name ?? '…'}</span>
+              <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.1)' }}>›</span>
+              <span style={{ fontSize:'12px', color:'#827A6D', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:MANROPE }}>Tarjeta</span>
             </div>
+            <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.18)', flexShrink:0, fontFamily:MANROPE }}>
+              {t.card_created(fmt(selectedCard.createdAt))}
+              {selectedCard.updatedAt !== selectedCard.createdAt && ` · ${t.card_updated(fmt(selectedCard.updatedAt))}`}
+            </span>
             <button
               onClick={handleClose}
-              style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'transparent', border: `1px solid ${C.border}`, cursor: 'pointer', color: C.text3, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text2; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.text3; }}
+              style={{ width:'26px', height:'26px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', cursor:'pointer', color:'#615846', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.12s, color 0.12s', flexShrink:0 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
             >
-              <X style={{ width: '13px', height: '13px' }} />
+              <X style={{ width:'13px', height:'13px' }} />
             </button>
           </div>
-          <p style={{ fontSize: '10.5px', color: C.text4 }}>
-            {t.card_created(formatDate(selectedCard.createdAt))}
-            {selectedCard.updatedAt !== selectedCard.createdAt && ` · ${t.card_updated(formatDate(selectedCard.updatedAt))}`}
-          </p>
-        </div>
 
-        {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* ── Two-column body ─────────────────────────────────────────── */}
+          <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
-          {/* Descripción */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <SectionLabel label={t.card_section_description} />
-              {typingUsers.length > 0 && <TypingIndicator typingUsers={typingUsers} position="inline" size="sm" />}
-            </div>
-            {isEditing && canEdit ? (
-              <textarea
-                value={editedDescription}
-                onChange={(e) => setEditedDescription(e.target.value)}
-                onFocus={() => setIsDescriptionFocused(true)}
-                onBlur={() => setIsDescriptionFocused(false)}
-                placeholder={t.card_placeholder_description}
-                rows={4}
-                style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
-                onFocusCapture={(e) => (e.currentTarget.style.borderColor = C.accent)}
-                onBlurCapture={(e) => (e.currentTarget.style.borderColor = C.border)}
-              />
-            ) : (
-              <div
-                onClick={() => canEdit && setIsEditing(true)}
-                style={{ ...fieldBtn, minHeight: '80px', alignItems: 'flex-start', cursor: canEdit ? 'pointer' : 'default', lineHeight: 1.6, transition: 'border-color 0.15s' }}
-                onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = C.accent; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
-              >
-                {selectedCard.description ? (
-                  <span style={{ fontSize: '12.5px', color: C.text2, whiteSpace: 'pre-wrap' }}>{selectedCard.description}</span>
-                ) : (
-                  <span style={{ fontSize: '12px', color: C.text4, fontStyle: 'italic' }}>
-                    {canEdit ? t.card_click_add_description : t.card_no_description}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+            {/* ══ LEFT — main content ══════════════════════════════════════ */}
+            <div className="cdm-l" style={{ flex:1, overflowY:'auto', padding:'30px 36px', display:'flex', flexDirection:'column', gap:'26px', animation:'cdmColIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.04s both' }}>
 
-          {/* Separador */}
-          <div style={{ height: '1px', background: C.border }} />
-
-          {/* Prioridad & Fechas */}
-          <div>
-            <SectionLabel icon={<Flag style={{ width: '11px', height: '11px' }} />} label={`${t.card_section_priority} & ${t.card_section_due_date}`} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-
-              {/* Prioridad */}
+              {/* Title */}
               <div>
-                <span style={{ fontSize: '10px', color: C.text4, display: 'block', marginBottom: '4px' }}>{t.card_section_priority}</span>
-                {isEditing && canEdit ? (
-                  <select
-                    value={editedPriority || ''}
-                    onChange={(e) => setEditedPriority((e.target.value || null) as any)}
-                    style={{ ...inputStyle, cursor: 'pointer', color: currentPriority?.color || C.text2 }}
-                  >
-                    {priorityOptions.map((o) => (
-                      <option key={o.value || 'none'} value={o.value || ''}>{o.symbol && `${o.symbol} `}{o.label}</option>
-                    ))}
-                  </select>
+                {editingTitle && canEdit ? (
+                  <input
+                    className="cdm-title"
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    onBlur={saveTitle}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveTitle(); } if (e.key === 'Escape') { setEditedTitle(selectedCard.title); setEditingTitle(false); } }}
+                    autoFocus maxLength={255}
+                    style={{ width:'100%', background:'transparent', border:'none', borderBottom:'2px solid rgba(255,255,255,0.15)', outline:'none', fontSize:'1.6rem', fontWeight:700, color:'#F4EEE2', lineHeight:1.25, fontFamily:SORA, paddingBottom:'4px', boxSizing:'border-box' as const }}
+                  />
                 ) : (
-                  <button
-                    onClick={() => canEdit && setIsEditing(true)} disabled={!canEdit}
-                    style={{ ...fieldBtn, justifyContent: 'center', background: currentPriority?.bg || C.bg2, border: `1px solid ${currentPriority?.border || C.border}`, color: currentPriority?.color || C.text3 }}
+                  <h2
+                    onClick={() => canEdit && (setEditingTitle(true), setEditedTitle(selectedCard.title))}
+                    title={canEdit ? 'Haz clic para editar' : undefined}
+                    style={{ margin:0, fontSize:'1.6rem', fontWeight:700, color:'#F4EEE2', lineHeight:1.25, wordBreak:'break-word', fontFamily:SORA, cursor:canEdit?'text':'default' }}
                   >
-                    {currentPriority?.symbol && <span style={{ fontSize: '10px' }}>{currentPriority.symbol}</span>}
-                    <span style={{ fontSize: '12px', fontWeight: 500 }}>{currentPriority?.label || t.card_priority_none}</span>
-                  </button>
+                    {selectedCard.title}
+                    {savingTitle && <span style={{ fontSize:'11px', color:'#615846', marginLeft:'10px', fontWeight:400, fontFamily:MANROPE }}>Guardando…</span>}
+                  </h2>
                 )}
               </div>
 
-              {/* Fecha inicio */}
+              {/* Description */}
               <div>
-                <span style={{ fontSize: '10px', color: C.text4, display: 'block', marginBottom: '4px' }}>{t.card_section_start_date}</span>
-                <div style={{ position: 'relative' }} ref={startCalendarRef}>
-                  <button
-                    type="button" disabled={!canEdit}
-                    onClick={() => { if (!canEdit) return; setShowStartCalendar(!showStartCalendar); setShowCalendar(false); }}
-                    style={{ ...fieldBtn, gap: '5px', color: editedStartDate ? C.text2 : C.text4 }}
-                    onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = C.accent; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
-                  >
-                    <Calendar style={{ width: '11px', height: '11px', flexShrink: 0 }} />
-                    <span style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {editedStartDate ? formatDate(editedStartDate) : t.card_start_date_none}
-                    </span>
-                  </button>
-                  {showStartCalendar && (
-                    <CustomCalendar value={editedStartDate} onChange={(v) => handleDateChange('startDate', v)} onClose={() => setShowStartCalendar(false)} />
-                  )}
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px' }}>
+                  <SectionLabel label={t.card_section_description} />
+                  {typingUsers.length > 0 && <TypingIndicator typingUsers={typingUsers} position="inline" size="sm" />}
                 </div>
+                {editingDesc && canEdit ? (
+                  <textarea
+                    className="cdm-desc"
+                    value={editedDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    onFocus={() => setIsDescFocused(true)}
+                    onBlur={saveDesc}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setEditedDescription(selectedCard.description || ''); saveDesc(); } }}
+                    placeholder={t.card_placeholder_description}
+                    rows={6}
+                    autoFocus
+                    style={{ width:'100%', padding:'14px 16px', borderRadius:'10px', resize:'vertical', lineHeight:1.7, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.1)', color:'#C8BFAE', fontSize:'14px', outline:'none', boxSizing:'border-box' as const, fontFamily:MANROPE, transition:'border-color 0.15s' }}
+                  />
+                ) : (
+                  <div
+                    onClick={() => canEdit && setEditingDesc(true)}
+                    style={{ minHeight:'88px', padding:'14px 16px', borderRadius:'10px', lineHeight:1.7, background:canEdit?'rgba(255,255,255,0.02)':'transparent', border:`1px solid ${canEdit?'rgba(255,255,255,0.06)':'transparent'}`, cursor:canEdit?'text':'default', fontSize:'14px', transition:'border-color 0.15s, background 0.15s' }}
+                    onMouseEnter={(e) => { if (canEdit) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.13)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = canEdit?'rgba(255,255,255,0.06)':'transparent'; (e.currentTarget as HTMLElement).style.background = canEdit?'rgba(255,255,255,0.02)':'transparent'; }}
+                  >
+                    {selectedCard.description
+                      ? <span style={{ color:'#C8BFAE', whiteSpace:'pre-wrap' }}>{selectedCard.description}</span>
+                      : <span style={{ color:'#403832', fontStyle:'italic' }}>{canEdit ? t.card_click_add_description : t.card_no_description}</span>
+                    }
+                    {savingDesc && <span style={{ fontSize:'11px', color:'#615846', marginLeft:'8px', fontFamily:MANROPE }}>Guardando…</span>}
+                  </div>
+                )}
               </div>
 
-              {/* Fecha límite */}
-              <div>
-                <span style={{ fontSize: '10px', color: C.text4, display: 'block', marginBottom: '4px' }}>{t.card_section_due_date}</span>
-                <div style={{ position: 'relative' }} ref={calendarRef}>
-                  <button
-                    type="button" disabled={!canEdit}
-                    onClick={() => { if (!canEdit) return; setShowCalendar(!showCalendar); setShowStartCalendar(false); }}
-                    style={{ ...fieldBtn, gap: '5px', color: editedDueDate ? C.text2 : C.text4 }}
-                    onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = C.accent; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
-                  >
-                    <Calendar style={{ width: '11px', height: '11px', flexShrink: 0 }} />
-                    <span style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {editedDueDate ? formatDate(editedDueDate) : t.card_due_date_none}
-                    </span>
-                  </button>
-                  {showCalendar && (
-                    <CustomCalendar value={editedDueDate} onChange={(v) => handleDateChange('dueDate', v)} onClose={() => setShowCalendar(false)} />
-                  )}
-                </div>
+              {/* Checklist */}
+              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'24px' }}>
+                <CardChecklist cardId={selectedCard.id} onProgressChange={handleChecklistProgressChange} />
+              </div>
+
+              {/* Dependencies */}
+              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'24px' }}>
+                <CardDependencies cardId={selectedCard.id} />
+              </div>
+
+              {/* Comments */}
+              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'24px' }}>
+                <SectionLabel label={t.comments_section_title} />
+                <CommentList cardId={selectedCard.id} maxHeight="440px" minHeight="180px" showForm={true} showCount={true} onCountChange={handleCommentCountChange} workspaceId={currentWorkspaceId || undefined} />
               </div>
             </div>
-          </div>
 
-          {/* Separador */}
-          <div style={{ height: '1px', background: C.border }} />
+            {/* ══ RIGHT — sidebar ══════════════════════════════════════════ */}
+            <div className="cdm-l" style={{ width:'268px', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,0.07)', overflowY:'auto', padding:'24px 18px', display:'flex', flexDirection:'column', gap:'0', background:'rgba(255,255,255,0.008)', animation:'cdmSbIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.07s both' }}>
 
-          {/* Sprint */}
-          {boardSprints.length > 0 && (
-            <>
-              <div>
-                <SectionLabel icon={<Zap style={{ width: '11px', height: '11px' }} />} label={t.card_section_sprint} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <select
-                    value={cardSprintId ?? ''}
-                    onChange={(e) => handleSprintChange(e.target.value || null)}
-                    disabled={!canEdit || sprintUpdating}
-                    style={{ ...inputStyle, cursor: canEdit ? 'pointer' : 'default', color: cardSprintId ? C.accent : C.text3, opacity: !canEdit ? 0.6 : 1 }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
+              {/* Priority */}
+              <div style={{ paddingBottom:'18px', borderBottom:'1px solid rgba(255,255,255,0.06)', marginBottom:'4px' }}>
+                <SbLabel>{t.card_section_priority}</SbLabel>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px' }}>
+                  {priorityOptions.map((opt) => {
+                    const active = editedPriority === opt.value;
+                    return (
+                      <button
+                        key={opt.value ?? 'none'}
+                        onClick={() => savePriority(opt.value as any)}
+                        disabled={!canEdit}
+                        title={opt.label}
+                        style={{ padding:'7px 4px', borderRadius:'7px', fontSize:'10.5px', fontWeight: active ? 700 : 400, background: active ? opt.bg : 'rgba(255,255,255,0.02)', border:`1px solid ${active ? opt.border : 'rgba(255,255,255,0.07)'}`, color: active ? opt.color : '#615846', cursor:canEdit?'pointer':'default', transition:'all 0.12s', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px' }}
+                        onMouseEnter={(e) => { if (canEdit && !active) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; }}}
+                        onMouseLeave={(e) => { if (!active) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}}
+                      >
+                        {opt.symbol && <span style={{ fontSize:'9px', lineHeight:1 }}>{opt.symbol}</span>}
+                        <span>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {activePriority?.value && (
+                  <p style={{ margin:'6px 0 0', fontSize:'11px', color: activePriority.color, fontFamily:MANROPE }}>
+                    Prioridad {activePriority.label.toLowerCase()}
+                  </p>
+                )}
+              </div>
+
+              {/* Dates */}
+              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                <SbLabel>Fechas</SbLabel>
+                <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                  {/* Start */}
+                  <div>
+                    <span style={{ fontSize:'10.5px', color:'#615846', display:'block', marginBottom:'4px', fontFamily:MANROPE }}>{t.card_section_start_date}</span>
+                    <div style={{ position:'relative' }} ref={startCalendarRef}>
+                      <button type="button" disabled={!canEdit}
+                        onClick={() => { if (!canEdit) return; setShowStartCalendar(!showStartCalendar); setShowCalendar(false); }}
+                        style={{ width:'100%', padding:'7px 10px', borderRadius:'7px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color:editedStartDate?'#C8BFAE':'#615846', fontSize:'12.5px', textAlign:'left', cursor:canEdit?'pointer':'default', display:'flex', alignItems:'center', gap:'7px', transition:'border-color 0.12s', fontFamily:MANROPE }}
+                        onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                      >
+                        <Calendar style={{ width:'12px', height:'12px', flexShrink:0 }} />
+                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{editedStartDate ? fmt(editedStartDate) : t.card_start_date_none}</span>
+                      </button>
+                      {showStartCalendar && <CustomCalendar value={editedStartDate} onChange={(v) => handleDateChange('startDate', v)} onClose={() => setShowStartCalendar(false)} />}
+                    </div>
+                  </div>
+                  {/* Due */}
+                  <div>
+                    <span style={{ fontSize:'10.5px', color:'#615846', display:'block', marginBottom:'4px', fontFamily:MANROPE }}>{t.card_section_due_date}</span>
+                    <div style={{ position:'relative' }} ref={calendarRef}>
+                      <button type="button" disabled={!canEdit}
+                        onClick={() => { if (!canEdit) return; setShowCalendar(!showCalendar); setShowStartCalendar(false); }}
+                        style={{ width:'100%', padding:'7px 10px', borderRadius:'7px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color:editedDueDate?'#C8BFAE':'#615846', fontSize:'12.5px', textAlign:'left', cursor:canEdit?'pointer':'default', display:'flex', alignItems:'center', gap:'7px', transition:'border-color 0.12s', fontFamily:MANROPE }}
+                        onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                      >
+                        <Calendar style={{ width:'12px', height:'12px', flexShrink:0 }} />
+                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{editedDueDate ? fmt(editedDueDate) : t.card_due_date_none}</span>
+                      </button>
+                      {showCalendar && <CustomCalendar value={editedDueDate} onChange={(v) => handleDateChange('dueDate', v)} onClose={() => setShowCalendar(false)} />}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Buffer days */}
+              <div style={{ padding:'14px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                <SbLabel>
+                  <svg style={{ width:'10px', height:'10px', display:'inline', marginRight:'5px', verticalAlign:'middle', flexShrink:0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+                  </svg>
+                  Colchón
+                </SbLabel>
+                <div style={{ display:'flex', alignItems:'center', gap:'7px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'4px', flex:1, padding:'6px 10px', borderRadius:'7px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', transition:'border-color 0.12s' }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'}
+                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}
                   >
-                    <option value="">{t.card_sprint_none}</option>
-                    {boardSprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                  {cardSprintId && canEdit && (
-                    <button onClick={() => handleSprintChange(null)} disabled={sprintUpdating}
-                      style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'transparent', border: `1px solid ${C.border}`, color: C.text3, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${C.red}50`; (e.currentTarget as HTMLElement).style.color = C.red; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = C.text3; }}
+                    <input
+                      type="number" min="0" max="365" disabled={!canEdit || bufferSaving}
+                      value={bufferDays ?? ''}
+                      placeholder="Auto"
+                      onChange={(e) => {
+                        const v = e.target.value === '' ? null : Math.max(0, Math.min(365, parseInt(e.target.value, 10)));
+                        setBufferDays(isNaN(v as any) ? null : v);
+                      }}
+                      onBlur={(e) => {
+                        const v = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                        handleBufferChange(isNaN(v as any) ? null : v);
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:'12.5px', color:bufferDays != null ? '#C8BFAE' : '#615846', fontFamily:MANROPE, minWidth:0 }}
+                    />
+                    <span style={{ fontSize:'11px', color:'#615846', flexShrink:0, fontFamily:MANROPE }}>días</span>
+                  </div>
+                  {bufferDays != null && canEdit && (
+                    <button onClick={() => handleBufferChange(null)} disabled={bufferSaving}
+                      title="Volver a automático"
+                      style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#615846', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.25)'; (e.currentTarget as HTMLElement).style.color = '#C8BFAE'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
                     >
-                      <X style={{ width: '12px', height: '12px' }} />
+                      <X style={{ width:'11px', height:'11px' }} />
                     </button>
                   )}
-                  {sprintUpdating && <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: `2px solid ${C.accent}`, borderTopColor: 'transparent', animation: 'spin 0.6s linear infinite', flexShrink: 0 }} />}
+                  {bufferSaving && <div style={{ width:'13px', height:'13px', borderRadius:'50%', border:`2px solid ${C.accent}`, borderTopColor:'transparent', animation:'cdmSpin 0.6s linear infinite', flexShrink:0 }} />}
+                </div>
+                <p style={{ margin:'5px 0 0', fontSize:'10px', color:'#3E3830', fontFamily:MANROPE, lineHeight:1.4 }}>
+                  {bufferDays != null ? `${bufferDays} días manuales` : 'Automático según prioridad (HIGH 50 % · MED 30 % · LOW 15 %)'}
+                </p>
+              </div>
+
+              {/* Sprint */}
+              {boardSprints.filter((s) => s.status !== 'COMPLETED').length > 0 && (
+                <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                  <SbLabel><Zap style={{ width:'10px', height:'10px', display:'inline', marginRight:'5px', verticalAlign:'middle' }} />{t.card_section_sprint}</SbLabel>
+                  <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                    <select value={cardSprintId ?? ''} onChange={(e) => handleSprintChange(e.target.value || null)} disabled={!canEdit || sprintUpdating}
+                      style={{ flex:1, padding:'7px 10px', borderRadius:'7px', fontSize:'12.5px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color:cardSprintId?C.accent:'#827A6D', outline:'none', cursor:canEdit?'pointer':'default', colorScheme:'dark', fontFamily:MANROPE }}
+                    >
+                      <option value="">{t.card_sprint_none}</option>
+                      {boardSprints.filter((s) => s.status !== 'COMPLETED').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    {cardSprintId && canEdit && (
+                      <button onClick={() => handleSprintChange(null)} disabled={sprintUpdating}
+                        style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#615846', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${C.red}50`; (e.currentTarget as HTMLElement).style.color = C.red; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+                      >
+                        <X style={{ width:'11px', height:'11px' }} />
+                      </button>
+                    )}
+                    {sprintUpdating && <div style={{ width:'13px', height:'13px', borderRadius:'50%', border:`2px solid ${C.accent}`, borderTopColor:'transparent', animation:'cdmSpin 0.6s linear infinite', flexShrink:0 }} />}
+                  </div>
+                </div>
+              )}
+
+              {/* Hito */}
+              {projectMilestones.length > 0 && (
+                <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                  <SbLabel>
+                    <Flag style={{ width:'10px', height:'10px', display:'inline', marginRight:'5px', verticalAlign:'middle' }} />
+                    Hito
+                  </SbLabel>
+                  <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                    <select
+                      value={cardMilestoneId ?? ''}
+                      onChange={(e) => handleMilestoneChange(e.target.value || null)}
+                      disabled={!canEdit || milestoneUpdating}
+                      style={{ flex:1, padding:'7px 10px', borderRadius:'7px', fontSize:'12.5px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color: cardMilestoneId ? (projectMilestones.find((m) => m.id === cardMilestoneId)?.color ?? '#7B8FA8') : '#827A6D', outline:'none', cursor:canEdit?'pointer':'default', colorScheme:'dark', fontFamily:MANROPE }}
+                    >
+                      <option value="">Sin hito</option>
+                      {projectMilestones.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                    {cardMilestoneId && canEdit && (
+                      <button
+                        onClick={() => handleMilestoneChange(null)}
+                        disabled={milestoneUpdating}
+                        style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#615846', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${C.red}50`; (e.currentTarget as HTMLElement).style.color = C.red; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+                      >
+                        <X style={{ width:'11px', height:'11px' }} />
+                      </button>
+                    )}
+                    {milestoneUpdating && <div style={{ width:'13px', height:'13px', borderRadius:'50%', border:'2px solid #7B8FA8', borderTopColor:'transparent', animation:'cdmSpin 0.6s linear infinite', flexShrink:0 }} />}
+                  </div>
+                  {cardMilestoneId && (() => {
+                    const m = projectMilestones.find((x) => x.id === cardMilestoneId);
+                    if (!m) return null;
+                    const d = new Date(m.date);
+                    const label = d.toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' });
+                    const isPast = d < new Date() && m.status === 'PENDING';
+                    return (
+                      <p style={{ margin:'6px 0 0', fontSize:'11px', color: isPast ? C.red : '#615846', fontFamily:MANROPE }}>
+                        {isPast ? '⚠ ' : ''}{label} · {m.status === 'REACHED' ? 'Alcanzado' : m.status === 'MISSED' ? 'Perdido' : 'Pendiente'}
+                      </p>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Labels */}
+              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                <SbLabel>{t.card_section_labels}</SbLabel>
+                <div style={{ maxHeight:'160px', overflowY:'auto' }}>
+                  {currentWorkspaceId
+                    ? <LabelPicker workspaceId={currentWorkspaceId} cardId={selectedCard.id} assignedLabels={selectedCard.labels || []} onLabelAssigned={handleLabelAssigned} onLabelRemoved={handleLabelRemoved} />
+                    : <p style={{ fontSize:'11px', color:C.text4, margin:0 }}>{t.loading}</p>
+                  }
                 </div>
               </div>
-              <div style={{ height: '1px', background: C.border }} />
-            </>
-          )}
 
-          {/* Checklist */}
-          <div>
-            <CardChecklist cardId={selectedCard.id} onProgressChange={handleChecklistProgressChange} />
-          </div>
-
-          <div style={{ height: '1px', background: C.border }} />
-
-          {/* Dependencias */}
-          <div>
-            <CardDependencies cardId={selectedCard.id} />
-          </div>
-
-          <div style={{ height: '1px', background: C.border }} />
-
-          {/* Etiquetas & Miembros */}
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <SectionLabel icon={<Tag style={{ width: '11px', height: '11px' }} />} label={t.card_section_labels} />
-                <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '7px', padding: '10px', maxHeight: '200px', overflowY: 'auto' }}>
-                  {currentWorkspaceId ? (
-                    <LabelPicker workspaceId={currentWorkspaceId} cardId={selectedCard.id} assignedLabels={selectedCard.labels || []} onLabelAssigned={handleLabelAssigned} onLabelRemoved={handleLabelRemoved} />
-                  ) : (
-                    <p style={{ fontSize: '11px', color: C.text4 }}>{t.loading}</p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <SectionLabel icon={<UsersIcon style={{ width: '11px', height: '11px' }} />} label={t.card_section_members} />
-                <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: '7px', padding: '10px', maxHeight: '200px', overflowY: 'auto' }}>
+              {/* Members */}
+              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                <SbLabel>{t.card_section_members}</SbLabel>
+                <div style={{ maxHeight:'180px', overflowY:'auto' }}>
                   {currentWorkspaceId ? (
                     canEdit ? (
                       <MemberPicker workspaceId={currentWorkspaceId} cardId={selectedCard.id} assignedMembers={selectedCard.members || []} onMemberAssigned={handleMemberAssigned} onMemberRemoved={handleMemberRemoved} />
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {selectedCard.members && selectedCard.members.length > 0 ? selectedCard.members.map((m: any) => {
-                          const name  = m.name  ?? m.user?.name  ?? '';
-                          const email = m.email ?? m.user?.email ?? '';
-                          return (
-                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px', borderRadius: '6px', background: C.surface }}>
-                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: `${C.accent}cc`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                                {name.charAt(0).toUpperCase()}
-                              </div>
-                              <div style={{ minWidth: 0 }}>
-                                <p style={{ fontSize: '12px', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
-                                <p style={{ fontSize: '10.5px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</p>
-                              </div>
-                            </div>
-                          );
-                        }) : (
-                          <p style={{ fontSize: '11px', color: C.text4 }}>{t.card_members_none}</p>
-                        )}
+                      <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                        {(selectedCard.members || []).length > 0
+                          ? (selectedCard.members || []).map((m: any) => {
+                              const name  = m.name  ?? m.user?.name  ?? '';
+                              const email = m.email ?? m.user?.email ?? '';
+                              return (
+                                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'5px 8px', borderRadius:'6px', background:'rgba(255,255,255,0.03)' }}>
+                                  <div style={{ width:'24px', height:'24px', borderRadius:'50%', background:`${C.accent}cc`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'10px', fontWeight:700, color:'#fff', flexShrink:0 }}>{name.charAt(0).toUpperCase()}</div>
+                                  <div style={{ minWidth:0 }}>
+                                    <p style={{ fontSize:'12px', fontWeight:500, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', margin:0 }}>{name}</p>
+                                    <p style={{ fontSize:'10.5px', color:C.text4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', margin:0 }}>{email}</p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          : <p style={{ fontSize:'11px', color:C.text4, margin:0 }}>{t.card_members_none}</p>
+                        }
                       </div>
                     )
-                  ) : <p style={{ fontSize: '11px', color: C.text4 }}>{t.loading}</p>}
+                  ) : <p style={{ fontSize:'11px', color:C.text4, margin:0 }}>{t.loading}</p>}
                 </div>
               </div>
+
+              {/* Delete — pinned at bottom */}
+              {canEdit && (
+                <div style={{ paddingTop:'18px', marginTop:'auto' }}>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px', padding:'9px', borderRadius:'8px', fontSize:'12.5px', fontWeight:500, background:'rgba(224,82,82,0.05)', border:'1px solid rgba(224,82,82,0.15)', color:'#615846', cursor:'pointer', transition:'all 0.15s', fontFamily:MANROPE }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.4)'; (e.currentTarget as HTMLElement).style.color = C.red; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.05)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.15)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+                  >
+                    <Trash2 style={{ width:'12px', height:'12px' }} />
+                    {t.btn_delete}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-
-          <div style={{ height: '1px', background: C.border }} />
-
-          {/* Comentarios */}
-          <div>
-            <SectionLabel label={t.comments_section_title} />
-            <CommentList cardId={selectedCard.id} maxHeight="380px" minHeight="260px" showForm={true} showCount={true} onCountChange={handleCommentCountChange} workspaceId={currentWorkspaceId || undefined} />
-          </div>
         </div>
+      </div>
 
-        {/* Footer */}
-        <div style={{ padding: '12px 20px', borderTop: `1px solid ${C.border}`, background: C.surface, display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {canEdit && (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: 'transparent', border: `1px solid ${C.border}`, color: C.text3, cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${C.red}50`; (e.currentTarget as HTMLElement).style.color = C.red; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = C.text3; }}
-            >
-              <Trash2 style={{ width: '12px', height: '12px' }} />
-              {t.btn_delete}
-            </button>
-          )}
-          <div style={{ flex: 1 }} />
-          {isEditing && canEdit ? (
-            <>
-              <button
-                onClick={() => { setIsEditing(false); setIsDescriptionFocused(false); setEditedTitle(selectedCard.title); setEditedDescription(selectedCard.description || ''); setEditedPriority(selectedCard.priority || null); setEditedStartDate(selectedCard.startDate || ''); setEditedDueDate(selectedCard.dueDate || ''); setShowStartCalendar(false); setShowCalendar(false); }}
-                disabled={isUpdating}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer' }}
-              >
-                {t.btn_cancel}
-              </button>
-              <button
-                onClick={handleUpdate} disabled={isUpdating || !editedTitle.trim()}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, background: C.accent, color: '#fff', border: 'none', cursor: 'pointer', opacity: !editedTitle.trim() ? 0.5 : 1 }}
-              >
-                <Save style={{ width: '12px', height: '12px' }} />
-                {isUpdating ? t.card_btn_saving : t.btn_save}
-              </button>
-            </>
-          ) : canEdit && (
-            <button
-              onClick={() => setIsEditing(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, background: C.accent, color: '#fff', border: 'none', cursor: 'pointer' }}
-            >
-              <Edit2 style={{ width: '12px', height: '12px' }} />
-              {t.btn_edit}
-            </button>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Delete confirmation */}
+      {/* ── Delete confirm ──────────────────────────────────────────────────── */}
       {showDeleteConfirm && canEdit && (
         <>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60, backdropFilter: 'blur(2px)' }} onClick={() => setShowDeleteConfirm(false)} />
-          <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '12px', maxWidth: '380px', width: '100%', padding: '22px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${C.red}15`, border: `1px solid ${C.red}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Trash2 style={{ width: '14px', height: '14px', color: C.red }} />
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:60, backdropFilter:'blur(2px)' }} onClick={() => setShowDeleteConfirm(false)} />
+          <div style={{ position:'fixed', inset:0, zIndex:70, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:'12px', maxWidth:'380px', width:'100%', padding:'22px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px' }}>
+                <div style={{ width:'32px', height:'32px', borderRadius:'8px', background:`${C.red}15`, border:`1px solid ${C.red}35`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <Trash2 style={{ width:'14px', height:'14px', color:C.red }} />
                 </div>
-                <h3 style={{ fontSize: '14px', fontWeight: 700, color: C.text }}>{t.card_delete_title}</h3>
+                <h3 style={{ fontSize:'14px', fontWeight:700, color:C.text, margin:0 }}>{t.card_delete_title}</h3>
               </div>
-              <p style={{ fontSize: '12.5px', color: C.text3, lineHeight: 1.6, marginBottom: '18px' }}>
-                {t.card_delete_desc(selectedCard.title)}
-              </p>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <p style={{ fontSize:'12.5px', color:C.text3, lineHeight:1.6, marginBottom:'18px' }}>{t.card_delete_desc(selectedCard.title)}</p>
+              <div style={{ display:'flex', gap:'8px' }}>
                 <button onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}
-                  style={{ flex: 1, padding: '8px', borderRadius: '7px', fontSize: '12.5px', fontWeight: 500, background: C.hover, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer' }}>
-                  {t.btn_cancel}
-                </button>
+                  style={{ flex:1, padding:'8px', borderRadius:'7px', fontSize:'12.5px', fontWeight:500, background:C.hover, border:`1px solid ${C.border2}`, color:C.text2, cursor:'pointer' }}>{t.btn_cancel}</button>
                 <button onClick={handleDelete} disabled={isDeleting}
-                  style={{ flex: 1, padding: '8px', borderRadius: '7px', fontSize: '12.5px', fontWeight: 600, background: C.red, color: '#fff', border: 'none', cursor: 'pointer', opacity: isDeleting ? 0.7 : 1 }}>
-                  {isDeleting ? t.card_btn_deleting : t.btn_delete}
-                </button>
+                  style={{ flex:1, padding:'8px', borderRadius:'7px', fontSize:'12.5px', fontWeight:600, background:C.red, color:'#fff', border:'none', cursor:'pointer', opacity:isDeleting?0.7:1 }}>{isDeleting ? t.card_btn_deleting : t.btn_delete}</button>
               </div>
             </div>
           </div>

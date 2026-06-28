@@ -1,4 +1,4 @@
-// apps/web/src/app/dashboard/workspaces/[id]/boards/[boardId]/page.tsx
+// apps/web/src/app/dashboard/boards/[boardId]/page.tsx
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
@@ -61,6 +61,8 @@ import { BoardTableView } from '@/components/BoardTableView';
 import { C } from '@/lib/colors';
 import { useBoardCursors } from '@/hooks/useBoardCursors';
 import { RemoteCursors } from '@/components/realtime/RemoteCursors';
+import { SprintBanner } from '@/components/SprintBanner';
+
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getRoleMeta(role: string, t: { role_owner: string; role_admin: string; role_member: string; role_viewer: string }) {
@@ -75,7 +77,6 @@ export default function BoardPage() {
   const params = useParams();
   const router = useRouter();
 
-  const workspaceId = params.id as string;
   const boardId = params.boardId as string;
 
   const { currentWorkspace, fetchWorkspaceById, fetchMembers, currentMembers } = useWorkspaceStore();
@@ -96,6 +97,9 @@ export default function BoardPage() {
     onConnect: () => {},
     onDisconnect: () => {},
   });
+
+  // El workspace se deriva del propio board (ruta plana /dashboard/boards/[boardId])
+  const workspaceId = currentBoard?.workspaceId ?? '';
 
   const toast = useRealtimeToast();
 
@@ -268,7 +272,10 @@ export default function BoardPage() {
   }, [lists, setCards]);
 
   // ── DnD ──────────────────────────────────────────────────────────────────
-  const handleBack = () => router.push(`/dashboard/workspaces/${workspaceId}`);
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push(parentProject ? `/dashboard/projects/${parentProject.id}` : '/dashboard/projects');
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -362,7 +369,7 @@ export default function BoardPage() {
             {t.board_btn_retry}
           </button>
           <button
-            onClick={() => router.push(`/dashboard/workspaces/${workspaceId}`)}
+            onClick={handleBack}
             style={{ fontSize: '12px', color: C.text4, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             ← Volver
@@ -443,7 +450,7 @@ export default function BoardPage() {
               </div>
             )}
             <button
-              onClick={() => router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}/dependencies`)}
+              onClick={() => router.push(`/dashboard/boards/${boardId}/dependencies`)}
               style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: C.text3, padding: '4px 9px', borderRadius: '6px', background: C.surface, border: `1px solid ${C.border}`, cursor: 'pointer', transition: 'border-color 0.1s, color 0.1s' }}
               title="Mapa de dependencias"
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2; }}
@@ -515,6 +522,9 @@ export default function BoardPage() {
           />
         </div>
       </header>
+
+      {/* ── Sprint banner ───────────────────────────────────────────── */}
+      <SprintBanner boardId={boardId} canEdit={canEditBoard} />
 
       {/* ── Main area: board + sidebar ──────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

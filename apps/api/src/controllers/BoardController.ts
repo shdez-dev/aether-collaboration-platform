@@ -473,6 +473,19 @@ class BoardController {
       });
     }
   }
+
+  async getParentProject(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const project = await boardService.getParentProject(id);
+      return res.json({ success: true, data: { project } });
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: error.message },
+      });
+    }
+  }
 }
 
 export const boardController = new BoardController();

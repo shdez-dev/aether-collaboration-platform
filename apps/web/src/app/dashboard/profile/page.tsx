@@ -1,131 +1,165 @@
+// apps/web/src/app/dashboard/profile/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { AvatarUpload } from '@/components/profile/AvatarUpload';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Key, User, MapPin, Phone, Globe, Languages, Mail, Briefcase, ChevronDown } from 'lucide-react';
 import { formatPhoneDisplay, cleanPhoneValue, validatePhone } from '@/lib/utils/phone';
 import { useT } from '@/lib/i18n';
-import { C } from '@/lib/colors';
 
-// ── Position presets ──────────────────────────────────────────────────────────
+// ── Design tokens ─────────────────────────────────────────────────────────────
 
-const POSITION_GROUPS: { label: string; options: string[] }[] = [
-  {
-    label: 'Ingeniería',
-    options: ['Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Mobile Developer', 'DevOps / SRE', 'QA Engineer', 'Security Engineer'],
-  },
-  {
-    label: 'Diseño',
-    options: ['UI/UX Designer', 'Product Designer', 'Graphic Designer'],
-  },
-  {
-    label: 'Producto & Gestión',
-    options: ['Product Manager', 'Project Manager', 'Scrum Master', 'Tech Lead', 'Engineering Manager'],
-  },
-  {
-    label: 'Datos & IA',
-    options: ['Data Scientist', 'Data Analyst', 'Data Engineer', 'ML Engineer'],
-  },
-];
+const SORA    = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
 
-const ALL_PRESETS = POSITION_GROUPS.flatMap((g) => g.options);
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function PositionPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
+function initials(name: string) {
+  return (name || 'U').trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase();
+}
+
+const flag = (code: string) =>
+  String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1f1e6 - 65 + c.charCodeAt(0)));
+
+// ── Field components ──────────────────────────────────────────────────────────
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontFamily: SORA, fontSize: '11.5px', fontWeight: 600,
+  letterSpacing: '0.1em', textTransform: 'uppercase', color: '#827A6D', marginBottom: '8px',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', boxSizing: 'border-box',
+  padding: '13px 15px', borderRadius: '8px',
+  border: '1px solid rgba(255,255,255,0.13)',
+  background: 'rgba(255,255,255,0.04)',
+  color: '#E8E1D2', fontFamily: MANROPE, fontSize: '14.5px', outline: 'none',
+};
+
+function AInput({ value, onChange, type = 'text', placeholder, disabled, readOnly }: {
+  value: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  type?: string; placeholder?: string; disabled?: boolean; readOnly?: boolean;
 }) {
-  const isPreset    = ALL_PRESETS.includes(value);
-  const [open, setOpen]     = useState(false);
-  const [custom, setCustom] = useState(!isPreset ? value : '');
-  const isOther = !isPreset && value !== '';
+  return (
+    <input
+      type={type} value={value} onChange={onChange}
+      placeholder={placeholder} disabled={disabled} readOnly={readOnly}
+      style={{ ...inputStyle, opacity: disabled || readOnly ? 0.55 : 1, cursor: disabled || readOnly ? 'default' : 'text' }}
+      onFocus={e  => { if (!disabled && !readOnly) e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; }}
+      onBlur={e   => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)'; }}
+    />
+  );
+}
 
-  // Sync custom → parent when "Otro" is active
-  const handleCustom = (v: string) => {
-    setCustom(v);
-    onChange(v);
-  };
+function ATextarea({ value, onChange, placeholder, rows = 3 }: {
+  value: string; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string; rows?: number;
+}) {
+  return (
+    <textarea
+      value={value} onChange={onChange} placeholder={placeholder} rows={rows}
+      style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.55 }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; }}
+      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)'; }}
+    />
+  );
+}
 
-  const selectPreset = (p: string) => {
-    setCustom('');
-    onChange(p);
-    setOpen(false);
-  };
+// ── Section card ──────────────────────────────────────────────────────────────
 
-  const selectOther = () => {
-    onChange(custom);
-    setOpen(false);
-  };
+function SectionCard({ children, icon, iconBg, title, desc }: {
+  children: React.ReactNode;
+  icon: React.ReactNode; iconBg: string;
+  title: string; desc: string;
+}) {
+  return (
+    <section style={{
+      border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
+      background: 'rgba(255,255,255,0.02)', padding: 'clamp(20px,3vw,28px)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '13px', marginBottom: '22px' }}>
+        <span style={{
+          width: '40px', height: '40px', borderRadius: '50%',
+          background: iconBg, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {icon}
+        </span>
+        <div>
+          <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.1rem', color: '#F4EEE2', margin: 0 }}>
+            {title}
+          </h2>
+          <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#827A6D' }}>{desc}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
 
-  const displayLabel = value || 'Sin especificar';
+// ── Position picker ───────────────────────────────────────────────────────────
+
+const POSITION_GROUPS = [
+  { label: 'Ingeniería',       options: ['Frontend Developer','Backend Developer','Full Stack Developer','Mobile Developer','DevOps / SRE','QA Engineer','Security Engineer'] },
+  { label: 'Diseño',           options: ['UI/UX Designer','Product Designer','Graphic Designer'] },
+  { label: 'Producto & Gestión',options: ['Product Manager','Project Manager','Scrum Master','Tech Lead','Engineering Manager'] },
+  { label: 'Datos & IA',       options: ['Data Scientist','Data Analyst','Data Engineer','ML Engineer'] },
+];
+const ALL_PRESETS = POSITION_GROUPS.flatMap(g => g.options);
+
+function PositionPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open,   setOpen]   = useState(false);
+  const [custom, setCustom] = useState(!ALL_PRESETS.includes(value) ? value : '');
+  const isPreset = ALL_PRESETS.includes(value);
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Trigger */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full text-[13px] rounded-[6px] px-3 py-2 flex items-center justify-between outline-none transition-colors"
+        onClick={() => setOpen(v => !v)}
         style={{
-          background: C.bg,
-          border: `1px solid ${open ? C.border2 : C.border}`,
-          color: value ? C.text : C.text4,
-          cursor: 'pointer',
-          textAlign: 'left',
+          ...inputStyle, textAlign: 'left', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          color: value ? '#E8E1D2' : '#5C5447',
+          borderColor: open ? 'rgba(242,87,30,0.5)' : 'rgba(255,255,255,0.13)',
         }}
       >
-        <span className="truncate">{displayLabel}</span>
-        <ChevronDown
-          size={13}
-          style={{ color: C.text4, flexShrink: 0, marginLeft: '6px', transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}
-        />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {value || 'Sin especificar'}
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+          <path d="M6 9l6 6 6-6" stroke="#827A6D" strokeWidth="1.7" strokeLinecap="round"/>
+        </svg>
       </button>
 
-      {/* Dropdown panel */}
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div
-            className="absolute z-50 mt-1 w-full rounded-[8px] overflow-hidden"
-            style={{
-              background: C.surface,
-              border: `1px solid ${C.border2}`,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
-              maxHeight: '320px',
-              overflowY: 'auto',
-            }}
-          >
-            {POSITION_GROUPS.map((group) => (
-              <div key={group.label}>
-                {/* Group label */}
-                <div
-                  className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest"
-                  style={{ color: C.text4 }}
-                >
-                  {group.label}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+            background: '#1E2438', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            maxHeight: '300px', overflowY: 'auto',
+          }}>
+            {POSITION_GROUPS.map(g => (
+              <div key={g.label}>
+                <div style={{ padding: '8px 12px 4px', fontFamily: SORA, fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#615846' }}>
+                  {g.label}
                 </div>
-                {/* Options */}
-                {group.options.map((opt) => {
-                  const selected = value === opt;
+                {g.options.map(opt => {
+                  const sel = value === opt;
                   return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => selectPreset(opt)}
-                      className="w-full text-left px-3 py-2 text-[12.5px] transition-colors"
+                    <button key={opt} type="button" onClick={() => { onChange(opt); setCustom(''); setOpen(false); }}
                       style={{
-                        background: selected ? `${C.accent}14` : 'transparent',
-                        color: selected ? C.accent : C.text2,
-                        fontWeight: selected ? 600 : 400,
-                        borderLeft: selected ? `2px solid ${C.accent}` : '2px solid transparent',
-                        cursor: 'pointer',
+                        width: '100%', textAlign: 'left', padding: '8px 12px',
+                        background: sel ? 'rgba(242,87,30,0.1)' : 'transparent',
+                        border: 'none', borderLeft: `2px solid ${sel ? '#F2571E' : 'transparent'}`,
+                        color: sel ? '#F2571E' : '#C8BFAE', fontSize: '13px',
+                        fontWeight: sel ? 600 : 400, cursor: 'pointer',
                       }}
-                      onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = C.hover; }}
-                      onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+                      onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                      onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
                       {opt}
                     </button>
@@ -133,43 +167,16 @@ function PositionPicker({
                 })}
               </div>
             ))}
-
-            {/* Otro */}
-            <div style={{ borderTop: `1px solid ${C.border}`, padding: '10px 12px 12px' }}>
-              <button
-                type="button"
-                onClick={selectOther}
-                className="w-full text-left text-[12.5px] mb-2 flex items-center gap-2"
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: isOther || !isPreset ? C.accent : C.text3,
-                  fontWeight: isOther || !isPreset ? 600 : 400,
-                  padding: '2px 0',
-                }}
-              >
-                <span
-                  style={{
-                    width: '14px', height: '14px', borderRadius: '50%', flexShrink: 0, display: 'inline-block',
-                    border: `2px solid ${isOther || !isPreset ? C.accent : C.border2}`,
-                    background: isOther || !isPreset ? C.accent : 'transparent',
-                  }}
-                />
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '10px 12px 12px' }}>
+              <div style={{ fontSize: '12px', color: !isPreset && value ? '#F2571E' : '#827A6D', marginBottom: '6px', fontWeight: 600 }}>
                 Otro (personalizado)
-              </button>
+              </div>
               <input
-                type="text"
-                value={custom}
-                onChange={(e) => handleCustom(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); selectOther(); } }}
+                type="text" value={custom}
+                onChange={e => { setCustom(e.target.value); onChange(e.target.value); }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setOpen(false); } }}
                 placeholder="Escribe tu cargo..."
-                className="w-full text-[12.5px] rounded-[6px] px-3 py-1.5 outline-none"
-                style={{
-                  background: C.bg,
-                  border: `1px solid ${C.border2}`,
-                  color: C.text,
-                }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
-                onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+                style={{ ...inputStyle, padding: '8px 12px', fontSize: '13px' }}
               />
             </div>
           </div>
@@ -179,804 +186,500 @@ function PositionPicker({
   );
 }
 
-// ── Country data ─────────────────────────────────────────────────────────────
-
-const flag = (code: string) =>
-  String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1e6 - 65 + c.charCodeAt(0)));
+// ── Country picker ────────────────────────────────────────────────────────────
 
 const COUNTRIES: { code: string; name: string }[] = [
-  { code: 'AF', name: 'Afganistán' },       { code: 'AL', name: 'Albania' },
-  { code: 'DE', name: 'Alemania' },          { code: 'AD', name: 'Andorra' },
-  { code: 'AO', name: 'Angola' },            { code: 'AG', name: 'Antigua y Barbuda' },
-  { code: 'SA', name: 'Arabia Saudita' },    { code: 'DZ', name: 'Argelia' },
-  { code: 'AR', name: 'Argentina' },         { code: 'AM', name: 'Armenia' },
-  { code: 'AU', name: 'Australia' },         { code: 'AT', name: 'Austria' },
-  { code: 'AZ', name: 'Azerbaiyán' },        { code: 'BS', name: 'Bahamas' },
-  { code: 'BH', name: 'Baréin' },            { code: 'BD', name: 'Bangladés' },
-  { code: 'BB', name: 'Barbados' },          { code: 'BE', name: 'Bélgica' },
-  { code: 'BZ', name: 'Belice' },            { code: 'BJ', name: 'Benín' },
-  { code: 'BY', name: 'Bielorrusia' },       { code: 'BO', name: 'Bolivia' },
-  { code: 'BA', name: 'Bosnia y Herzegovina' },{ code: 'BW', name: 'Botsuana' },
-  { code: 'BR', name: 'Brasil' },            { code: 'BN', name: 'Brunéi' },
-  { code: 'BG', name: 'Bulgaria' },          { code: 'BF', name: 'Burkina Faso' },
-  { code: 'BI', name: 'Burundi' },           { code: 'BT', name: 'Bután' },
-  { code: 'CV', name: 'Cabo Verde' },        { code: 'KH', name: 'Camboya' },
-  { code: 'CM', name: 'Camerún' },           { code: 'CA', name: 'Canadá' },
-  { code: 'QA', name: 'Catar' },             { code: 'TD', name: 'Chad' },
-  { code: 'CL', name: 'Chile' },             { code: 'CN', name: 'China' },
-  { code: 'CY', name: 'Chipre' },            { code: 'CO', name: 'Colombia' },
-  { code: 'KM', name: 'Comoras' },           { code: 'CG', name: 'Congo' },
-  { code: 'CD', name: 'Congo (Rep. Dem.)' }, { code: 'KP', name: 'Corea del Norte' },
-  { code: 'KR', name: 'Corea del Sur' },     { code: 'CR', name: 'Costa Rica' },
-  { code: 'CI', name: 'Costa de Marfil' },   { code: 'HR', name: 'Croacia' },
-  { code: 'CU', name: 'Cuba' },              { code: 'DK', name: 'Dinamarca' },
-  { code: 'DJ', name: 'Djibouti' },          { code: 'DM', name: 'Dominica' },
-  { code: 'EC', name: 'Ecuador' },           { code: 'EG', name: 'Egipto' },
-  { code: 'SV', name: 'El Salvador' },       { code: 'AE', name: 'Emiratos Árabes Unidos' },
-  { code: 'ER', name: 'Eritrea' },           { code: 'SK', name: 'Eslovaquia' },
-  { code: 'SI', name: 'Eslovenia' },         { code: 'ES', name: 'España' },
-  { code: 'US', name: 'Estados Unidos' },    { code: 'EE', name: 'Estonia' },
-  { code: 'ET', name: 'Etiopía' },           { code: 'FJ', name: 'Fiyi' },
-  { code: 'PH', name: 'Filipinas' },         { code: 'FI', name: 'Finlandia' },
-  { code: 'FR', name: 'Francia' },           { code: 'GA', name: 'Gabón' },
-  { code: 'GM', name: 'Gambia' },            { code: 'GE', name: 'Georgia' },
-  { code: 'GH', name: 'Ghana' },             { code: 'GD', name: 'Granada' },
-  { code: 'GR', name: 'Grecia' },            { code: 'GT', name: 'Guatemala' },
-  { code: 'GN', name: 'Guinea' },            { code: 'GQ', name: 'Guinea Ecuatorial' },
-  { code: 'GW', name: 'Guinea-Bisáu' },      { code: 'GY', name: 'Guyana' },
-  { code: 'HT', name: 'Haití' },             { code: 'HN', name: 'Honduras' },
-  { code: 'HU', name: 'Hungría' },           { code: 'IN', name: 'India' },
-  { code: 'ID', name: 'Indonesia' },         { code: 'IQ', name: 'Irak' },
-  { code: 'IR', name: 'Irán' },              { code: 'IE', name: 'Irlanda' },
-  { code: 'IS', name: 'Islandia' },          { code: 'MH', name: 'Islas Marshall' },
-  { code: 'SB', name: 'Islas Salomón' },     { code: 'IL', name: 'Israel' },
-  { code: 'IT', name: 'Italia' },            { code: 'JM', name: 'Jamaica' },
-  { code: 'JP', name: 'Japón' },             { code: 'JO', name: 'Jordania' },
-  { code: 'KZ', name: 'Kazajistán' },        { code: 'KE', name: 'Kenia' },
-  { code: 'KG', name: 'Kirguistán' },        { code: 'KI', name: 'Kiribati' },
-  { code: 'KW', name: 'Kuwait' },            { code: 'LA', name: 'Laos' },
-  { code: 'LS', name: 'Lesoto' },            { code: 'LV', name: 'Letonia' },
-  { code: 'LB', name: 'Líbano' },            { code: 'LR', name: 'Liberia' },
-  { code: 'LY', name: 'Libia' },             { code: 'LI', name: 'Liechtenstein' },
-  { code: 'LT', name: 'Lituania' },          { code: 'LU', name: 'Luxemburgo' },
-  { code: 'MK', name: 'Macedonia del Norte' },{ code: 'MG', name: 'Madagascar' },
-  { code: 'MY', name: 'Malasia' },           { code: 'MW', name: 'Malaui' },
-  { code: 'MV', name: 'Maldivas' },          { code: 'ML', name: 'Malí' },
-  { code: 'MT', name: 'Malta' },             { code: 'MA', name: 'Marruecos' },
-  { code: 'MU', name: 'Mauricio' },          { code: 'MR', name: 'Mauritania' },
-  { code: 'MX', name: 'México' },            { code: 'FM', name: 'Micronesia' },
-  { code: 'MD', name: 'Moldavia' },          { code: 'MC', name: 'Mónaco' },
-  { code: 'MN', name: 'Mongolia' },          { code: 'ME', name: 'Montenegro' },
-  { code: 'MZ', name: 'Mozambique' },        { code: 'MM', name: 'Myanmar' },
-  { code: 'NA', name: 'Namibia' },           { code: 'NR', name: 'Nauru' },
-  { code: 'NP', name: 'Nepal' },             { code: 'NI', name: 'Nicaragua' },
-  { code: 'NE', name: 'Níger' },             { code: 'NG', name: 'Nigeria' },
-  { code: 'NO', name: 'Noruega' },           { code: 'NZ', name: 'Nueva Zelanda' },
-  { code: 'OM', name: 'Omán' },              { code: 'NL', name: 'Países Bajos' },
-  { code: 'PK', name: 'Pakistán' },          { code: 'PW', name: 'Palaos' },
-  { code: 'PA', name: 'Panamá' },            { code: 'PG', name: 'Papúa Nueva Guinea' },
-  { code: 'PY', name: 'Paraguay' },          { code: 'PE', name: 'Perú' },
-  { code: 'PL', name: 'Polonia' },           { code: 'PT', name: 'Portugal' },
-  { code: 'GB', name: 'Reino Unido' },       { code: 'CF', name: 'República Centroafricana' },
-  { code: 'CZ', name: 'República Checa' },   { code: 'DO', name: 'República Dominicana' },
-  { code: 'RW', name: 'Ruanda' },            { code: 'RO', name: 'Rumanía' },
-  { code: 'RU', name: 'Rusia' },             { code: 'WS', name: 'Samoa' },
-  { code: 'KN', name: 'San Cristóbal y Nieves' },{ code: 'SM', name: 'San Marino' },
-  { code: 'VC', name: 'San Vicente y las Granadinas' },{ code: 'LC', name: 'Santa Lucía' },
-  { code: 'ST', name: 'Santo Tomé y Príncipe' },{ code: 'SN', name: 'Senegal' },
-  { code: 'RS', name: 'Serbia' },            { code: 'SC', name: 'Seychelles' },
-  { code: 'SL', name: 'Sierra Leona' },      { code: 'SG', name: 'Singapur' },
-  { code: 'SY', name: 'Siria' },             { code: 'SO', name: 'Somalia' },
-  { code: 'LK', name: 'Sri Lanka' },         { code: 'SZ', name: 'Suazilandia' },
-  { code: 'ZA', name: 'Sudáfrica' },         { code: 'SD', name: 'Sudán' },
-  { code: 'SS', name: 'Sudán del Sur' },     { code: 'SE', name: 'Suecia' },
-  { code: 'CH', name: 'Suiza' },             { code: 'SR', name: 'Surinam' },
-  { code: 'TH', name: 'Tailandia' },         { code: 'TZ', name: 'Tanzania' },
-  { code: 'TJ', name: 'Tayikistán' },        { code: 'TL', name: 'Timor Oriental' },
-  { code: 'TG', name: 'Togo' },              { code: 'TO', name: 'Tonga' },
-  { code: 'TT', name: 'Trinidad y Tobago' }, { code: 'TN', name: 'Túnez' },
-  { code: 'TM', name: 'Turkmenistán' },      { code: 'TR', name: 'Turquía' },
-  { code: 'TV', name: 'Tuvalu' },            { code: 'UA', name: 'Ucrania' },
-  { code: 'UG', name: 'Uganda' },            { code: 'UY', name: 'Uruguay' },
-  { code: 'UZ', name: 'Uzbekistán' },        { code: 'VU', name: 'Vanuatu' },
-  { code: 'VE', name: 'Venezuela' },         { code: 'VN', name: 'Vietnam' },
-  { code: 'YE', name: 'Yemen' },             { code: 'ZM', name: 'Zambia' },
-  { code: 'ZW', name: 'Zimbabue' },
+  {code:'AR',name:'Argentina'},{code:'BO',name:'Bolivia'},{code:'BR',name:'Brasil'},
+  {code:'CA',name:'Canadá'},{code:'CL',name:'Chile'},{code:'CO',name:'Colombia'},
+  {code:'CR',name:'Costa Rica'},{code:'CU',name:'Cuba'},{code:'DO',name:'República Dominicana'},
+  {code:'EC',name:'Ecuador'},{code:'SV',name:'El Salvador'},{code:'ES',name:'España'},
+  {code:'US',name:'Estados Unidos'},{code:'GT',name:'Guatemala'},{code:'HN',name:'Honduras'},
+  {code:'MX',name:'México'},{code:'NI',name:'Nicaragua'},{code:'PA',name:'Panamá'},
+  {code:'PY',name:'Paraguay'},{code:'PE',name:'Perú'},{code:'PR',name:'Puerto Rico'},
+  {code:'UY',name:'Uruguay'},{code:'VE',name:'Venezuela'},
+  {code:'DE',name:'Alemania'},{code:'FR',name:'Francia'},{code:'GB',name:'Reino Unido'},
+  {code:'IT',name:'Italia'},{code:'PT',name:'Portugal'},{code:'JP',name:'Japón'},
+  {code:'CN',name:'China'},{code:'IN',name:'India'},{code:'AU',name:'Australia'},
+  {code:'NZ',name:'Nueva Zelanda'},{code:'ZA',name:'Sudáfrica'},
 ];
-
-// ── Country Picker ────────────────────────────────────────────────────────────
 
 function CountryPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open,  setOpen]  = useState(false);
   const [query, setQuery] = useState('');
-
-  const selected = COUNTRIES.find((c) => c.name === value) ?? null;
-
-  const filtered = query.trim()
-    ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
-    : COUNTRIES;
-
-  const handleSelect = (c: { code: string; name: string }) => {
-    onChange(c.name);
-    setOpen(false);
-    setQuery('');
-  };
-
-  const handleOpen = () => {
-    setOpen(true);
-    setQuery('');
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-    setQuery('');
-  };
+  const selected = COUNTRIES.find(c => c.name === value) ?? null;
+  const filtered = query ? COUNTRIES.filter(c => c.name.toLowerCase().includes(query.toLowerCase())) : COUNTRIES;
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Trigger / search input */}
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-        {/* Flag display when closed */}
         {selected && !open && (
-          <span style={{ position: 'absolute', left: '10px', fontSize: '16px', lineHeight: 1, pointerEvents: 'none', userSelect: 'none' }}>
+          <span style={{ position: 'absolute', left: '12px', fontSize: '16px', lineHeight: 1, pointerEvents: 'none' }}>
             {flag(selected.code)}
           </span>
         )}
         <input
-          type="text"
+          type="text" placeholder={open ? 'Buscar país…' : 'Selecciona un país'}
           value={open ? query : (value || '')}
-          placeholder={open ? 'Buscar país...' : 'Selecciona un país'}
-          onFocus={handleOpen}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full text-[13px] rounded-[6px] py-2 outline-none transition-colors"
+          onFocus={() => { setOpen(true); setQuery(''); }}
+          onChange={e => setQuery(e.target.value)}
+          onBlur={() => setTimeout(() => { setOpen(false); setQuery(''); }, 150)}
           style={{
-            background:  C.bg,
-            border:      `1px solid ${open ? C.border2 : C.border}`,
-            color:       value && !open ? C.text : C.text,
-            paddingLeft: selected && !open ? '34px' : '12px',
-            paddingRight: '32px',
-          }}
-          onBlur={() => {
-            // pequeño delay para que el click en opción se registre primero
-            setTimeout(handleClose, 150);
+            ...inputStyle,
+            paddingLeft: selected && !open ? '38px' : '15px', paddingRight: '32px',
+            borderColor: open ? 'rgba(242,87,30,0.5)' : 'rgba(255,255,255,0.13)',
           }}
         />
-        {/* Chevron */}
-        <span style={{ position: 'absolute', right: '10px', pointerEvents: 'none' }}>
-          <ChevronDown
-            size={13}
-            style={{ color: C.text4, transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}
-          />
-        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', right: '12px', pointerEvents: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+          <path d="M6 9l6 6 6-6" stroke="#827A6D" strokeWidth="1.7" strokeLinecap="round"/>
+        </svg>
       </div>
-
-      {/* Dropdown */}
       {open && (
-        <div
-          style={{
-            position:   'absolute',
-            top:        'calc(100% + 4px)',
-            left:       0,
-            right:      0,
-            zIndex:     50,
-            background: C.surface,
-            border:     `1px solid ${C.border2}`,
-            borderRadius: '8px',
-            boxShadow:  '0 8px 32px rgba(0,0,0,0.45)',
-            maxHeight:  '260px',
-            overflowY:  'auto',
-          }}
-        >
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+          background: '#1E2438', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          maxHeight: '240px', overflowY: 'auto',
+        }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: '14px 14px', fontSize: '12.5px', color: C.text4 }}>
-              Sin resultados para "{query}"
-            </div>
-          ) : (
-            filtered.map((c) => {
-              const isSelected = c.name === value;
-              return (
-                <button
-                  key={c.code}
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); handleSelect(c); }}
-                  style={{
-                    width:       '100%',
-                    display:     'flex',
-                    alignItems:  'center',
-                    gap:         '10px',
-                    padding:     '8px 12px',
-                    background:  isSelected ? `${C.accent}14` : 'transparent',
-                    border:      'none',
-                    borderLeft:  isSelected ? `2px solid ${C.accent}` : '2px solid transparent',
-                    cursor:      'pointer',
-                    textAlign:   'left',
-                    color:       isSelected ? C.accent : C.text2,
-                    fontSize:    '13px',
-                    fontWeight:  isSelected ? 600 : 400,
-                    transition:  'background 0.1s',
-                  }}
-                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = C.hover; }}
-                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                >
-                  <span style={{ fontSize: '17px', lineHeight: 1, flexShrink: 0 }}>{flag(c.code)}</span>
-                  <span>{c.name}</span>
-                </button>
-              );
-            })
-          )}
+            <div style={{ padding: '14px', fontSize: '13px', color: '#827A6D' }}>Sin resultados para "{query}"</div>
+          ) : filtered.map(c => {
+            const sel = c.name === value;
+            return (
+              <button key={c.code} type="button" onMouseDown={e => { e.preventDefault(); onChange(c.name); setOpen(false); }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '8px 12px', background: sel ? 'rgba(242,87,30,0.1)' : 'transparent',
+                  border: 'none', borderLeft: `2px solid ${sel ? '#F2571E' : 'transparent'}`,
+                  cursor: 'pointer', color: sel ? '#F2571E' : '#C8BFAE', fontSize: '13px', fontWeight: sel ? 600 : 400,
+                }}
+                onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = sel ? 'rgba(242,87,30,0.1)' : 'transparent'; }}
+              >
+                <span style={{ fontSize: '17px', lineHeight: 1, flexShrink: 0 }}>{flag(c.code)}</span>
+                {c.name}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-// ── Color tokens ──────────────────────────────────────────────────────────────
+// ── Orange save button ────────────────────────────────────────────────────────
 
-// ── Shared input style ────────────────────────────────────────────────────────
-function FieldInput({
-  id,
-  type = 'text',
-  value,
-  onChange,
-  placeholder,
-  disabled,
-  required,
-  minLength,
-  hasError,
-}: {
-  id?: string;
-  type?: string;
-  value: string;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  required?: boolean;
-  minLength?: number;
-  hasError?: boolean;
-}) {
-  return (
-    <input
-      id={id}
-      type={type}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      required={required}
-      minLength={minLength}
-      className="w-full text-[13px] rounded-[6px] px-3 py-2 outline-none transition-colors"
-      style={{
-        background: disabled ? C.bg2 : C.bg,
-        border: `1px solid ${hasError ? C.red : C.border}`,
-        color: disabled ? C.text3 : C.text,
-        cursor: disabled ? 'not-allowed' : 'text',
-        opacity: disabled ? 0.7 : 1,
-      }}
-      onFocus={(e) => {
-        if (!disabled) e.currentTarget.style.borderColor = hasError ? C.red : C.border2;
-      }}
-      onBlur={(e) => {
-        e.currentTarget.style.borderColor = hasError ? C.red : C.border;
-      }}
-    />
-  );
-}
-
-function FieldTextarea({
-  id,
-  value,
-  onChange,
-  placeholder,
-  rows = 3,
-}: {
-  id?: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  placeholder?: string;
-  rows?: number;
-}) {
-  return (
-    <textarea
-      id={id}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full text-[13px] rounded-[6px] px-3 py-2 outline-none transition-colors resize-none"
-      style={{
-        background: C.bg,
-        border: `1px solid ${C.border}`,
-        color: C.text,
-        fontFamily: 'inherit',
-      }}
-      onFocus={(e) => (e.currentTarget.style.borderColor = C.border2)}
-      onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
-    />
-  );
-}
-
-function FieldSelect({
-  id,
-  value,
-  onChange,
-  children,
-}: {
-  id?: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <select
-      id={id}
-      value={value}
-      onChange={onChange}
-      className="w-full text-[13px] rounded-[6px] px-3 py-2 outline-none"
-      style={{
-        background: C.bg,
-        border: `1px solid ${C.border}`,
-        color: C.text,
-        cursor: 'pointer',
-      }}
-    >
-      {children}
-    </select>
-  );
-}
-
-function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
-  return (
-    <label htmlFor={htmlFor} className="block text-[12px] font-medium mb-1.5" style={{ color: C.text3 }}>
-      {children}
-    </label>
-  );
-}
-
-function SectionCard({
-  title,
-  subtitle,
-  icon,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="rounded-[10px] p-5"
-      style={{ background: C.surface, border: `1px solid ${C.border}` }}
-    >
-      <div className="flex items-start gap-3 mb-5 pb-4" style={{ borderBottom: `1px solid ${C.border}` }}>
-        {icon && (
-          <div
-            className="w-7 h-7 rounded-[6px] flex items-center justify-center flex-shrink-0 mt-0.5"
-            style={{ background: C.hover }}
-          >
-            <span style={{ color: C.text3 }}>{icon}</span>
-          </div>
-        )}
-        <div>
-          <h2 className="text-[14px] font-semibold" style={{ color: C.text }}>{title}</h2>
-          {subtitle && <p className="text-[12px] mt-0.5" style={{ color: C.text3 }}>{subtitle}</p>}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function SubmitButton({
-  loading,
-  disabled,
-  loadingLabel,
-  label,
-  icon,
-}: {
-  loading: boolean;
-  disabled?: boolean;
-  loadingLabel: string;
-  label: string;
-  icon: React.ReactNode;
-}) {
-  const isDisabled = loading || disabled;
+function SaveBtn({ loading, disabled, label, icon }: { loading: boolean; disabled?: boolean; label: string; icon: React.ReactNode }) {
+  const off = loading || disabled;
   return (
     <button
-      type="submit"
-      disabled={isDisabled}
-      className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-[13px] font-medium transition-all"
+      type="submit" disabled={off}
       style={{
-        background: isDisabled ? C.border : C.accent,
-        color: isDisabled ? C.text3 : '#fff',
-        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', gap: '8px',
+        padding: '12px 22px', borderRadius: '8px', border: 'none',
+        background: '#F2571E', color: '#24180A',
+        fontFamily: SORA, fontWeight: 600, fontSize: '14.5px',
+        cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.55 : 1,
       }}
+      onMouseEnter={e => { if (!off) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; }}
     >
       {loading ? (
-        <>
-          <Loader2 size={14} className="animate-spin" />
-          {loadingLabel}
-        </>
-      ) : (
-        <>
-          {icon}
-          {label}
-        </>
-      )}
+        <div style={{ width: '15px', height: '15px', borderRadius: '50%', border: '2px solid rgba(36,24,10,0.3)', borderTopColor: '#24180A', animation: 'spin 0.8s linear infinite' }} />
+      ) : icon}
+      {label}
     </button>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function ProfilePage() {
   const t = useT();
-  const { user, isLoading, updateProfile, uploadAvatar, changePassword } = useAuthStore();
+  const router = useRouter();
+  const { user, isLoading, updateProfile, uploadAvatar, changePassword, logout } = useAuthStore();
   const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const [profileForm, setProfileForm] = useState({
-    name: '',
-    bio: '',
-    position: '',
-    phone: '',
-    location: '',
-    timezone: '',
-    language: '',
+  const [form, setForm] = useState({
+    name: '', bio: '', position: '', phone: '', location: '', language: 'es',
   });
+  const [pw, setPw] = useState({ cur: '', next: '', conf: '' });
 
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
+  const [isSaving,  setIsSaving]  = useState(false);
+  const [isChgPw,   setIsChgPw]   = useState(false);
+  const [saved,     setSaved]      = useState(false);
+  const [phoneErr,  setPhoneErr]   = useState('');
+  const [phoneDisp, setPhoneDisp]  = useState('');
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [phoneError, setPhoneError] = useState<string | undefined>();
-  const [phoneDisplay, setPhoneDisplay] = useState('');
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    if (!raw) {
-      setPhoneDisplay('');
-      setProfileForm((f) => ({ ...f, phone: '' }));
-      setPhoneError(undefined);
-      return;
-    }
-    const withPlus = raw.startsWith('+') ? raw : `+${raw}`;
-    const clean = cleanPhoneValue(withPlus);
-    const display = formatPhoneDisplay(clean);
-    setPhoneDisplay(display);
-    setProfileForm((f) => ({ ...f, phone: clean }));
-    const { valid, error } = validatePhone(clean);
-    if (!valid) {
-      const lang = profileForm.language === 'en' ? 'en' : 'es';
-      const msgs: Record<string, Record<string, string>> = {
-        no_prefix: { es: 'Debe comenzar con el código de país (ej: +56)', en: 'Must start with country code (e.g. +1)' },
-        too_short: { es: 'Número demasiado corto', en: 'Number too short' },
-        too_long: { es: 'Número demasiado largo (máx. 15 dígitos)', en: 'Number too long (max. 15 digits)' },
-        invalid_chars: { es: 'Solo se permiten números', en: 'Only numbers are allowed' },
-      };
-      setPhoneError(msgs[error!]?.[lang] ?? error);
-    } else {
-      setPhoneError(undefined);
-    }
-  };
-
+  // Init from user
   useEffect(() => {
-    if (user) {
-      setProfileForm({
-        name: user.name || '',
-        bio: user.bio || '',
-        position: user.position || '',
-        phone: user.phone || '',
-        location: user.location || '',
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        language: user.language || 'es',
-      });
-      setPhoneDisplay(formatPhoneDisplay(user.phone || ''));
-    }
+    if (!user) return;
+    setForm({
+      name:     user.name     || '',
+      bio:      user.bio      || '',
+      position: user.position || '',
+      phone:    user.phone    || '',
+      location: user.location || '',
+      language: user.language || 'es',
+    });
+    setPhoneDisp(formatPhoneDisplay(user.phone || ''));
   }, [user]);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
+  // Phone change handler
+  function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    if (!raw) { setPhoneDisp(''); setForm(f => ({ ...f, phone: '' })); setPhoneErr(''); return; }
+    const withPlus = raw.startsWith('+') ? raw : `+${raw}`;
+    const clean = cleanPhoneValue(withPlus);
+    setPhoneDisp(formatPhoneDisplay(clean));
+    setForm(f => ({ ...f, phone: clean }));
+    const { valid, error } = validatePhone(clean);
+    if (!valid) {
+      const msgs: Record<string, string> = {
+        no_prefix: 'Debe comenzar con el código de país (ej: +56)',
+        too_short: 'Número demasiado corto',
+        too_long:  'Número demasiado largo (máx. 15 dígitos)',
+        invalid_chars: 'Solo se permiten números',
+      };
+      setPhoneErr(msgs[error!] ?? error ?? '');
+    } else {
+      setPhoneErr('');
+    }
+  }
+
+  async function handleProfileSave(e: React.FormEvent) {
     e.preventDefault();
-    if (phoneError) return;
-    setIsSaving(true);
+    if (phoneErr) return;
+    setIsSaving(true); setSaved(false);
     try {
-      await updateProfile(profileForm);
-      toast({ title: t.profile_toast_updated_title, description: t.profile_toast_updated_desc });
+      await updateProfile(form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch {
       toast({ title: t.error_title, description: t.profile_toast_error_desc, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
-  };
+  }
 
-  const handleAvatarUpload = async (file: File) => {
+  async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
     try {
       await uploadAvatar(file);
       toast({ title: t.profile_toast_avatar_title, description: t.profile_toast_avatar_desc });
     } catch {
       toast({ title: t.error_title, description: t.profile_toast_avatar_error, variant: 'destructive' });
     }
-  };
+    if (fileRef.current) fileRef.current.value = '';
+  }
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast({ title: t.error_title, description: t.profile_toast_passwords_no_match, variant: 'destructive' });
-      return;
-    }
-    if (passwordForm.newPassword.length < 6) {
-      toast({ title: t.error_title, description: t.profile_toast_password_too_short, variant: 'destructive' });
-      return;
-    }
-    setIsChangingPassword(true);
+  async function handleLogout() {
+    setIsLoggingOut(true);
     try {
-      await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      await logout();
+      router.push('/login');
+    } catch {
+      setIsLoggingOut(false);
+    }
+  }
+
+  async function handlePwSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw.next !== pw.conf) { toast({ title: t.error_title, description: t.profile_toast_passwords_no_match, variant: 'destructive' }); return; }
+    if (pw.next.length < 6)  { toast({ title: t.error_title, description: t.profile_toast_password_too_short, variant: 'destructive' }); return; }
+    setIsChgPw(true);
+    try {
+      await changePassword(pw.cur, pw.next);
       toast({ title: t.profile_toast_password_title, description: t.profile_toast_password_desc });
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPw({ cur: '', next: '', conf: '' });
     } catch {
       toast({ title: t.error_title, description: t.profile_toast_password_error, variant: 'destructive' });
     } finally {
-      setIsChangingPassword(false);
+      setIsChgPw(false);
     }
-  };
+  }
 
   if (!user) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ background: C.bg }}>
-        <Loader2 size={24} className="animate-spin" style={{ color: C.text3 }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     );
   }
 
+  const pfInitials = initials(user.name);
+
   return (
-    <div className="min-h-screen" style={{ background: C.bg, color: C.text }}>
-      {/* Header */}
-      <div className="px-8 py-5" style={{ borderBottom: `1px solid ${C.border}` }}>
-        <h1 className="text-[16px] font-semibold" style={{ color: C.text }}>{t.profile_title}</h1>
-        <p className="text-[12px] mt-0.5" style={{ color: C.text3 }}>{t.profile_subtitle}</p>
-      </div>
+    <div style={{ fontFamily: MANROPE, animation: 'fadeUp .4s ease both', padding: 'clamp(24px,3.5vw,44px) clamp(20px,4vw,48px) 80px' }}>
 
-      <div className="px-8 py-6 max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* Page header */}
+      <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: 'clamp(1.7rem,3vw,2.2rem)', letterSpacing: '-0.02em', color: '#F4EEE2', margin: 0 }}>
+        Mi perfil
+      </h1>
+      <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: '#9C9486' }}>
+        Administra tu información personal y la configuración de tu cuenta.
+      </p>
 
-          {/* LEFT — Avatar + quick summary */}
-          <div className="flex flex-col gap-4">
+      {/* Two-column layout */}
+      <div style={{ display: 'flex', gap: '26px', alignItems: 'flex-start', marginTop: '28px', flexWrap: 'wrap' }}>
+
+        {/* ── Left column ── */}
+        <aside style={{ flex: '1 1 280px', maxWidth: '320px', minWidth: '260px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+
+          {/* Identity card */}
+          <div style={{
+            border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
+            background: 'rgba(255,255,255,0.02)', textAlign: 'center',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            {/* Orange header tint */}
+            <div style={{ height: '78px', background: 'rgba(242,87,30,0.18)' }} />
+
             {/* Avatar */}
-            <div
-              className="rounded-[10px] p-5 flex flex-col items-center"
-              style={{ background: C.surface, border: `1px solid ${C.border}` }}
-            >
-              <AvatarUpload
-                currentAvatar={user.avatar}
-                userName={user.name}
-                onUpload={handleAvatarUpload}
-                isLoading={isLoading}
-              />
+            <div style={{ position: 'relative', width: '96px', height: '96px', margin: '-48px auto 0' }}>
+              {user.avatar ? (
+                <img
+                  src={user.avatar} alt={user.name}
+                  style={{ width: '96px', height: '96px', borderRadius: '50%', border: '3px solid #161B2E', objectFit: 'cover' }}
+                />
+              ) : (
+                <div style={{
+                  width: '96px', height: '96px', borderRadius: '50%',
+                  background: '#F2571E', border: '3px solid #161B2E',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: SORA, fontSize: '30px', fontWeight: 700, color: '#24180A',
+                }}>
+                  {pfInitials}
+                </div>
+              )}
+              {/* Camera button */}
+              <button
+                onClick={() => fileRef.current?.click()}
+                title="Cambiar foto"
+                style={{
+                  position: 'absolute', right: '2px', bottom: '2px',
+                  width: '30px', height: '30px', borderRadius: '50%',
+                  background: '#222A40', border: '2px solid #161B2E',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1e2838')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#222A40')}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z" stroke="#9C9486" strokeWidth="1.6" strokeLinejoin="round"/>
+                  <circle cx="12" cy="13" r="3.2" stroke="#9C9486" strokeWidth="1.6"/>
+                </svg>
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile} />
             </div>
 
-            {/* Quick info */}
-            <div
-              className="rounded-[10px] p-4"
-              style={{ background: C.surface, border: `1px solid ${C.border}` }}
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.text4 }}>
-                {t.profile_section_summary}
-              </p>
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center gap-2.5">
-                  <User size={13} style={{ color: C.text4, flexShrink: 0 }} />
-                  <span className="text-[12px] truncate" style={{ color: C.text2 }}>{user.name}</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <Mail size={13} style={{ color: C.text4, flexShrink: 0 }} />
-                  <span className="text-[12px] truncate" style={{ color: C.text3 }}>{user.email}</span>
-                </div>
-                {profileForm.position && (
-                  <div className="flex items-center gap-2.5">
-                    <Briefcase size={13} style={{ color: C.text4, flexShrink: 0 }} />
-                    <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.position}</span>
-                  </div>
-                )}
-                {profileForm.location && (() => {
-                  const country = COUNTRIES.find((c) => c.name === profileForm.location);
-                  return (
-                    <div className="flex items-center gap-2.5">
-                      {country
-                        ? <span style={{ fontSize: '14px', lineHeight: 1, flexShrink: 0 }}>{flag(country.code)}</span>
-                        : <MapPin size={13} style={{ color: C.text4, flexShrink: 0 }} />
-                      }
-                      <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.location}</span>
-                    </div>
-                  );
-                })()}
-                {profileForm.phone && (
-                  <div className="flex items-center gap-2.5">
-                    <Phone size={13} style={{ color: C.text4, flexShrink: 0 }} />
-                    <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.phone}</span>
-                  </div>
-                )}
-                {profileForm.timezone && (
-                  <div className="flex items-center gap-2.5">
-                    <Globe size={13} style={{ color: C.text4, flexShrink: 0 }} />
-                    <span className="text-[12px] truncate" style={{ color: C.text3 }}>{profileForm.timezone}</span>
-                  </div>
-                )}
+            <div style={{ padding: '14px 20px 22px' }}>
+              <div style={{ fontFamily: SORA, fontSize: '17px', fontWeight: 600, color: '#F4EEE2', marginTop: '14px' }}>
+                {user.name}
+              </div>
+              <div style={{ fontSize: '13px', color: '#827A6D', marginTop: '3px' }}>
+                {form.position || 'Sin cargo especificado'}
+              </div>
+              <button
+                onClick={() => fileRef.current?.click()}
+                style={{
+                  marginTop: '16px', width: '100%', padding: '10px',
+                  borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)',
+                  background: 'rgba(255,255,255,0.03)', color: '#D8D0C1',
+                  fontFamily: SORA, fontWeight: 600, fontSize: '13px', cursor: 'pointer',
+                }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)')}
+              >
+                Cambiar foto
+              </button>
+              <div style={{ fontSize: '11.5px', color: '#5C5447', marginTop: '10px' }}>
+                JPG, PNG o GIF, máximo 10 MB
               </div>
             </div>
           </div>
 
-          {/* RIGHT — Forms */}
-          <div className="lg:col-span-2 flex flex-col gap-4">
-
-            {/* Personal info */}
-            <SectionCard
-              title={t.profile_section_personal_title}
-              subtitle={t.profile_section_personal_desc}
-              icon={<User size={14} />}
-            >
-              <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <FieldLabel htmlFor="name">{t.profile_label_name}</FieldLabel>
-                    <FieldInput
-                      id="name"
-                      value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel htmlFor="email">{t.profile_label_email}</FieldLabel>
-                    <FieldInput id="email" type="email" value={user.email} disabled />
-                  </div>
+          {/* Summary card */}
+          <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', padding: '18px' }}>
+            <div style={{ fontFamily: SORA, fontSize: '12px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', marginBottom: '14px' }}>
+              Resumen
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+              {[
+                { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="#615846" strokeWidth="1.6" strokeLinejoin="round" strokeDasharray="0"/><circle cx="12" cy="12" r="3" stroke="#615846" strokeWidth="1.6"/></svg>, text: user.email },
+                form.phone    && { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="11" height="20" rx="2" stroke="#615846" strokeWidth="1.6"/><path d="M10 18h1" stroke="#615846" strokeWidth="1.6" strokeLinecap="round"/></svg>, text: form.phone },
+                form.location && { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke="#615846" strokeWidth="1.6" strokeLinejoin="round"/><circle cx="12" cy="10" r="2.4" stroke="#615846" strokeWidth="1.6"/></svg>, text: form.location },
+                { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#615846" strokeWidth="1.6"/><path d="M12 7v5l3 2" stroke="#615846" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>, text: tz },
+              ].filter(Boolean).map((row: any, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+                  <span style={{ flexShrink: 0 }}>{row.icon}</span>
+                  <span style={{ fontSize: '13.5px', color: '#C8BFAE', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {row.text}
+                  </span>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <FieldLabel>{t.profile_label_position}</FieldLabel>
-                    <PositionPicker
-                      value={profileForm.position}
-                      onChange={(v) => setProfileForm({ ...profileForm, position: v })}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel htmlFor="phone">{t.profile_label_phone}</FieldLabel>
-                    <FieldInput
-                      id="phone"
-                      type="tel"
-                      value={phoneDisplay}
-                      onChange={handlePhoneChange}
-                      placeholder="+56 9 1234 5678"
-                      hasError={!!phoneError}
-                    />
-                    {phoneError && (
-                      <p className="text-[11px] mt-1" style={{ color: C.red }}>{phoneError}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <FieldLabel>{t.profile_label_location}</FieldLabel>
-                    <CountryPicker
-                      value={profileForm.location}
-                      onChange={(v) => setProfileForm({ ...profileForm, location: v })}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel htmlFor="timezone">{t.profile_label_timezone}</FieldLabel>
-                    <FieldInput
-                      id="timezone"
-                      value={Intl.DateTimeFormat().resolvedOptions().timeZone}
-                      disabled
-                    />
-                    <p className="text-[11px] mt-1" style={{ color: C.text4 }}>
-                      {profileForm.language === 'en'
-                        ? 'Automatically detected from your browser'
-                        : 'Detectada automáticamente de tu navegador'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-                  <div>
-                    <FieldLabel htmlFor="language">
-                      <span className="flex items-center gap-1.5">
-                        <Languages size={12} />
-                        {t.profile_label_language}
-                      </span>
-                    </FieldLabel>
-                    <FieldSelect
-                      id="language"
-                      value={profileForm.language}
-                      onChange={(e) => setProfileForm({ ...profileForm, language: e.target.value })}
-                    >
-                      <option value="es">{t.profile_lang_es}</option>
-                      <option value="en">{t.profile_lang_en}</option>
-                    </FieldSelect>
-                  </div>
-                  <div>
-                    <FieldLabel htmlFor="bio">{t.profile_label_bio}</FieldLabel>
-                    <FieldTextarea
-                      id="bio"
-                      value={profileForm.bio}
-                      onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
-                      placeholder={t.profile_placeholder_bio}
-                      rows={3}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-1">
-                  <SubmitButton
-                    loading={isSaving}
-                    disabled={!!phoneError}
-                    loadingLabel={t.profile_btn_saving}
-                    label={t.profile_btn_save}
-                    icon={<Save size={13} />}
-                  />
-                </div>
-              </form>
-            </SectionCard>
-
-            {/* Password */}
-            <SectionCard
-              title={t.profile_section_password_title}
-              subtitle={t.profile_section_password_desc}
-              icon={<Key size={14} />}
-            >
-              <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <FieldLabel htmlFor="currentPassword">{t.profile_label_current_password}</FieldLabel>
-                    <FieldInput
-                      id="currentPassword"
-                      type="password"
-                      value={passwordForm.currentPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel htmlFor="newPassword">{t.profile_label_new_password}</FieldLabel>
-                    <FieldInput
-                      id="newPassword"
-                      type="password"
-                      value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel htmlFor="confirmPassword">{t.profile_label_confirm_password}</FieldLabel>
-                    <FieldInput
-                      id="confirmPassword"
-                      type="password"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-1">
-                  <SubmitButton
-                    loading={isChangingPassword}
-                    loadingLabel={t.profile_btn_changing_password}
-                    label={t.profile_btn_change_password}
-                    icon={<Key size={13} />}
-                  />
-                </div>
-              </form>
-            </SectionCard>
-
+              ))}
+            </div>
           </div>
+          {/* Logout button */}
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
+              padding: '12px', borderRadius: '8px', cursor: isLoggingOut ? 'not-allowed' : 'pointer',
+              background: 'rgba(224,82,82,0.07)', border: '1px solid rgba(224,82,82,0.22)',
+              color: '#E05252', fontFamily: SORA, fontWeight: 600, fontSize: '13.5px',
+              opacity: isLoggingOut ? 0.6 : 1, transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { if (!isLoggingOut) { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.14)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.4)'; } }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.07)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.22)'; }}
+          >
+            {isLoggingOut ? (
+              <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(224,82,82,0.3)', borderTopColor: '#E05252', animation: 'spin 0.8s linear infinite' }} />
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+            {isLoggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
+          </button>
+        </aside>
+
+        {/* ── Right column ── */}
+        <div style={{ flex: '1 1 460px', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          {/* Información personal */}
+          <SectionCard
+            iconBg="rgba(242,87,30,0.12)"
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.6" stroke="#F2571E" strokeWidth="1.7"/><path d="M5 20a7 7 0 0 1 14 0" stroke="#F2571E" strokeWidth="1.7" strokeLinecap="round"/></svg>}
+            title="Información personal"
+            desc="Actualiza tu perfil y tus datos de contacto."
+          >
+            <form onSubmit={handleProfileSave}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: '18px' }}>
+
+                <div>
+                  <label style={labelStyle}>Nombre completo</label>
+                  <AInput value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Email</label>
+                  <AInput value={user.email} readOnly />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Cargo o posición</label>
+                  <PositionPicker value={form.position} onChange={v => setForm(f => ({ ...f, position: v }))} />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Teléfono</label>
+                  <AInput type="tel" value={phoneDisp} onChange={handlePhoneChange} placeholder="+56 9 1234 5678" />
+                  {phoneErr && <p style={{ fontSize: '11.5px', color: '#E05252', marginTop: '5px' }}>{phoneErr}</p>}
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Ubicación</label>
+                  <CountryPicker value={form.location} onChange={v => setForm(f => ({ ...f, location: v }))} />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Zona horaria</label>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '9px',
+                    padding: '13px 15px', borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.02)',
+                  }}>
+                    <span style={{ fontSize: '14.5px', color: '#9C9486', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tz}</span>
+                    <span style={{ fontSize: '11px', color: '#5C5447', flexShrink: 0 }}>Automática</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Idioma</label>
+                  <select
+                    value={form.language}
+                    onChange={e => setForm(f => ({ ...f, language: e.target.value }))}
+                    style={{ ...inputStyle, cursor: 'pointer', colorScheme: 'dark' }}
+                    onFocus={e  => (e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)')}
+                    onBlur={e   => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)')}
+                  >
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Biografía</label>
+                  <ATextarea
+                    value={form.bio}
+                    onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
+                    placeholder="Cuéntanos un poco sobre ti"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '14px', marginTop: '22px' }}>
+                {saved && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#76A878' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 13l4 4L19 7" stroke="#76A878" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Cambios guardados
+                  </span>
+                )}
+                <SaveBtn
+                  loading={isSaving} disabled={!!phoneErr} label="Guardar cambios"
+                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13H5V4Z" stroke="#24180A" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 4v5h7M9 14h6" stroke="#24180A" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+                />
+              </div>
+            </form>
+          </SectionCard>
+
+          {/* Cambiar contraseña */}
+          <SectionCard
+            iconBg="rgba(140,124,158,0.14)"
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="11" rx="2.5" stroke="#C4B9D0" strokeWidth="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#C4B9D0" strokeWidth="1.7"/></svg>}
+            title="Cambiar contraseña"
+            desc="Mantén tu cuenta segura con una contraseña fuerte."
+          >
+            <form onSubmit={handlePwSave}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '18px' }}>
+                <div>
+                  <label style={labelStyle}>Contraseña actual</label>
+                  <AInput type="password" value={pw.cur} onChange={e => setPw(p => ({ ...p, cur: e.target.value }))} placeholder="••••••••" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Nueva contraseña</label>
+                  <AInput type="password" value={pw.next} onChange={e => setPw(p => ({ ...p, next: e.target.value }))} placeholder="Mínimo 8 caracteres" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Confirmar contraseña</label>
+                  <AInput type="password" value={pw.conf} onChange={e => setPw(p => ({ ...p, conf: e.target.value }))} placeholder="Repite la contraseña" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '22px' }}>
+                <SaveBtn
+                  loading={isChgPw} label="Actualizar contraseña"
+                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="11" rx="2.5" stroke="#24180A" strokeWidth="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#24180A" strokeWidth="1.8"/></svg>}
+                />
+              </div>
+            </form>
+          </SectionCard>
+
         </div>
       </div>
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

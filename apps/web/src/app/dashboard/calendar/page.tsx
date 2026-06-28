@@ -1,691 +1,763 @@
+// apps/web/src/app/dashboard/calendar/page.tsx
 'use client';
-/**
- * Calendario — Spine (Day View)
- * Diseño basado en: "Aether Calendario - Spine (standalone).html"
- */
 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
-import { useCalendarEventStore, type CalendarEvent } from '@/stores/calendarEventStore';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useTeamStore } from '@/stores/teamStore';
+import { useCalendarEventStore, type CalendarEvent, type CreateEventInput } from '@/stores/calendarEventStore';
 import CreateEventModal from '@/components/calendar/CreateEventModal';
+import { apiService } from '@/services/apiService';
 
-/* ── Paleta exacta de la referencia ──────────────────────── */
-const R = {
-  bg:    '#0b1320', bg2:   '#0f1d2e', bg3:   '#142536',
-  line:  '#1a2a3d', line2: '#233649',
-  text:  '#cfe0f2', text2: '#8fa6bf', text3: '#5d7491', text4: '#3f5571',
-  cyan:  '#5ec5ff', pink:  '#ff6b9d', violet:'#a78bfa',
-  green: '#4ade80', amber: '#fbbf24',
-} as const;
+const SORA    = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
 
-const BOARD_PALETTE = [R.cyan, R.pink, R.violet, R.amber, R.green, '#f87171', '#818cf8', '#34d399'];
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-/* ── Spine config ─────────────────────────────────────────── */
-const HOUR_PX    = 64;   // px por hora
-const START_HOUR = 8;
-const END_HOUR   = 20;
+const START_HOUR = 7;
+const END_HOUR   = 21;
 const TOTAL_HRS  = END_HOUR - START_HOUR;
+const HOUR_PX    = 64;
 
-/* ── Types (cards) ───────────────────────────────────────── */
-interface UserCard {
-  id: string; title: string; dueDate: string | null;
-  priority: 'low' | 'medium' | 'high' | 'urgent' | null;
-  completed: boolean; listName: string; boardName: string;
-  workspaceName: string; boardId: string; workspaceId: string;
-}
-interface UserCardsResponse { pending: UserCard[]; overdue: UserCard[]; completed: UserCard[]; }
+const MONTHS_ES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
+                    'Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAYS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const DAYS_UPPER = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+const DAYS_FULL  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
-/* ── API helpers ─────────────────────────────────────────── */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-function getAuthToken(): string | null {
-  try {
-    const r = localStorage.getItem('aether-auth-storage');
-    return r ? JSON.parse(r).state?.accessToken ?? null : null;
-  } catch { return null; }
+const EVENT_PALETTE = ['#4B607F','#76A878','#DB8A66','#8C7C9E','#F2571E','#5B8FA8','#A87876'];
+function hashColor(str: string) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return EVENT_PALETTE[Math.abs(h) % EVENT_PALETTE.length];
 }
 
-async function fetchUserCards(): Promise<UserCardsResponse> {
-  const token = getAuthToken();
-  const res = await fetch(`${API_URL}/api/users/me/cards`, {
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-  });
-  if (!res.ok) throw new Error('Error al obtener cards');
-  const j = await res.json();
-  return j.data ?? j;
-}
-
-/* ── Utilidades de fecha ─────────────────────────────────── */
 function toKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-function fromKey(k: string) { return new Date(k + 'T00:00:00'); }
-function pad(n: number)     { return String(n).padStart(2, '0'); }
+function sameDay(a: Date, b: Date) { return toKey(a) === toKey(b); }
+function pad2(n: number) { return String(n).padStart(2, '0'); }
 
-function getWeekNum(d: Date) {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
-  const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  return Math.ceil(((t.getTime() - y.getTime()) / 86400000 + 1) / 7);
+function fmtHM(hour: number, minute: number) {
+  return `${pad2(hour)}:${pad2(minute)}`;
+}
+function fmtTime(dateStr: string) {
+  const d = new Date(dateStr);
+  return fmtHM(d.getHours(), d.getMinutes());
+}
+function addHours(hour: number, minute: number, dh: number) {
+  const totalM = hour * 60 + minute + Math.round(dh * 60);
+  return { hour: Math.floor(totalM / 60), minute: totalM % 60 };
 }
 
-const DAY_UPPER  = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
-const MONTHS_ES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-/* ── Breakpoint ──────────────────────────────────────────── */
-function useIsMobile() {
-  const [m, setM] = useState(false);
-  useEffect(() => {
-    const fn = () => setM(window.innerWidth < 768);
-    fn(); window.addEventListener('resize', fn);
-    return () => window.removeEventListener('resize', fn);
-  }, []);
-  return m;
+interface UserCard {
+  id: string; title: string; dueDate: string | null;
+  priority: 'LOW'|'MEDIUM'|'HIGH'|null;
+  completed: boolean; boardName: string; workspaceId: string; boardId: string;
 }
 
-/* ── navBtn ──────────────────────────────────────────────── */
-const navBtn: React.CSSProperties = {
-  height: 28, border: `1px solid ${R.line}`, borderRadius: 5,
-  background: 'transparent', color: R.text2,
-  display: 'grid', placeItems: 'center', cursor: 'pointer',
-  fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
-};
-
-/* ── Posicionamiento de evento en spine ─────────────────── */
-function eventPosition(ev: CalendarEvent) {
-  const start   = new Date(ev.startTime);
-  const end     = new Date(ev.endTime);
-  const startH  = start.getHours() + start.getMinutes() / 60;
-  const endH    = end.getHours()   + end.getMinutes()   / 60;
-  const clampS  = Math.max(startH, START_HOUR);
-  const clampE  = Math.min(endH,   END_HOUR);
-  return {
-    top:    (clampS - START_HOUR) * HOUR_PX,
-    height: Math.max((clampE - clampS) * HOUR_PX - 4, 24),
-  };
+interface QuickCreate {
+  hour: number;
+  minute: number;   // 0 or 30
+  durationH: number; // 0.5 | 1 | 1.5 | 2 | 3
+  title: string;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MINI CALENDAR
-   ═══════════════════════════════════════════════════════════ */
-interface MiniCalProps {
-  year: number; month: number;
-  miniGrid: any[]; miniDir: number;
-  onPrev: () => void; onNext: () => void;
-  onSelect: (cell: any) => void;
-  eventDays: Set<string>;
-  todayKey: string; selKey: string;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getMonthGrid(year: number, month: number) {
+  const first = new Date(year, month, 1).getDay();
+  const days  = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = Array(first).fill(null);
+  for (let d = 1; d <= days; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
 }
-function MiniCalendar({ year, month, miniGrid, miniDir, onPrev, onNext, onSelect, todayKey, selKey }: MiniCalProps) {
+
+function getWeekDays(date: Date): Date[] {
+  const d = new Date(date);
+  d.setDate(d.getDate() - d.getDay());
+  return Array.from({ length: 7 }, (_, i) => {
+    const day = new Date(d); day.setDate(d.getDate() + i); return day;
+  });
+}
+
+function eventTop(ev: CalendarEvent) {
+  const s = new Date(ev.startTime);
+  return Math.max(0, (s.getHours() + s.getMinutes() / 60 - START_HOUR) * HOUR_PX);
+}
+function eventHeight(ev: CalendarEvent) {
+  const s = new Date(ev.startTime), e = new Date(ev.endTime);
+  return Math.max((e.getTime() - s.getTime()) / 3600000 * HOUR_PX - 4, 22);
+}
+function nowTopPx() {
+  const now = new Date();
+  const h = now.getHours() + now.getMinutes() / 60;
+  if (h < START_HOUR || h > END_HOUR) return -1;
+  return (h - START_HOUR) * HOUR_PX;
+}
+
+// ── CircleBtn ─────────────────────────────────────────────────────────────────
+
+function CircleBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <div style={{ borderBottom: `1px solid ${R.line}` }}>
-      <div style={{ padding: '12px 12px 0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <button onClick={onPrev} style={{ ...navBtn, width: 18, height: 18 }}>‹</button>
-          <div style={{ overflow: 'hidden', flex: 1, textAlign: 'center' }}>
-            <AnimatePresence mode="wait" custom={miniDir}>
-              <motion.span
-                key={`${year}-${month}`} custom={miniDir}
-                initial={{ y: miniDir * 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: miniDir * -8, opacity: 0 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                style={{ display: 'block', fontSize: 11, color: R.text }}
-              >
-                {MONTHS_ES[month]} {year}
-              </motion.span>
-            </AnimatePresence>
-          </div>
-          <button onClick={onNext} style={{ ...navBtn, width: 18, height: 18 }}>›</button>
-        </div>
+    <span onClick={onClick}
+      className="cal-circle-btn"
+      style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+      {children}
+    </span>
+  );
+}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 3 }}>
-          {['D','L','M','M','J','V','S'].map((d, i) => (
-            <div key={i} style={{ textAlign: 'center', fontSize: 9, color: R.text4, letterSpacing: '.14em', padding: '3px 0' }}>{d}</div>
-          ))}
-        </div>
+// ── Mini Calendar ─────────────────────────────────────────────────────────────
 
-        <div style={{ overflow: 'hidden', paddingBottom: 10 }}>
-          <AnimatePresence mode="wait" custom={miniDir}>
-            <motion.div
-              key={`${year}-${month}`} custom={miniDir}
-              initial={{ x: miniDir * 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: miniDir * -20, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}
-            >
-              {miniGrid.map((cell, i) => {
-                const k = cell.out ? '' : `${year}-${pad(month+1)}-${pad(cell.n)}`;
-                const isSel   = k === selKey;
-                const isToday = k === todayKey;
-                return (
-                  <div
-                    key={i}
-                    onClick={() => onSelect(cell)}
-                    className={!cell.out && !isSel ? 'mini-day-hoverable' : ''}
-                    style={{
-                      height: 30, display: 'grid', placeItems: 'center', fontSize: 10, borderRadius: 4,
-                      cursor:     cell.out ? 'default' : 'pointer', position: 'relative',
-                      color:      cell.out ? R.text4 : isSel ? '#031322' : R.text2,
-                      background: isSel ? R.cyan : cell.hasEvent ? 'rgba(94,197,255,.07)' : 'transparent',
-                      fontWeight: isSel ? 600 : 400,
-                      border:     isToday && !isSel ? `1px solid ${R.cyan}` : '1px solid transparent',
-                      transition: 'background 0.1s ease',
-                    }}
-                  >
-                    {cell.n}
-                    {cell.hasEvent && !isSel && (
-                      <span style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', width: 3, height: 3, borderRadius: '50%', background: R.cyan }} />
-                    )}
-                  </div>
-                );
-              })}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+function MiniCalendar({ year, month, selectedDate, today, eventDays, onPrev, onNext, onSelectDay }: {
+  year: number; month: number; selectedDate: Date; today: Date; eventDays: Set<string>;
+  onPrev: () => void; onNext: () => void; onSelectDay: (day: number) => void;
+}) {
+  const cells    = getMonthGrid(year, month);
+  const todayKey = toKey(today);
+  const selKey   = toKey(selectedDate);
+
+  return (
+    <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '16px', background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <CircleBtn onClick={onPrev}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="#9C9486" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </CircleBtn>
+        <span style={{ fontFamily: SORA, fontWeight: 600, fontSize: '14px', color: '#E8E1D2' }}>{MONTHS_ES[month]} {year}</span>
+        <CircleBtn onClick={onNext}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#9C9486" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </CircleBtn>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '2px', marginBottom: '4px' }}>
+        {DAYS_SHORT.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '10.5px', fontWeight: 600, color: '#615846', padding: '3px 0' }}>{d}</div>)}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '3px' }}>
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`e-${i}`} />;
+          const key = `${year}-${pad2(month+1)}-${pad2(day)}`;
+          const isToday = key === todayKey, isSel = key === selKey, hasEv = eventDays.has(key);
+          return (
+            <div key={key} onClick={() => onSelectDay(day)}
+              style={{ aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.12s' }}
+              onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
+              onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+              {isSel
+                ? <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#F2571E', color: '#24180A', fontWeight: 700, fontSize: '12.5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{day}</span>
+                : <span style={{ fontSize: '12.5px', color: isToday ? '#F2571E' : '#9C9486', fontWeight: isToday ? 700 : 400 }}>{day}</span>
+              }
+              {hasEv && !isSel && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#F2571E' }} />}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PÁGINA PRINCIPAL
-   ═══════════════════════════════════════════════════════════ */
-export default function CalendarPage() {
-  const router   = useRouter();
-  const isMobile = useIsMobile();
+// ── QuickCreate inline form ───────────────────────────────────────────────────
 
-  const today    = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
-  const todayKey = useMemo(() => toKey(today), [today]);
+const DURATIONS: { label: string; value: number }[] = [
+  { label: '30m', value: 0.5 },
+  { label: '1h',  value: 1   },
+  { label: '1h 30m', value: 1.5 },
+  { label: '2h',  value: 2   },
+  { label: '3h',  value: 3   },
+];
 
-  /* ── Stores ───────────────────────────────────────────── */
-  const { events, loading: evLoading, fetchEvents, } = useCalendarEventStore();
-  const { workspaces, fetchWorkspaces } = useWorkspaceStore();
-  const { teams, fetchTeams }           = useTeamStore();
+function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
+  qc: QuickCreate;
+  onChange: (qc: QuickCreate) => void;
+  onCancel: () => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const end = addHours(qc.hour, qc.minute, qc.durationH);
 
-  /* ── Estado ───────────────────────────────────────────── */
-  const [cards,      setCards]      = useState<UserCard[]>([]);
-  const [selKey,     setSelKey]     = useState(todayKey);
-  const [miniYear,   setMiniYear]   = useState(today.getFullYear());
-  const [miniMonth,  setMiniMonth]  = useState(today.getMonth());
-  const [miniDir,    setMiniDir]    = useState(0);
-  const [panelOpen,  setPanelOpen]  = useState(false);
-  const [modalOpen,  setModalOpen]  = useState(false);
-  const [editEvent,  setEditEvent]  = useState<CalendarEvent | null>(null);
-  const [clickHour,  setClickHour]  = useState<number>(9);
+  useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const spineRef = useRef<HTMLDivElement>(null);
+  return (
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{
+        position: 'absolute', left: '68px', right: '8px',
+        top: `${(qc.hour + qc.minute / 60 - START_HOUR) * HOUR_PX}px`,
+        minHeight: `${Math.max(qc.durationH * HOUR_PX, 148)}px`,
+        zIndex: 20, borderRadius: '10px',
+        background: '#1C2236',
+        border: '1px solid rgba(242,87,30,0.35)',
+        borderLeft: '3px solid #F2571E',
+        padding: '12px 14px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        display: 'flex', flexDirection: 'column', gap: '10px',
+        animation: 'qcIn 0.22s cubic-bezier(0.16,1,0.3,1)',
+        transformOrigin: 'top center',
+      }}
+    >
+      {/* Time range */}
+      <div style={{ fontSize: '12px', fontWeight: 600, color: '#F2571E', fontFamily: SORA }}>
+        {fmtHM(qc.hour, qc.minute)} → {fmtHM(end.hour, end.minute)}
+      </div>
 
-  /* ── Cargar datos ─────────────────────────────────────── */
-  useEffect(() => {
-    fetchUserCards().then(d => setCards([...d.pending, ...d.overdue, ...d.completed])).catch(() => {});
-    fetchWorkspaces();
-    fetchTeams();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Fetch eventos para el mes visible + buffer
-  useEffect(() => {
-    const from = new Date(miniYear, miniMonth - 1, 1).toISOString();
-    const to   = new Date(miniYear, miniMonth + 2, 0, 23, 59, 59).toISOString();
-    fetchEvents(from, to);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [miniYear, miniMonth]);
-
-  /* ── Derivados ────────────────────────────────────────── */
-  const boardIds = useMemo(() => {
-    const seen = new Set<string>(); const out: string[] = [];
-    for (const c of cards) if (!seen.has(c.boardId)) { seen.add(c.boardId); out.push(c.boardId); }
-    return out;
-  }, [cards]);
-
-  function boardColor(boardId: string) {
-    return BOARD_PALETTE[boardIds.indexOf(boardId) % BOARD_PALETTE.length] ?? R.cyan;
-  }
-
-  const byDay = useMemo(() => {
-    const m: Record<string, UserCard[]> = {};
-    for (const c of cards) { if (!c.dueDate) continue; const k = c.dueDate.slice(0,10); (m[k]||=[]).push(c); }
-    return m;
-  }, [cards]);
-
-  // Eventos del día seleccionado
-  const dayEvents = useMemo(() =>
-    events
-      .filter(e => e.startTime.slice(0,10) === selKey || e.endTime.slice(0,10) === selKey)
-      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-  [events, selKey]);
-
-  // Cards del día
-  const dayCards = byDay[selKey] ?? [];
-
-  // Días con eventos para el mini-calendario
-  const eventDays = useMemo(() => {
-    const s = new Set<string>();
-    events.forEach(e => s.add(e.startTime.slice(0,10)));
-    Object.keys(byDay).forEach(k => s.add(k));
-    return s;
-  }, [events, byDay]);
-
-  // Upcoming (próximos 7 días)
-  const upcoming = useMemo(() => {
-    const in7 = new Date(today); in7.setDate(in7.getDate()+7);
-    return events
-      .filter(e => { const d = new Date(e.startTime); return d >= today && d <= in7; })
-      .sort((a,b) => a.startTime.localeCompare(b.startTime))
-      .slice(0, 6);
-  }, [events, today]);
-
-  // Boards únicos
-  const boardsLegend = useMemo(() => {
-    const m = new Map<string,string>();
-    cards.forEach(c => m.set(c.boardId, c.boardName));
-    return [...m.entries()];
-  }, [cards]);
-
-  const noDate = useMemo(() => cards.filter(c => !c.dueDate && !c.completed), [cards]);
-
-  const selDate  = fromKey(selKey);
-  const weekNum  = getWeekNum(selDate);
-  const pendingEvCount = dayEvents.filter(e => !e.allDay).length;
-
-  /* ── Hora actual para línea NOW ───────────────────────── */
-  const [nowMinutes, setNowMinutes] = useState(() => {
-    const d = new Date(); return d.getHours() * 60 + d.getMinutes();
-  });
-  useEffect(() => {
-    const id = setInterval(() => {
-      const d = new Date(); setNowMinutes(d.getHours() * 60 + d.getMinutes());
-    }, 60_000);
-    return () => clearInterval(id);
-  }, []);
-  const nowTop    = (nowMinutes / 60 - START_HOUR) * HOUR_PX;
-  const showNow   = selKey === todayKey && nowMinutes/60 >= START_HOUR && nowMinutes/60 <= END_HOUR;
-  const nowLabel  = `${pad(Math.floor(nowMinutes/60))}:${pad(nowMinutes%60)}`;
-
-  /* ── Mini-calendar grid ───────────────────────────────── */
-  const miniGrid = useMemo(() => {
-    const first   = new Date(miniYear, miniMonth, 1).getDay();
-    const dim     = new Date(miniYear, miniMonth+1, 0).getDate();
-    const prevDim = new Date(miniYear, miniMonth, 0).getDate();
-    type Cell = { n:number; out:boolean; hasEvent:boolean };
-    const cells: Cell[] = [];
-    for (let i=0; i<first; i++) cells.push({ n: prevDim-first+1+i, out:true,  hasEvent:false });
-    for (let d=1; d<=dim;  d++) {
-      const k = `${miniYear}-${pad(miniMonth+1)}-${pad(d)}`;
-      cells.push({ n: d, out:false, hasEvent: eventDays.has(k) });
-    }
-    let n=1; while (cells.length<42) cells.push({ n:n++, out:true, hasEvent:false });
-    return cells;
-  }, [miniYear, miniMonth, eventDays]);
-
-  /* ── Navegación ───────────────────────────────────────── */
-  function selectDay(k: string) {
-    const d = fromKey(k); setSelKey(k); setMiniYear(d.getFullYear()); setMiniMonth(d.getMonth());
-  }
-  function prevDay() { const d=fromKey(selKey); d.setDate(d.getDate()-1); selectDay(toKey(d)); }
-  function nextDay() { const d=fromKey(selKey); d.setDate(d.getDate()+1); selectDay(toKey(d)); }
-  function goToday() { selectDay(todayKey); }
-
-  function miniPrev() {
-    setMiniDir(-1);
-    if (miniMonth===0) { setMiniMonth(11); setMiniYear(y=>y-1); } else setMiniMonth(m=>m-1);
-  }
-  function miniNext() {
-    setMiniDir(1);
-    if (miniMonth===11) { setMiniMonth(0); setMiniYear(y=>y+1); } else setMiniMonth(m=>m+1);
-  }
-  function selectMiniCell(cell: { n:number; out:boolean }) {
-    if (cell.out) return;
-    selectDay(`${miniYear}-${pad(miniMonth+1)}-${pad(cell.n)}`);
-    setPanelOpen(false);
-  }
-
-  /* ── Click en spine → crear evento ───────────────────── */
-  function handleSpineClick(e: React.MouseEvent<HTMLDivElement>) {
-    // Solo si el click no fue sobre un evento existente
-    const target = e.target as HTMLElement;
-    if (target.closest('[data-event]')) return;
-    const rect = spineRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const relY = e.clientY - rect.top;
-    const hour = Math.floor(relY / HOUR_PX) + START_HOUR;
-    setClickHour(Math.max(START_HOUR, Math.min(hour, END_HOUR - 1)));
-    setEditEvent(null);
-    setModalOpen(true);
-  }
-
-  /* ── Sidebar ──────────────────────────────────────────── */
-  const Sidebar = (
-    <div style={{ width: 300, flexShrink:0, borderLeft:`1px solid ${R.line}`, background:R.bg2, display:'flex', flexDirection:'column', overflowY:'auto' }}>
-
-      <MiniCalendar
-        year={miniYear} month={miniMonth} miniGrid={miniGrid} miniDir={miniDir}
-        onPrev={miniPrev} onNext={miniNext} onSelect={selectMiniCell}
-        eventDays={eventDays} todayKey={todayKey} selKey={selKey}
+      {/* Title input */}
+      <input
+        ref={inputRef}
+        value={qc.title}
+        onChange={e => onChange({ ...qc, title: e.target.value })}
+        onKeyDown={e => { if (e.key === 'Enter') onSave(); if (e.key === 'Escape') onCancel(); }}
+        placeholder="Título del evento…"
+        style={{
+          padding: '8px 10px', borderRadius: '7px',
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          color: '#E8E1D2', fontFamily: MANROPE, fontSize: '14px',
+          outline: 'none', transition: 'border-color 0.12s',
+        }}
+        onFocus={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.28)')}
+        onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
       />
 
-      {/* Próximos 7 días */}
-      {upcoming.length > 0 && (
-        <div style={{ borderBottom:`1px solid ${R.line}` }}>
-          <div style={{ padding:'10px 12px 6px', fontSize:9, letterSpacing:'.18em', textTransform:'uppercase', color:R.text4 }}>
-            PRÓXIMOS · 7 DÍAS
-          </div>
-          {upcoming.map(ev => {
-            const d = new Date(ev.startTime);
-            return (
-              <div
-                key={ev.id}
-                onClick={() => { selectDay(ev.startTime.slice(0,10)); setEditEvent(ev); setModalOpen(true); setPanelOpen(false); }}
-                style={{ display:'grid', gridTemplateColumns:'38px 1fr auto', gap:10, padding:'5px 12px', fontSize:11, alignItems:'center', cursor:'pointer' }}
-                className="mini-day-hoverable"
-              >
-                <div style={{ color:R.text3, fontSize:10, lineHeight:1.2 }}>
-                  <div style={{ color:R.text, fontSize:14, fontWeight:500 }}>{d.getDate()}</div>
-                  {DAY_UPPER[d.getDay()]}
-                </div>
-                <div style={{ color:R.text2, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{ev.title}</div>
-                <span style={{ width:6, height:6, borderRadius:2, background:ev.color, flexShrink:0 }} />
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Duration chips */}
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+        {DURATIONS.map(({ label, value }) => {
+          const active = qc.durationH === value;
+          return (
+            <span key={value} onClick={() => onChange({ ...qc, durationH: value })}
+              style={{
+                fontSize: '11.5px', padding: '4px 9px', borderRadius: '6px', cursor: 'pointer',
+                background: active ? '#F2571E' : 'rgba(255,255,255,0.06)',
+                color: active ? '#24180A' : '#9C9486',
+                fontWeight: active ? 700 : 400, transition: 'background 0.1s, color 0.1s',
+              }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.12)'; }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}>
+              {label}
+            </span>
+          );
+        })}
+      </div>
 
-      {/* Tableros */}
-      {boardsLegend.length > 0 && (
-        <div style={{ padding:'10px 12px 12px', borderBottom:`1px solid ${R.line}` }}>
-          <div style={{ fontSize:9, letterSpacing:'.18em', textTransform:'uppercase', color:R.text4, marginBottom:8 }}>TABLEROS</div>
-          {boardsLegend.map(([id, name]) => (
-            <div key={id} style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:R.text2, padding:'3px 0' }}>
-              <span style={{ width:10, height:10, borderRadius:2, background:boardColor(id), flexShrink:0 }} />
-              <span style={{ overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{name}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Sin fecha */}
-      {noDate.length > 0 && (
-        <div style={{ padding:'10px 12px' }}>
-          <div style={{ fontSize:9, letterSpacing:'.18em', textTransform:'uppercase', color:R.text4, marginBottom:6 }}>
-            SIN FECHA · {noDate.length}
-          </div>
-          {noDate.slice(0,5).map(c => (
-            <div
-              key={c.id}
-              onClick={() => router.push(`/dashboard/workspaces/${c.workspaceId}/boards/${c.boardId}`)}
-              style={{ display:'flex', alignItems:'center', gap:6, fontSize:10, color:R.text3, padding:'3px 0', cursor:'pointer' }}
-            >
-              <span style={{ width:4, height:4, borderRadius:'50%', background:boardColor(c.boardId), flexShrink:0 }} />
-              <span style={{ overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{c.title}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+        <button onClick={onCancel} style={{ flex: 1, padding: '7px', borderRadius: '7px', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#827A6D', fontFamily: SORA, fontSize: '12.5px', cursor: 'pointer', transition: 'background 0.13s, border-color 0.13s' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}>
+          Cancelar
+        </button>
+        <button onClick={onSave} disabled={saving || !qc.title.trim()}
+          style={{ flex: 2, padding: '7px', borderRadius: '7px', border: 'none', background: qc.title.trim() && !saving ? '#F2571E' : 'rgba(255,255,255,0.07)', color: qc.title.trim() && !saving ? '#24180A' : '#615846', fontFamily: SORA, fontWeight: 600, fontSize: '12.5px', cursor: qc.title.trim() && !saving ? 'pointer' : 'not-allowed', transition: 'background 0.15s, color 0.15s, filter 0.13s' }}
+          onMouseEnter={e => { if (qc.title.trim() && !saving) e.currentTarget.style.filter = 'brightness(1.08)'; }}
+          onMouseLeave={e => { e.currentTarget.style.filter = 'none'; }}>
+          {saving ? 'Guardando…' : '+ Crear evento'}
+        </button>
+      </div>
     </div>
   );
+}
 
-  /* ── Render ───────────────────────────────────────────── */
+// ── Day View ──────────────────────────────────────────────────────────────────
+
+function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, onQcCancel, onQcSave, qcSaving }: {
+  date: Date; events: CalendarEvent[]; cards: UserCard[];
+  quickCreate: QuickCreate | null;
+  onGridClick: (h: number, m: number) => void;
+  onQcChange: (qc: QuickCreate) => void;
+  onQcCancel: () => void;
+  onQcSave: () => void;
+  qcSaving: boolean;
+}) {
+  const [nowTop, setNowTop] = useState(nowTopPx());
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { const id = setInterval(() => setNowTop(nowTopPx()), 60000); return () => clearInterval(id); }, []);
+  useEffect(() => {
+    if (scrollRef.current && nowTop > 0) scrollRef.current.scrollTop = Math.max(0, nowTop - 140);
+  }, [nowTop]);
+
+  const hours = Array.from({ length: TOTAL_HRS + 1 }, (_, i) => {
+    const h = START_HOUR + i;
+    const label = h === 12 ? '12:00' : h < 12 ? `${h}:00` : `${h}:00`;
+    return { h, label, top: i * HOUR_PX };
+  });
+
+  const dayEvents = events.filter(ev => sameDay(new Date(ev.startTime), date));
+  const dayCards  = cards.filter(c => c.dueDate && sameDay(new Date(c.dueDate), date) && !c.completed);
+  const isToday   = sameDay(date, new Date());
+  const eventsCount = dayEvents.length + dayCards.length;
+
+  function handleGridClick(e: React.MouseEvent<HTMLDivElement>) {
+    if ((e.target as HTMLElement).closest('[data-event]')) return;
+    const rect = (scrollRef.current as HTMLDivElement).getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    if (relX < 58) return;
+    const relY = e.clientY - rect.top + (scrollRef.current?.scrollTop ?? 0);
+    const fracH = relY / HOUR_PX;
+    const hour  = START_HOUR + Math.floor(fracH);
+    const rawM  = (fracH % 1) * 60;
+    const minute = rawM < 20 ? 0 : rawM < 50 ? 30 : 0;
+    if (hour < START_HOUR || hour >= END_HOUR) return;
+    onGridClick(hour, minute < 60 ? minute : 0);
+  }
+
   return (
-    <div style={{ width:'100%', height:'100%', minHeight:'100%', display:'flex', background:R.bg, fontFamily:"'JetBrains Mono', monospace", color:R.text, fontSize:12, overflow:'hidden' }}>
-
-      {/* ── Panel principal: spine ───────────────────────── */}
-      <div style={{ flex:1, padding:'22px 28px 22px', display:'flex', flexDirection:'column', minHeight:0, overflow:'hidden', minWidth:0 }}>
-
-        {/* Eyebrow */}
-        <div style={{ fontSize:10, letterSpacing:'.16em', color:R.cyan, display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-          <span>—</span> CALENDARIO · DÍA
-        </div>
-
-        {/* Cabecera del día */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:20, gap:16, flexWrap:'wrap', flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'baseline', gap:14 }}>
-            <div style={{ fontFamily:"'Inter', 'JetBrains Mono', monospace", fontSize: isMobile ? 40 : 56, lineHeight:1, fontWeight:300, color:R.text, letterSpacing:'-.02em' }}>
-              {selDate.getDate()}
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-              <div style={{ color:R.cyan, fontSize:12, letterSpacing:'.14em' }}>{DAY_UPPER[selDate.getDay()]}</div>
-              <div style={{ color:R.text3, fontSize:10, letterSpacing:'.14em' }}>
-                {MONTHS_ES[selDate.getMonth()].toUpperCase()} · {selDate.getFullYear()} · W{weekNum}
-              </div>
-              <div style={{ color:R.text3, fontSize:11, marginTop:4 }}>
-                {evLoading
-                  ? 'cargando…'
-                  : `${pendingEvCount} evento${pendingEvCount !== 1 ? 's' : ''} · ${dayCards.length} card${dayCards.length !== 1 ? 's' : ''}`
-                }
-              </div>
-            </div>
-          </div>
-
-          {/* Nav + nuevo evento */}
-          <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-            <button onClick={prevDay} style={{ ...navBtn, width:28, padding:'0 8px' }}>‹</button>
-            <button onClick={goToday} style={{ ...navBtn, width:'auto', padding:'0 12px' }}>HOY</button>
-            <button onClick={nextDay} style={{ ...navBtn, width:28, padding:'0 8px' }}>›</button>
-            <motion.button
-              onClick={() => { setEditEvent(null); setClickHour(9); setModalOpen(true); }}
-              whileHover={{ backgroundColor: `${R.cyan}22`, borderColor: R.cyan }}
-              whileTap={{ scale: 0.95 }}
-              style={{ ...navBtn, width:'auto', padding:'0 12px', display:'flex', alignItems:'center', gap:5, color: R.cyan, borderColor:`${R.cyan}55`, marginLeft:4 }}
-            >
-              <Plus size={12} /> Nuevo
-            </motion.button>
-            {isMobile && (
-              <button onClick={() => setPanelOpen(true)} style={{ ...navBtn, width:28, padding:'0 8px', marginLeft:4 }}>≡</button>
-            )}
+    <section style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* Day header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flexShrink: 0 }}>
+        <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: 'clamp(2.4rem,4vw,3rem)', lineHeight: 0.9, color: '#F2571E' }}>
+          {date.getDate()}
+        </span>
+        <div style={{ paddingTop: '4px' }}>
+          <div style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2' }}>{DAYS_FULL[date.getDay()]}</div>
+          <div style={{ fontSize: '13px', color: '#827A6D', marginTop: '3px' }}>{MONTHS_ES[date.getMonth()]} {date.getFullYear()}</div>
+          <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '1px' }}>
+            {eventsCount === 0 ? 'Sin eventos' : `${eventsCount} ${eventsCount === 1 ? 'evento' : 'eventos'}`}
+            {isToday && <span style={{ color: '#F2571E', marginLeft: '8px' }}>· Hoy</span>}
           </div>
         </div>
+      </div>
 
-        {/* ── Spine de horas ─────────────────────────────── */}
-        <div style={{ flex:1, minHeight:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
-          <div
-            ref={spineRef}
-            onClick={handleSpineClick}
-            style={{ flex:1, overflowY:'auto', overflowX:'hidden', position:'relative', cursor:'crosshair' }}
-          >
-            {/* Grid de horas */}
-            <div style={{ display:'grid', gridTemplateColumns:'50px 1px 1fr', minHeight: TOTAL_HRS * HOUR_PX }}>
+      {/* Time grid — scrolls internally */}
+      <div
+        ref={scrollRef}
+        className="dshScroll"
+        onClick={handleGridClick}
+        style={{ flex: 1, position: 'relative', overflowY: 'auto', marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.06)', cursor: 'crosshair', paddingTop: '12px' }}
+      >
+        {/* Inner fixed-height canvas */}
+        <div style={{ position: 'relative', height: `${TOTAL_HRS * HOUR_PX}px` }}>
 
-              {/* Columna de horas */}
-              <div>
-                {Array.from({ length: TOTAL_HRS }, (_, i) => (
-                  <div key={i} style={{ height:HOUR_PX, color:R.text4, fontSize:10, paddingTop:0, textAlign:'right', paddingRight:12, lineHeight:`${HOUR_PX}px` }}>
-                    {pad(START_HOUR + i)}:00
-                  </div>
-                ))}
-              </div>
-
-              {/* Rail central con burbuja NOW */}
-              <div style={{ position:'relative', background:`linear-gradient(180deg, ${R.line} 0%, ${R.line} 30%, ${R.line2} 30%, ${R.line2} 60%, ${R.line} 60%)` }}>
-                {showNow && (
-                  <div style={{ position:'absolute', left:-4, top: nowTop - 4, width:9, height:9, borderRadius:'50%', background:R.cyan, boxShadow:`0 0 0 4px rgba(94,197,255,.18), 0 0 12px rgba(94,197,255,.5)` }} />
-                )}
-              </div>
-
-              {/* Columna de eventos */}
-              <div style={{ position:'relative', paddingLeft:20 }}>
-
-                {/* Líneas de hora */}
-                {Array.from({ length: TOTAL_HRS + 1 }, (_, i) => (
-                  <div key={i} style={{ position:'absolute', left:0, right:0, height:1, background:R.line, opacity:.5, top: i * HOUR_PX }} />
-                ))}
-
-                {/* Línea NOW */}
-                {showNow && (
-                  <>
-                    <div style={{ position:'absolute', left:-1, right:0, height:1, background:R.cyan, opacity:.7, top: nowTop }} />
-                    <div style={{ position:'absolute', right:8, top: nowTop, transform:'translateY(-50%)', background:R.cyan, color:'#031322', fontSize:9, fontWeight:600, letterSpacing:'.1em', padding:'2px 6px', borderRadius:3 }}>
-                      AHORA · {nowLabel}
-                    </div>
-                  </>
-                )}
-
-                {/* Eventos del calendario */}
-                <AnimatePresence>
-                  {dayEvents.filter(e => !e.allDay).map((ev) => {
-                    const { top, height } = eventPosition(ev);
-                    const start = new Date(ev.startTime);
-                    const end   = new Date(ev.endTime);
-                    const timeStr = `${pad(start.getHours())}:${pad(start.getMinutes())} – ${pad(end.getHours())}:${pad(end.getMinutes())}`;
-
-                    return (
-                      <motion.div
-                        key={ev.id}
-                        data-event="true"
-                        initial={{ opacity:0, x:-6 }}
-                        animate={{ opacity:1, x:0 }}
-                        exit={{ opacity:0, x:-6 }}
-                        transition={{ duration:0.18 }}
-                        whileHover={{ filter:'brightness(1.1)' }}
-                        onClick={(e) => { e.stopPropagation(); setEditEvent(ev); setModalOpen(true); }}
-                        style={{
-                          position:'absolute', left:12, right:16, top, height,
-                          background: `linear-gradient(135deg, ${ev.color}1f, ${ev.color}0a)`,
-                          border: `1px solid ${ev.color}44`,
-                          borderLeft: `2px solid ${ev.color}`,
-                          borderRadius:5, padding:'8px 12px', color:R.text,
-                          display:'flex', flexDirection:'column', gap:4,
-                          cursor:'pointer', overflow:'hidden',
-                        }}
-                      >
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
-                          <div style={{ fontWeight:500, fontSize:12, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
-                            {ev.title}
-                          </div>
-                          <div style={{ fontSize:10, color:R.text3, flexShrink:0 }}>{timeStr}</div>
-                        </div>
-
-                        {height > 40 && (
-                          <div style={{ fontSize:10, color:R.text3, display:'flex', alignItems:'center', gap:8 }}>
-                            {/* Avatares de asistentes */}
-                            {ev.attendees.length > 0 && (
-                              <div style={{ display:'flex' }}>
-                                {ev.attendees.slice(0,4).map((att, j) => (
-                                  <div
-                                    key={att.id}
-                                    title={att.name}
-                                    style={{
-                                      width:16, height:16, borderRadius:'50%',
-                                      border:`1px solid ${R.bg}`,
-                                      marginLeft: j===0 ? 0 : -5,
-                                      background: att.avatar ? `url(${API_URL}${att.avatar}) center/cover` : `linear-gradient(135deg, ${ev.color}, ${ev.color}88)`,
-                                      color:'#fff', fontSize:8, fontWeight:600,
-                                      display:'grid', placeItems:'center', flexShrink:0,
-                                    }}
-                                  >
-                                    {!att.avatar && att.name.charAt(0).toUpperCase()}
-                                  </div>
-                                ))}
-                                {ev.attendees.length > 4 && (
-                                  <div style={{ width:16, height:16, borderRadius:'50%', border:`1px solid ${R.bg}`, marginLeft:-5, background:R.line2, color:R.text3, fontSize:8, display:'grid', placeItems:'center' }}>
-                                    +{ev.attendees.length - 4}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            {ev.description && (
-                              <span style={{ overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{ev.description}</span>
-                            )}
-                          </div>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
+          {/* Hour rows */}
+          {hours.map(({ h, label, top }) => (
+            <div key={h}>
+              <div style={{ position: 'absolute', left: '60px', right: 0, top: `${top}px`, borderTop: '1px solid rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', left: 0, top: `${top - 9}px`, fontSize: '11px', color: '#5C5447', userSelect: 'none', pointerEvents: 'none', width: '54px', textAlign: 'right', paddingRight: '8px' }}>
+                {label}
               </div>
             </div>
-          </div>
+          ))}
 
-          {/* Eventos todo el día */}
-          {dayEvents.filter(e => e.allDay).length > 0 && (
-            <div style={{ flexShrink:0, borderTop:`1px solid ${R.line}`, padding:'8px 0 4px' }}>
-              <div style={{ fontSize:9, letterSpacing:'.14em', color:R.text4, marginBottom:6, paddingLeft:70 }}>TODO EL DÍA</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:3, paddingLeft:70 }}>
-                {dayEvents.filter(e => e.allDay).map(ev => (
-                  <div
-                    key={ev.id}
-                    data-event="true"
-                    onClick={(e) => { e.stopPropagation(); setEditEvent(ev); setModalOpen(true); }}
-                    style={{
-                      padding:'4px 10px', borderRadius:4, fontSize:11, cursor:'pointer',
-                      background:`${ev.color}18`, borderLeft:`2px solid ${ev.color}`,
-                      color:R.text2, marginRight:16,
-                    }}
-                  >
-                    {ev.title}
-                  </div>
-                ))}
-              </div>
+          {/* Now line */}
+          {isToday && nowTop >= 0 && (
+            <div data-event style={{ position: 'absolute', left: '60px', right: 0, top: `${nowTop}px`, borderTop: '1.5px solid #F2571E', zIndex: 3, pointerEvents: 'none' }}>
+              <span style={{ position: 'absolute', left: '-5px', top: '-5px', width: '9px', height: '9px', borderRadius: '50%', background: '#F2571E' }} />
             </div>
           )}
 
-          {/* Cards del día */}
-          {dayCards.length > 0 && (
-            <div style={{ flexShrink:0, borderTop:`1px solid ${R.line}`, padding:'8px 0 6px' }}>
-              <div style={{ fontSize:9, letterSpacing:'.14em', color:R.text4, marginBottom:6, paddingLeft:70 }}>CARDS · {selDate.getDate()}/{selDate.getMonth()+1}</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:3, paddingLeft:70, maxHeight:120, overflowY:'auto' }}>
-                {dayCards.map(c => {
-                  const color = boardColor(c.boardId);
+          {/* Calendar events */}
+          {dayEvents.map(ev => {
+            const color = hashColor(ev.id);
+            return (
+              <div key={ev.id} data-event="true"
+                style={{ position: 'absolute', left: '68px', right: '8px', top: `${eventTop(ev)}px`, height: `${eventHeight(ev)}px`, borderRadius: '8px', background: `${color}18`, borderLeft: `3px solid ${color}`, padding: '6px 10px', cursor: 'pointer', overflow: 'hidden', zIndex: 2, transition: 'filter 0.14s, transform 0.14s' }}
+                onClick={e => e.stopPropagation()}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.12)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#E8E1D2' }}>{ev.title}</div>
+                <div style={{ fontSize: '11px', color: '#8B8275', marginTop: '1px' }}>{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}</div>
+              </div>
+            );
+          })}
+
+          {/* Due-date cards */}
+          {dayCards.map((c, idx) => {
+            const color = c.priority === 'HIGH' ? '#E05252' : c.priority === 'MEDIUM' ? '#DB8A66' : '#76A878';
+            const topPx = Math.max(0, (9 + idx * 0.5 - START_HOUR) * HOUR_PX);
+            return (
+              <div key={c.id} data-event="true"
+                style={{ position: 'absolute', left: '68px', right: '8px', top: `${topPx}px`, height: `${HOUR_PX * 0.7}px`, borderRadius: '8px', background: `${color}14`, borderLeft: `3px solid ${color}`, padding: '5px 10px', cursor: 'pointer', overflow: 'hidden', zIndex: 2 }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#E8E1D2' }}>{c.title}</div>
+                <div style={{ fontSize: '11px', color: '#8B8275', marginTop: '1px' }}>{c.boardName} · Fecha límite</div>
+              </div>
+            );
+          })}
+
+          {/* QuickCreate inline form */}
+          {quickCreate && (
+            <QuickCreateCard
+              qc={quickCreate}
+              onChange={onQcChange}
+              onCancel={onQcCancel}
+              onSave={onQcSave}
+              saving={qcSaving}
+            />
+          )}
+
+          {/* Empty state */}
+          {dayEvents.length === 0 && dayCards.length === 0 && !quickCreate && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '10px', color: '#615846', fontSize: '13px', pointerEvents: 'none' }}>
+              <span style={{ fontSize: '26px', opacity: 0.25 }}>◎</span>
+              Día libre — haz clic para añadir un evento
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Week View ─────────────────────────────────────────────────────────────────
+
+function WeekView({ selectedDate, events, cards, onSelectDay }: {
+  selectedDate: Date; events: CalendarEvent[]; cards: UserCard[];
+  onSelectDay: (d: Date) => void;
+}) {
+  const weekDays = getWeekDays(selectedDate);
+  const today    = new Date();
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* Header */}
+      <div style={{ display: 'grid', gridTemplateColumns: `56px repeat(7,1fr)`, flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div />
+        {weekDays.map(d => {
+          const isToday = sameDay(d, today), isSel = sameDay(d, selectedDate);
+          return (
+            <div key={toKey(d)} onClick={() => onSelectDay(d)} style={{ textAlign: 'center', padding: '10px 4px', cursor: 'pointer', transition: 'opacity 0.14s' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.8')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}>
+              <div style={{ fontSize: '11px', color: '#615846', fontFamily: SORA, fontWeight: 600 }}>{DAYS_UPPER[d.getDay()]}</div>
+              <span style={{ display: 'inline-flex', width: '30px', height: '30px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', marginTop: '4px', background: isSel ? '#F2571E' : 'transparent', color: isSel ? '#24180A' : isToday ? '#F2571E' : '#E8E1D2', fontWeight: isSel || isToday ? 700 : 400, fontSize: '14px', fontFamily: SORA, transition: 'background 0.18s, color 0.18s' }}>
+                {d.getDate()}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Scrollable grid */}
+      <div className="dshScroll" style={{ flex: 1, overflowY: 'auto', position: 'relative', paddingTop: '12px' }}>
+        <div style={{ position: 'relative', height: `${TOTAL_HRS * HOUR_PX}px` }}>
+          {Array.from({ length: TOTAL_HRS + 1 }, (_, i) => {
+            const h = START_HOUR + i;
+            return (
+              <div key={h}>
+                <div style={{ position: 'absolute', left: '56px', right: 0, top: `${i*HOUR_PX}px`, borderTop: '1px solid rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', left: 0, top: `${i*HOUR_PX-9}px`, fontSize: '11px', color: '#5C5447', userSelect: 'none', width: '52px', textAlign: 'right', paddingRight: '6px' }}>{h}:00</div>
+              </div>
+            );
+          })}
+          {weekDays.map((d, colIdx) => {
+            const dayEvents = events.filter(ev => sameDay(new Date(ev.startTime), d));
+            const dayCards  = cards.filter(c => c.dueDate && sameDay(new Date(c.dueDate), d) && !c.completed);
+            const colL = `calc(56px + ${colIdx} * (100% - 56px) / 7)`;
+            const colW = `calc((100% - 56px) / 7 - 4px)`;
+            return (
+              <div key={toKey(d)}>
+                {dayEvents.map(ev => {
+                  const color = hashColor(ev.id);
                   return (
-                    <div
-                      key={c.id}
-                      onClick={() => router.push(`/dashboard/workspaces/${c.workspaceId}/boards/${c.boardId}`)}
-                      style={{
-                        padding:'4px 10px', borderRadius:4, fontSize:10, cursor:'pointer',
-                        background:`${color}0d`, borderLeft:`2px solid ${color}`,
-                        color: c.completed ? R.text4 : R.text2,
-                        textDecoration: c.completed ? 'line-through' : 'none',
-                        marginRight:16, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis',
-                      }}
-                    >
-                      {c.title}
+                    <div key={ev.id} style={{ position: 'absolute', left: colL, width: colW, top: `${eventTop(ev)}px`, height: `${eventHeight(ev)}px`, borderRadius: '6px', background: `${color}18`, borderLeft: `3px solid ${color}`, padding: '3px 6px', overflow: 'hidden', cursor: 'pointer', zIndex: 2, transition: 'filter 0.14s' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.1)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.filter = 'none')}>
+                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#E8E1D2' }}>{ev.title}</div>
+                    </div>
+                  );
+                })}
+                {dayCards.map((c, i) => {
+                  const color = c.priority === 'HIGH' ? '#E05252' : c.priority === 'MEDIUM' ? '#DB8A66' : '#76A878';
+                  return (
+                    <div key={c.id} style={{ position: 'absolute', left: colL, width: colW, top: `${(9+i*0.5-START_HOUR)*HOUR_PX}px`, height: `${HOUR_PX*0.7}px`, borderRadius: '6px', background: `${color}14`, borderLeft: `3px solid ${color}`, padding: '3px 6px', overflow: 'hidden', cursor: 'pointer', zIndex: 2 }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#E8E1D2' }}>{c.title}</div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          )}
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Month View ────────────────────────────────────────────────────────────────
+
+function MonthView({ year, month, selectedDate, events, cards, onSelectDay }: {
+  year: number; month: number; selectedDate: Date;
+  events: CalendarEvent[]; cards: UserCard[]; onSelectDay: (d: Date) => void;
+}) {
+  const cells = getMonthGrid(year, month);
+  const today = new Date();
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px', marginBottom: '8px', flexShrink: 0 }}>
+        {DAYS_SHORT.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, color: '#615846', padding: '4px 0', fontFamily: SORA }}>{d}</div>)}
+      </div>
+      <div className="dshScroll" style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px' }}>
+          {cells.map((day, i) => {
+            if (day === null) return <div key={`e-${i}`} style={{ minHeight: '80px' }} />;
+            const d = new Date(year, month, day);
+            const key = toKey(d);
+            const isToday = sameDay(d, today), isSel = sameDay(d, selectedDate);
+            const dayEvs = events.filter(ev => sameDay(new Date(ev.startTime), d));
+            const dayCs  = cards.filter(c => c.dueDate && sameDay(new Date(c.dueDate), d) && !c.completed);
+            const total  = dayEvs.length + dayCs.length;
+            return (
+              <div key={key} onClick={() => onSelectDay(d)}
+                style={{ minHeight: '80px', padding: '8px', borderRadius: '8px', cursor: 'pointer', border: isSel ? '1px solid rgba(242,87,30,0.4)' : '1px solid rgba(255,255,255,0.04)', background: isSel ? 'rgba(242,87,30,0.06)' : 'rgba(255,255,255,0.01)', transition: 'background 0.14s, border-color 0.14s' }}
+                onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; }}
+                onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.01)'; }}>
+                <span style={{ display: 'inline-flex', width: '24px', height: '24px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: isToday && !isSel ? '#F2571E' : 'transparent', color: isToday && !isSel ? '#24180A' : isSel ? '#F2571E' : '#9C9486', fontSize: '12.5px', fontWeight: isToday || isSel ? 700 : 400 }}>{day}</span>
+                {dayEvs.slice(0, 2).map(ev => { const c = hashColor(ev.id); return <div key={ev.id} style={{ marginTop: '3px', padding: '1px 5px', borderRadius: '3px', background: `${c}20`, borderLeft: `2px solid ${c}`, fontSize: '10px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>; })}
+                {dayCs.slice(0, total > 2 ? 1 : 2).map(c => { const col = c.priority === 'HIGH' ? '#E05252' : c.priority === 'MEDIUM' ? '#DB8A66' : '#76A878'; return <div key={c.id} style={{ marginTop: '2px', padding: '1px 5px', borderRadius: '3px', background: `${col}16`, borderLeft: `2px solid ${col}`, fontSize: '10px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>; })}
+                {total > 3 && <div style={{ marginTop: '2px', fontSize: '10px', color: '#615846' }}>+{total - 3} más</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+type ViewType = 'dia' | 'semana' | 'mes';
+
+export default function CalendarPage() {
+  const { events, fetchEvents, createEvent } = useCalendarEventStore();
+
+  const [view,         setView]         = useState<ViewType>('dia');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [miniMonth,    setMiniMonth]    = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
+  const [cards,        setCards]        = useState<UserCard[]>([]);
+  const [showModal,    setShowModal]    = useState(false);
+  const [modalHour,    setModalHour]    = useState<number | undefined>(undefined);
+  const [quickCreate,  setQuickCreate]  = useState<QuickCreate | null>(null);
+  const [qcSaving,     setQcSaving]     = useState(false);
+
+  const today = useMemo(() => new Date(), []);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => {
+    apiService.get<{ pending: UserCard[]; overdue: UserCard[] }>('/api/users/me/cards', true)
+      .then(res => { if (res.success && res.data) setCards([...res.data.pending, ...res.data.overdue]); })
+      .catch(() => {});
+  }, []);
+
+  // Dismiss quick-create on outside click
+  useEffect(() => {
+    if (!quickCreate) return;
+    const handler = () => setQuickCreate(null);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [quickCreate]);
+
+  function navigate(delta: number) {
+    const d = new Date(selectedDate);
+    if (view === 'dia')    d.setDate(d.getDate() + delta);
+    if (view === 'semana') d.setDate(d.getDate() + delta * 7);
+    if (view === 'mes')    d.setMonth(d.getMonth() + delta);
+    setSelectedDate(d);
+    setMiniMonth({ year: d.getFullYear(), month: d.getMonth() });
+  }
+
+  function goToday() {
+    const d = new Date();
+    setSelectedDate(d);
+    setMiniMonth({ year: d.getFullYear(), month: d.getMonth() });
+  }
+
+  function handleGridClick(hour: number, minute: number) {
+    setQuickCreate({ hour, minute, durationH: 1, title: '' });
+  }
+
+  async function handleQcSave() {
+    if (!quickCreate || !quickCreate.title.trim()) return;
+    setQcSaving(true);
+    try {
+      const dateStr = `${selectedDate.getFullYear()}-${pad2(selectedDate.getMonth()+1)}-${pad2(selectedDate.getDate())}`;
+      const startISO = new Date(`${dateStr}T${pad2(quickCreate.hour)}:${pad2(quickCreate.minute)}:00`).toISOString();
+      const end = addHours(quickCreate.hour, quickCreate.minute, quickCreate.durationH);
+      const endH = Math.min(end.hour, 23), endM = end.hour > 23 ? 59 : end.minute;
+      const endISO = new Date(`${dateStr}T${pad2(endH)}:${pad2(endM)}:00`).toISOString();
+      await createEvent({ title: quickCreate.title, startTime: startISO, endTime: endISO } as CreateEventInput);
+      fetchEvents();
+      setQuickCreate(null);
+    } catch {
+      // keep form open on error
+    } finally {
+      setQcSaving(false);
+    }
+  }
+
+  const eventDays = useMemo(() => {
+    const s = new Set<string>();
+    for (const ev of events) s.add(toKey(new Date(ev.startTime)));
+    for (const c of cards) { if (c.dueDate) s.add(toKey(new Date(c.dueDate))); }
+    return s;
+  }, [events, cards]);
+
+  const agenda = useMemo(() => {
+    const upcoming: { key: string; day: string; color: string; title: string; time: string }[] = [];
+    const now = new Date();
+    const limit = new Date(now); limit.setDate(limit.getDate() + 14);
+    for (const ev of events) {
+      const d = new Date(ev.startTime);
+      if (d >= now && d <= limit) upcoming.push({ key: ev.id, day: DAYS_UPPER[d.getDay()], color: hashColor(ev.id), title: ev.title, time: fmtTime(ev.startTime) });
+    }
+    for (const c of cards) {
+      if (!c.dueDate) continue;
+      const d = new Date(c.dueDate);
+      if (d >= now && d <= limit) {
+        const color = c.priority === 'HIGH' ? '#E05252' : c.priority === 'MEDIUM' ? '#DB8A66' : '#76A878';
+        upcoming.push({ key: c.id, day: DAYS_UPPER[d.getDay()], color, title: c.title, time: 'Límite' });
+      }
+    }
+    return upcoming.sort((a, b) => a.day.localeCompare(b.day)).slice(0, 7);
+  }, [events, cards]);
+
+  const headerLabel = (() => {
+    if (view === 'dia')    return `${selectedDate.getDate()} ${MONTHS_ES[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+    if (view === 'semana') { const w = getWeekDays(selectedDate); return `${w[0].getDate()} – ${w[6].getDate()} ${MONTHS_ES[selectedDate.getMonth()]}`; }
+    return `${MONTHS_ES[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+  })();
+
+  const dateStr = `${selectedDate.getFullYear()}-${pad2(selectedDate.getMonth()+1)}-${pad2(selectedDate.getDate())}`;
+
+  return (
+    <div style={{
+      height: '100vh', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+      fontFamily: MANROPE,
+    }}>
+      <style>{`
+        @keyframes qcIn {
+          from { opacity: 0; transform: translateY(-7px) scale(0.975); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .cal-circle-btn {
+          background: transparent;
+          transition: background 0.15s;
+        }
+        .cal-circle-btn:hover {
+          background: rgba(255,255,255,0.07) !important;
+        }
+      `}</style>
+
+      {/* ── Centered container ── */}
+      <div style={{
+        maxWidth: '1320px', width: '100%', margin: '0 auto',
+        padding: 'clamp(18px,2.5vw,32px) clamp(18px,3vw,40px) 0',
+        display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0,
+      }}>
+
+      {/* ── Toolbar ──────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexShrink: 0, paddingBottom: '16px' }}>
+
+        {/* View switcher */}
+        <div style={{ display: 'flex', gap: '2px', padding: '3px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)' }}>
+          {(['dia','semana','mes'] as ViewType[]).map(key => (
+            <span key={key} onClick={() => setView(key)}
+              style={{ padding: '6px 15px', borderRadius: '8px', fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: view === key ? '#24180A' : '#8B8275', background: view === key ? '#F2571E' : 'transparent', cursor: 'pointer', transition: 'background 0.18s, color 0.18s' }}>
+              {key === 'dia' ? 'Día' : key === 'semana' ? 'Semana' : 'Mes'}
+            </span>
+          ))}
+        </div>
+
+        {/* Date label */}
+        <span style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 600, color: '#E8E1D2', flex: 1, textAlign: 'center' }}>
+          {headerLabel}
+        </span>
+
+        {/* Nav + create */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <CircleBtn onClick={() => navigate(-1)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="#9C9486" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </CircleBtn>
+          <span onClick={goToday}
+            style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: '#D8D0C1', cursor: 'pointer', transition: 'background 0.14s' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
+            Hoy
+          </span>
+          <CircleBtn onClick={() => navigate(1)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#9C9486" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </CircleBtn>
+          <button onClick={() => { setModalHour(undefined); setShowModal(true); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 15px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: SORA, fontWeight: 600, fontSize: '13px', cursor: 'pointer', transition: 'filter 0.14s, transform 0.14s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
+            Nuevo evento
+          </button>
         </div>
       </div>
 
-      {/* ── Sidebar desktop ──────────────────────────────── */}
-      {!isMobile && Sidebar}
+      {/* ── Body ─────────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', gap: '24px', minHeight: 0, paddingBottom: '16px' }}>
 
-      {/* ── Sidebar mobile overlay ───────────────────────── */}
-      <AnimatePresence>
-        {isMobile && panelOpen && (
-          <>
-            <motion.div
-              initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-              transition={{ duration:0.15 }}
-              onClick={() => setPanelOpen(false)}
-              style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:30 }}
+        {/* Main calendar view */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {view === 'dia' && (
+            <DayView
+              date={selectedDate} events={events} cards={cards}
+              quickCreate={quickCreate}
+              onGridClick={handleGridClick}
+              onQcChange={setQuickCreate}
+              onQcCancel={() => setQuickCreate(null)}
+              onQcSave={handleQcSave}
+              qcSaving={qcSaving}
             />
-            <motion.div
-              initial={{ x:'100%' }} animate={{ x:0 }} exit={{ x:'100%' }}
-              transition={{ type:'spring', damping:30, stiffness:340 }}
-              style={{ position:'fixed', right:0, top:0, bottom:0, zIndex:40, display:'flex', overflowY:'auto' }}
-            >
-              <div style={{ position:'absolute', top:10, left:12, zIndex:1 }}>
-                <button onClick={() => setPanelOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:R.text3 }}>
-                  <X size={14} />
-                </button>
-              </div>
-              {Sidebar}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+          )}
+          {view === 'semana' && (
+            <WeekView selectedDate={selectedDate} events={events} cards={cards}
+              onSelectDay={d => { setSelectedDate(d); setView('dia'); }} />
+          )}
+          {view === 'mes' && (
+            <MonthView year={selectedDate.getFullYear()} month={selectedDate.getMonth()}
+              selectedDate={selectedDate} events={events} cards={cards}
+              onSelectDay={d => { setSelectedDate(d); setView('dia'); }} />
+          )}
+        </div>
 
-      {/* ── Modal crear/editar evento ────────────────────── */}
+        {/* Right aside */}
+        <aside className="dshScroll" style={{ width: '268px', flexShrink: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <MiniCalendar
+            year={miniMonth.year} month={miniMonth.month}
+            selectedDate={selectedDate} today={today} eventDays={eventDays}
+            onPrev={() => setMiniMonth(m => { const d = new Date(m.year, m.month-1,1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+            onNext={() => setMiniMonth(m => { const d = new Date(m.year, m.month+1,1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+            onSelectDay={day => {
+              const d = new Date(miniMonth.year, miniMonth.month, day);
+              setSelectedDate(d);
+              if (view === 'mes') setView('dia');
+            }}
+          />
+
+          <div>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: '#615846', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 10px' }}>Próximos</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {agenda.length > 0 ? agenda.map(e => (
+                <div key={e.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.12s' }}
+                  onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)')}
+                  onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.background = 'transparent')}>
+                  <span style={{ fontFamily: SORA, fontSize: '11px', fontWeight: 700, color: '#827A6D', width: '32px', flexShrink: 0 }}>{e.day}</span>
+                  <span style={{ width: '3px', height: '24px', borderRadius: '8px', background: e.color, flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: '13px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
+                  <span style={{ fontSize: '11.5px', color: '#827A6D', flexShrink: 0 }}>{e.time}</span>
+                </div>
+              )) : (
+                <div style={{ padding: '14px 10px', fontSize: '13px', color: '#615846' }}>Sin eventos próximos</div>
+              )}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      </div>{/* end centered container */}
+
       <CreateEventModal
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditEvent(null); }}
-        initialDate={selKey}
-        initialHour={clickHour}
-        eventToEdit={editEvent}
+        open={showModal}
+        onClose={() => { setShowModal(false); fetchEvents(); }}
+        initialDate={dateStr}
+        initialHour={modalHour}
       />
     </div>
   );

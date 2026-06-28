@@ -46,8 +46,9 @@ function fmtTeam(row: any) {
     createdBy:   row.created_by,
     createdAt:   new Date(row.created_at).toISOString(),
     updatedAt:   new Date(row.updated_at).toISOString(),
-    memberCount: Number(row.member_count ?? 0),
-    lead:        row.lead_name ? { id: row.lead_id, name: row.lead_name, avatar: row.lead_avatar } : null,
+    memberCount:   Number(row.member_count ?? 0),
+    lead:          row.lead_name ? { id: row.lead_id, name: row.lead_name, avatar: row.lead_avatar } : null,
+    sampleMembers: row.sample_members ?? [],
   };
 }
 
@@ -83,7 +84,12 @@ class TeamController {
       const result = await pool.query(
         `SELECT t.*,
                 COUNT(tm.id)::int AS member_count,
-                u.name AS lead_name, u.avatar AS lead_avatar
+                u.name AS lead_name, u.avatar AS lead_avatar,
+                (
+                  SELECT json_agg(jsonb_build_object('id', mu.id, 'name', mu.name) ORDER BY tm2.joined_at ASC)
+                  FROM (SELECT * FROM team_members WHERE team_id = t.id ORDER BY joined_at ASC LIMIT 4) tm2
+                  JOIN users mu ON mu.id = tm2.user_id
+                ) AS sample_members
          FROM teams t
          LEFT JOIN team_members tm ON tm.team_id = t.id
          LEFT JOIN users u ON u.id = t.lead_id
@@ -590,70 +596,105 @@ class TeamController {
       );
       if (!access.rows.length) return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado' } });
 
-      // Actividad reciente: acciones de miembros del equipo + eventos del propio equipo
-      const result = await pool.query(
-        `SELECT
-           e.id,
-           e.type,
-           e.subject_name,
-           e.delta,
-           e.actor_id,
-           e.created_at,
-           u.id     AS user_id,
-           u.name   AS user_name,
-           u.avatar AS user_avatar
-         FROM events e
-         JOIN users u ON u.id = e.actor_id
-         WHERE (
-           (
-             e.actor_id IN (SELECT user_id FROM team_members WHERE team_id = $1)
-             AND e.type IN (
-               'card.created', 'card.updated', 'card.moved', 'card.status-changed',
-               'card.deleted', 'card.archived',
-               'list.created', 'board.created'
-             )
+      const targetUserId = req.query.userId as string | undefined;
+
+      // Si se especifica un miembro: muestra su actividad en los proyectos del equipo
+      // Si no: solo eventos del propio equipo (miembros añadidos/quitados)
+      let result;
+      if (targetUserId) {
+        result = await pool.query(
+          `WITH team_projects AS (
+             SELECT pt.project_id, p.name AS project_name
+             FROM project_teams pt
+             JOIN projects p ON p.id = pt.project_id
+             WHERE pt.team_id = $1
            )
-           OR
-           (
-             e.subject_id = $1
-             AND e.type IN (
-               'team.member.added', 'team.member.removed', 'team.member.role-changed'
+           SELECT
+             e.id,
+             e.type,
+             e.subject_name,
+             e.delta,
+             e.payload,
+             e.actor_id,
+             e.created_at,
+             u.name   AS user_name,
+             u.avatar AS user_avatar,
+             COALESCE(tp1.project_name, tp2.project_name) AS project_name,
+             COALESCE(tp1.project_id::text, tp2.project_id::text) AS project_id
+           FROM events e
+           JOIN users u ON u.id = e.actor_id
+           LEFT JOIN project_boards pb  ON pb.board_id   = e.board_id
+           LEFT JOIN team_projects tp1  ON tp1.project_id = pb.project_id
+           LEFT JOIN team_projects tp2  ON tp2.project_id::text = e.payload->>'projectId'
+           WHERE e.actor_id = $2
+             AND (
+               (tp1.project_id IS NOT NULL AND e.type IN (
+                 'card.created','card.updated','card.moved','card.status-changed',
+                 'card.deleted','card.archived','list.created','board.created'
+               ))
+               OR
+               (tp2.project_id IS NOT NULL AND e.type LIKE 'project.%')
              )
-           )
-         )
-         ORDER BY e.created_at DESC
-         LIMIT $2`,
-        [id, limit]
-      );
+           ORDER BY e.created_at DESC
+           LIMIT $3`,
+          [id, targetUserId, limit]
+        );
+      } else {
+        result = await pool.query(
+          `SELECT e.id, e.type, e.subject_name, e.delta, e.payload, e.actor_id, e.created_at,
+                  u.name AS user_name, u.avatar AS user_avatar,
+                  NULL::text AS project_name, NULL::text AS project_id
+           FROM events e
+           JOIN users u ON u.id = e.actor_id
+           WHERE e.subject_id = $1
+             AND e.type IN ('team.member.added','team.member.removed','team.member.role-changed')
+           ORDER BY e.created_at DESC LIMIT $2`,
+          [id, limit]
+        );
+      }
 
       const events = result.rows.map((row) => {
-        const delta = row.delta ?? {};
-        let action = row.type as string;
+        const delta   = row.delta   ?? {};
+        const payload = row.payload ?? {};
+        let action     = row.type as string;
         const entityName: string | null = row.subject_name ?? null;
 
         switch (row.type) {
-          case 'card.created':             action = 'creó la card';              break;
-          case 'card.updated':             action = 'actualizó la card';         break;
-          case 'card.moved':               action = 'movió la card';             break;
-          case 'card.deleted':             action = 'eliminó la card';           break;
-          case 'card.archived':            action = 'archivó la card';           break;
-          case 'card.status-changed':      action = delta.completed ? 'completó la card' : 'cambió el estado de la card'; break;
-          case 'list.created':             action = 'creó la lista';             break;
-          case 'board.created':            action = 'creó el tablero';           break;
-          case 'team.member.added':        action = 'añadió al equipo a';        break;
-          case 'team.member.removed':      action = 'eliminó del equipo a';      break;
-          case 'team.member.role-changed': action = 'cambió el rol de';          break;
+          case 'card.created':              action = 'creó la tarjeta';                break;
+          case 'card.updated':              action = 'actualizó la tarjeta';           break;
+          case 'card.moved':                action = 'movió la tarjeta';               break;
+          case 'card.deleted':              action = 'eliminó la tarjeta';             break;
+          case 'card.archived':             action = 'archivó la tarjeta';             break;
+          case 'card.status-changed':       action = delta.completed ? 'completó la tarjeta' : 'cambió el estado de la tarjeta'; break;
+          case 'list.created':              action = 'creó la lista';                  break;
+          case 'board.created':             action = 'creó el tablero';                break;
+          case 'team.member.added':         action = 'añadió al equipo a';             break;
+          case 'team.member.removed':       action = 'eliminó del equipo a';           break;
+          case 'team.member.role-changed':  action = 'cambió el rol de';               break;
+          case 'project.milestone.created':   action = 'creó el hito';                 break;
+          case 'project.milestone.completed': action = 'completó el hito';             break;
+          case 'project.milestone.missed':    action = 'marcó como perdido el hito';   break;
+          case 'project.milestone.deleted':   action = 'eliminó el hito';              break;
+          case 'project.milestone.updated':   action = 'actualizó el hito';            break;
+          case 'project.board.linked':        action = 'vinculó el tablero';           break;
+          case 'project.board.unlinked':      action = 'desvinculó el tablero';        break;
+          case 'project.member.added':        action = 'invitó a';                     break;
+          case 'project.member.removed':      action = 'quitó a';                      break;
+          case 'project.status.changed':      action = `cambió el estado a ${payload.newStatus ?? ''}`; break;
+          case 'project.updated':             action = 'editó el proyecto';            break;
         }
 
         return {
-          id:         row.id,
-          eventType:  row.type,
-          userId:     row.user_id,
-          userName:   row.user_name,
-          userAvatar: row.user_avatar ?? null,
+          id:          row.id,
+          eventType:   row.type,
+          userId:      row.actor_id,
+          userName:    row.user_name,
+          userAvatar:  row.user_avatar ?? null,
           action,
-          entityName,
-          createdAt:  new Date(row.created_at).toISOString(),
+          entityName:  entityName ?? (payload.boardName ?? payload.teamName ?? payload.memberName ?? null),
+          projectName: row.project_name ?? null,
+          projectId:   row.project_id   ?? null,
+          createdAt:   new Date(row.created_at).toISOString(),
         };
       });
 
@@ -734,6 +775,18 @@ class TeamController {
           `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT (team_id, user_id) DO NOTHING`,
           [inv.team_id, userId, inv.role]
         );
+
+        // Grant workspace access for every workspace this team is assigned to via projects
+        await client.query(
+          `INSERT INTO workspace_members (workspace_id, user_id, role)
+           SELECT DISTINCT p.workspace_id, $1, 'MEMBER'
+           FROM project_teams pt
+           JOIN projects p ON p.id = pt.project_id
+           WHERE pt.team_id = $2
+           ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+          [userId, inv.team_id]
+        );
+
         await client.query(`UPDATE team_invitations SET status = 'ACCEPTED' WHERE id = $1`, [invitationId]);
         await client.query(`UPDATE teams SET updated_at = NOW() WHERE id = $1`, [inv.team_id]);
         await client.query('COMMIT');

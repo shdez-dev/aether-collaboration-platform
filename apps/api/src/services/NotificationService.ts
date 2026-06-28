@@ -759,6 +759,186 @@ export class NotificationService {
     return notification;
   }
 
+  private async emitNotificationCreated(notification: Notification, actorId: string, actorName: string, targetUserId: string, workspaceId?: string) {
+    try {
+      await eventStore.emit({
+        type: 'notification.created',
+        actor: { id: actorId, name: actorName },
+        subject: { type: 'notification', id: notification.id, name: '' },
+        context: { workspaceId: workspaceId ?? '' },
+        payload: {
+          notificationId: notification.id,
+          userId: targetUserId,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+        },
+        targetUserId,
+      } as any);
+    } catch {}
+  }
+
+  /** Invitación directa a un proyecto */
+  async createProjectInviteNotification(data: {
+    invitedUserId: string;
+    addedById: string;
+    addedByName: string;
+    projectId: string;
+    projectName: string;
+    workspaceId?: string;
+  }): Promise<Notification | null> {
+    if (data.invitedUserId === data.addedById) return null;
+
+    const isDuplicate = await notificationRepository.existsRecent({
+      userId: data.invitedUserId,
+      type: 'PROJECT_INVITE',
+      workspaceId: data.projectId,
+    });
+    if (isDuplicate) return null;
+
+    const notification = await notificationRepository.create({
+      userId: data.invitedUserId,
+      type: 'PROJECT_INVITE',
+      title: 'Te invitaron a un proyecto',
+      message: `${data.addedByName} te añadió al proyecto "${data.projectName}"`,
+      data: {
+        projectId: data.projectId,
+        projectName: data.projectName,
+        addedById: data.addedById,
+        addedByName: data.addedByName,
+        workspaceId: data.workspaceId,
+      },
+    });
+
+    await this.emitNotificationCreated(notification, data.addedById, data.addedByName, data.invitedUserId, data.workspaceId);
+    return notification;
+  }
+
+  /** Hito perdido — notifica a cada miembro del proyecto */
+  async createMilestoneMissedNotification(data: {
+    targetUserId: string;
+    actorId: string;
+    actorName: string;
+    projectId: string;
+    projectName: string;
+    milestoneId: string;
+    milestoneName: string;
+    milestoneDate: string;
+    workspaceId?: string;
+  }): Promise<Notification | null> {
+    if (data.targetUserId === data.actorId) return null;
+
+    const isDuplicate = await notificationRepository.existsRecent({
+      userId: data.targetUserId,
+      type: 'MILESTONE_MISSED',
+      workspaceId: data.milestoneId,
+    });
+    if (isDuplicate) return null;
+
+    const notification = await notificationRepository.create({
+      userId: data.targetUserId,
+      type: 'MILESTONE_MISSED',
+      title: 'Hito perdido',
+      message: `El hito "${data.milestoneName}" del proyecto "${data.projectName}" fue marcado como perdido`,
+      data: {
+        projectId: data.projectId,
+        projectName: data.projectName,
+        milestoneId: data.milestoneId,
+        milestoneName: data.milestoneName,
+        milestoneDate: data.milestoneDate,
+        workspaceId: data.workspaceId,
+      },
+    });
+
+    await this.emitNotificationCreated(notification, data.actorId, data.actorName, data.targetUserId, data.workspaceId);
+    return notification;
+  }
+
+  /** Hito completado — notifica a cada miembro del proyecto */
+  async createMilestoneCompletedNotification(data: {
+    targetUserId: string;
+    actorId: string;
+    actorName: string;
+    projectId: string;
+    projectName: string;
+    milestoneId: string;
+    milestoneName: string;
+    milestoneDate: string;
+    workspaceId?: string;
+  }): Promise<Notification | null> {
+    if (data.targetUserId === data.actorId) return null;
+
+    const isDuplicate = await notificationRepository.existsRecent({
+      userId: data.targetUserId,
+      type: 'MILESTONE_COMPLETED',
+      workspaceId: data.milestoneId,
+    });
+    if (isDuplicate) return null;
+
+    const notification = await notificationRepository.create({
+      userId: data.targetUserId,
+      type: 'MILESTONE_COMPLETED',
+      title: 'Hito alcanzado',
+      message: `El hito "${data.milestoneName}" del proyecto "${data.projectName}" fue completado`,
+      data: {
+        projectId: data.projectId,
+        projectName: data.projectName,
+        milestoneId: data.milestoneId,
+        milestoneName: data.milestoneName,
+        milestoneDate: data.milestoneDate,
+        workspaceId: data.workspaceId,
+      },
+    });
+
+    await this.emitNotificationCreated(notification, data.actorId, data.actorName, data.targetUserId, data.workspaceId);
+    return notification;
+  }
+
+  /** Cambio de estado del proyecto — notifica a cada miembro */
+  async createProjectStatusChangedNotification(data: {
+    targetUserId: string;
+    actorId: string;
+    actorName: string;
+    projectId: string;
+    projectName: string;
+    oldStatus: string;
+    newStatus: string;
+    workspaceId?: string;
+  }): Promise<Notification | null> {
+    if (data.targetUserId === data.actorId) return null;
+
+    const isDuplicate = await notificationRepository.existsRecent({
+      userId: data.targetUserId,
+      type: 'PROJECT_STATUS_CHANGED',
+      workspaceId: data.projectId,
+    });
+    if (isDuplicate) return null;
+
+    const statusLabels: Record<string, string> = {
+      PLANNING: 'Planificación', ACTIVE: 'Activo', ON_HOLD: 'En pausa',
+      COMPLETED: 'Completado', ARCHIVED: 'Archivado',
+    };
+    const newLabel = statusLabels[data.newStatus] ?? data.newStatus;
+
+    const notification = await notificationRepository.create({
+      userId: data.targetUserId,
+      type: 'PROJECT_STATUS_CHANGED',
+      title: 'Estado del proyecto actualizado',
+      message: `${data.actorName} cambió el estado de "${data.projectName}" a ${newLabel}`,
+      data: {
+        projectId: data.projectId,
+        projectName: data.projectName,
+        oldStatus: data.oldStatus,
+        newStatus: data.newStatus,
+        workspaceId: data.workspaceId,
+      },
+    });
+
+    await this.emitNotificationCreated(notification, data.actorId, data.actorName, data.targetUserId, data.workspaceId);
+    return notification;
+  }
+
   /**
    * Limpiar notificaciones leídas antiguas
    */

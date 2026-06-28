@@ -113,6 +113,14 @@ router.get('/:id/members', checkWorkspaceMembership, (req, res) =>
 );
 
 /**
+ * GET /api/workspaces/:id/pending-invitations
+ * Invitaciones salientes pendientes del workspace
+ */
+router.get('/:id/pending-invitations', checkWorkspaceMembership, (req, res) =>
+  workspaceController.getPendingOutgoingInvitations(req, res)
+);
+
+/**
  * PUT /api/workspaces/:id/members/:userId
  * Cambiar rol de un miembro
  * Permisos: Solo OWNER

@@ -223,12 +223,17 @@ app.use((req, res) => {
 });
 
 // Error handler
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Loguear el detalle en el servidor, pero nunca exponer internos al cliente en producción.
+  process.stderr.write(`error: ${req.method} ${req.path} — ${err.stack || err.message}\n`);
+
+  const isProduction = env.NODE_ENV === 'production';
   res.status(500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: err.message || 'Internal server error',
+      message: isProduction ? 'Internal server error' : err.message || 'Internal server error',
     },
   });
 });

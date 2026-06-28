@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
+import { apiService } from '@/services/apiService';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -98,6 +99,38 @@ const TYPE_META: Record<string, { color: string; icon: React.ReactNode }> = {
       </svg>
     ),
   },
+  PROJECT_INVITE: {
+    color: '#a855f7',
+    icon: (
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12">
+        <rect x="1" y="2" width="12" height="10" rx="1.5" /><path d="M5 7h4M7 5v4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  MILESTONE_COMPLETED: {
+    color: '#10b981',
+    icon: (
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" width="12" height="12">
+        <path d="M2 7l3 3 7-6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  MILESTONE_MISSED: {
+    color: '#ef4444',
+    icon: (
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12">
+        <path d="M7 1v6M7 9.5v1" strokeLinecap="round" /><circle cx="7" cy="7" r="6" />
+      </svg>
+    ),
+  },
+  PROJECT_STATUS_CHANGED: {
+    color: '#f59e0b',
+    icon: (
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12">
+        <circle cx="7" cy="7" r="5.5" /><path d="M7 4v3l2 1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 };
 
 const DEFAULT_META = {
@@ -136,13 +169,34 @@ export function NotificationItem({
       setIsLoading(true);
       try { await onMarkAsRead(notification.id); } catch {} finally { setIsLoading(false); }
     }
-    const { workspaceId, boardId } = (notification.data ?? {}) as any;
-    if (notification.type === 'WORKSPACE_INVITE' || notification.type === 'WORKSPACE_REMOVED') {
-      if (workspaceId) { router.push(`/dashboard/workspaces/${workspaceId}`); onClose?.(); }
-    } else if (workspaceId && boardId) {
-      router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`); onClose?.();
-    } else if (workspaceId) {
-      router.push(`/dashboard/workspaces/${workspaceId}`); onClose?.();
+    const data = (notification.data ?? {}) as any;
+    const projectTypes = ['PROJECT_INVITE', 'MILESTONE_COMPLETED', 'MILESTONE_MISSED', 'PROJECT_STATUS_CHANGED'];
+
+    if (projectTypes.includes(notification.type) && data.projectId) {
+      router.push(`/dashboard/projects/${data.projectId}`); onClose?.();
+    } else if (notification.type === 'TEAM_INVITE' || (notification.type as string) === 'TEAM_MEMBER_ADDED' || (notification.type as string) === 'TEAM_MEMBER_REMOVED') {
+      if (data.teamId) { router.push(`/dashboard/teams/${data.teamId}`); } else { router.push('/dashboard'); }
+      onClose?.();
+    } else if (notification.type === 'WORKSPACE_INVITE' || notification.type === 'WORKSPACE_REMOVED') {
+      router.push('/dashboard'); onClose?.();
+    } else if (data.boardId) {
+      // Resolve board → parent project, then navigate to project page
+      setIsLoading(true);
+      try {
+        const json = await apiService.get<{ project: { projectId: string } | null }>(
+          `/api/boards/${data.boardId}/project`,
+          true
+        );
+        const projectId = json?.data?.project?.projectId;
+        router.push(projectId ? `/dashboard/projects/${projectId}` : '/dashboard');
+      } catch {
+        router.push('/dashboard');
+      } finally {
+        setIsLoading(false);
+      }
+      onClose?.();
+    } else {
+      router.push('/dashboard'); onClose?.();
     }
   };
 

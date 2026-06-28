@@ -52,6 +52,10 @@ router.get('/boards/:id', checkWorkspaceMembership, (req, res) =>
   boardController.getById(req, res)
 );
 
+router.get('/boards/:id/project', checkWorkspaceMembership, (req, res) =>
+  boardController.getParentProject(req, res)
+);
+
 /**
  * GET /api/boards/:id/dependency-graph
  * Obtener el grafo de dependencias del board (nodos + aristas)

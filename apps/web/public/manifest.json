@@ -1,11 +1,11 @@
 {
-  "name": "AETHER Collaboration Platform",
+  "name": "Aether",
   "short_name": "Aether",
-  "description": "Event-driven collaboration platform for teams - Manage workspaces, boards, and documents in real-time",
+  "description": "Organiza sin esfuerzo — plataforma de colaboración para equipos",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#3B82F6",
+  "background_color": "#13182A",
+  "theme_color": "#F2571E",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "es-ES",
@@ -19,25 +19,29 @@
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
     }
   ],
   "shortcuts": [
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
-      "description": "Go to main dashboard",
+      "description": "Ir al dashboard",
       "url": "/dashboard",
-      "icons": [
-        {
-          "src": "/icon.svg",
-          "sizes": "any",
-          "type": "image/svg+xml"
-        }
-      ]
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
 }

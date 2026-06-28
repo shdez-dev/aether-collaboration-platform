@@ -374,6 +374,19 @@ export class BoardService {
       updatedAt: row.updated_at,
     };
   }
+
+  async getParentProject(boardId: string): Promise<{ projectId: string; projectName: string } | null> {
+    const result = await pool.query(
+      `SELECT p.id AS project_id, p.name AS project_name
+       FROM project_boards pb
+       JOIN projects p ON p.id = pb.project_id
+       WHERE pb.board_id = $1
+       LIMIT 1`,
+      [boardId]
+    );
+    if (result.rows.length === 0) return null;
+    return { projectId: result.rows[0].project_id, projectName: result.rows[0].project_name };
+  }
 }
 
 export const boardService = new BoardService();

@@ -1,4 +1,4 @@
-// apps/web/src/app/dashboard/workspaces/[id]/boards/[boardId]/dependencies/page.tsx
+// apps/web/src/app/dashboard/boards/[boardId]/dependencies/page.tsx
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -307,7 +307,6 @@ export default function DependencyMapPage() {
   const params = useParams();
   const router = useRouter();
 
-  const workspaceId = params.id as string;
   const boardId     = params.boardId as string;
 
   const [graph,     setGraph]     = useState<GraphData | null>(null);
@@ -352,7 +351,7 @@ export default function DependencyMapPage() {
     return { total: graph.cards.length, blocked, completed, deps: graph.edges.length };
   }, [graph]);
 
-  const handleBack = () => router.push(`/dashboard/workspaces/${workspaceId}/boards/${boardId}`);
+  const handleBack = () => router.push(`/dashboard/boards/${boardId}`);
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {

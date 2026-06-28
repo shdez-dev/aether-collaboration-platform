@@ -79,23 +79,23 @@
     /* AETHER Theme - Dark Mode (default) */
     --background: 0 0% 7%;
 
-    /* C-token custom properties (dark defaults) */
-    --c-bg:      #080c14;
-    --c-bg2:     #0b1020;
-    --c-surface: #0e1628;
-    --c-surface2:#121e34;
-    --c-hover:   rgba(56, 182, 255, 0.07);
-    --c-border:  rgba(56, 182, 255, 0.11);
-    --c-border2: rgba(56, 182, 255, 0.22);
-    --c-text:    #f0f6ff;
-    --c-text2:   #8aaac8;
-    --c-text3:   #4a6480;
-    --c-text4:   #2d4560;
-    --c-accent:  #38b6ff;
-    --c-green:   #00e5cc;
-    --c-amber:   #f59e0b;
-    --c-red:     #ef4444;
-    --c-purple:  #8b5cf6;
+    /* C-token custom properties — Aether Design System */
+    --c-bg:      #161B2E;
+    --c-bg2:     #191F33;
+    --c-surface: #1E2438;
+    --c-surface2:#222A40;
+    --c-hover:   rgba(255, 255, 255, 0.04);
+    --c-border:  rgba(255, 255, 255, 0.07);
+    --c-border2: rgba(255, 255, 255, 0.13);
+    --c-text:    #E8E1D2;
+    --c-text2:   #9C9486;
+    --c-text3:   #827A6D;
+    --c-text4:   #615846;
+    --c-accent:  #F2571E;
+    --c-green:   #76A878;
+    --c-amber:   #DB8A66;
+    --c-red:     #E05252;
+    --c-purple:  #8C7C9E;
     --foreground: 210 40% 98%;
 
     --card: 0 0% 7%;
@@ -1009,4 +1009,263 @@ body {
 
 .rdp-chevron {
   fill: hsl(var(--text-primary));
+}
+
+/* ==================== AETHER DESIGN SYSTEM — LANDING KEYFRAMES ==================== */
+@keyframes auroraA {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(50px,-34px) scale(1.18); }
+}
+@keyframes auroraB {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(-56px,42px) scale(1.12); }
+}
+@keyframes auroraC {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(34px,40px) scale(1.1); }
+}
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-11px); }
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .4; transform: scale(.78); }
+}
+@keyframes caretBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes typeline {
+  0%, 14% { width: 0; }
+  48%, 100% { width: 212px; }
+}
+@keyframes slideIn {
+  0%, 6% { opacity: 0; transform: translateY(12px); }
+  18%, 100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes travelCard {
+  0%   { transform: translate(0px,0px) scale(1); opacity: 1; box-shadow: 0 16px 34px -16px rgba(0,0,0,.7); }
+  16%  { transform: translate(0px,0px) scale(1); }
+  24%  { transform: translate(96px,-18px) scale(1.05); box-shadow: 0 30px 50px -18px rgba(0,0,0,.8); }
+  33%  { transform: translate(193px,0px) scale(1); }
+  49%  { transform: translate(193px,0px) scale(1); }
+  57%  { transform: translate(289px,-18px) scale(1.05); box-shadow: 0 30px 50px -18px rgba(0,0,0,.8); }
+  66%  { transform: translate(386px,0px) scale(1); }
+  84%  { transform: translate(386px,0px) scale(1); opacity: 1; }
+  89%  { opacity: 0; }
+  90%  { transform: translate(0px,0px) scale(1); opacity: 0; }
+  100% { transform: translate(0px,0px) scale(1); opacity: 1; }
+}
+@keyframes travelCursor {
+  0%, 16% { transform: translate(132px,72px); }
+  24%      { transform: translate(228px,54px); }
+  33%, 49% { transform: translate(325px,72px); }
+  57%      { transform: translate(421px,54px); }
+  66%, 84% { transform: translate(518px,72px); }
+  89%      { opacity: 1; }
+  90%      { transform: translate(132px,72px); opacity: 0; }
+  92%      { opacity: 0; }
+  100%     { transform: translate(132px,72px); opacity: 1; }
+}
+
+.aether-input::placeholder { color: #615846; }
+.aether-input:focus {
+  border-color: #F2571E !important;
+  background: rgba(255,255,255,0.06) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Landing — base mock state ──────────────────────────────── */
+.mockWrap { overflow: visible; }
+
+/* ── Landing nav — ocultar enlace secundario en pantallas chicas ── */
+@media (max-width: 480px) {
+  .landing-nav-login { display: none; }
+}
+
+/* ── Landing hero/feature text — dejar que se estreche en móvil ── */
+@media (max-width: 560px) {
+  .landing-hero-text   { min-width: 0 !important; }
+  .landing-feature-text { min-width: 0 !important; }
+}
+
+/* ── Landing footer — centrar en móvil ─────────────────────────── */
+@media (max-width: 600px) {
+  .landing-footer {
+    justify-content: center !important;
+    text-align: center;
+  }
+}
+
+/*
+ * ── Orden de texto y mock en móvil ──────────────────────────────
+ *
+ * En desktop las escenas 01 y 03 tienen mock a la izquierda (order:1)
+ * y texto a la derecha (order:2) mediante estilos inline.
+ * Al apilar en móvil eso pone el mock ARRIBA del texto, al revés de
+ * lo que se espera. Con !important sobreescribimos el style inline y
+ * ponemos siempre texto (1) encima del mock (2) en pantallas chicas.
+ */
+@media (max-width: 780px) {
+  .landing-feature-text { order: 1 !important; }
+  .landing-feature-mock { order: 2 !important; }
+}
+
+/* ── Mock scaling — tres breakpoints con compensación de altura ─── */
+/*
+ * transform: scale no afecta el layout: el elemento mantiene su altura
+ * original en el flujo. Para evitar el hueco vacío debajo del mock
+ * escalado, ajustamos la altura del wrapper (mockWrap) al valor visual
+ * correcto y usamos overflow: hidden para recortar el exceso.
+ *
+ * Fórmulas:
+ *   altura-visual = altura-original × escala
+ *
+ * Clases de wrapper:
+ *   .mockWrap-452  →  hero board (452px)
+ *   .mockWrap-340  →  feature mocks con height fija (340px)
+ *   .mockWrap-300  →  team mock altura estimada (~300px)
+ */
+
+/* Tablet (≤ 780px) — escala 0.80 */
+@media (max-width: 780px) {
+  .mockScale    { transform: scale(0.80); transform-origin: top center; }
+  .mockWrap     { overflow: hidden; }
+  .mockWrap-452 { height: 362px; } /* 452 × 0.80 */
+  .mockWrap-340 { height: 272px; } /* 340 × 0.80 */
+  .mockWrap-300 { height: 240px; } /* 300 × 0.80 */
+}
+
+/* Móvil grande (≤ 560px) — escala 0.62 */
+@media (max-width: 560px) {
+  .mockScale    { transform: scale(0.62); transform-origin: top center; }
+  .mockWrap-452 { height: 280px; } /* 452 × 0.62 */
+  .mockWrap-340 { height: 211px; } /* 340 × 0.62 */
+  .mockWrap-300 { height: 186px; } /* 300 × 0.62 */
+}
+
+/* Móvil pequeño (≤ 400px) — escala 0.50 */
+@media (max-width: 400px) {
+  .mockScale    { transform: scale(0.50); transform-origin: top center; }
+  .mockWrap-452 { height: 226px; } /* 452 × 0.50 */
+  .mockWrap-340 { height: 170px; } /* 340 × 0.50 */
+  .mockWrap-300 { height: 150px; } /* 300 × 0.50 */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aether-landing * { animation-play-state: paused !important; }
+}
+
+/* ── Dashboard scrollbar ─────────────────────────────────────────── */
+.dshScroll::-webkit-scrollbar { width: 6px; }
+.dshScroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
+@keyframes fadeUp { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: translateY(0); } }
+.dshInput::placeholder { color: #5C5447; }
+
+/* ── Dashboard sidebar — drawer responsivo ──────────────────────────
+ *
+ * En móvil el sidebar es un drawer fijo que desliza desde la izquierda.
+ * En desktop (≥ 768px) vuelve al flujo normal como columna pegajosa.
+ */
+
+/* Móvil: drawer oculto por defecto */
+.dsh-sidebar-wrap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 60;
+  transform: translateX(-100%);
+  transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+.dsh-sidebar-wrap.is-open {
+  transform: translateX(0);
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.45);
+}
+
+/* Backdrop: semitransparente detrás del drawer */
+.dsh-sidebar-backdrop {
+  display: none;
+}
+.dsh-sidebar-backdrop.is-open {
+  display: block;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 59;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  cursor: pointer;
+}
+
+/* Desktop (≥ 768px): sidebar siempre visible en flujo normal */
+@media (min-width: 768px) {
+  .dsh-sidebar-wrap {
+    position: static;
+    height: auto;
+    flex-shrink: 0;
+    z-index: auto;
+    transform: none !important;
+    transition: none;
+    will-change: auto;
+    box-shadow: none !important;
+  }
+  .dsh-sidebar-backdrop.is-open { display: none; }
+  .dsh-topbar { display: none !important; }
+}
+
+/* ── Auth pages ──────────────────────────────────────────────────── */
+.auth-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #13182A;
+  font-family: 'Manrope', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.auth-brand {
+  flex: 0 0 480px;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 56px;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  background: rgba(15,20,36,0.4);
+}
+.auth-form-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px clamp(24px, 5vw, 80px);
+}
+.aether-field {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: 'Manrope', system-ui, sans-serif;
+  color: #ECE5D6;
+  transition: border-color 0.2s;
+}
+.aether-field::placeholder { color: #615846; }
+.aether-field:focus {
+  border-color: #F2571E !important;
+  background: rgba(255,255,255,0.06) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.aether-field:disabled { opacity: 0.45; cursor: not-allowed; }
+.aether-field--error { border-color: rgba(255,90,90,0.55) !important; }
+@media (max-width: 768px) {
+  .auth-brand { display: none; }
+  .auth-form-panel { padding: 48px 24px; }
 }

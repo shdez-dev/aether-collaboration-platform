@@ -35,4 +35,12 @@ router.get('/:id/teams', (req, res) => projectController.getTeams(req, res));
 router.post('/:id/teams', (req, res) => projectController.assignTeam(req, res));
 router.delete('/:id/teams/:teamId', (req, res) => projectController.removeTeam(req, res));
 
+// ── Miembros directos del proyecto ─────────────────────────────────────────────
+router.get('/:id/members', (req, res) => projectController.getDirectMembers(req, res));
+router.post('/:id/members', (req, res) => projectController.addDirectMember(req, res));
+router.delete('/:id/members/:userId', (req, res) => projectController.removeDirectMember(req, res));
+
+// ── Actividad del proyecto ──────────────────────────────────────────────────────
+router.get('/:id/activity', (req, res) => projectController.getActivity(req, res));
+
 export default router;

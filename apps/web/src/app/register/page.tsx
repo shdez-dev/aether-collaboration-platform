@@ -8,43 +8,22 @@ import { useT } from '@/lib/i18n';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type FieldErrors = {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-};
+type FieldErrors = { name: string; email: string; password: string; confirmPassword: string };
+type TouchedFields = { name: boolean; email: boolean; password: boolean; confirmPassword: boolean };
 
-type TouchedFields = {
-  name: boolean;
-  email: boolean;
-  password: boolean;
-  confirmPassword: boolean;
-};
+const SORA = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
 
-function LogoIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 220 220" fill="none" aria-hidden>
-      <path d="M110 39L32 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
-      <path d="M110 39L188 173" stroke="#38b6ff" strokeWidth="10" strokeLinecap="round" />
-      <path d="M66 122L154 122" stroke="#00e5cc" strokeWidth="7" strokeLinecap="round" />
-      <circle cx="110" cy="39" r="9" fill="#38b6ff" />
-      <circle cx="32" cy="173" r="9" fill="#38b6ff" />
-      <circle cx="188" cy="173" r="9" fill="#00e5cc" />
-    </svg>
-  );
-}
+const BRAND_AVATARS = [
+  { bg: '#4B607F', t: 'M' },
+  { bg: '#76A878', t: 'D' },
+  { bg: '#DB8A66', t: 'S' },
+  { bg: '#8C7C9E', t: 'A' },
+];
 
 function FieldError({ message }: { message: string }) {
   return (
-    <p
-      style={{
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-        fontSize: '12px',
-        color: 'rgba(255,100,100,0.9)',
-        marginTop: '6px',
-      }}
-    >
+    <p style={{ fontFamily: MANROPE, fontSize: '12px', color: 'rgba(255,100,100,0.9)', marginTop: '6px', marginBottom: 0 }}>
       {message}
     </p>
   );
@@ -60,24 +39,11 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [errors, setErrors] = useState<FieldErrors>({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-
-  const [touched, setTouched] = useState<TouchedFields>({
-    name: false,
-    email: false,
-    password: false,
-    confirmPassword: false,
-  });
+  const [errors, setErrors] = useState<FieldErrors>({ name: '', email: '', password: '', confirmPassword: '' });
+  const [touched, setTouched] = useState<TouchedFields>({ name: false, email: false, password: false, confirmPassword: false });
 
   useEffect(() => {
-    if (isHydrated && isAuthenticated) {
-      router.push('/dashboard');
-    }
+    if (isHydrated && isAuthenticated) router.push('/dashboard');
   }, [isAuthenticated, isHydrated, router]);
 
   useEffect(() => {
@@ -87,107 +53,86 @@ export default function RegisterPage() {
     }
   }, [pendingEmailVerification, clearPendingVerification, router]);
 
-  useEffect(() => {
-    return () => clearError();
-  }, [clearError]);
+  useEffect(() => { return () => clearError(); }, [clearError]);
 
   useEffect(() => {
     if (error) clearError();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, email, password, confirmPassword]);
 
-  function validateName(value: string): string {
-    if (!value.trim()) return t.register_validation_name_required;
-    if (value.trim().length < 2) return t.register_validation_name_short;
+  function validateName(v: string) {
+    if (!v.trim()) return t.register_validation_name_required;
+    if (v.trim().length < 2) return t.register_validation_name_short;
     return '';
   }
-
-  function validateEmail(value: string): string {
-    if (!value.trim()) return t.register_validation_email_required;
-    if (!EMAIL_REGEX.test(value.trim())) return t.register_validation_email_invalid;
+  function validateEmail(v: string) {
+    if (!v.trim()) return t.register_validation_email_required;
+    if (!EMAIL_REGEX.test(v.trim())) return t.register_validation_email_invalid;
     return '';
   }
-
-  function validatePassword(value: string): string {
-    if (!value) return t.register_validation_password_required;
-    if (value.length < 8) return t.register_validation_password_short;
+  function validatePassword(v: string) {
+    if (!v) return t.register_validation_password_required;
+    if (v.length < 8) return t.register_validation_password_short;
     return '';
   }
-
-  function validateConfirm(value: string, pwd: string): string {
-    if (!value) return t.register_validation_confirm_required;
-    if (value !== pwd) return t.register_validation_passwords;
+  function validateConfirm(v: string, pwd: string) {
+    if (!v) return t.register_validation_confirm_required;
+    if (v !== pwd) return t.register_validation_passwords;
     return '';
   }
 
   function handleBlur(field: keyof TouchedFields) {
-    setTouched((prev) => ({ ...prev, [field]: true }));
+    setTouched(p => ({ ...p, [field]: true }));
     validateField(field);
   }
 
   function validateField(field: keyof TouchedFields) {
-    setErrors((prev) => {
+    setErrors(prev => {
       switch (field) {
-        case 'name':
-          return { ...prev, name: validateName(name) };
-        case 'email':
-          return { ...prev, email: validateEmail(email) };
-        case 'password':
-          return {
-            ...prev,
-            password: validatePassword(password),
-            confirmPassword: touched.confirmPassword
-              ? validateConfirm(confirmPassword, password)
-              : prev.confirmPassword,
-          };
-        case 'confirmPassword':
-          return { ...prev, confirmPassword: validateConfirm(confirmPassword, password) };
-        default:
-          return prev;
+        case 'name': return { ...prev, name: validateName(name) };
+        case 'email': return { ...prev, email: validateEmail(email) };
+        case 'password': return {
+          ...prev,
+          password: validatePassword(password),
+          confirmPassword: touched.confirmPassword ? validateConfirm(confirmPassword, password) : prev.confirmPassword,
+        };
+        case 'confirmPassword': return { ...prev, confirmPassword: validateConfirm(confirmPassword, password) };
+        default: return prev;
       }
     });
   }
 
-  function handleNameChange(value: string) {
-    setName(value);
-    if (touched.name) setErrors((prev) => ({ ...prev, name: validateName(value) }));
+  function handleNameChange(v: string) {
+    setName(v);
+    if (touched.name) setErrors(p => ({ ...p, name: validateName(v) }));
+  }
+  function handleEmailChange(v: string) {
+    setEmail(v);
+    if (touched.email) setErrors(p => ({ ...p, email: validateEmail(v) }));
+  }
+  function handlePasswordChange(v: string) {
+    setPassword(v);
+    if (touched.password) setErrors(p => ({
+      ...p,
+      password: validatePassword(v),
+      confirmPassword: touched.confirmPassword ? validateConfirm(confirmPassword, v) : p.confirmPassword,
+    }));
+  }
+  function handleConfirmChange(v: string) {
+    setConfirmPassword(v);
+    if (touched.confirmPassword) setErrors(p => ({ ...p, confirmPassword: validateConfirm(v, password) }));
   }
 
-  function handleEmailChange(value: string) {
-    setEmail(value);
-    if (touched.email) setErrors((prev) => ({ ...prev, email: validateEmail(value) }));
-  }
-
-  function handlePasswordChange(value: string) {
-    setPassword(value);
-    if (touched.password) {
-      setErrors((prev) => ({
-        ...prev,
-        password: validatePassword(value),
-        confirmPassword: touched.confirmPassword
-          ? validateConfirm(confirmPassword, value)
-          : prev.confirmPassword,
-      }));
-    }
-  }
-
-  function handleConfirmChange(value: string) {
-    setConfirmPassword(value);
-    if (touched.confirmPassword) {
-      setErrors((prev) => ({ ...prev, confirmPassword: validateConfirm(value, password) }));
-    }
-  }
-
-  function validateAll(): boolean {
-    const newErrors: FieldErrors = {
+  function validateAll() {
+    const e: FieldErrors = {
       name: validateName(name),
       email: validateEmail(email),
       password: validatePassword(password),
       confirmPassword: validateConfirm(confirmPassword, password),
     };
-    setErrors(newErrors);
+    setErrors(e);
     setTouched({ name: true, email: true, password: true, confirmPassword: true });
-    return !Object.values(newErrors).some(Boolean);
+    return !Object.values(e).some(Boolean);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -195,124 +140,126 @@ export default function RegisterPage() {
     clearError();
     if (!validateAll()) return;
     await register(name.trim(), email.trim(), password);
-    const { isAuthenticated: authenticated } = useAuthStore.getState();
-    if (authenticated) router.push('/dashboard');
+    const { isLoading, error: storeError } = useAuthStore.getState();
+    if (!isLoading && !storeError) router.push('/login');
   };
 
-  const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
-  const MONO = 'JetBrains Mono, monospace';
-
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#080c14',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Glow ambiente */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '20%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '600px',
-          height: '500px',
-          background: 'radial-gradient(ellipse, rgba(56,182,255,0.05) 0%, transparent 65%)',
-          filter: 'blur(40px)',
-          pointerEvents: 'none',
-        }}
-      />
+    <div className="auth-layout">
 
-      <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '420px' }}>
-
-        {/* Back link */}
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontFamily: FONT,
-            fontSize: '13px',
-            color: 'rgba(180,210,255,0.45)',
-            textDecoration: 'none',
-            marginBottom: '32px',
-            transition: 'color 0.2s',
-          }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(180,210,255,0.85)')}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(180,210,255,0.45)')}
-        >
-          ← Volver
+      {/* ── Brand panel (hidden on mobile) ── */}
+      <aside className="auth-brand">
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+          <span style={{
+            width: '34px', height: '34px', borderRadius: '10px',
+            background: '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            boxShadow: '0 4px 14px -4px rgba(242,87,30,0.6)',
+          }}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+              <path d="M12 4.5 L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 4.5 L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
+              <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+              <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+            </svg>
+          </span>
+          <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: '#ECE5D6', letterSpacing: '-0.015em' }}>Aether</span>
         </Link>
 
-        {/* Logo + título */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-            <LogoIcon />
-            <span
-              style={{
-                fontFamily: FONT,
-                fontWeight: 500,
-                fontSize: '16px',
-                color: '#f0f6ff',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              Aether
+        <div style={{ marginTop: 'auto', marginBottom: 'auto', paddingTop: '60px' }}>
+          <h2 style={{
+            fontFamily: SORA, fontWeight: 700,
+            fontSize: 'clamp(1.9rem, 2.6vw, 2.5rem)',
+            letterSpacing: '-0.03em', lineHeight: 1.1,
+            color: '#F4EEE2', margin: '0 0 18px',
+          }}>
+            Crea tu espacio{' '}
+            <span style={{ background: '#F2571E', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              en segundos.
             </span>
-          </div>
-          <h1
-            style={{
-              fontFamily: FONT,
-              fontWeight: 300,
-              fontSize: '26px',
-              color: '#f0f6ff',
-              letterSpacing: '-0.02em',
-              margin: '0 0 8px 0',
-            }}
-          >
-            Crear cuenta
-          </h1>
-          <p
-            style={{
-              fontFamily: FONT,
-              fontSize: '14px',
-              fontWeight: 300,
-              color: 'rgba(180,210,255,0.5)',
-              margin: 0,
-            }}
-          >
-            Empieza a colaborar con tu equipo hoy.
+          </h2>
+          <p style={{ fontFamily: MANROPE, fontSize: '15px', lineHeight: 1.65, color: '#9C9486', margin: 0, maxWidth: '320px' }}>
+            Sin configurar nada. Sin tutoriales. Abre, invita a tu equipo y empieza a trabajar.
           </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '32px' }}>
+            {[
+              { icon: '◈', label: 'Tableros Kanban para organizar tareas' },
+              { icon: '◇', label: 'Documentos colaborativos en tiempo real' },
+              { icon: '◉', label: 'Tu equipo siempre conectado' },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '14px', color: '#F2571E', flexShrink: 0 }}>{item.icon}</span>
+                <span style={{ fontFamily: MANROPE, fontSize: '14px', color: '#9C9486' }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Formulario */}
-        <div className="hud-panel" style={{ padding: '28px 24px' }}>
+        {/* Avatars */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: 'auto', paddingTop: '40px' }}>
+          <div style={{ display: 'flex' }}>
+            {BRAND_AVATARS.map((av, i) => (
+              <span key={i} style={{
+                width: '32px', height: '32px', borderRadius: '50%',
+                background: av.bg, border: '2px solid #0F1424',
+                marginLeft: i > 0 ? '-9px' : 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '11px', fontWeight: 700, color: '#fff',
+              }}>{av.t}</span>
+            ))}
+          </div>
+          <span style={{ fontFamily: MANROPE, fontSize: '12px', color: '#615846', lineHeight: 1.4 }}>
+            Únete a miles de equipos que ya trabajan con Aether
+          </span>
+        </div>
+      </aside>
+
+      {/* ── Form panel ── */}
+      <main className="auth-form-panel">
+        <div style={{ width: '100%', maxWidth: '400px' }}>
+
+          {/* Back link */}
+          <Link href="/" style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            fontFamily: MANROPE, fontSize: '13px', color: '#615846',
+            textDecoration: 'none', marginBottom: '36px',
+          }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
+          >
+            ← Volver
+          </Link>
+
+          {/* Header */}
+          <h1 style={{
+            fontFamily: SORA, fontWeight: 700, fontSize: '28px',
+            letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 8px',
+          }}>
+            Crear cuenta
+          </h1>
+          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: '#9C9486', margin: '0 0 32px' }}>
+            Empieza a colaborar con tu equipo hoy.
+          </p>
+
+          {/* Form */}
           <form onSubmit={handleSubmit} noValidate>
 
             {/* Nombre */}
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="name"
-                style={{ display: 'block', fontFamily: MONO, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(180,210,255,0.5)', marginBottom: '8px' }}
-              >
+            <div style={{ marginBottom: '16px' }}>
+              <label htmlFor="name" style={{
+                display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+              }}>
                 {t.register_label_name}
               </label>
               <input
-                id="name"
-                name="name"
-                type="text"
+                id="name" name="name" type="text"
                 value={name}
-                onChange={(e) => handleNameChange(e.target.value)}
+                onChange={e => handleNameChange(e.target.value)}
                 onBlur={() => handleBlur('name')}
-                className={`auth-input${touched.name && errors.name ? ' auth-input--error' : ''}`}
+                className={`aether-field${touched.name && errors.name ? ' aether-field--error' : ''}`}
                 placeholder={t.register_placeholder_name}
                 disabled={isLoading}
                 autoComplete="name"
@@ -321,21 +268,19 @@ export default function RegisterPage() {
             </div>
 
             {/* Email */}
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="email"
-                style={{ display: 'block', fontFamily: MONO, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(180,210,255,0.5)', marginBottom: '8px' }}
-              >
+            <div style={{ marginBottom: '16px' }}>
+              <label htmlFor="email" style={{
+                display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+              }}>
                 {t.register_label_email}
               </label>
               <input
-                id="email"
-                name="email"
-                type="email"
+                id="email" name="email" type="email"
                 value={email}
-                onChange={(e) => handleEmailChange(e.target.value)}
+                onChange={e => handleEmailChange(e.target.value)}
                 onBlur={() => handleBlur('email')}
-                className={`auth-input${touched.email && errors.email ? ' auth-input--error' : ''}`}
+                className={`aether-field${touched.email && errors.email ? ' aether-field--error' : ''}`}
                 placeholder="usuario@ejemplo.com"
                 disabled={isLoading}
                 autoComplete="email"
@@ -344,71 +289,59 @@ export default function RegisterPage() {
             </div>
 
             {/* Contraseña */}
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="password"
-                style={{ display: 'block', fontFamily: MONO, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(180,210,255,0.5)', marginBottom: '8px' }}
-              >
+            <div style={{ marginBottom: '16px' }}>
+              <label htmlFor="password" style={{
+                display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+              }}>
                 {t.register_label_password}
               </label>
               <input
-                id="password"
-                name="password"
-                type="password"
+                id="password" name="password" type="password"
                 value={password}
-                onChange={(e) => handlePasswordChange(e.target.value)}
+                onChange={e => handlePasswordChange(e.target.value)}
                 onBlur={() => handleBlur('password')}
-                className={`auth-input${touched.password && errors.password ? ' auth-input--error' : ''}`}
+                className={`aether-field${touched.password && errors.password ? ' aether-field--error' : ''}`}
                 placeholder={t.register_placeholder_password}
                 disabled={isLoading}
                 autoComplete="new-password"
               />
-              {touched.password && errors.password ? (
-                <FieldError message={errors.password} />
-              ) : (
-                <p style={{ fontFamily: FONT, fontSize: '11px', color: 'rgba(180,210,255,0.3)', marginTop: '6px' }}>
-                  {t.register_password_hint}
-                </p>
-              )}
+              {touched.password && errors.password
+                ? <FieldError message={errors.password} />
+                : <p style={{ fontFamily: MANROPE, fontSize: '11px', color: '#615846', marginTop: '6px', marginBottom: 0 }}>
+                    {t.register_password_hint}
+                  </p>
+              }
             </div>
 
             {/* Confirmar contraseña */}
             <div style={{ marginBottom: '28px' }}>
-              <label
-                htmlFor="confirmPassword"
-                style={{ display: 'block', fontFamily: MONO, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(180,210,255,0.5)', marginBottom: '8px' }}
-              >
+              <label htmlFor="confirmPassword" style={{
+                display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+              }}>
                 {t.register_label_confirm}
               </label>
               <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
+                id="confirmPassword" name="confirmPassword" type="password"
                 value={confirmPassword}
-                onChange={(e) => handleConfirmChange(e.target.value)}
+                onChange={e => handleConfirmChange(e.target.value)}
                 onBlur={() => handleBlur('confirmPassword')}
-                className={`auth-input${touched.confirmPassword && errors.confirmPassword ? ' auth-input--error' : ''}`}
+                className={`aether-field${touched.confirmPassword && errors.confirmPassword ? ' aether-field--error' : ''}`}
                 placeholder={t.register_placeholder_confirm}
                 disabled={isLoading}
                 autoComplete="new-password"
               />
-              {touched.confirmPassword && errors.confirmPassword && (
-                <FieldError message={errors.confirmPassword} />
-              )}
+              {touched.confirmPassword && errors.confirmPassword && <FieldError message={errors.confirmPassword} />}
             </div>
 
-            {/* Error del servidor */}
+            {/* Server error */}
             {error && (
-              <div
-                style={{
-                  background: 'rgba(255,80,80,0.07)',
-                  border: '1px solid rgba(255,80,80,0.3)',
-                  borderRadius: '6px',
-                  padding: '10px 14px',
-                  marginBottom: '20px',
-                }}
-              >
-                <p style={{ fontFamily: FONT, fontSize: '13px', color: 'rgba(255,100,100,0.9)', margin: 0 }}>
+              <div style={{
+                background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.25)',
+                borderRadius: '8px', padding: '10px 14px', marginBottom: '20px',
+              }}>
+                <p style={{ fontFamily: MANROPE, fontSize: '13px', color: 'rgba(255,110,110,0.9)', margin: 0 }}>
                   {error}
                 </p>
               </div>
@@ -418,50 +351,36 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="landing-btn-primary"
               style={{
-                width: '100%',
-                justifyContent: 'center',
-                padding: '12px',
-                fontSize: '14px',
-                opacity: isLoading ? 0.6 : 1,
+                width: '100%', padding: '13px', borderRadius: '8px',
+                background: '#F2571E', color: '#24180A', border: 'none',
                 cursor: isLoading ? 'not-allowed' : 'pointer',
-                border: 'none',
+                fontFamily: SORA, fontWeight: 600, fontSize: '15px',
+                opacity: isLoading ? 0.6 : 1,
               }}
             >
               {isLoading ? t.register_btn_submitting : t.register_btn_submit}
             </button>
           </form>
 
-          {/* Divider + login link */}
-          <div
-            style={{
-              marginTop: '24px',
-              paddingTop: '20px',
-              borderTop: '1px solid rgba(56,182,255,0.08)',
-              textAlign: 'center',
-            }}
-          >
-            <span style={{ fontFamily: FONT, fontSize: '13px', color: 'rgba(180,210,255,0.4)' }}>
+          {/* Login link */}
+          <div style={{
+            marginTop: '24px', paddingTop: '20px',
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+            textAlign: 'center',
+          }}>
+            <span style={{ fontFamily: MANROPE, fontSize: '13px', color: '#615846' }}>
               {t.register_has_account}{' '}
             </span>
-            <Link
-              href="/login"
-              style={{
-                fontFamily: FONT,
-                fontSize: '13px',
-                color: '#38b6ff',
-                textDecoration: 'none',
-                transition: 'opacity 0.2s',
-              }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+            <Link href="/login" style={{ fontFamily: MANROPE, fontSize: '13px', color: '#F2571E', textDecoration: 'none' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
             >
               {t.register_link_signin}
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
-import jwt from 'jsonwebtoken';
+import { verifyAccessToken } from '../utils/jwt';
 import type {
   Event,
   WebSocketMessage,
@@ -86,10 +86,8 @@ export class RealtimeGateway {
           return next(new Error('Authentication error: No token provided'));
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-          userId: string;
-          email: string;
-        };
+        // Verificación centralizada: fija el algoritmo HS256 (evita confusión de algoritmo)
+        const decoded = verifyAccessToken(token);
 
         // Obtener info completa del usuario
         const userResult = await query('SELECT id, email, name, avatar FROM users WHERE id = $1', [

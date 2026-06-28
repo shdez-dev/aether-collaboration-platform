@@ -1,4 +1,4 @@
-// apps/web/src/app/dashboard/workspaces/[id]/documents/[documentId]/page.tsx
+// apps/web/src/app/dashboard/documents/[documentId]/page.tsx
 'use client';
 
 import { useEffect, useState, lazy, Suspense } from 'react';
@@ -44,7 +44,6 @@ export default function DocumentEditorPage() {
   const router = useRouter();
   const t = useT();
 
-  const workspaceId  = params.id as string;
   const documentId   = params.documentId as string;
 
   const {
@@ -53,6 +52,9 @@ export default function DocumentEditorPage() {
     getDocumentMembers, updatePermission, leaveDocument,
   } = useDocumentStore();
   const { currentWorkspace, fetchMembers } = useWorkspaceStore();
+
+  // El workspace se deriva del propio documento (ruta plana /dashboard/documents/[documentId])
+  const workspaceId  = currentDocument?.workspaceId ?? '';
   const { user, accessToken } = useAuthStore();
   const { toast } = useToast();
 
@@ -68,13 +70,18 @@ export default function DocumentEditorPage() {
   const [showExportMenu,    setShowExportMenu]    = useState(false);
   const [isExporting,       setIsExporting]       = useState(false);
 
+  // Fetch once on mount — do NOT include workspaceId here; it's derived from
+  // currentDocument and starts as '' which would retrigger this effect and
+  // call fetchDocumentById again (which resets currentDocument to null → loop).
   useEffect(() => {
-    if (documentId) {
-      fetchDocumentById(documentId);
-      if (workspaceId) recordRecentDoc(workspaceId, documentId);
-    }
+    if (documentId) fetchDocumentById(documentId);
     return () => { if (documentId) leaveDocument(documentId); };
-  }, [documentId, workspaceId, fetchDocumentById, leaveDocument]);
+  }, [documentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Record recent doc separately, once workspaceId is resolved from the loaded doc.
+  useEffect(() => {
+    if (workspaceId && documentId) recordRecentDoc(workspaceId, documentId);
+  }, [workspaceId, documentId]);
 
   useEffect(() => {
     if (workspaceId) fetchMembers(workspaceId);
@@ -107,7 +114,10 @@ export default function DocumentEditorPage() {
     finally { setIsSavingTitle(false); }
   };
 
-  const handleBack = () => router.push(`/dashboard/workspaces/${workspaceId}?tab=docs`);
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push('/dashboard/projects');
+  };
 
   const handleShareClick = async () => {
     setShowOptionsMenu(false);
@@ -137,7 +147,7 @@ export default function DocumentEditorPage() {
     try {
       await deleteDocument(documentId);
       toast({ title: '🗑️ Documento eliminado', description: 'El documento ha sido eliminado correctamente' });
-      router.push(`/dashboard/workspaces/${workspaceId}?tab=docs`);
+      handleBack();
     } catch {
       toast({ title: 'Error al eliminar', description: 'No se pudo eliminar el documento.', variant: 'destructive' });
       setIsDeleting(false);
@@ -196,7 +206,7 @@ export default function DocumentEditorPage() {
             <span style={{ color: C.red, fontSize: '18px', fontWeight: 700 }}>!</span>
           </div>
           <p style={{ fontSize: '13px', color: C.text3, marginBottom: '16px' }}>{documentError}</p>
-          <SmallBackBtn onClick={() => router.push(`/dashboard/workspaces/${workspaceId}?tab=docs`)} label={t.btn_back} />
+          <SmallBackBtn onClick={handleBack} label={t.btn_back} />
         </div>
       </div>
     );
@@ -212,7 +222,7 @@ export default function DocumentEditorPage() {
             animation: 'spin 0.7s linear infinite',
           }} />
           <p style={{ fontSize: '13px', color: C.text3, marginBottom: '16px' }}>{t.document_loading}</p>
-          <SmallBackBtn onClick={() => router.push(`/dashboard/workspaces/${workspaceId}?tab=docs`)} label={t.btn_back} />
+          <SmallBackBtn onClick={handleBack} label={t.btn_back} />
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
       </div>

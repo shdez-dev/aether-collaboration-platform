@@ -8,11 +8,13 @@ import { emailService } from '../../services/EmailService';
 import * as jwt from '../../utils/jwt';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { RefreshTokenService } from '../../services/RefreshTokenService';
 
 // Mock dependencies
 jest.mock('../../lib/db');
 jest.mock('../../services/EventStoreService');
 jest.mock('../../services/EmailService');
+jest.mock('../../services/RefreshTokenService');
 jest.mock('bcrypt');
 jest.mock('crypto');
 
@@ -35,6 +37,18 @@ describe('AuthController', () => {
 
     // Mock pool.connect to return our mock client
     (pool.connect as jest.Mock) = jest.fn().mockResolvedValue(mockClient);
+
+    // crypto.createHash es usado por hashToken() — proveer un encadenamiento válido
+    (crypto.createHash as jest.Mock) = jest.fn().mockReturnValue({
+      update: jest.fn().mockReturnThis(),
+      digest: jest.fn().mockReturnValue('hashed_token'),
+    });
+
+    // RefreshTokenService está mockeado: defaults sensatos para el flujo feliz
+    (RefreshTokenService.issue as jest.Mock) = jest.fn().mockResolvedValue(undefined);
+    (RefreshTokenService.rotate as jest.Mock) = jest.fn().mockResolvedValue(undefined);
+    (RefreshTokenService.revokeAllForUser as jest.Mock) = jest.fn().mockResolvedValue(undefined);
+    (RefreshTokenService.check as jest.Mock) = jest.fn().mockResolvedValue('valid');
 
     // Mock response object
     mockResponse = {
