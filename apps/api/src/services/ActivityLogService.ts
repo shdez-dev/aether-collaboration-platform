@@ -208,7 +208,7 @@ export class ActivityLogService {
        WHERE (
          (e.subject_id::text = $1 AND e.subject_type = 'project')
          OR e.payload->>'projectId' = $1
-         OR e.board_id IN (SELECT board_id FROM project_boards WHERE project_id = $1)
+         OR e.board_id IN (SELECT board_id FROM project_boards WHERE project_id = $1::uuid)
        )
          AND e.type != ALL($2::text[])`,
       [projectId, excluded]
@@ -225,7 +225,7 @@ export class ActivityLogService {
        WHERE (
          (e.subject_id::text = $1 AND e.subject_type = 'project')
          OR e.payload->>'projectId' = $1
-         OR e.board_id IN (SELECT board_id FROM project_boards WHERE project_id = $1)
+         OR e.board_id IN (SELECT board_id FROM project_boards WHERE project_id = $1::uuid)
        )
          AND e.type != ALL($2::text[])
        ORDER BY e.created_at DESC
