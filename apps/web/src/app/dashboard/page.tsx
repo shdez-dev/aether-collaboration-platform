@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { apiService } from '@/services/apiService';
 import { useT } from '@/lib/i18n';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
@@ -159,6 +160,7 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
   const { projects, fetchProjects } = useProjectStore();
+  const { setActiveWorkspaceId } = useActiveWorkspaceStore();
   useT(); // keep i18n initialised
 
   const [cards, setCards] = useState<{ overdue: UserCard[]; today: UserCard[]; upcoming: UserCard[] }>({
@@ -516,7 +518,7 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={p.id}
-                    onClick={() => router.push(`/dashboard/projects/${p.id}`)}
+                    onClick={() => { setActiveWorkspaceId(p.workspaceId); router.push(`/dashboard/projects/${p.id}`); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '13px',
                       padding: '13px', borderRadius: '8px',

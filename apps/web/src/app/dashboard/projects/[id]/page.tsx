@@ -23,6 +23,7 @@ import { InlineBoardView } from '@/components/InlineBoardView';
 import { CardDetailModal } from '@/components/CardDetailModal';
 import { useCardStore } from '@/stores/cardStore';
 import { useTimelineStore } from '@/stores/timelineStore';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import type { Card } from '@aether/types';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
@@ -1454,6 +1455,7 @@ function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#F25
 function ConfigModal({ project, onClose }: { project: Project; onClose: () => void }) {
   const t = useT();
   const { updateProject, deleteProject } = useProjectStore();
+  const { removeSidebarProject } = useActiveWorkspaceStore();
   const router = useRouter();
 
   const [name,    setName]    = useState(project.name);
@@ -1498,6 +1500,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   const handleDelete = async () => {
     if (!confirmDel) { setConfirmDel(true); return; }
     await deleteProject(project.id);
+    removeSidebarProject(project.id);
     router.push('/dashboard/projects');
   };
 

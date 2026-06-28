@@ -34,6 +34,7 @@ interface ActiveWorkspaceState {
   addSidebarBoard: (board: SidebarBoard) => void;
   removeSidebarBoard: (boardId: string) => void;
   addSidebarProject: (project: SidebarProject) => void;
+  removeSidebarProject: (projectId: string) => void;
 }
 
 export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
@@ -97,6 +98,12 @@ export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
           sidebarProjects: state.sidebarProjects.some((p) => p.id === project.id)
             ? state.sidebarProjects
             : [...state.sidebarProjects, project],
+        }));
+      },
+
+      removeSidebarProject: (projectId) => {
+        set((state) => ({
+          sidebarProjects: state.sidebarProjects.filter((p) => p.id !== projectId),
         }));
       },
     }),
