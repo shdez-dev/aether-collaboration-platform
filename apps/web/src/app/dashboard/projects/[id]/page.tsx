@@ -1491,6 +1491,12 @@ export default function ProjectDetailPage() {
   const { currentProject, currentStats, fetchProjectById, fetchStats, updateMilestone, deleteMilestone, removeBoard } = useProjectStore();
   const { workspaces } = useWorkspaceStore();
   const { teams: allTeams, fetchTeams } = useTeamStore();
+
+  // ── Role-based permissions ─────────────────────────────────────────────────
+  // Derived after currentProject loads (workspaceId needed to find the workspace)
+  const wsRole   = workspaces.find((w) => w.id === currentProject?.workspaceId)?.userRole ?? 'VIEWER';
+  const canEdit  = wsRole === 'OWNER' || wsRole === 'ADMIN';
+  const isOwner  = wsRole === 'OWNER';
   const { documents, fetchDocuments } = useDocumentStore();
 
   const [showConfig,    setShowConfig]    = useState(false);
@@ -1849,22 +1855,26 @@ export default function ProjectDetailPage() {
                 </span>
               </div>
 
-              <button onClick={() => setShowAddBoard(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
-                onMouseLeave={e => (e.currentTarget.style.filter = '')}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
-                Nuevo tablero
-              </button>
+              {canEdit && (
+                <button onClick={() => setShowAddBoard(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.filter = '')}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
+                  Nuevo tablero
+                </button>
+              )}
 
-              <button onClick={() => setShowConfig(true)} title="Configuración"
-                style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9C9486', transition: 'background 0.1s, color 0.1s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#E8E1D2'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#9C9486'; }}
-              >
-                <MoreHorizontal style={ic(15)} />
-              </button>
+              {canEdit && (
+                <button onClick={() => setShowConfig(true)} title="Configuración"
+                  style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9C9486', transition: 'background 0.1s, color 0.1s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#E8E1D2'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#9C9486'; }}
+                >
+                  <MoreHorizontal style={ic(15)} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -2139,14 +2149,16 @@ export default function ProjectDetailPage() {
                 <LayoutDashboard style={{ ...ic(24), color: '#615846' }} />
               </span>
               <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#9C9486', fontFamily: "'Sora', system-ui, sans-serif" }}>{t.projects_boards_empty}</p>
-              <button onClick={() => setShowAddBoard(true)}
-                style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#F2571E', color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif" }}
-                onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
-                onMouseLeave={e => (e.currentTarget.style.filter = '')}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
-                {t.projects_boards_add}
-              </button>
+              {canEdit && (
+                <button onClick={() => setShowAddBoard(true)}
+                  style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#F2571E', color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif" }}
+                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.filter = '')}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
+                  {t.projects_boards_add}
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -2159,11 +2171,10 @@ export default function ProjectDetailPage() {
                 {boards.map((board) => (
                   <BoardCard key={board.id} board={board} color={color} workspaceId={project.workspaceId}
                     onNavigate={() => setActiveBoardId(board.id)}
-                    onRemove={() => setBoardToRemove({ id: board.id, name: board.name })}
+                    onRemove={canEdit ? () => setBoardToRemove({ id: board.id, name: board.name }) : undefined}
                   />
                 ))}
-                {/* Nuevo tablero – dashed card */}
-                <NewBoardCard onClick={() => setShowAddBoard(true)} />
+                {canEdit && <NewBoardCard onClick={() => setShowAddBoard(true)} />}
               </div>
             </>
           )
@@ -2324,14 +2335,16 @@ export default function ProjectDetailPage() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '2px', height: '13px', background: '#E2A07E', display: 'inline-block' }} />Hoy</span>
                 </div>
               </div>
-              <button onClick={() => setShowAddMs(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
-                onMouseLeave={e => (e.currentTarget.style.filter = '')}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 4 4 12l8 8 8-8-8-8Z" stroke="#24180A" strokeWidth="1.8" strokeLinejoin="round"/></svg>
-                Nuevo hito
-              </button>
+              {canEdit && (
+                <button onClick={() => setShowAddMs(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.filter = '')}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 4 4 12l8 8 8-8-8-8Z" stroke="#24180A" strokeWidth="1.8" strokeLinejoin="round"/></svg>
+                  Nuevo hito
+                </button>
+              )}
             </div>
 
             <ProjectGantt
@@ -2378,32 +2391,34 @@ export default function ProjectDetailPage() {
                           {isPast && <span style={{ fontSize: '11px', color: C.red }}>Vencido</span>}
                         </div>
                         <span style={{ fontSize: '10.5px', fontWeight: 600, padding: '2px 8px', borderRadius: '6px', background: mc.bg, color: mc.color, flexShrink: 0 }}>{mc.label}</span>
-                        <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
-                          <button onClick={() => setEditMs(m)} title="Editar hito"
-                            style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#827A6D' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#E8E1D2'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#827A6D'; }}
-                          ><Pencil style={ic(11)} /></button>
-                          {m.status !== 'REACHED' && (
-                            <button onClick={() => updateMilestone(project.id, m.id, { status: 'REACHED' })} title="Marcar alcanzado"
-                              style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.green }}
-                              onMouseEnter={e => (e.currentTarget.style.background = `${C.green}18`)}
+                        {canEdit && (
+                          <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                            <button onClick={() => setEditMs(m)} title="Editar hito"
+                              style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#827A6D' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#E8E1D2'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#827A6D'; }}
+                            ><Pencil style={ic(11)} /></button>
+                            {m.status !== 'REACHED' && (
+                              <button onClick={() => updateMilestone(project.id, m.id, { status: 'REACHED' })} title="Marcar alcanzado"
+                                style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.green }}
+                                onMouseEnter={e => (e.currentTarget.style.background = `${C.green}18`)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                              ><Check style={ic(11)} /></button>
+                            )}
+                            {m.status === 'PENDING' && (
+                              <button onClick={() => updateMilestone(project.id, m.id, { status: 'MISSED' })} title="Marcar perdido"
+                                style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.red }}
+                                onMouseEnter={e => (e.currentTarget.style.background = `${C.red}18`)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                              ><X style={ic(11)} /></button>
+                            )}
+                            <button onClick={() => deleteMilestone(project.id, m.id)} title="Eliminar"
+                              style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#827A6D' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
                               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            ><Check style={ic(11)} /></button>
-                          )}
-                          {m.status === 'PENDING' && (
-                            <button onClick={() => updateMilestone(project.id, m.id, { status: 'MISSED' })} title="Marcar perdido"
-                              style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.red }}
-                              onMouseEnter={e => (e.currentTarget.style.background = `${C.red}18`)}
-                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            ><X style={ic(11)} /></button>
-                          )}
-                          <button onClick={() => deleteMilestone(project.id, m.id)} title="Eliminar"
-                            style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#827A6D' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                          ><Trash2 style={ic(11)} /></button>
-                        </div>
+                            ><Trash2 style={ic(11)} /></button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -2418,14 +2433,16 @@ export default function ProjectDetailPage() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <p style={{ margin: 0, fontSize: '0.98rem', color: '#9C9486', fontFamily: "'Manrope', system-ui, sans-serif" }}>Documentos asociados a este proyecto.</p>
-              <button onClick={() => setShowAddDoc(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
-                onMouseLeave={e => (e.currentTarget.style.filter = '')}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
-                Nuevo documento
-              </button>
+              {canEdit && (
+                <button onClick={() => setShowAddDoc(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.filter = '')}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
+                  Nuevo documento
+                </button>
+              )}
             </div>
             {documents.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '60px 0', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.1)' }}>
@@ -2485,28 +2502,30 @@ export default function ProjectDetailPage() {
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <p style={{ margin: 0, fontSize: '0.98rem', color: '#9C9486', fontFamily: "'Manrope', system-ui, sans-serif" }}>Personas con acceso a este proyecto.</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => { setShowInvitePanel((p) => !p); setInviteSearch(''); setInviteResults([]); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 12px', borderRadius: '6px', fontSize: '12.5px', fontWeight: 500, background: showInvitePanel ? `${C.accent}10` : C.surface, border: `1px solid ${showInvitePanel ? C.accent : C.border2}`, color: showInvitePanel ? C.accent : C.text2, cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s, background 0.15s' }}
-                    onMouseEnter={(e) => { if (!showInvitePanel) { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; e.currentTarget.style.background = `${C.accent}10`; } }}
-                    onMouseLeave={(e) => { if (!showInvitePanel) { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2; e.currentTarget.style.background = C.surface; } }}
-                  >
-                    <UserPlus style={ic(11)} />
-                    Invitar persona
-                  </button>
-                  <TeamSelector
-                    projectId={projectId}
-                    assigned={assignedTeams}
-                    allTeams={(allTeams as any[]).map((tm) => ({ id: tm.id, name: tm.name, color: tm.color ?? null, memberCount: tm.memberCount ?? 0, leadName: tm.leadName ?? null }))}
-                    onAssign={handleAssignTeam}
-                    onRemove={handleRemoveTeam}
-                  />
-                </div>
+                {canEdit && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => { setShowInvitePanel((p) => !p); setInviteSearch(''); setInviteResults([]); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 12px', borderRadius: '6px', fontSize: '12.5px', fontWeight: 500, background: showInvitePanel ? `${C.accent}10` : C.surface, border: `1px solid ${showInvitePanel ? C.accent : C.border2}`, color: showInvitePanel ? C.accent : C.text2, cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s, background 0.15s' }}
+                      onMouseEnter={(e) => { if (!showInvitePanel) { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; e.currentTarget.style.background = `${C.accent}10`; } }}
+                      onMouseLeave={(e) => { if (!showInvitePanel) { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2; e.currentTarget.style.background = C.surface; } }}
+                    >
+                      <UserPlus style={ic(11)} />
+                      Invitar persona
+                    </button>
+                    <TeamSelector
+                      projectId={projectId}
+                      assigned={assignedTeams}
+                      allTeams={(allTeams as any[]).map((tm) => ({ id: tm.id, name: tm.name, color: tm.color ?? null, memberCount: tm.memberCount ?? 0, leadName: tm.leadName ?? null }))}
+                      onAssign={handleAssignTeam}
+                      onRemove={handleRemoveTeam}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Invite panel */}
-              {showInvitePanel && (
+              {showInvitePanel && canEdit && (
                 <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '10px', border: `1px solid ${C.border2}`, background: C.surface, animation: 'invitePanelIn 0.2s cubic-bezier(0.16,1,0.3,1)' }}>
                   <style>{`@keyframes invitePanelIn { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }`}</style>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -2591,15 +2610,17 @@ export default function ProjectDetailPage() {
                             </div>
                             <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '2px' }}>{m.email}</div>
                           </div>
-                          <button
-                            onClick={() => handleRemoveDirectMember(m.id)}
-                            title="Quitar del proyecto"
-                            style={{ padding: '5px', borderRadius: '6px', border: 'none', background: 'transparent', color: '#4A4540', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.12s' }}
-                            onMouseEnter={(e) => (e.currentTarget.style.color = '#E5705A')}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = '#4A4540')}
-                          >
-                            <X style={{ width: '15px', height: '15px' }} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleRemoveDirectMember(m.id)}
+                              title="Quitar del proyecto"
+                              style={{ padding: '5px', borderRadius: '6px', border: 'none', background: 'transparent', color: '#4A4540', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.12s' }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = '#E5705A')}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = '#4A4540')}
+                            >
+                              <X style={{ width: '15px', height: '15px' }} />
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -2836,7 +2857,7 @@ function BoardCard({ board, color, workspaceId, onNavigate, onRemove }: {
   color: string;
   workspaceId: string;
   onNavigate: () => void;
-  onRemove: () => void;
+  onRemove?: () => void;
 }) {
   const t = useT();
   const [hov, setHov] = useState(false);
@@ -2896,7 +2917,7 @@ function BoardCard({ board, color, workspaceId, onNavigate, onRemove }: {
       </div>
 
       {/* Remove on hover */}
-      {hov && (
+      {hov && onRemove && (
         <button onClick={(e) => { e.stopPropagation(); onRemove(); }}
           style={{ position: 'absolute', top: '16px', right: '14px', width: '24px', height: '24px', borderRadius: '6px', background: 'rgba(224,82,82,0.12)', border: '1px solid rgba(224,82,82,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E05252', zIndex: 2 }}
           title="Quitar del proyecto"
