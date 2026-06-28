@@ -1152,16 +1152,176 @@ function TeamSelector({ projectId, assigned, allTeams, onAssign, onRemove }: {
 }
 
 // ── Config Modal ──────────────────────────────────────────────────────────────
+// ── DatePicker ────────────────────────────────────────────────────────────────
+const DP_DAYS   = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
+const DP_MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#F2571E' }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; accent?: string;
+}) {
+  const today = new Date();
+  const parsed = value ? new Date(value + 'T00:00:00') : null;
+  const [open,      setOpen]      = useState(false);
+  const [viewYear,  setViewYear]  = useState(parsed?.getFullYear()  ?? today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(parsed?.getMonth()     ?? today.getMonth());
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+
+  // sync view when value changes externally
+  useEffect(() => {
+    if (value) {
+      const d = new Date(value + 'T00:00:00');
+      setViewYear(d.getFullYear());
+      setViewMonth(d.getMonth());
+    }
+  }, [value]);
+
+  const prevMonth = () => viewMonth === 0  ? (setViewYear(y => y - 1), setViewMonth(11))    : setViewMonth(m => m - 1);
+  const nextMonth = () => viewMonth === 11 ? (setViewYear(y => y + 1), setViewMonth(0))     : setViewMonth(m => m + 1);
+
+  const startOffset   = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
+  const daysInMonth   = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const daysInPrev    = new Date(viewYear, viewMonth, 0).getDate();
+
+  const cells: { d: number; m: 'prev' | 'curr' | 'next' }[] = [];
+  for (let i = startOffset - 1; i >= 0; i--) cells.push({ d: daysInPrev - i, m: 'prev' });
+  for (let d = 1; d <= daysInMonth; d++)      cells.push({ d, m: 'curr' });
+  while (cells.length % 7 !== 0)              cells.push({ d: cells.length - daysInMonth - startOffset + 1, m: 'next' });
+
+  const fmt = (v: string) => new Date(v + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const isSelected = (d: number) => {
+    if (!value) return false;
+    const [sy, sm, sd] = value.split('-').map(Number);
+    return sy === viewYear && sm - 1 === viewMonth && sd === d;
+  };
+  const isToday = (d: number) => today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === d;
+
+  const select = (d: number) => {
+    onChange(`${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      {/* Trigger */}
+      <button type="button" onClick={() => setOpen(v => !v)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${open ? accent : C.border2}`, color: value ? C.text : C.text4, cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.14s', boxSizing: 'border-box' as const }}
+      >
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" width="13" height="13" style={{ flexShrink: 0, color: C.text3 }}>
+          <rect x="1.5" y="2.5" width="13" height="12" rx="2"/><path d="M1.5 6h13M5 1v3M11 1v3" strokeLinecap="round"/>
+        </svg>
+        <span style={{ flex: 1 }}>{value ? fmt(value) : placeholder}</span>
+        {value && (
+          <span onClick={(e) => { e.stopPropagation(); onChange(''); }}
+            style={{ display: 'flex', alignItems: 'center', color: C.text4, cursor: 'pointer', padding: '2px' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = C.text2)}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.text4)}
+          >
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" width="10" height="10"><path d="M1 1l8 8M9 1L1 9"/></svg>
+          </span>
+        )}
+      </button>
+
+      {/* Calendar */}
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 5px)', left: 0, zIndex: 400, background: C.bg2, border: `1px solid ${C.border2}`, borderRadius: '10px', boxShadow: '0 16px 48px rgba(0,0,0,0.55)', padding: '12px', minWidth: '248px', animation: 'dpIn 0.15s cubic-bezier(0.16,1,0.3,1)' }}>
+          <style>{`@keyframes dpIn { from { opacity:0; transform:translateY(-5px) scale(0.97) } to { opacity:1; transform:translateY(0) scale(1) } }`}</style>
+
+          {/* Month nav */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            {[
+              { dir: 'prev', path: 'M7 1L3 5l4 4', fn: prevMonth },
+              { dir: 'next', path: 'M3 1l4 4-4 4', fn: nextMonth },
+            ].map(({ dir, path, fn }, idx) => (
+              <button key={dir} type="button" onClick={fn}
+                style={{ order: idx === 0 ? 0 : 2, width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: C.text3, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s, color 0.1s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.text3; }}
+              >
+                <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" width="10" height="10"><path d={path} strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            ))}
+            <span style={{ order: 1, fontSize: '12.5px', fontWeight: 700, color: C.text, fontFamily: "'Sora', system-ui, sans-serif" }}>
+              {DP_MONTHS[viewMonth]} {viewYear}
+            </span>
+          </div>
+
+          {/* Day labels */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '2px', marginBottom: '4px' }}>
+            {DP_DAYS.map(d => (
+              <div key={d} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, color: C.text4, letterSpacing: '0.04em', padding: '2px 0', fontFamily: "'Sora', system-ui, sans-serif" }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Day grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '2px' }}>
+            {cells.map((cell, i) => {
+              const isCurr = cell.m === 'curr';
+              const sel    = isCurr && isSelected(cell.d);
+              const tod    = isCurr && isToday(cell.d);
+              return (
+                <button key={i} type="button" onClick={() => isCurr && select(cell.d)}
+                  style={{ width: '32px', height: '32px', borderRadius: '7px', border: 'none', background: sel ? accent : 'transparent', color: sel ? '#24180A' : isCurr ? C.text : C.text4, fontSize: '12.5px', fontWeight: sel || tod ? 700 : 400, cursor: isCurr ? 'pointer' : 'default', outline: !sel && tod ? `2px solid ${accent}` : 'none', outlineOffset: '-1px', opacity: !isCurr ? 0.28 : 1, transition: 'background 0.1s', boxSizing: 'border-box' as const }}
+                  onMouseEnter={e => { if (isCurr && !sel) e.currentTarget.style.background = C.hover; }}
+                  onMouseLeave={e => { if (isCurr && !sel) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  {cell.d}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Hoy shortcut */}
+          <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${C.border}`, textAlign: 'center' }}>
+            <button type="button" onClick={() => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); select(today.getDate()); }}
+              style={{ fontSize: '11px', color: C.text3, background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: "'Manrope', system-ui, sans-serif", transition: 'color 0.1s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = C.text)}
+              onMouseLeave={e => (e.currentTarget.style.color = C.text3)}
+            >Hoy</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ConfigModal ───────────────────────────────────────────────────────────────
 function ConfigModal({ project, onClose }: { project: Project; onClose: () => void }) {
   const t = useT();
   const { updateProject, deleteProject } = useProjectStore();
   const router = useRouter();
+
   const [name,    setName]    = useState(project.name);
   const [desc,    setDesc]    = useState(project.description ?? '');
   const [status,  setStatus]  = useState(project.status);
   const [start,   setStart]   = useState(project.startDate?.slice(0, 10) ?? '');
   const [end,     setEnd]     = useState(project.endDate?.slice(0, 10) ?? '');
   const [saving,  setSaving]  = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  // animation
+  const [animIn,  setAnimIn]  = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAnimIn(true));
+    return () => { cancelAnimationFrame(id); if (closeTimer.current) clearTimeout(closeTimer.current); };
+  }, []);
+
+  const handleClose = () => {
+    if (saving) return;
+    setAnimIn(false);
+    setClosing(true);
+    closeTimer.current = setTimeout(onClose, 200);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -1173,63 +1333,132 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
         startDate: start || null,
         endDate: end || null,
       });
-      onClose();
+      handleClose();
     } finally { setSaving(false); }
   };
 
+  const handleDelete = async () => {
+    if (!confirmDel) { setConfirmDel(true); return; }
+    await deleteProject(project.id);
+    router.push('/dashboard/projects');
+  };
+
+  const accent = project.color || C.accent;
+  const LBL = ({ children }: { children: React.ReactNode }) => (
+    <label style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, textTransform: 'uppercase' as const, display: 'block', marginBottom: '5px', fontFamily: "'Sora', system-ui, sans-serif" }}>{children}</label>
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
-    >
-      <div style={{ width: '420px', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}
-        onClick={(e) => e.stopPropagation()}
+    <>
+      <style>{`
+        @keyframes cfgOverIn  { from { opacity:0 } to { opacity:1 } }
+        @keyframes cfgOverOut { from { opacity:1 } to { opacity:0 } }
+        @keyframes cfgPanIn   { from { opacity:0; transform:translateY(12px) scale(0.96) } to { opacity:1; transform:translateY(0) scale(1) } }
+        @keyframes cfgPanOut  { from { opacity:1; transform:translateY(0) scale(1) } to { opacity:0; transform:translateY(8px) scale(0.98) } }
+      `}</style>
+
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: `rgba(0,0,0,${animIn ? 0.7 : 0})`, backdropFilter: 'blur(4px)', transition: 'background 0.2s ease', animation: closing ? 'cfgOverOut 0.2s ease forwards' : undefined }}
+        onClick={handleClose}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: '13.5px', fontWeight: 600, color: C.text }}>{t.projects_config_title}</span>
-          <button onClick={onClose} style={{ color: C.text3, background: 'none', border: 'none', cursor: 'pointer' }}><X style={ic(15)} /></button>
-        </div>
+        <div
+          style={{ width: '100%', maxWidth: '440px', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.65)', animation: closing ? 'cfgPanOut 0.18s ease forwards' : 'cfgPanIn 0.28s cubic-bezier(0.16,1,0.3,1) both' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontSize: '13.5px', fontWeight: 600, color: C.text, fontFamily: "'Sora', system-ui, sans-serif" }}>{t.projects_config_title}</span>
+            <button onClick={handleClose} style={{ width: '26px', height: '26px', borderRadius: '6px', color: C.text3, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.12s, color 0.12s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; }}
+            ><X style={ic(14)} /></button>
+          </div>
 
-        <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '13px' }}>
-          {[
-            { label: t.projects_config_name, node: <input value={name} onChange={(e) => setName(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', boxSizing: 'border-box' as const }} /> },
-            { label: t.projects_config_desc, node: <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const }} /> },
-            { label: t.projects_config_status, node: (
-              <select value={status} onChange={(e) => setStatus(e.target.value as any)} style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark' }}>
-                {['PLANNING','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'].map((s) => <option key={s} value={s}>{getStatusCfg(s, t).label}</option>)}
-              </select>
-            )},
-            { label: t.projects_config_start, node: <input type="date" value={start} onChange={(e) => setStart(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark' }} /> },
-            { label: t.projects_config_end,   node: <input type="date" value={end}   onChange={(e) => setEnd(e.target.value)}   style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark' }} /> },
-          ].map(({ label, node }) => (
-            <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, textTransform: 'uppercase' }}>{label}</label>
-              {node}
+          {/* Body */}
+          <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+            {/* Nombre */}
+            <div>
+              <LBL>{t.projects_config_name}</LBL>
+              <input value={name} onChange={(e) => setName(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', boxSizing: 'border-box' as const, transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" }}
+                onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+              />
             </div>
-          ))}
-        </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '12px 18px', borderTop: `1px solid ${C.border}` }}>
-          <button onClick={async () => {
-            if (!confirm(`¿Eliminar "${project.name}"? Esta acción no se puede deshacer.`)) return;
-            await deleteProject(project.id);
-            router.push('/dashboard/projects');
-          }}
-            style={{ fontSize: '11.5px', color: C.red, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, transition: 'opacity 0.1s' }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-          >
-            {t.projects_config_delete}
-          </button>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer' }}>{t.btn_cancel}</button>
-            <button onClick={save} disabled={saving} style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#F2571E', color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: saving ? 0.75 : 1 }}>
-              {saving ? t.projects_config_saving : t.projects_config_save}
-            </button>
+            {/* Descripción */}
+            <div>
+              <LBL>{t.projects_config_desc}</LBL>
+              <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const, transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" }}
+                onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+              />
+            </div>
+
+            {/* Estado */}
+            <div>
+              <LBL>{t.projects_config_status}</LBL>
+              <select value={status} onChange={(e) => setStatus(e.target.value as any)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark', cursor: 'pointer' }}
+              >
+                {(['PLANNING','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map((s) => (
+                  <option key={s} value={s}>{getStatusCfg(s, t).label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Fechas */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <LBL>{t.projects_config_start}</LBL>
+                <DatePicker value={start} onChange={setStart} placeholder="Inicio" accent={accent} />
+              </div>
+              <div>
+                <LBL>{t.projects_config_end}</LBL>
+                <DatePicker value={end} onChange={setEnd} placeholder="Fin" accent={accent} />
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '12px 18px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <button onClick={handleDelete}
+                style={{ fontSize: '11.5px', color: confirmDel ? C.red : C.text4, background: confirmDel ? `${C.red}12` : 'transparent', border: `1px solid ${confirmDel ? C.red : 'transparent'}`, borderRadius: '6px', cursor: 'pointer', padding: '4px 10px', transition: 'all 0.15s', fontFamily: "'Manrope', system-ui, sans-serif", fontWeight: confirmDel ? 600 : 400 }}
+                onMouseEnter={e => { if (!confirmDel) { e.currentTarget.style.color = C.red; e.currentTarget.style.background = `${C.red}0f`; } }}
+                onMouseLeave={e => { if (!confirmDel) { e.currentTarget.style.color = C.text4; e.currentTarget.style.background = 'transparent'; } }}
+              >
+                {confirmDel ? '¿Confirmar eliminación?' : t.projects_config_delete}
+              </button>
+              {confirmDel && (
+                <button onClick={() => setConfirmDel(false)}
+                  style={{ fontSize: '10.5px', color: C.text4, background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '0 10px', fontFamily: "'Manrope', system-ui, sans-serif" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = C.text2)}
+                  onMouseLeave={e => (e.currentTarget.style.color = C.text4)}
+                >Cancelar</button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleClose} disabled={saving}
+                style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer', transition: 'background 0.1s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+              >{t.btn_cancel}</button>
+              <button onClick={save} disabled={saving}
+                style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: accent, color: '#24180A', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: saving ? 0.75 : 1, transition: 'filter 0.1s' }}
+                onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = ''; }}
+              >
+                {saving ? t.projects_config_saving : t.projects_config_save}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1395,7 +1624,7 @@ function CreateMilestoneModal({ projectId, color, milestone, onClose }: { projec
         <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '13px' }}>
           {[
             { label: 'Nombre *',     node: <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del hito" style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', boxSizing: 'border-box' as const }} /> },
-            { label: 'Fecha *',      node: <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark' }} /> },
+            { label: 'Fecha *',      node: <DatePicker value={date} onChange={setDate} placeholder="Selecciona una fecha" accent={color} /> },
             { label: 'Descripción',  node: <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} placeholder="Opcional" style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const }} /> },
           ].map(({ label, node }) => (
             <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
