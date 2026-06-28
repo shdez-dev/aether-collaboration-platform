@@ -18,6 +18,7 @@ import { useT } from '@/lib/i18n';
 import CommandPalette from '@/components/CommandPalette';
 import OnboardingCompanion from '@/components/OnboardingCompanion';
 import CreateWorkspaceModal from '@/components/CreateWorkspaceModal';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import CreateBoardModal from '@/components/CreateBoardModal';
 import CreateProjectModal from '@/components/CreateProjectModal';
 import { socketService } from '@/services/socketService';
@@ -54,7 +55,6 @@ function WorkspaceSwitcher({
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
 
-  const initials = active?.name?.[0]?.toUpperCase() ?? '?';
   const color = active?.color ?? '#DB8A66';
 
   return (
@@ -72,11 +72,12 @@ function WorkspaceSwitcher({
         onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
       >
         <span style={{
-          width: '26px', height: '26px', borderRadius: '50%', background: color,
+          width: '26px', height: '26px', borderRadius: '7px',
+          background: `linear-gradient(135deg, ${color}cc, ${color}77)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '12px', fontWeight: 700, color: '#fff', flexShrink: 0,
+          flexShrink: 0,
         }}>
-          {initials}
+          <WorkspaceIcon icon={active?.icon ?? 'briefcase'} style={{ width: '13px', height: '13px', color: '#fff' } as any} />
         </span>
         <span style={{ textAlign: 'left', lineHeight: 1.15, flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', fontFamily: SORA, fontSize: '13.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -109,8 +110,8 @@ function WorkspaceSwitcher({
                   onMouseEnter={e => { if (!isAct) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
                   onMouseLeave={e => { if (!isAct) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                 >
-                  <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: ws.color ?? '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                    {ws.name?.[0]?.toUpperCase() ?? '?'}
+                  <span style={{ width: '22px', height: '22px', borderRadius: '6px', background: `linear-gradient(135deg, ${ws.color ?? '#F2571E'}cc, ${ws.color ?? '#F2571E'}77)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <WorkspaceIcon icon={ws.icon ?? 'briefcase'} style={{ width: '11px', height: '11px', color: '#fff' } as any} />
                   </span>
                   <span style={{ flex: 1, fontSize: '13px', fontWeight: isAct ? 600 : 400, color: isAct ? '#E8E1D2' : '#9C9486', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {ws.name}

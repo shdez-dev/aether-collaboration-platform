@@ -20,8 +20,6 @@ const COLORS = [
   '#ec4899', // pink
 ];
 
-type Visibility = 'private' | 'team' | 'public';
-
 interface CreateWorkspaceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -35,7 +33,6 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
   const [description, setDescription] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(WORKSPACE_ICON_KEYS[0]);
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
-  const [visibility, setVisibility]   = useState<Visibility>('private');
   const [error, setError]             = useState('');
   const [nameTouched, setNameTouched] = useState(false);
 
@@ -75,7 +72,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
     setAnimIn(false);
     closeTimerRef.current = setTimeout(() => {
       setName(''); setDescription(''); setSelectedIcon(WORKSPACE_ICON_KEYS[0]);
-      setSelectedColor(COLORS[0]); setVisibility('private'); setError(''); setNameTouched(false);
+      setSelectedColor(COLORS[0]); setError(''); setNameTouched(false);
       onClose();
     }, 160);
   };
@@ -84,12 +81,6 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
   useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
 
   if (!isOpen) return null;
-
-  const visibilityOptions: { id: Visibility; label: string; desc: string }[] = [
-    { id: 'private', label: t.ws_settings_visibility_private,       desc: t.ws_settings_visibility_private_desc },
-    { id: 'team',    label: 'Equipo',                                desc: 'Visible para tu organización' },
-    { id: 'public',  label: t.ws_settings_visibility_public,        desc: t.ws_settings_visibility_public_desc },
-  ];
 
   return (
     <div
@@ -301,51 +292,6 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               </div>
             </div>
 
-            {/* ── Visibilidad ──────────────────────────────────────────── */}
-            <div className="mb-2">
-              <label className="block text-[12px] font-medium mb-2" style={{ color: C.text2 }}>
-                {t.ws_settings_visibility_title}
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {visibilityOptions.map((opt) => {
-                  const active = visibility === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setVisibility(opt.id)}
-                      disabled={isLoading}
-                      className="flex flex-col items-start rounded-[7px] text-left transition-all"
-                      style={{
-                        padding: '10px 11px',
-                        background: active ? `${C.accent}18` : C.surface,
-                        border: `1px solid ${active ? C.accent : C.border}`,
-                      }}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <div
-                          className="rounded-full flex-shrink-0"
-                          style={{
-                            width: '7px', height: '7px',
-                            background: active ? C.accent : C.text4,
-                          }}
-                        />
-                        <span
-                          className="text-[12px] font-semibold"
-                          style={{ color: active ? C.text : C.text2 }}
-                        >
-                          {opt.label}
-                        </span>
-                      </div>
-                      <span className="text-[11px] leading-[1.3]" style={{ color: C.text4 }}>
-                        {opt.desc}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* ── Error ────────────────────────────────────────────────── */}
             {error && (
               <div
@@ -389,7 +335,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               disabled={isLoading}
               className="flex-1 flex items-center justify-center gap-1.5 rounded-[7px] text-[13px] font-medium text-white transition-colors"
               style={{ padding: '8px 0', background: C.accent }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#2563eb')}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#d94e18')}
               onMouseLeave={(e) => (e.currentTarget.style.background = C.accent)}
             >
               {isLoading ? (
