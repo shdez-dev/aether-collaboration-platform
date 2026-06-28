@@ -214,7 +214,9 @@ export class SprintController {
   static async removeCardFromSprint(req: WorkspaceRequest, res: Response) {
     try {
       const { sprintId, cardId } = req.params;
-      await SprintService.removeCardFromSprint(sprintId, cardId);
+      const userId = req.user?.id;
+      const socketId = (req.headers['x-socket-id'] as string) || undefined;
+      await SprintService.removeCardFromSprint(sprintId, cardId, userId, socketId);
       return res.json({ success: true, data: { message: 'Card eliminada del sprint' } });
     } catch (e: any) {
       return res

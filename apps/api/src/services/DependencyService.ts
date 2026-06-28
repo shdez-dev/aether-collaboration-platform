@@ -178,15 +178,19 @@ export class DependencyService {
       // Emitir evento realtime al board
       const meta = await this.getBoardAndWorkspace(blockedCardId);
       if (meta) {
-        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const [actorResult, blockedCardResult] = await Promise.all([
+          pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+          pool.query('SELECT title FROM cards WHERE id = $1', [blockedCardId]),
+        ]);
         const actorName = actorResult.rows[0]?.name ?? '';
-        const dependsOnTitle = dep.relatedCard?.title ?? '';
+        const blockingCardTitle = dep.relatedCard?.title ?? '';
+        const blockedCardTitle  = blockedCardResult.rows[0]?.title ?? '';
         await eventStore.emit({
           type: 'card.dependency.added',
           actor: { id: userId, name: actorName },
-          subject: { type: 'dependency', id: dep.id, name: dependsOnTitle },
+          subject: { type: 'dependency', id: dep.id, name: blockingCardTitle },
           context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId: blockedCardId },
-          payload: { blockingCardId, blockedCardId },
+          payload: { blockingCardId, blockedCardId, blockingCardTitle, blockedCardTitle },
           socketId,
         });
       }
@@ -231,14 +235,20 @@ export class DependencyService {
 
       const meta = await this.getBoardAndWorkspace(cardId);
       if (meta) {
-        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
-        const actorName = actorResult.rows[0]?.name ?? '';
+        const [actorResult, blockingCardResult, blockedCardResult] = await Promise.all([
+          pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+          pool.query('SELECT title FROM cards WHERE id = $1', [blockingCardId]),
+          pool.query('SELECT title FROM cards WHERE id = $1', [blockedCardId]),
+        ]);
+        const actorName        = actorResult.rows[0]?.name         ?? '';
+        const blockingCardTitle = blockingCardResult.rows[0]?.title ?? '';
+        const blockedCardTitle  = blockedCardResult.rows[0]?.title  ?? '';
         await eventStore.emit({
           type: 'card.dependency.removed',
           actor: { id: userId, name: actorName },
-          subject: { type: 'dependency', id: dependencyId, name: '' },
+          subject: { type: 'dependency', id: dependencyId, name: blockingCardTitle },
           context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
-          payload: { blockingCardId, blockedCardId },
+          payload: { blockingCardId, blockedCardId, blockingCardTitle, blockedCardTitle },
           socketId,
         });
       }

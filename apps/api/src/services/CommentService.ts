@@ -72,7 +72,7 @@ export class CommentService {
         boardId: eventBoardId,
         cardId: data.cardId,
       },
-      payload: { mentions: (comment.mentions || []) as UserId[] },
+      payload: { mentions: (comment.mentions || []) as UserId[], cardTitle: eventCardTitle ?? '' },
     });
 
     try {
@@ -240,6 +240,7 @@ export class CommentService {
         before: { content: oldContent },
         after: { content: updatedComment.content },
       },
+      payload: { cardTitle: updateCardTitle ?? '' },
     });
 
     // Procesar menciones actualizadas
@@ -347,6 +348,7 @@ export class CommentService {
         boardId: deleteBoardId,
         cardId,
       },
+      payload: { cardTitle: deleteCardTitle ?? '' },
     });
   }
 

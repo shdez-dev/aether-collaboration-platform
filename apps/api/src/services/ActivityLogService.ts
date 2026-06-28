@@ -30,6 +30,7 @@ export interface ActivityLogEntry {
   workspaceName?: string;
   boardId?: string;
   boardName?: string;
+  cardId?: string;
 }
 
 // Excluded noisy event types
@@ -204,7 +205,11 @@ export class ActivityLogService {
 
     const countResult = await pool.query(
       `SELECT COUNT(*) AS total FROM events e
-       WHERE ((e.subject_id::text = $1 AND e.subject_type = 'project') OR e.payload->>'projectId' = $1)
+       WHERE (
+         (e.subject_id::text = $1 AND e.subject_type = 'project')
+         OR e.payload->>'projectId' = $1
+         OR e.board_id IN (SELECT board_id FROM project_boards WHERE project_id = $1)
+       )
          AND e.type != ALL($2::text[])`,
       [projectId, excluded]
     );
@@ -214,10 +219,14 @@ export class ActivityLogService {
       `SELECT e.id, e.type AS event_type, e.payload, e.delta,
               e.actor_id AS user_id, e.actor_name AS user_name,
               e.timestamp, e.created_at,
-              e.workspace_id, e.board_id,
+              e.workspace_id, e.board_id, e.card_id,
               e.subject_type, e.subject_id, e.subject_name
        FROM events e
-       WHERE ((e.subject_id::text = $1 AND e.subject_type = 'project') OR e.payload->>'projectId' = $1)
+       WHERE (
+         (e.subject_id::text = $1 AND e.subject_type = 'project')
+         OR e.payload->>'projectId' = $1
+         OR e.board_id IN (SELECT board_id FROM project_boards WHERE project_id = $1)
+       )
          AND e.type != ALL($2::text[])
        ORDER BY e.created_at DESC
        LIMIT $3 OFFSET $4`,
@@ -238,6 +247,7 @@ export class ActivityLogService {
       targetName:  row.subject_name,
       workspaceId: row.workspace_id ?? undefined,
       boardId:     row.board_id ?? undefined,
+      cardId:      row.card_id  ?? undefined,
     }));
 
     return { entries, total, hasMore: offset + limit < total };

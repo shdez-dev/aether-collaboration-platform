@@ -2,6 +2,7 @@
 
 import { pool } from '../lib/db';
 import type { Sprint, Milestone } from '@aether/types';
+import { eventStore } from './EventStoreService';
 
 function mapSprint(row: any): Sprint {
   return {
@@ -148,20 +149,83 @@ export class SprintService {
 
   // ── Cards de un sprint ────────────────────────────────────────────────────
 
-  static async addCardToSprint(sprintId: string, cardId: string, userId: string): Promise<void> {
+  static async addCardToSprint(sprintId: string, cardId: string, userId: string, socketId?: string): Promise<void> {
     await pool.query(
       `INSERT INTO sprint_cards (sprint_id, card_id, added_by)
        VALUES ($1, $2, $3)
        ON CONFLICT (sprint_id, card_id) DO NOTHING`,
       [sprintId, cardId, userId]
     );
+
+    try {
+      const [actorResult, cardResult, sprintResult] = await Promise.all([
+        pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+        pool.query('SELECT title FROM cards WHERE id = $1', [cardId]),
+        pool.query(
+          `SELECT s.id, s.name, s.board_id,
+                  b.workspace_id
+           FROM board_sprints s
+           JOIN boards b ON b.id = s.board_id
+           WHERE s.id = $1`,
+          [sprintId]
+        ),
+      ]);
+      const actorName  = actorResult.rows[0]?.name       ?? '';
+      const cardTitle  = cardResult.rows[0]?.title        ?? '';
+      const sprintRow  = sprintResult.rows[0];
+      const sprintName = sprintRow?.name                  ?? '';
+      const boardId    = sprintRow?.board_id              ?? undefined;
+      const workspaceId= sprintRow?.workspace_id          ?? '';
+      await eventStore.emit({
+        type:    'sprint.card.added',
+        actor:   { id: userId, name: actorName },
+        subject: { type: 'card', id: cardId, name: cardTitle },
+        context: { workspaceId, boardId, cardId },
+        payload: { sprintId, sprintName, cardTitle },
+        socketId,
+      });
+    } catch {
+      // no abortar la operación si falla el registro de actividad
+    }
   }
 
-  static async removeCardFromSprint(sprintId: string, cardId: string): Promise<void> {
+  static async removeCardFromSprint(sprintId: string, cardId: string, userId?: string, socketId?: string): Promise<void> {
     await pool.query(`DELETE FROM sprint_cards WHERE sprint_id = $1 AND card_id = $2`, [
       sprintId,
       cardId,
     ]);
+
+    if (!userId) return;
+    try {
+      const [actorResult, cardResult, sprintResult] = await Promise.all([
+        pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+        pool.query('SELECT title FROM cards WHERE id = $1', [cardId]),
+        pool.query(
+          `SELECT s.id, s.name, s.board_id,
+                  b.workspace_id
+           FROM board_sprints s
+           JOIN boards b ON b.id = s.board_id
+           WHERE s.id = $1`,
+          [sprintId]
+        ),
+      ]);
+      const actorName  = actorResult.rows[0]?.name  ?? '';
+      const cardTitle  = cardResult.rows[0]?.title   ?? '';
+      const sprintRow  = sprintResult.rows[0];
+      const sprintName = sprintRow?.name             ?? '';
+      const boardId    = sprintRow?.board_id         ?? undefined;
+      const workspaceId= sprintRow?.workspace_id     ?? '';
+      await eventStore.emit({
+        type:    'sprint.card.removed',
+        actor:   { id: userId, name: actorName },
+        subject: { type: 'card', id: cardId, name: cardTitle },
+        context: { workspaceId, boardId, cardId },
+        payload: { sprintId, sprintName, cardTitle },
+        socketId,
+      });
+    } catch {
+      // no abortar la operación si falla el registro de actividad
+    }
   }
 
   // ── Hitos ──────────────────────────────────────────────────────────────────

@@ -118,7 +118,9 @@ export type ProjectEventType =
 export type SprintEventType =
   | 'sprint.created'
   | 'sprint.started'
-  | 'sprint.completed';
+  | 'sprint.completed'
+  | 'sprint.card.added'
+  | 'sprint.card.removed';
 
 export type TeamEventType =
   | 'team.created'

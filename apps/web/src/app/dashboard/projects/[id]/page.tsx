@@ -98,6 +98,7 @@ interface ActivityEntry {
   id: string;
   eventType: string;
   payload: any;
+  delta?: any;
   userId: string;
   userName: string;
   userAvatar?: string;
@@ -106,6 +107,7 @@ interface ActivityEntry {
   targetType?: string;
   targetId?: string;
   targetName?: string;
+  cardId?: string;
 }
 
 type ActGroup = { month: string; days: { day: string; events: ActivityEntry[] }[] };
@@ -132,9 +134,12 @@ function groupByMonth(entries: ActivityEntry[]): ActGroup[] {
 
 function eventCategory(type: string): ActCategory {
   if (type.includes('milestone')) return 'milestone';
-  if (type.includes('sprint'))    return 'board';
-  if (type.includes('board'))     return 'board';
-  if (type.includes('team') || type.includes('member')) return 'team';
+  if (type.startsWith('team.') || type.startsWith('project.member') || type.startsWith('workspace.member')) return 'team';
+  if (
+    type.startsWith('sprint')  || type.startsWith('board')  ||
+    type.startsWith('list')    || type.startsWith('card')   ||
+    type.startsWith('comment') || type.startsWith('checklist')
+  ) return 'board';
   return 'project';
 }
 
@@ -149,29 +154,169 @@ function statusLabel(s: string): string {
   }
 }
 
+function priorityLabel(p: string): string {
+  switch (p) {
+    case 'HIGH':   return 'Alta';
+    case 'MEDIUM': return 'Media';
+    case 'LOW':    return 'Baja';
+    case 'NONE':   return 'Sin prioridad';
+    default:       return p ?? '—';
+  }
+}
+
 function describeEvent(ev: ActivityEntry): { verb: string; target: string; accent: string } {
   const p  = ev.payload ?? {};
   const tn = ev.targetName ?? '';
+
+  // Helpers
+  const card  = (p.cardTitle  as string) || '';
+  const item  = (p.itemTitle  as string) || tn;
+  const mem   = (p.memberName as string) || tn;
+  const lbl   = (p.labelName  as string) || tn;
+  const bking = (p.blockingCardTitle as string) || tn;
+  const bked  = (p.blockedCardTitle  as string) || '';
+  const spr   = (p.sprintName as string) || tn;
+
   switch (ev.eventType) {
-    case 'project.created':             return { verb: 'creó el proyecto',              target: tn,                        accent: '#4B607F' };
-    case 'project.updated':             return { verb: 'editó el proyecto',             target: tn,                        accent: '#4B607F' };
-    case 'project.status.changed':      return { verb: `cambió el estado a`,            target: statusLabel(p.newStatus),  accent: '#DB8A66' };
-    case 'project.deleted':             return { verb: 'eliminó el proyecto',           target: tn,                        accent: '#E5705A' };
-    case 'project.board.linked':        return { verb: 'vinculó el tablero',            target: p.boardName ?? tn,         accent: '#C2904B' };
-    case 'project.board.unlinked':      return { verb: 'desvinculó el tablero',         target: p.boardName ?? tn,         accent: '#615846' };
-    case 'project.milestone.created':   return { verb: 'creó el hito',                 target: tn,                        accent: '#4B607F' };
-    case 'project.milestone.completed': return { verb: 'completó el hito',             target: tn,                        accent: '#76A878' };
-    case 'project.milestone.missed':    return { verb: 'marcó como perdido el hito',   target: tn,                        accent: '#E5705A' };
-    case 'project.milestone.deleted':   return { verb: 'eliminó el hito',              target: tn,                        accent: '#615846' };
-    case 'project.milestone.updated':   return { verb: 'actualizó el hito',            target: tn,                        accent: '#4B607F' };
-    case 'project.team.assigned':       return { verb: 'asignó el equipo',             target: p.teamName ?? tn,          accent: '#8C7C9E' };
-    case 'project.team.removed':        return { verb: 'quitó el equipo',              target: p.teamName ?? tn,          accent: '#615846' };
-    case 'project.member.added':        return { verb: 'invitó a',                     target: p.memberName ?? tn,        accent: '#76A878' };
-    case 'project.member.removed':      return { verb: 'quitó a',                      target: p.memberName ?? tn,        accent: '#E5705A' };
-    case 'sprint.created':              return { verb: 'creó el sprint',               target: p.sprintName ?? tn,        accent: '#7B8FA8' };
-    case 'sprint.started':              return { verb: 'inició el sprint',             target: p.sprintName ?? tn,        accent: '#76A878' };
-    case 'sprint.completed':            return { verb: 'completó el sprint',           target: p.sprintName ?? tn,        accent: '#C2904B' };
-    default:                            return { verb: 'realizó una acción en',         target: tn,                        accent: '#5C5447' };
+    // ── Proyecto ────────────────────────────────────────────────────────────
+    case 'project.created':             return { verb: 'creó el proyecto',              target: tn,                          accent: '#4B607F' };
+    case 'project.updated':             return { verb: 'editó el proyecto',             target: tn,                          accent: '#4B607F' };
+    case 'project.status.changed':      return { verb: 'cambió el estado a',            target: statusLabel(p.newStatus),    accent: '#DB8A66' };
+    case 'project.deleted':             return { verb: 'eliminó el proyecto',           target: tn,                          accent: '#E5705A' };
+    case 'project.board.linked':        return { verb: 'vinculó el tablero',            target: p.boardName ?? tn,           accent: '#C2904B' };
+    case 'project.board.unlinked':      return { verb: 'desvinculó el tablero',         target: p.boardName ?? tn,           accent: '#615846' };
+    case 'project.milestone.created':   return { verb: 'creó el hito',                 target: tn,                          accent: '#4B607F' };
+    case 'project.milestone.completed': return { verb: 'completó el hito',             target: tn,                          accent: '#76A878' };
+    case 'project.milestone.missed':    return { verb: 'marcó como perdido el hito',   target: tn,                          accent: '#E5705A' };
+    case 'project.milestone.deleted':   return { verb: 'eliminó el hito',              target: tn,                          accent: '#615846' };
+    case 'project.milestone.updated':   return { verb: 'actualizó el hito',            target: tn,                          accent: '#4B607F' };
+    case 'project.team.assigned':       return { verb: 'asignó el equipo',             target: p.teamName ?? tn,            accent: '#8C7C9E' };
+    case 'project.team.removed':        return { verb: 'quitó el equipo',              target: p.teamName ?? tn,            accent: '#615846' };
+    case 'project.member.added':        return { verb: 'invitó a',                     target: p.memberName ?? tn,          accent: '#76A878' };
+    case 'project.member.removed':      return { verb: 'quitó a',                      target: p.memberName ?? tn,          accent: '#E5705A' };
+
+    // ── Sprints ─────────────────────────────────────────────────────────────
+    case 'sprint.created':              return { verb: 'creó el sprint',               target: spr,                         accent: '#7B8FA8' };
+    case 'sprint.started':              return { verb: 'inició el sprint',             target: spr,                         accent: '#76A878' };
+    case 'sprint.completed':            return { verb: 'completó el sprint',           target: spr,                         accent: '#C2904B' };
+    case 'sprint.card.added':           return { verb: `añadió «${tn || card}» al sprint`, target: spr,                    accent: '#7B8FA8' };
+    case 'sprint.card.removed':         return { verb: `quitó «${tn || card}» del sprint`, target: spr,                    accent: '#615846' };
+
+    // ── Tablero ─────────────────────────────────────────────────────────────
+    case 'board.created':               return { verb: 'creó el tablero',              target: tn,                          accent: '#4B607F' };
+    case 'board.updated':               return { verb: 'editó el tablero',             target: tn,                          accent: '#4B607F' };
+    case 'board.deleted':               return { verb: 'eliminó el tablero',           target: tn,                          accent: '#E5705A' };
+    case 'board.archived':              return { verb: 'archivó el tablero',           target: tn,                          accent: '#615846' };
+    case 'board.restored':              return { verb: 'restauró el tablero',          target: tn,                          accent: '#76A878' };
+
+    // ── Listas ──────────────────────────────────────────────────────────────
+    case 'list.created':                return { verb: 'creó la lista',                target: tn,                          accent: '#4B607F' };
+    case 'list.updated':                return { verb: 'renombró la lista a',          target: tn,                          accent: '#4B607F' };
+    case 'list.deleted':                return { verb: 'eliminó la lista',             target: tn,                          accent: '#E5705A' };
+    case 'list.archived':               return { verb: 'archivó la lista',             target: tn,                          accent: '#615846' };
+    case 'list.order-changed':          return { verb: 'reordenó las listas',          target: '',                          accent: '#615846' };
+
+    // ── Tarjetas ─────────────────────────────────────────────────────────────
+    case 'card.created':                return { verb: 'creó la tarjeta',              target: tn,                          accent: '#76A878' };
+    case 'card.updated':                return { verb: 'editó la tarjeta',             target: tn,                          accent: '#4B607F' };
+    case 'card.deleted':                return { verb: 'eliminó la tarjeta',           target: tn,                          accent: '#E5705A' };
+    case 'card.archived':               return { verb: 'archivó la tarjeta',           target: tn,                          accent: '#615846' };
+    case 'card.restored':               return { verb: 'restauró la tarjeta',          target: tn,                          accent: '#76A878' };
+    case 'card.moved': {
+      const from = (ev.delta?.before as any)?.listName as string | undefined;
+      const to   = (ev.delta?.after  as any)?.listName as string | undefined;
+      return from && to
+        ? { verb: `movió «${tn}» de «${from}» a`, target: to, accent: '#C2904B' }
+        : { verb: 'movió la tarjeta', target: tn, accent: '#C2904B' };
+    }
+    case 'card.status-changed': {
+      const completed = (ev.delta?.after as any)?.completed;
+      return completed
+        ? { verb: 'completó la tarjeta', target: tn, accent: '#76A878' }
+        : { verb: 'reabrió la tarjeta',  target: tn, accent: '#DB8A66' };
+    }
+    case 'card.priority.changed': {
+      const after = (ev.delta?.after as any)?.priority as string | undefined;
+      return after
+        ? { verb: `cambió la prioridad de «${tn}» a`, target: priorityLabel(after), accent: '#C2904B' }
+        : { verb: 'cambió la prioridad de',            target: tn,                  accent: '#C2904B' };
+    }
+    case 'card.due-date.set':           return { verb: 'puso fecha límite en',         target: tn,                          accent: '#DB8A66' };
+    case 'card.due-date.removed':       return { verb: 'quitó la fecha límite de',     target: tn,                          accent: '#615846' };
+
+    // ── Miembros de tarjeta ──────────────────────────────────────────────────
+    case 'card.member.assigned':
+      return card
+        ? { verb: `asignó a «${mem}» en`, target: card, accent: '#8C7C9E' }
+        : { verb: 'asignó a',              target: mem,  accent: '#8C7C9E' };
+    case 'card.member.removed':
+      return card
+        ? { verb: `quitó a «${mem}» de`, target: card, accent: '#615846' }
+        : { verb: 'quitó a',              target: mem,  accent: '#615846' };
+
+    // ── Etiquetas ────────────────────────────────────────────────────────────
+    case 'card.label.added':
+      return card
+        ? { verb: `añadió la etiqueta «${lbl}» en`, target: card, accent: '#C2904B' }
+        : { verb: 'añadió la etiqueta',               target: lbl,  accent: '#C2904B' };
+    case 'card.label.removed':
+      return card
+        ? { verb: `quitó la etiqueta «${lbl}» de`, target: card, accent: '#615846' }
+        : { verb: 'quitó la etiqueta',               target: lbl,  accent: '#615846' };
+
+    // ── Dependencias ─────────────────────────────────────────────────────────
+    case 'card.dependency.added':
+      return bked
+        ? { verb: `bloqueó «${bked}» hasta completar`, target: bking, accent: '#8C7C9E' }
+        : { verb: 'añadió dependencia en',              target: bking, accent: '#8C7C9E' };
+    case 'card.dependency.removed':
+      return bked
+        ? { verb: `desbloqueó «${bked}» de`, target: bking, accent: '#76A878' }
+        : { verb: 'quitó dependencia de',     target: bking, accent: '#615846' };
+
+    // ── Comentarios ──────────────────────────────────────────────────────────
+    case 'comment.created':
+      return card
+        ? { verb: `comentó en «${card}»:`,      target: tn || '…',  accent: '#7B8FA8' }
+        : { verb: 'comentó:',                    target: tn || '…',  accent: '#7B8FA8' };
+    case 'comment.updated':
+      return card
+        ? { verb: `editó un comentario en`,     target: card, accent: '#4B607F' }
+        : { verb: 'editó un comentario',         target: '',   accent: '#4B607F' };
+    case 'comment.deleted':
+      return card
+        ? { verb: `eliminó un comentario en`,   target: card, accent: '#E5705A' }
+        : { verb: 'eliminó un comentario',       target: '',   accent: '#E5705A' };
+    case 'comment.mention-added':
+      return { verb: 'mencionó a alguien en',   target: card || tn, accent: '#8C7C9E' };
+
+    // ── Subtareas (checklist) ─────────────────────────────────────────────────
+    case 'checklist.created':            return { verb: 'creó checklist en',            target: tn,  accent: '#4B607F' };
+    case 'checklist.deleted':            return { verb: 'eliminó checklist en',         target: tn,  accent: '#E5705A' };
+    case 'checklist.item.created':
+      return card
+        ? { verb: `añadió la subtarea «${item}» en`, target: card, accent: '#76A878' }
+        : { verb: 'añadió subtarea',                  target: item, accent: '#76A878' };
+    case 'checklist.item.updated':
+      return card
+        ? { verb: `renombró la subtarea «${item}» en`, target: card, accent: '#4B607F' }
+        : { verb: 'actualizó subtarea',                 target: item, accent: '#4B607F' };
+    case 'checklist.item.deleted':
+      return card
+        ? { verb: `eliminó la subtarea «${item}» de`, target: card, accent: '#E5705A' }
+        : { verb: 'eliminó subtarea',                  target: item, accent: '#E5705A' };
+    case 'checklist.item.status-changed': {
+      const checked = (ev.delta?.after as any)?.checked as boolean | undefined;
+      return card
+        ? (checked
+            ? { verb: `completó la subtarea «${item}» en`, target: card, accent: '#76A878' }
+            : { verb: `desmarcó la subtarea «${item}» en`, target: card, accent: '#DB8A66' })
+        : (checked
+            ? { verb: 'completó la subtarea', target: item, accent: '#76A878' }
+            : { verb: 'desmarcó la subtarea', target: item, accent: '#DB8A66' });
+    }
+
+    default: return { verb: 'realizó una acción',  target: tn || '', accent: '#5C5447' };
   }
 }
 
@@ -1752,6 +1897,8 @@ export default function ProjectDetailPage() {
   const [backlogCards,     setBacklogCards]     = useState<BacklogCard[]>([]);
   const [backlogLoading,   setBacklogLoading]   = useState(false);
 
+  const linkedBoardIdsRef = useRef<Set<string>>(new Set());
+
   const setSelectedCard = useCardStore((s) => s.setSelectedCard);
 
   const TABS = [
@@ -1864,6 +2011,11 @@ export default function ProjectDetailPage() {
     }).finally(() => setBacklogLoading(false));
   }, [activeTab, currentProject?.boards?.length, projectId]);
 
+  // Mantener ref de boards vinculados actualizado para el handler de socket
+  useEffect(() => {
+    linkedBoardIdsRef.current = new Set((currentProject?.boards ?? []).map((b) => b.id));
+  }, [currentProject?.boards]);
+
   // Tiempo real — escucha eventos del workspace y actualiza estado local
   useEffect(() => {
     if (!currentProject?.workspaceId) return;
@@ -1873,7 +2025,10 @@ export default function ProjectDetailPage() {
 
     const handleEvent = (ev: any) => {
       const p = ev.payload ?? {};
-      const isForProject = ev.subject?.id === projectId || p.projectId === projectId;
+      const isForProject =
+        ev.subject?.id === projectId ||
+        p.projectId    === projectId ||
+        (ev.context?.boardId && linkedBoardIdsRef.current.has(ev.context.boardId));
       if (!isForProject) return;
 
       // Añadir al feed de actividad (dedup por id)
@@ -1882,6 +2037,7 @@ export default function ProjectDetailPage() {
         id: ev.id ?? `ws-${nowMs}-${Math.random().toString(36).slice(2, 7)}`,
         eventType: ev.type,
         payload: p,
+        delta:    ev.delta,
         userId:   ev.actor?.id   ?? '',
         userName: ev.actor?.name ?? 'Usuario',
         timestamp: nowMs,
@@ -1889,6 +2045,7 @@ export default function ProjectDetailPage() {
         targetType: ev.subject?.type,
         targetId:   ev.subject?.id,
         targetName: ev.subject?.name,
+        cardId:   ev.context?.cardId,
       };
       setActivityEntries((prev) => {
         if (prev.some((e) => e.id === entry.id)) return prev;

@@ -200,14 +200,18 @@ export class CardService {
       const listResult = await pool.query('SELECT name FROM lists WHERE id = $1', [listId]);
       const listName   = listResult.rows[0]?.name ?? 'Lista desconocida';
 
-      await eventStore.emit({
-        type:    'card.created',
-        actor:   { id: userId, name: actorName },
-        subject: { type: 'card', id: card.id, name: card.title },
-        context: { workspaceId: workspaceId ?? '', boardId: boardId ?? undefined, listId },
-        payload: { position: newPosition },
-        socketId,
-      });
+      try {
+        await eventStore.emit({
+          type:    'card.created',
+          actor:   { id: userId, name: actorName },
+          subject: { type: 'card', id: card.id, name: card.title },
+          context: { workspaceId: workspaceId || '', boardId: boardId ?? undefined, listId },
+          payload: { position: newPosition },
+          socketId,
+        });
+      } catch {
+        // activity logging failure must not abort card creation
+      }
 
       return card;
     } catch (error) {
@@ -637,7 +641,7 @@ export class CardService {
         actor:        { id: userId, name: actorName },
         subject:      { type: 'member', id: memberId, name: memberName },
         context:      { ...ctx, cardId },
-        payload:      { memberId, memberName },
+        payload:      { memberId, memberName, cardTitle },
         socketId,
         targetUserId: memberId,
       });
@@ -691,7 +695,7 @@ export class CardService {
         actor:        { id: userId, name: actorName },
         subject:      { type: 'member', id: memberId, name: memberName },
         context:      { workspaceId: workspaceId ?? '', boardId: boardId ?? undefined, cardId },
-        payload:      { memberId, memberName },
+        payload:      { memberId, memberName, cardTitle },
         socketId,
         targetUserId: memberId,
       });
@@ -749,12 +753,13 @@ export class CardService {
       const labelColor = labelResult.rows[0]?.color ?? undefined;
       const actorName  = actorResult.rows[0]?.name  ?? 'Usuario desconocido';
 
+      const cardTitle = cardResult.rows[0]?.title ?? '';
       await eventStore.emit({
         type:    'card.label.added',
         actor:   { id: userId, name: actorName },
         subject: { type: 'label', id: labelId, name: labelName },
         context: { workspaceId: workspaceId ?? '', boardId: boardId ?? undefined, cardId },
-        payload: { labelId, labelName, ...(labelColor && { color: labelColor }) },
+        payload: { labelId, labelName, cardTitle, ...(labelColor && { color: labelColor }) },
         socketId,
       });
     } catch (error) {
@@ -791,12 +796,13 @@ export class CardService {
       const boardId     = await this.getBoardIdFromCard(cardId);
       const workspaceId = await this.getWorkspaceIdFromBoard(boardId || '');
 
+      const cardTitle = cardResult.rows[0]?.title ?? '';
       await eventStore.emit({
         type:    'card.label.removed',
         actor:   { id: userId, name: actorName },
         subject: { type: 'label', id: labelId, name: labelName },
         context: { workspaceId: workspaceId ?? '', boardId: boardId ?? undefined, cardId },
-        payload: { labelId, labelName },
+        payload: { labelId, labelName, cardTitle },
         socketId,
       });
     } catch (error) {

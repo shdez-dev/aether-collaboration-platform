@@ -79,13 +79,18 @@ export class ChecklistService {
       // Emitir evento realtime
       const meta = await this.getBoardAndWorkspaceFromCard(cardId);
       if (meta) {
-        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const [actorResult, cardResult] = await Promise.all([
+          pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+          pool.query('SELECT title FROM cards WHERE id = $1', [cardId]),
+        ]);
         const actorName = actorResult.rows[0]?.name ?? '';
+        const cardTitle = cardResult.rows[0]?.title ?? '';
         await eventStore.emit({
           type: 'checklist.item.created',
           actor: { id: userId, name: actorName },
           subject: { type: 'checklist-item', id: item.id, name: item.title },
           context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
+          payload: { cardTitle, itemTitle: item.title },
           socketId,
         });
       }
@@ -145,19 +150,20 @@ export class ChecklistService {
       // Emitir evento realtime
       const meta = await this.getBoardAndWorkspaceFromCard(cardId);
       if (meta) {
-        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const [actorResult, cardResult] = await Promise.all([
+          pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+          pool.query('SELECT title FROM cards WHERE id = $1', [cardId]),
+        ]);
         const actorName = actorResult.rows[0]?.name ?? '';
-        // Si solo cambia completed, emitir checklist.item.status.changed
+        const cardTitle = cardResult.rows[0]?.title ?? '';
         if (data.completed !== undefined && data.title === undefined) {
           await eventStore.emit({
             type: 'checklist.item.status-changed',
             actor: { id: userId, name: actorName },
             subject: { type: 'checklist-item', id: item.id, name: item.title },
             context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
-            delta: {
-              before: { checked: !data.completed },
-              after: { checked: data.completed },
-            },
+            delta: { before: { checked: !data.completed }, after: { checked: data.completed } },
+            payload: { cardTitle, itemTitle: item.title },
             socketId,
           });
         } else {
@@ -166,6 +172,7 @@ export class ChecklistService {
             actor: { id: userId, name: actorName },
             subject: { type: 'checklist-item', id: item.id, name: item.title },
             context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
+            payload: { cardTitle, itemTitle: item.title },
             socketId,
           });
         }
@@ -195,7 +202,7 @@ export class ChecklistService {
       await client.query('BEGIN');
 
       const result = await client.query(
-        'DELETE FROM card_checklist_items WHERE id = $1 AND card_id = $2 RETURNING position',
+        'DELETE FROM card_checklist_items WHERE id = $1 AND card_id = $2 RETURNING position, title',
         [itemId, cardId]
       );
 
@@ -204,6 +211,7 @@ export class ChecklistService {
       }
 
       const deletedPosition = result.rows[0].position;
+      const deletedItemTitle = result.rows[0].title ?? '';
 
       // Compactar posiciones
       await client.query(
@@ -216,13 +224,18 @@ export class ChecklistService {
       // Emitir evento realtime
       const meta = await this.getBoardAndWorkspaceFromCard(cardId);
       if (meta) {
-        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const [actorResult, cardResult] = await Promise.all([
+          pool.query('SELECT name FROM users WHERE id = $1', [userId]),
+          pool.query('SELECT title FROM cards WHERE id = $1', [cardId]),
+        ]);
         const actorName = actorResult.rows[0]?.name ?? '';
+        const cardTitle = cardResult.rows[0]?.title ?? '';
         await eventStore.emit({
           type: 'checklist.item.deleted',
           actor: { id: userId, name: actorName },
-          subject: { type: 'checklist-item', id: itemId, name: '' },
+          subject: { type: 'checklist-item', id: itemId, name: deletedItemTitle },
           context: { workspaceId: meta.workspace_id, boardId: meta.board_id, cardId },
+          payload: { cardTitle, itemTitle: deletedItemTitle },
           socketId,
         });
       }
