@@ -218,7 +218,20 @@ function describeEvent(ev: ActivityEntry): { verb: string; target: string; accen
 
     // ── Tarjetas ─────────────────────────────────────────────────────────────
     case 'card.created':                return { verb: 'creó la tarjeta',              target: tn,                          accent: '#76A878' };
-    case 'card.updated':                return { verb: 'editó la tarjeta',             target: tn,                          accent: '#4B607F' };
+    case 'card.updated': {
+      const d = ev.delta;
+      if (d?.before?.title !== undefined)
+        return { verb: `renombró «${String(d.before.title)}» a`, target: String(d.after?.title ?? tn), accent: '#4B607F' };
+      if ('description' in (d?.before ?? {}))
+        return { verb: 'actualizó la descripción de', target: tn, accent: '#4B607F' };
+      if ('startDate' in (d?.before ?? {}) || 'startDate' in (d?.after ?? {}))
+        return { verb: 'cambió la fecha de inicio de', target: tn, accent: '#7B8FA8' };
+      if ('milestoneId' in (d?.before ?? {}))
+        return { verb: 'cambió el hito de', target: tn, accent: '#C2904B' };
+      if ('bufferDays' in (d?.before ?? {}))
+        return { verb: 'ajustó el buffer de tiempo de', target: tn, accent: '#7B8FA8' };
+      return { verb: 'editó la tarjeta', target: tn, accent: '#4B607F' };
+    }
     case 'card.deleted':                return { verb: 'eliminó la tarjeta',           target: tn,                          accent: '#E5705A' };
     case 'card.archived':               return { verb: 'archivó la tarjeta',           target: tn,                          accent: '#615846' };
     case 'card.restored':               return { verb: 'restauró la tarjeta',          target: tn,                          accent: '#76A878' };

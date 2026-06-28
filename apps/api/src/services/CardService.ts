@@ -398,6 +398,42 @@ export class CardService {
         }
       }
 
+      if (data.startDate !== undefined && data.startDate !== currentCard.start_date) {
+        await eventStore.emit({
+          type:    'card.updated',
+          actor:   { id: userId, name: actorName },
+          subject: { type: 'card', id: cardId, name: card.title },
+          context: ctx,
+          delta: { before: { startDate: currentCard.start_date ?? null }, after: { startDate: data.startDate } },
+          payload: {},
+          socketId,
+        });
+      }
+
+      if (data.milestoneId !== undefined && data.milestoneId !== currentCard.milestone_id) {
+        await eventStore.emit({
+          type:    'card.updated',
+          actor:   { id: userId, name: actorName },
+          subject: { type: 'card', id: cardId, name: card.title },
+          context: ctx,
+          delta: { before: { milestoneId: currentCard.milestone_id ?? null }, after: { milestoneId: data.milestoneId } },
+          payload: {},
+          socketId,
+        });
+      }
+
+      if (data.bufferDays !== undefined && data.bufferDays !== currentCard.buffer_days) {
+        await eventStore.emit({
+          type:    'card.updated',
+          actor:   { id: userId, name: actorName },
+          subject: { type: 'card', id: cardId, name: card.title },
+          context: ctx,
+          delta: { before: { bufferDays: currentCard.buffer_days ?? null }, after: { bufferDays: data.bufferDays } },
+          payload: {},
+          socketId,
+        });
+      }
+
       if (data.title !== undefined && data.title !== currentCard.title) {
         await eventStore.emit({
           type:    'card.updated',
@@ -466,16 +502,6 @@ export class CardService {
           socketId,
         });
       }
-
-      // Siempre emitir card.updated para que el cliente sincronice el estado
-      await eventStore.emit({
-        type:    'card.updated',
-        actor:   { id: userId, name: actorName },
-        subject: { type: 'card', id: cardId, name: card.title },
-        context: ctx,
-        payload: {},
-        socketId,
-      });
 
       return card;
     } catch (error) {
