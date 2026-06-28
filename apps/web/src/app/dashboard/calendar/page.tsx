@@ -181,6 +181,7 @@ function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
 
   return (
     <div
+      data-qc="true"
       onClick={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
       style={{
@@ -642,10 +643,13 @@ export default function CalendarPage() {
       .catch(() => {});
   }, []);
 
-  // Dismiss quick-create on outside click
+  // Dismiss quick-create on outside click (ignore clicks inside the popup itself)
   useEffect(() => {
     if (!quickCreate) return;
-    const handler = () => setQuickCreate(null);
+    const handler = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest('[data-qc]')) return;
+      setQuickCreate(null);
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [quickCreate]);
