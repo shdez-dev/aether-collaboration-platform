@@ -937,6 +937,28 @@ class ProjectController {
     }
   }
 
+  /** PATCH /api/projects/:id/members/:userId  body: { role } */
+  async updateDirectMemberRole(req: Request, res: Response) {
+    try {
+      const { id, userId } = req.params;
+      const { role } = req.body;
+      if (!role || !['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'].includes(role)) {
+        return res.status(400).json({ success: false, error: { message: 'Rol inválido' } });
+      }
+      const result = await pool.query(
+        `UPDATE project_members SET role = $1 WHERE project_id = $2 AND user_id = $3 RETURNING *`,
+        [role, id, userId]
+      );
+      if (!result.rows.length) {
+        return res.status(404).json({ success: false, error: { message: 'Miembro no encontrado' } });
+      }
+      res.json({ success: true, data: { role } });
+    } catch (error) {
+      console.error('[ProjectController.updateDirectMemberRole]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al actualizar rol' } });
+    }
+  }
+
   /** DELETE /api/projects/:id/members/:userId */
   async removeDirectMember(req: Request, res: Response) {
     try {

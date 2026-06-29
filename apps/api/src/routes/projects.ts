@@ -38,6 +38,7 @@ router.delete('/:id/teams/:teamId', (req, res) => projectController.removeTeam(r
 // ── Miembros directos del proyecto ─────────────────────────────────────────────
 router.get('/:id/members', (req, res) => projectController.getDirectMembers(req, res));
 router.post('/:id/members', (req, res) => projectController.addDirectMember(req, res));
+router.patch('/:id/members/:userId', (req, res) => projectController.updateDirectMemberRole(req, res));
 router.delete('/:id/members/:userId', (req, res) => projectController.removeDirectMember(req, res));
 
 // ── Actividad del proyecto ──────────────────────────────────────────────────────

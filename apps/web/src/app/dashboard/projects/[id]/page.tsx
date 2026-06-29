@@ -2145,6 +2145,13 @@ export default function ProjectDetailPage() {
     setDirectMembers((prev) => prev.filter((m) => m.id !== userId));
   }
 
+  async function handleChangeDirectMemberRole(userId: string, role: string) {
+    const res = await apiService.patch<{ role: string }>(`/api/projects/${projectId}/members/${userId}`, { role }, true);
+    if (res.success) {
+      setDirectMembers((prev) => prev.map((m) => m.id === userId ? { ...m, role } : m));
+    }
+  }
+
   async function handleConfirmRemoveBoard() {
     if (!boardToRemove) return;
     setRemovingBoard(true);
@@ -2153,7 +2160,7 @@ export default function ProjectDetailPage() {
     finally { setRemovingBoard(false); }
   }
 
-  if (!currentProject) {
+  if (!currentProject || currentProject.id !== projectId) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#161B2E' }}>
         <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.08)', borderTopColor: '#F2571E', animation: 'spin 0.8s linear infinite' }} />
@@ -3007,11 +3014,29 @@ export default function ProjectDetailPage() {
                           <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                               <span style={{ fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>{m.name}</span>
-                              <span style={{ fontSize: '11px', fontWeight: 600, color: '#9C9486', background: 'rgba(255,255,255,0.06)', padding: '2px 9px', borderRadius: '8px' }}>{roleLbl}</span>
                               <span style={{ fontSize: '11px', color: '#DB8A66', background: 'rgba(219,138,102,0.1)', padding: '2px 8px', borderRadius: '8px' }}>Directo</span>
                             </div>
                             <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '2px' }}>{m.email}</div>
                           </div>
+                          {/* Role selector — editable by OWNER, read-only badge otherwise */}
+                          {isOwner ? (
+                            <select
+                              value={m.role}
+                              onChange={(e) => handleChangeDirectMemberRole(m.id, e.target.value)}
+                              style={{
+                                fontSize: '11px', fontWeight: 600, color: '#9C9486',
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                                padding: '3px 8px', borderRadius: '8px', cursor: 'pointer',
+                                outline: 'none', flexShrink: 0,
+                              }}
+                            >
+                              <option value="MEMBER">Miembro</option>
+                              <option value="ADMIN">Admin</option>
+                              <option value="VIEWER">Lector</option>
+                            </select>
+                          ) : (
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#9C9486', background: 'rgba(255,255,255,0.06)', padding: '2px 9px', borderRadius: '8px', flexShrink: 0 }}>{roleLbl}</span>
+                          )}
                           {canEdit && (
                             <button
                               onClick={() => handleRemoveDirectMember(m.id)}
