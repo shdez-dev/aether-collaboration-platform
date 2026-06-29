@@ -353,42 +353,50 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
           </button>
         )}
 
-        {/* Members + online */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {boardMembers.length > 0 && (
+        {/* Connected users + online indicator */}
+        {isConnected && activeUsers.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+            {/* Overlapping avatar circles for each online user */}
             <div style={{ display: 'flex' }}>
-              {boardMembers.slice(0, 4).map((m, i) => (
+              {activeUsers.slice(0, 5).map((u, i) => (
                 <span
-                  key={m.id}
-                  title={m.name}
+                  key={u.id}
+                  title={u.name}
                   style={{
-                    width: '28px', height: '28px', borderRadius: '50%',
-                    background: `hsl(${(m.id.charCodeAt(0) * 37) % 360},55%,48%)`,
+                    width: '26px', height: '26px', borderRadius: '50%',
                     border: '2px solid #161B2E',
-                    marginLeft: i === 0 ? 0 : '-7px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '10px', fontWeight: 700, color: '#fff',
+                    marginLeft: i === 0 ? 0 : '-6px',
                     position: 'relative', zIndex: 10 - i,
+                    flexShrink: 0, overflow: 'hidden',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: u.avatar ? 'transparent' : `hsl(${(u.id.charCodeAt(0) * 37) % 360},48%,42%)`,
+                    fontSize: '9px', fontWeight: 700, color: '#fff',
                   }}
                 >
-                  {m.name.charAt(0).toUpperCase()}
+                  {u.avatar
+                    ? <img src={u.avatar} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    : u.name.charAt(0).toUpperCase()
+                  }
+                  {/* Green online dot */}
+                  <span style={{
+                    position: 'absolute', right: '-1px', bottom: '-1px',
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: '#76A878', border: '1.5px solid #161B2E',
+                  }} />
                 </span>
               ))}
             </div>
-          )}
-          {activeUsers.length > 0 && (
+            {/* Count label */}
             <span style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
+              display: 'flex', alignItems: 'center', gap: '5px',
               fontSize: '12px', color: '#9FC59A',
-              background: 'rgba(118,168,120,0.12)', padding: '4px 11px', borderRadius: '8px',
+              background: 'rgba(118,168,120,0.1)', padding: '3px 9px', borderRadius: '7px',
             }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#76A878', flexShrink: 0 }} />
-              {isConnected
-                ? (activeUsers.length > 1 ? `${activeUsers.length} en línea` : 'En línea')
-                : 'Reconectando…'}
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#76A878', flexShrink: 0 }} />
+              {activeUsers.length === 1 ? 'En línea' : `${activeUsers.length} en línea`}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         <div style={{ flex: 1 }} />
 

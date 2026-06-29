@@ -3008,8 +3008,11 @@ export default function ProjectDetailPage() {
                           onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
                           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: memberColor(m.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#24180A', flexShrink: 0 }}>
-                            {m.name.trim()[0]?.toUpperCase()}
+                          <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: m.avatar ? 'transparent' : memberColor(m.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#24180A', flexShrink: 0, overflow: 'hidden' }}>
+                            {m.avatar
+                              ? <img src={m.avatar} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                              : m.name.trim()[0]?.toUpperCase()
+                            }
                           </span>
                           <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -3076,8 +3079,11 @@ export default function ProjectDetailPage() {
                             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                           >
                             <span style={{ position: 'relative', flexShrink: 0 }}>
-                              <span style={{ width: '38px', height: '38px', borderRadius: '50%', background: memberColor(m.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#24180A' }}>
-                                {m.name.trim()[0]?.toUpperCase()}
+                              <span style={{ width: '38px', height: '38px', borderRadius: '50%', background: m.avatar ? 'transparent' : memberColor(m.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#24180A', overflow: 'hidden' }}>
+                                {m.avatar
+                                  ? <img src={m.avatar} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                  : m.name.trim()[0]?.toUpperCase()
+                                }
                               </span>
                               {online && <span style={{ position: 'absolute', right: '-1px', bottom: '-1px', width: '11px', height: '11px', borderRadius: '50%', background: '#76A878', border: '2px solid #161B2E' }} />}
                             </span>

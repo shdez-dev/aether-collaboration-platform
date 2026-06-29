@@ -100,9 +100,12 @@ export const useBoardStore = create<BoardState>()(
 
         // Prevent duplicate event handler registration
         if (_socketHandlersRegistered) {
-          // Still ensure the socket is connected/connecting
           if (!socketService.isConnected()) {
             socketService.connect(accessToken);
+          } else {
+            // Socket was already connected before this call — sync state immediately
+            // because the 'connect' event will never fire again for an already-live socket.
+            set({ isSocketConnected: true });
           }
           return;
         }
@@ -139,6 +142,12 @@ export const useBoardStore = create<BoardState>()(
         socketService.onJoinedBoard((data) => {
           set({ activeUsers: data.users });
         });
+
+        // If the global socket was already connected before we registered the 'connect'
+        // listener, the event will never fire — mirror the live state right now.
+        if (socketService.isConnected()) {
+          set({ isSocketConnected: true });
+        }
       },
 
       // ==================== WEBSOCKET - DISCONNECT ====================
