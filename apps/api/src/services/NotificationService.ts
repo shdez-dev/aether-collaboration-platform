@@ -379,11 +379,12 @@ export class NotificationService {
     dueDate: Date;
     boardId: string;
   }): Promise<Notification | null> {
-    // Evitar duplicados recientes (últimas 24 horas)
+    // Evitar duplicados recientes (últimas 24 horas — el job corre cada hora)
     const isDuplicate = await notificationRepository.existsRecent({
       userId: data.userId,
       type: 'CARD_DUE_SOON',
       cardId: data.cardId,
+      windowMinutes: 1440,
     });
 
     if (isDuplicate) {
@@ -437,11 +438,12 @@ export class NotificationService {
     dueDate: Date;
     boardId: string;
   }): Promise<Notification | null> {
-    // Evitar duplicados recientes
+    // Evitar duplicados recientes (últimas 24 horas — el job corre cada hora)
     const isDuplicate = await notificationRepository.existsRecent({
       userId: data.userId,
       type: 'CARD_OVERDUE',
       cardId: data.cardId,
+      windowMinutes: 1440,
     });
 
     if (isDuplicate) {

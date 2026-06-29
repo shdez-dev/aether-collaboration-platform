@@ -149,14 +149,16 @@ export class NotificationRepository {
     cardId?: string;
     commentId?: string;
     workspaceId?: string;
+    windowMinutes?: number;
   }): Promise<boolean> {
+    const window = data.windowMinutes ?? 5;
     let queryText = `SELECT id FROM notifications
        WHERE user_id = $1
          AND type = $2
-         AND created_at > NOW() - INTERVAL '5 minutes'`;
+         AND created_at > NOW() - ($3 * INTERVAL '1 minute')`;
 
-    const params: any[] = [data.userId, data.type];
-    let paramIndex = 3;
+    const params: any[] = [data.userId, data.type, window];
+    let paramIndex = 4;
 
     if (data.cardId) {
       queryText += ` AND data->>'cardId' = $${paramIndex}`;
