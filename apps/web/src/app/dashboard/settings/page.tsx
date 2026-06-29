@@ -186,13 +186,22 @@ export default function SettingsPage() {
           title={t.settings_section_notifications}
           desc={t.settings_section_notifications_desc}
         >
+          {/* Campana de notificaciones — funcional */}
+          <ToggleRow
+            label="Campana de notificaciones"
+            desc="Muestra el icono de campana en el sidebar con acceso rápido a tus notificaciones."
+            checked={localPrefs.inAppNotifications}
+            onChange={(v) => setLocalPrefs({ ...localPrefs, inAppNotifications: v })}
+          />
+          <Divider />
+
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
-            padding: '4px 10px', borderRadius: '20px', marginBottom: '20px',
+            padding: '4px 10px', borderRadius: '20px', margin: '16px 0',
             background: `${C.amber}12`, border: `1px solid ${C.amber}30`,
           }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: C.amber }} />
-            <span style={{ fontSize: '11px', color: C.amber, fontWeight: 600 }}>En desarrollo — próximamente</span>
+            <span style={{ fontSize: '11px', color: C.amber, fontWeight: 600 }}>Canales adicionales — próximamente</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', opacity: 0.5, pointerEvents: 'none' }}>
@@ -214,14 +223,6 @@ export default function SettingsPage() {
                 desc={t.settings_push_notif_desc}
                 checked={localPrefs.pushNotifications}
                 onChange={(v) => setLocalPrefs({ ...localPrefs, pushNotifications: v })}
-                disabled
-              />
-              <Divider />
-              <ToggleRow
-                label={t.settings_label_inapp_notif}
-                desc={t.settings_inapp_notif_desc}
-                checked={localPrefs.inAppNotifications}
-                onChange={(v) => setLocalPrefs({ ...localPrefs, inAppNotifications: v })}
                 disabled
               />
             </div>

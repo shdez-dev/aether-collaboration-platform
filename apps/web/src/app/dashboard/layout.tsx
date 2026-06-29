@@ -14,6 +14,7 @@ import { SocketProvider } from '@/components/providers/SocketProvider';
 import { NotificationListener } from '@/components/notifications/NotificationListener';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getAvatarUrl } from '@/lib/utils/avatar';
 import { useT } from '@/lib/i18n';
@@ -219,7 +220,8 @@ function Sidebar({
   sidebarProjects: any[]; projectsLoading: boolean;
 }) {
   const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
-  const notifCount = useNotificationStore(s => s.unreadCount);
+  const notifCount  = useNotificationStore(s => s.unreadCount);
+  const showBell    = usePreferencesStore(s => s.preferences?.inAppNotifications ?? true);
 
   const mainNav = [
     {
@@ -412,7 +414,7 @@ function Sidebar({
           <span style={{ display: 'block', fontSize: '11px', color: '#827A6D' }}>Plan gratis</span>
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-          <NotificationBell />
+          {showBell && <NotificationBell />}
           <button
             onClick={e => { e.stopPropagation(); router.push('/dashboard/settings'); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '6px' }}
@@ -491,6 +493,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const { loadPreferences } = usePreferencesStore();
   const {
     activeWorkspaceId, setActiveWorkspaceId,
     fetchSidebarBoards, fetchSidebarProjects,
@@ -507,6 +510,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const userAvatarUrl = getAvatarUrl(user?.avatar ?? null);
+
+  useEffect(() => { loadPreferences(); }, [loadPreferences]);
 
   // Cierra el drawer al navegar
   useEffect(() => { setSidebarOpen(false); }, [pathname]);
