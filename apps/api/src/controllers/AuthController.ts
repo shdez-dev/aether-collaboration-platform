@@ -65,7 +65,8 @@ export class AuthController {
     try {
       // 1. Validar input primero (antes de obtener conexión)
       const validatedData = registerSchema.parse(req.body);
-      const { email, password, name } = validatedData;
+      const { email: rawEmail, password, name } = validatedData;
+      const email = rawEmail.trim().toLowerCase();
 
       // 2. Obtener conexión del pool
       client = await pool.connect();
@@ -175,7 +176,8 @@ export class AuthController {
     try {
       // 1. Validar input primero
       const validatedData = loginSchema.parse(req.body);
-      const { email, password } = validatedData;
+      const { email: rawEmail, password } = validatedData;
+      const email = rawEmail.trim().toLowerCase();
 
       // 2. Obtener conexión del pool
       client = await pool.connect();
@@ -795,7 +797,7 @@ export class AuthController {
     try {
       client = await pool.connect();
       const validatedData = forgotPasswordSchema.parse(req.body);
-      const { email } = validatedData;
+      const email = validatedData.email.trim().toLowerCase();
 
       // Find user by email
       const result = await client.query('SELECT id, email, name FROM users WHERE email = $1', [

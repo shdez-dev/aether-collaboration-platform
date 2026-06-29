@@ -926,6 +926,14 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 031: Create project_members table');
 
+      // Migration 032: Normalize existing user emails to lowercase
+      await client.query(`
+        UPDATE users
+        SET email = LOWER(TRIM(email))
+        WHERE email != LOWER(TRIM(email))
+      `);
+      console.log('  ✓ Migration 032: Normalize user emails to lowercase');
+
       console.log('✅ All migrations completed successfully');
     } finally {
       client.release();
