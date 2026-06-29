@@ -232,28 +232,30 @@ export class EmailService {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Restablece tu contraseña — Aether</title>
 </head>
-<body style="margin:0;padding:0;background-color:#080c14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#f0f6ff;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#080c14;padding:40px 16px;">
+<body style="margin:0;padding:0;background-color:#0D0F12;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0D0F12;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;">
 
           <!-- Logo -->
           <tr>
-            <td style="padding-bottom:32px;">
+            <td style="padding-bottom:28px;">
               <table cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding-right:10px;vertical-align:middle;">
-                    <svg width="22" height="22" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M110 39L32 173" stroke="#38b6ff" stroke-width="10" stroke-linecap="round"/>
-                      <path d="M110 39L188 173" stroke="#38b6ff" stroke-width="10" stroke-linecap="round"/>
-                      <path d="M66 122L154 122" stroke="#00e5cc" stroke-width="7" stroke-linecap="round"/>
-                      <circle cx="110" cy="39" r="9" fill="#38b6ff"/>
-                      <circle cx="32" cy="173" r="9" fill="#38b6ff"/>
-                      <circle cx="188" cy="173" r="9" fill="#00e5cc"/>
-                    </svg>
+                    <div style="width:28px;height:28px;border-radius:8px;background-color:#F2571E;display:inline-flex;align-items:center;justify-content:center;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 4.5L5.5 19.5" stroke="#F8F1E3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 4.5L18.5 19.5" stroke="#F8F1E3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#F8F1E3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
+                        <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+                        <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+                      </svg>
+                    </div>
                   </td>
-                  <td style="vertical-align:middle;font-size:16px;font-weight:500;color:#f0f6ff;letter-spacing:-0.01em;">
+                  <td style="vertical-align:middle;font-size:17px;font-weight:700;color:#ECE5D6;letter-spacing:-0.015em;">
                     Aether
                   </td>
                 </tr>
@@ -263,27 +265,27 @@ export class EmailService {
 
           <!-- Card -->
           <tr>
-            <td style="background-color:#0a1428;border:1px solid #1e3a5f;border-radius:8px;padding:36px 32px;">
+            <td style="background-color:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:36px 32px;">
 
               <!-- Tag -->
-              <p style="margin:0 0 20px 0;font-family:'Courier New',Courier,monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:#00e5cc;">
+              <p style="margin:0 0 20px 0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#615846;">
                 Restablecer contraseña
               </p>
 
               <!-- Heading -->
-              <h1 style="margin:0 0 12px 0;font-size:24px;font-weight:300;color:#f0f6ff;letter-spacing:-0.02em;line-height:1.2;">
-                Hola, <span style="font-weight:500;">${userName}</span>
+              <h1 style="margin:0 0 12px 0;font-size:24px;font-weight:700;color:#F4EEE2;letter-spacing:-0.02em;line-height:1.2;">
+                Hola, ${userName}
               </h1>
-              <p style="margin:0 0 28px 0;font-size:15px;font-weight:300;line-height:1.7;color:#8aaac8;">
-                Recibimos una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el botón para crear una nueva contraseña.
+              <p style="margin:0 0 28px 0;font-size:15px;line-height:1.7;color:#9C9486;">
+                Recibimos una solicitud para restablecer la contraseña de tu cuenta Aether. Haz clic en el botón para crear una nueva contraseña.
               </p>
 
               <!-- Button -->
               <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
-                  <td style="background-color:#38b6ff;border-radius:6px;">
+                  <td style="background-color:#F2571E;border-radius:10px;">
                     <a href="${resetLink}"
-                       style="display:inline-block;padding:13px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:600;color:#080c14;text-decoration:none;border-radius:6px;">
+                       style="display:inline-block;padding:13px 32px;font-size:14px;font-weight:600;color:#FEF3EE;text-decoration:none;border-radius:10px;letter-spacing:-0.01em;">
                       Restablecer contraseña
                     </a>
                   </td>
@@ -291,26 +293,26 @@ export class EmailService {
               </table>
 
               <!-- Divider -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
                 <tr>
-                  <td style="height:1px;background-color:#1e3a5f;"></td>
+                  <td style="height:1px;background-color:rgba(255,255,255,0.07);"></td>
                 </tr>
               </table>
 
               <!-- Fallback link -->
-              <p style="margin:0 0 8px 0;font-size:12px;color:#8aaac8;">
+              <p style="margin:0 0 8px 0;font-size:12px;color:#615846;">
                 Si el botón no funciona, copia y pega este enlace en tu navegador:
               </p>
-              <p style="margin:0;padding:10px 12px;background-color:#060a12;border:1px solid #1e3a5f;border-radius:4px;font-family:'Courier New',Courier,monospace;font-size:11px;color:#38b6ff;word-break:break-all;">
+              <p style="margin:0;padding:10px 12px;background-color:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:6px;font-family:'Courier New',Courier,monospace;font-size:11px;color:#9C9486;word-break:break-all;">
                 ${resetLink}
               </p>
 
-              <!-- Warning -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+              <!-- Notice -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
                 <tr>
-                  <td style="padding:12px 14px;background-color:#060a12;border-left:2px solid #38b6ff;border-radius:0 4px 4px 0;">
-                    <p style="margin:0;font-size:12px;color:#8aaac8;line-height:1.6;">
-                      Este enlace expira en <strong style="color:#f0f6ff;">1 hora</strong> y es de un solo uso.<br>
+                  <td style="padding:12px 14px;background-color:rgba(242,87,30,0.05);border-left:2px solid rgba(242,87,30,0.3);border-radius:0 6px 6px 0;">
+                    <p style="margin:0;font-size:12px;color:#9C9486;line-height:1.6;">
+                      Este enlace expira en <strong style="color:#C8BFAE;">1 hora</strong> y es de un solo uso.<br>
                       Si no solicitaste este cambio, ignora este mensaje — tu contraseña no será modificada.
                     </p>
                   </td>
@@ -323,9 +325,9 @@ export class EmailService {
           <!-- Footer -->
           <tr>
             <td style="padding-top:24px;text-align:center;">
-              <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:11px;color:#2a3d5a;">
+              <p style="margin:0;font-size:11px;color:#3D3830;">
                 © ${new Date().getFullYear()} Aether &nbsp;·&nbsp;
-                <a href="${this.frontendUrl}" style="color:#2a3d5a;text-decoration:none;">${this.frontendUrl}</a>
+                <a href="${this.frontendUrl}" style="color:#3D3830;text-decoration:none;">${this.frontendUrl}</a>
               </p>
             </td>
           </tr>

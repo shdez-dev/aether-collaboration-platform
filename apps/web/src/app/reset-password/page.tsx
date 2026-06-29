@@ -1,127 +1,165 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
+
+const SORA    = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
+
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  ) : (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
+  );
+}
+
+function PasswordField({
+  id, label, value, onChange, showPw, onToggle, placeholder, disabled,
+}: {
+  id: string; label: string; value: string; onChange: (v: string) => void;
+  showPw: boolean; onToggle: () => void; placeholder: string; disabled: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: '18px' }}>
+      <label htmlFor={id} style={{
+        display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
+        textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+      }}>
+        {label}
+      </label>
+      <div style={{ position: 'relative' }}>
+        <input
+          id={id}
+          type={showPw ? 'text' : 'password'}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="aether-field"
+          placeholder={placeholder}
+          disabled={disabled}
+          style={{ paddingRight: '42px' }}
+          autoComplete="new-password"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          disabled={disabled}
+          style={{
+            position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: '#615846', padding: '2px', display: 'flex', alignItems: 'center',
+          }}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
+          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
+          aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        >
+          <EyeIcon open={showPw} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type Status = 'idle' | 'success' | 'error-no-token';
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
+  const router       = useRouter();
   const searchParams = useSearchParams();
-  const [token, setToken] = useState<string | null>(null);
+
+  const [token, setToken]             = useState<string | null>(null);
+  const [status, setStatus]           = useState<Status>('idle');
   const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [error, setError] = useState('');
+  const [confirmPw, setConfirmPw]     = useState('');
+  const [showNew, setShowNew]         = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isLoading, setIsLoading]     = useState(false);
+  const [error, setError]             = useState('');
 
   useEffect(() => {
-    const tokenParam = searchParams.get('token');
-    if (!tokenParam) {
-      setStatus('error');
-      setError('Token de recuperación no encontrado');
-    } else {
-      setToken(tokenParam);
-    }
+    const t = searchParams.get('token');
+    if (!t) setStatus('error-no-token');
+    else setToken(t);
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    // Validaciones
     if (newPassword.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres');
       return;
     }
-
-    if (newPassword !== confirmPassword) {
+    if (newPassword !== confirmPw) {
       setError('Las contraseñas no coinciden');
       return;
     }
-
-    if (!token) {
-      setError('Token inválido');
-      return;
-    }
+    if (!token) { setError('Token inválido'); return; }
 
     setIsLoading(true);
-
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/reset-password`, {
+      const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/reset-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, newPassword }),
       });
+      const data = await res.json();
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (res.ok) {
         setStatus('success');
-        // Redirect to login after 3 seconds
-        setTimeout(() => {
-          router.push('/login');
-        }, 3000);
+        setTimeout(() => router.push('/login'), 3000);
       } else {
-        setStatus('error');
         setError(
           data.error?.message ||
-            (data.error?.code === 'TOKEN_EXPIRED'
-              ? 'El token de recuperación ha expirado'
-              : 'Token de recuperación inválido')
+          (data.error?.code === 'TOKEN_EXPIRED'
+            ? 'El enlace de recuperación ha expirado. Solicita uno nuevo.'
+            : 'El enlace de recuperación es inválido o ya fue usado.'),
         );
       }
-    } catch (error) {
-      setStatus('error');
-      setError('Error de conexión. Por favor intenta nuevamente.');
+    } catch {
+      setError('Error de conexión. Por favor inténtalo de nuevo.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (status === 'success') {
+  /* ── Token ausente ──────────────────────────────────────────────────────── */
+  if (status === 'error-no-token') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
-          <div className="flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="w-10 h-10 text-green-600 dark:text-green-400" />
+      <div className="auth-layout" >
+        <div className="auth-form-panel" >
+          <div style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 24px',
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="rgba(255,100,100,0.9)" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Contraseña actualizada
+            <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '24px', letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 10px' }}>
+              Enlace inválido
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Tu contraseña ha sido actualizada exitosamente. Ahora puedes iniciar sesión con tu
-              nueva contraseña.
+            <p style={{ fontFamily: MANROPE, fontSize: '14px', lineHeight: 1.65, color: '#9C9486', margin: '0 0 32px' }}>
+              El enlace de recuperación no es válido o ya expiró. Solicita uno nuevo desde la página de inicio de sesión.
             </p>
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-              <span>Redirigiendo a login...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'error' && !token) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
-          <div className="flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
-              <XCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Link inválido</h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
             <button
               onClick={() => router.push('/forgot-password')}
-              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              style={{
+                width: '100%', padding: '13px', borderRadius: '9px', border: 'none',
+                background: '#F2571E', color: '#1A0B03',
+                fontFamily: SORA, fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+              }}
             >
-              Solicitar nuevo link
+              Solicitar nuevo enlace
             </button>
           </div>
         </div>
@@ -129,99 +167,141 @@ export default function ResetPasswordPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+  /* ── Éxito ──────────────────────────────────────────────────────────────── */
+  if (status === 'success') {
+    return (
+      <div className="auth-layout" >
+        <div className="auth-form-panel" >
+          <div style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'rgba(118,168,120,0.12)', border: '1px solid rgba(118,168,120,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 24px',
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12l4 4 10-9" stroke="#76A878" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '24px', letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 10px' }}>
+              ¡Contraseña actualizada!
+            </h1>
+            <p style={{ fontFamily: MANROPE, fontSize: '14px', lineHeight: 1.65, color: '#9C9486', margin: '0 0 24px' }}>
+              Tu contraseña se actualizó correctamente. Ahora puedes iniciar sesión con tu nueva contraseña.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <div style={{
+                width: '14px', height: '14px', borderRadius: '50%',
+                border: '2px solid rgba(155,148,134,0.5)',
+                borderTopColor: '#9C9486',
+                animation: 'spin 1s linear infinite',
+              }} />
+              <span style={{ fontFamily: MANROPE, fontSize: '13px', color: '#9C9486' }}>
+                Redirigiendo a inicio de sesión…
+              </span>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Restablecer contraseña
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-center">
-            Ingresa tu nueva contraseña
-          </p>
         </div>
+      </div>
+    );
+  }
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="newPassword"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Nueva contraseña
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="newPassword"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={8}
-                className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Mínimo 8 caracteres"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
+  /* ── Formulario ─────────────────────────────────────────────────────────── */
+  return (
+    <div className="auth-layout" >
+      <div className="auth-form-panel" >
+        <div style={{ width: '100%', maxWidth: '400px' }}>
 
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Confirmar contraseña
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                id="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={8}
-                className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Confirma tu contraseña"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          {/* Back */}
+          <Link href="/login" style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            fontFamily: MANROPE, fontSize: '13px', color: '#615846',
+            textDecoration: 'none', marginBottom: '36px',
+          }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
           >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Actualizando...
-              </>
-            ) : (
-              'Actualizar contraseña'
+            ← Volver al inicio de sesión
+          </Link>
+
+          {/* Logo */}
+          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '28px' }}>
+            <span style={{
+              width: '34px', height: '34px', borderRadius: '10px',
+              background: '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 14px -4px rgba(242,87,30,0.6)',
+            }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+                <path d="M12 4.5L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 4.5L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
+                <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+                <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+              </svg>
+            </span>
+            <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: '#ECE5D6', letterSpacing: '-0.015em' }}>Aether</span>
+          </Link>
+
+          {/* Header */}
+          <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '28px', letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 8px' }}>
+            Nueva contraseña
+          </h1>
+          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: '#9C9486', margin: '0 0 32px' }}>
+            Elige una contraseña segura de al menos 8 caracteres.
+          </p>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} noValidate>
+            <PasswordField
+              id="newPassword"
+              label="Nueva contraseña"
+              value={newPassword}
+              onChange={setNewPassword}
+              showPw={showNew}
+              onToggle={() => setShowNew(v => !v)}
+              placeholder="Mínimo 8 caracteres"
+              disabled={isLoading}
+            />
+
+            <PasswordField
+              id="confirmPassword"
+              label="Confirmar contraseña"
+              value={confirmPw}
+              onChange={setConfirmPw}
+              showPw={showConfirm}
+              onToggle={() => setShowConfirm(v => !v)}
+              placeholder="Repite tu contraseña"
+              disabled={isLoading}
+            />
+
+            {error && (
+              <div style={{
+                background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.25)',
+                borderRadius: '8px', padding: '11px 14px', marginBottom: '20px',
+              }}>
+                <p style={{ fontFamily: MANROPE, fontSize: '13px', color: 'rgba(255,100,100,0.9)', margin: 0 }}>
+                  {error}
+                </p>
+              </div>
             )}
-          </button>
-        </form>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              style={{
+                width: '100%', padding: '13px', borderRadius: '9px', border: 'none',
+                background: isLoading ? 'rgba(242,87,30,0.6)' : '#F2571E',
+                color: '#1A0B03', fontFamily: SORA, fontWeight: 700, fontSize: '14px',
+                cursor: isLoading ? 'not-allowed' : 'pointer', transition: 'filter 0.15s',
+              }}
+              onMouseEnter={e => { if (!isLoading) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.filter = 'none')}
+            >
+              {isLoading ? 'Actualizando…' : 'Actualizar contraseña'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
