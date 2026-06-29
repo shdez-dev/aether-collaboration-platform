@@ -5,6 +5,7 @@ import { devtools } from 'zustand/middleware';
 import type { Notification } from '@aether/types';
 import { notificationService } from '@/services/notificationService';
 import { socketService } from '@/services/socketService';
+import { useAuthStore } from '@/stores/authStore';
 import { toast as showToast } from '@/hooks/use-toast';
 
 interface NotificationState {
@@ -147,6 +148,10 @@ export const useNotificationStore = create<NotificationState & NotificationActio
         _socketHandler = (event: any) => {
           if (event.type === 'notification.created') {
             const p = event.payload as any;
+            // Only process notifications addressed to the current user. Guards
+            // against any workspace-wide delivery reaching the actor themselves.
+            const currentUserId = useAuthStore.getState().user?.id;
+            if (p.userId && currentUserId && p.userId !== currentUserId) return;
             const notification: Notification = {
               id: p.notificationId || p.notification?.id,
               userId: p.userId,

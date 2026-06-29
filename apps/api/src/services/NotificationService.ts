@@ -759,13 +759,16 @@ export class NotificationService {
     return notification;
   }
 
-  private async emitNotificationCreated(notification: Notification, actorId: string, actorName: string, targetUserId: string, workspaceId?: string) {
+  private async emitNotificationCreated(notification: Notification, actorId: string, actorName: string, targetUserId: string, _workspaceId?: string) {
     try {
       await eventStore.emit({
         type: 'notification.created',
         actor: { id: actorId, name: actorName },
         subject: { type: 'notification', id: notification.id, name: '' },
-        context: { workspaceId: workspaceId ?? '' },
+        // Personal event: deliver ONLY to the target user via sendToUser.
+        // Leaving workspaceId empty prevents a workspace-wide broadcast that
+        // would otherwise also notify the actor (the inviter).
+        context: { workspaceId: '' },
         payload: {
           notificationId: notification.id,
           userId: targetUserId,

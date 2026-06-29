@@ -4,6 +4,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/hooks/useNotifications';
+import { apiService } from '@/services/apiService';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -212,6 +215,8 @@ function NotifRow({ n, isOld, onRead, onDelete, onClick }: {
 export default function BandejaPage() {
   const router = useRouter();
   const { notifications, isLoading, loadNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const setActiveWorkspaceId = useActiveWorkspaceStore((s) => s.setActiveWorkspaceId);
+  const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
   const [filter, setFilter] = useState<Filter>('todo');
 
   useEffect(() => { loadNotifications(); }, []);
@@ -226,15 +231,36 @@ export default function BandejaPage() {
   const unreadCount = notifications.filter(n => !n.read).length;
   const isEmpty = filtered.length === 0;
 
-  function handleClick(n: any) {
+  async function handleClick(n: any) {
     if (!n.read) markAsRead(n.id);
     const data = (n.data ?? {}) as any;
-    if (n.type === 'WORKSPACE_INVITE' || n.type === 'WORKSPACE_REMOVED') {
-      router.push('/dashboard/projects');
+    const projectTypes = ['PROJECT_INVITE', 'MILESTONE_COMPLETED', 'MILESTONE_MISSED', 'PROJECT_STATUS_CHANGED'];
+
+    // Switch to the notification's workspace so it opens in the right context.
+    // Refresh the workspace list so a newly-joined workspace appears.
+    if (data.workspaceId) {
+      setActiveWorkspaceId(data.workspaceId);
+      fetchWorkspaces().catch(() => {});
+    }
+
+    if (projectTypes.includes(n.type) && data.projectId) {
+      router.push(`/dashboard/projects/${data.projectId}`);
+    } else if (n.type === 'WORKSPACE_INVITE' || n.type === 'WORKSPACE_REMOVED') {
+      router.push('/dashboard');
     } else if (data.boardId) {
-      router.push(`/dashboard/boards/${data.boardId}`);
+      // Resolve board → parent project, then open the project page
+      try {
+        const json = await apiService.get<{ project: { projectId: string } | null }>(
+          `/api/boards/${data.boardId}/project`,
+          true
+        );
+        const projectId = json?.data?.project?.projectId;
+        router.push(projectId ? `/dashboard/projects/${projectId}` : '/dashboard');
+      } catch {
+        router.push('/dashboard');
+      }
     } else {
-      router.push('/dashboard/projects');
+      router.push('/dashboard');
     }
   }
 
