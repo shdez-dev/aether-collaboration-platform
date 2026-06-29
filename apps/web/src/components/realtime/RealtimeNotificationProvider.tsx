@@ -76,48 +76,22 @@ export function RealtimeNotificationProvider() {
 
 function mapEventToNotification(event: RealtimeEvent): NotificationConfig | null {
   const userName =
-    event.payload?.assignedBy?.name  ||
-    event.payload?.unassignedBy?.name ||
-    event.payload?.completedBy?.name  ||
-    event.payload?.updatedBy?.name    ||
-    event.payload?.createdBy?.name    ||
-    event.payload?.movedBy?.name      ||
+    event.payload?.completedBy?.name ||
+    event.payload?.updatedBy?.name   ||
+    event.payload?.createdBy?.name   ||
+    event.payload?.movedBy?.name     ||
     'Alguien';
 
   switch (event.type) {
-    case 'card.member.assigned':
-      return {
-        title:       `${userName} te asignó una card`,
-        description: event.payload.title ? `"${event.payload.title}"` : undefined,
-        variant:     'success',
-      };
-
-    case 'card.member.removed':
-      return {
-        title:       `${userName} te quitó de una card`,
-        description: event.payload.title ? `"${event.payload.title}"` : undefined,
-        variant:     'warning',
-      };
-
+    // Only collaborative-awareness toasts here.
+    // card.member.assigned/removed and workspace.member.* are excluded because
+    // those already trigger a persistent notification → notificationStore shows
+    // its own toast via initSocketListener. Showing both would double-toast.
     case 'card.status-changed':
       return {
         title:       `${userName} completó una card`,
         description: event.payload.title ? `"${event.payload.title}"` : undefined,
         variant:     'success',
-      };
-
-    case 'workspace.member.invited':
-      return {
-        title:       `${userName} te agregó a un workspace`,
-        description: event.payload.workspace?.name,
-        variant:     'info',
-      };
-
-    case 'workspace.member.removed':
-      return {
-        title:       `${userName} te quitó de un workspace`,
-        description: event.payload.workspace?.name,
-        variant:     'error',
       };
 
     default:
