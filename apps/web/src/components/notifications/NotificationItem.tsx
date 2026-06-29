@@ -8,6 +8,8 @@ import { es } from 'date-fns/locale';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
 import { apiService } from '@/services/apiService';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -151,6 +153,8 @@ export function NotificationItem({
 }: NotificationItemProps) {
   const t = useT();
   const router = useRouter();
+  const setActiveWorkspaceId = useActiveWorkspaceStore((s) => s.setActiveWorkspaceId);
+  const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
   const [isLoading, setIsLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -171,6 +175,14 @@ export function NotificationItem({
     }
     const data = (notification.data ?? {}) as any;
     const projectTypes = ['PROJECT_INVITE', 'MILESTONE_COMPLETED', 'MILESTONE_MISSED', 'PROJECT_STATUS_CHANGED'];
+
+    // Switch the active workspace so the project/board opens in the right context.
+    // For a freshly-invited user the workspace list is stale (loaded before they
+    // were added), so refresh it to make the new workspace appear in the switcher.
+    if (data.workspaceId) {
+      setActiveWorkspaceId(data.workspaceId);
+      fetchWorkspaces().catch(() => {});
+    }
 
     if (projectTypes.includes(notification.type) && data.projectId) {
       router.push(`/dashboard/projects/${data.projectId}`); onClose?.();
