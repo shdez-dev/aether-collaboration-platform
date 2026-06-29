@@ -39,10 +39,20 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<FieldErrors>({ email: '', password: '' });
   const [touched, setTouched] = useState<TouchedFields>({ email: false, password: false });
 
+  // Clear any stale emailNotVerified state when the login page mounts.
+  // Without this, returning from /verify-email/pending would immediately
+  // redirect back because the store value persists across navigation.
+  useEffect(() => {
+    clearError();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (isHydrated && isAuthenticated) router.push('/dashboard');
   }, [isAuthenticated, isHydrated, router]);
 
+  // Only redirect to verify-email when emailNotVerified is set AFTER a login
+  // attempt on this page (not from a previous session).
   useEffect(() => {
     if (emailNotVerified) {
       router.push(`/verify-email/pending?email=${encodeURIComponent(emailNotVerified)}`);
