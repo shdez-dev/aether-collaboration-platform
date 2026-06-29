@@ -73,6 +73,9 @@ import { C } from '@/lib/colors';
 
 const lowlight = createLowlight(common);
 
+const SORA    = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
+
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 
@@ -666,13 +669,13 @@ function ToolbarButton({
       title={title}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: '28px', height: '28px', borderRadius: '5px', flexShrink: 0,
-        background: isActive ? C.accent : hovered ? C.hover : 'transparent',
-        border: `1px solid ${isActive ? C.accent : hovered ? C.border2 : 'transparent'}`,
-        color: isActive ? '#fff' : hovered ? C.text : C.text3,
+        width: '28px', height: '28px', borderRadius: '6px', flexShrink: 0,
+        background: isActive ? `${C.accent}22` : hovered ? C.hover : 'transparent',
+        border: `1px solid ${isActive ? `${C.accent}55` : hovered ? C.border2 : 'transparent'}`,
+        color: isActive ? C.accent : hovered ? C.text : C.text3,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.4 : 1,
-        transition: 'all 0.1s',
+        opacity: disabled ? 0.35 : 1,
+        transition: 'background 0.12s, border-color 0.12s, color 0.12s',
       }}
     >
       {children}
@@ -974,86 +977,88 @@ function TableMenuItem({ children, onMouseDown, danger }: { children: React.Reac
   );
 }
 
-// ── Table context menu ────────────────────────────────────────────────────────
+// ── Table context menu (only shown when cursor is inside a table) ─────────────
 function TableMenu({ editor, t }: { editor: any; t: any }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const inTable = editor.isActive('table');
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  // Only render when inside a table
+  if (!inTable) return null;
 
-  const run = (cmd: () => void) => {
-    cmd();
-    setOpen(false);
-  };
+  const run = (cmd: () => void) => { cmd(); setOpen(false); };
 
   const [hBtn, setHBtn] = useState(false);
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        onMouseDown={(e) => { e.preventDefault(); setOpen((v) => !v); }}
-        onMouseEnter={() => setHBtn(true)}
-        onMouseLeave={() => setHBtn(false)}
-        title="Opciones de tabla"
-        style={{
-          display: 'flex', alignItems: 'center', gap: '2px',
-          padding: '0 5px', height: '28px', borderRadius: '5px',
-          background: inTable ? C.accent : hBtn ? C.hover : 'transparent',
-          border: `1px solid ${inTable ? C.accent : hBtn ? C.border2 : 'transparent'}`,
-          color: inTable ? '#fff' : hBtn ? C.text : C.text3,
-          cursor: 'pointer', transition: 'all 0.1s',
-        }}
-      >
-        <TableIcon style={{ width: '13px', height: '13px' }} />
-        <ChevronDown style={{ width: '10px', height: '10px', opacity: 0.6 }} />
-      </button>
+    <>
+      <div style={{ width: '1px', height: '18px', background: C.border2, margin: '0 3px', flexShrink: 0 }} />
+      <div ref={ref} style={{ position: 'relative' }}>
+        <button
+          onMouseDown={(e) => {
+            e.preventDefault();
+            // Register outside-click handler only when opening
+            if (!open) {
+              const handler = (ev: MouseEvent) => {
+                if (ref.current && !ref.current.contains(ev.target as Node)) {
+                  setOpen(false);
+                  document.removeEventListener('mousedown', handler);
+                }
+              };
+              document.addEventListener('mousedown', handler);
+            }
+            setOpen((v) => !v);
+          }}
+          onMouseEnter={() => setHBtn(true)}
+          onMouseLeave={() => setHBtn(false)}
+          title="Opciones de tabla"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '3px',
+            padding: '0 7px', height: '28px', borderRadius: '6px',
+            background: open ? `${C.accent}22` : hBtn ? C.hover : 'transparent',
+            border: `1px solid ${open ? `${C.accent}55` : hBtn ? C.border2 : 'transparent'}`,
+            color: open ? C.accent : hBtn ? C.text : C.text3,
+            cursor: 'pointer', transition: 'background 0.12s, border-color 0.12s, color 0.12s',
+            fontFamily: MANROPE, fontSize: '12px', fontWeight: 500,
+          }}
+        >
+          <TableIcon style={{ width: '13px', height: '13px' }} />
+          <span>Tabla</span>
+          <ChevronDown style={{ width: '10px', height: '10px', opacity: 0.6 }} />
+        </button>
 
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
-          background: C.surface, border: `1px solid ${C.border2}`,
-          borderRadius: '9px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-          padding: '4px', width: '210px',
-        }}>
-          <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()); }}>
-            <Plus style={{ width: '12px', height: '12px', color: C.accent }} /> Insertar tabla (3×3)
-          </TableMenuItem>
+        {open && (
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
+            background: C.surface, border: `1px solid ${C.border2}`,
+            borderRadius: '10px', boxShadow: '0 12px 40px rgba(0,0,0,0.55)',
+            padding: '4px', width: '210px',
+            animation: 'tbMenuIn 0.15s cubic-bezier(0.22,1,0.36,1)',
+          }}>
+            <style>{`@keyframes tbMenuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+            <p style={{ fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 10px 6px', fontFamily: MANROPE }}>Columnas</p>
+            <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addColumnBefore().run()); }}>+ Columna a la izquierda</TableMenuItem>
+            <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addColumnAfter().run()); }}>+ Columna a la derecha</TableMenuItem>
+            <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteColumn().run()); }}>
+              <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_column}
+            </TableMenuItem>
 
-          {inTable && (
-            <>
-              <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
-              <p style={{ fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '2px 10px 4px' }}>Columnas</p>
-              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addColumnBefore().run()); }}>+ Columna a la izquierda</TableMenuItem>
-              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addColumnAfter().run()); }}>+ Columna a la derecha</TableMenuItem>
-              <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteColumn().run()); }}>
-                <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_column}
-              </TableMenuItem>
+            <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
+            <p style={{ fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 10px 6px', fontFamily: MANROPE }}>Filas</p>
+            <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addRowBefore().run()); }}>+ Fila arriba</TableMenuItem>
+            <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addRowAfter().run()); }}>+ Fila abajo</TableMenuItem>
+            <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteRow().run()); }}>
+              <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_row}
+            </TableMenuItem>
 
-              <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
-              <p style={{ fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '2px 10px 4px' }}>Filas</p>
-              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addRowBefore().run()); }}>+ Fila arriba</TableMenuItem>
-              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().addRowAfter().run()); }}>+ Fila abajo</TableMenuItem>
-              <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteRow().run()); }}>
-                <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_row}
-              </TableMenuItem>
-
-              <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
-              <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().toggleHeaderRow().run()); }}>⇅ Alternar fila encabezado</TableMenuItem>
-              <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteTable().run()); }}>
-                <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_table}
-              </TableMenuItem>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+            <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
+            <TableMenuItem onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().toggleHeaderRow().run()); }}>⇅ Alternar fila encabezado</TableMenuItem>
+            <TableMenuItem danger onMouseDown={(e) => { e.preventDefault(); run(() => editor.chain().focus().deleteTable().run()); }}>
+              <Trash2 style={{ width: '11px', height: '11px' }} /> {t.editor_table_delete_table}
+            </TableMenuItem>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -1416,7 +1421,7 @@ function EditorToolbar({
 
   return (
     <div style={{ borderBottom: `1px solid ${C.border}`, background: C.surface, padding: '6px 16px', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexWrap: 'wrap', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexWrap: 'wrap', overflowX: 'auto', fontFamily: MANROPE }}>
         {/* History */}
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
@@ -1573,9 +1578,7 @@ function EditorToolbar({
           <Minus className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider />
-
-        {/* Table with dropdown */}
+        {/* Table management — only shown when cursor is inside an existing table */}
         <TableMenu editor={editor} t={t} />
 
         <div style={{ flex: 1 }} />
@@ -1584,17 +1587,17 @@ function EditorToolbar({
         {isSavingToServer ? (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '4px 10px', borderRadius: '5px', fontSize: '11.5px',
-            background: `${C.amber}12`, border: `1px solid ${C.amber}35`, color: C.amber,
+            padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px', fontFamily: MANROPE,
+            background: `${C.amber}10`, border: `1px solid ${C.amber}30`, color: C.amber,
           }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: C.amber }} className="animate-pulse" />
+            <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: C.amber, animation: 'pulse 1.2s ease-in-out infinite' }} />
             Guardando…
           </div>
         ) : lastSaveTime ? (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '5px',
-            padding: '4px 10px', borderRadius: '5px', fontSize: '11.5px',
-            background: `${C.green}12`, border: `1px solid ${C.green}35`, color: C.green,
+            padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px', fontFamily: MANROPE,
+            background: `${C.green}10`, border: `1px solid ${C.green}30`, color: C.green,
           }}>
             <Check style={{ width: '11px', height: '11px' }} />
             Guardado {formatTimeAgo(lastSaveTime)}
@@ -2184,12 +2187,13 @@ export default function CollaborativeEditor({
           }}
         >
           <div
-            className="flex items-center gap-0.5 rounded-[8px] p-1"
             style={{
-              background: '#2c313a',
-              border: '1px solid #3d434d',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', gap: '1px',
+              borderRadius: '9px', padding: '4px',
+              background: C.surface,
+              border: `1px solid ${C.border2}`,
+              boxShadow: '0 6px 24px rgba(0,0,0,0.65), 0 2px 8px rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(12px)',
             }}
           >
           {[
@@ -2261,7 +2265,7 @@ export default function CollaborativeEditor({
                   width: '190px',
                   fontFamily: 'inherit',
                 }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(56,182,255,0.6)')}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(242,87,30,0.6)')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)')}
               />
               <BubbleBtn
@@ -2328,13 +2332,14 @@ export default function CollaborativeEditor({
         <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ minHeight: '100%', padding: '40px 24px' }}>
             <div
+              className="doc-page-enter"
               style={{
-                maxWidth: '760px', margin: '0 auto',
+                maxWidth: '780px', margin: '0 auto',
                 background: C.surface, border: `1px solid ${C.border}`,
-                borderRadius: '10px', boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
-                opacity: isTransitioning ? 0.5 : 1,
-                transform: isTransitioning ? 'scale(0.99)' : 'scale(1)',
-                transition: 'opacity 0.3s, transform 0.3s',
+                borderRadius: '12px', boxShadow: '0 12px 48px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2)',
+                opacity: isTransitioning ? 0.45 : 1,
+                transform: isTransitioning ? 'scale(0.985) translateY(4px)' : 'scale(1) translateY(0)',
+                transition: 'opacity 0.25s ease, transform 0.25s ease',
               }}
             >
               <div ref={editorWrapRef} style={{ padding: '48px 64px', position: 'relative' }}>

@@ -26,7 +26,8 @@ import { C } from '@/lib/colors';
 const CollaborativeEditor = lazy(() => import('@/components/documents/CollaborativeEditor'));
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-
+const SORA    = "'Sora', system-ui, sans-serif";
+const MANROPE = "'Manrope', system-ui, sans-serif";
 
 // ─── User color ───────────────────────────────────────────────────────────────
 
@@ -239,12 +240,15 @@ export default function DocumentEditorPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg }}>
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <header style={{
-        flexShrink: 0, background: C.surface,
-        borderBottom: `1px solid ${C.border}`,
-        padding: '0 20px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', height: '52px' }}>
+      <header
+        className="doc-header-enter"
+        style={{
+          flexShrink: 0, background: C.surface,
+          borderBottom: `1px solid ${C.border}`,
+          padding: '0 20px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', height: '54px' }}>
           {/* Left: back + title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
             <SmallBackBtn onClick={handleBack} label={t.btn_back} />
@@ -254,56 +258,62 @@ export default function DocumentEditorPage() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onBlur={handleTitleBlur}
+                onFocus={(e) => (e.currentTarget.style.color = '#F4EEE2')}
+                onBlur={(e) => { e.currentTarget.style.color = C.text; handleTitleBlur(); }}
                 disabled={!canEdit || isSavingTitle}
                 placeholder="Título del documento"
                 style={{
                   width: '100%', background: 'transparent', border: 'none', outline: 'none',
-                  fontSize: '14px', fontWeight: 600, color: C.text,
+                  fontSize: '14.5px', fontWeight: 600, color: C.text,
+                  fontFamily: SORA,
                   cursor: !canEdit ? 'default' : 'text',
+                  transition: 'color 0.12s',
                 }}
               />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '1px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '1px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Clock style={{ width: '10px', height: '10px', color: C.text4 }} />
-                  <span style={{ fontSize: '10.5px', color: C.text4 }}>
+                  <span style={{ fontSize: '10.5px', color: C.text4, fontFamily: MANROPE }}>
                     Actualizado {formatDate(currentDocument.updatedAt)}
                   </span>
                 </div>
-                <span style={{ fontSize: '10.5px', color: C.text4 }}>
-                  Por {currentDocument.creator?.name}
+                <span style={{ fontSize: '10.5px', color: C.text4, fontFamily: MANROPE }}>
+                  · {currentDocument.creator?.name}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Right: active users + badges + menu */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-            {/* Active users */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            {/* Active users with avatars */}
             {activeUsers.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Users style={{ width: '13px', height: '13px', color: C.text4 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <div style={{ display: 'flex' }}>
-                  {activeUsers.slice(0, 4).map((u, i) => (
+                  {activeUsers.slice(0, 4).map((u: any, i: number) => (
                     <div
                       key={u.id}
                       title={u.name}
                       style={{
-                        width: '24px', height: '24px', borderRadius: '50%',
+                        width: '26px', height: '26px', borderRadius: '50%',
                         border: `2px solid ${C.surface}`,
                         marginLeft: i === 0 ? 0 : '-7px',
-                        background: u.color,
+                        background: u.avatar ? 'transparent' : u.color,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '9px', fontWeight: 700, color: '#fff',
                         position: 'relative', zIndex: 4 - i,
+                        overflow: 'hidden', flexShrink: 0,
                       }}
                     >
-                      {u.name.charAt(0).toUpperCase()}
+                      {u.avatar
+                        ? <img src={u.avatar} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : u.name.charAt(0).toUpperCase()
+                      }
                     </div>
                   ))}
                   {activeUsers.length > 4 && (
                     <div style={{
-                      width: '24px', height: '24px', borderRadius: '50%',
+                      width: '26px', height: '26px', borderRadius: '50%',
                       border: `2px solid ${C.surface}`, marginLeft: '-7px',
                       background: C.hover, color: C.text3,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -313,6 +323,14 @@ export default function DocumentEditorPage() {
                     </div>
                   )}
                 </div>
+                <span style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  fontSize: '11.5px', color: '#9FC59A', fontFamily: MANROPE,
+                  background: 'rgba(118,168,120,0.1)', padding: '2px 8px', borderRadius: '6px',
+                }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#76A878' }} />
+                  {activeUsers.length === 1 ? 'En línea' : `${activeUsers.length} en línea`}
+                </span>
               </div>
             )}
 
@@ -650,9 +668,11 @@ function SmallBackBtn({ onClick, label }: { onClick: () => void; label: string }
       onMouseLeave={() => setH(false)}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: '5px',
-        padding: '5px 10px', borderRadius: '7px', fontSize: '12.5px', fontWeight: 500,
+        padding: '5px 11px', borderRadius: '7px', fontSize: '12.5px', fontWeight: 500,
         background: h ? C.hover : 'transparent', border: `1px solid ${h ? C.border2 : 'transparent'}`,
-        color: h ? C.text : C.text3, cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0,
+        color: h ? C.text : C.text3, cursor: 'pointer',
+        transition: 'background 0.12s, border-color 0.12s, color 0.12s',
+        flexShrink: 0, fontFamily: MANROPE,
       }}
     >
       <ArrowLeft style={{ width: '13px', height: '13px' }} />
@@ -717,10 +737,10 @@ function MenuItem({ icon, label, onClick, disabled, danger, suffix }: {
       style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
         padding: '7px 10px', borderRadius: '6px', textAlign: 'left', fontSize: '12.5px', fontWeight: 500,
-        background: h ? C.hover : 'transparent', border: 'none',
+        background: h ? C.hover : 'transparent', border: 'none', fontFamily: MANROPE,
         color: danger ? (h ? C.red : C.text3) : (h ? C.text : C.text3),
         cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-        transition: 'all 0.1s',
+        transition: 'background 0.1s, color 0.1s',
       }}
     >
       {icon}

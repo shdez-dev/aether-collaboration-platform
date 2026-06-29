@@ -154,7 +154,7 @@ function CreateDocModal({
   );
 }
 
-function DocRow({ doc, wsName, onClick }: { doc: Document; wsName: string; onClick: () => void }) {
+function DocRow({ doc, wsName, idx, onClick }: { doc: Document; wsName: string; idx: number; onClick: () => void }) {
   const [hov, setHov] = useState(false);
   const words = wordCount(doc.content);
 
@@ -169,6 +169,7 @@ function DocRow({ doc, wsName, onClick }: { doc: Document; wsName: string; onCli
         background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         transition: 'background 0.12s',
+        animation: `docRowIn 0.28s cubic-bezier(0.22,1,0.36,1) ${0.05 + idx * 0.04}s both`,
       }}
     >
       {/* File icon */}
@@ -257,15 +258,23 @@ export default function DocumentsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#161B2E' }}>
+      <style>{`
+        @keyframes docListIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes docRowIn  { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
+      `}</style>
       <div style={{ maxWidth: '1140px', margin: '0 auto', padding: '32px clamp(20px,4vw,48px) 60px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: '28px', flexWrap: 'wrap', gap: '12px',
+          animation: 'docListIn 0.3s cubic-bezier(0.22,1,0.36,1) both',
+        }}>
           <div>
             <h1 style={{ fontFamily: SORA, fontSize: 'clamp(1.4rem,2.5vw,1.9rem)', fontWeight: 700, color: '#E8E1D2', margin: 0 }}>
               Documentos
             </h1>
-            <p style={{ fontSize: '13.5px', color: '#827A6D', margin: '4px 0 0' }}>
+            <p style={{ fontSize: '13.5px', color: '#827A6D', margin: '4px 0 0', fontFamily: MANROPE }}>
               {loadingAll ? 'Cargando…' : `${allDocs.length} documento${allDocs.length !== 1 ? 's' : ''} en todos los espacios`}
             </p>
           </div>
@@ -312,6 +321,7 @@ export default function DocumentsPage() {
           background: '#1A1F35', borderRadius: '12px',
           border: '1px solid rgba(255,255,255,0.07)',
           overflow: 'hidden',
+          animation: 'docListIn 0.38s cubic-bezier(0.22,1,0.36,1) 0.05s both',
         }}>
           {/* Column headers */}
           <div style={{
@@ -366,11 +376,12 @@ export default function DocumentsPage() {
               )}
             </div>
           ) : (
-            filtered.map(doc => (
+            filtered.map((doc, idx) => (
               <DocRow
                 key={doc.id}
                 doc={doc}
                 wsName={doc.wsName}
+                idx={idx}
                 onClick={() => router.push(`/dashboard/documents/${doc.id}`)}
               />
             ))
