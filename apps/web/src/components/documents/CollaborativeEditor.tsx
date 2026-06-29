@@ -979,16 +979,15 @@ function TableMenuItem({ children, onMouseDown, danger }: { children: React.Reac
 
 // ── Table context menu (only shown when cursor is inside a table) ─────────────
 function TableMenu({ editor, t }: { editor: any; t: any }) {
+  // All hooks MUST come before any conditional return (Rules of Hooks)
   const [open, setOpen] = useState(false);
+  const [hBtn, setHBtn] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const inTable = editor.isActive('table');
 
-  // Only render when inside a table
   if (!inTable) return null;
 
   const run = (cmd: () => void) => { cmd(); setOpen(false); };
-
-  const [hBtn, setHBtn] = useState(false);
   return (
     <>
       <div style={{ width: '1px', height: '18px', background: C.border2, margin: '0 3px', flexShrink: 0 }} />
