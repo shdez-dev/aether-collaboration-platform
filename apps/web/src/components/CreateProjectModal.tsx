@@ -234,16 +234,16 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: '860px', maxWidth: '96vw', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
-            background: '#1A2035', border: '1px solid rgba(255,255,255,0.09)',
-            borderRadius: '14px', overflow: 'hidden',
+            width: '780px', maxWidth: '96vw', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
+            background: '#171E30', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '12px', overflow: 'hidden',
             boxShadow: '0 40px 90px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.03) inset',
             animation: `${closing ? 'cpPnOut 0.18s ease forwards' : 'cpPnIn 0.35s cubic-bezier(0.16,1,0.3,1) both'}`,
           }}
         >
 
           {/* ── Header ──────────────────────────────────────────────────── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '16px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
             <div style={{
               width: '32px', height: '32px', borderRadius: '9px', flexShrink: 0,
               background: `${selectedColor}20`, border: `1px solid ${selectedColor}45`,
@@ -254,9 +254,9 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
-                {t.projects_btn_create}
+                Crear proyecto
               </div>
-              <div style={{ marginTop: '3px', fontSize: '11.5px', color: '#827A6D', lineHeight: 1.4 }}>
+              <div style={{ marginTop: '3px', fontSize: '12px', color: '#827A6D', lineHeight: 1.4, fontFamily: MANROPE }}>
                 Convierte una idea en un proyecto con el mínimo explícito que pide este workspace.
               </div>
             </div>
@@ -271,12 +271,12 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
           </div>
 
           {/* ── Body ────────────────────────────────────────────────────── */}
-          <div className="cp-scroll" style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(280px, 0.85fr)', gap: '18px', alignItems: 'start' }}>
+          <div className="cp-scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 250px', gap: '16px', alignItems: 'start' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
 
                 {/* Icono + Color */}
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
 
                   {/* Icon picker */}
                   <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -392,6 +392,36 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   )}
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <FL>Madurez inicial</FL>
+                    <select
+                      value={maturityStage}
+                      onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
+                      className="cp-input"
+                      style={{ ...inputBase, color: '#C8BFAE', colorScheme: 'dark', cursor: 'pointer' }}
+                      onFocus={(e) => ((e.currentTarget as HTMLSelectElement).style.borderColor = selectedColor)}
+                      onBlur={(e)  => ((e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.09)')}
+                    >
+                      {standardDefinition.intakeStages.map((stage) => (
+                        <option key={stage} value={stage}>{MATURITY_LABELS[stage]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <FL>Siguiente paso{standardDefinition.requiredProjectFields.includes('nextStep') || standardDefinition.requiredChecklist.includes('nextStep') ? ' *' : ''}</FL>
+                    <input
+                      value={nextStep}
+                      onChange={(e) => setNextStep(e.target.value)}
+                      placeholder="Ej: definir equipo base"
+                      className="cp-input"
+                      style={{ ...inputBase, borderColor: unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
+                      onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
+                      onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
+                    />
+                  </div>
+                </div>
+
                 {/* Descripción */}
                 <div>
                   <FL>{t.projects_config_desc}{standardDefinition.requiredProjectFields.includes('description') ? ' *' : ''}</FL>
@@ -419,36 +449,6 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                     onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
                     onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
                   />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <FL>Madurez inicial</FL>
-                    <select
-                      value={maturityStage}
-                      onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
-                      className="cp-input"
-                      style={{ ...inputBase, color: '#C8BFAE', colorScheme: 'dark', cursor: 'pointer' }}
-                      onFocus={(e) => ((e.currentTarget as HTMLSelectElement).style.borderColor = selectedColor)}
-                      onBlur={(e)  => ((e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.09)')}
-                    >
-                      {standardDefinition.intakeStages.map((stage) => (
-                        <option key={stage} value={stage}>{MATURITY_LABELS[stage]}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <FL>Siguiente paso{standardDefinition.requiredProjectFields.includes('nextStep') || standardDefinition.requiredChecklist.includes('nextStep') ? ' *' : ''}</FL>
-                    <input
-                      value={nextStep}
-                      onChange={(e) => setNextStep(e.target.value)}
-                      placeholder="Ej: armar equipo base"
-                      className="cp-input"
-                      style={{ ...inputBase, borderColor: unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                      onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                      onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-                    />
-                  </div>
                 </div>
 
                 {/* Fechas */}
@@ -486,10 +486,10 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div style={{
-                  padding: '14px 14px 12px',
+                  padding: '16px',
                   borderRadius: '10px',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.06)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px',
@@ -522,17 +522,17 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {[
                       { label: 'Planifica desde', value: MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning] },
                       { label: 'Checks base', value: String(standardDefinition.requiredChecklist.length) },
                       { label: 'Campos de cobertura', value: String(standardDefinition.requiredProjectFields.length) },
                     ].map((item) => (
                       <div key={item.label} style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
                           {item.label}
                         </div>
-                        <div style={{ marginTop: '7px', fontSize: '16px', fontWeight: 700, color: '#E8E1D2', fontFamily: SORA }}>
+                        <div style={{ marginTop: '6px', fontSize: '15px', fontWeight: 700, color: '#E8E1D2', fontFamily: SORA }}>
                           {item.value}
                         </div>
                       </div>
@@ -540,7 +540,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   </div>
                 </div>
 
-                <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA }}>
                     Debe quedar explícito hoy
                   </div>
@@ -567,7 +567,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   </div>
                 </div>
 
-                <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA }}>
                     Lo siguiente después de crear
                   </div>
@@ -587,10 +587,10 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
           </div>
 
           {/* ── Footer ──────────────────────────────────────────────────── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.01)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, background: 'rgba(255,255,255,0.015)' }}>
             <button
               onClick={handleClose} disabled={isLoading}
-              style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 500, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#9C9486', cursor: 'pointer', fontFamily: MANROPE, transition: 'all 0.12s' }}
+              style={{ height: '36px', padding: '0 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#9C9486', cursor: 'pointer', fontFamily: MANROPE, transition: 'all 0.12s' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; }}
             >
@@ -600,7 +600,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
               onClick={handleSubmit}
               disabled={isLoading || !name.trim() || !selectedWsId}
               style={{
-                padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                height: '36px', padding: '0 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
                 background: isLoading || !name.trim() || !selectedWsId ? 'rgba(242,87,30,0.3)' : '#F2571E',
                 color: isLoading || !name.trim() || !selectedWsId ? 'rgba(255,255,255,0.3)' : '#24180A',
                 border: 'none', cursor: isLoading || !name.trim() || !selectedWsId ? 'not-allowed' : 'pointer',

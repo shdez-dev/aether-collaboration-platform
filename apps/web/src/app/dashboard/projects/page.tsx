@@ -590,7 +590,7 @@ export default function ProjectsPage() {
         </div>
 
         {viewMode === 'pipeline' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(320px, 0.8fr)', gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(320px, 0.7fr)', gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
             <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
@@ -666,9 +666,9 @@ export default function ProjectsPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px' }}>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Decisiones de hoy</div>
+                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Atención operativa</div>
                 <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45 }}>
-                  Tres colas cortas para acompañamiento, empuje y revisión de coherencia.
+                  Una lectura corta de qué conviene mover antes de entrar al detalle del pipeline.
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
@@ -707,40 +707,7 @@ export default function ProjectsPage() {
               </div>
 
               <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px' }}>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Foco operativo</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                  {[
-                    { key: 'all', label: 'Todos', count: metrics.total },
-                    { key: 'mentor-needed', label: 'Necesitan mentor', count: metrics.mentorNeeded },
-                    { key: 'ready', label: 'Listos', count: metrics.ready },
-                    { key: 'no-team', label: 'Sin equipo', count: metrics.withoutTeam },
-                    { key: 'no-board', label: 'Sin tablero', count: metrics.withoutBoard },
-                    { key: 'no-milestone', label: 'Sin hito', count: metrics.withoutMilestone },
-                    { key: 'low-coverage', label: 'Baja cobertura', count: metrics.blocked },
-                  ].map((option) => {
-                    const active = focusMode === option.key;
-                    return (
-                      <button
-                        key={option.key}
-                        onClick={() => setFocusMode(option.key as FocusMode)}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '7px',
-                          height: '32px', padding: '0 12px', borderRadius: '999px',
-                          border: `1px solid ${active ? 'rgba(242,87,30,0.32)' : 'rgba(255,255,255,0.08)'}`,
-                          background: active ? 'rgba(242,87,30,0.12)' : 'rgba(255,255,255,0.03)',
-                          color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
-                          fontSize: '12px', fontWeight: 600,
-                        }}
-                      >
-                        <span>{option.label}</span>
-                        <span style={{ minWidth: '18px', height: '18px', borderRadius: '999px', background: active ? 'rgba(242,87,30,0.22)' : 'rgba(255,255,255,0.07)', color: active ? '#F4905A' : '#827A6D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, padding: '0 5px' }}>
-                          {option.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
+                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Lectura rápida</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '14px' }}>
                   {[
                     { label: 'Proyectos que aún no tienen equipo base', value: metrics.withoutTeam, tone: '#DB8A66' },
@@ -906,18 +873,53 @@ export default function ProjectsPage() {
           </label>
 
           {viewMode === 'pipeline' && (
-            <button
-              onClick={() => setShowOnlyNeedsFormalization((prev) => !prev)}
-              style={{
-                height: '38px', padding: '0 14px', borderRadius: '8px',
-                border: `1px solid ${showOnlyNeedsFormalization ? 'rgba(219,138,102,0.35)' : 'rgba(255,255,255,0.08)'}`,
-                background: showOnlyNeedsFormalization ? 'rgba(219,138,102,0.1)' : 'rgba(255,255,255,0.03)',
-                color: showOnlyNeedsFormalization ? '#DB8A66' : '#C8BFAE', cursor: 'pointer',
-                fontSize: '12.5px', fontWeight: 600,
-              }}
-            >
-              Solo con brechas de formalización
-            </button>
+            <>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', flexWrap: 'wrap' }}>
+                {[
+                  { key: 'all', label: 'Todos', count: metrics.total },
+                  { key: 'mentor-needed', label: 'Mentor', count: metrics.mentorNeeded },
+                  { key: 'ready', label: 'Listos', count: metrics.ready },
+                  { key: 'no-team', label: 'Sin equipo', count: metrics.withoutTeam },
+                  { key: 'no-board', label: 'Sin tablero', count: metrics.withoutBoard },
+                  { key: 'no-milestone', label: 'Sin hito', count: metrics.withoutMilestone },
+                  { key: 'low-coverage', label: 'Cobertura baja', count: metrics.blocked },
+                ].map((option) => {
+                  const active = focusMode === option.key;
+                  return (
+                    <button
+                      key={option.key}
+                      onClick={() => setFocusMode(option.key as FocusMode)}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '7px',
+                        height: '30px', padding: '0 11px', borderRadius: '8px',
+                        border: 'none',
+                        background: active ? 'rgba(242,87,30,0.14)' : 'transparent',
+                        color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
+                        fontSize: '12px', fontWeight: 700, fontFamily: SORA,
+                      }}
+                    >
+                      <span>{option.label}</span>
+                      <span style={{ minWidth: '18px', height: '18px', borderRadius: '999px', background: active ? 'rgba(242,87,30,0.24)' : 'rgba(255,255,255,0.07)', color: active ? '#F4905A' : '#827A6D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, padding: '0 5px' }}>
+                        {option.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setShowOnlyNeedsFormalization((prev) => !prev)}
+                style={{
+                  height: '38px', padding: '0 14px', borderRadius: '8px',
+                  border: `1px solid ${showOnlyNeedsFormalization ? 'rgba(219,138,102,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                  background: showOnlyNeedsFormalization ? 'rgba(219,138,102,0.1)' : 'rgba(255,255,255,0.03)',
+                  color: showOnlyNeedsFormalization ? '#DB8A66' : '#C8BFAE', cursor: 'pointer',
+                  fontSize: '12.5px', fontWeight: 600,
+                }}
+              >
+                Solo con brechas de formalización
+              </button>
+            </>
           )}
         </div>
 
