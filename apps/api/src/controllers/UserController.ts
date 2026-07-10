@@ -6,6 +6,7 @@ import { userActivityService } from '../services/UserActivityService';
 import { storageService } from '../services/StorageService';
 import path from 'path';
 import bcrypt from 'bcrypt';
+import { decryptSecret, encryptSecret } from '../utils/secrets';
 
 class UserController {
   /**
@@ -814,7 +815,7 @@ class UserController {
       }
       if (githubToken !== undefined) {
         updates.push(`github_token = $${paramIndex++}`);
-        values.push(githubToken || null);  // empty string clears the token
+        values.push(githubToken ? encryptSecret(githubToken) : null);
       }
 
       if (updates.length === 0) {
@@ -954,7 +955,7 @@ class UserController {
         [userId]
       );
 
-      const token: string | null = prefsResult.rows[0]?.github_token ?? null;
+      const token = decryptSecret(prefsResult.rows[0]?.github_token ?? null);
       if (!token) {
         return res.status(400).json({ success: false, error: { code: 'GITHUB_TOKEN_NOT_SET', message: 'GitHub token not configured' } });
       }

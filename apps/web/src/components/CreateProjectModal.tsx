@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useProjectStore, type Project } from '@/stores/projectStore';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useProjectStore, type Project, type ProjectMaturityStage } from '@/stores/projectStore';
+import { useWorkspaceStore, type WorkspaceProjectStandardDefinition } from '@/stores/workspaceStore';
 import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { WorkspaceIcon, WORKSPACE_ICON_KEYS } from '@/components/WorkspaceIcon';
 import { X, Check, ChevronDown } from 'lucide-react';
@@ -18,6 +18,29 @@ const COLORS = [
   '#9C9486', '#B85C5C', '#7B8FA8', '#C4A86E',
 ];
 
+const DEFAULT_STANDARD: WorkspaceProjectStandardDefinition = {
+  requiredProjectFields: ['problemStatement', 'nextStep'],
+  requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'],
+  minimumMaturityForPlanning: 'FORMALIZED',
+  intakeStages: ['IDEA', 'DRAFT'],
+  targetLabels: {
+    intake: 'Intake',
+    formalized: 'Formalizado',
+    execution: 'Operacion',
+  },
+};
+
+const MATURITY_LABELS: Record<ProjectMaturityStage, string> = {
+  IDEA: 'Idea',
+  DRAFT: 'Borrador',
+  FORMALIZED: 'Formalizado',
+  PLANNED: 'Planificado',
+  ACTIVE: 'Activo',
+  ON_HOLD: 'En pausa',
+  COMPLETED: 'Completado',
+  ARCHIVED: 'Archivado',
+};
+
 interface CreateProjectModalProps {
   onClose: () => void;
   onCreated: (project: Project) => void;
@@ -27,10 +50,13 @@ interface CreateProjectModalProps {
 export default function CreateProjectModal({ onClose, onCreated, defaultWorkspaceId }: CreateProjectModalProps) {
   const t = useT();
   const { createProject } = useProjectStore();
-  const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const { workspaces, fetchWorkspaces, currentProjectStandard, fetchProjectStandard } = useWorkspaceStore();
 
   const [name,             setName]             = useState('');
   const [description,      setDescription]      = useState('');
+  const [problemStatement, setProblemStatement] = useState('');
+  const [nextStep,         setNextStep]         = useState('');
+  const [maturityStage,    setMaturityStage]    = useState<ProjectMaturityStage>('IDEA');
   const [selectedIcon,     setSelectedIcon]     = useState(WORKSPACE_ICON_KEYS[3]);
   const [selectedColor,    setSelectedColor]    = useState(COLORS[0]);
   const [selectedWsId,     setSelectedWsId]     = useState(defaultWorkspaceId ?? '');
@@ -44,12 +70,82 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
 
+  useEffect(() => {
+    if (selectedWsId) {
+      fetchProjectStandard(selectedWsId);
+    }
+  }, [selectedWsId, fetchProjectStandard]);
+
   // Sync selected workspace when workspaces load or defaultWorkspaceId arrives late
   useEffect(() => {
     if (defaultWorkspaceId && (!selectedWsId || !workspaces.find((w) => w.id === selectedWsId))) {
       setSelectedWsId(defaultWorkspaceId);
     }
   }, [defaultWorkspaceId, workspaces, selectedWsId]);
+
+  const activeStandard = currentProjectStandard?.workspaceId === selectedWsId
+    ? currentProjectStandard
+    : null;
+  const standardDefinition = activeStandard?.definition ?? DEFAULT_STANDARD;
+
+  useEffect(() => {
+    if (!standardDefinition.intakeStages.includes(maturityStage as 'IDEA' | 'DRAFT')) {
+      setMaturityStage(standardDefinition.intakeStages[0] ?? 'IDEA');
+    }
+  }, [standardDefinition, maturityStage]);
+
+  const inputFieldStatus = {
+    description: Boolean(description.trim()),
+    problemStatement: Boolean(problemStatement.trim()),
+    nextStep: Boolean(nextStep.trim()),
+    startDate: Boolean(startDate),
+    endDate: Boolean(endDate),
+    owner: true,
+    problem: Boolean(problemStatement.trim()),
+    team: false,
+    board: false,
+    milestone: false,
+  };
+
+  const requiredNow = [
+    ...standardDefinition.requiredProjectFields,
+    ...standardDefinition.requiredChecklist.filter((item) => item === 'problem' || item === 'nextStep'),
+  ];
+
+  const unmetRequiredNow = Array.from(new Set(requiredNow)).filter((item) => {
+    if (item === 'problemStatement' || item === 'problem') return !inputFieldStatus.problemStatement;
+    if (item === 'nextStep') return !inputFieldStatus.nextStep;
+    if (item === 'description') return !inputFieldStatus.description;
+    if (item === 'startDate') return !inputFieldStatus.startDate;
+    if (item === 'endDate') return !inputFieldStatus.endDate;
+    return false;
+  });
+
+  const postCreateChecklist = standardDefinition.requiredChecklist.map((item) => {
+    const done =
+      item === 'owner' ? true :
+      item === 'problem' ? inputFieldStatus.problem :
+      item === 'nextStep' ? inputFieldStatus.nextStep :
+      false;
+
+    const label =
+      item === 'owner' ? 'Responsable definido' :
+      item === 'problem' ? 'Problema u oportunidad' :
+      item === 'team' ? 'Equipo o miembros asignados' :
+      item === 'board' ? 'Tablero de ejecucion' :
+      item === 'milestone' ? 'Hito proximo declarado' :
+      'Siguiente paso explicito';
+
+    const hint =
+      item === 'owner' ? 'Se asigna automaticamente al crear.' :
+      item === 'problem' ? 'Puedes dejarlo listo desde este formulario.' :
+      item === 'team' ? 'Se completa vinculando miembros o equipos.' :
+      item === 'board' ? 'Se completa creando o enlazando un tablero.' :
+      item === 'milestone' ? 'Se completa agregando el primer hito.' :
+      'Puedes dejarlo listo desde este formulario.';
+
+    return { key: item, label, hint, done };
+  });
 
   const handleClose = () => {
     if (isLoading) return;
@@ -60,6 +156,10 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const handleSubmit = async () => {
     if (!name.trim())  { setError(t.create_ws_validation_name); return; }
     if (!selectedWsId) { setError('Selecciona una workspace'); return; }
+    if (unmetRequiredNow.length > 0) {
+      setError('Completa los campos obligatorios del estandar antes de crear el proyecto.');
+      return;
+    }
     setError('');
     setIsLoading(true);
     try {
@@ -67,6 +167,9 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
         workspaceId: selectedWsId,
         name: name.trim(),
         description: description.trim() || undefined,
+        problemStatement: problemStatement.trim() || undefined,
+        nextStep: nextStep.trim() || undefined,
+        maturityStage,
         icon: selectedIcon,
         color: selectedColor,
         startDate: startDate || undefined,
@@ -234,9 +337,110 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
               />
             </div>
 
+            <div style={{
+              padding: '14px 14px 12px',
+              borderRadius: '10px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
+                    {activeStandard ? `${activeStandard.name} · v${activeStandard.version}` : 'Aether Core Standard'}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#9C9486', marginTop: '4px', lineHeight: 1.45 }}>
+                    Este workspace espera que el intake llegue al menos hasta {MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning]} antes de pasar a planificacion.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {standardDefinition.intakeStages.map((stage) => (
+                    <span
+                      key={stage}
+                      style={{
+                        fontSize: '10.5px',
+                        fontWeight: 700,
+                        color: stage === maturityStage ? '#24180A' : '#C8BFAE',
+                        background: stage === maturityStage ? '#F2571E' : 'rgba(255,255,255,0.05)',
+                        borderRadius: '999px',
+                        padding: '5px 9px',
+                      }}
+                    >
+                      {MATURITY_LABELS[stage]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
+                    Debe quedar listo ahora
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '9px' }}>
+                    {requiredNow.length > 0 ? Array.from(new Set(requiredNow)).map((item) => {
+                      const done = !unmetRequiredNow.includes(item);
+                      const label =
+                        item === 'description' ? 'Descripcion' :
+                        item === 'problemStatement' || item === 'problem' ? 'Problema' :
+                        item === 'nextStep' ? 'Siguiente paso' :
+                        item === 'startDate' ? 'Fecha inicio' :
+                        'Fecha cierre';
+                      return (
+                        <span
+                          key={item}
+                          style={{
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            color: done ? '#76A878' : '#C4A86E',
+                            background: done ? 'rgba(118,168,120,0.12)' : 'rgba(196,168,110,0.12)',
+                            border: `1px solid ${done ? 'rgba(118,168,120,0.22)' : 'rgba(196,168,110,0.22)'}`,
+                            borderRadius: '999px',
+                            padding: '4px 8px',
+                          }}
+                        >
+                          {done ? 'Listo' : 'Falta'} · {label}
+                        </span>
+                      );
+                    }) : (
+                      <span style={{ fontSize: '11.5px', color: '#9C9486' }}>Sin campos obligatorios adicionales.</span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
+                    Pendiente despues de crear
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '9px' }}>
+                    {postCreateChecklist.filter((item) => !item.done).length > 0 ? postCreateChecklist.filter((item) => !item.done).map((item) => (
+                      <span
+                        key={item.key}
+                        style={{
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          color: '#9C9486',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '999px',
+                          padding: '4px 8px',
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    )) : (
+                      <span style={{ fontSize: '11.5px', color: '#76A878' }}>Este intake ya deja la formalizacion muy encaminada.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Descripción */}
             <div>
-              <FL>{t.projects_config_desc}</FL>
+              <FL>{t.projects_config_desc}{standardDefinition.requiredProjectFields.includes('description') ? ' *' : ''}</FL>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -247,6 +451,50 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
                 onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)')}
               />
+            </div>
+
+            <div>
+              <FL>Problema u oportunidad{standardDefinition.requiredProjectFields.includes('problemStatement') || standardDefinition.requiredChecklist.includes('problem') ? ' *' : ''}</FL>
+              <textarea
+                value={problemStatement}
+                onChange={(e) => setProblemStatement(e.target.value)}
+                placeholder="Qué se quiere resolver y por qué importa"
+                rows={3}
+                className="cp-input"
+                style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, borderColor: unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
+                onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
+                onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <FL>Madurez inicial</FL>
+                <select
+                  value={maturityStage}
+                  onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
+                  className="cp-input"
+                  style={{ ...inputBase, color: '#C8BFAE', colorScheme: 'dark', cursor: 'pointer' }}
+                  onFocus={(e) => ((e.currentTarget as HTMLSelectElement).style.borderColor = selectedColor)}
+                  onBlur={(e)  => ((e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.09)')}
+                >
+                  {standardDefinition.intakeStages.map((stage) => (
+                    <option key={stage} value={stage}>{MATURITY_LABELS[stage]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <FL>Siguiente paso{standardDefinition.requiredProjectFields.includes('nextStep') || standardDefinition.requiredChecklist.includes('nextStep') ? ' *' : ''}</FL>
+                <input
+                  value={nextStep}
+                  onChange={(e) => setNextStep(e.target.value)}
+                  placeholder="Ej: armar equipo base"
+                  className="cp-input"
+                  style={{ ...inputBase, borderColor: unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
+                  onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
+                  onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
+                />
+              </div>
             </div>
 
             {/* Workspace */}
@@ -300,23 +548,23 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
             {/* Fechas */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <FL>{t.projects_config_start}</FL>
+                <FL>{t.projects_config_start}{standardDefinition.requiredProjectFields.includes('startDate') ? ' *' : ''}</FL>
                 <input
                   type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
                   className="cp-input"
-                  style={{ ...inputBase, color: startDate ? '#C8BFAE' : '#403832', colorScheme: 'dark' }}
+                  style={{ ...inputBase, color: startDate ? '#C8BFAE' : '#403832', colorScheme: 'dark', borderColor: unmetRequiredNow.includes('startDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
                   onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                  onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.09)')}
+                  onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('startDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
                 />
               </div>
               <div>
-                <FL>{t.projects_config_end}</FL>
+                <FL>{t.projects_config_end}{standardDefinition.requiredProjectFields.includes('endDate') ? ' *' : ''}</FL>
                 <input
                   type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
                   className="cp-input"
-                  style={{ ...inputBase, color: endDate ? '#C8BFAE' : '#403832', colorScheme: 'dark' }}
+                  style={{ ...inputBase, color: endDate ? '#C8BFAE' : '#403832', colorScheme: 'dark', borderColor: unmetRequiredNow.includes('endDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
                   onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                  onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.09)')}
+                  onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('endDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
                 />
               </div>
             </div>

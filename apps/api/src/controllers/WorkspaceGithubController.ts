@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { pool } from '../lib/db';
 import crypto from 'crypto';
+import { decryptSecret, encryptSecret } from '../utils/secrets';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,16 +61,25 @@ export class WorkspaceGithubController {
    */
   async listRepos(req: Request, res: Response): Promise<void> {
     const { id: workspaceId } = req.params;
+    const previewTokenHeader = req.headers['x-github-token'];
+    const previewToken =
+      typeof previewTokenHeader === 'string' ? previewTokenHeader.trim() : undefined;
 
     const r = await pool.query(
       `SELECT github_token FROM workspace_github_connections WHERE workspace_id = $1`,
       [workspaceId],
     );
 
-    // Si no hay conexión, usa el token del body (paso de validación antes de guardar)
-    const token = r.rows[0]?.github_token ?? (req.query.token as string | undefined);
+    const storedToken = decryptSecret(r.rows[0]?.github_token);
+    const token = storedToken ?? previewToken;
     if (!token) {
-      res.status(400).json({ success: false, error: { code: 'NO_TOKEN', message: 'Token requerido' } });
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'NO_TOKEN',
+          message: 'Token requerido. Envia x-github-token si solo quieres previsualizar repos.',
+        },
+      });
       return;
     }
 
@@ -163,7 +173,7 @@ export class WorkspaceGithubController {
          github_login   = EXCLUDED.github_login,
          connected_by   = EXCLUDED.connected_by,
          updated_at     = NOW()`,
-      [workspaceId, githubToken, repos, webhookSecret, ghUser.login, userId],
+      [workspaceId, encryptSecret(githubToken), repos, webhookSecret, ghUser.login, userId],
     );
 
     res.json({
@@ -194,7 +204,15 @@ export class WorkspaceGithubController {
       return;
     }
 
-    const { github_token: token, repos } = r.rows[0];
+    const token = decryptSecret(r.rows[0].github_token);
+    const repos = r.rows[0].repos;
+    if (!token) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'GITHUB_TOKEN_INVALID', message: 'Token de GitHub no disponible' },
+      });
+      return;
+    }
 
     // Eliminar webhooks de GitHub (best-effort)
     for (const repo of (repos as string[])) {

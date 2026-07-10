@@ -15,6 +15,9 @@ const createProjectSchema = z.object({
   icon: z.string().max(100).optional(),
   color: z.string().max(50).optional(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
+  maturityStage: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
+  problemStatement: z.string().max(4000).optional(),
+  nextStep: z.string().max(1000).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   boardIds: z.array(z.string().uuid()).optional(),
@@ -26,6 +29,9 @@ const updateProjectSchema = z.object({
   icon: z.string().max(100).optional().nullable(),
   color: z.string().max(50).optional().nullable(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
+  maturityStage: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
+  problemStatement: z.string().max(4000).optional().nullable(),
+  nextStep: z.string().max(1000).optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
 });
@@ -60,8 +66,15 @@ function fmtProject(row: any) {
     icon: row.icon,
     color: row.color,
     status: row.status,
+    maturityStage: row.maturity_stage ?? 'IDEA',
+    problemStatement: row.problem_statement,
+    nextStep: row.next_step,
     startDate: row.start_date ? new Date(row.start_date).toISOString() : null,
     endDate: row.end_date ? new Date(row.end_date).toISOString() : null,
+    formalizedAt: row.formalized_at ? new Date(row.formalized_at).toISOString() : null,
+    appliedStandardId: row.applied_standard_id,
+    appliedStandardVersion: row.applied_standard_version,
+    standardAppliedAt: row.standard_applied_at ? new Date(row.standard_applied_at).toISOString() : null,
     ownerId: row.owner_id,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
@@ -197,6 +210,202 @@ async function loadRelations(projectId: string) {
   };
 }
 
+type ChecklistItem = {
+  key: 'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep';
+  label: string;
+  done: boolean;
+};
+
+type ProjectStandardDefinition = {
+  requiredProjectFields: Array<'description' | 'problemStatement' | 'nextStep' | 'startDate' | 'endDate'>;
+  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep'>;
+  minimumMaturityForPlanning: 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED';
+  intakeStages: Array<'IDEA' | 'DRAFT'>;
+  targetLabels: {
+    intake: string;
+    formalized: string;
+    execution: string;
+  };
+};
+
+type WorkspaceProjectStandardSnapshot = {
+  id: string | null;
+  version: number;
+  definition: ProjectStandardDefinition;
+};
+
+function getDefaultWorkspaceProjectStandardDefinition(): ProjectStandardDefinition {
+  return {
+    requiredProjectFields: ['problemStatement', 'nextStep'],
+    requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'],
+    minimumMaturityForPlanning: 'FORMALIZED',
+    intakeStages: ['IDEA', 'DRAFT'],
+    targetLabels: {
+      intake: 'Intake',
+      formalized: 'Formalizado',
+      execution: 'Operacion',
+    },
+  };
+}
+
+async function getWorkspaceProjectStandard(workspaceId: string): Promise<WorkspaceProjectStandardSnapshot> {
+  const result = await pool.query(
+    `SELECT id, version, definition_json
+     FROM workspace_project_standards
+     WHERE workspace_id = $1 AND is_active = true
+     ORDER BY version DESC, updated_at DESC
+     LIMIT 1`,
+    [workspaceId]
+  );
+
+  if (!result.rows.length?.valueOf()) {
+    return {
+      id: null,
+      version: 1,
+      definition: getDefaultWorkspaceProjectStandardDefinition(),
+    };
+  }
+
+  return {
+    id: result.rows[0].id,
+    version: result.rows[0].version ?? 1,
+    definition: {
+      ...getDefaultWorkspaceProjectStandardDefinition(),
+      ...(result.rows[0].definition_json ?? {}),
+    },
+  };
+}
+
+async function getProjectStructureState(projectId: string, relations?: { boards: any[]; milestones: any[] }) {
+  const rel = relations ?? await loadRelations(projectId);
+  const countsResult = await pool.query(
+    `SELECT
+       (SELECT COUNT(*)::int FROM project_members WHERE project_id = $1) AS direct_members,
+       (SELECT COUNT(*)::int FROM project_teams WHERE project_id = $1)   AS teams`,
+    [projectId]
+  );
+  const counts = countsResult.rows[0] ?? { direct_members: 0, teams: 0 };
+  const teamCount = Number(counts.direct_members ?? 0) + Number(counts.teams ?? 0);
+
+  return {
+    rel,
+    teamCount,
+  };
+}
+
+const checklistLabels: Record<ChecklistItem['key'], string> = {
+  owner: 'Responsable definido',
+  problem: 'Problema u oportunidad',
+  team: 'Equipo o miembros asignados',
+  board: 'Tablero de ejecución',
+  milestone: 'Hito próximo declarado',
+  nextStep: 'Siguiente paso explícito',
+};
+
+const coverageFieldLabels: Record<ProjectStandardDefinition['requiredProjectFields'][number], string> = {
+  description: 'Descripción general',
+  problemStatement: 'Problema u oportunidad',
+  nextStep: 'Siguiente paso',
+  startDate: 'Fecha de inicio',
+  endDate: 'Fecha de cierre',
+};
+
+async function computeFormalization(
+  projectRow: any,
+  relations?: { boards: any[]; milestones: any[] },
+  standard?: ProjectStandardDefinition,
+) {
+  const activeStandard = standard ?? (await getWorkspaceProjectStandard(projectRow.workspace_id)).definition;
+  const { rel, teamCount } = await getProjectStructureState(projectRow.id, relations);
+  const hasTeam = teamCount > 0;
+
+  const checklist: ChecklistItem[] = activeStandard.requiredChecklist.map((key) => ({
+    key,
+    label: checklistLabels[key],
+    done:
+      key === 'owner' ? Boolean(projectRow.owner_id) :
+      key === 'problem' ? Boolean(projectRow.problem_statement?.trim()) :
+      key === 'team' ? hasTeam :
+      key === 'board' ? rel.boards.length > 0 :
+      key === 'milestone' ? rel.milestones.length > 0 :
+      Boolean(projectRow.next_step?.trim()),
+  }));
+
+  const completed = checklist.filter((item) => item.done).length;
+  const required = checklist.length;
+  const completionPercent = required > 0 ? Math.round((completed / required) * 100) : 100;
+  const readyToFormalize = checklist.every((item) => item.done);
+
+  return {
+    checklist,
+    completed,
+    required,
+    completionPercent,
+    readyToFormalize,
+    isFormalized: Boolean(projectRow.formalized_at) || readyToFormalize,
+  };
+}
+
+async function computeCoverage(
+  projectRow: any,
+  relations?: { boards: any[]; milestones: any[] },
+  standard?: ProjectStandardDefinition,
+) {
+  const activeStandard = standard ?? (await getWorkspaceProjectStandard(projectRow.workspace_id)).definition;
+  const { rel, teamCount } = await getProjectStructureState(projectRow.id, relations);
+
+  const requiredFieldEntries = activeStandard.requiredProjectFields.map((key) => ({
+    key,
+    label: coverageFieldLabels[key],
+    state:
+      key === 'description' ? (projectRow.description?.trim() ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+      key === 'problemStatement' ? (projectRow.problem_statement?.trim() ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+      key === 'nextStep' ? (projectRow.next_step?.trim() ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+      key === 'startDate' ? (projectRow.start_date ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+      (projectRow.end_date ? 'APPLIES_FILLED' : 'APPLIES_EMPTY'),
+  }));
+
+  const structuralFieldEntries = activeStandard.requiredChecklist
+    .filter((key) => !['problem', 'nextStep'].includes(key))
+    .map((key) => ({
+      key,
+      label: checklistLabels[key],
+      state:
+        key === 'owner' ? (projectRow.owner_id ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+        key === 'team' ? (teamCount > 0 ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+        key === 'board' ? (rel.boards.length > 0 ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+        key === 'milestone' ? (rel.milestones.length > 0 ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+        'APPLIES_EMPTY',
+    }));
+
+  const fields = [...requiredFieldEntries, ...structuralFieldEntries];
+
+  const filled = fields.filter((field) => field.state === 'APPLIES_FILLED').length;
+
+  return {
+    fields,
+    filled,
+    total: fields.length,
+    coveragePercent: fields.length > 0 ? Math.round((filled / fields.length) * 100) : 100,
+  };
+}
+
+async function hydrateProject(projectRow: any, relations?: { boards: any[]; milestones: any[] }) {
+  const rel = relations ?? await loadRelations(projectRow.id);
+  const standard = await getWorkspaceProjectStandard(projectRow.workspace_id);
+  const [formalization, coverage] = await Promise.all([
+    computeFormalization(projectRow, rel, standard.definition),
+    computeCoverage(projectRow, rel, standard.definition),
+  ]);
+
+  return {
+    ...fmtProject(projectRow),
+    ...rel,
+    formalization,
+    coverage,
+  };
+}
+
 /** Devuelve todos los user_ids únicos del proyecto (dueño + miembros directos + miembros de equipos) */
 async function getProjectMemberIds(projectId: string, excludeUserId?: string): Promise<string[]> {
   const result = await pool.query(
@@ -243,10 +452,18 @@ class ProjectController {
          ORDER BY p.updated_at DESC`,
         [wsId]
       );
-      const projects = result.rows.map((row) => ({
-        ...fmtProject(row),
-        progressPercent: row.progress_percent ?? 0,
-        boards: row.boards ?? [],
+      const projects = await Promise.all(result.rows.map(async (row) => {
+        const relations = {
+          boards: row.boards ?? [],
+          milestones: await pool.query(`SELECT * FROM project_milestones WHERE project_id = $1 ORDER BY date ASC`, [row.id])
+            .then((ms) => ms.rows.map(fmtMilestone)),
+        };
+
+        return {
+          ...(await hydrateProject(row, relations)),
+          progressPercent: row.progress_percent ?? 0,
+          boards: row.boards ?? [],
+        };
       }));
       res.json({ success: true, data: { projects } });
     } catch (error) {
@@ -285,15 +502,22 @@ class ProjectController {
         return res.status(400).json({ success: false, error: { message: 'Datos inválidos', details: body.error.flatten() } });
       }
       const { boardIds = [], ...data } = body.data;
+      const workspaceStandard = await getWorkspaceProjectStandard(wsId);
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
         const result = await client.query(
-          `INSERT INTO projects (id, workspace_id, name, description, icon, color, status, start_date, end_date, owner_id, updated_at)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+          `INSERT INTO projects (
+             id, workspace_id, name, description, icon, color, status, maturity_stage,
+             problem_statement, next_step, start_date, end_date, owner_id,
+             applied_standard_id, applied_standard_version, standard_applied_at, updated_at
+           )
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            RETURNING *`,
           [wsId, data.name, data.description ?? null, data.icon ?? null, data.color ?? null,
-           data.status ?? 'PLANNING', data.startDate ?? null, data.endDate ?? null, userId]
+           data.status ?? 'PLANNING', data.maturityStage ?? 'IDEA', data.problemStatement ?? null,
+           data.nextStep ?? null, data.startDate ?? null, data.endDate ?? null, userId,
+           workspaceStandard.id, workspaceStandard.version]
         );
         const project = result.rows[0];
         for (const bId of boardIds) {
@@ -314,7 +538,7 @@ class ProjectController {
             context: { workspaceId: wsId },
           } as any);
         } catch {}
-        res.status(201).json({ success: true, data: { project: { ...fmtProject(project), ...relations } } });
+        res.status(201).json({ success: true, data: { project: await hydrateProject(project, relations) } });
       } catch (e) {
         await client.query('ROLLBACK');
         throw e;
@@ -334,7 +558,7 @@ class ProjectController {
       const result = await pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
       if (!result.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
       const relations = await loadRelations(id);
-      res.json({ success: true, data: { project: { ...fmtProject(result.rows[0]), ...relations } } });
+      res.json({ success: true, data: { project: await hydrateProject(result.rows[0], relations) } });
     } catch (error) {
       console.error('[ProjectController.getById]', error);
       res.status(500).json({ success: false, error: { message: 'Error al obtener proyecto' } });
@@ -356,11 +580,36 @@ class ProjectController {
       if (data.icon        !== undefined) { fields.push(`icon = $${idx++}`);        values.push(data.icon); }
       if (data.color       !== undefined) { fields.push(`color = $${idx++}`);       values.push(data.color); }
       if (data.status      !== undefined) { fields.push(`status = $${idx++}`);      values.push(data.status); }
+      if (data.maturityStage !== undefined) { fields.push(`maturity_stage = $${idx++}`); values.push(data.maturityStage); }
+      if (data.problemStatement !== undefined) { fields.push(`problem_statement = $${idx++}`); values.push(data.problemStatement); }
+      if (data.nextStep !== undefined) { fields.push(`next_step = $${idx++}`); values.push(data.nextStep); }
       if (data.startDate   !== undefined) { fields.push(`start_date = $${idx++}`);  values.push(data.startDate); }
       if (data.endDate     !== undefined) { fields.push(`end_date = $${idx++}`);    values.push(data.endDate); }
       if (!fields.length) return res.status(400).json({ success: false, error: { message: 'Sin campos' } });
       // Get old project for event metadata
       const oldProject = await pool.query(`SELECT name, status, workspace_id FROM projects WHERE id = $1`, [id]);
+      const currentProjectResult = await pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
+      if (!currentProjectResult.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
+      const currentProject = currentProjectResult.rows[0];
+      const mergedProject = {
+        ...currentProject,
+        name: data.name !== undefined ? data.name : currentProject.name,
+        description: data.description !== undefined ? data.description : currentProject.description,
+        icon: data.icon !== undefined ? data.icon : currentProject.icon,
+        color: data.color !== undefined ? data.color : currentProject.color,
+        status: data.status !== undefined ? data.status : currentProject.status,
+        maturity_stage: data.maturityStage !== undefined ? data.maturityStage : currentProject.maturity_stage,
+        problem_statement: data.problemStatement !== undefined ? data.problemStatement : currentProject.problem_statement,
+        next_step: data.nextStep !== undefined ? data.nextStep : currentProject.next_step,
+        start_date: data.startDate !== undefined ? data.startDate : currentProject.start_date,
+        end_date: data.endDate !== undefined ? data.endDate : currentProject.end_date,
+      };
+      const predictedRelations = await loadRelations(id);
+      const standard = await getWorkspaceProjectStandard(currentProject.workspace_id);
+      const predictedFormalization = await computeFormalization(mergedProject, predictedRelations, standard.definition);
+      if (predictedFormalization.readyToFormalize && !currentProject.formalized_at) {
+        fields.push(`formalized_at = COALESCE(formalized_at, CURRENT_TIMESTAMP)`);
+      }
       fields.push(`updated_at = CURRENT_TIMESTAMP`);
       values.push(id);
       const result = await pool.query(`UPDATE projects SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`, values);
@@ -409,10 +658,41 @@ class ProjectController {
           } as any);
         }
       } catch {}
-      res.json({ success: true, data: { project: { ...fmtProject(result.rows[0]), ...relations } } });
+      res.json({ success: true, data: { project: await hydrateProject(result.rows[0], relations) } });
     } catch (error) {
       console.error('[ProjectController.update]', error);
       res.status(500).json({ success: false, error: { message: 'Error al actualizar' } });
+    }
+  }
+
+  /** POST /api/projects/:id/adopt-current-standard */
+  async adoptCurrentStandard(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const currentProjectResult = await pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
+      if (!currentProjectResult.rows.length) {
+        return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
+      }
+
+      const currentProject = currentProjectResult.rows[0];
+      const workspaceStandard = await getWorkspaceProjectStandard(currentProject.workspace_id);
+
+      const result = await pool.query(
+        `UPDATE projects
+         SET applied_standard_id = $1,
+             applied_standard_version = $2,
+             standard_applied_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+         RETURNING *`,
+        [workspaceStandard.id, workspaceStandard.version, id]
+      );
+
+      const relations = await loadRelations(id);
+      return res.json({ success: true, data: { project: await hydrateProject(result.rows[0], relations) } });
+    } catch (error) {
+      console.error('[ProjectController.adoptCurrentStandard]', error);
+      return res.status(500).json({ success: false, error: { message: 'Error al adoptar estándar actual' } });
     }
   }
 

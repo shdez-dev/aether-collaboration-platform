@@ -76,6 +76,9 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 3000
+      API_PUBLIC_URL: ${API_PUBLIC_URL}
+      BACKEND_URL: ${API_PUBLIC_URL}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME}
@@ -87,7 +90,14 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       FRONTEND_URL: ${FRONTEND_URL}
-      RESEND_API_KEY: ${RESEND_API_KEY}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL}
+      BREVO_API_KEY: ${BREVO_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM:-aether.notifications@gmail.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Aether Platform}
     volumes:
       - uploads:/app/apps/api/public/uploads
     networks:

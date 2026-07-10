@@ -17,6 +17,8 @@
 
 **AETHER** is a real-time collaboration platform for distributed teams, built on an event-sourced architecture with CRDT-based document editing and WebSocket synchronization. Every action is recorded as an immutable event — state is a projection, not a mutation.
 
+The current product direction is to evolve AETHER from a generic collaboration suite into a platform that helps teams move an initiative from `idea` to `operating project` with a shared standard of formalization, coverage, and traceability. See [docs/product/README.md](./docs/product/README.md).
+
 ---
 
 ## Features

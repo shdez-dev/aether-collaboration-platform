@@ -195,6 +195,7 @@ model Workspace {
   boards           Board[]
   labels           Label[]
   projects         Project[]
+  projectStandards WorkspaceProjectStandard[]
   documents        Document[]
   sessions         UserSession[]
   standups         Standup[]
@@ -203,6 +204,24 @@ model Workspace {
   calendarEvents   CalendarEvent[]
 
   @@map("workspaces")
+}
+
+model WorkspaceProjectStandard {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  name         String   @db.VarChar(255)
+  version      Int      @default(1)
+  isActive     Boolean  @default(true) @map("is_active")
+  definitionJson Json   @map("definition_json")
+  createdBy    String?  @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([workspaceId, isActive])
+  @@map("workspace_project_standards")
 }
 
 // ── Workspace Member ──────────────────────────────────────────────────────────
@@ -683,8 +702,15 @@ model Project {
   icon        String?
   color       String?
   status      String    @default("PLANNING") @db.VarChar(20)
+  maturityStage String  @default("IDEA") @map("maturity_stage") @db.VarChar(20)
+  problemStatement String? @map("problem_statement")
+  nextStep    String?   @map("next_step")
   startDate   DateTime? @map("start_date")
   endDate     DateTime? @map("end_date")
+  formalizedAt DateTime? @map("formalized_at")
+  appliedStandardId String? @map("applied_standard_id") @db.Uuid
+  appliedStandardVersion Int? @map("applied_standard_version")
+  standardAppliedAt DateTime? @map("standard_applied_at")
   ownerId     String    @map("owner_id") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")

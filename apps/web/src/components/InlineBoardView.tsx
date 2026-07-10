@@ -459,8 +459,10 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
           {([
             { view: 'kanban' as const, label: 'Kanban',
               icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="5" height="16" rx="1.4" stroke="currentColor" strokeWidth="1.8"/><rect x="10" y="4" width="5" height="11" rx="1.4" stroke="currentColor" strokeWidth="1.8"/><rect x="17" y="4" width="5" height="13" rx="1.4" stroke="currentColor" strokeWidth="1.8"/></svg> },
-            { view: 'table'  as const, label: 'Tabla',
+            { view: 'table'    as const, label: 'Tabla',
               icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><path d="M3 9h18M9 9v12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg> },
+          { view: 'timeline' as const, label: 'Gantt',
+              icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 7h8M3 12h14M3 17h5"/></svg> },
           ]).map(({ view, label, icon }) => (
             <button
               key={view}
@@ -514,6 +516,8 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
             onCardClick={(card) => useCardStore.getState().setSelectedCard(card)}
           />
         </div>
+      ) : currentView === 'timeline' ? (
+        <BoardGantt boardId={boardId} lists={lists} cards={cards} />
       ) : (
         /* ── Kanban ──────────────────────────────────────────────────────── */
         <div ref={kanbanCallbackRef} className="ibv-scroll" style={{ overflowX: 'auto', overflowY: 'visible', position: 'relative', paddingBottom: '16px' }}>
@@ -579,6 +583,346 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
       />
     )}
     </>
+  );
+}
+
+// ── Board Gantt ───────────────────────────────────────────────────────────────
+function BoardGantt({ boardId, lists, cards }: {
+  boardId: string;
+  lists: List[];
+  cards: Record<string, Card[]>;
+}) {
+  const [depEdges,  setDepEdges]  = useState<{ blockingCardId: string; blockedCardId: string }[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [tooltip,   setTooltip]   = useState<{
+    x: number; y: number; title: string; subtitle: string; color: string; date?: string; range?: string;
+  } | null>(null);
+  const setSelectedCard = useCardStore((s) => s.setSelectedCard);
+
+  useEffect(() => {
+    setLoading(true);
+    apiService.get<{ graph: { edges: { blockingCardId: string; blockedCardId: string }[] } }>(
+      `/api/boards/${boardId}/dependency-graph`, true
+    ).then((r) => {
+      if (r.success && r.data) setDepEdges(r.data.graph.edges ?? []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [boardId]);
+
+  const allCards    = useMemo(() => Object.values(cards).flat() as Card[], [cards]);
+  const sortedLists = useMemo(() => [...lists].sort((a, b) => a.position - b.position), [lists]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+        <style>{`@keyframes bg-spin{to{transform:rotate(360deg)}}`}</style>
+        <div style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.08)', borderTopColor: C.accent, borderRadius: '50%', animation: 'bg-spin 0.7s linear infinite' }} />
+      </div>
+    );
+  }
+
+  const allDates: number[] = allCards.flatMap((c) =>
+    [c.dueDate, c.startDate].filter(Boolean).map((d) => new Date(d!).getTime())
+  );
+
+  if (allDates.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '40px 0', borderRadius: '10px', border: `1px dashed ${C.border2}` }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={C.text4} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+        </svg>
+        <p style={{ margin: 0, fontSize: '12.5px', color: C.text3 }}>Sin fechas asignadas</p>
+        <p style={{ margin: 0, fontSize: '11.5px', color: C.text4, textAlign: 'center', maxWidth: '260px' }}>
+          Asigna fechas de inicio y fin a las tarjetas para ver el Gantt
+        </p>
+      </div>
+    );
+  }
+
+  // ── Layout ───────────────────────────────────────────────────────────────
+  const MS_PER_DAY = 86400000;
+  const rawMin     = new Date(Math.min(...allDates));
+  const rawMax     = new Date(Math.max(...allDates));
+  const rangeStart = new Date(rawMin.getFullYear(), rawMin.getMonth(), 1);
+  const rangeEnd   = new Date(rawMax.getFullYear(), rawMax.getMonth() + 1, 0);
+  const baseDays   = Math.max(1, Math.round((rangeEnd.getTime() - rangeStart.getTime()) / MS_PER_DAY) + 1);
+
+  const maxBufDays = allCards.reduce((max, c) => {
+    if (!c.startDate || !c.dueDate) return max;
+    const dur = Math.max(1, Math.round((new Date(c.dueDate).getTime() - new Date(c.startDate).getTime()) / MS_PER_DAY));
+    const buf = c.bufferDays != null ? c.bufferDays : Math.max(1, Math.round(dur * (c.priority === 'HIGH' ? 0.5 : c.priority === 'MEDIUM' ? 0.3 : 0.15)));
+    return Math.max(max, buf);
+  }, 0);
+
+  const totalDays = baseDays + maxBufDays + 3;
+  const DAY_W     = baseDays <= 60 ? 32 : baseDays <= 120 ? 22 : baseDays <= 240 ? 16 : 12;
+  const TRACK_W   = totalDays * DAY_W;
+
+  function dayX(d: Date) {
+    return Math.round((d.getTime() - rangeStart.getTime()) / MS_PER_DAY * DAY_W);
+  }
+
+  const _now   = new Date();
+  const todayX = dayX(new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()));
+
+  const monthCols: { label: string; x: number; width: number }[] = [];
+  {
+    const mc = new Date(rangeStart);
+    while (mc <= rangeEnd) {
+      const x    = dayX(mc);
+      const next = new Date(mc); next.setMonth(next.getMonth() + 1, 1);
+      monthCols.push({ label: mc.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase(), x, width: Math.min(dayX(next), TRACK_W) - x });
+      mc.setMonth(mc.getMonth() + 1, 1);
+    }
+  }
+
+  const showDow   = DAY_W >= 20;
+  const DAY_HDR_H = showDow ? 34 : 26;
+  const dayStep   = DAY_W >= 28 ? 1 : DAY_W >= 18 ? 3 : DAY_W >= 12 ? 7 : 14;
+  const DOW_ES    = ['D','L','M','X','J','V','S'];
+
+  const SECTION_H = 26;
+  const ROW_H     = 34;
+  const SIDEBAR_W = 200;
+  const HEADER_H  = 28 + DAY_HDR_H;
+
+  const PCOLOR: Record<string, string> = { HIGH: '#ef4444', MEDIUM: '#f59e0b', LOW: '#10b981' };
+
+  type GRow = { kind: 'section'; name: string; listId: string } | { kind: 'card'; card: Card };
+
+  const rows: GRow[] = [];
+  const cardGeom = new Map<string, { x: number; y: number; w: number; dueOnly: boolean }>();
+  {
+    let y = HEADER_H;
+    for (const list of sortedLists) {
+      const listCards = (cards[list.id] ?? []).filter((c) => c.startDate || c.dueDate);
+      if (listCards.length === 0) continue;
+      rows.push({ kind: 'section', name: list.name, listId: list.id });
+      y += SECTION_H;
+      for (const card of listCards) {
+        const sX = card.startDate ? dayX(new Date(card.startDate)) : null;
+        const eX = card.dueDate   ? dayX(new Date(card.dueDate))   : null;
+        const mX = eX ?? sX;
+        if (mX !== null) {
+          const hasRange = sX !== null && eX !== null;
+          cardGeom.set(card.id, { x: hasRange ? sX! : mX, y, w: hasRange ? Math.max(DAY_W, eX! - sX!) : 0, dueOnly: !hasRange });
+        }
+        rows.push({ kind: 'card', card });
+        y += ROW_H;
+      }
+    }
+  }
+
+  const cardIdSet     = new Set(allCards.map((c) => c.id));
+  const filteredEdges = depEdges.filter((e) => cardIdSet.has(e.blockingCardId) && cardIdSet.has(e.blockedCardId));
+  const cardById      = new Map(allCards.map((c) => [c.id, c]));
+
+  function fmtS(d: string) {
+    return new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  }
+
+  return (
+    <div style={{ position: 'relative' }} onMouseLeave={() => setTooltip(null)}>
+      <style>{`
+        .bg-gantt { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+        .bg-gantt::-webkit-scrollbar { height: 10px; }
+        .bg-gantt::-webkit-scrollbar-track { background: transparent; margin: 0 8px; }
+        .bg-gantt::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        .bg-gantt::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+      `}</style>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div style={{ position: 'fixed', zIndex: 9999, left: tooltip.x + 14, top: tooltip.y - 10, background: '#13161b', border: `1px solid ${C.border2}`, borderRadius: '8px', padding: '10px 13px', boxShadow: '0 8px 28px rgba(0,0,0,0.55)', pointerEvents: 'none', maxWidth: '260px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: (tooltip.date || tooltip.range) ? '6px' : 0 }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: tooltip.color, flexShrink: 0 }} />
+            <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{tooltip.title}</span>
+          </div>
+          {tooltip.subtitle && <p style={{ margin: '0 0 4px', fontSize: '11px', color: C.text3 }}>{tooltip.subtitle}</p>}
+          {tooltip.range    && <p style={{ margin: 0, fontSize: '11px', color: C.text2 }}>{tooltip.range}</p>}
+          {tooltip.date     && <p style={{ margin: 0, fontSize: '11px', color: C.text2 }}>{tooltip.date}</p>}
+        </div>
+      )}
+
+      <div className="bg-gantt" style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', background: 'rgba(255,255,255,0.015)' }}>
+        <div style={{ width: `${SIDEBAR_W + TRACK_W}px`, minWidth: '100%', position: 'relative' }}>
+
+          {/* Month row */}
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.018)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: '#13172A', borderRight: '1px solid rgba(255,255,255,0.08)', height: '28px', display: 'flex', alignItems: 'center', padding: '0 14px' }}>
+              <span style={{ fontFamily: "'Sora', system-ui", fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846' }}>Tarea</span>
+            </div>
+            <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: '28px' }}>
+              {monthCols.map((col, i) => (
+                <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: col.x, width: col.width, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.08)' : 'none', display: 'flex', alignItems: 'center', paddingLeft: '10px', overflow: 'hidden' }}>
+                  <span style={{ fontFamily: "'Sora', system-ui", fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.04em', color: '#A8A09A', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{col.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Day row */}
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.10)', background: '#13172A' }}>
+            <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: '#13172A', borderRight: '1px solid rgba(255,255,255,0.08)', height: `${DAY_HDR_H}px` }} />
+            <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: `${DAY_HDR_H}px` }}>
+              {Array.from({ length: totalDays }).map((_, di) => {
+                const d          = new Date(rangeStart.getTime() + di * MS_PER_DAY);
+                const dow        = d.getDay();
+                const isWeekend  = dow === 0 || dow === 6;
+                const isToday    = di * DAY_W === todayX;
+                const showLabel  = di % dayStep === 0;
+                const isMonStart = d.getDate() === 1;
+                return (
+                  <div key={di} style={{ position: 'absolute', top: 0, bottom: 0, left: di * DAY_W, width: DAY_W, borderLeft: isMonStart ? '1px solid rgba(255,255,255,0.12)' : isWeekend ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.03)', background: isToday ? 'rgba(226,160,126,0.13)' : isWeekend ? 'rgba(255,255,255,0.02)' : 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1px' }}>
+                    {showLabel && showDow && <span style={{ fontSize: '7.5px', fontWeight: 500, color: isToday ? '#E2A07E99' : isWeekend ? '#615846' : '#3E3830', lineHeight: 1, userSelect: 'none' as const }}>{DOW_ES[dow]}</span>}
+                    {showLabel && (isToday ? (
+                      <span style={{ width: DAY_W - 6, height: DAY_W - 6, maxWidth: '16px', maxHeight: '16px', minWidth: '11px', minHeight: '11px', borderRadius: '50%', background: '#E2A07E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: DAY_W < 14 ? '7px' : '8px', fontWeight: 700, color: '#1A1208', lineHeight: 1, userSelect: 'none' as const }}>{d.getDate()}</span>
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: DAY_W < 14 ? '8px' : '9.5px', fontWeight: isWeekend ? 500 : 400, color: isWeekend ? '#615846' : '#4A4540', lineHeight: 1, userSelect: 'none' as const }}>{d.getDate()}</span>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Body */}
+          <div style={{ position: 'relative' }}>
+            {/* Weekend + today column shading */}
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: SIDEBAR_W, width: TRACK_W, pointerEvents: 'none', zIndex: 0 }}>
+              {Array.from({ length: totalDays }).map((_, di) => {
+                const d         = new Date(rangeStart.getTime() + di * MS_PER_DAY);
+                const dow       = d.getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                const isToday   = di * DAY_W === todayX;
+                if (!isWeekend && !isToday) return null;
+                return <div key={di} style={{ position: 'absolute', top: 0, bottom: 0, left: di * DAY_W, width: DAY_W, background: isToday ? 'rgba(226,160,126,0.07)' : 'rgba(255,255,255,0.018)' }} />;
+              })}
+            </div>
+
+            {rows.map((row, rIdx) => {
+              if (row.kind === 'section') {
+                return (
+                  <div key={'s-' + row.listId} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: '#161B2E', borderRight: '1px solid rgba(255,255,255,0.07)', height: `${SECTION_H}px`, display: 'flex', alignItems: 'center', gap: '7px', padding: '0 12px' }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="4" width="5" height="16" rx="1" stroke="#827A6D" strokeWidth="1.8"/>
+                        <rect x="10" y="4" width="5" height="11" rx="1" stroke="#827A6D" strokeWidth="1.8"/>
+                        <rect x="17" y="4" width="5" height="13" rx="1" stroke="#827A6D" strokeWidth="1.8"/>
+                      </svg>
+                      <span style={{ fontFamily: "'Sora', system-ui", fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.06em', color: '#827A6D', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
+                    </div>
+                    <div style={{ flex: 'none', width: `${TRACK_W}px`, height: `${SECTION_H}px`, background: 'rgba(255,255,255,0.012)' }} />
+                  </div>
+                );
+              }
+
+              const { card }  = row;
+              const hasRange  = !!(card.startDate && card.dueDate);
+              const barColor  = card.completed ? '#76A878' : (PCOLOR[card.priority ?? ''] ?? C.accent);
+              const isOverdue = !card.completed && card.dueDate && new Date(card.dueDate) < new Date();
+              const startX    = card.startDate ? dayX(new Date(card.startDate)) : null;
+              const endX2     = card.dueDate   ? dayX(new Date(card.dueDate))   : null;
+              const markerX   = endX2 ?? startX;
+              const barPx     = hasRange && startX !== null && endX2 !== null ? Math.max(DAY_W, endX2 - startX) : 0;
+              const durDays   = hasRange ? Math.max(1, Math.round((new Date(card.dueDate!).getTime() - new Date(card.startDate!).getTime()) / MS_PER_DAY)) : 0;
+              const autoBuf   = durDays > 0 ? Math.max(1, Math.round(durDays * (card.priority === 'HIGH' ? 0.5 : card.priority === 'MEDIUM' ? 0.3 : 0.15))) : 0;
+              const bufDays   = card.bufferDays != null ? card.bufferDays : autoBuf;
+              const bufPx     = hasRange && endX2 !== null ? bufDays * DAY_W : 0;
+              const who       = (card.title.trim()[0] ?? '?').toUpperCase();
+
+              return (
+                <div key={card.id} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                  {/* Sidebar — opens card detail */}
+                  <button
+                    onClick={() => setSelectedCard(card as any)}
+                    style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: '#161B2E', borderRight: '1px solid rgba(255,255,255,0.07)', height: `${ROW_H}px`, display: 'flex', alignItems: 'center', gap: '7px', padding: '0 10px', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#161B2E')}
+                  >
+                    <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: barColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: '#24180A', flexShrink: 0 }}>{who}</span>
+                    <span style={{ fontSize: '11px', color: card.completed ? '#615846' : '#C8BFAE', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: card.completed ? 'line-through' : 'none' }}>{card.title}</span>
+                  </button>
+
+                  {/* Track */}
+                  <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: `${ROW_H}px` }}>
+                    {hasRange && startX !== null ? (
+                      <>
+                        {/* Main bar */}
+                        <div
+                          style={{ position: 'absolute', left: startX, top: '50%', transform: 'translateY(-50%)', width: barPx, height: '8px', borderRadius: bufPx > 0 ? '4px 0 0 4px' : '4px', background: card.completed ? `${barColor}55` : `${barColor}d9`, cursor: 'pointer', boxShadow: isOverdue ? `0 0 0 1.5px #ef444488` : 'none', zIndex: 1, transition: 'filter 0.12s' }}
+                          onClick={() => setSelectedCard(card as any)}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.18)'; setTooltip({ title: card.title, subtitle: `${fmtS(card.startDate!)} → ${fmtS(card.dueDate!)}`, color: barColor, range: `${fmtS(card.startDate!)} → ${fmtS(card.dueDate!)}`, x: e.clientX, y: e.clientY }); }}
+                          onMouseMove={(e) => setTooltip((tt) => tt ? { ...tt, x: e.clientX, y: e.clientY } : null)}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ''; setTooltip(null); }}
+                        />
+                        {/* Buffer zone */}
+                        {bufPx > 0 && (
+                          <div
+                            style={{ position: 'absolute', left: startX + barPx, top: '50%', transform: 'translateY(-50%)', width: bufPx, height: '8px', borderRadius: '0 4px 4px 0', background: `${barColor}35`, borderRight: `2px solid ${barColor}88`, cursor: 'pointer' }}
+                            onClick={() => setSelectedCard(card as any)}
+                            onMouseEnter={(e) => setTooltip({ title: card.title, subtitle: `Colchón: ${bufDays}d`, color: barColor, range: `${fmtS(card.startDate!)} → ${fmtS(card.dueDate!)}`, x: e.clientX, y: e.clientY })}
+                            onMouseMove={(e) => setTooltip((tt) => tt ? { ...tt, x: e.clientX, y: e.clientY } : null)}
+                            onMouseLeave={() => setTooltip(null)}
+                          />
+                        )}
+                      </>
+                    ) : markerX !== null && (
+                      /* Point marker — only one date */
+                      <div
+                        style={{ position: 'absolute', left: markerX, top: '50%', transform: 'translate(-50%, -50%)', cursor: 'pointer' }}
+                        onClick={() => setSelectedCard(card as any)}
+                        onMouseEnter={(e) => setTooltip({ title: card.title, subtitle: '', color: barColor, date: `📅 ${fmtS(card.dueDate ?? card.startDate!)}`, x: e.clientX, y: e.clientY })}
+                        onMouseMove={(e) => setTooltip((tt) => tt ? { ...tt, x: e.clientX, y: e.clientY } : null)}
+                        onMouseLeave={() => setTooltip(null)}
+                      >
+                        <div
+                          style={{ width: '11px', height: '11px', borderRadius: '50%', background: card.completed ? 'transparent' : barColor, border: `2px solid ${barColor}`, transition: 'transform 0.12s' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.3)'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ''; }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Dependency staircase arrows */}
+            {filteredEdges.length > 0 && (() => {
+              const svgH = rows.reduce((h, r) => h + (r.kind === 'section' ? SECTION_H : ROW_H), 0);
+              return (
+                <svg style={{ position: 'absolute', inset: 0, width: SIDEBAR_W + TRACK_W, height: svgH, pointerEvents: 'none', overflow: 'visible', zIndex: 4 }}>
+                  {filteredEdges.map((edge) => {
+                    const from     = cardGeom.get(edge.blockingCardId);
+                    const to       = cardGeom.get(edge.blockedCardId);
+                    if (!from || !to) return null;
+                    const blocking = cardById.get(edge.blockingCardId);
+                    const stroke   = !blocking?.completed ? '#ef4444' : '#22c55e';
+                    const isDashed = !blocking?.completed;
+                    const x1       = SIDEBAR_W + (from.dueOnly ? from.x + 5.5 : from.x + from.w);
+                    const y1       = from.y + ROW_H / 2;
+                    const x2       = SIDEBAR_W + (to.dueOnly ? to.x - 5.5 : to.x);
+                    const y2       = to.y + ROW_H / 2;
+                    const stub     = Math.max(8, (x2 - x1) * 0.2);
+                    const midX     = x1 + stub;
+                    const path     = y1 === y2 ? `M ${x1} ${y1} H ${x2}` : `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`;
+                    const tip      = x2 >= midX ? 1 : -1;
+                    return (
+                      <g key={`${edge.blockingCardId}-${edge.blockedCardId}`} opacity={0.7}>
+                        <path d={path} fill="none" stroke={stroke} strokeWidth={1.5} strokeDasharray={isDashed ? '5 3' : undefined} />
+                        <polygon points={`${x2 + tip * 5},${y2} ${x2},${y2 - 3.5} ${x2},${y2 + 3.5}`} fill={stroke} />
+                      </g>
+                    );
+                  })}
+                </svg>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

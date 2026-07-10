@@ -52,7 +52,207 @@ const createFromTemplateSchema = z.object({
   name: z.string().min(1).max(255),
 });
 
+const workspaceProjectStandardSchema = z.object({
+  name: z.string().min(1).max(255),
+  version: z.number().int().positive().optional(),
+  definition: z.object({
+    requiredProjectFields: z.array(z.enum(['description', 'problemStatement', 'nextStep', 'startDate', 'endDate'])).default(['problemStatement', 'nextStep']),
+    requiredChecklist: z.array(z.enum(['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'])).default(['owner', 'problem', 'team', 'board', 'milestone', 'nextStep']),
+    minimumMaturityForPlanning: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED']).default('FORMALIZED'),
+    intakeStages: z.array(z.enum(['IDEA', 'DRAFT'])).default(['IDEA', 'DRAFT']),
+    targetLabels: z.object({
+      intake: z.string().default('Intake'),
+      formalized: z.string().default('Formalizado'),
+      execution: z.string().default('Operación'),
+    }).default({
+      intake: 'Intake',
+      formalized: 'Formalizado',
+      execution: 'Operación',
+    }),
+  }),
+});
+
+function getDefaultWorkspaceProjectStandard() {
+  return {
+    name: 'Aether Core Standard',
+    version: 1,
+    definition: {
+      requiredProjectFields: ['problemStatement', 'nextStep'],
+      requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'],
+      minimumMaturityForPlanning: 'FORMALIZED',
+      intakeStages: ['IDEA', 'DRAFT'],
+      targetLabels: {
+        intake: 'Intake',
+        formalized: 'Formalizado',
+        execution: 'Operacion',
+      },
+    },
+  };
+}
+
 class WorkspaceController {
+  async getProjectStandard(req: WorkspaceRequest, res: Response) {
+    try {
+      const workspaceId = req.params.id;
+      const result = await pool.query(
+        `SELECT id, workspace_id, name, version, is_active, definition_json, created_by, created_at, updated_at
+         FROM workspace_project_standards
+         WHERE workspace_id = $1 AND is_active = true
+         ORDER BY version DESC, updated_at DESC
+         LIMIT 1`,
+        [workspaceId]
+      );
+
+      const standard = result.rows[0]
+        ? {
+            id: result.rows[0].id,
+            workspaceId: result.rows[0].workspace_id,
+            name: result.rows[0].name,
+            version: result.rows[0].version,
+            isActive: result.rows[0].is_active,
+            definition: result.rows[0].definition_json,
+            createdBy: result.rows[0].created_by,
+            createdAt: result.rows[0].created_at,
+            updatedAt: result.rows[0].updated_at,
+          }
+        : {
+            id: null,
+            workspaceId,
+            isActive: true,
+            createdBy: null,
+            createdAt: null,
+            updatedAt: null,
+            ...getDefaultWorkspaceProjectStandard(),
+          };
+
+      return res.json({ success: true, data: { standard } });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch workspace project standard' },
+      });
+    }
+  }
+
+  async getProjectStandardHistory(req: WorkspaceRequest, res: Response) {
+    try {
+      const workspaceId = req.params.id;
+      const result = await pool.query(
+        `SELECT id, workspace_id, name, version, is_active, definition_json, created_by, created_at, updated_at
+         FROM workspace_project_standards
+         WHERE workspace_id = $1
+         ORDER BY version DESC, updated_at DESC
+         LIMIT 12`,
+        [workspaceId]
+      );
+
+      const history = result.rows.map((row) => ({
+        id: row.id,
+        workspaceId: row.workspace_id,
+        name: row.name,
+        version: row.version,
+        isActive: row.is_active,
+        definition: row.definition_json,
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      if (history.length === 0) {
+        history.push({
+          id: null,
+          workspaceId,
+          isActive: true,
+          createdBy: null,
+          createdAt: null,
+          updatedAt: null,
+          ...getDefaultWorkspaceProjectStandard(),
+        });
+      }
+
+      return res.json({ success: true, data: { history } });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch workspace project standard history' },
+      });
+    }
+  }
+
+  async updateProjectStandard(req: WorkspaceRequest, res: Response) {
+    try {
+      const workspaceId = req.params.id;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      const validation = workspaceProjectStandardSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid workspace project standard', details: validation.error.errors },
+        });
+      }
+
+      const payload = validation.data;
+      const existingResult = await pool.query(
+        `SELECT id, version
+         FROM workspace_project_standards
+         WHERE workspace_id = $1 AND is_active = true
+         ORDER BY version DESC, updated_at DESC
+         LIMIT 1`,
+        [workspaceId]
+      );
+      const nextVersion = payload.version ?? ((existingResult.rows[0]?.version ?? 0) + 1);
+
+      if (existingResult.rows[0]?.id) {
+        await pool.query(
+          `UPDATE workspace_project_standards
+           SET is_active = false, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [existingResult.rows[0].id]
+        );
+      }
+
+      const insertResult = await pool.query(
+        `INSERT INTO workspace_project_standards
+          (id, workspace_id, name, version, is_active, definition_json, created_by, created_at, updated_at)
+         VALUES
+          (gen_random_uuid(), $1, $2, $3, true, $4::jsonb, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING id, workspace_id, name, version, is_active, definition_json, created_by, created_at, updated_at`,
+        [workspaceId, payload.name, nextVersion, JSON.stringify(payload.definition), userId]
+      );
+
+      const row = insertResult.rows[0];
+      return res.json({
+        success: true,
+        data: {
+          standard: {
+            id: row.id,
+            workspaceId: row.workspace_id,
+            name: row.name,
+            version: row.version,
+            isActive: row.is_active,
+            definition: row.definition_json,
+            createdBy: row.created_by,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          },
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to update workspace project standard' },
+      });
+    }
+  }
+
   /**
    * POST /api/workspaces
    * Crear un nuevo workspace

@@ -147,6 +147,30 @@ router.get('/:id/stats', checkWorkspaceMembership, (req, res) =>
 );
 
 /**
+ * GET /api/workspaces/:id/project-standard
+ * Obtener estándar activo del workspace
+ */
+router.get('/:id/project-standard', checkWorkspaceMembership, (req, res) =>
+  workspaceController.getProjectStandard(req, res)
+);
+
+/**
+ * GET /api/workspaces/:id/project-standard/history
+ * Obtener historial versionado del estándar del workspace
+ */
+router.get('/:id/project-standard/history', checkWorkspaceMembership, (req, res) =>
+  workspaceController.getProjectStandardHistory(req, res)
+);
+
+/**
+ * PUT /api/workspaces/:id/project-standard
+ * Actualizar estándar activo del workspace
+ */
+router.put('/:id/project-standard', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceController.updateProjectStandard(req, res)
+);
+
+/**
  * GET /api/workspaces/:id/teams
  * Equipos activos derivados de project_teams, con miembros
  */

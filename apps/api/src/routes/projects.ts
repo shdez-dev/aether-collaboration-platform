@@ -16,6 +16,7 @@ router.get('/', (req, res) => projectController.list(req, res));
 router.get('/:id', (req, res) => projectController.getById(req, res));
 router.put('/:id', (req, res) => projectController.update(req, res));
 router.delete('/:id', (req, res) => projectController.delete(req, res));
+router.post('/:id/adopt-current-standard', (req, res) => projectController.adoptCurrentStandard(req, res));
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
 router.get('/:id/stats',           (req, res) => projectController.getStats(req, res));

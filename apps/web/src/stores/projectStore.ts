@@ -42,6 +42,36 @@ export interface ProjectStats {
 }
 
 export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+export type ProjectMaturityStage = 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+export type CoverageState = 'NOT_APPLICABLE' | 'APPLIES_EMPTY' | 'APPLIES_FILLED';
+
+export interface ProjectFormalizationItem {
+  key: 'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep';
+  label: string;
+  done: boolean;
+}
+
+export interface ProjectFormalizationSummary {
+  checklist: ProjectFormalizationItem[];
+  completed: number;
+  required: number;
+  completionPercent: number;
+  readyToFormalize: boolean;
+  isFormalized: boolean;
+}
+
+export interface ProjectCoverageField {
+  key: string;
+  label: string;
+  state: CoverageState;
+}
+
+export interface ProjectCoverageSummary {
+  fields: ProjectCoverageField[];
+  filled: number;
+  total: number;
+  coveragePercent: number;
+}
 
 export interface Project {
   id: string;
@@ -51,8 +81,15 @@ export interface Project {
   icon?: string;
   color?: string;
   status: ProjectStatus;
+  maturityStage: ProjectMaturityStage;
+  problemStatement?: string | null;
+  nextStep?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  formalizedAt?: string | null;
+  appliedStandardId?: string | null;
+  appliedStandardVersion?: number | null;
+  standardAppliedAt?: string | null;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
@@ -60,6 +97,8 @@ export interface Project {
   boards?: ProjectBoard[];
   milestones?: ProjectMilestone[];
   stats?: ProjectStats;
+  formalization?: ProjectFormalizationSummary;
+  coverage?: ProjectCoverageSummary;
 }
 
 interface CreateProjectData {
@@ -69,6 +108,9 @@ interface CreateProjectData {
   icon?: string;
   color?: string;
   status?: ProjectStatus;
+  maturityStage?: ProjectMaturityStage;
+  problemStatement?: string;
+  nextStep?: string;
   startDate?: string;
   endDate?: string;
   boardIds?: string[];
@@ -80,6 +122,9 @@ interface UpdateProjectData {
   icon?: string | null;
   color?: string | null;
   status?: ProjectStatus;
+  maturityStage?: ProjectMaturityStage;
+  problemStatement?: string | null;
+  nextStep?: string | null;
   startDate?: string | null;
   endDate?: string | null;
 }
@@ -112,6 +157,7 @@ interface ProjectState {
   fetchStats: (id: string) => Promise<void>;
   createProject: (data: CreateProjectData) => Promise<Project>;
   updateProject: (id: string, data: UpdateProjectData) => Promise<void>;
+  adoptCurrentStandard: (id: string) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
 
   addBoard: (projectId: string, boardId: string) => Promise<void>;
@@ -228,6 +274,23 @@ export const useProjectStore = create<ProjectState>()(
           projects: state.projects.map((p) => (p.id === id ? updated : p)),
           currentProject: state.currentProject?.id === id ? updated : state.currentProject,
         }));
+      },
+
+      adoptCurrentStandard: async (id: string) => {
+        const response = await apiService.post<{ project: Project }>(
+          `/api/projects/${id}/adopt-current-standard`,
+          {},
+          true
+        );
+        if (!response.success || !response.data) {
+          throw new Error(response.error?.message || 'Error al adoptar estándar actual');
+        }
+        const project = response.data.project;
+        set((state) => ({
+          projects: state.projects.map((item) => item.id === id ? { ...item, ...project } : item),
+          currentProject: state.currentProject?.id === id ? project : state.currentProject,
+        }));
+        return project;
       },
 
       // ── Delete project ──────────────────────────────────────────────────────

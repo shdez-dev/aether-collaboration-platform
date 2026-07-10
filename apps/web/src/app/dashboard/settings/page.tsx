@@ -5,10 +5,41 @@
 import { useState, useEffect } from 'react';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import type { UserPreferences } from '@/stores/preferencesStore';
+import { useWorkspaceStore, type WorkspaceProjectStandardDefinition } from '@/stores/workspaceStore';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Bell, Check } from 'lucide-react';
+import { Loader2, Save, Bell, Check, ShieldCheck, Workflow } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
+
+const REQUIRED_FIELD_OPTIONS: Array<{ value: WorkspaceProjectStandardDefinition['requiredProjectFields'][number]; label: string; desc: string }> = [
+  { value: 'description', label: 'Descripcion general', desc: 'Pide contexto base del proyecto.' },
+  { value: 'problemStatement', label: 'Problema u oportunidad', desc: 'Obliga a explicitar que se quiere resolver.' },
+  { value: 'nextStep', label: 'Siguiente paso', desc: 'Exige una accion inmediata y verificable.' },
+  { value: 'startDate', label: 'Fecha de inicio', desc: 'Formaliza cuando empieza la ejecucion.' },
+  { value: 'endDate', label: 'Fecha de cierre', desc: 'Marca horizonte o compromiso de termino.' },
+];
+
+const CHECKLIST_OPTIONS: Array<{ value: WorkspaceProjectStandardDefinition['requiredChecklist'][number]; label: string; desc: string }> = [
+  { value: 'owner', label: 'Responsable', desc: 'Debe existir alguien accountable del proyecto.' },
+  { value: 'problem', label: 'Problema', desc: 'La iniciativa necesita un problema declarado.' },
+  { value: 'team', label: 'Equipo', desc: 'Pide miembros o equipos vinculados.' },
+  { value: 'board', label: 'Tablero', desc: 'Exige un espacio operativo para ejecutar.' },
+  { value: 'milestone', label: 'Hito proximo', desc: 'Obliga una referencia temporal concreta.' },
+  { value: 'nextStep', label: 'Siguiente paso', desc: 'Debe quedar una accion inmediata explicitada.' },
+];
+
+const MATURITY_OPTIONS: Array<{ value: WorkspaceProjectStandardDefinition['minimumMaturityForPlanning']; label: string; desc: string }> = [
+  { value: 'IDEA', label: 'Idea', desc: 'Permite planificar desde la intuicion inicial.' },
+  { value: 'DRAFT', label: 'Borrador', desc: 'Exige una idea ya algo articulada.' },
+  { value: 'FORMALIZED', label: 'Formalizado', desc: 'La planificacion nace despues del encuadre minimo.' },
+  { value: 'PLANNED', label: 'Planificado', desc: 'Reserva la ejecucion formal para proyectos ya estructurados.' },
+];
+
+const INTAKE_STAGE_OPTIONS: Array<{ value: WorkspaceProjectStandardDefinition['intakeStages'][number]; label: string; desc: string }> = [
+  { value: 'IDEA', label: 'Idea', desc: 'Captura propuestas aun abiertas o exploratorias.' },
+  { value: 'DRAFT', label: 'Borrador', desc: 'Recibe iniciativas con una formulacion inicial.' },
+];
 
 function SectionCard({ icon, title, desc, children }: {
   icon: React.ReactNode;
@@ -90,9 +121,74 @@ function Divider() {
   return <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />;
 }
 
+function OptionGrid<T extends string>({
+  options,
+  selected,
+  onToggle,
+  disabled,
+}: {
+  options: Array<{ value: T; label: string; desc: string }>;
+  selected: T[];
+  onToggle: (value: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+      {options.map((option) => {
+        const isActive = selected.includes(option.value);
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => !disabled && onToggle(option.value)}
+            disabled={disabled}
+            style={{
+              minHeight: '78px',
+              padding: '12px 14px',
+              borderRadius: '8px',
+              border: `1px solid ${isActive ? C.accent : C.border2}`,
+              background: isActive ? `${C.accent}14` : C.surface,
+              color: C.text,
+              textAlign: 'left',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              opacity: disabled ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '10px',
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: isActive ? C.accent : C.text }}>{option.label}</div>
+              <div style={{ fontSize: '11.5px', color: C.text3, marginTop: '4px', lineHeight: 1.4 }}>{option.desc}</div>
+            </div>
+            <div style={{
+              width: '18px',
+              height: '18px',
+              borderRadius: '999px',
+              flexShrink: 0,
+              border: `1px solid ${isActive ? C.accent : C.border2}`,
+              background: isActive ? C.accent : 'transparent',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: '2px',
+            }}>
+              {isActive ? <Check size={12} /> : null}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const t = useT();
   const { preferences, isLoading, loadPreferences, updatePreferences } = usePreferencesStore();
+  const { workspaces, currentProjectStandard, projectStandardHistory, fetchProjectStandard, fetchProjectStandardHistory, updateProjectStandard } = useWorkspaceStore();
+  const { activeWorkspaceId } = useActiveWorkspaceStore();
   const { toast } = useToast();
 
   const [localPrefs, setLocalPrefs] = useState<UserPreferences>({
@@ -108,8 +204,21 @@ export default function SettingsPage() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [localStandard, setLocalStandard] = useState<{
+    name: string;
+    definition: WorkspaceProjectStandardDefinition;
+  } | null>(null);
+  const [isSavingStandard, setIsSavingStandard] = useState(false);
+  const [hasStandardChanges, setHasStandardChanges] = useState(false);
 
   useEffect(() => { loadPreferences(); }, [loadPreferences]);
+
+  useEffect(() => {
+    if (activeWorkspaceId) {
+      fetchProjectStandard(activeWorkspaceId);
+      fetchProjectStandardHistory(activeWorkspaceId);
+    }
+  }, [activeWorkspaceId, fetchProjectStandard, fetchProjectStandardHistory]);
 
   useEffect(() => {
     if (preferences) setLocalPrefs(preferences);
@@ -121,6 +230,32 @@ export default function SettingsPage() {
     }
   }, [localPrefs, preferences]);
 
+  useEffect(() => {
+    if (!currentProjectStandard) return;
+    setLocalStandard({
+      name: currentProjectStandard.name,
+      definition: {
+        requiredProjectFields: [...currentProjectStandard.definition.requiredProjectFields],
+        requiredChecklist: [...currentProjectStandard.definition.requiredChecklist],
+        minimumMaturityForPlanning: currentProjectStandard.definition.minimumMaturityForPlanning,
+        intakeStages: [...currentProjectStandard.definition.intakeStages],
+        targetLabels: { ...currentProjectStandard.definition.targetLabels },
+      },
+    });
+  }, [currentProjectStandard]);
+
+  useEffect(() => {
+    if (!currentProjectStandard || !localStandard) {
+      setHasStandardChanges(false);
+      return;
+    }
+
+    setHasStandardChanges(JSON.stringify(localStandard) !== JSON.stringify({
+      name: currentProjectStandard.name,
+      definition: currentProjectStandard.definition,
+    }));
+  }, [currentProjectStandard, localStandard]);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -131,6 +266,102 @@ export default function SettingsPage() {
       toast({ title: t.error_title, description: t.settings_toast_error_desc, variant: 'destructive' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const workspace = workspaces.find((item) => item.id === activeWorkspaceId) ?? null;
+  const canManageStandard = workspace?.userRole === 'OWNER' || workspace?.userRole === 'ADMIN';
+
+  const handleToggleField = (value: WorkspaceProjectStandardDefinition['requiredProjectFields'][number]) => {
+    setLocalStandard((prev) => {
+      if (!prev) return prev;
+      const exists = prev.definition.requiredProjectFields.includes(value);
+      return {
+        ...prev,
+        definition: {
+          ...prev.definition,
+          requiredProjectFields: exists
+            ? prev.definition.requiredProjectFields.filter((item) => item !== value)
+            : [...prev.definition.requiredProjectFields, value],
+        },
+      };
+    });
+  };
+
+  const handleToggleChecklist = (value: WorkspaceProjectStandardDefinition['requiredChecklist'][number]) => {
+    setLocalStandard((prev) => {
+      if (!prev) return prev;
+      const exists = prev.definition.requiredChecklist.includes(value);
+      const nextValues = exists
+        ? prev.definition.requiredChecklist.filter((item) => item !== value)
+        : [...prev.definition.requiredChecklist, value];
+
+      if (nextValues.length === 0) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        definition: {
+          ...prev.definition,
+          requiredChecklist: nextValues,
+        },
+      };
+    });
+  };
+
+  const handleToggleIntakeStage = (value: WorkspaceProjectStandardDefinition['intakeStages'][number]) => {
+    setLocalStandard((prev) => {
+      if (!prev) return prev;
+      const exists = prev.definition.intakeStages.includes(value);
+      const nextValues = exists
+        ? prev.definition.intakeStages.filter((item) => item !== value)
+        : [...prev.definition.intakeStages, value];
+
+      if (nextValues.length === 0) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        definition: {
+          ...prev.definition,
+          intakeStages: nextValues,
+        },
+      };
+    });
+  };
+
+  const handleSaveStandard = async () => {
+    if (!activeWorkspaceId || !localStandard) return;
+
+    if (!localStandard.name.trim()) {
+      toast({ title: t.error_title, description: 'El estandar necesita un nombre.', variant: 'destructive' });
+      return;
+    }
+
+    if (localStandard.definition.requiredChecklist.length === 0) {
+      toast({ title: t.error_title, description: 'Selecciona al menos una regla de formalizacion.', variant: 'destructive' });
+      return;
+    }
+
+    if (localStandard.definition.intakeStages.length === 0) {
+      toast({ title: t.error_title, description: 'Mantengamos al menos una etapa de intake activa.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSavingStandard(true);
+    try {
+      await updateProjectStandard(activeWorkspaceId, {
+        name: localStandard.name.trim(),
+        definition: localStandard.definition,
+      });
+      setHasStandardChanges(false);
+      toast({ title: 'Estandar actualizado', description: 'La nueva version ya rige el flujo del workspace.' });
+    } catch (error: any) {
+      toast({ title: t.error_title, description: error?.message || 'No pudimos guardar el estandar.', variant: 'destructive' });
+    } finally {
+      setIsSavingStandard(false);
     }
   };
 
@@ -179,6 +410,278 @@ export default function SettingsPage() {
             </button>
           )}
         </div>
+
+        <SectionCard
+          icon={<ShieldCheck size={16} />}
+          title="Estandar del workspace"
+          desc={workspace ? `Define como ${workspace.name} formaliza y mide proyectos.` : 'Configura el marco rector del workspace activo.'}
+        >
+          {!activeWorkspaceId ? (
+            <p style={{ fontSize: '12.5px', color: C.text3 }}>Selecciona un workspace para editar su estandar operativo.</p>
+          ) : !localStandard || !currentProjectStandard ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: C.text3, fontSize: '12.5px' }}>
+              <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+              Cargando estandar activo...
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '10px',
+              }}>
+                <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${C.border}`, background: C.surface }}>
+                  <div style={{ fontSize: '11px', color: C.text3, textTransform: 'uppercase' }}>Version activa</div>
+                  <div style={{ marginTop: '6px', fontSize: '16px', fontWeight: 700, color: C.text }}>v{currentProjectStandard.version}</div>
+                </div>
+                <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${C.border}`, background: C.surface }}>
+                  <div style={{ fontSize: '11px', color: C.text3, textTransform: 'uppercase' }}>Cobertura minima</div>
+                  <div style={{ marginTop: '6px', fontSize: '13px', fontWeight: 600, color: C.text }}>
+                    {MATURITY_OPTIONS.find((item) => item.value === localStandard.definition.minimumMaturityForPlanning)?.label}
+                  </div>
+                </div>
+                <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${C.border}`, background: C.surface }}>
+                  <div style={{ fontSize: '11px', color: C.text3, textTransform: 'uppercase' }}>Etapas de intake</div>
+                  <div style={{ marginTop: '6px', fontSize: '13px', fontWeight: 600, color: C.text }}>
+                    {localStandard.definition.intakeStages.join(', ')}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: C.text3, marginBottom: '8px', textTransform: 'uppercase' }}>
+                  Nombre del estandar
+                </label>
+                <input
+                  type="text"
+                  value={localStandard.name}
+                  onChange={(e) => setLocalStandard({ ...localStandard, name: e.target.value })}
+                  disabled={!canManageStandard || isSavingStandard}
+                  maxLength={255}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: C.surface,
+                    border: `1px solid ${C.border}`,
+                    color: C.text,
+                    fontSize: '13px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: C.text3, marginBottom: '8px', textTransform: 'uppercase' }}>
+                  Campos requeridos para cobertura
+                </div>
+                <OptionGrid
+                  options={REQUIRED_FIELD_OPTIONS}
+                  selected={localStandard.definition.requiredProjectFields}
+                  onToggle={handleToggleField}
+                  disabled={!canManageStandard || isSavingStandard}
+                />
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: C.text3, marginBottom: '8px', textTransform: 'uppercase' }}>
+                  Checklist de formalizacion
+                </div>
+                <OptionGrid
+                  options={CHECKLIST_OPTIONS}
+                  selected={localStandard.definition.requiredChecklist}
+                  onToggle={handleToggleChecklist}
+                  disabled={!canManageStandard || isSavingStandard}
+                />
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: C.text3, marginBottom: '8px', textTransform: 'uppercase' }}>
+                  Madurez minima para planificar
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+                  {MATURITY_OPTIONS.map((option) => {
+                    const isActive = localStandard.definition.minimumMaturityForPlanning === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => canManageStandard && !isSavingStandard && setLocalStandard({
+                          ...localStandard,
+                          definition: { ...localStandard.definition, minimumMaturityForPlanning: option.value },
+                        })}
+                        disabled={!canManageStandard || isSavingStandard}
+                        style={{
+                          minHeight: '74px',
+                          padding: '12px 14px',
+                          borderRadius: '8px',
+                          border: `1px solid ${isActive ? C.accent : C.border2}`,
+                          background: isActive ? `${C.accent}14` : C.surface,
+                          textAlign: 'left',
+                          cursor: !canManageStandard || isSavingStandard ? 'not-allowed' : 'pointer',
+                          opacity: !canManageStandard || isSavingStandard ? 0.6 : 1,
+                        }}
+                      >
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: isActive ? C.accent : C.text }}>{option.label}</div>
+                        <div style={{ fontSize: '11.5px', color: C.text3, marginTop: '4px', lineHeight: 1.4 }}>{option.desc}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: C.text3, marginBottom: '8px', textTransform: 'uppercase' }}>
+                  Etapas de intake visibles
+                </div>
+                <OptionGrid
+                  options={INTAKE_STAGE_OPTIONS}
+                  selected={localStandard.definition.intakeStages}
+                  onToggle={handleToggleIntakeStage}
+                  disabled={!canManageStandard || isSavingStandard}
+                />
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: C.text3, marginBottom: '8px', textTransform: 'uppercase' }}>
+                  Etiquetas operativas
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                  {([
+                    ['intake', 'Etiqueta intake'],
+                    ['formalized', 'Etiqueta formalizado'],
+                    ['execution', 'Etiqueta ejecucion'],
+                  ] as const).map(([key, label]) => (
+                    <input
+                      key={key}
+                      type="text"
+                      value={localStandard.definition.targetLabels[key]}
+                      onChange={(e) => setLocalStandard({
+                        ...localStandard,
+                        definition: {
+                          ...localStandard.definition,
+                          targetLabels: {
+                            ...localStandard.definition.targetLabels,
+                            [key]: e.target.value,
+                          },
+                        },
+                      })}
+                      disabled={!canManageStandard || isSavingStandard}
+                      placeholder={label}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        background: C.surface,
+                        border: `1px solid ${C.border}`,
+                        color: C.text,
+                        fontSize: '13px',
+                        outline: 'none',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: `1px solid ${C.border}`,
+                background: C.surface,
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: C.text, fontSize: '13px', fontWeight: 600 }}>
+                    <Workflow size={14} />
+                    Estandar versionado por workspace
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: C.text3, marginTop: '4px', lineHeight: 1.4 }}>
+                    Cada guardado publica una nueva version activa para intake, formalizacion y reporting.
+                  </div>
+                  {!canManageStandard && (
+                    <div style={{ fontSize: '11.5px', color: C.amber, marginTop: '6px' }}>
+                      Solo administradores y owners pueden actualizar este marco.
+                    </div>
+                  )}
+                </div>
+
+                {hasStandardChanges && canManageStandard && (
+                  <button
+                    type="button"
+                    onClick={handleSaveStandard}
+                    disabled={isSavingStandard}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '9px 14px',
+                      borderRadius: '8px',
+                      background: C.accent,
+                      color: '#fff',
+                      border: 'none',
+                      cursor: isSavingStandard ? 'not-allowed' : 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      flexShrink: 0,
+                      opacity: isSavingStandard ? 0.7 : 1,
+                    }}
+                  >
+                    {isSavingStandard
+                      ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />Publicando...</>
+                      : <><Save size={14} />Publicar nueva version</>
+                    }
+                  </button>
+                )}
+              </div>
+
+              {projectStandardHistory.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: C.text3, marginBottom: '8px', textTransform: 'uppercase' }}>
+                    Historial de versiones
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {projectStandardHistory.slice(0, 6).map((entry) => (
+                      <div
+                        key={`${entry.version}-${entry.id ?? 'default'}`}
+                        style={{
+                          padding: '11px 12px',
+                          borderRadius: '8px',
+                          border: `1px solid ${entry.isActive ? `${C.accent}44` : C.border}`,
+                          background: entry.isActive ? `${C.accent}10` : C.surface,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: entry.isActive ? C.accent : C.text }}>
+                            {entry.name} · v{entry.version}
+                          </div>
+                          <div style={{ marginTop: '4px', fontSize: '11.5px', color: C.text3, lineHeight: 1.45 }}>
+                            {entry.definition.requiredChecklist.length} checks · {entry.definition.requiredProjectFields.length} campos · intake {entry.definition.intakeStages.join(' / ')}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: entry.isActive ? C.green : C.text3 }}>
+                            {entry.isActive ? 'Activa' : 'Histórica'}
+                          </div>
+                          <div style={{ marginTop: '4px', fontSize: '11.5px', color: C.text4 }}>
+                            {entry.updatedAt ? new Date(entry.updatedAt).toLocaleDateString('es-CL') : 'Base'}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </SectionCard>
 
         {/* Notificaciones */}
         <SectionCard

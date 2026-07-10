@@ -40,6 +40,32 @@ interface WorkspaceStats {
   priorityBreakdown: { priority: string; count: number }[];
 }
 
+export interface WorkspaceProjectStandardDefinition {
+  requiredProjectFields: Array<'description' | 'problemStatement' | 'nextStep' | 'startDate' | 'endDate'>;
+  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep'>;
+  minimumMaturityForPlanning: 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED';
+  intakeStages: Array<'IDEA' | 'DRAFT'>;
+  targetLabels: {
+    intake: string;
+    formalized: string;
+    execution: string;
+  };
+}
+
+export interface WorkspaceProjectStandard {
+  id: string | null;
+  workspaceId: string;
+  name: string;
+  version: number;
+  isActive: boolean;
+  definition: WorkspaceProjectStandardDefinition;
+  createdBy?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface WorkspaceProjectStandardHistoryEntry extends WorkspaceProjectStandard {}
+
 interface WorkspaceMember {
   id: string;
   workspaceId: string;
@@ -74,6 +100,8 @@ interface WorkspaceState {
   currentWorkspace: Workspace | null;
   currentMembers: WorkspaceMember[];
   currentStats: WorkspaceStats | null;
+  currentProjectStandard: WorkspaceProjectStandard | null;
+  projectStandardHistory: WorkspaceProjectStandardHistoryEntry[];
   pendingInvitations: WorkspaceInvitation[];
   isLoading: boolean;
   error: string | null;
@@ -91,6 +119,9 @@ interface WorkspaceState {
   regenerateInviteToken: (id: string) => Promise<string>;
   revokeInviteToken: (id: string) => Promise<void>;
   fetchStats: (id: string) => Promise<void>;
+  fetchProjectStandard: (workspaceId: string) => Promise<void>;
+  fetchProjectStandardHistory: (workspaceId: string) => Promise<void>;
+  updateProjectStandard: (workspaceId: string, data: { name: string; version?: number; definition: WorkspaceProjectStandardDefinition }) => Promise<void>;
   createFromTemplate: (templateId: string, name: string) => Promise<Workspace>;
   selectWorkspace: (workspace: Workspace | null) => void;
 
@@ -135,6 +166,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       currentWorkspace: null,
       currentMembers: [],
       currentStats: null,
+      currentProjectStandard: null,
+      projectStandardHistory: [],
       pendingInvitations: [],
       isLoading: false,
       error: null,
@@ -645,6 +678,53 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }
       },
 
+      fetchProjectStandard: async (workspaceId: string) => {
+        try {
+          const response = await apiService.get<{ standard: WorkspaceProjectStandard }>(
+            `/api/workspaces/${workspaceId}/project-standard`,
+            true
+          );
+          if (response.success && response.data) {
+            set({ currentProjectStandard: response.data.standard });
+          }
+        } catch {
+          // noop
+        }
+      },
+
+      fetchProjectStandardHistory: async (workspaceId: string) => {
+        try {
+          const response = await apiService.get<{ history: WorkspaceProjectStandardHistoryEntry[] }>(
+            `/api/workspaces/${workspaceId}/project-standard/history`,
+            true
+          );
+          if (response.success && response.data) {
+            set({ projectStandardHistory: response.data.history });
+          }
+        } catch {
+          // noop
+        }
+      },
+
+      updateProjectStandard: async (workspaceId: string, data: { name: string; version?: number; definition: WorkspaceProjectStandardDefinition }) => {
+        const response = await apiService.put<{ standard: WorkspaceProjectStandard }>(
+          `/api/workspaces/${workspaceId}/project-standard`,
+          data,
+          true
+        );
+        if (!response.success || !response.data) {
+          throw new Error(response.error?.message || 'Failed to update workspace project standard');
+        }
+        const standard = response.data.standard;
+        set((state) => ({
+          currentProjectStandard: standard,
+          projectStandardHistory: [
+            standard,
+            ...state.projectStandardHistory.filter((item) => item.version !== standard.version),
+          ].slice(0, 12),
+        }));
+      },
+
       // ==================== CREATE FROM TEMPLATE ====================
       createFromTemplate: async (templateId: string, name: string) => {
         set({ isLoading: true, error: null });
@@ -722,6 +802,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           currentWorkspace: null,
           currentMembers: [],
           currentStats: null,
+          currentProjectStandard: null,
+          projectStandardHistory: [],
           pendingInvitations: [],
           isLoading: false,
           error: null,

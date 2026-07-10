@@ -109,6 +109,12 @@ export class YjsGateway {
       socket.on('document:request-sync', async (data: { documentId: string }) => {
         try {
           const { documentId } = data;
+          const hasAccess = await documentService.checkDocumentAccess(documentId, authSocket.userId);
+          if (!hasAccess) {
+            socket.emit('error', { message: 'No access to document' });
+            return;
+          }
+          await this.ensureSocketDocumentMembership(socket, documentId);
 
           const doc = this.docs.get(documentId);
           if (doc) {
@@ -127,6 +133,11 @@ export class YjsGateway {
       socket.on('document:yjs:update', async (data: { documentId: string; update: number[] }) => {
         try {
           const { documentId, update } = data;
+          const hasAccess = await documentService.checkDocumentAccess(documentId, authSocket.userId);
+          if (!hasAccess) {
+            socket.emit('error', { message: 'No access to document' });
+            return;
+          }
 
           let doc = this.docs.get(documentId);
           if (!doc) {
@@ -146,12 +157,14 @@ export class YjsGateway {
                 this.socketToDocuments.set(socket.id, new Set());
               }
               this.socketToDocuments.get(socket.id)!.add(documentId);
-              socket.join(`document:${documentId}`);
+              await socket.join(`document:${documentId}`);
             } catch (reloadError) {
               socket.emit('document:reload', { documentId });
               return;
             }
           }
+
+          await this.ensureSocketDocumentMembership(socket, documentId);
 
           // Aplicar el update al documento Yjs en memoria
           Y.applyUpdate(doc, new Uint8Array(update));
@@ -171,6 +184,10 @@ export class YjsGateway {
       // AWARENESS UPDATE (cursores y presencia)
       // ================================================================
       socket.on('document:awareness:update', (data: { documentId: string; update: number[] }) => {
+        if (!this.isSocketInDocument(socket, data.documentId)) {
+          socket.emit('error', { message: 'No access to document' });
+          return;
+        }
         socket.to(`document:${data.documentId}`).emit('document:awareness:update', data);
       });
 
@@ -372,6 +389,21 @@ export class YjsGateway {
     const sockets = Array.from(this.io.sockets.sockets.values());
     const userSocket = sockets.find((s: any) => s.userId === userId);
     if (userSocket) userSocket.emit(event, data);
+  }
+
+  private isSocketInDocument(socket: Socket, documentId: string): boolean {
+    return socket.rooms.has(`document:${documentId}`);
+  }
+
+  private async ensureSocketDocumentMembership(socket: Socket, documentId: string): Promise<void> {
+    if (!this.socketToDocuments.has(socket.id)) {
+      this.socketToDocuments.set(socket.id, new Set());
+    }
+    this.socketToDocuments.get(socket.id)!.add(documentId);
+
+    if (!this.isSocketInDocument(socket, documentId)) {
+      await socket.join(`document:${documentId}`);
+    }
   }
 }
 

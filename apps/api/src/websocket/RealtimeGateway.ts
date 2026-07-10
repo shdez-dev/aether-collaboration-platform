@@ -229,34 +229,39 @@ export class RealtimeGateway {
       socket.on('typing:start', async (data: TypingStartCommand) => {
         try {
           const { cardId } = data;
+          const boardId = await this.getBoardIdFromCard(cardId);
+
+          if (!boardId || !this.isSocketInRoom(socket, `board:${boardId}`)) {
+            socket.emit('error', { message: 'No access to this board' });
+            return;
+          }
 
           await this.presenceService.startTyping(cardId, authSocket.userId, authSocket.userName);
 
-          // Broadcast a todos en el mismo board (obtener boardId desde card)
-          const boardId = await this.getBoardIdFromCard(cardId);
-          if (boardId) {
-            socket.to(`board:${boardId}`).emit('typing:started', {
-              cardId,
-              userId: authSocket.userId,
-              userName: authSocket.userName,
-            });
-          }
+          socket.to(`board:${boardId}`).emit('typing:started', {
+            cardId,
+            userId: authSocket.userId,
+            userName: authSocket.userName,
+          });
         } catch (error) {}
       });
 
       socket.on('typing:stop', async (data: TypingStopCommand) => {
         try {
           const { cardId } = data;
+          const boardId = await this.getBoardIdFromCard(cardId);
+
+          if (!boardId || !this.isSocketInRoom(socket, `board:${boardId}`)) {
+            socket.emit('error', { message: 'No access to this board' });
+            return;
+          }
 
           await this.presenceService.stopTyping(cardId, authSocket.userId);
 
-          const boardId = await this.getBoardIdFromCard(cardId);
-          if (boardId) {
-            socket.to(`board:${boardId}`).emit('typing:stopped', {
-              cardId,
-              userId: authSocket.userId,
-            });
-          }
+          socket.to(`board:${boardId}`).emit('typing:stopped', {
+            cardId,
+            userId: authSocket.userId,
+          });
         } catch (error) {}
       });
 
@@ -289,6 +294,10 @@ export class RealtimeGateway {
       socket.on('cursor:move', (data: { boardId: string; x: number; y: number }) => {
         const { boardId, x, y } = data;
         if (!boardId || typeof x !== 'number' || typeof y !== 'number') return;
+        if (!this.isSocketInRoom(socket, `board:${boardId}`)) {
+          socket.emit('error', { message: 'No access to this board' });
+          return;
+        }
         // Re-broadcast solo a los demás usuarios del board
         socket.to(`board:${boardId}`).emit('cursor:moved', {
           userId: authSocket.userId,
@@ -427,6 +436,10 @@ export class RealtimeGateway {
     } catch (error) {
       return null;
     }
+  }
+
+  private isSocketInRoom(socket: Socket, room: string): boolean {
+    return socket.rooms.has(room);
   }
 
   /**

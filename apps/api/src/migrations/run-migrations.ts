@@ -934,6 +934,96 @@ export async function runMigrations() {
       `);
       console.log('  ✓ Migration 032: Normalize user emails to lowercase');
 
+      // Migration 033: Add project formalization fields
+      await client.query(`
+        ALTER TABLE projects
+          ADD COLUMN IF NOT EXISTS maturity_stage VARCHAR(20) NOT NULL DEFAULT 'IDEA',
+          ADD COLUMN IF NOT EXISTS problem_statement TEXT,
+          ADD COLUMN IF NOT EXISTS next_step TEXT,
+          ADD COLUMN IF NOT EXISTS formalized_at TIMESTAMPTZ;
+
+        UPDATE projects
+        SET maturity_stage = CASE
+          WHEN status = 'ARCHIVED'  THEN 'ARCHIVED'
+          WHEN status = 'COMPLETED' THEN 'COMPLETED'
+          WHEN status = 'ON_HOLD'   THEN 'ON_HOLD'
+          WHEN status = 'ACTIVE'    THEN 'ACTIVE'
+          ELSE 'PLANNED'
+        END
+        WHERE maturity_stage = 'IDEA'
+          AND status IN ('PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED');
+
+        CREATE INDEX IF NOT EXISTS idx_projects_maturity_stage ON projects(maturity_stage);
+      `);
+      console.log('  ✓ Migration 033: Add project formalization fields');
+
+      // Migration 034: Workspace project standards
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS workspace_project_standards (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          version INTEGER NOT NULL DEFAULT 1,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          definition_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+          created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_workspace_project_standards_ws
+          ON workspace_project_standards(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_workspace_project_standards_ws_active
+          ON workspace_project_standards(workspace_id, is_active);
+      `);
+      console.log('  ✓ Migration 034: Workspace project standards');
+
+      // Migration 035: Persist applied workspace standard on projects
+      await client.query(`
+        ALTER TABLE projects
+          ADD COLUMN IF NOT EXISTS applied_standard_id UUID REFERENCES workspace_project_standards(id) ON DELETE SET NULL,
+          ADD COLUMN IF NOT EXISTS applied_standard_version INTEGER,
+          ADD COLUMN IF NOT EXISTS standard_applied_at TIMESTAMPTZ;
+
+        UPDATE projects p
+        SET
+          applied_standard_id = COALESCE(
+            p.applied_standard_id,
+            active_standard.id
+          ),
+          applied_standard_version = COALESCE(
+            p.applied_standard_version,
+            active_standard.version,
+            1
+          ),
+          standard_applied_at = COALESCE(
+            p.standard_applied_at,
+            p.created_at,
+            CURRENT_TIMESTAMP
+          )
+        FROM LATERAL (
+          SELECT wps.id, wps.version
+          FROM workspace_project_standards wps
+          WHERE wps.workspace_id = p.workspace_id
+            AND wps.is_active = true
+          ORDER BY wps.version DESC, wps.updated_at DESC
+          LIMIT 1
+        ) active_standard
+        WHERE p.applied_standard_version IS NULL
+           OR p.standard_applied_at IS NULL
+           OR p.applied_standard_id IS NULL;
+
+        UPDATE projects
+        SET
+          applied_standard_version = COALESCE(applied_standard_version, 1),
+          standard_applied_at = COALESCE(standard_applied_at, created_at, CURRENT_TIMESTAMP)
+        WHERE applied_standard_version IS NULL
+           OR standard_applied_at IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_projects_applied_standard_version ON projects(applied_standard_version);
+      `);
+      console.log('  ✓ Migration 035: Persist applied workspace standard on projects');
+
       console.log('✅ All migrations completed successfully');
     } finally {
       client.release();

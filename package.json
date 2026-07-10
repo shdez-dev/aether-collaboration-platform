@@ -11,18 +11,18 @@
   },
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "test:ci": "turbo run test:ci",
+    "build": "corepack pnpm --dir packages/shared-types run build && corepack pnpm --dir apps/api run build && corepack pnpm --dir apps/web run build",
+    "test": "corepack pnpm --dir apps/api run test && corepack pnpm --dir apps/web run test",
+    "test:ci": "corepack pnpm --dir apps/api exec jest --testPathIgnorePatterns=integration --testPathIgnorePatterns=upload --passWithNoTests && corepack pnpm --dir apps/web exec jest --passWithNoTests",
     "test:watch": "turbo run test:watch",
     "test:coverage": "turbo run test:coverage",
-    "test:integration": "turbo run test:integration",
+    "test:integration": "corepack pnpm --dir apps/api run test:integration",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:all": "pnpm test && pnpm test:integration && pnpm test:e2e",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
+    "test:all": "corepack pnpm test && corepack pnpm test:integration && corepack pnpm test:e2e",
+    "lint": "corepack pnpm --dir apps/api exec eslint src --ext .ts && corepack pnpm --dir apps/web exec next lint",
+    "typecheck": "corepack pnpm --dir packages/shared-types exec tsc --noEmit && corepack pnpm exec tsc --noEmit -p apps/api/tsconfig.json && corepack pnpm --dir apps/web exec next typegen . && corepack pnpm exec tsc --noEmit --incremental false -p apps/web/tsconfig.json",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
     "db:migrate": "pnpm --filter @aether/api db:migrate",
@@ -66,7 +66,8 @@
       "handlebars@<=4.7.8": "4.7.9",
       "ip-address@<=10.1.0": "10.1.1",
       "tmp@<0.2.7": "0.2.7",
-      "@babel/core@<7.29.6": "7.29.6"
+      "@babel/core@<7.29.6": "7.29.6",
+      "js-yaml@>=4.0.0 <=4.1.1": "4.2.0"
     }
   },
   "packageManager": "pnpm@8.12.0"

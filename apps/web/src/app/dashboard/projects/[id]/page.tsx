@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useProjectStore, type Project, type ProjectMilestone, type ProjectBoard } from '@/stores/projectStore';
+import { useProjectStore, type Project, type ProjectMilestone, type ProjectBoard, type ProjectMaturityStage } from '@/stores/projectStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useBoardStore } from '@/stores/boardStore';
 import { useTeamStore, type TeamMember } from '@/stores/teamStore';
@@ -38,6 +38,20 @@ function getStatusCfg(status: string, t: ReturnType<typeof useT>) {
     case 'COMPLETED': return { label: t.projects_status_completed, color: '#76A878', bg: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.25)' };
     case 'ARCHIVED':  return { label: t.projects_status_cancelled, color: '#827A6D', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.10)' };
     default:          return { label: status,                       color: '#827A6D', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.10)' };
+  }
+}
+
+function getMaturityCfg(stage: ProjectMaturityStage) {
+  switch (stage) {
+    case 'IDEA':       return { label: 'Idea', color: '#7B8FA8', bg: 'rgba(123,143,168,0.14)', border: 'rgba(123,143,168,0.28)' };
+    case 'DRAFT':      return { label: 'Borrador', color: '#C4A86E', bg: 'rgba(196,168,110,0.14)', border: 'rgba(196,168,110,0.26)' };
+    case 'FORMALIZED': return { label: 'Formalizado', color: '#76A878', bg: 'rgba(118,168,120,0.14)', border: 'rgba(118,168,120,0.26)' };
+    case 'PLANNED':    return { label: 'Planificado', color: '#4B607F', bg: 'rgba(75,96,127,0.14)', border: 'rgba(75,96,127,0.28)' };
+    case 'ACTIVE':     return { label: 'En ejecución', color: '#F4905A', bg: 'rgba(242,87,30,0.14)', border: 'rgba(242,87,30,0.28)' };
+    case 'ON_HOLD':    return { label: 'En pausa', color: '#DB8A66', bg: 'rgba(219,138,102,0.14)', border: 'rgba(219,138,102,0.28)' };
+    case 'COMPLETED':  return { label: 'Completado', color: '#76A878', bg: 'rgba(118,168,120,0.14)', border: 'rgba(118,168,120,0.26)' };
+    case 'ARCHIVED':   return { label: 'Archivado', color: '#827A6D', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)' };
+    default:           return { label: stage, color: '#827A6D', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)' };
   }
 }
 
@@ -82,6 +96,70 @@ function daysLeft(endDate: string | null | undefined, t: ReturnType<typeof useT>
 }
 
 const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
+
+type GuidanceBannerData = {
+  id: string;
+  title: string;
+  body: string;
+  tone: 'success' | 'warning' | 'info';
+  actionLabel?: string;
+  onAction?: () => void;
+};
+
+function GuidanceBanner({ banner }: { banner: GuidanceBannerData }) {
+  const tone = banner.tone === 'success'
+    ? { color: '#76A878', bg: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.24)' }
+    : banner.tone === 'warning'
+      ? { color: '#C4A86E', bg: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.24)' }
+      : { color: '#7B8FA8', bg: 'rgba(123,143,168,0.14)', border: 'rgba(123,143,168,0.24)' };
+
+  return (
+    <div style={{
+      padding: '14px 16px',
+      borderRadius: '10px',
+      border: `1px solid ${tone.border}`,
+      background: tone.bg,
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: '14px',
+      flexWrap: 'wrap',
+    }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: tone.color, flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '13px', fontWeight: 700, color: tone.color }}>
+            {banner.title}
+          </span>
+        </div>
+        <p style={{ margin: '7px 0 0', fontSize: '12.5px', lineHeight: 1.5, color: '#C8BFAE' }}>
+          {banner.body}
+        </p>
+      </div>
+
+      {banner.actionLabel && banner.onAction && (
+        <button
+          type="button"
+          onClick={banner.onAction}
+          style={{
+            height: '32px',
+            padding: '0 12px',
+            borderRadius: '8px',
+            border: `1px solid ${tone.border}`,
+            background: 'rgba(0,0,0,0.14)',
+            color: tone.color,
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          {banner.actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
 
 // ── Documentos / Actividad helpers ──────────────────────────────────────────────
 function docSnippet(content: string) {
@@ -1460,7 +1538,10 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
 
   const [name,    setName]    = useState(project.name);
   const [desc,    setDesc]    = useState(project.description ?? '');
+  const [problem, setProblem] = useState(project.problemStatement ?? '');
+  const [nextStep, setNextStep] = useState(project.nextStep ?? '');
   const [status,  setStatus]  = useState(project.status);
+  const [maturityStage, setMaturityStage] = useState<ProjectMaturityStage>(project.maturityStage ?? 'IDEA');
   const [start,   setStart]   = useState(project.startDate?.slice(0, 10) ?? '');
   const [end,     setEnd]     = useState(project.endDate?.slice(0, 10) ?? '');
   const [saving,  setSaving]  = useState(false);
@@ -1489,7 +1570,10 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
       await updateProject(project.id, {
         name: name.trim(),
         description: desc.trim() || null,
+        problemStatement: problem.trim() || null,
+        nextStep: nextStep.trim() || null,
         status: status as any,
+        maturityStage,
         startDate: start || null,
         endDate: end || null,
       });
@@ -1559,8 +1643,29 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
               />
             </div>
 
-            {/* Estado */}
             <div>
+              <LBL>Problema u oportunidad</LBL>
+              <textarea value={problem} onChange={(e) => setProblem(e.target.value)} rows={4}
+                placeholder="Qué se quiere resolver, por qué importa y para quién"
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', resize: 'vertical', boxSizing: 'border-box' as const, transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" }}
+                onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+              />
+            </div>
+
+            <div>
+              <LBL>Siguiente paso explícito</LBL>
+              <textarea value={nextStep} onChange={(e) => setNextStep(e.target.value)} rows={2}
+                placeholder="Próxima acción concreta para mover el proyecto"
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const, transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" }}
+                onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+              />
+            </div>
+
+            {/* Estado */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
               <LBL>{t.projects_config_status}</LBL>
               <select value={status} onChange={(e) => setStatus(e.target.value as any)}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark', cursor: 'pointer' }}
@@ -1569,6 +1674,17 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
                   <option key={s} value={s}>{getStatusCfg(s, t).label}</option>
                 ))}
               </select>
+              </div>
+              <div>
+                <LBL>Madurez</LBL>
+                <select value={maturityStage} onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark', cursor: 'pointer' }}
+                >
+                  {(['IDEA','DRAFT','FORMALIZED','PLANNED','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map((stage) => (
+                    <option key={stage} value={stage}>{getMaturityCfg(stage).label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Fechas */}
@@ -1878,8 +1994,8 @@ export default function ProjectDetailPage() {
   const router    = useRouter();
   const projectId = params.id as string;
 
-  const { currentProject, currentStats, fetchProjectById, fetchStats, updateMilestone, deleteMilestone, removeBoard } = useProjectStore();
-  const { workspaces } = useWorkspaceStore();
+  const { currentProject, currentStats, fetchProjectById, fetchStats, updateMilestone, deleteMilestone, removeBoard, adoptCurrentStandard } = useProjectStore();
+  const { workspaces, currentProjectStandard, fetchProjectStandard } = useWorkspaceStore();
   const { teams: allTeams, fetchTeams } = useTeamStore();
 
   // ── Role-based permissions ─────────────────────────────────────────────────
@@ -1912,6 +2028,7 @@ export default function ProjectDetailPage() {
   const [actUser,          setActUser]          = useState<string>('all');
   const [backlogCards,     setBacklogCards]     = useState<BacklogCard[]>([]);
   const [backlogLoading,   setBacklogLoading]   = useState(false);
+  const [adoptingStandard, setAdoptingStandard] = useState(false);
 
   const linkedBoardIdsRef = useRef<Set<string>>(new Set());
 
@@ -1937,6 +2054,12 @@ export default function ProjectDetailPage() {
     apiService.get<{ teams: AssignedTeam[] }>(`/api/projects/${projectId}/teams`, true)
       .then((res) => { if (res.success && res.data) setAssignedTeams(res.data.teams); });
   }, [projectId]);
+
+  useEffect(() => {
+    if (currentProject?.workspaceId) {
+      fetchProjectStandard(currentProject.workspaceId);
+    }
+  }, [currentProject?.workspaceId, fetchProjectStandard]);
 
   // Documentos del workspace al que pertenece el proyecto
   useEffect(() => {
@@ -2173,10 +2296,84 @@ export default function ProjectDetailPage() {
   const stats      = currentStats;
   const color      = project.color || C.accent;
   const stCfg      = getStatusCfg(project.status, t);
+  const maturityCfg = getMaturityCfg(project.maturityStage ?? 'IDEA');
   const progress   = stats?.progressPercent ?? project.progressPercent ?? 0;
   const workspace  = workspaces.find((w) => w.id === project.workspaceId);
+  const workspaceStandard = currentProjectStandard?.workspaceId === project.workspaceId ? currentProjectStandard : null;
   const milestones = (project.milestones ?? []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const boards     = project.boards ?? [];
+  const missingChecklistItems = (project.formalization?.checklist ?? []).filter((item) => !item.done);
+  const missingCoverageFields = (project.coverage?.fields ?? []).filter((field) => field.state === 'APPLIES_EMPTY');
+  const guidanceBanners: GuidanceBannerData[] = [];
+
+  if (workspaceStandard && (project.appliedStandardVersion ?? 1) < workspaceStandard.version) {
+    guidanceBanners.push({
+      id: 'new-standard-available',
+      title: `Hay un estándar más nuevo disponible para este proyecto (v${workspaceStandard.version})`,
+      body: `Este proyecto sigue corriendo con v${project.appliedStandardVersion ?? 1}. Puedes mantenerlo como cohorte previa o adoptar la versión actual para alinearlo con las reglas nuevas del workspace.`,
+      tone: 'info',
+      actionLabel: canEdit ? (adoptingStandard ? 'Adoptando...' : 'Adoptar estándar actual') : undefined,
+      onAction: canEdit ? async () => {
+        if (adoptingStandard) return;
+        setAdoptingStandard(true);
+        try {
+          await adoptCurrentStandard(project.id);
+        } finally {
+          setAdoptingStandard(false);
+        }
+      } : undefined,
+    });
+  }
+
+  const primaryGap = missingChecklistItems[0]?.key;
+  const primaryGapAction = primaryGap === 'team'
+    ? { label: 'Ir a miembros', onClick: () => setActiveTab('members') }
+    : primaryGap === 'board'
+      ? { label: 'Ir a tableros', onClick: () => setActiveTab('boards') }
+      : primaryGap === 'milestone'
+        ? { label: 'Ir a cronograma', onClick: () => setActiveTab('schedule') }
+        : { label: 'Abrir configuracion', onClick: () => setShowConfig(true) };
+
+  if (project.formalization?.readyToFormalize) {
+    guidanceBanners.push({
+      id: 'ready-to-formalize',
+      title: 'Este proyecto ya cumple el minimo para formalizarse',
+      body: project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED' || project.maturityStage === 'ACTIVE'
+        ? 'La base ya esta completa. Lo siguiente es reforzar plan, hitos y ritmo operativo.'
+        : 'Ya paso de idea a compromiso explicito. Ahora conviene actualizar su madurez y ordenar el plan operativo.',
+      tone: 'success',
+      actionLabel: 'Abrir configuracion',
+      onAction: () => setShowConfig(true),
+    });
+  } else if (missingChecklistItems.length > 0) {
+    guidanceBanners.push({
+      id: 'formalization-gap',
+      title: `Falta destrabar ${missingChecklistItems[0].label.toLowerCase()}`,
+      body: `Para formalizar este proyecto todavia faltan ${missingChecklistItems.length} chequeos. Prioriza ${missingChecklistItems[0].label.toLowerCase()} y luego sigue con ${missingChecklistItems.slice(1, 3).map((item) => item.label.toLowerCase()).join(', ') || 'los demas compromisos base'}.`,
+      tone: 'warning',
+      actionLabel: primaryGapAction.label,
+      onAction: primaryGapAction.onClick,
+    });
+  }
+
+  if ((project.coverage?.coveragePercent ?? 100) < 70 && missingCoverageFields.length > 0) {
+    guidanceBanners.push({
+      id: 'coverage-gap',
+      title: 'La lectura del proyecto sigue incompleta',
+      body: `La cobertura va en ${project.coverage?.coveragePercent ?? 0}%. Aun faltan ${missingCoverageFields.slice(0, 3).map((field) => field.label.toLowerCase()).join(', ')}${missingCoverageFields.length > 3 ? ' y otros campos clave' : ''}.`,
+      tone: 'info',
+      actionLabel: missingCoverageFields.some((field) => field.key === 'team' || field.key === 'boards' || field.key === 'milestones')
+        ? (missingCoverageFields.some((field) => field.key === 'team') ? 'Ir a miembros' : missingCoverageFields.some((field) => field.key === 'boards') ? 'Ir a tableros' : 'Ir a cronograma')
+        : 'Abrir configuracion',
+      onAction: missingCoverageFields.some((field) => field.key === 'team')
+        ? () => setActiveTab('members')
+        : missingCoverageFields.some((field) => field.key === 'boards')
+          ? () => setActiveTab('boards')
+          : missingCoverageFields.some((field) => field.key === 'milestones')
+            ? () => setActiveTab('schedule')
+            : () => setShowConfig(true),
+    });
+  }
 
   // ── Actividad del proyecto — desde el event store ─────────────────────────────
   const actUsers    = [...new Set(activityEntries.map((e) => e.userName))].sort();
@@ -2227,6 +2424,10 @@ export default function ProjectDetailPage() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: stCfg.color, background: stCfg.bg, padding: '5px 11px', borderRadius: '8px' }}>
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: stCfg.color }} />
                   {stCfg.label}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: maturityCfg.color, background: maturityCfg.bg, border: `1px solid ${maturityCfg.border}`, padding: '5px 11px', borderRadius: '8px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: maturityCfg.color }} />
+                  {maturityCfg.label}
                 </span>
               </div>
 
@@ -2310,6 +2511,15 @@ export default function ProjectDetailPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: '#C8BFAE' }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="#9C9486" strokeWidth="1.7"/><path d="M3.5 9h17M8 3.5v3M16 3.5v3" stroke="#9C9486" strokeWidth="1.7" strokeLinecap="round"/></svg>
                 <span style={{ fontSize: '13.5px' }}>Entrega {fmtShort(project.endDate)}</span>
+              </div>
+            )}
+
+            {project.formalization && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: '#C8BFAE' }}>
+                <Target style={{ width: '16px', height: '16px', color: project.formalization.readyToFormalize ? '#76A878' : '#C4A86E' }} />
+                <span style={{ fontSize: '13.5px' }}>
+                  Formalización {project.formalization.completed}/{project.formalization.required}
+                </span>
               </div>
             )}
           </div>
@@ -2437,6 +2647,77 @@ export default function ProjectDetailPage() {
                   </span>
                 </div>
               </div>
+
+              {guidanceBanners.length > 0 && (
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {guidanceBanners.map((banner) => (
+                    <GuidanceBanner key={banner.id} banner={banner} />
+                  ))}
+                </section>
+              )}
+
+              {(project.formalization || project.coverage) && (
+                <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 0.9fr)', gap: '18px' }}>
+                  {project.formalization && (
+                    <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                            Formalización
+                          </h3>
+                          <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D' }}>
+                            El proyecto pasa de intención a compromiso explícito cuando completa este mínimo.
+                          </p>
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: project.formalization.readyToFormalize ? '#76A878' : '#C4A86E', background: project.formalization.readyToFormalize ? 'rgba(118,168,120,0.12)' : 'rgba(196,168,110,0.12)', border: `1px solid ${project.formalization.readyToFormalize ? 'rgba(118,168,120,0.25)' : 'rgba(196,168,110,0.25)'}`, borderRadius: '999px', padding: '6px 10px' }}>
+                          {project.formalization.readyToFormalize ? 'Listo para formalizar' : `${project.formalization.completed}/${project.formalization.required} completos`}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                        {project.formalization.checklist.map((item) => (
+                          <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: item.done ? 'rgba(118,168,120,0.07)' : 'rgba(255,255,255,0.02)' }}>
+                            <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: item.done ? 'rgba(118,168,120,0.18)' : 'rgba(255,255,255,0.06)', border: `1px solid ${item.done ? 'rgba(118,168,120,0.35)' : 'rgba(255,255,255,0.12)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {item.done ? <Check style={{ width: '11px', height: '11px', color: '#76A878' }} /> : <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#615846' }} />}
+                            </span>
+                            <span style={{ fontSize: '12.5px', color: item.done ? '#E8E1D2' : '#9C9486' }}>{item.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {project.coverage && (
+                    <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                            Cobertura
+                          </h3>
+                          <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D' }}>
+                            Qué tan completo está el proyecto para leerlo y gobernarlo bien.
+                          </p>
+                        </div>
+                        <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: color }}>
+                          {project.coverage.coveragePercent}%
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {project.coverage.fields.map((field) => {
+                          const filled = field.state === 'APPLIES_FILLED';
+                          return (
+                            <div key={field.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                              <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>{field.label}</span>
+                              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: filled ? '#76A878' : '#DB8A66' }}>
+                                {filled ? 'LLENO' : 'VACIO'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
 
               {/* ── Dos columnas: hitos + alta prioridad ── */}
               <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
