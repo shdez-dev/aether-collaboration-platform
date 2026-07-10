@@ -589,312 +589,210 @@ export default function ProjectsPage() {
           })}
         </div>
 
-        {currentProjectStandard && (
-          <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px', marginBottom: '18px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>
-                  Estándar activo: {currentProjectStandard.name}
-                </div>
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>
-                  v{currentProjectStandard.version} · mínimo para planificar desde {getMaturityMeta(currentProjectStandard.definition.minimumMaturityForPlanning).label.toLowerCase()}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#C4A86E', background: 'rgba(196,168,110,0.12)', border: '1px solid rgba(196,168,110,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
-                  Intake: {currentProjectStandard.definition.intakeStages.join(' / ')}
-                </span>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#76A878', background: 'rgba(118,168,120,0.12)', border: '1px solid rgba(118,168,120,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
-                  {currentProjectStandard.definition.requiredChecklist.length} checks obligatorios
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  Campos requeridos
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {currentProjectStandard.definition.requiredProjectFields.map((field) => (
-                    <span key={field} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
-                      {field}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  Estructura obligatoria
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {currentProjectStandard.definition.requiredChecklist.map((item) => (
-                    <span key={item} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {viewMode === 'pipeline' && standardTransition && standardTransition.current.version > 1 && (
-          <div style={{ borderRadius: '10px', border: '1px solid rgba(123,143,168,0.24)', background: 'rgba(123,143,168,0.1)', padding: '14px 16px', marginBottom: '18px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#C7D7EC' }}>
-                  Nueva versión activa del estándar
-                </div>
-                <div style={{ marginTop: '5px', fontSize: '12.5px', color: '#C8BFAE', lineHeight: 1.5, maxWidth: '820px' }}>
-                  {standardTransition.current.name} corre hoy en v{standardTransition.current.version}
-                  {standardTransition.previous ? `, después de v${standardTransition.previous.version}` : ''}. Hay {standardTransition.legacyProjects} proyecto{standardTransition.legacyProjects === 1 ? '' : 's'} que nacieron antes de esta activación; úsalos como cohorte de transición antes de exigir el nuevo marco completo.
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#C7D7EC', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 9px' }}>
-                  Activa: v{standardTransition.current.version}
-                </span>
-                {standardTransition.previous && (
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#9FB7D2', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 9px' }}>
-                    Previa: v{standardTransition.previous.version}
-                  </span>
-                )}
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#C4A86E', background: 'rgba(196,168,110,0.12)', border: '1px solid rgba(196,168,110,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
-                  Cohorte previa: {standardTransition.legacyProjects}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {viewMode === 'pipeline' && versionReporting.length > 0 && (
-          <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px', marginBottom: '18px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Comparativa por versión</div>
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.5 }}>
-                  Compara cohortes reales según la versión del estándar aplicada a cada proyecto.
-                </div>
-              </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>
-                {versionReporting.length} cohorte{versionReporting.length === 1 ? '' : 's'}
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-              {versionReporting.map((row) => {
-                const isCurrent = currentProjectStandard?.version === row.version;
-                return (
-                  <div key={row.version} style={{
-                    borderRadius: '9px',
-                    border: `1px solid ${isCurrent ? 'rgba(118,168,120,0.22)' : 'rgba(255,255,255,0.06)'}`,
-                    background: isCurrent ? 'rgba(118,168,120,0.06)' : 'rgba(255,255,255,0.02)',
-                    padding: '12px 12px',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? '#76A878' : '#E8E1D2', fontFamily: SORA }}>
-                        v{row.version}
-                      </span>
-                      <span style={{ fontSize: '10.5px', color: isCurrent ? '#76A878' : '#827A6D' }}>
-                        {isCurrent ? 'Activa' : 'Histórica'}
-                      </span>
-                    </div>
-
-                    <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      <div>
-                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>Proyectos</div>
-                        <div style={{ marginTop: '5px', fontFamily: SORA, fontSize: '20px', fontWeight: 700, color: '#E8E1D2' }}>{row.count}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>Cobertura media</div>
-                        <div style={{ marginTop: '5px', fontFamily: SORA, fontSize: '20px', fontWeight: 700, color: getCoverageTone(row.avgCoverage) }}>{row.avgCoverage}%</div>
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ fontSize: '11px', color: '#C8BFAE' }}>
-                        {row.readyCount}/{row.count} listos para formalizar
-                      </div>
-                      <div style={{ fontSize: '11px', color: row.mentorNeededCount > 0 ? '#DB8A66' : '#615846' }}>
-                        {row.mentorNeededCount} requieren acompañamiento
-                      </div>
-                      <div style={{ fontSize: '11px', color: row.teamGapCount > 0 ? '#C4A86E' : '#615846' }}>
-                        {row.teamGapCount} sin equipo base
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {viewMode === 'pipeline' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px', marginBottom: '18px' }}>
-            {[
-              {
-                key: 'ready',
-                title: 'Listos para formalizar hoy',
-                desc: 'Proyectos que ya tienen base suficiente y conviene empujar sin dejar que se enfrien.',
-                tone: '#76A878',
-                items: portfolioQueues.readyToday,
-              },
-              {
-                key: 'team',
-                title: 'Trabados por equipo',
-                desc: 'Iniciativas donde el siguiente destrabe no es documentar mas, sino asignar gente.',
-                tone: '#C4A86E',
-                items: portfolioQueues.blockedByTeam,
-              },
-              {
-                key: 'coverage',
-                title: 'Cobertura engañosa',
-                desc: 'Se ven relativamente completas, pero todavia no llegan al minimo real de formalizacion.',
-                tone: '#7B8FA8',
-                items: portfolioQueues.misleadingCoverage,
-              },
-            ].map((section) => (
-              <div key={section.key} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
-                  <div>
-                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>{section.title}</div>
-                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45 }}>{section.desc}</div>
-                  </div>
-                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: section.tone, flexShrink: 0 }}>{section.items.length}</span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {section.items.length === 0 ? (
-                    <div style={{ padding: '10px 0', color: '#615846', fontSize: '12px' }}>Sin proyectos visibles en esta cola.</div>
-                  ) : section.items.map((project) => (
-                    <button
-                      key={project.id}
-                      onClick={() => router.push(`/dashboard/projects/${project.id}`)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        border: '1px solid rgba(255,255,255,0.07)',
-                        borderRadius: '8px',
-                        background: 'rgba(255,255,255,0.02)',
-                        padding: '10px 12px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {project.name}
-                        </div>
-                        <div style={{ marginTop: '3px', fontSize: '11.5px', color: '#827A6D', lineHeight: 1.45 }}>
-                          {getProjectPortfolioReason(project)}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontFamily: SORA, fontSize: '16px', fontWeight: 700, color: getCoverageTone(project.coverage?.coveragePercent ?? 0) }}>
-                          {project.coverage?.coveragePercent ?? 0}%
-                        </div>
-                        <div style={{ marginTop: '3px', fontSize: '10.5px', color: section.tone }}>
-                          {project.formalization?.completed ?? 0}/{project.formalization?.required ?? 0}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {viewMode === 'pipeline' && (
-        <div style={{ display: 'flex', alignItems: 'stretch', gap: '16px', marginBottom: '18px', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 420px', minWidth: 0, borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-            <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Foco operativo</div>
-            <p style={{ margin: '6px 0 12px', fontSize: '12px', color: '#827A6D', lineHeight: 1.5 }}>
-              Cambia el lente para ver rápido dónde intervenir sin revisar proyecto por proyecto.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {[
-                { key: 'all', label: 'Todos', count: metrics.total },
-                { key: 'mentor-needed', label: 'Necesitan mentor', count: metrics.mentorNeeded },
-                { key: 'ready', label: 'Listos para formalizar', count: metrics.ready },
-                { key: 'no-team', label: 'Sin equipo', count: metrics.withoutTeam },
-                { key: 'no-board', label: 'Sin tablero', count: metrics.withoutBoard },
-                { key: 'no-milestone', label: 'Sin hito', count: metrics.withoutMilestone },
-                { key: 'low-coverage', label: 'Baja cobertura', count: metrics.blocked },
-              ].map((option) => {
-                const active = focusMode === option.key;
-                return (
-                  <button
-                    key={option.key}
-                    onClick={() => setFocusMode(option.key as FocusMode)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '7px',
-                      height: '32px', padding: '0 12px', borderRadius: '999px',
-                      border: `1px solid ${active ? 'rgba(242,87,30,0.32)' : 'rgba(255,255,255,0.08)'}`,
-                      background: active ? 'rgba(242,87,30,0.12)' : 'rgba(255,255,255,0.03)',
-                      color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
-                      fontSize: '12px', fontWeight: 600,
-                    }}
-                  >
-                    <span>{option.label}</span>
-                    <span style={{ minWidth: '18px', height: '18px', borderRadius: '999px', background: active ? 'rgba(242,87,30,0.22)' : 'rgba(255,255,255,0.07)', color: active ? '#F4905A' : '#827A6D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, padding: '0 5px' }}>
-                      {option.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div style={{ flex: '1 1 300px', minWidth: 0, borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-            <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Lectura rápida</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
-              {[
-                { label: 'Proyectos que aún no tienen equipo base', value: metrics.withoutTeam, tone: '#DB8A66' },
-                { label: 'Proyectos sin tablero de ejecución', value: metrics.withoutBoard, tone: '#C4A86E' },
-                { label: 'Proyectos sin próximo hito declarado', value: metrics.withoutMilestone, tone: '#7B8FA8' },
-              ].map((item) => (
-                <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <span style={{ fontSize: '12.5px', color: '#C8BFAE', lineHeight: 1.45 }}>{item.label}</span>
-                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: item.tone, flexShrink: 0 }}>{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        )}
-
-        {viewMode === 'pipeline' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: '16px', marginBottom: '18px' }}>
-            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(320px, 0.8fr)', gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
+            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Embudo del workspace</div>
-                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Cómo se reparte hoy la cartera entre intake, formalización y operación.</div>
+                  <div style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color: '#E8E1D2' }}>
+                    {currentProjectStandard ? `Marco operativo: ${currentProjectStandard.name}` : 'Marco operativo del workspace'}
+                  </div>
+                  <div style={{ marginTop: '5px', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5, maxWidth: '780px' }}>
+                    {currentProjectStandard
+                      ? `La cartera hoy corre con v${currentProjectStandard.version}. Este estándar define desde qué madurez se planifica, qué campos deben existir y qué checks vuelven formalizable a un proyecto.`
+                      : 'Todavía no hay un estándar cargado para este workspace.'}
+                  </div>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{metrics.total} total</span>
+
+                {currentProjectStandard && (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#C7D7EC', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 9px' }}>
+                      v{currentProjectStandard.version}
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#C4A86E', background: 'rgba(196,168,110,0.12)', border: '1px solid rgba(196,168,110,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
+                      Intake: {currentProjectStandard.definition.intakeStages.join(' / ')}
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#76A878', background: 'rgba(118,168,120,0.12)', border: '1px solid rgba(118,168,120,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
+                      {currentProjectStandard.definition.requiredChecklist.length} checks
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px', marginTop: '16px' }}>
+                {[
+                  { label: 'Cohorte activa', value: `v${currentProjectStandard?.version ?? 1}`, hint: `${projects.filter((project) => (project.appliedStandardVersion ?? 1) === (currentProjectStandard?.version ?? 1)).length} proyecto(s)`, tone: '#C7D7EC' },
+                  { label: 'Cohorte previa', value: standardTransition?.previous ? `v${standardTransition.previous.version}` : 'Sin previa', hint: `${standardTransition?.legacyProjects ?? 0} proyecto(s) heredados`, tone: '#C4A86E' },
+                  { label: 'Mínimo para planificar', value: currentProjectStandard ? getMaturityMeta(currentProjectStandard.definition.minimumMaturityForPlanning).label : 'Base', hint: 'Punto de corte institucional', tone: '#76A878' },
+                ].map((item) => (
+                  <div key={item.label} style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.025)', padding: '12px 12px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>{item.label}</div>
+                    <div style={{ marginTop: '7px', fontFamily: SORA, fontSize: '20px', fontWeight: 700, color: item.tone }}>{item.value}</div>
+                    <div style={{ marginTop: '5px', fontSize: '11px', color: '#827A6D' }}>{item.hint}</div>
+                  </div>
+                ))}
+              </div>
+
+              {currentProjectStandard && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Campos requeridos
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {currentProjectStandard.definition.requiredProjectFields.map((field) => (
+                        <span key={field} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
+                          {field}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Estructura obligatoria
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {currentProjectStandard.definition.requiredChecklist.map((item) => (
+                        <span key={item} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px' }}>
+                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Decisiones de hoy</div>
+                <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45 }}>
+                  Tres colas cortas para acompañamiento, empuje y revisión de coherencia.
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+                  {[
+                    { title: 'Listos para formalizar', tone: '#76A878', items: portfolioQueues.readyToday },
+                    { title: 'Trabados por equipo', tone: '#C4A86E', items: portfolioQueues.blockedByTeam },
+                    { title: 'Cobertura engañosa', tone: '#7B8FA8', items: portfolioQueues.misleadingCoverage },
+                  ].map((section) => (
+                    <div key={section.title} style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: section.tone, fontFamily: SORA }}>{section.title}</span>
+                        <span style={{ fontSize: '11px', color: '#827A6D' }}>{section.items.length}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginTop: '9px' }}>
+                        {section.items.length === 0 ? (
+                          <div style={{ fontSize: '11.5px', color: '#615846' }}>Sin proyectos visibles.</div>
+                        ) : section.items.slice(0, 3).map((project) => (
+                          <button
+                            key={project.id}
+                            onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: '12px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
+                              <div style={{ marginTop: '3px', fontSize: '11px', color: '#827A6D' }}>{getProjectPortfolioReason(project)}</div>
+                            </div>
+                            <span style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color: getCoverageTone(project.coverage?.coveragePercent ?? 0), flexShrink: 0 }}>
+                              {project.coverage?.coveragePercent ?? 0}%
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px' }}>
+                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Foco operativo</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                  {[
+                    { key: 'all', label: 'Todos', count: metrics.total },
+                    { key: 'mentor-needed', label: 'Necesitan mentor', count: metrics.mentorNeeded },
+                    { key: 'ready', label: 'Listos', count: metrics.ready },
+                    { key: 'no-team', label: 'Sin equipo', count: metrics.withoutTeam },
+                    { key: 'no-board', label: 'Sin tablero', count: metrics.withoutBoard },
+                    { key: 'no-milestone', label: 'Sin hito', count: metrics.withoutMilestone },
+                    { key: 'low-coverage', label: 'Baja cobertura', count: metrics.blocked },
+                  ].map((option) => {
+                    const active = focusMode === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        onClick={() => setFocusMode(option.key as FocusMode)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '7px',
+                          height: '32px', padding: '0 12px', borderRadius: '999px',
+                          border: `1px solid ${active ? 'rgba(242,87,30,0.32)' : 'rgba(255,255,255,0.08)'}`,
+                          background: active ? 'rgba(242,87,30,0.12)' : 'rgba(255,255,255,0.03)',
+                          color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
+                          fontSize: '12px', fontWeight: 600,
+                        }}
+                      >
+                        <span>{option.label}</span>
+                        <span style={{ minWidth: '18px', height: '18px', borderRadius: '999px', background: active ? 'rgba(242,87,30,0.22)' : 'rgba(255,255,255,0.07)', color: active ? '#F4905A' : '#827A6D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, padding: '0 5px' }}>
+                          {option.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '14px' }}>
+                  {[
+                    { label: 'Proyectos que aún no tienen equipo base', value: metrics.withoutTeam, tone: '#DB8A66' },
+                    { label: 'Proyectos sin tablero de ejecución', value: metrics.withoutBoard, tone: '#C4A86E' },
+                    { label: 'Proyectos sin próximo hito declarado', value: metrics.withoutMilestone, tone: '#7B8FA8' },
+                  ].map((item) => (
+                    <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <span style={{ fontSize: '12px', color: '#C8BFAE', lineHeight: 1.45 }}>{item.label}</span>
+                      <span style={{ fontFamily: SORA, fontSize: '16px', fontWeight: 700, color: item.tone, flexShrink: 0 }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'pipeline' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '0.95fr 1.05fr', gap: '16px', marginBottom: '18px' }}>
+            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Cohortes por versión</div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45 }}>
+                    Cómo se comporta cada cohorte real según el estándar aplicado.
+                  </div>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{versionReporting.length} cohortes</span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {reporting.stageRows.map((row) => {
-                  const width = metrics.total > 0 ? Math.max((row.count / metrics.total) * 100, row.count > 0 ? 12 : 0) : 0;
+                {versionReporting.map((row) => {
+                  const isCurrent = currentProjectStandard?.version === row.version;
                   return (
-                    <div key={row.key} style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr) 92px', gap: '10px', alignItems: 'center' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: row.tone, fontFamily: SORA }}>{row.label}</div>
-                        <div style={{ marginTop: '2px', fontSize: '11px', color: '#615846' }}>{row.count} proyecto{row.count === 1 ? '' : 's'}</div>
+                    <div key={row.version} style={{ borderRadius: '9px', border: `1px solid ${isCurrent ? 'rgba(118,168,120,0.22)' : 'rgba(255,255,255,0.06)'}`, background: isCurrent ? 'rgba(118,168,120,0.06)' : 'rgba(255,255,255,0.02)', padding: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? '#76A878' : '#E8E1D2', fontFamily: SORA }}>v{row.version}</div>
+                          <div style={{ marginTop: '3px', fontSize: '11px', color: '#827A6D' }}>{row.count} proyecto(s)</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: getCoverageTone(row.avgCoverage) }}>{row.avgCoverage}%</div>
+                          <div style={{ marginTop: '3px', fontSize: '11px', color: '#C8BFAE' }}>{row.readyCount} listos</div>
+                        </div>
                       </div>
-                      <div style={{ height: '10px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                        <div style={{ width: `${width}%`, height: '100%', borderRadius: '999px', background: row.tone, transition: 'width 0.25s ease' }} />
-                      </div>
-                      <div style={{ textAlign: 'right', fontSize: '11px', color: '#C8BFAE' }}>
-                        {metrics.total > 0 ? `${Math.round((row.count / metrics.total) * 100)}%` : '0%'}
+                      <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ fontSize: '11px', color: row.mentorNeededCount > 0 ? '#DB8A66' : '#615846' }}>
+                          {row.mentorNeededCount} requieren acompañamiento
+                        </div>
+                        <div style={{ fontSize: '11px', color: row.teamGapCount > 0 ? '#C4A86E' : '#615846' }}>
+                          {row.teamGapCount} sin equipo base
+                        </div>
                       </div>
                     </div>
                   );
@@ -902,20 +800,50 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Alertas estructurales</div>
-                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Dónde se acumula la falta de formalización.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
+                  <div>
+                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Embudo del workspace</div>
+                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Distribución actual entre intake, formalización y operación.</div>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{metrics.total} total</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {reporting.stageRows.map((row) => {
+                    const width = metrics.total > 0 ? Math.max((row.count / metrics.total) * 100, row.count > 0 ? 12 : 0) : 0;
+                    return (
+                      <div key={row.key} style={{ display: 'grid', gridTemplateColumns: '110px minmax(0, 1fr) 72px', gap: '10px', alignItems: 'center' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: row.tone, fontFamily: SORA }}>{row.label}</div>
+                          <div style={{ marginTop: '2px', fontSize: '10.5px', color: '#615846' }}>{row.count}</div>
+                        </div>
+                        <div style={{ height: '10px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                          <div style={{ width: `${width}%`, height: '100%', borderRadius: '999px', background: row.tone, transition: 'width 0.25s ease' }} />
+                        </div>
+                        <div style={{ textAlign: 'right', fontSize: '10.5px', color: '#C8BFAE' }}>
+                          {metrics.total > 0 ? `${Math.round((row.count / metrics.total) * 100)}%` : '0%'}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
-                {reporting.alerts.map((alert) => (
-                  <div key={alert.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>{alert.label}</span>
-                    <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: alert.tone }}>{alert.count}</span>
-                  </div>
-                ))}
+
+              <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
+                <div>
+                  <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Brechas estructurales</div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Fallas recurrentes que degradan la formalización del portfolio.</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '12px' }}>
+                  {reporting.alerts.map((alert) => (
+                    <div key={alert.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>{alert.label}</span>
+                      <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: alert.tone }}>{alert.count}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -993,100 +921,6 @@ export default function ProjectsPage() {
           )}
         </div>
 
-        {viewMode === 'pipeline' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '22px' }}>
-          <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
-              <div>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Atención prioritaria</div>
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Proyectos donde hace más sentido acompañar o destrabar.</div>
-              </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#DB8A66' }}>{spotlight.mentorNeeded.length} visibles</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {spotlight.mentorNeeded.length === 0 ? (
-                <div style={{ padding: '12px 0', color: '#615846', fontSize: '12px' }}>No hay proyectos críticos ahora mismo.</div>
-              ) : spotlight.mentorNeeded.map((project) => (
-                <button
-                  key={project.id}
-                  onClick={() => router.push(`/dashboard/projects/${project.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', padding: '10px 12px', cursor: 'pointer', textAlign: 'left' }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
-                    <div style={{ marginTop: '3px', fontSize: '11.5px', color: '#827A6D' }}>
-                      {project.formalization?.completed ?? 0}/{project.formalization?.required ?? 0} formalización · {project.coverage?.coveragePercent ?? 0}% cobertura
-                    </div>
-                  </div>
-                  <AlertCircle style={{ width: '14px', height: '14px', color: '#DB8A66', flexShrink: 0 }} />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
-              <div>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Listos para empujar</div>
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Iniciativas que ya tienen base suficiente para pasar a planificación o ejecución.</div>
-              </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#76A878' }}>{spotlight.ready.length} visibles</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {spotlight.ready.length === 0 ? (
-                <div style={{ padding: '12px 0', color: '#615846', fontSize: '12px' }}>Todavía no hay proyectos listos para formalizar.</div>
-              ) : spotlight.ready.map((project) => (
-                <button
-                  key={project.id}
-                  onClick={() => router.push(`/dashboard/projects/${project.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', padding: '10px 12px', cursor: 'pointer', textAlign: 'left' }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
-                    <div style={{ marginTop: '3px', fontSize: '11.5px', color: '#827A6D' }}>
-                      {getMaturityMeta(project.maturityStage ?? 'IDEA').label} · {project.coverage?.coveragePercent ?? 0}% cobertura
-                    </div>
-                  </div>
-                  <CheckCircle2 style={{ width: '14px', height: '14px', color: '#76A878', flexShrink: 0 }} />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        )}
-
-        {viewMode === 'pipeline' && (
-          <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px', marginBottom: '22px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Cobertura por etapa</div>
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Promedio de completitud y proyectos listos por cada tramo del flujo.</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px' }}>
-              {reporting.stageRows.map((row) => (
-                <div key={row.key} style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '12px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: row.tone, fontFamily: SORA }}>{row.label}</span>
-                    <span style={{ fontSize: '11px', color: '#827A6D' }}>{row.count}</span>
-                  </div>
-                  <div style={{ marginTop: '10px', fontFamily: SORA, fontSize: '24px', fontWeight: 700, color: getCoverageTone(row.avgCoverage) }}>
-                    {row.avgCoverage}%
-                  </div>
-                  <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ fontSize: '11px', color: '#C8BFAE' }}>
-                      {row.readyCount} listo{row.readyCount === 1 ? '' : 's'} para formalizar
-                    </div>
-                    <div style={{ fontSize: '11px', color: row.lowCoverageCount > 0 ? '#DB8A66' : '#615846' }}>
-                      {row.lowCoverageCount} con baja cobertura
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>

@@ -2333,6 +2333,9 @@ export default function ProjectDetailPage() {
       : primaryGap === 'milestone'
         ? { label: 'Ir a cronograma', onClick: () => setActiveTab('schedule') }
         : { label: 'Abrir configuracion', onClick: () => setShowConfig(true) };
+  const currentOperationalLabel = workspaceStandard?.definition.targetLabels.formalized || 'Formalizado';
+  const currentExecutionLabel = workspaceStandard?.definition.targetLabels.execution || 'Operacion';
+  const currentIntakeLabel = workspaceStandard?.definition.targetLabels.intake || 'Intake';
 
   if (project.formalization?.readyToFormalize) {
     guidanceBanners.push({
@@ -2595,6 +2598,142 @@ export default function ProjectDetailPage() {
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
+              <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(280px, 0.85fr)', gap: '18px' }}>
+                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                        Marco operativo
+                      </h3>
+                      <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
+                        Este proyecto se evalúa con el estándar que define cómo pasa de {currentIntakeLabel.toLowerCase()} a {currentOperationalLabel.toLowerCase()} y luego a {currentExecutionLabel.toLowerCase()}.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#C7D7EC', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 9px' }}>
+                        v{project.appliedStandardVersion ?? workspaceStandard?.version ?? 1}
+                      </span>
+                      {workspaceStandard && (project.appliedStandardVersion ?? 1) < workspaceStandard.version && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#C4A86E', background: 'rgba(196,168,110,0.12)', border: '1px solid rgba(196,168,110,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
+                          Hay versión nueva
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px', marginTop: '16px' }}>
+                    {[
+                      {
+                        label: 'Planifica desde',
+                        value: workspaceStandard ? getMaturityCfg(workspaceStandard.definition.minimumMaturityForPlanning).label : maturityCfg.label,
+                        hint: 'Punto mínimo para pasar a planificación.',
+                        tone: '#76A878',
+                      },
+                      {
+                        label: 'Checklist base',
+                        value: String(project.formalization?.required ?? 0),
+                        hint: 'Compromisos mínimos de formalización.',
+                        tone: '#C4A86E',
+                      },
+                      {
+                        label: 'Cobertura actual',
+                        value: `${project.coverage?.coveragePercent ?? 0}%`,
+                        hint: 'Lectura estructural del proyecto.',
+                        tone: color,
+                      },
+                    ].map((item) => (
+                      <div key={item.label} style={{ padding: '12px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.025)' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>{item.label}</div>
+                        <div style={{ marginTop: '7px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '20px', fontWeight: 700, color: item.tone }}>{item.value}</div>
+                        <div style={{ marginTop: '5px', fontSize: '11px', color: '#827A6D', lineHeight: 1.4 }}>{item.hint}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {workspaceStandard && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '16px' }}>
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
+                          Carriles del flujo
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {[currentIntakeLabel, currentOperationalLabel, currentExecutionLabel].map((label) => (
+                            <span key={label} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
+                          Intakes visibles del estándar
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {workspaceStandard.definition.intakeStages.map((stage) => (
+                            <span key={stage} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
+                              {getMaturityCfg(stage).label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                    <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                      Siguiente movimiento
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+                      {project.formalization?.readyToFormalize ? (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.5 }}>
+                            <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: 'rgba(118,168,120,0.18)', color: '#76A878', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>1</span>
+                            <span>El mínimo de formalización ya está cumplido. Conviene ordenar plan, responsables y ritmo operativo.</span>
+                          </div>
+                          <button onClick={() => setShowConfig(true)} style={{ height: '34px', alignSelf: 'flex-start', padding: '0 12px', borderRadius: '8px', border: 'none', background: 'rgba(118,168,120,0.16)', color: '#76A878', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}>
+                            Abrir configuración del proyecto
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.5 }}>
+                            <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: 'rgba(196,168,110,0.16)', color: '#C4A86E', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>1</span>
+                            <span>Prioriza <strong style={{ color: '#E8E1D2' }}>{missingChecklistItems[0]?.label?.toLowerCase() ?? 'la base del proyecto'}</strong> para convertir la idea en compromiso explícito.</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.5 }}>
+                            <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)', color: '#827A6D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>2</span>
+                            <span>{project.nextStep?.trim() ? `Siguiente paso declarado: ${project.nextStep}` : 'Todavía no hay siguiente paso declarado; vale la pena dejar uno verificable.'}</span>
+                          </div>
+                          <button onClick={primaryGapAction.onClick} style={{ height: '34px', alignSelf: 'flex-start', padding: '0 12px', borderRadius: '8px', border: 'none', background: 'rgba(242,87,30,0.14)', color: '#F4905A', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}>
+                            {primaryGapAction.label}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                    <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                      Lectura rápida
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '12px' }}>
+                      {[
+                        { label: 'Sin equipos base', value: assignedTeams.length === 0 ? 'Sí' : 'No', tone: assignedTeams.length === 0 ? '#DB8A66' : '#76A878' },
+                        { label: 'Sin tableros vinculados', value: boards.length === 0 ? 'Sí' : 'No', tone: boards.length === 0 ? '#C4A86E' : '#76A878' },
+                        { label: 'Sin hitos declarados', value: milestones.length === 0 ? 'Sí' : 'No', tone: milestones.length === 0 ? '#7B8FA8' : '#76A878' },
+                      ].map((item) => (
+                        <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                          <span style={{ fontSize: '12px', color: '#C8BFAE' }}>{item.label}</span>
+                          <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '15px', fontWeight: 700, color: item.tone }}>{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               {/* ── Stat cards ── */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '14px' }}>
 
@@ -2834,28 +2973,77 @@ export default function ProjectDetailPage() {
               onBack={() => setActiveBoardId(null)}
             />
           ) : boards.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '60px 0' }}>
-              <span style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <LayoutDashboard style={{ ...ic(24), color: '#615846' }} />
-              </span>
-              <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#9C9486', fontFamily: "'Sora', system-ui, sans-serif" }}>{t.projects_boards_empty}</p>
-              {canEdit && (
-                <button onClick={() => setShowAddBoard(true)}
-                  style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#F2571E', color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif" }}
-                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
-                  onMouseLeave={e => (e.currentTarget.style.filter = '')}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
-                  {t.projects_boards_add}
-                </button>
-              )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px' }}>
+                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                    Espacio de coordinación
+                  </h3>
+                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
+                    Los tableros son donde este proyecto deja de ser solo una definición y empieza a coordinar trabajo real.
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
+                    {[
+                      assignedTeams.length > 0 ? `${assignedTeams.length} equipo(s) vinculados` : 'Sin equipos vinculados',
+                      milestones.length > 0 ? `${milestones.length} hito(s) declarados` : 'Sin hitos todavía',
+                      project.nextStep?.trim() ? `Siguiente paso: ${project.nextStep}` : 'Falta siguiente paso operativo',
+                    ].map((item) => (
+                      <span key={item} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                    Siguiente movimiento
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.5 }}>
+                      <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: 'rgba(242,87,30,0.14)', color: '#F4905A', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>1</span>
+                      <span>Crea un tablero base para ordenar primeras tareas, responsables y ritmo de ejecución.</span>
+                    </div>
+                    {canEdit && (
+                      <button onClick={() => setShowAddBoard(true)}
+                        style={{ height: '34px', alignSelf: 'flex-start', padding: '0 12px', borderRadius: '8px', border: 'none', background: 'rgba(242,87,30,0.14)', color: '#F4905A', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}
+                      >
+                        {t.projects_boards_add}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '60px 0' }}>
+                <span style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <LayoutDashboard style={{ ...ic(24), color: '#615846' }} />
+                </span>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#9C9486', fontFamily: "'Sora', system-ui, sans-serif" }}>{t.projects_boards_empty}</p>
+              </div>
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
-                <p style={{ margin: 0, fontSize: '0.98rem', color: '#9C9486', fontFamily: "'Manrope', system-ui, sans-serif" }}>
-                  {boards.length} {boards.length === 1 ? 'tablero' : 'tableros'} en este proyecto.
-                </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px', marginBottom: '18px' }}>
+                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                    Coordinación operativa
+                  </h3>
+                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
+                    {boards.length} {boards.length === 1 ? 'tablero sostiene' : 'tableros sostienen'} la ejecución de este proyecto. Entra al que necesite destrabe y ordena trabajo desde ahí.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+                  {[
+                    { label: 'Tableros', value: String(boards.length), tone: '#E8E1D2' },
+                    { label: 'Equipos', value: String(assignedTeams.length), tone: '#C4A86E' },
+                    { label: 'Hitos', value: String(milestones.length), tone: '#7B8FA8' },
+                  ].map((item) => (
+                    <div key={item.label} style={{ padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{item.label}</div>
+                      <div style={{ marginTop: '8px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: item.tone }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(264px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
                 {boards.map((board) => (
@@ -2881,18 +3069,30 @@ export default function ProjectDetailPage() {
 
           return (
             <div>
-              {/* Header */}
-              <div style={{ marginBottom: '22px' }}>
-                <p style={{ margin: 0, fontSize: '0.98rem', color: '#9C9486' }}>
-                  {backlogLoading
-                    ? 'Cargando tareas…'
-                    : backlogCards.length === 0
-                      ? boards.length === 0 ? 'No hay tableros vinculados a este proyecto.' : 'No hay tareas pendientes.'
-                      : `${backlogCards.length} tarea${backlogCards.length !== 1 ? 's' : ''} pendiente${backlogCards.length !== 1 ? 's' : ''} en ${boards.length} tablero${boards.length !== 1 ? 's' : ''}.`}
-                </p>
-                <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#615846' }}>
-                  Haz clic en cualquier tarea para ver su detalle y editarla.
-                </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px', marginBottom: '22px' }}>
+                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                    Priorización transversal
+                  </h3>
+                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
+                    Aquí se juntan las tareas pendientes de todos los tableros para decidir qué mover primero y dónde se está acumulando el trabajo.
+                  </p>
+                  <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: '#615846' }}>
+                    Haz clic en cualquier tarea para ver su detalle y editarla.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+                  {[
+                    { label: 'Pendientes', value: backlogLoading ? '…' : String(backlogCards.length), tone: '#E8E1D2' },
+                    { label: 'Alta prioridad', value: backlogLoading ? '…' : String(backlogCards.filter((c) => c.priority === 'HIGH').length), tone: '#DB8A66' },
+                    { label: 'Con fecha', value: backlogLoading ? '…' : String(backlogCards.filter((c) => c.dueDate).length), tone: '#7B8FA8' },
+                  ].map((item) => (
+                    <div key={item.label} style={{ padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{item.label}</div>
+                      <div style={{ marginTop: '8px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: item.tone }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Spinner */}
@@ -3015,6 +3215,29 @@ export default function ProjectDetailPage() {
         {/* ── CRONOGRAMA ───────────────────────────────────────────────────── */}
         {activeTab === 'schedule' && (
           <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px', marginBottom: '18px' }}>
+              <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                  Compromisos en el tiempo
+                </h3>
+                <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
+                  El cronograma deja visible cuándo deberían ocurrir hitos y tareas para que el proyecto no pierda ritmo ni trazabilidad.
+                </p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+                {[
+                  { label: 'Hitos', value: String(milestones.length), tone: '#4B607F' },
+                  { label: 'Alcanzados', value: String(milestones.filter((m) => m.status === 'REACHED').length), tone: '#76A878' },
+                  { label: 'Vencidos', value: String(milestones.filter((m) => m.status === 'PENDING' && new Date(m.date) < new Date()).length), tone: '#DB8A66' },
+                ].map((item) => (
+                  <div key={item.label} style={{ padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{item.label}</div>
+                    <div style={{ marginTop: '8px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: item.tone }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Toolbar: leyenda + nuevo hito */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
@@ -3037,13 +3260,27 @@ export default function ProjectDetailPage() {
               )}
             </div>
 
-            <ProjectGantt
+<ProjectGantt
   projectId={projectId}
   milestones={milestones}
   color={color}
   refreshTick={ganttRefreshTick}
   boardIds={currentProject?.boards?.map(b => b.id) ?? []}
 />
+
+            {milestones.length === 0 && (
+              <div style={{ marginTop: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '54px 20px', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                <span style={{ width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Calendar style={{ ...ic(22), color: '#615846' }} />
+                </span>
+                <p style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14.5px', fontWeight: 500, color: '#9C9486' }}>
+                  Todavía no hay hitos declarados
+                </p>
+                <p style={{ margin: 0, fontSize: '12.5px', color: '#615846', textAlign: 'center', maxWidth: '360px' }}>
+                  Un primer hito ayuda a convertir intención en fecha comprometida y le da ritmo visible al proyecto.
+                </p>
+              </div>
+            )}
 
             {/* Gestión de hitos */}
             {milestones.length > 0 && (

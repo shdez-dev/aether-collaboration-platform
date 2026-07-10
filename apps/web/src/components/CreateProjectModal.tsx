@@ -234,7 +234,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: '500px', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
+            width: '860px', maxWidth: '96vw', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
             background: '#1A2035', border: '1px solid rgba(255,255,255,0.09)',
             borderRadius: '14px', overflow: 'hidden',
             boxShadow: '0 40px 90px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.03) inset',
@@ -252,9 +252,14 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
             }}>
               <WorkspaceIcon icon={selectedIcon} style={{ width: '16px', height: '16px', color: selectedColor }} />
             </div>
-            <span style={{ flex: 1, fontSize: '14px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
-              {t.projects_btn_create}
-            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
+                {t.projects_btn_create}
+              </div>
+              <div style={{ marginTop: '3px', fontSize: '11.5px', color: '#827A6D', lineHeight: 1.4 }}>
+                Convierte una idea en un proyecto con el mínimo explícito que pide este workspace.
+              </div>
+            </div>
             <button
               onClick={handleClose}
               style={{ width: '26px', height: '26px', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', color: '#615846', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s', flexShrink: 0 }}
@@ -266,143 +271,295 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
           </div>
 
           {/* ── Body ────────────────────────────────────────────────────── */}
-          <div className="cp-scroll" style={{ flex: 1, overflowY: 'auto', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div className="cp-scroll" style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(280px, 0.85fr)', gap: '18px', alignItems: 'start' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
 
-            {/* Icono + Color */}
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                {/* Icono + Color */}
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
 
-              {/* Icon picker */}
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <FL>{t.create_ws_label_icon}</FL>
-                <button
-                  onClick={() => { setShowIconPicker((v) => !v); setShowWsPicker(false); }}
-                  style={{ width: '48px', height: '48px', borderRadius: '11px', background: `${selectedColor}18`, border: `1.5px solid ${selectedColor}45`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s, border-color 0.15s' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `${selectedColor}28`; (e.currentTarget as HTMLElement).style.borderColor = `${selectedColor}70`; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `${selectedColor}18`; (e.currentTarget as HTMLElement).style.borderColor = `${selectedColor}45`; }}
-                >
-                  <WorkspaceIcon icon={selectedIcon} style={{ width: '22px', height: '22px', color: selectedColor }} />
-                </button>
-                {showIconPicker && (
-                  <div
-                    className="cp-scroll"
-                    style={{ position: 'absolute', top: '56px', left: 0, width: '218px', maxHeight: '178px', overflowY: 'auto', background: '#141928', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', boxShadow: '0 16px 40px rgba(0,0,0,0.6)', zIndex: 10, padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px' }}
-                  >
-                    {WORKSPACE_ICON_KEYS.map((key) => (
-                      <button
-                        key={key}
-                        onClick={() => { setSelectedIcon(key); setShowIconPicker(false); }}
-                        style={{ width: '28px', height: '28px', borderRadius: '6px', background: selectedIcon === key ? `${selectedColor}28` : 'transparent', border: `1px solid ${selectedIcon === key ? `${selectedColor}50` : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}
-                        title={key}
+                  {/* Icon picker */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <FL>{t.create_ws_label_icon}</FL>
+                    <button
+                      onClick={() => { setShowIconPicker((v) => !v); setShowWsPicker(false); }}
+                      style={{ width: '48px', height: '48px', borderRadius: '11px', background: `${selectedColor}18`, border: `1.5px solid ${selectedColor}45`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s, border-color 0.15s' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `${selectedColor}28`; (e.currentTarget as HTMLElement).style.borderColor = `${selectedColor}70`; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `${selectedColor}18`; (e.currentTarget as HTMLElement).style.borderColor = `${selectedColor}45`; }}
+                    >
+                      <WorkspaceIcon icon={selectedIcon} style={{ width: '22px', height: '22px', color: selectedColor }} />
+                    </button>
+                    {showIconPicker && (
+                      <div
+                        className="cp-scroll"
+                        style={{ position: 'absolute', top: '56px', left: 0, width: '218px', maxHeight: '178px', overflowY: 'auto', background: '#141928', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', boxShadow: '0 16px 40px rgba(0,0,0,0.6)', zIndex: 10, padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px' }}
                       >
-                        <WorkspaceIcon icon={key} style={{ width: '14px', height: '14px', color: selectedIcon === key ? selectedColor : '#615846' }} />
-                      </button>
-                    ))}
+                        {WORKSPACE_ICON_KEYS.map((key) => (
+                          <button
+                            key={key}
+                            onClick={() => { setSelectedIcon(key); setShowIconPicker(false); }}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', background: selectedIcon === key ? `${selectedColor}28` : 'transparent', border: `1px solid ${selectedIcon === key ? `${selectedColor}50` : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}
+                            title={key}
+                          >
+                            <WorkspaceIcon icon={key} style={{ width: '14px', height: '14px', color: selectedIcon === key ? selectedColor : '#615846' }} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Color */}
+                  <div style={{ flex: 1 }}>
+                    <FL>{t.create_ws_label_color}</FL>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+                      {COLORS.map((color) => {
+                        const active = selectedColor === color;
+                        return (
+                          <button
+                            key={color}
+                            onClick={() => setSelectedColor(color)}
+                            style={{ width: '26px', height: '26px', borderRadius: '50%', background: color, cursor: 'pointer', border: 'none', outline: `2px solid ${active ? 'rgba(255,255,255,0.35)' : 'transparent'}`, outlineOffset: '2px', transform: active ? 'scale(1.16)' : 'scale(1)', transition: 'transform 0.14s, outline 0.14s', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                          >
+                            {active && <Check style={{ width: '11px', height: '11px', color: '#fff' }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nombre */}
+                <div>
+                  <FL>{t.projects_config_name} *</FL>
+                  <input
+                    autoFocus
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+                    placeholder={t.projects_config_name}
+                    className="cp-input"
+                    style={{ ...inputBase, borderColor: error && !name.trim() ? '#B85C5C' : 'rgba(255,255,255,0.09)' }}
+                    onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
+                    onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = error && !name.trim() ? '#B85C5C' : 'rgba(255,255,255,0.09)')}
+                  />
+                </div>
+
+                {/* Workspace */}
+                <div>
+                  <FL>Workspace *</FL>
+                  <button
+                    onClick={() => { setShowWsPicker((v) => !v); setShowIconPicker(false); }}
+                    style={{ ...inputBase, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left', borderColor: error && !selectedWsId ? '#B85C5C' : showWsPicker ? selectedColor : 'rgba(255,255,255,0.09)' }}
+                    onMouseEnter={(e) => { if (!showWsPicker) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                    onMouseLeave={(e) => { if (!showWsPicker) (e.currentTarget as HTMLElement).style.borderColor = error && !selectedWsId ? '#B85C5C' : 'rgba(255,255,255,0.09)'; }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {selectedWs ? (
+                        <>
+                          <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: `${selectedWs.color ?? C.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <WorkspaceIcon icon={selectedWs.icon ?? 'Folder'} style={{ width: '10px', height: '10px', color: selectedWs.color ?? C.accent }} />
+                          </div>
+                          <span style={{ fontSize: '13.5px', color: '#C8BFAE', fontFamily: MANROPE }}>{selectedWs.name}</span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '13.5px', color: '#403832', fontFamily: MANROPE }}>Selecciona una workspace…</span>
+                      )}
+                    </span>
+                    <ChevronDown style={{ width: '13px', height: '13px', color: '#615846', transition: 'transform 0.15s', transform: showWsPicker ? 'rotate(180deg)' : 'none', flexShrink: 0 }} />
+                  </button>
+
+                  {showWsPicker && workspaces.filter((w) => !w.archived).length > 0 && (
+                    <div className="cp-scroll" style={{ marginTop: '4px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '150px', overflowY: 'auto', background: '#141928', boxShadow: '0 10px 28px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                      {workspaces.filter((w) => !w.archived).map((ws) => {
+                        const sel = ws.id === selectedWsId;
+                        return (
+                          <button
+                            key={ws.id}
+                            onClick={() => { setSelectedWsId(ws.id); setShowWsPicker(false); }}
+                            style={{ width: '100%', padding: '9px 12px', background: sel ? `${selectedColor}14` : 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '9px', cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s' }}
+                            onMouseEnter={(e) => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = sel ? `${selectedColor}14` : 'transparent'; }}
+                          >
+                            <div style={{ width: '22px', height: '22px', borderRadius: '6px', background: `${ws.color ?? C.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <WorkspaceIcon icon={ws.icon ?? 'Folder'} style={{ width: '11px', height: '11px', color: ws.color ?? C.accent }} />
+                            </div>
+                            <span style={{ flex: 1, fontSize: '13px', color: sel ? '#F4EEE2' : '#9C9486', fontFamily: MANROPE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
+                            {sel && <Check style={{ width: '13px', height: '13px', color: selectedColor, flexShrink: 0 }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Descripción */}
+                <div>
+                  <FL>{t.projects_config_desc}{standardDefinition.requiredProjectFields.includes('description') ? ' *' : ''}</FL>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Descripción opcional…"
+                    rows={2}
+                    className="cp-input"
+                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6 }}
+                    onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
+                    onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)')}
+                  />
+                </div>
+
+                <div>
+                  <FL>Problema u oportunidad{standardDefinition.requiredProjectFields.includes('problemStatement') || standardDefinition.requiredChecklist.includes('problem') ? ' *' : ''}</FL>
+                  <textarea
+                    value={problemStatement}
+                    onChange={(e) => setProblemStatement(e.target.value)}
+                    placeholder="Qué se quiere resolver y por qué importa"
+                    rows={3}
+                    className="cp-input"
+                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, borderColor: unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
+                    onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
+                    onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <FL>Madurez inicial</FL>
+                    <select
+                      value={maturityStage}
+                      onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
+                      className="cp-input"
+                      style={{ ...inputBase, color: '#C8BFAE', colorScheme: 'dark', cursor: 'pointer' }}
+                      onFocus={(e) => ((e.currentTarget as HTMLSelectElement).style.borderColor = selectedColor)}
+                      onBlur={(e)  => ((e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.09)')}
+                    >
+                      {standardDefinition.intakeStages.map((stage) => (
+                        <option key={stage} value={stage}>{MATURITY_LABELS[stage]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <FL>Siguiente paso{standardDefinition.requiredProjectFields.includes('nextStep') || standardDefinition.requiredChecklist.includes('nextStep') ? ' *' : ''}</FL>
+                    <input
+                      value={nextStep}
+                      onChange={(e) => setNextStep(e.target.value)}
+                      placeholder="Ej: armar equipo base"
+                      className="cp-input"
+                      style={{ ...inputBase, borderColor: unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
+                      onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
+                      onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
+                    />
+                  </div>
+                </div>
+
+                {/* Fechas */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <FL>{t.projects_config_start}{standardDefinition.requiredProjectFields.includes('startDate') ? ' *' : ''}</FL>
+                    <input
+                      type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                      className="cp-input"
+                      style={{ ...inputBase, color: startDate ? '#C8BFAE' : '#403832', colorScheme: 'dark', borderColor: unmetRequiredNow.includes('startDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
+                      onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
+                      onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('startDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
+                    />
+                  </div>
+                  <div>
+                    <FL>{t.projects_config_end}{standardDefinition.requiredProjectFields.includes('endDate') ? ' *' : ''}</FL>
+                    <input
+                      type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                      className="cp-input"
+                      style={{ ...inputBase, color: endDate ? '#C8BFAE' : '#403832', colorScheme: 'dark', borderColor: unmetRequiredNow.includes('endDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
+                      onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
+                      onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('endDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
+                    />
+                  </div>
+                </div>
+
+                {/* Error */}
+                {error && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 13px', borderRadius: '8px', background: 'rgba(184,92,92,0.1)', border: '1px solid rgba(184,92,92,0.25)' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#B85C5C" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#B85C5C" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                    <span style={{ fontSize: '12px', color: '#B85C5C', fontFamily: MANROPE }}>{error}</span>
                   </div>
                 )}
               </div>
 
-              {/* Color */}
-              <div style={{ flex: 1 }}>
-                <FL>{t.create_ws_label_color}</FL>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
-                  {COLORS.map((color) => {
-                    const active = selectedColor === color;
-                    return (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(color)}
-                        style={{ width: '26px', height: '26px', borderRadius: '50%', background: color, cursor: 'pointer', border: 'none', outline: `2px solid ${active ? 'rgba(255,255,255,0.35)' : 'transparent'}`, outlineOffset: '2px', transform: active ? 'scale(1.16)' : 'scale(1)', transition: 'transform 0.14s, outline 0.14s', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                      >
-                        {active && <Check style={{ width: '11px', height: '11px', color: '#fff' }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Nombre */}
-            <div>
-              <FL>{t.projects_config_name} *</FL>
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
-                placeholder={t.projects_config_name}
-                className="cp-input"
-                style={{ ...inputBase, borderColor: error && !name.trim() ? '#B85C5C' : 'rgba(255,255,255,0.09)' }}
-                onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = error && !name.trim() ? '#B85C5C' : 'rgba(255,255,255,0.09)')}
-              />
-            </div>
-
-            <div style={{
-              padding: '14px 14px 12px',
-              borderRadius: '10px',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
-                    {activeStandard ? `${activeStandard.name} · v${activeStandard.version}` : 'Aether Core Standard'}
-                  </div>
-                  <div style={{ fontSize: '11.5px', color: '#9C9486', marginTop: '4px', lineHeight: 1.45 }}>
-                    Este workspace espera que el intake llegue al menos hasta {MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning]} antes de pasar a planificacion.
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {standardDefinition.intakeStages.map((stage) => (
-                    <span
-                      key={stage}
-                      style={{
-                        fontSize: '10.5px',
-                        fontWeight: 700,
-                        color: stage === maturityStage ? '#24180A' : '#C8BFAE',
-                        background: stage === maturityStage ? '#F2571E' : 'rgba(255,255,255,0.05)',
-                        borderRadius: '999px',
-                        padding: '5px 9px',
-                      }}
-                    >
-                      {MATURITY_LABELS[stage]}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
-                    Debe quedar listo ahora
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '9px' }}>
-                    {requiredNow.length > 0 ? Array.from(new Set(requiredNow)).map((item) => {
-                      const done = !unmetRequiredNow.includes(item);
-                      const label =
-                        item === 'description' ? 'Descripcion' :
-                        item === 'problemStatement' || item === 'problem' ? 'Problema' :
-                        item === 'nextStep' ? 'Siguiente paso' :
-                        item === 'startDate' ? 'Fecha inicio' :
-                        'Fecha cierre';
-                      return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{
+                  padding: '14px 14px 12px',
+                  borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
+                        {activeStandard ? `${activeStandard.name} · v${activeStandard.version}` : 'Aether Core Standard'}
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#9C9486', marginTop: '4px', lineHeight: 1.45 }}>
+                        Este workspace espera que el intake llegue al menos hasta {MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning]} antes de pasar a planificacion.
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {standardDefinition.intakeStages.map((stage) => (
                         <span
-                          key={item}
+                          key={stage}
                           style={{
                             fontSize: '10.5px',
                             fontWeight: 700,
-                            color: done ? '#76A878' : '#C4A86E',
-                            background: done ? 'rgba(118,168,120,0.12)' : 'rgba(196,168,110,0.12)',
-                            border: `1px solid ${done ? 'rgba(118,168,120,0.22)' : 'rgba(196,168,110,0.22)'}`,
+                            color: stage === maturityStage ? '#24180A' : '#C8BFAE',
+                            background: stage === maturityStage ? '#F2571E' : 'rgba(255,255,255,0.05)',
                             borderRadius: '999px',
-                            padding: '4px 8px',
+                            padding: '5px 9px',
                           }}
                         >
-                          {done ? 'Listo' : 'Falta'} · {label}
+                          {MATURITY_LABELS[stage]}
                         </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+                    {[
+                      { label: 'Planifica desde', value: MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning] },
+                      { label: 'Checks base', value: String(standardDefinition.requiredChecklist.length) },
+                      { label: 'Campos de cobertura', value: String(standardDefinition.requiredProjectFields.length) },
+                    ].map((item) => (
+                      <div key={item.label} style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
+                          {item.label}
+                        </div>
+                        <div style={{ marginTop: '7px', fontSize: '16px', fontWeight: 700, color: '#E8E1D2', fontFamily: SORA }}>
+                          {item.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA }}>
+                    Debe quedar explícito hoy
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                    {requiredNow.length > 0 ? Array.from(new Set(requiredNow)).map((item) => {
+                      const done = !unmetRequiredNow.includes(item);
+                      const label =
+                        item === 'description' ? 'Descripcion general' :
+                        item === 'problemStatement' || item === 'problem' ? 'Problema u oportunidad' :
+                        item === 'nextStep' ? 'Siguiente paso' :
+                        item === 'startDate' ? 'Fecha de inicio' :
+                        'Fecha de cierre';
+                      return (
+                        <div key={item} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>{label}</span>
+                          <span style={{ fontSize: '10.5px', fontWeight: 700, color: done ? '#76A878' : '#C4A86E', letterSpacing: '0.04em' }}>
+                            {done ? 'LISTO' : 'FALTA'}
+                          </span>
+                        </div>
                       );
                     }) : (
                       <span style={{ fontSize: '11.5px', color: '#9C9486' }}>Sin campos obligatorios adicionales.</span>
@@ -410,26 +567,16 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   </div>
                 </div>
 
-                <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
-                    Pendiente despues de crear
+                <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA }}>
+                    Lo siguiente después de crear
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '9px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
                     {postCreateChecklist.filter((item) => !item.done).length > 0 ? postCreateChecklist.filter((item) => !item.done).map((item) => (
-                      <span
-                        key={item.key}
-                        style={{
-                          fontSize: '10.5px',
-                          fontWeight: 700,
-                          color: '#9C9486',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: '999px',
-                          padding: '4px 8px',
-                        }}
-                      >
-                        {item.label}
-                      </span>
+                      <div key={item.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#9C9486', fontSize: '12px', lineHeight: 1.45 }}>
+                        <span style={{ width: '16px', height: '16px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#615846', fontSize: '10px' }}>•</span>
+                        <span><strong style={{ color: '#C8BFAE' }}>{item.label}:</strong> {item.hint}</span>
+                      </div>
                     )) : (
                       <span style={{ fontSize: '11.5px', color: '#76A878' }}>Este intake ya deja la formalizacion muy encaminada.</span>
                     )}
@@ -437,145 +584,6 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 </div>
               </div>
             </div>
-
-            {/* Descripción */}
-            <div>
-              <FL>{t.projects_config_desc}{standardDefinition.requiredProjectFields.includes('description') ? ' *' : ''}</FL>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Descripción opcional…"
-                rows={2}
-                className="cp-input"
-                style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6 }}
-                onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
-                onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)')}
-              />
-            </div>
-
-            <div>
-              <FL>Problema u oportunidad{standardDefinition.requiredProjectFields.includes('problemStatement') || standardDefinition.requiredChecklist.includes('problem') ? ' *' : ''}</FL>
-              <textarea
-                value={problemStatement}
-                onChange={(e) => setProblemStatement(e.target.value)}
-                placeholder="Qué se quiere resolver y por qué importa"
-                rows={3}
-                className="cp-input"
-                style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, borderColor: unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
-                onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <FL>Madurez inicial</FL>
-                <select
-                  value={maturityStage}
-                  onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
-                  className="cp-input"
-                  style={{ ...inputBase, color: '#C8BFAE', colorScheme: 'dark', cursor: 'pointer' }}
-                  onFocus={(e) => ((e.currentTarget as HTMLSelectElement).style.borderColor = selectedColor)}
-                  onBlur={(e)  => ((e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.09)')}
-                >
-                  {standardDefinition.intakeStages.map((stage) => (
-                    <option key={stage} value={stage}>{MATURITY_LABELS[stage]}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <FL>Siguiente paso{standardDefinition.requiredProjectFields.includes('nextStep') || standardDefinition.requiredChecklist.includes('nextStep') ? ' *' : ''}</FL>
-                <input
-                  value={nextStep}
-                  onChange={(e) => setNextStep(e.target.value)}
-                  placeholder="Ej: armar equipo base"
-                  className="cp-input"
-                  style={{ ...inputBase, borderColor: unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                  onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                  onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-                />
-              </div>
-            </div>
-
-            {/* Workspace */}
-            <div>
-              <FL>Workspace *</FL>
-              <button
-                onClick={() => { setShowWsPicker((v) => !v); setShowIconPicker(false); }}
-                style={{ ...inputBase, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left', borderColor: error && !selectedWsId ? '#B85C5C' : showWsPicker ? selectedColor : 'rgba(255,255,255,0.09)' }}
-                onMouseEnter={(e) => { if (!showWsPicker) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                onMouseLeave={(e) => { if (!showWsPicker) (e.currentTarget as HTMLElement).style.borderColor = error && !selectedWsId ? '#B85C5C' : 'rgba(255,255,255,0.09)'; }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {selectedWs ? (
-                    <>
-                      <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: `${selectedWs.color ?? C.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <WorkspaceIcon icon={selectedWs.icon ?? 'Folder'} style={{ width: '10px', height: '10px', color: selectedWs.color ?? C.accent }} />
-                      </div>
-                      <span style={{ fontSize: '13.5px', color: '#C8BFAE', fontFamily: MANROPE }}>{selectedWs.name}</span>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: '13.5px', color: '#403832', fontFamily: MANROPE }}>Selecciona una workspace…</span>
-                  )}
-                </span>
-                <ChevronDown style={{ width: '13px', height: '13px', color: '#615846', transition: 'transform 0.15s', transform: showWsPicker ? 'rotate(180deg)' : 'none', flexShrink: 0 }} />
-              </button>
-
-              {showWsPicker && workspaces.filter((w) => !w.archived).length > 0 && (
-                <div className="cp-scroll" style={{ marginTop: '4px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '150px', overflowY: 'auto', background: '#141928', boxShadow: '0 10px 28px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-                  {workspaces.filter((w) => !w.archived).map((ws) => {
-                    const sel = ws.id === selectedWsId;
-                    return (
-                      <button
-                        key={ws.id}
-                        onClick={() => { setSelectedWsId(ws.id); setShowWsPicker(false); }}
-                        style={{ width: '100%', padding: '9px 12px', background: sel ? `${selectedColor}14` : 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '9px', cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s' }}
-                        onMouseEnter={(e) => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = sel ? `${selectedColor}14` : 'transparent'; }}
-                      >
-                        <div style={{ width: '22px', height: '22px', borderRadius: '6px', background: `${ws.color ?? C.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <WorkspaceIcon icon={ws.icon ?? 'Folder'} style={{ width: '11px', height: '11px', color: ws.color ?? C.accent }} />
-                        </div>
-                        <span style={{ flex: 1, fontSize: '13px', color: sel ? '#F4EEE2' : '#9C9486', fontFamily: MANROPE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
-                        {sel && <Check style={{ width: '13px', height: '13px', color: selectedColor, flexShrink: 0 }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Fechas */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <FL>{t.projects_config_start}{standardDefinition.requiredProjectFields.includes('startDate') ? ' *' : ''}</FL>
-                <input
-                  type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                  className="cp-input"
-                  style={{ ...inputBase, color: startDate ? '#C8BFAE' : '#403832', colorScheme: 'dark', borderColor: unmetRequiredNow.includes('startDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                  onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                  onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('startDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-                />
-              </div>
-              <div>
-                <FL>{t.projects_config_end}{standardDefinition.requiredProjectFields.includes('endDate') ? ' *' : ''}</FL>
-                <input
-                  type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                  className="cp-input"
-                  style={{ ...inputBase, color: endDate ? '#C8BFAE' : '#403832', colorScheme: 'dark', borderColor: unmetRequiredNow.includes('endDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                  onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                  onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('endDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-                />
-              </div>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 13px', borderRadius: '8px', background: 'rgba(184,92,92,0.1)', border: '1px solid rgba(184,92,92,0.25)' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#B85C5C" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#B85C5C" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                <span style={{ fontSize: '12px', color: '#B85C5C', fontFamily: MANROPE }}>{error}</span>
-              </div>
-            )}
           </div>
 
           {/* ── Footer ──────────────────────────────────────────────────── */}

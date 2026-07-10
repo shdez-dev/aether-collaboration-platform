@@ -121,6 +121,34 @@ function Divider() {
   return <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />;
 }
 
+function SummaryMetric({ label, value, hint }: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div style={{
+      padding: '12px 14px',
+      borderRadius: '10px',
+      border: `1px solid ${C.border}`,
+      background: C.surface,
+      minWidth: 0,
+    }}>
+      <div style={{ fontSize: '10.5px', fontWeight: 700, color: C.text4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        {label}
+      </div>
+      <div style={{ marginTop: '7px', fontSize: '20px', fontWeight: 700, color: C.text }}>
+        {value}
+      </div>
+      {hint && (
+        <div style={{ marginTop: '5px', fontSize: '11.5px', color: C.text3, lineHeight: 1.4 }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OptionGrid<T extends string>({
   options,
   selected,
@@ -381,15 +409,18 @@ export default function SettingsPage() {
 
   return (
     <div style={{ height: '100%', overflow: 'auto', background: C.bg }}>
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '32px 28px 56px' }}>
+      <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '32px 28px 56px' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '28px' }}>
           <div>
             <h1 style={{ fontSize: '22px', fontWeight: 700, color: C.text, marginBottom: '4px' }}>
-              {t.settings_title}
+              Gobierno del workspace
             </h1>
-            <p style={{ fontSize: '13px', color: C.text3 }}>{t.settings_subtitle}</p>
+            <p style={{ fontSize: '13px', color: C.text3, maxWidth: '760px', lineHeight: 1.55 }}>
+              {workspace
+                ? `${workspace.name} puede definir aquí cómo se formalizan las iniciativas, qué exige el intake y cuándo una idea ya está lista para entrar a operación.`
+                : t.settings_subtitle}
+            </p>
           </div>
 
           {hasChanges && (
@@ -410,6 +441,56 @@ export default function SettingsPage() {
             </button>
           )}
         </div>
+
+        {activeWorkspaceId && localStandard && currentProjectStandard && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ borderRadius: '12px', border: `1px solid ${C.border}`, background: C.bg2, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: C.text }}>
+                    Marco rector: {currentProjectStandard.name}
+                  </div>
+                  <div style={{ marginTop: '5px', fontSize: '12.5px', color: C.text3, lineHeight: 1.5, maxWidth: '680px' }}>
+                    Cada versión publicada cambia la forma en que el workspace recibe, formaliza y compara proyectos. La gracia aquí es mantener un estándar claro sin quitar flexibilidad al equipo.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: C.accent, background: `${C.accent}14`, border: `1px solid ${C.accent}30`, borderRadius: '999px', padding: '5px 9px' }}>
+                    v{currentProjectStandard.version}
+                  </span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: canManageStandard ? C.green : C.amber, background: canManageStandard ? `${C.green}14` : `${C.amber}14`, border: `1px solid ${canManageStandard ? `${C.green}33` : `${C.amber}33`}`, borderRadius: '999px', padding: '5px 9px' }}>
+                    {canManageStandard ? 'Puedes publicar cambios' : 'Solo lectura'}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px', marginTop: '16px' }}>
+                <SummaryMetric label="Version activa" value={`v${currentProjectStandard.version}`} hint="Rige intake, formalizacion y reporting." />
+                <SummaryMetric label="Checks" value={String(localStandard.definition.requiredChecklist.length)} hint="Reglas minimas de formalizacion." />
+                <SummaryMetric label="Campos" value={String(localStandard.definition.requiredProjectFields.length)} hint="Campos que pesan en cobertura." />
+                <SummaryMetric label="Historial" value={String(projectStandardHistory.length)} hint="Versiones almacenadas para trazabilidad." />
+              </div>
+            </div>
+
+            <div style={{ borderRadius: '12px', border: `1px solid ${C.border}`, background: C.bg2, padding: '18px 20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>Qué publica una nueva versión</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+                {[
+                  `Intake visible: ${localStandard.definition.intakeStages.join(' / ')}`,
+                  `Punto mínimo para planificar: ${MATURITY_OPTIONS.find((item) => item.value === localStandard.definition.minimumMaturityForPlanning)?.label ?? 'Base'}`,
+                  `${localStandard.definition.requiredChecklist.length} checks y ${localStandard.definition.requiredProjectFields.length} campos para cobertura`,
+                  `Etiquetas operativas: ${localStandard.definition.targetLabels.intake}, ${localStandard.definition.targetLabels.formalized}, ${localStandard.definition.targetLabels.execution}`,
+                ].map((item) => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: C.text3, fontSize: '12.5px', lineHeight: 1.5 }}>
+                    <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: `${C.accent}18`, color: C.accent, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px', fontWeight: 700 }}>•</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <SectionCard
           icon={<ShieldCheck size={16} />}
