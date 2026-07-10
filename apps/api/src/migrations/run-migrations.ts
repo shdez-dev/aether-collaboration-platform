@@ -989,11 +989,25 @@ export async function runMigrations() {
         SET
           applied_standard_id = COALESCE(
             p.applied_standard_id,
-            active_standard.id
+            (
+              SELECT wps.id
+              FROM workspace_project_standards wps
+              WHERE wps.workspace_id = p.workspace_id
+                AND wps.is_active = true
+              ORDER BY wps.version DESC, wps.updated_at DESC
+              LIMIT 1
+            )
           ),
           applied_standard_version = COALESCE(
             p.applied_standard_version,
-            active_standard.version,
+            (
+              SELECT wps.version
+              FROM workspace_project_standards wps
+              WHERE wps.workspace_id = p.workspace_id
+                AND wps.is_active = true
+              ORDER BY wps.version DESC, wps.updated_at DESC
+              LIMIT 1
+            ),
             1
           ),
           standard_applied_at = COALESCE(
@@ -1001,14 +1015,6 @@ export async function runMigrations() {
             p.created_at,
             CURRENT_TIMESTAMP
           )
-        FROM LATERAL (
-          SELECT wps.id, wps.version
-          FROM workspace_project_standards wps
-          WHERE wps.workspace_id = p.workspace_id
-            AND wps.is_active = true
-          ORDER BY wps.version DESC, wps.updated_at DESC
-          LIMIT 1
-        ) active_standard
         WHERE p.applied_standard_version IS NULL
            OR p.standard_applied_at IS NULL
            OR p.applied_standard_id IS NULL;
