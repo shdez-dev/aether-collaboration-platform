@@ -13,6 +13,10 @@ import { C } from '@/lib/colors';
 const SORA    = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
+const TWO_COLUMN_GRID = 'repeat(auto-fit, minmax(220px, 1fr))';
+const PANEL_GRID = 'repeat(auto-fit, minmax(250px, 1fr))';
+const METRIC_GRID = 'repeat(auto-fit, minmax(135px, 1fr))';
+
 const COLORS = [
   '#F2571E', '#DB8A66', '#76A878', '#4B607F',
   '#9C9486', '#B85C5C', '#7B8FA8', '#C4A86E',
@@ -228,13 +232,13 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
       {/* Center positioner */}
       <div
         onClick={handleClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 51, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 51, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
       >
         {/* Panel */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: '780px', maxWidth: '96vw', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
+            width: '720px', maxWidth: '96vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column',
             background: '#171E30', border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '12px', overflow: 'hidden',
             boxShadow: '0 40px 90px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.03) inset',
@@ -271,12 +275,12 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
           </div>
 
           {/* ── Body ────────────────────────────────────────────────────── */}
-          <div className="cp-scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 250px', gap: '16px', alignItems: 'start' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div className="cp-scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
                 {/* Icono + Color */}
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start', flexWrap: 'wrap', padding: '14px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
 
                   {/* Icon picker */}
                   <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -309,7 +313,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   </div>
 
                   {/* Color */}
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: '1 1 260px', minWidth: 0 }}>
                     <FL>{t.create_ws_label_color}</FL>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
                       {COLORS.map((color) => {
@@ -392,7 +396,60 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   )}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
+                        {activeStandard ? `${activeStandard.name} · v${activeStandard.version}` : 'Aether Core Standard'}
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#9C9486', marginTop: '4px', lineHeight: 1.45, fontFamily: MANROPE }}>
+                        Mínimo para planificar: {MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning]}.
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {standardDefinition.intakeStages.map((stage) => (
+                        <span
+                          key={stage}
+                          style={{
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            color: stage === maturityStage ? '#24180A' : '#C8BFAE',
+                            background: stage === maturityStage ? '#F2571E' : 'rgba(255,255,255,0.05)',
+                            borderRadius: '999px',
+                            padding: '5px 9px',
+                            fontFamily: SORA,
+                          }}
+                        >
+                          {MATURITY_LABELS[stage]}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: METRIC_GRID, gap: '10px', marginTop: '12px' }}>
+                    {[
+                      { label: 'Checks base', value: String(standardDefinition.requiredChecklist.length) },
+                      { label: 'Campos', value: String(standardDefinition.requiredProjectFields.length) },
+                      { label: 'Pendientes', value: String(postCreateChecklist.filter((item) => !item.done).length) },
+                    ].map((item) => (
+                      <div key={item.label} style={{ padding: '9px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
+                          {item.label}
+                        </div>
+                        <div style={{ marginTop: '5px', fontSize: '16px', fontWeight: 700, color: '#E8E1D2', fontFamily: SORA }}>
+                          {item.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: TWO_COLUMN_GRID, gap: '12px' }}>
                   <div>
                     <FL>Madurez inicial</FL>
                     <select
@@ -452,7 +509,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 </div>
 
                 {/* Fechas */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: TWO_COLUMN_GRID, gap: '12px' }}>
                   <div>
                     <FL>{t.projects_config_start}{standardDefinition.requiredProjectFields.includes('startDate') ? ' *' : ''}</FL>
                     <input
@@ -484,63 +541,8 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{
-                  padding: '16px',
-                  borderRadius: '10px',
-                  background: 'rgba(255,255,255,0.025)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                    <div>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
-                        {activeStandard ? `${activeStandard.name} · v${activeStandard.version}` : 'Aether Core Standard'}
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: '#9C9486', marginTop: '4px', lineHeight: 1.45 }}>
-                        Este workspace espera que el intake llegue al menos hasta {MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning]} antes de pasar a planificacion.
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {standardDefinition.intakeStages.map((stage) => (
-                        <span
-                          key={stage}
-                          style={{
-                            fontSize: '10.5px',
-                            fontWeight: 700,
-                            color: stage === maturityStage ? '#24180A' : '#C8BFAE',
-                            background: stage === maturityStage ? '#F2571E' : 'rgba(255,255,255,0.05)',
-                            borderRadius: '999px',
-                            padding: '5px 9px',
-                          }}
-                        >
-                          {MATURITY_LABELS[stage]}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {[
-                      { label: 'Planifica desde', value: MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning] },
-                      { label: 'Checks base', value: String(standardDefinition.requiredChecklist.length) },
-                      { label: 'Campos de cobertura', value: String(standardDefinition.requiredProjectFields.length) },
-                    ].map((item) => (
-                      <div key={item.label} style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
-                          {item.label}
-                        </div>
-                        <div style={{ marginTop: '6px', fontSize: '15px', fontWeight: 700, color: '#E8E1D2', fontFamily: SORA }}>
-                          {item.value}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: PANEL_GRID, gap: '14px' }}>
+                <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA }}>
                     Debe quedar explícito hoy
                   </div>
@@ -567,7 +569,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   </div>
                 </div>
 
-                <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA }}>
                     Lo siguiente después de crear
                   </div>
@@ -587,7 +589,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
           </div>
 
           {/* ── Footer ──────────────────────────────────────────────────── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, background: 'rgba(255,255,255,0.015)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap', padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, background: 'rgba(255,255,255,0.015)' }}>
             <button
               onClick={handleClose} disabled={isLoading}
               style={{ height: '36px', padding: '0 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#9C9486', cursor: 'pointer', fontFamily: MANROPE, transition: 'all 0.12s' }}

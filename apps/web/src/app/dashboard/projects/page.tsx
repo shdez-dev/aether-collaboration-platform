@@ -16,6 +16,11 @@ import { C } from '@/lib/colors';
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
+const KPI_GRID = 'repeat(auto-fit, minmax(170px, 1fr))';
+const SUMMARY_GRID = 'repeat(auto-fit, minmax(300px, 1fr))';
+const COMPACT_GRID = 'repeat(auto-fit, minmax(210px, 1fr))';
+const PIPELINE_GRID = 'repeat(auto-fit, minmax(260px, 1fr))';
+
 const PIPELINE: { key: ProjectMaturityStage; label: string; tone: string; soft: string; border: string; hint: string }[] = [
   { key: 'IDEA', label: 'Idea', tone: '#7B8FA8', soft: 'rgba(123,143,168,0.12)', border: 'rgba(123,143,168,0.26)', hint: 'Intenciones iniciales que aún no amarran compromiso.' },
   { key: 'DRAFT', label: 'Borrador', tone: '#C4A86E', soft: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.26)', hint: 'Ya existe una propuesta, pero todavía le falta estructura.' },
@@ -141,7 +146,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px' }}>
         <div style={{ borderRadius: '8px', background: 'rgba(255,255,255,0.03)', padding: '9px 10px' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>Formalización</div>
           <div style={{ marginTop: '5px', fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#E8E1D2' }}>
@@ -560,7 +565,7 @@ export default function ProjectsPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px', marginBottom: '18px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: KPI_GRID, gap: '12px', marginBottom: '18px' }}>
           {(viewMode === 'pipeline'
             ? [
                 { label: 'Proyectos', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
@@ -590,7 +595,7 @@ export default function ProjectsPage() {
         </div>
 
         {viewMode === 'pipeline' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(320px, 0.7fr)', gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
             <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
@@ -619,7 +624,7 @@ export default function ProjectsPage() {
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px', marginTop: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '10px', marginTop: '16px' }}>
                 {[
                   { label: 'Cohorte activa', value: `v${currentProjectStandard?.version ?? 1}`, hint: `${projects.filter((project) => (project.appliedStandardVersion ?? 1) === (currentProjectStandard?.version ?? 1)).length} proyecto(s)`, tone: '#C7D7EC' },
                   { label: 'Cohorte previa', value: standardTransition?.previous ? `v${standardTransition.previous.version}` : 'Sin previa', hint: `${standardTransition?.legacyProjects ?? 0} proyecto(s) heredados`, tone: '#C4A86E' },
@@ -634,7 +639,7 @@ export default function ProjectsPage() {
               </div>
 
               {currentProjectStandard && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '14px', marginTop: '16px' }}>
                   <div>
                     <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
                       Campos requeridos
@@ -725,105 +730,14 @@ export default function ProjectsPage() {
           </div>
         )}
 
-        {viewMode === 'pipeline' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '0.95fr 1.05fr', gap: '16px', marginBottom: '18px' }}>
-            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Cohortes por versión</div>
-                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45 }}>
-                    Cómo se comporta cada cohorte real según el estándar aplicado.
-                  </div>
-                </div>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{versionReporting.length} cohortes</span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {versionReporting.map((row) => {
-                  const isCurrent = currentProjectStandard?.version === row.version;
-                  return (
-                    <div key={row.version} style={{ borderRadius: '9px', border: `1px solid ${isCurrent ? 'rgba(118,168,120,0.22)' : 'rgba(255,255,255,0.06)'}`, background: isCurrent ? 'rgba(118,168,120,0.06)' : 'rgba(255,255,255,0.02)', padding: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                        <div>
-                          <div style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? '#76A878' : '#E8E1D2', fontFamily: SORA }}>v{row.version}</div>
-                          <div style={{ marginTop: '3px', fontSize: '11px', color: '#827A6D' }}>{row.count} proyecto(s)</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: getCoverageTone(row.avgCoverage) }}>{row.avgCoverage}%</div>
-                          <div style={{ marginTop: '3px', fontSize: '11px', color: '#C8BFAE' }}>{row.readyCount} listos</div>
-                        </div>
-                      </div>
-                      <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ fontSize: '11px', color: row.mentorNeededCount > 0 ? '#DB8A66' : '#615846' }}>
-                          {row.mentorNeededCount} requieren acompañamiento
-                        </div>
-                        <div style={{ fontSize: '11px', color: row.teamGapCount > 0 ? '#C4A86E' : '#615846' }}>
-                          {row.teamGapCount} sin equipo base
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
-                  <div>
-                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Embudo del workspace</div>
-                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Distribución actual entre intake, formalización y operación.</div>
-                  </div>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{metrics.total} total</span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {reporting.stageRows.map((row) => {
-                    const width = metrics.total > 0 ? Math.max((row.count / metrics.total) * 100, row.count > 0 ? 12 : 0) : 0;
-                    return (
-                      <div key={row.key} style={{ display: 'grid', gridTemplateColumns: '110px minmax(0, 1fr) 72px', gap: '10px', alignItems: 'center' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: row.tone, fontFamily: SORA }}>{row.label}</div>
-                          <div style={{ marginTop: '2px', fontSize: '10.5px', color: '#615846' }}>{row.count}</div>
-                        </div>
-                        <div style={{ height: '10px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                          <div style={{ width: `${width}%`, height: '100%', borderRadius: '999px', background: row.tone, transition: 'width 0.25s ease' }} />
-                        </div>
-                        <div style={{ textAlign: 'right', fontSize: '10.5px', color: '#C8BFAE' }}>
-                          {metrics.total > 0 ? `${Math.round((row.count / metrics.total) * 100)}%` : '0%'}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-                <div>
-                  <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Brechas estructurales</div>
-                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Fallas recurrentes que degradan la formalización del portfolio.</div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '12px' }}>
-                  {reporting.alerts.map((alert) => (
-                    <div key={alert.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>{alert.label}</span>
-                      <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: alert.tone }}>{alert.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {viewMode === 'intake' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '16px', marginBottom: '18px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px' }}>
             <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
               <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Criterio de admisión</div>
               <p style={{ margin: '6px 0 12px', fontSize: '12px', color: '#827A6D', lineHeight: 1.55 }}>
                 Esta bandeja deja ver qué iniciativas todavía están en intención, cuáles ya son un borrador útil y cuáles están listas para empujarse a formalización.
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '10px' }}>
                 {[
                   { label: 'Problema claro', value: intakeMetrics.total - intakeMetrics.missingProblem, tone: '#76A878' },
                   { label: 'Listos para formalizar', value: intakeMetrics.ready, tone: '#C4A86E' },
@@ -874,38 +788,28 @@ export default function ProjectsPage() {
 
           {viewMode === 'pipeline' && (
             <>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', flexWrap: 'wrap' }}>
-                {[
-                  { key: 'all', label: 'Todos', count: metrics.total },
-                  { key: 'mentor-needed', label: 'Mentor', count: metrics.mentorNeeded },
-                  { key: 'ready', label: 'Listos', count: metrics.ready },
-                  { key: 'no-team', label: 'Sin equipo', count: metrics.withoutTeam },
-                  { key: 'no-board', label: 'Sin tablero', count: metrics.withoutBoard },
-                  { key: 'no-milestone', label: 'Sin hito', count: metrics.withoutMilestone },
-                  { key: 'low-coverage', label: 'Cobertura baja', count: metrics.blocked },
-                ].map((option) => {
-                  const active = focusMode === option.key;
-                  return (
-                    <button
-                      key={option.key}
-                      onClick={() => setFocusMode(option.key as FocusMode)}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '7px',
-                        height: '30px', padding: '0 11px', borderRadius: '8px',
-                        border: 'none',
-                        background: active ? 'rgba(242,87,30,0.14)' : 'transparent',
-                        color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
-                        fontSize: '12px', fontWeight: 700, fontFamily: SORA,
-                      }}
-                    >
-                      <span>{option.label}</span>
-                      <span style={{ minWidth: '18px', height: '18px', borderRadius: '999px', background: active ? 'rgba(242,87,30,0.24)' : 'rgba(255,255,255,0.07)', color: active ? '#F4905A' : '#827A6D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, padding: '0 5px' }}>
-                        {option.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '38px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', flex: '0 1 260px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#615846', textTransform: 'uppercase', fontFamily: SORA }}>
+                  Foco
+                </span>
+                <select
+                  value={focusMode}
+                  onChange={(e) => setFocusMode(e.target.value as FocusMode)}
+                  style={{ height: '30px', minWidth: 0, flex: 1, border: 'none', outline: 'none', background: 'transparent', color: '#C8BFAE', fontSize: '12.5px', fontWeight: 700, fontFamily: SORA, cursor: 'pointer', colorScheme: 'dark' }}
+                >
+                  {[
+                    { key: 'all', label: `Todos (${metrics.total})` },
+                    { key: 'mentor-needed', label: `Necesitan mentor (${metrics.mentorNeeded})` },
+                    { key: 'ready', label: `Listos (${metrics.ready})` },
+                    { key: 'no-team', label: `Sin equipo (${metrics.withoutTeam})` },
+                    { key: 'no-board', label: `Sin tablero (${metrics.withoutBoard})` },
+                    { key: 'no-milestone', label: `Sin hito (${metrics.withoutMilestone})` },
+                    { key: 'low-coverage', label: `Cobertura baja (${metrics.blocked})` },
+                  ].map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
 
               <button
                 onClick={() => setShowOnlyNeedsFormalization((prev) => !prev)}
@@ -914,7 +818,7 @@ export default function ProjectsPage() {
                   border: `1px solid ${showOnlyNeedsFormalization ? 'rgba(219,138,102,0.35)' : 'rgba(255,255,255,0.08)'}`,
                   background: showOnlyNeedsFormalization ? 'rgba(219,138,102,0.1)' : 'rgba(255,255,255,0.03)',
                   color: showOnlyNeedsFormalization ? '#DB8A66' : '#C8BFAE', cursor: 'pointer',
-                  fontSize: '12.5px', fontWeight: 600,
+                  fontSize: '12.5px', fontWeight: 600, flex: '0 1 auto',
                 }}
               >
                 Solo con brechas de formalización
@@ -930,39 +834,113 @@ export default function ProjectsPage() {
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         ) : viewMode === 'pipeline' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '14px', alignItems: 'start' }}>
-            {pipeline.map((stage) => (
-              <section key={stage.key} style={{ minWidth: 0 }}>
-                <div style={{ marginBottom: '10px', padding: '12px 12px 10px', borderRadius: '10px', border: `1px solid ${stage.border}`, background: stage.soft }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: stage.tone }}>{stage.label}</div>
-                    <div style={{ minWidth: '24px', height: '24px', borderRadius: '999px', background: 'rgba(0,0,0,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#E8E1D2' }}>
-                      {stage.projects.length}
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: PIPELINE_GRID, gap: '14px', alignItems: 'start' }}>
+              {pipeline.map((stage) => (
+                <section key={stage.key} style={{ minWidth: 0 }}>
+                  <div style={{ marginBottom: '10px', padding: '12px 12px 10px', borderRadius: '10px', border: `1px solid ${stage.border}`, background: stage.soft }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: stage.tone }}>{stage.label}</div>
+                      <div style={{ minWidth: '24px', height: '24px', borderRadius: '999px', background: 'rgba(0,0,0,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#E8E1D2' }}>
+                        {stage.projects.length}
+                      </div>
                     </div>
+                    <p style={{ margin: '6px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: '#C8BFAE' }}>{stage.hint}</p>
                   </div>
-                  <p style={{ margin: '6px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: '#C8BFAE' }}>{stage.hint}</p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {stage.projects.length === 0 ? (
+                      <div style={{ borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.12)', padding: '18px 14px', color: '#615846', fontSize: '12px', textAlign: 'center', background: 'rgba(255,255,255,0.015)' }}>
+                        Sin proyectos en esta etapa
+                      </div>
+                    ) : (
+                      stage.projects.map((project) => (
+                        <ProjectCard key={project.id} project={project} onClick={() => router.push(`/dashboard/projects/${project.id}`)} />
+                      ))
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <details style={{ marginTop: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '0 16px' }}>
+              <summary style={{ cursor: 'pointer', padding: '14px 0', fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>
+                Lectura analítica del estándar
+              </summary>
+
+              <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', padding: '0 0 16px' }}>
+                <div style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Cohortes por versión</div>
+                      <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45 }}>
+                        Compara proyectos según la versión aplicada.
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{versionReporting.length} cohortes</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {versionReporting.map((row) => {
+                      const isCurrent = currentProjectStandard?.version === row.version;
+                      return (
+                        <div key={row.version} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: '10px', alignItems: 'center', borderRadius: '8px', border: `1px solid ${isCurrent ? 'rgba(118,168,120,0.22)' : 'rgba(255,255,255,0.06)'}`, background: isCurrent ? 'rgba(118,168,120,0.06)' : 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? '#76A878' : '#E8E1D2', fontFamily: SORA }}>v{row.version}</div>
+                          <div style={{ fontSize: '11.5px', color: '#827A6D' }}>{row.count} proyecto(s) · {row.readyCount} listos</div>
+                          <div style={{ fontFamily: SORA, fontSize: '15px', fontWeight: 700, color: getCoverageTone(row.avgCoverage) }}>{row.avgCoverage}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {stage.projects.length === 0 ? (
-                    <div style={{ borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.12)', padding: '18px 14px', color: '#615846', fontSize: '12px', textAlign: 'center', background: 'rgba(255,255,255,0.015)' }}>
-                      Sin proyectos en esta etapa
+                <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '16px' }}>
+                  <div style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
+                      <div>
+                        <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Embudo</div>
+                        <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Distribución actual.</div>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{metrics.total} total</span>
                     </div>
-                  ) : (
-                    stage.projects.map((project) => (
-                      <ProjectCard key={project.id} project={project} onClick={() => router.push(`/dashboard/projects/${project.id}`)} />
-                    ))
-                  )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {reporting.stageRows.map((row) => {
+                        const width = metrics.total > 0 ? Math.max((row.count / metrics.total) * 100, row.count > 0 ? 12 : 0) : 0;
+                        return (
+                          <div key={row.key} style={{ display: 'grid', gridTemplateColumns: '82px minmax(0, 1fr) 42px', gap: '8px', alignItems: 'center' }}>
+                            <div style={{ minWidth: 0, fontSize: '11px', fontWeight: 700, color: row.tone, fontFamily: SORA }}>{row.label}</div>
+                            <div style={{ height: '9px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                              <div style={{ width: `${width}%`, height: '100%', borderRadius: '999px', background: row.tone, transition: 'width 0.25s ease' }} />
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '10.5px', color: '#C8BFAE' }}>{row.count}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '14px' }}>
+                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Brechas estructurales</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '12px' }}>
+                      {reporting.alerts.map((alert) => (
+                        <div key={alert.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <span style={{ fontSize: '12px', color: '#C8BFAE' }}>{alert.label}</span>
+                          <span style={{ fontFamily: SORA, fontSize: '16px', fontWeight: 700, color: alert.tone }}>{alert.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </section>
-            ))}
-          </div>
+              </div>
+            </details>
+          </>
         ) : intakeProjects.length === 0 ? (
           <div style={{ borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.12)', padding: '40px 24px', textAlign: 'center', color: '#615846', background: 'rgba(255,255,255,0.015)' }}>
             No hay proyectos en intake con el filtro actual.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(320px, 0.75fr)', gap: '16px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {intakeProjects.map((project) => (
                 <div key={project.id} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
@@ -985,7 +963,7 @@ export default function ProjectsPage() {
                     </span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginTop: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '8px', marginTop: '12px' }}>
                     {(project.formalization?.checklist ?? []).map((item) => (
                       <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '7px', borderRadius: '8px', padding: '8px 9px', background: item.done ? 'rgba(118,168,120,0.08)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <span style={{ width: '14px', height: '14px', borderRadius: '50%', background: item.done ? 'rgba(118,168,120,0.18)' : 'rgba(219,138,102,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
