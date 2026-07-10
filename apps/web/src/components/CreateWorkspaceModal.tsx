@@ -21,6 +21,64 @@ const COLORS = [
   '#ec4899', // pink
 ];
 
+type WorkspaceTemplateId = 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
+
+const WORKSPACE_TEMPLATES: Array<{
+  id: WorkspaceTemplateId;
+  name: string;
+  description: string;
+  badge: string;
+  icon: string;
+  color: string;
+  checks: string[];
+}> = [
+  {
+    id: 'team',
+    name: 'Equipo de trabajo',
+    description: 'Para coordinar iniciativas con responsables, tablero y siguiente paso claro.',
+    badge: 'Balanceado',
+    icon: 'Users',
+    color: '#10b981',
+    checks: ['Problema', 'Tablero', 'Siguiente paso'],
+  },
+  {
+    id: 'personal',
+    name: 'Uso personal',
+    description: 'Menos friccion para ordenar ideas, decisiones y tareas propias.',
+    badge: 'Ligero',
+    icon: 'Target',
+    color: '#3b82f6',
+    checks: ['Responsable', 'Siguiente paso'],
+  },
+  {
+    id: 'institutional',
+    name: 'Institucion / programa',
+    description: 'Mayor trazabilidad para formalizar postulaciones, equipos, hitos y cobertura.',
+    badge: 'Rigor alto',
+    icon: 'Building2',
+    color: '#f97316',
+    checks: ['Equipo', 'Fechas', 'Hito'],
+  },
+  {
+    id: 'marketing',
+    name: 'Marketing y contenidos',
+    description: 'Pensado para briefs, campañas, aprobaciones y produccion coordinada.',
+    badge: 'Creativo',
+    icon: 'Megaphone',
+    color: '#f59e0b',
+    checks: ['Brief', 'Fechas', 'Produccion'],
+  },
+  {
+    id: 'construction',
+    name: 'Construccion / operaciones',
+    description: 'Mas estructura para dependencias, planificacion, equipos y ruta critica.',
+    badge: 'Operativo',
+    icon: 'Building2',
+    color: '#6b7280',
+    checks: ['Equipo', 'Plan', 'Hito'],
+  },
+];
+
 interface CreateWorkspaceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,8 +92,10 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
   const [description, setDescription] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(WORKSPACE_ICON_KEYS[0]);
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<WorkspaceTemplateId>('team');
   const [error, setError]             = useState('');
   const [nameTouched, setNameTouched] = useState(false);
+  const selectedTemplate = WORKSPACE_TEMPLATES.find((template) => template.id === selectedTemplateId) ?? WORKSPACE_TEMPLATES[0];
 
   // ── Animation state ────────────────────────────────────────────────────────
   const [animIn, setAnimIn] = useState(false);
@@ -61,6 +121,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
         description: description.trim() || undefined,
         icon: selectedIcon,
         color: selectedColor,
+        workspaceTemplateId: selectedTemplateId,
       });
       handleClose();
     } catch (err: any) {
@@ -73,7 +134,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
     setAnimIn(false);
     closeTimerRef.current = setTimeout(() => {
       setName(''); setDescription(''); setSelectedIcon(WORKSPACE_ICON_KEYS[0]);
-      setSelectedColor(COLORS[0]); setError(''); setNameTouched(false);
+      setSelectedColor(COLORS[0]); setSelectedTemplateId('team'); setError(''); setNameTouched(false);
       onClose();
     }, 160);
   };
@@ -96,7 +157,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
       <div
         className="w-full flex flex-col rounded-[12px] overflow-hidden"
         style={{
-          maxWidth: '480px',
+          maxWidth: '720px',
           maxHeight: '92vh',
           background: C.bg2,
           border: `1px solid ${C.border}`,
@@ -154,8 +215,68 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                   {name || 'Nombre del workspace'}
                 </div>
                 <div style={{ fontSize: '12px', fontFamily: MANROPE, color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {description || 'Descripción opcional'}
+                  {selectedTemplate.name} · {description || 'Descripcion opcional'}
                 </div>
+              </div>
+            </div>
+
+            {/* ── Plantilla ────────────────────────────────────────────── */}
+            <div className="mb-5">
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
+                Tipo de workspace
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(205px, 1fr))', gap: '10px' }}>
+                {WORKSPACE_TEMPLATES.map((template) => {
+                  const active = selectedTemplateId === template.id;
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTemplateId(template.id);
+                        setSelectedIcon(template.icon);
+                        setSelectedColor(template.color);
+                      }}
+                      disabled={isLoading}
+                      style={{
+                        minHeight: '126px',
+                        borderRadius: '9px',
+                        border: `1px solid ${active ? template.color : C.border}`,
+                        background: active ? `${template.color}14` : C.surface,
+                        padding: '12px',
+                        cursor: isLoading ? 'not-allowed' : 'pointer',
+                        textAlign: 'left',
+                        transition: 'border-color 0.12s, background 0.12s, transform 0.12s',
+                      }}
+                      onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = C.border2; }}
+                      onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = C.border; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                          <span style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${template.color}22`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <WorkspaceIcon icon={template.icon} className="w-[14px] h-[14px]" style={{ color: template.color } as any} />
+                          </span>
+                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: C.text, fontFamily: SORA, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {template.name}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: active ? template.color : C.text4, border: `1px solid ${active ? `${template.color}55` : C.border}`, borderRadius: '999px', padding: '3px 7px', flexShrink: 0 }}>
+                          {template.badge}
+                        </span>
+                      </div>
+                      <p style={{ margin: '10px 0 0', fontSize: '11.5px', color: C.text4, lineHeight: 1.45 }}>
+                        {template.description}
+                      </p>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
+                        {template.checks.map((check) => (
+                          <span key={check} style={{ fontSize: '10.5px', color: active ? C.text2 : C.text4, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: '999px', padding: '4px 7px' }}>
+                            {check}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

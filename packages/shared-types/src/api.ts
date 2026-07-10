@@ -72,6 +72,7 @@ export interface CreateWorkspaceRequest {
   description?: string;
   icon?: string;
   color?: string;
+  workspaceTemplateId?: 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
 }
 
 export interface UpdateWorkspaceRequest {

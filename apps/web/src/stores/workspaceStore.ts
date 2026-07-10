@@ -147,6 +147,7 @@ interface CreateWorkspaceData {
   description?: string;
   icon?: string;
   color?: string;
+  workspaceTemplateId?: 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
 }
 
 interface UpdateWorkspaceData {

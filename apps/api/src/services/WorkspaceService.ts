@@ -9,6 +9,108 @@ import type {
   WorkspaceRole,
 } from '@aether/types';
 
+type WorkspaceTemplateId = 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
+
+type WorkspaceProjectStandardDefinition = {
+  requiredProjectFields: Array<'description' | 'problemStatement' | 'nextStep' | 'startDate' | 'endDate'>;
+  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep'>;
+  minimumMaturityForPlanning: 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED';
+  intakeStages: Array<'IDEA' | 'DRAFT'>;
+  targetLabels: {
+    intake: string;
+    formalized: string;
+    execution: string;
+  };
+};
+
+type WorkspaceTemplatePreset = {
+  id: WorkspaceTemplateId;
+  standardName: string;
+  definition: WorkspaceProjectStandardDefinition;
+};
+
+const WORKSPACE_TEMPLATE_PRESETS: Record<WorkspaceTemplateId, WorkspaceTemplatePreset> = {
+  personal: {
+    id: 'personal',
+    standardName: 'Personal Focus Standard',
+    definition: {
+      requiredProjectFields: ['nextStep'],
+      requiredChecklist: ['owner', 'nextStep'],
+      minimumMaturityForPlanning: 'DRAFT',
+      intakeStages: ['IDEA', 'DRAFT'],
+      targetLabels: {
+        intake: 'Ideas',
+        formalized: 'Decidido',
+        execution: 'En marcha',
+      },
+    },
+  },
+  team: {
+    id: 'team',
+    standardName: 'Team Operating Standard',
+    definition: {
+      requiredProjectFields: ['problemStatement', 'nextStep'],
+      requiredChecklist: ['owner', 'problem', 'board', 'nextStep'],
+      minimumMaturityForPlanning: 'FORMALIZED',
+      intakeStages: ['IDEA', 'DRAFT'],
+      targetLabels: {
+        intake: 'Entrada',
+        formalized: 'Alineado',
+        execution: 'Ejecucion',
+      },
+    },
+  },
+  institutional: {
+    id: 'institutional',
+    standardName: 'Aether Institutional Standard',
+    definition: {
+      requiredProjectFields: ['problemStatement', 'nextStep', 'startDate', 'endDate'],
+      requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'],
+      minimumMaturityForPlanning: 'FORMALIZED',
+      intakeStages: ['IDEA', 'DRAFT'],
+      targetLabels: {
+        intake: 'Intake',
+        formalized: 'Formalizado',
+        execution: 'Operacion',
+      },
+    },
+  },
+  marketing: {
+    id: 'marketing',
+    standardName: 'Marketing Delivery Standard',
+    definition: {
+      requiredProjectFields: ['description', 'nextStep', 'startDate', 'endDate'],
+      requiredChecklist: ['owner', 'problem', 'board', 'milestone', 'nextStep'],
+      minimumMaturityForPlanning: 'DRAFT',
+      intakeStages: ['IDEA', 'DRAFT'],
+      targetLabels: {
+        intake: 'Brief',
+        formalized: 'Aprobado',
+        execution: 'Produccion',
+      },
+    },
+  },
+  construction: {
+    id: 'construction',
+    standardName: 'Construction Critical Path Standard',
+    definition: {
+      requiredProjectFields: ['problemStatement', 'nextStep', 'startDate', 'endDate'],
+      requiredChecklist: ['owner', 'team', 'board', 'milestone', 'nextStep'],
+      minimumMaturityForPlanning: 'PLANNED',
+      intakeStages: ['IDEA', 'DRAFT'],
+      targetLabels: {
+        intake: 'Anteproyecto',
+        formalized: 'Planificado',
+        execution: 'Obra',
+      },
+    },
+  },
+};
+
+function resolveWorkspaceTemplate(templateId?: string): WorkspaceTemplatePreset {
+  return WORKSPACE_TEMPLATE_PRESETS[(templateId as WorkspaceTemplateId) || 'team'] ?? WORKSPACE_TEMPLATE_PRESETS.team;
+}
+
 export class WorkspaceService {
   /**
    * Crear un nuevo workspace
@@ -20,12 +122,14 @@ export class WorkspaceService {
       description?: string;
       icon?: string;
       color?: string;
+      workspaceTemplateId?: WorkspaceTemplateId;
     }
   ): Promise<Workspace & { userRole: WorkspaceRole }> {
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
+      const template = resolveWorkspaceTemplate(data.workspaceTemplateId);
 
       // 1. Crear el workspace
       const workspaceResult = await client.query(
@@ -44,6 +148,15 @@ export class WorkspaceService {
         [workspace.id, userId, 'OWNER']
       );
 
+      // 3. Persistir el marco inicial de proyectos segun la plantilla elegida
+      await client.query(
+        `INSERT INTO workspace_project_standards
+          (id, workspace_id, name, version, is_active, definition_json, created_by, created_at, updated_at)
+         VALUES
+          (uuid_generate_v4(), $1, $2, 1, true, $3::jsonb, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [workspace.id, template.standardName, JSON.stringify(template.definition), userId]
+      );
+
       await client.query('COMMIT');
 
       const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
@@ -54,6 +167,7 @@ export class WorkspaceService {
         actor: { id: userId, name: actorName },
         subject: { type: 'workspace', id: workspace.id, name: workspace.name },
         context: { workspaceId: workspace.id },
+        payload: { workspaceTemplateId: template.id, projectStandard: template.standardName },
       });
 
       return {
@@ -1114,6 +1228,7 @@ export class WorkspaceService {
     if (!template) {
       throw new Error('Template not found');
     }
+    const standardTemplate = resolveWorkspaceTemplate(templateId === 'marketing' ? 'marketing' : 'team');
 
     const client = await pool.connect();
     try {
@@ -1131,6 +1246,14 @@ export class WorkspaceService {
       await client.query(
         `INSERT INTO workspace_members (id, workspace_id, user_id, role) VALUES (uuid_generate_v4(), $1, $2, 'OWNER')`,
         [workspace.id, userId]
+      );
+
+      await client.query(
+        `INSERT INTO workspace_project_standards
+          (id, workspace_id, name, version, is_active, definition_json, created_by, created_at, updated_at)
+         VALUES
+          (uuid_generate_v4(), $1, $2, 1, true, $3::jsonb, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [workspace.id, standardTemplate.standardName, JSON.stringify(standardTemplate.definition), userId]
       );
 
       // Crear boards y listas del template
