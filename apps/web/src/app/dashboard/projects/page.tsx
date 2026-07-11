@@ -84,6 +84,126 @@ type FocusMode =
   | 'low-coverage';
 
 type ViewMode = 'pipeline' | 'intake';
+type WorkspaceExperience = 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
+
+const EXPERIENCE_META: Record<WorkspaceExperience, { title: string; description: string; method: string; accent: string }> = {
+  institutional: {
+    title: 'Pipeline de proyectos',
+    description: 'Formaliza iniciativas, compara cohortes y protege trazabilidad entre versiones del estándar.',
+    method: 'Portfolio formalizado',
+    accent: '#F2571E',
+  },
+  personal: {
+    title: 'Foco personal',
+    description: 'Ordena tus proyectos por siguiente acción, decisiones pendientes y cierre real.',
+    method: 'GTD ligero',
+    accent: '#7B8FA8',
+  },
+  team: {
+    title: 'Flujo de equipo',
+    description: 'Convierte ideas en trabajo coordinado con backlog, preparación, ejecución y cierre.',
+    method: 'Kanban operativo',
+    accent: '#76A878',
+  },
+  marketing: {
+    title: 'Producción marketing',
+    description: 'Gestiona briefs, aprobaciones, producción y revisión sin saturar al equipo creativo.',
+    method: 'Campaña por etapas',
+    accent: '#C4A86E',
+  },
+  construction: {
+    title: 'Ruta operativa',
+    description: 'Prioriza planificación, equipos, hitos y ejecución con una lectura de ruta crítica.',
+    method: 'Ruta crítica',
+    accent: '#7B8FA8',
+  },
+};
+
+function inferWorkspaceExperience(standardName?: string | null): WorkspaceExperience {
+  const name = (standardName ?? '').toLowerCase();
+  if (name.includes('personal')) return 'personal';
+  if (name.includes('marketing')) return 'marketing';
+  if (name.includes('construction') || name.includes('critical path')) return 'construction';
+  if (name.includes('team')) return 'team';
+  return 'institutional';
+}
+
+function isDoneProject(project: Project) {
+  return project.maturityStage === 'COMPLETED' || project.status === 'COMPLETED';
+}
+
+function isActiveProject(project: Project) {
+  return project.maturityStage === 'ACTIVE' || project.status === 'ACTIVE';
+}
+
+function getMethodologyColumns(experience: WorkspaceExperience, projects: Project[]) {
+  if (experience === 'personal') {
+    return [
+      {
+        key: 'today',
+        label: 'Acción siguiente',
+        hint: 'Proyectos ya decididos con una próxima acción visible.',
+        tone: '#7B8FA8',
+        projects: projects.filter((project) =>
+          !isDoneProject(project)
+          && Boolean(project.nextStep?.trim())
+          && project.maturityStage !== 'IDEA'
+          && project.maturityStage !== 'DRAFT'
+        ),
+      },
+      {
+        key: 'clarify',
+        label: 'A clarificar',
+        hint: 'Ideas o borradores que aún necesitan decidirse.',
+        tone: '#C4A86E',
+        projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT'),
+      },
+      {
+        key: 'active',
+        label: 'En marcha',
+        hint: 'Trabajo decidido que todavía necesita una próxima acción.',
+        tone: '#F4905A',
+        projects: projects.filter((project) =>
+          !isDoneProject(project)
+          && !project.nextStep?.trim()
+          && (project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED' || isActiveProject(project))
+        ),
+      },
+      {
+        key: 'done',
+        label: 'Cerrado',
+        hint: 'Proyectos completados o archivados.',
+        tone: '#76A878',
+        projects: projects.filter((project) => isDoneProject(project) || project.maturityStage === 'ARCHIVED'),
+      },
+    ];
+  }
+
+  if (experience === 'marketing') {
+    return [
+      { key: 'brief', label: 'Brief', hint: 'Ideas que necesitan objetivo, audiencia o pieza.', tone: '#7B8FA8', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT') },
+      { key: 'approved', label: 'Aprobado', hint: 'Campañas listas para ordenar producción.', tone: '#C4A86E', projects: projects.filter((project) => !isActiveProject(project) && (project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED')) },
+      { key: 'production', label: 'Producción', hint: 'Trabajo creativo o de publicación en curso.', tone: '#F4905A', projects: projects.filter((project) => isActiveProject(project)) },
+      { key: 'review', label: 'Medición', hint: 'Entregas cerradas, pausadas o listas para lectura.', tone: '#76A878', projects: projects.filter((project) => project.maturityStage === 'COMPLETED' || project.maturityStage === 'ON_HOLD' || project.status === 'COMPLETED') },
+    ];
+  }
+
+  if (experience === 'construction') {
+    return [
+      { key: 'prework', label: 'Anteproyecto', hint: 'Alcance inicial antes de comprometer obra.', tone: '#7B8FA8', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT' || project.maturityStage === 'FORMALIZED') },
+      { key: 'planning', label: 'Planificación', hint: 'Fechas, equipo, tablero e hitos antes de ejecutar.', tone: '#C4A86E', projects: projects.filter((project) => !isActiveProject(project) && project.maturityStage === 'PLANNED') },
+      { key: 'site', label: 'Ejecución', hint: 'Trabajo activo que requiere seguimiento de compromisos.', tone: '#F4905A', projects: projects.filter((project) => isActiveProject(project)) },
+      { key: 'risk', label: 'Riesgo / cierre', hint: 'Pausas, bloqueos y cierres de entrega.', tone: '#DB8A66', projects: projects.filter((project) => project.maturityStage === 'ON_HOLD' || isDoneProject(project)) },
+    ];
+  }
+
+  return [
+    { key: 'backlog', label: 'Backlog', hint: 'Ideas y solicitudes todavía sin preparación suficiente.', tone: '#7B8FA8', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT') },
+    { key: 'ready', label: 'Listo para coordinar', hint: 'Trabajo definido para entrar al tablero del equipo.', tone: '#76A878', projects: projects.filter((project) => !isActiveProject(project) && (project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED')) },
+    { key: 'doing', label: 'En curso', hint: 'Proyectos activos que requieren sincronización.', tone: '#F4905A', projects: projects.filter((project) => isActiveProject(project)) },
+    { key: 'closed', label: 'Cierre', hint: 'Completados, pausados o fuera del flujo activo.', tone: '#C4A86E', projects: projects.filter((project) => project.maturityStage === 'ON_HOLD' || isDoneProject(project) || project.maturityStage === 'ARCHIVED') },
+  ];
+}
 
 function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
   const maturity = getMaturityMeta(project.maturityStage ?? 'IDEA');
@@ -172,6 +292,40 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
   );
 }
 
+function MethodologyColumn({
+  column,
+  onProjectClick,
+}: {
+  column: ReturnType<typeof getMethodologyColumns>[number];
+  onProjectClick: (project: Project) => void;
+}) {
+  return (
+    <section style={{ minWidth: 0 }}>
+      <div style={{ marginBottom: '10px', padding: '12px 12px 10px', borderRadius: '10px', border: `1px solid ${column.tone}42`, background: `${column.tone}16` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+          <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: column.tone }}>{column.label}</div>
+          <div style={{ minWidth: '24px', height: '24px', borderRadius: '999px', background: 'rgba(0,0,0,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#E8E1D2' }}>
+            {column.projects.length}
+          </div>
+        </div>
+        <p style={{ margin: '6px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: '#C8BFAE' }}>{column.hint}</p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {column.projects.length === 0 ? (
+          <div style={{ borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.12)', padding: '18px 14px', color: '#615846', fontSize: '12px', textAlign: 'center', background: 'rgba(255,255,255,0.015)' }}>
+            Sin proyectos en esta etapa
+          </div>
+        ) : (
+          column.projects.map((project) => (
+            <ProjectCard key={project.id} project={project} onClick={() => onProjectClick(project)} />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function ProjectsPage() {
   const router = useRouter();
   const { fetchProjectsByWorkspace, updateProject, addBoard, createMilestone } = useProjectStore();
@@ -221,6 +375,9 @@ export default function ProjectsPage() {
   }, [activeWorkspaceId, fetchProjectsByWorkspace]);
 
   const workspace = workspaces.find((item) => item.id === activeWorkspaceId);
+  const workspaceExperience = inferWorkspaceExperience(currentProjectStandard?.name);
+  const experienceMeta = EXPERIENCE_META[workspaceExperience];
+  const isInstitutionalExperience = workspaceExperience === 'institutional';
 
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -433,6 +590,82 @@ export default function ProjectsPage() {
     return { total: intakeProjects.length, draft, idea, ready, missingProblem };
   }, [intakeProjects]);
 
+  const methodologyColumns = useMemo(
+    () => getMethodologyColumns(workspaceExperience, filteredProjects),
+    [workspaceExperience, filteredProjects]
+  );
+
+  const adaptiveMetrics = useMemo(() => {
+    const withNextStep = projects.filter((project) => Boolean(project.nextStep?.trim())).length;
+    const active = projects.filter((project) => isActiveProject(project)).length;
+    const completed = projects.filter((project) => isDoneProject(project)).length;
+    const missingDates = projects.filter((project) => !project.startDate || !project.endDate).length;
+    const missingProblem = projects.filter((project) => !project.problemStatement?.trim()).length;
+
+    if (workspaceExperience === 'personal') {
+      return [
+        { label: 'Proyectos', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
+        { label: 'Con siguiente acción', value: withNextStep, tone: '#7B8FA8', icon: ChevronRight },
+        { label: 'En marcha', value: active, tone: '#F4905A', icon: Target },
+        { label: 'Cerrados', value: completed, tone: '#76A878', icon: CheckCircle2 },
+      ];
+    }
+
+    if (workspaceExperience === 'marketing') {
+      return [
+        { label: 'Campañas', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
+        { label: 'Briefs abiertos', value: intakeMetrics.total, tone: '#7B8FA8', icon: CircleDashed },
+        { label: 'En producción', value: active, tone: '#F4905A', icon: Target },
+        { label: 'Sin fechas', value: missingDates, tone: '#C4A86E', icon: AlertCircle },
+      ];
+    }
+
+    if (workspaceExperience === 'construction') {
+      return [
+        { label: 'Obras / frentes', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
+        { label: 'Planificados', value: projects.filter((project) => project.maturityStage === 'PLANNED').length, tone: '#C4A86E', icon: Target },
+        { label: 'En ejecución', value: active, tone: '#F4905A', icon: CheckCircle2 },
+        { label: 'Sin hito', value: metrics.withoutMilestone, tone: '#DB8A66', icon: AlertCircle },
+      ];
+    }
+
+    return [
+      { label: 'Proyectos', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
+      { label: 'Listos para coordinar', value: metrics.ready, tone: '#76A878', icon: CheckCircle2 },
+      { label: 'Sin tablero', value: metrics.withoutBoard, tone: '#C4A86E', icon: Target },
+      { label: 'Sin problema claro', value: missingProblem, tone: '#DB8A66', icon: AlertCircle },
+    ];
+  }, [intakeMetrics.total, metrics, projects, workspaceExperience]);
+
+  const methodGuidance = useMemo(() => {
+    if (workspaceExperience === 'personal') {
+      return [
+        'Captura ideas sin sobredocumentarlas, pero exige una siguiente acción para que no queden flotando.',
+        'Usa En marcha solo cuando el proyecto tenga una decisión tomada y trabajo real activo.',
+        'Cierra o archiva lo que ya no tenga energía; la vista debe ayudarte a elegir, no a acumular.',
+      ];
+    }
+    if (workspaceExperience === 'marketing') {
+      return [
+        'Cada brief debería declarar objetivo, pieza o campaña y fecha tentativa antes de producción.',
+        'Aprobado significa que ya se puede coordinar recursos, no que la pieza esté terminada.',
+        'La medición queda al final del flujo para separar entrega de aprendizaje.',
+      ];
+    }
+    if (workspaceExperience === 'construction') {
+      return [
+        'No empujes ejecución sin fechas, equipo base y primer hito visible.',
+        'Planificación concentra dependencias; ejecución concentra seguimiento y desbloqueos.',
+        'Riesgo / cierre debe mostrar pausas, bloqueos y entregas que requieren decisión.',
+      ];
+    }
+    return [
+      'Backlog recibe solicitudes e ideas sin obligarlas todavía a ejecución.',
+      'Listo para coordinar exige problema, tablero o siguiente paso suficiente para el equipo.',
+      'En curso debe mantenerse corto para facilitar seguimiento semanal.',
+    ];
+  }, [workspaceExperience]);
+
   function handleProjectCreated(project: Project) {
     setProjects((prev) => [project, ...prev]);
     setShowCreate(false);
@@ -517,38 +750,48 @@ export default function ProjectsPage() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', marginBottom: '22px' }}>
           <div>
             <h1 style={{ margin: 0, fontFamily: SORA, fontSize: '26px', fontWeight: 700, color: '#E8E1D2' }}>
-              {viewMode === 'pipeline' ? 'Pipeline de proyectos' : 'Bandeja de intake'}
+              {isInstitutionalExperience
+                ? (viewMode === 'pipeline' ? EXPERIENCE_META.institutional.title : 'Bandeja de intake')
+                : experienceMeta.title}
             </h1>
             <p style={{ margin: '7px 0 0', fontSize: '13px', color: '#827A6D', maxWidth: '760px', lineHeight: 1.55 }}>
-              {viewMode === 'pipeline'
-                ? (workspace?.name ? `${workspace.name} puede usar este espacio para ver cómo cada iniciativa pasa de idea a operación.` : 'Sigue la madurez de cada iniciativa desde la idea hasta la ejecución.')
-                : 'Separa las iniciativas que todavía están entrando para formalizarlas antes de empujarlas a planificación.'}
+              {isInstitutionalExperience
+                ? (viewMode === 'pipeline'
+                  ? (workspace?.name ? `${workspace.name} puede usar este espacio para ver cómo cada iniciativa pasa de idea a operación.` : EXPERIENCE_META.institutional.description)
+                  : 'Separa las iniciativas que todavía están entrando para formalizarlas antes de empujarlas a planificación.')
+                : experienceMeta.description}
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'inline-flex', padding: '4px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              {([
-                { key: 'pipeline', label: 'Pipeline' },
-                { key: 'intake', label: 'Intake' },
-              ] as const).map((option) => {
-                const active = viewMode === option.key;
-                return (
-                  <button
-                    key={option.key}
-                    onClick={() => setViewMode(option.key)}
-                    style={{
-                      height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none',
-                      background: active ? 'rgba(242,87,30,0.14)' : 'transparent',
-                      color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
-                      fontSize: '12px', fontWeight: 700, fontFamily: SORA,
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
+            {isInstitutionalExperience ? (
+              <div style={{ display: 'inline-flex', padding: '4px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                {([
+                  { key: 'pipeline', label: 'Pipeline' },
+                  { key: 'intake', label: 'Intake' },
+                ] as const).map((option) => {
+                  const active = viewMode === option.key;
+                  return (
+                    <button
+                      key={option.key}
+                      onClick={() => setViewMode(option.key)}
+                      style={{
+                        height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none',
+                        background: active ? 'rgba(242,87,30,0.14)' : 'transparent',
+                        color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
+                        fontSize: '12px', fontWeight: 700, fontFamily: SORA,
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <span style={{ height: '34px', display: 'inline-flex', alignItems: 'center', padding: '0 12px', borderRadius: '999px', border: `1px solid ${experienceMeta.accent}44`, background: `${experienceMeta.accent}14`, color: experienceMeta.accent, fontFamily: SORA, fontSize: '12px', fontWeight: 700 }}>
+                {experienceMeta.method}
+              </span>
+            )}
 
             <button
               onClick={() => setShowCreate(true)}
@@ -566,7 +809,8 @@ export default function ProjectsPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: KPI_GRID, gap: '12px', marginBottom: '18px' }}>
-          {(viewMode === 'pipeline'
+          {(isInstitutionalExperience
+            ? (viewMode === 'pipeline'
             ? [
                 { label: 'Proyectos', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
                 { label: 'Listos para formalizar', value: metrics.ready, tone: '#76A878', icon: CheckCircle2 },
@@ -578,7 +822,8 @@ export default function ProjectsPage() {
                 { label: 'Ideas iniciales', value: intakeMetrics.idea, tone: '#7B8FA8', icon: CircleDashed },
                 { label: 'Borradores', value: intakeMetrics.draft, tone: '#C4A86E', icon: Target },
                 { label: 'Sin problema claro', value: intakeMetrics.missingProblem, tone: '#DB8A66', icon: AlertCircle },
-              ]).map((item) => {
+              ])
+            : adaptiveMetrics).map((item) => {
             const Icon = item.icon;
             return (
               <div key={item.label} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
@@ -594,7 +839,7 @@ export default function ProjectsPage() {
           })}
         </div>
 
-        {viewMode === 'pipeline' && (
+        {isInstitutionalExperience && viewMode === 'pipeline' && (
           <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
             <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
@@ -730,7 +975,49 @@ export default function ProjectsPage() {
           </div>
         )}
 
-        {viewMode === 'intake' && (
+        {!isInstitutionalExperience && (
+          <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
+            <div style={{ borderRadius: '10px', border: `1px solid ${experienceMeta.accent}33`, background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color: '#E8E1D2' }}>{experienceMeta.method}</div>
+                  <div style={{ marginTop: '5px', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5, maxWidth: '760px' }}>
+                    {currentProjectStandard
+                      ? `${currentProjectStandard.name} v${currentProjectStandard.version} adapta la gestión a este tipo de workspace.`
+                      : 'Este workspace usa una vista adaptada a su forma natural de trabajo.'}
+                  </div>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: experienceMeta.accent, background: `${experienceMeta.accent}14`, border: `1px solid ${experienceMeta.accent}44`, borderRadius: '999px', padding: '5px 9px' }}>
+                  {methodologyColumns.length} etapas
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '10px', marginTop: '16px' }}>
+                {methodologyColumns.map((column) => (
+                  <div key={column.key} style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.025)', padding: '12px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>{column.label}</div>
+                    <div style={{ marginTop: '7px', fontFamily: SORA, fontSize: '20px', fontWeight: 700, color: column.tone }}>{column.projects.length}</div>
+                    <div style={{ marginTop: '5px', fontSize: '11px', color: '#827A6D' }}>{column.hint}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px' }}>
+              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Cómo usar esta vista</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+                {methodGuidance.map((text) => (
+                  <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.55 }}>
+                    <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: `${experienceMeta.accent}18`, color: experienceMeta.accent, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>•</span>
+                    <span>{text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isInstitutionalExperience && viewMode === 'intake' && (
           <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px' }}>
             <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
               <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Criterio de admisión</div>
@@ -786,7 +1073,7 @@ export default function ProjectsPage() {
             />
           </label>
 
-          {viewMode === 'pipeline' && (
+          {isInstitutionalExperience && viewMode === 'pipeline' && (
             <>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '38px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', flex: '0 1 260px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#615846', textTransform: 'uppercase', fontFamily: SORA }}>
@@ -833,7 +1120,7 @@ export default function ProjectsPage() {
             <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E', animation: 'spin 0.7s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
-        ) : viewMode === 'pipeline' ? (
+        ) : isInstitutionalExperience ? (viewMode === 'pipeline' ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: PIPELINE_GRID, gap: '14px', alignItems: 'start' }}>
               {pipeline.map((stage) => (
@@ -1112,6 +1399,16 @@ export default function ProjectsPage() {
                 ))}
               </div>
             </div>
+          </div>
+        )) : (
+          <div style={{ display: 'grid', gridTemplateColumns: PIPELINE_GRID, gap: '14px', alignItems: 'start' }}>
+            {methodologyColumns.map((column) => (
+              <MethodologyColumn
+                key={column.key}
+                column={column}
+                onProjectClick={(project) => router.push(`/dashboard/projects/${project.id}`)}
+              />
+            ))}
           </div>
         )}
       </div>
