@@ -2011,8 +2011,11 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     fetchProjectById(projectId);
     fetchStats(projectId);
-    fetchTeams(project?.workspaceId);
-  }, [projectId, project?.workspaceId, fetchProjectById, fetchStats, fetchTeams]);
+  }, [projectId, fetchProjectById, fetchStats]);
+
+  useEffect(() => {
+    if (currentProject?.workspaceId) fetchTeams(currentProject.workspaceId);
+  }, [currentProject?.workspaceId, fetchTeams]);
 
   useEffect(() => {
     projectApi.getTeams(projectId)
