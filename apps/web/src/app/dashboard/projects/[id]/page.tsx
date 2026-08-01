@@ -10,6 +10,9 @@ import { useTeamStore, type TeamMember } from '@/stores/teamStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import type { Document } from '@aether/types';
 import { apiService } from '@/services/apiService';
+import { projectApi, type ProjectActivityEntry as ActivityEntry, type ProjectDirectMember as DirectMember, type ProjectTeam as AssignedTeam } from '@/features/projects/api';
+import { ProjectDocumentsTab } from '@/features/projects/components/ProjectDocumentsTab';
+import { ProjectTeamSelector } from '@/features/projects/components/ProjectTeamSelector';
 import { socketService } from '@/services/socketService';
 import { useT } from '@/lib/i18n';
 import {
@@ -162,39 +165,9 @@ function GuidanceBanner({ banner }: { banner: GuidanceBannerData }) {
 }
 
 // ── Documentos / Actividad helpers ──────────────────────────────────────────────
-function docSnippet(content: string) {
-  const txt = (content ?? '').replace(/\s+/g, ' ').trim();
-  return txt.length > 120 ? txt.slice(0, 120) + '…' : txt || 'Documento vacío';
-}
-function docWords(content: string) {
-  const n = (content ?? '').trim() ? (content.trim().match(/\S+/g)?.length ?? 0) : 0;
-  return `${n.toLocaleString('es-ES')} ${n === 1 ? 'palabra' : 'palabras'}`;
-}
-
 type ActCategory = 'milestone' | 'board' | 'team' | 'project';
 
-interface ActivityEntry {
-  id: string;
-  eventType: string;
-  payload: any;
-  delta?: any;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
-  timestamp: number;
-  createdAt: string;
-  targetType?: string;
-  targetId?: string;
-  targetName?: string;
-  cardId?: string;
-}
-
 type ActGroup = { month: string; days: { day: string; events: ActivityEntry[] }[] };
-
-function authorName(members: { memberId?: string; id: string; name: string }[], userId: string) {
-  const m = members.find((mb) => mb.memberId === userId || mb.id === userId);
-  return m?.name ?? 'Un miembro';
-}
 
 function groupByMonth(entries: ActivityEntry[]): ActGroup[] {
   const groups: ActGroup[] = [];
@@ -1271,16 +1244,7 @@ function ProjectGantt({
 
 // ── Team types ────────────────────────────────────────────────────────────────
 
-interface AssignedTeam {
-  id: string;
-  name: string;
-  color: string | null;
-  memberCount: number;
-  leadName: string | null;
-}
-
 type ProjectMember = TeamMember & { teamName: string; teamColor: string | null };
-type DirectMember  = { id: string; name: string; email: string; avatar?: string | null; role: string; addedAt: string; };
 type SearchUser    = { id: string; name: string; email: string; avatar?: string | null; };
 
 const MEMBER_PALETTE = ['#F2571E', '#76A878', '#4B607F', '#DB8A66', '#8C7C9E', '#C2904B'];
@@ -1292,7 +1256,7 @@ function memberColor(id: string) {
 
 // ── Team Selector Popover ─────────────────────────────────────────────────────
 
-function TeamSelector({ projectId, assigned, allTeams, onAssign, onRemove }: {
+function LegacyTeamSelector({ projectId, assigned, allTeams, onAssign, onRemove }: {
   projectId: string;
   assigned: AssignedTeam[];
   allTeams: AssignedTeam[];
@@ -1929,7 +1893,7 @@ function CreateMilestoneModal({ projectId, color, milestone, onClose }: { projec
 }
 
 // ── Create Document Modal ─────────────────────────────────────────────────────
-function CreateDocumentModal({ workspaceId, color, onClose, onCreated }: { workspaceId: string; color: string; onClose: () => void; onCreated: (doc: Document) => void }) {
+function CreateDocumentModal({ workspaceId, projectId, color, onClose, onCreated }: { workspaceId: string; projectId: string; color: string; onClose: () => void; onCreated: (doc: Document) => void }) {
   const t = useT();
   const { createDocument } = useDocumentStore();
   const [title, setTitle] = useState('');
@@ -1948,7 +1912,7 @@ function CreateDocumentModal({ workspaceId, color, onClose, onCreated }: { works
     if (!name) { setError('El título del documento es obligatorio'); return; }
     setLoading(true);
     try {
-      const doc = await createDocument(workspaceId, { title: name });
+      const doc = await createDocument(workspaceId, { title: name, projectId });
       onCreated(doc);
     } catch (e: any) { setError(e?.message || 'No se pudo crear el documento'); setLoading(false); }
   };
@@ -2003,7 +1967,7 @@ export default function ProjectDetailPage() {
   const wsRole   = workspaces.find((w) => w.id === currentProject?.workspaceId)?.userRole ?? 'VIEWER';
   const canEdit  = wsRole === 'OWNER' || wsRole === 'ADMIN';
   const isOwner  = wsRole === 'OWNER';
-  const { documents, fetchDocuments } = useDocumentStore();
+  const { documents, fetchProjectDocuments } = useDocumentStore();
 
   const [showConfig,    setShowConfig]    = useState(false);
   const [showAddBoard,  setShowAddBoard]  = useState(false);
@@ -2047,12 +2011,13 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     fetchProjectById(projectId);
     fetchStats(projectId);
-    fetchTeams();
-  }, [projectId, fetchProjectById, fetchStats, fetchTeams]);
+    fetchTeams(project?.workspaceId);
+  }, [projectId, project?.workspaceId, fetchProjectById, fetchStats, fetchTeams]);
 
   useEffect(() => {
-    apiService.get<{ teams: AssignedTeam[] }>(`/api/projects/${projectId}/teams`, true)
-      .then((res) => { if (res.success && res.data) setAssignedTeams(res.data.teams); });
+    projectApi.getTeams(projectId)
+      .then((teams) => setAssignedTeams(teams))
+      .catch(() => setAssignedTeams([]));
   }, [projectId]);
 
   useEffect(() => {
@@ -2061,10 +2026,10 @@ export default function ProjectDetailPage() {
     }
   }, [currentProject?.workspaceId, fetchProjectStandard]);
 
-  // Documentos del workspace al que pertenece el proyecto
+  // Solo documentos vinculados al proyecto; los documentos globales permanecen en el workspace.
   useEffect(() => {
-    if (currentProject?.workspaceId) fetchDocuments(currentProject.workspaceId);
-  }, [currentProject?.workspaceId, fetchDocuments]);
+    if (currentProject?.id) fetchProjectDocuments(currentProject.id);
+  }, [currentProject?.id, fetchProjectDocuments]);
 
   // Miembros — agregados desde los equipos asignados (únicos por usuario)
   useEffect(() => {
@@ -2072,8 +2037,8 @@ export default function ProjectDetailPage() {
     if (assignedTeams.length === 0) { setMembers([]); return; }
     Promise.all(
       assignedTeams.map((tm) =>
-        apiService.get<{ team: { members?: TeamMember[] } }>(`/api/teams/${tm.id}`, true)
-          .then((res) => (res.success && res.data?.team.members ? res.data.team.members.map((mb) => ({ ...mb, teamName: tm.name, teamColor: tm.color })) : []))
+        projectApi.getTeamMembers(tm.id)
+          .then((teamMembers) => teamMembers.map((mb) => ({ ...mb, teamName: tm.name, teamColor: tm.color })))
           .catch(() => [] as ProjectMember[])
       )
     ).then((lists) => {
@@ -2087,8 +2052,9 @@ export default function ProjectDetailPage() {
 
   // Miembros directos del proyecto
   useEffect(() => {
-    apiService.get<{ members: DirectMember[] }>(`/api/projects/${projectId}/members`, true)
-      .then((res) => { if (res.success && res.data) setDirectMembers(res.data.members); });
+    projectApi.getDirectMembers(projectId)
+      .then((members) => setDirectMembers(members))
+      .catch(() => setDirectMembers([]));
   }, [projectId]);
 
   // Búsqueda de usuarios para invitar (debounced, mín. 3 chars)
@@ -2106,8 +2072,9 @@ export default function ProjectDetailPage() {
     if (activeTab !== 'activity') return;
     let cancelled = false;
     setLoadingActivity(true);
-    apiService.get<{ events: ActivityEntry[] }>(`/api/projects/${projectId}/activity?limit=100`, true)
-      .then((res) => { if (!cancelled && res.success && res.data) setActivityEntries(res.data.events); })
+    projectApi.getActivity(projectId)
+      .then((events) => { if (!cancelled) setActivityEntries(events); })
+      .catch(() => { if (!cancelled) setActivityEntries([]); })
       .finally(() => { if (!cancelled) setLoadingActivity(false); });
     return () => { cancelled = true; };
   }, [projectId, activeTab]);
@@ -2120,35 +2087,12 @@ export default function ProjectDetailPage() {
   // Backlog: agrega todas las tarjetas no completadas de los tableros vinculados
   useEffect(() => {
     if (activeTab !== 'backlog' && activeTab !== 'overview') return;
-    const linkedBoards = currentProject?.boards ?? [];
-    if (linkedBoards.length === 0) { setBacklogCards([]); setBacklogLoading(false); return; }
     setBacklogLoading(true);
-    Promise.all(
-      linkedBoards.map(b =>
-        apiService.get<{ board: { lists: { id: string; name: string; cards: { id: string; title: string; completed: boolean; priority: string | null; dueDate: string | null }[] }[] } }>(
-          `/api/boards/${b.id}`, true
-        ).then(res => {
-          if (!res.success || !res.data?.board?.lists) return [] as BacklogCard[];
-          return res.data.board.lists.flatMap(list =>
-            list.cards
-              .filter(c => !c.completed)
-              .map(c => ({
-                id: c.id, title: c.title,
-                priority: (c.priority as BacklogCard['priority']) ?? null,
-                dueDate: c.dueDate ?? null,
-                boardId: b.id, boardName: b.name,
-                listId: list.id, listName: list.name,
-              }))
-          );
-        }).catch(() => [] as BacklogCard[])
-      )
-    ).then(results => {
-      const all = results.flat();
-      const pOrder: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-      all.sort((a, b) => (pOrder[a.priority ?? ''] ?? 3) - (pOrder[b.priority ?? ''] ?? 3));
-      setBacklogCards(all);
-    }).finally(() => setBacklogLoading(false));
-  }, [activeTab, currentProject?.boards?.length, projectId]);
+    projectApi.getBacklog(projectId)
+      .then((cards) => setBacklogCards(cards))
+      .catch(() => setBacklogCards([]))
+      .finally(() => setBacklogLoading(false));
+  }, [activeTab, projectId]);
 
   // Mantener ref de boards vinculados actualizado para el handler de socket
   useEffect(() => {
@@ -2214,8 +2158,9 @@ export default function ProjectDetailPage() {
           break;
 
         case 'project.team.assigned':
-          apiService.get<{ teams: AssignedTeam[] }>(`/api/projects/${projectId}/teams`, true)
-            .then((res) => { if (res.success && res.data) setAssignedTeams(res.data.teams); });
+          projectApi.getTeams(projectId)
+            .then((teams) => setAssignedTeams(teams))
+            .catch(() => undefined);
           break;
 
         case 'project.team.removed': {
@@ -2226,8 +2171,9 @@ export default function ProjectDetailPage() {
 
         case 'project.member.added':
         case 'project.member.removed':
-          apiService.get<{ members: DirectMember[] }>(`/api/projects/${projectId}/members`, true)
-            .then((res) => { if (res.success && res.data) setDirectMembers(res.data.members); });
+          projectApi.getDirectMembers(projectId)
+            .then((members) => setDirectMembers(members))
+            .catch(() => undefined);
           break;
       }
     };
@@ -2240,39 +2186,35 @@ export default function ProjectDetailPage() {
   }, [currentProject?.workspaceId, projectId, fetchProjectById, fetchStats]);
 
   async function handleAssignTeam(teamId: string) {
-    await apiService.post(`/api/projects/${projectId}/teams`, { teamId }, true);
+    await projectApi.assignTeam(projectId, teamId);
     const team = allTeams.find((t) => t.id === teamId);
     if (team) setAssignedTeams((prev) => [...prev, { id: team.id, name: team.name, color: team.color ?? null, memberCount: team.memberCount ?? 0, leadName: team.leadName ?? null }]);
   }
 
   async function handleRemoveTeam(teamId: string) {
-    await apiService.delete(`/api/projects/${projectId}/teams/${teamId}`, true);
+    await projectApi.removeTeam(projectId, teamId);
     setAssignedTeams((prev) => prev.filter((t) => t.id !== teamId));
   }
 
   async function handleAddDirectMember(userId: string) {
     setAddingUserId(userId);
     try {
-      const res = await apiService.post<{ member: DirectMember }>(`/api/projects/${projectId}/members`, { userId }, true);
-      if (res.success && res.data) {
-        setDirectMembers((prev) => [...prev.filter((m) => m.id !== res.data!.member.id), res.data!.member]);
-        setInviteSearch('');
-        setInviteResults([]);
-        setShowInvitePanel(false);
-      }
+      const member = await projectApi.addDirectMember(projectId, userId);
+      setDirectMembers((prev) => [...prev.filter((m) => m.id !== member.id), member]);
+      setInviteSearch('');
+      setInviteResults([]);
+      setShowInvitePanel(false);
     } finally { setAddingUserId(null); }
   }
 
   async function handleRemoveDirectMember(userId: string) {
-    await apiService.delete(`/api/projects/${projectId}/members/${userId}`, true);
+    await projectApi.removeDirectMember(projectId, userId);
     setDirectMembers((prev) => prev.filter((m) => m.id !== userId));
   }
 
   async function handleChangeDirectMemberRole(userId: string, role: string) {
-    const res = await apiService.patch<{ role: string }>(`/api/projects/${projectId}/members/${userId}`, { role }, true);
-    if (res.success) {
-      setDirectMembers((prev) => prev.map((m) => m.id === userId ? { ...m, role } : m));
-    }
+    await projectApi.updateDirectMemberRole(projectId, userId, role);
+    setDirectMembers((prev) => prev.map((m) => m.id === userId ? { ...m, role } : m));
   }
 
   async function handleConfirmRemoveBoard() {
@@ -3357,65 +3299,14 @@ export default function ProjectDetailPage() {
 
         {/* ── DOCUMENTOS ───────────────────────────────────────────────────── */}
         {activeTab === 'docs' && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              <p style={{ margin: 0, fontSize: '0.98rem', color: '#9C9486', fontFamily: "'Manrope', system-ui, sans-serif" }}>Documentos asociados a este proyecto.</p>
-              {canEdit && (
-                <button onClick={() => setShowAddDoc(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
-                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
-                  onMouseLeave={e => (e.currentTarget.style.filter = '')}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
-                  Nuevo documento
-                </button>
-              )}
-            </div>
-            {documents.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '60px 0', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                <span style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 3h8l4 4v14H6V3Z" stroke="#615846" strokeWidth="1.7" strokeLinejoin="round"/><path d="M13 3v5h5" stroke="#615846" strokeWidth="1.7" strokeLinejoin="round"/></svg>
-                </span>
-                <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#9C9486', fontFamily: "'Sora', system-ui, sans-serif" }}>Aún no hay documentos</p>
-                <p style={{ margin: 0, fontSize: '12.5px', color: '#615846' }}>Crea un documento para empezar a colaborar</p>
-                <button onClick={() => setShowAddDoc(true)}
-                  style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#F2571E', color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif" }}
-                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
-                  onMouseLeave={e => (e.currentTarget.style.filter = '')}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
-                  Nuevo documento
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {documents.map((d) => {
-                  const author = authorName(members, d.createdBy);
-                  return (
-                    <div key={d.id}
-                      onClick={() => router.push(`/dashboard/documents/${d.id}`)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'border-color 0.1s, background 0.1s' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.16)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
-                    >
-                      <span style={{ width: '40px', height: '40px', borderRadius: '50%', background: color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M6 3h8l4 4v14H6V3Z" stroke={color} strokeWidth="1.7" strokeLinejoin="round"/><path d="M13 3v5h5" stroke={color} strokeWidth="1.7" strokeLinejoin="round"/></svg>
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</div>
-                        <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{docSnippet(d.content)}</div>
-                      </div>
-                      <span style={{ fontSize: '12px', color: '#827A6D', flexShrink: 0 }}>Editado {timeAgo(d.updatedAt, t)}</span>
-                      <span style={{ fontSize: '12px', color: '#5C5447', width: '104px', textAlign: 'right', flexShrink: 0 }}>{docWords(d.content)}</span>
-                      <span title={author} style={{ width: '26px', height: '26px', borderRadius: '50%', background: memberColor(d.createdBy), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: '#24180A', flexShrink: 0 }}>
-                        {author.trim()[0]?.toUpperCase()}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <ProjectDocumentsTab
+            documents={documents}
+            members={members}
+            color={color}
+            canEdit={canEdit}
+            onCreate={() => setShowAddDoc(true)}
+            onOpen={(documentId) => router.push(`/dashboard/documents/${documentId}`)}
+          />
         )}
 
         {/* ── MIEMBROS ─────────────────────────────────────────────────────── */}
@@ -3440,8 +3331,7 @@ export default function ProjectDetailPage() {
                       <UserPlus style={ic(11)} />
                       Invitar persona
                     </button>
-                    <TeamSelector
-                      projectId={projectId}
+                    <ProjectTeamSelector
                       assigned={assignedTeams}
                       allTeams={(allTeams as any[]).map((tm) => ({ id: tm.id, name: tm.name, color: tm.color ?? null, memberCount: tm.memberCount ?? 0, leadName: tm.leadName ?? null }))}
                       onAssign={handleAssignTeam}
@@ -3739,7 +3629,7 @@ export default function ProjectDetailPage() {
       {showAddBoard && <AddBoardModal          project={project}   onClose={() => setShowAddBoard(false)} />}
       {showAddMs    && <CreateMilestoneModal   projectId={project.id} color={color} onClose={() => setShowAddMs(false)} />}
       {editMs       && <CreateMilestoneModal   projectId={project.id} color={color} milestone={editMs} onClose={() => setEditMs(null)} />}
-      {showAddDoc   && <CreateDocumentModal    workspaceId={project.workspaceId} color={color} onClose={() => setShowAddDoc(false)} onCreated={(doc) => router.push(`/dashboard/documents/${doc.id}`)} />}
+      {showAddDoc   && <CreateDocumentModal    workspaceId={project.workspaceId} projectId={project.id} color={color} onClose={() => setShowAddDoc(false)} onCreated={(doc) => router.push(`/dashboard/documents/${doc.id}`)} />}
 
       {/* ── Modal confirmar quitar board ─────────────────────────────────────── */}
       {boardToRemove && (

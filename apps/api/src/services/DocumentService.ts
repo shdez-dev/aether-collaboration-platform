@@ -119,6 +119,7 @@ export class DocumentService {
         projectType?: string;
         [key: string]: any;
       };
+      projectId?: string | null;
     }
   ): Promise<Document> {
     const client = await pool.connect();
@@ -126,11 +127,21 @@ export class DocumentService {
     try {
       await client.query('BEGIN');
 
+      if (data.projectId) {
+        const projectResult = await client.query(
+          `SELECT 1 FROM projects WHERE id = $1 AND workspace_id = $2`,
+          [data.projectId, workspaceId]
+        );
+        if (projectResult.rowCount === 0) {
+          throw new Error('El proyecto no pertenece al workspace del documento');
+        }
+      }
+
       const result = await client.query(
-        `INSERT INTO documents (workspace_id, title, content, created_by)
-       VALUES ($1, $2, $3, $4)
+        `INSERT INTO documents (workspace_id, project_id, title, content, created_by)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-        [workspaceId, data.title, '', userId]
+        [workspaceId, data.projectId ?? null, data.title, '', userId]
       );
 
       const document = this.formatDocument(result.rows[0]);
@@ -179,7 +190,7 @@ export class DocumentService {
         actor: { id: userId, name: actorName },
         subject: { type: 'document', id: document.id, name: document.title },
         context: { workspaceId, documentId: document.id },
-        payload: { templateId: data.templateId },
+        payload: { templateId: data.templateId, projectId: data.projectId ?? null },
       });
 
       return document;
@@ -198,6 +209,7 @@ export class DocumentService {
     workspaceId: string,
     options: {
       search?: string;
+      projectId?: string;
       sortBy?: 'createdAt' | 'updatedAt' | 'title';
       sortOrder?: 'asc' | 'desc';
       limit?: number;
@@ -223,6 +235,12 @@ export class DocumentService {
     const params: any[] = [workspaceId];
     let paramIndex = 2;
 
+    if (options.projectId) {
+      query += ` AND d.project_id = $${paramIndex}`;
+      params.push(options.projectId);
+      paramIndex++;
+    }
+
     if (search) {
       query += ` AND (
         d.title ILIKE $${paramIndex} OR
@@ -232,9 +250,19 @@ export class DocumentService {
       paramIndex++;
     }
 
+    const countConditions = ['workspace_id = $1'];
+    const countParams: any[] = [workspaceId];
+    if (options.projectId) {
+      countConditions.push(`project_id = $${countParams.length + 1}`);
+      countParams.push(options.projectId);
+    }
+    if (search) {
+      countConditions.push(`(title ILIKE $${countParams.length + 1} OR content ILIKE $${countParams.length + 1})`);
+      countParams.push(`%${search}%`);
+    }
     const countResult = await pool.query(
-      `SELECT COUNT(*) as total FROM documents WHERE workspace_id = $1 ${search ? `AND (title ILIKE $2 OR content ILIKE $2)` : ''}`,
-      search ? [workspaceId, `%${search}%`] : [workspaceId]
+      `SELECT COUNT(*) as total FROM documents WHERE ${countConditions.join(' AND ')}`,
+      countParams
     );
 
     const total = parseInt(countResult.rows[0].total);
@@ -929,6 +957,7 @@ export class DocumentService {
     return {
       id: row.id,
       workspaceId: row.workspace_id,
+      projectId: row.project_id ?? null,
       title: row.title,
       content: row.content,
       yjsState: row.yjs_state ? new Uint8Array(row.yjs_state) : undefined,

@@ -223,7 +223,7 @@ export default function TeamsPage() {
   const workspaceId = currentWorkspace?.id ?? '';
 
   const loadData = useCallback(async () => {
-    fetchTeams();
+    fetchTeams(workspaceId || undefined);
     if (workspaceId) {
       fetchMembers(workspaceId);
       const r = await apiService.get<{ invitations: { id: string; email: string; sentAt: string }[] }>(
@@ -239,7 +239,8 @@ export default function TeamsPage() {
   const totalMembers  = currentMembers.length;
 
   async function handleCreate(data: { name: string; description?: string; color: string }) {
-    const team = await createTeam(data);
+    if (!workspaceId) throw new Error('Selecciona un espacio de trabajo antes de crear un equipo');
+    const team = await createTeam({ ...data, workspaceId });
     router.push(`/dashboard/teams/${team.id}`);
   }
 

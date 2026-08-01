@@ -13,7 +13,7 @@ type WorkspaceTemplateId = 'personal' | 'team' | 'institutional' | 'marketing' |
 
 type WorkspaceProjectStandardDefinition = {
   requiredProjectFields: Array<'description' | 'problemStatement' | 'nextStep' | 'startDate' | 'endDate'>;
-  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep'>;
+  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'document' | 'nextStep'>;
   minimumMaturityForPlanning: 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED';
   intakeStages: Array<'IDEA' | 'DRAFT'>;
   targetLabels: {
@@ -65,7 +65,7 @@ const WORKSPACE_TEMPLATE_PRESETS: Record<WorkspaceTemplateId, WorkspaceTemplateP
     standardName: 'Aether Institutional Standard',
     definition: {
       requiredProjectFields: ['problemStatement', 'nextStep', 'startDate', 'endDate'],
-      requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'],
+      requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'document', 'nextStep'],
       minimumMaturityForPlanning: 'FORMALIZED',
       intakeStages: ['IDEA', 'DRAFT'],
       targetLabels: {

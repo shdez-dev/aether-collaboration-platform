@@ -42,7 +42,6 @@ import { validateEnv } from './config/env';
 import { initializeRedis, closeRedisConnections } from './lib/redis';
 import { initializeRealtimeGateway } from './websocket/RealtimeGateway';
 import { initializeYjsGateway } from './websocket/Yjsgateway';
-import { runMigrations } from './migrations/run-migrations';
 import { startDueDateJob, stopDueDateJob } from './jobs/dueDateJob';
 
 // ============================================================================
@@ -246,9 +245,7 @@ const httpServer = createServer(app);
 
 async function startServer() {
   try {
-    // 0. Run database migrations
-    await runMigrations();
-
+    // Database schema is migrated by Prisma before this process starts.
     // 1. Initialize Redis
     await initializeRedis();
 

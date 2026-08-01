@@ -7,12 +7,14 @@ import { documentExportService } from '../services/DocumentExportService';
 import { documentTemplateService } from '../services/DocumentTemplateService';
 import { WorkspaceRequest } from '../middleware/workspace';
 import { pool } from '../lib/db';
+import { projectDocumentService } from '../modules/projects/ProjectDocumentService';
 
 /**
  * Validation schemas
  */
 const createDocumentSchema = z.object({
   title: z.string().min(1).max(255),
+  projectId: z.string().uuid().nullable().optional(),
   templateId: z.string().optional(),
   content: z.any().optional(),
   metadata: z
@@ -120,6 +122,31 @@ class DocumentController {
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al obtener documentos' },
       });
+    }
+  }
+
+  /** GET /api/projects/:projectId/documents */
+  async listProjectDocuments(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { projectId } = req.params;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
+      }
+
+      const result = await projectDocumentService.listForMember(projectId, userId, {
+        search: req.query.search as string,
+        sortBy: req.query.sortBy as any,
+        sortOrder: req.query.sortOrder as any,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
+      });
+      if (!result) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Proyecto no encontrado' } });
+      }
+      return res.json({ success: true, data: result });
+    } catch {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Error al obtener documentos del proyecto' } });
     }
   }
 

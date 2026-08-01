@@ -58,7 +58,7 @@ const workspaceProjectStandardSchema = z.object({
   version: z.number().int().positive().optional(),
   definition: z.object({
     requiredProjectFields: z.array(z.enum(['description', 'problemStatement', 'nextStep', 'startDate', 'endDate'])).default(['problemStatement', 'nextStep']),
-    requiredChecklist: z.array(z.enum(['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'])).default(['owner', 'problem', 'team', 'board', 'milestone', 'nextStep']),
+    requiredChecklist: z.array(z.enum(['owner', 'problem', 'team', 'board', 'milestone', 'document', 'nextStep'])).default(['owner', 'problem', 'team', 'board', 'milestone', 'document', 'nextStep']),
     minimumMaturityForPlanning: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED']).default('FORMALIZED'),
     intakeStages: z.array(z.enum(['IDEA', 'DRAFT'])).default(['IDEA', 'DRAFT']),
     targetLabels: z.object({
@@ -79,7 +79,7 @@ function getDefaultWorkspaceProjectStandard() {
     version: 1,
     definition: {
       requiredProjectFields: ['problemStatement', 'nextStep'],
-      requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'],
+      requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'document', 'nextStep'],
       minimumMaturityForPlanning: 'FORMALIZED',
       intakeStages: ['IDEA', 'DRAFT'],
       targetLabels: {

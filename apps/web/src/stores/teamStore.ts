@@ -26,6 +26,7 @@ export interface TeamMember {
 
 export interface Team {
   id: string;
+  workspaceId: string;
   name: string;
   description?: string | null;
   color?: string | null;
@@ -69,6 +70,7 @@ export interface TeamInvitation {
 }
 
 interface CreateTeamData {
+  workspaceId: string;
   name: string;
   description?: string;
   color?: string;
@@ -90,7 +92,7 @@ interface TeamState {
   isLoading: boolean;
   error: string | null;
 
-  fetchTeams: () => Promise<void>;
+  fetchTeams: (workspaceId?: string) => Promise<void>;
   fetchTeamById: (id: string) => Promise<void>;
   createTeam: (data: CreateTeamData) => Promise<Team>;
   updateTeam: (id: string, data: UpdateTeamData) => Promise<void>;
@@ -121,10 +123,11 @@ export const useTeamStore = create<TeamState>()(
 
       // ── Fetch all ───────────────────────────────────────────────────────────
 
-      fetchTeams: async () => {
+      fetchTeams: async (workspaceId?: string) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await apiService.get<{ teams: Team[] }>('/api/teams', true);
+          const query = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
+          const response = await apiService.get<{ teams: Team[] }>(`/api/teams${query}`, true);
           if (!response.success || !response.data) {
             set({ error: response.error?.message || 'Error al obtener equipos', isLoading: false });
             return;

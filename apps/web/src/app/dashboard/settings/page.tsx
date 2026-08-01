@@ -26,6 +26,7 @@ const CHECKLIST_OPTIONS: Array<{ value: WorkspaceProjectStandardDefinition['requ
   { value: 'team', label: 'Equipo', desc: 'Pide miembros o equipos vinculados.' },
   { value: 'board', label: 'Tablero', desc: 'Exige un espacio operativo para ejecutar.' },
   { value: 'milestone', label: 'Hito proximo', desc: 'Obliga una referencia temporal concreta.' },
+  { value: 'document', label: 'Documento base', desc: 'Exige una evidencia, brief o documento de proyecto.' },
   { value: 'nextStep', label: 'Siguiente paso', desc: 'Debe quedar una accion inmediata explicitada.' },
 ];
 

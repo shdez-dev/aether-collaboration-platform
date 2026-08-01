@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "pnpm db:migrate:deploy && node dist/index.js",
     "test": "jest",
     "test:ci": "jest --testPathIgnorePatterns=\"(integration|upload)\" --passWithNoTests",
     "test:watch": "jest --watch",

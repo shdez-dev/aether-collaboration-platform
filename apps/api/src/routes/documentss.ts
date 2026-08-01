@@ -19,6 +19,9 @@ router.use(authenticateJWT);
 // GET ALL USER DOCUMENTS (AI Builder picker) — MUST be before /documents/:id
 router.get('/documents/mine', (req, res) => documentController.getMyDocuments(req, res));
 
+// Project context is explicit: operational documents are queried from the project.
+router.get('/projects/:projectId/documents', (req, res) => documentController.listProjectDocuments(req, res));
+
 // CREATE - requires workspace membership
 router.post('/workspaces/:workspaceId/documents', checkWorkspaceMembership, (req, res) =>
   documentController.create(req, res)

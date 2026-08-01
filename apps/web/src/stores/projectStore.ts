@@ -46,7 +46,7 @@ export type ProjectMaturityStage = 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED' |
 export type CoverageState = 'NOT_APPLICABLE' | 'APPLIES_EMPTY' | 'APPLIES_FILLED';
 
 export interface ProjectFormalizationItem {
-  key: 'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep';
+  key: 'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'document' | 'nextStep';
   label: string;
   done: boolean;
 }

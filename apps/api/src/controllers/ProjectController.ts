@@ -114,6 +114,12 @@ function fmtBoard(row: any) {
 async function computeStats(projectId: string) {
   const now = new Date();
 
+  const documentCountResult = await pool.query(
+    `SELECT COUNT(*) AS total FROM documents WHERE project_id = $1`,
+    [projectId]
+  );
+  const totalDocuments = parseInt(documentCountResult.rows[0]?.total ?? '0', 10);
+
   // Boards asignados al proyecto
   const boardsResult = await pool.query(
     `SELECT b.id FROM boards b
@@ -124,7 +130,7 @@ async function computeStats(projectId: string) {
   const boardIds: string[] = boardsResult.rows.map((r: any) => r.id);
 
   if (boardIds.length === 0) {
-    return { totalBoards: 0, totalCards: 0, completedCards: 0, overdueCards: 0, totalDocuments: 0, progressPercent: 0, healthScore: 100, bottleneckBoardId: null, bottleneckBoardName: null };
+    return { totalBoards: 0, totalCards: 0, completedCards: 0, overdueCards: 0, totalDocuments, progressPercent: 0, healthScore: 100, bottleneckBoardId: null, bottleneckBoardName: null };
   }
 
   const ph = boardIds.map((_, i) => `$${i + 1}`).join(', ');
@@ -188,7 +194,7 @@ async function computeStats(projectId: string) {
   if (missedMilestones === 0) healthScore = Math.max(healthScore, 40);
   healthScore = Math.max(0, healthScore);
 
-  return { totalBoards: boardIds.length, totalCards, completedCards, overdueCards, totalDocuments: 0, progressPercent, healthScore, bottleneckBoardId, bottleneckBoardName };
+  return { totalBoards: boardIds.length, totalCards, completedCards, overdueCards, totalDocuments, progressPercent, healthScore, bottleneckBoardId, bottleneckBoardName };
 }
 
 // ── Relations loader ──────────────────────────────────────────────────────────
@@ -211,14 +217,14 @@ async function loadRelations(projectId: string) {
 }
 
 type ChecklistItem = {
-  key: 'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep';
+  key: 'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'document' | 'nextStep';
   label: string;
   done: boolean;
 };
 
 type ProjectStandardDefinition = {
   requiredProjectFields: Array<'description' | 'problemStatement' | 'nextStep' | 'startDate' | 'endDate'>;
-  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep'>;
+  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'document' | 'nextStep'>;
   minimumMaturityForPlanning: 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED';
   intakeStages: Array<'IDEA' | 'DRAFT'>;
   targetLabels: {
@@ -237,7 +243,7 @@ type WorkspaceProjectStandardSnapshot = {
 function getDefaultWorkspaceProjectStandardDefinition(): ProjectStandardDefinition {
   return {
     requiredProjectFields: ['problemStatement', 'nextStep'],
-    requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'],
+    requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'document', 'nextStep'],
     minimumMaturityForPlanning: 'FORMALIZED',
     intakeStages: ['IDEA', 'DRAFT'],
     targetLabels: {
@@ -281,7 +287,8 @@ async function getProjectStructureState(projectId: string, relations?: { boards:
   const countsResult = await pool.query(
     `SELECT
        (SELECT COUNT(*)::int FROM project_members WHERE project_id = $1) AS direct_members,
-       (SELECT COUNT(*)::int FROM project_teams WHERE project_id = $1)   AS teams`,
+       (SELECT COUNT(*)::int FROM project_teams WHERE project_id = $1)   AS teams,
+       (SELECT COUNT(*)::int FROM documents WHERE project_id = $1)       AS documents`,
     [projectId]
   );
   const counts = countsResult.rows[0] ?? { direct_members: 0, teams: 0 };
@@ -290,10 +297,12 @@ async function getProjectStructureState(projectId: string, relations?: { boards:
   return {
     rel,
     teamCount,
+    documentCount: Number(counts.documents ?? 0),
   };
 }
 
 const checklistLabels: Record<ChecklistItem['key'], string> = {
+  document: 'Documento base o evidencia',
   owner: 'Responsable definido',
   problem: 'Problema u oportunidad',
   team: 'Equipo o miembros asignados',
@@ -316,7 +325,7 @@ async function computeFormalization(
   standard?: ProjectStandardDefinition,
 ) {
   const activeStandard = standard ?? (await getWorkspaceProjectStandard(projectRow.workspace_id)).definition;
-  const { rel, teamCount } = await getProjectStructureState(projectRow.id, relations);
+  const { rel, teamCount, documentCount } = await getProjectStructureState(projectRow.id, relations);
   const hasTeam = teamCount > 0;
 
   const checklist: ChecklistItem[] = activeStandard.requiredChecklist.map((key) => ({
@@ -328,6 +337,7 @@ async function computeFormalization(
       key === 'team' ? hasTeam :
       key === 'board' ? rel.boards.length > 0 :
       key === 'milestone' ? rel.milestones.length > 0 :
+      key === 'document' ? documentCount > 0 :
       Boolean(projectRow.next_step?.trim()),
   }));
 
@@ -352,7 +362,7 @@ async function computeCoverage(
   standard?: ProjectStandardDefinition,
 ) {
   const activeStandard = standard ?? (await getWorkspaceProjectStandard(projectRow.workspace_id)).definition;
-  const { rel, teamCount } = await getProjectStructureState(projectRow.id, relations);
+  const { rel, teamCount, documentCount } = await getProjectStructureState(projectRow.id, relations);
 
   const requiredFieldEntries = activeStandard.requiredProjectFields.map((key) => ({
     key,
@@ -375,6 +385,7 @@ async function computeCoverage(
         key === 'team' ? (teamCount > 0 ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
         key === 'board' ? (rel.boards.length > 0 ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
         key === 'milestone' ? (rel.milestones.length > 0 ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
+        key === 'document' ? (documentCount > 0 ? 'APPLIES_FILLED' : 'APPLIES_EMPTY') :
         'APPLIES_EMPTY',
     }));
 
@@ -741,11 +752,20 @@ class ProjectController {
       const { id } = req.params;
       const body = addBoardSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: 'boardId inválido' } });
+      const boardResult = await pool.query(
+        `SELECT b.*
+         FROM boards b
+         JOIN projects p ON p.id = $1 AND p.workspace_id = b.workspace_id
+         WHERE b.id = $2`,
+        [id, body.data.boardId]
+      );
+      if (boardResult.rowCount === 0) {
+        return res.status(404).json({ success: false, error: { message: 'Board no encontrado en el espacio de trabajo del proyecto' } });
+      }
       await pool.query(
         `INSERT INTO project_boards (id, project_id, board_id) VALUES (gen_random_uuid(), $1, $2) ON CONFLICT DO NOTHING`,
         [id, body.data.boardId]
       );
-      const boardResult = await pool.query(`SELECT * FROM boards WHERE id = $1`, [body.data.boardId]);
       // Get project info for event
       const projectInfo = await pool.query(`SELECT name, workspace_id FROM projects WHERE id = $1`, [id]);
       const projectName = projectInfo.rows[0]?.name;
@@ -1040,6 +1060,16 @@ class ProjectController {
       const { id } = req.params;
       const { teamId } = req.body;
       if (!teamId) return res.status(400).json({ success: false, error: { message: 'teamId requerido' } });
+
+      const teamExists = await pool.query(
+        `SELECT 1 FROM teams t
+         JOIN projects p ON p.id = $1 AND p.workspace_id = t.workspace_id
+         WHERE t.id = $2`,
+        [id, teamId]
+      );
+      if (!teamExists.rowCount) {
+        return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado en el espacio de trabajo del proyecto' } });
+      }
 
       await pool.query(
         `INSERT INTO project_teams (project_id, team_id, assigned_by)

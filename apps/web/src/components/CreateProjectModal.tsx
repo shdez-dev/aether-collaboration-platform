@@ -138,6 +138,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
       item === 'team' ? 'Equipo o miembros asignados' :
       item === 'board' ? 'Tablero de ejecucion' :
       item === 'milestone' ? 'Hito proximo declarado' :
+      item === 'document' ? 'Documento base o evidencia' :
       'Siguiente paso explicito';
 
     const hint =
@@ -146,6 +147,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
       item === 'team' ? 'Se completa vinculando miembros o equipos.' :
       item === 'board' ? 'Se completa creando o enlazando un tablero.' :
       item === 'milestone' ? 'Se completa agregando el primer hito.' :
+      item === 'document' ? 'Se completa creando o vinculando un documento.' :
       'Puedes dejarlo listo desde este formulario.';
 
     return { key: item, label, hint, done };

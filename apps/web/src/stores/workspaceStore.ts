@@ -42,7 +42,7 @@ interface WorkspaceStats {
 
 export interface WorkspaceProjectStandardDefinition {
   requiredProjectFields: Array<'description' | 'problemStatement' | 'nextStep' | 'startDate' | 'endDate'>;
-  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'nextStep'>;
+  requiredChecklist: Array<'owner' | 'problem' | 'team' | 'board' | 'milestone' | 'document' | 'nextStep'>;
   minimumMaturityForPlanning: 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED';
   intakeStages: Array<'IDEA' | 'DRAFT'>;
   targetLabels: {

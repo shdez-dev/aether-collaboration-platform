@@ -9,6 +9,7 @@ import { notificationService } from '../services/NotificationService';
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
 const createTeamSchema = z.object({
+  workspaceId: z.string().uuid(),
   name:        z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
   color:       z.string().max(50).optional(),
@@ -43,6 +44,7 @@ function fmtTeam(row: any) {
     color:       row.color,
     icon:        row.icon,
     leadId:      row.lead_id,
+    workspaceId: row.workspace_id,
     createdBy:   row.created_by,
     createdAt:   new Date(row.created_at).toISOString(),
     updatedAt:   new Date(row.updated_at).toISOString(),
@@ -80,6 +82,7 @@ class TeamController {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
+      const workspaceId = typeof req.query.workspaceId === 'string' ? req.query.workspaceId : null;
 
       const result = await pool.query(
         `SELECT t.*,
@@ -93,11 +96,12 @@ class TeamController {
          FROM teams t
          LEFT JOIN team_members tm ON tm.team_id = t.id
          LEFT JOIN users u ON u.id = t.lead_id
-         WHERE t.created_by = $1
-            OR EXISTS (SELECT 1 FROM team_members WHERE team_id = t.id AND user_id = $1)
+         WHERE (t.created_by = $1
+            OR EXISTS (SELECT 1 FROM team_members WHERE team_id = t.id AND user_id = $1))
+           AND ($2::uuid IS NULL OR t.workspace_id = $2::uuid)
          GROUP BY t.id, u.name, u.avatar
          ORDER BY t.updated_at DESC`,
-        [userId]
+        [userId, workspaceId]
       );
 
       res.json({ success: true, data: { teams: result.rows.map(fmtTeam) } });
@@ -116,13 +120,20 @@ class TeamController {
       const body = createTeamSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: body.error.issues[0].message } });
 
-      const { name, description, color, icon } = body.data;
+      const { workspaceId, name, description, color, icon } = body.data;
+      const membership = await pool.query(
+        `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+        [workspaceId, userId]
+      );
+      if (!membership.rowCount) {
+        return res.status(403).json({ success: false, error: { message: 'No puedes crear equipos en este espacio de trabajo' } });
+      }
 
       const result = await pool.query(
-        `INSERT INTO teams (name, description, color, icon, lead_id, created_by)
-         VALUES ($1, $2, $3, $4, $5, $5)
+        `INSERT INTO teams (workspace_id, name, description, color, icon, lead_id, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $6)
          RETURNING *`,
-        [name, description ?? null, color ?? '#3b82f6', icon ?? null, userId]
+        [workspaceId, name, description ?? null, color ?? '#3b82f6', icon ?? null, userId]
       );
       const team = result.rows[0];
 
@@ -140,7 +151,7 @@ class TeamController {
           type: 'team.created',
           actor: { id: userId, name: actorName },
           subject: { type: 'team', id: team.id, name: team.name },
-          context: { workspaceId: '' },
+          context: { workspaceId },
         } as any);
       } catch {}
 

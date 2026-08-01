@@ -3,9 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-// AI Builder temporalmente deshabilitado.
-// El codigo original esta en page.bak.tsx
-// Para reactivar: reemplazar este archivo con page.bak.tsx
+// AI Builder is intentionally disabled until its product flow is project-scoped.
+// Keeping the redirect explicit avoids exposing an orphaned feature entry point.
 export default function AiBuilderPage() {
   const router = useRouter();
   useEffect(() => { router.replace('/dashboard'); }, []);

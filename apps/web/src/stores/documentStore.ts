@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { socketService } from '@/services/socketService';
 import { apiService } from '@/services/apiService';
+import { getProjectDocuments } from '@/features/projects/documents/api';
 import type { Event, Document, DocumentWithDetails, DocumentPermission } from '@aether/types';
 import * as Y from 'yjs';
 
@@ -27,6 +28,7 @@ interface DocumentState {
 
   saveYjsState: (documentId: string, yjsState: Uint8Array) => Promise<void>;
   fetchDocuments: (workspaceId: string) => Promise<void>;
+  fetchProjectDocuments: (projectId: string) => Promise<void>;
   fetchDocumentById: (documentId: string) => Promise<void>;
   createDocument: (workspaceId: string, data: CreateDocumentData) => Promise<Document>;
   updateDocument: (documentId: string, data: UpdateDocumentData) => Promise<void>;
@@ -53,6 +55,7 @@ interface DocumentState {
 
 interface CreateDocumentData {
   title: string;
+  projectId?: string | null;
   templateId?: string;
   metadata?: {
     projectType?: string;
@@ -137,6 +140,16 @@ export const useDocumentStore = create<DocumentState>()(
           }
         } catch {
           set({ error: 'Error de conexión', isLoading: false });
+        }
+      },
+
+      fetchProjectDocuments: async (projectId: string) => {
+        set({ isLoading: true, error: null, documents: [] });
+        try {
+          const documents = await getProjectDocuments(projectId);
+          set({ documents, isLoading: false });
+        } catch {
+          set({ error: 'Error de conexión al cargar documentos', isLoading: false });
         }
       },
 

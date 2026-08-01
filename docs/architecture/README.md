@@ -9,6 +9,10 @@ This directory contains Architecture Decision Records (ADRs) documenting key tec
 - [ADR-003: PostgreSQL for Event Store](./ADR-003-postgres-event-store.md)
 - [ADR-004: Monorepo with Turborepo](./ADR-004-monorepo-structure.md)
 
+## Current product structure
+
+- [Project-centered structure](./project-centered-structure.md)
+
 ## Architecture Overview
 
 [Detailed architecture diagrams and explanations will be added here]

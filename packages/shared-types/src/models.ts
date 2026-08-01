@@ -343,6 +343,8 @@ export interface CommentWithReplies extends CommentWithUser {
 export interface Document {
   id: string;
   workspaceId: string;
+  /** Null only for workspace-level material such as policies and templates. */
+  projectId?: string | null;
   title: string;
   content: string; // Texto plano extraído para búsqueda
   yjsState?: Uint8Array; // Estado binario serializado de Yjs

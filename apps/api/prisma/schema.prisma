@@ -202,6 +202,7 @@ model Workspace {
   githubConnection WorkspaceGithubConnection?
   invitations      WorkspaceInvitation[]
   calendarEvents   CalendarEvent[]
+  teams            Team[]
 
   @@map("workspaces")
 }
@@ -483,6 +484,7 @@ model Notification {
 model Document {
   id          String   @id @default(uuid()) @db.Uuid
   workspaceId String   @map("workspace_id") @db.Uuid
+  projectId   String?  @map("project_id") @db.Uuid
   title       String   @db.VarChar(500)
   content     String   @default("")
   yjsState    Bytes?   @map("yjs_state")
@@ -491,11 +493,13 @@ model Document {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
   permissions DocumentPermission[]
   comments    DocumentComment[]
   versions    DocumentVersion[]
 
   @@index([workspaceId])
+  @@index([projectId])
   @@map("documents")
 }
 
@@ -631,6 +635,7 @@ model Standup {
 
 model Team {
   id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
   name        String   @db.VarChar(255)
   description String?
   color       String?  @default("#3b82f6") @db.VarChar(50)
@@ -642,6 +647,7 @@ model Team {
 
   lead           User?            @relation("TeamLead", fields: [leadId], references: [id], onDelete: SetNull)
   creator        User             @relation("TeamCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members        TeamMember[]
   projects       ProjectTeam[]
   invitations    TeamInvitation[]
@@ -649,6 +655,7 @@ model Team {
 
   @@index([createdBy])
   @@index([leadId])
+  @@index([workspaceId])
   @@map("teams")
 }
 
@@ -720,6 +727,7 @@ model Project {
   milestones     ProjectMilestone[]
   teams          ProjectTeam[]
   directMembers  ProjectMember[]
+  documents      Document[]
 
   @@index([workspaceId])
   @@index([ownerId])
