@@ -31,6 +31,13 @@ const PIPELINE: { key: ProjectMaturityStage; label: string; tone: string; soft: 
   { key: 'COMPLETED', label: 'Completado', tone: '#76A878', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Trabajo cerrado y entregado.' },
 ];
 
+const OPERATING_PIPELINE: { key: string; label: string; tone: string; soft: string; border: string; hint: string; stages: ProjectMaturityStage[] }[] = [
+  { key: 'intake', label: 'Entrada', tone: '#7B8FA8', soft: 'rgba(123,143,168,0.12)', border: 'rgba(123,143,168,0.26)', hint: 'Ideas y borradores que aún requieren definición.', stages: ['IDEA', 'DRAFT'] },
+  { key: 'preparation', label: 'Preparación', tone: '#C4A86E', soft: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.26)', hint: 'Proyectos listos para ordenar equipo, plan y ejecución.', stages: ['FORMALIZED', 'PLANNED'] },
+  { key: 'execution', label: 'En ejecución', tone: '#F4905A', soft: 'rgba(242,87,30,0.12)', border: 'rgba(242,87,30,0.26)', hint: 'Trabajo activo que necesita seguimiento y desbloqueos.', stages: ['ACTIVE'] },
+  { key: 'closure', label: 'Cierre', tone: '#76A878', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Entregas completadas y pendientes de cierre.', stages: ['COMPLETED'] },
+];
+
 function getMaturityMeta(stage: ProjectMaturityStage) {
   return PIPELINE.find((item) => item.key === stage) ?? PIPELINE[0];
 }
@@ -39,16 +46,6 @@ function getCoverageTone(coverage = 0) {
   if (coverage >= 80) return '#76A878';
   if (coverage >= 50) return '#C4A86E';
   return '#DB8A66';
-}
-
-function getFormalizationIcon(project: Project) {
-  const ready = project.formalization?.readyToFormalize;
-  const completed = project.formalization?.completed ?? 0;
-  const required = project.formalization?.required ?? 0;
-
-  if (ready) return { icon: CheckCircle2, color: '#76A878', label: 'Formalizable' };
-  if (completed > 0 && completed < required) return { icon: Target, color: '#C4A86E', label: 'En formalización' };
-  return { icon: AlertCircle, color: '#DB8A66', label: 'Necesita base' };
 }
 
 function hasChecklistGap(project: Project, key: 'team' | 'board' | 'milestone') {
@@ -257,10 +254,8 @@ function getMethodologyColumns(experience: WorkspaceExperience, projects: Projec
 
 function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
   const maturity = getMaturityMeta(project.maturityStage ?? 'IDEA');
-  const coveragePercent = project.coverage?.coveragePercent ?? 0;
-  const coverageTone = getCoverageTone(coveragePercent);
-  const formalization = getFormalizationIcon(project);
-  const Icon = formalization.icon;
+  const health = getPortfolioHealth(project);
+  const milestone = getNextMilestone(project);
 
   return (
     <button
@@ -270,10 +265,10 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
         borderRadius: '10px',
         border: `1px solid ${maturity.border}`,
         background: 'rgba(255,255,255,0.02)',
-        padding: '14px',
+        padding: '12px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
+        gap: '9px',
         cursor: 'pointer',
         textAlign: 'left',
         transition: 'transform 0.14s, border-color 0.14s, background 0.14s',
@@ -300,8 +295,8 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
           <div style={{ fontFamily: SORA, fontSize: '13.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {project.name}
           </div>
-          <div style={{ marginTop: '3px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {project.problemStatement?.trim() || project.description?.trim() || 'Aún no declara con claridad el problema u oportunidad.'}
+          <div style={{ marginTop: '3px', fontSize: '11px', color: project.ownerName ? '#827A6D' : '#DB8A66', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {project.ownerName ? `Responsable: ${project.ownerName}` : 'Sin responsable visible'}
           </div>
         </div>
       </div>
@@ -310,34 +305,21 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
         <span style={{ fontSize: '10.5px', fontWeight: 700, color: maturity.tone, background: maturity.soft, border: `1px solid ${maturity.border}`, borderRadius: '999px', padding: '4px 8px' }}>
           {maturity.label}
         </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', fontWeight: 700, color: formalization.color }}>
-          <Icon style={{ width: '12px', height: '12px' }} />
-          {formalization.label}
+        <span style={{ fontSize: '10.5px', fontWeight: 700, color: health.tone, background: health.soft, borderRadius: '999px', padding: '4px 8px' }}>
+          {health.label}
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px' }}>
-        <div style={{ borderRadius: '8px', background: 'rgba(255,255,255,0.03)', padding: '9px 10px' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>Formalización</div>
-          <div style={{ marginTop: '5px', fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#E8E1D2' }}>
-            {project.formalization?.completed ?? 0}
-            <span style={{ fontSize: '12px', color: '#827A6D' }}>/{project.formalization?.required ?? 0}</span>
-          </div>
-        </div>
-        <div style={{ borderRadius: '8px', background: 'rgba(255,255,255,0.03)', padding: '9px 10px' }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>Cobertura</div>
-          <div style={{ marginTop: '5px', fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: coverageTone }}>
-            {coveragePercent}%
-          </div>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: milestone.tone, fontSize: '11px', minWidth: 0 }}>
+        <CalendarDays style={{ width: '13px', height: '13px', flexShrink: 0 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{milestone.label}</span>
+        {milestone.date && <span style={{ color: '#827A6D', flexShrink: 0 }}>{formatPortfolioDate(milestone.date)}</span>}
       </div>
 
-      {project.nextStep && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', color: '#C8BFAE', fontSize: '12px', lineHeight: 1.45 }}>
-          <ChevronRight style={{ width: '13px', height: '13px', color: '#827A6D', marginTop: '2px', flexShrink: 0 }} />
-          <span>{project.nextStep}</span>
-        </div>
-      )}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', color: '#827A6D', fontSize: '11px', lineHeight: 1.4 }}>
+        <ChevronRight style={{ width: '12px', height: '12px', marginTop: '1px', flexShrink: 0 }} />
+        <span>{getProjectPortfolioReason(project)}</span>
+      </div>
     </button>
   );
 }
@@ -524,16 +506,24 @@ export default function ProjectsPage() {
     });
   }, [projects, search, showOnlyNeedsFormalization, focusMode]);
 
-  const pipeline = useMemo(() => {
-    const grouped = new Map<ProjectMaturityStage, Project[]>();
-    for (const stage of PIPELINE) grouped.set(stage.key, []);
+  const operatingPipeline = useMemo(() => {
+    const grouped = new Map<string, Project[]>();
+    for (const stage of OPERATING_PIPELINE) grouped.set(stage.key, []);
     for (const project of filteredProjects) {
-      const stage = project.maturityStage ?? 'IDEA';
-      if (!grouped.has(stage)) grouped.set(stage, []);
-      grouped.get(stage)!.push(project);
+      const lane = isDoneProject(project)
+        ? OPERATING_PIPELINE.find((stage) => stage.key === 'closure')
+        : isActiveProject(project)
+        ? OPERATING_PIPELINE.find((stage) => stage.key === 'execution')
+        : OPERATING_PIPELINE.find((stage) => stage.stages.includes(project.maturityStage ?? 'IDEA'));
+      if (lane) grouped.get(lane.key)!.push(project);
     }
-    return PIPELINE.map((stage) => ({ ...stage, projects: grouped.get(stage.key) ?? [] }));
+    return OPERATING_PIPELINE.map((stage) => ({ ...stage, projects: grouped.get(stage.key) ?? [] }));
   }, [filteredProjects]);
+
+  const pausedProjects = useMemo(
+    () => filteredProjects.filter((project) => project.status === 'ON_HOLD' || project.maturityStage === 'ON_HOLD'),
+    [filteredProjects]
+  );
 
   const intakeProjects = useMemo(
     () => filteredProjects
@@ -1333,8 +1323,21 @@ export default function ProjectsPage() {
           </>
         ) : isInstitutionalExperience ? (viewMode === 'pipeline' ? (
           <>
+            {pausedProjects.length > 0 && (
+              <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: '14px', padding: '11px 14px', borderRadius: '10px', border: '1px solid rgba(219,138,102,0.28)', background: 'rgba(219,138,102,0.08)' }}>
+                <div>
+                  <div style={{ color: '#DB8A66', fontFamily: SORA, fontSize: '12px', fontWeight: 700 }}>{pausedProjects.length} proyecto(s) en pausa</div>
+                  <div style={{ marginTop: '3px', color: '#C8BFAE', fontSize: '11.5px' }}>No forman parte del flujo activo y requieren una decisión para continuar, cerrar o replanificar.</div>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                  {pausedProjects.slice(0, 3).map((project) => (
+                    <button key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)} style={{ border: '1px solid rgba(219,138,102,0.3)', borderRadius: '999px', padding: '5px 9px', background: 'rgba(255,255,255,0.04)', color: '#E8E1D2', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>{project.name}</button>
+                  ))}
+                </div>
+              </section>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: PIPELINE_GRID, gap: '14px', alignItems: 'start' }}>
-              {pipeline.map((stage) => (
+              {operatingPipeline.map((stage) => (
                 <section key={stage.key} style={{ minWidth: 0 }}>
                   <div style={{ marginBottom: '10px', padding: '12px 12px 10px', borderRadius: '10px', border: `1px solid ${stage.border}`, background: stage.soft }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
