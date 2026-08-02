@@ -10,10 +10,9 @@ SET workspace_id = COALESCE(
 )
 WHERE t.workspace_id IS NULL;
 
--- Teams without an inferable workspace cannot safely be kept global.
-DELETE FROM teams WHERE workspace_id IS NULL;
-
-ALTER TABLE teams ALTER COLUMN workspace_id SET NOT NULL;
+-- Keep unresolved legacy teams intact. New team creation requires a workspace;
+-- administrators can classify these legacy records without losing members or
+-- invitation history.
 ALTER TABLE teams ADD CONSTRAINT teams_workspace_id_fkey
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS teams_workspace_id_idx ON teams(workspace_id);

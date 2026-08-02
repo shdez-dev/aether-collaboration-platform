@@ -7,8 +7,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@8.15.9
+# Activate the repository's package manager without using npm.
+RUN corepack enable && corepack prepare pnpm@8.12.0 --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -22,8 +22,8 @@ RUN pnpm install --frozen-lockfile --prod=false
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@8.15.9
+# Activate the repository's package manager without using npm.
+RUN corepack enable && corepack prepare pnpm@8.12.0 --activate
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -42,8 +42,8 @@ RUN pnpm --filter @aether/api build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@8.15.9
+# Activate the repository's package manager without using npm.
+RUN corepack enable && corepack prepare pnpm@8.12.0 --activate
 
 # Set environment
 ENV NODE_ENV=production
@@ -57,12 +57,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
+# Prisma CLI is needed at startup to apply the committed schema migrations.
+RUN pnpm install --frozen-lockfile --prod=false
 
 # Copy built application
 COPY --from=builder --chown=aether:nodejs /app/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=aether:nodejs /app/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder --chown=aether:nodejs /app/apps/api/prisma ./apps/api/prisma
 
 # Create uploads directory
 RUN mkdir -p /app/apps/api/public/uploads/avatars && \
@@ -78,5 +79,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start application
-CMD ["node", "apps/api/dist/index.js"]
+# Apply Prisma migrations before starting the API. Railway's Docker runtime uses
+# this command directly, so package.json's start script is intentionally not
+# relied on here.
+CMD ["sh", "-c", "pnpm --filter @aether/api db:migrate:deploy && node apps/api/dist/index.js"]

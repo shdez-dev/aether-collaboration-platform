@@ -7,8 +7,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@8
+# Activate the repository's package manager without using npm.
+RUN corepack enable && corepack prepare pnpm@8.12.0 --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -22,8 +22,8 @@ RUN pnpm install --frozen-lockfile
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@8
+# Activate the repository's package manager without using npm.
+RUN corepack enable && corepack prepare pnpm@8.12.0 --activate
 
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
@@ -53,8 +53,8 @@ RUN pnpm --filter @aether/web build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@8
+# Activate the repository's package manager without using npm.
+RUN corepack enable && corepack prepare pnpm@8.12.0 --activate
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

@@ -26,7 +26,7 @@ export interface TeamMember {
 
 export interface Team {
   id: string;
-  workspaceId: string;
+  workspaceId?: string | null;
   name: string;
   description?: string | null;
   color?: string | null;
