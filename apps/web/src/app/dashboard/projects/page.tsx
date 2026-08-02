@@ -1308,14 +1308,25 @@ export default function ProjectsPage() {
                 </div>
               </section>
 
-              <details style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '0 16px' }}>
-                <summary style={{ cursor: 'pointer', padding: '14px 0', color: '#E8E1D2', fontFamily: SORA, fontSize: '13px', fontWeight: 700 }}>Contexto del estándar</summary>
-                <div style={{ padding: '0 0 14px', color: '#827A6D', fontSize: '12px', lineHeight: 1.5 }}>
-                  {currentProjectStandard
-                    ? `${currentProjectStandard.name} v${currentProjectStandard.version} define los requisitos de formalización y planificación del workspace.`
-                    : 'Este workspace aún no tiene un estándar de proyectos configurado.'}
+              <section style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
+                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Acciones rápidas</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                  {[
+                    { label: 'Asignar equipo', hint: `${metrics.withoutTeam} proyecto(s) sin equipo`, focus: 'no-team' as const, tone: '#DB8A66' },
+                    { label: 'Crear tableros', hint: `${metrics.withoutBoard} proyecto(s) sin tablero`, focus: 'no-board' as const, tone: '#C4A86E' },
+                    { label: 'Definir hitos', hint: `${metrics.withoutMilestone} proyecto(s) sin hito`, focus: 'no-milestone' as const, tone: '#7B8FA8' },
+                  ].map((action) => (
+                    <button
+                      key={action.focus}
+                      onClick={() => { setFocusMode(action.focus); setShowOnlyNeedsFormalization(false); }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '9px 10px', borderRadius: '8px', border: `1px solid ${action.tone}33`, background: `${action.tone}0F`, color: action.tone, cursor: 'pointer', textAlign: 'left' }}
+                    >
+                      <span style={{ fontSize: '12px', fontWeight: 700 }}>{action.label}</span>
+                      <span style={{ color: '#C8BFAE', fontSize: '11px' }}>{action.hint}</span>
+                    </button>
+                  ))}
                 </div>
-              </details>
+              </section>
             </div>
 
             <PortfolioList projects={portfolioProjects} onProjectClick={(project) => router.push(`/dashboard/projects/${project.id}`)} />
