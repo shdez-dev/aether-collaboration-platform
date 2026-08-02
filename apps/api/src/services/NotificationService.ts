@@ -379,25 +379,13 @@ export class NotificationService {
     dueDate: Date;
     boardId: string;
   }): Promise<Notification | null> {
-    // Evitar duplicados recientes (últimas 24 horas — el job corre cada hora)
-    const isDuplicate = await notificationRepository.existsRecent({
-      userId: data.userId,
-      type: 'CARD_DUE_SOON',
-      cardId: data.cardId,
-      windowMinutes: 1440,
-    });
-
-    if (isDuplicate) {
-      return null;
-    }
-
     const daysUntilDue = Math.ceil((data.dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-
-    const notification = await notificationRepository.create({
+    const notification = await notificationRepository.createOnce({
       userId: data.userId,
       type: 'CARD_DUE_SOON',
       title: 'Tarjeta por vencer',
       message: `La tarjeta "${data.cardTitle}" vence en ${daysUntilDue} día${daysUntilDue !== 1 ? 's' : ''}`,
+      dedupeKey: `card-due-soon:${data.cardId}:${data.dueDate.toISOString()}`,
       data: {
         cardId: data.cardId,
         cardTitle: data.cardTitle,
@@ -406,6 +394,8 @@ export class NotificationService {
         daysUntilDue,
       },
     });
+
+    if (!notification) return null;
 
     try {
       await eventStore.emit({
@@ -438,23 +428,12 @@ export class NotificationService {
     dueDate: Date;
     boardId: string;
   }): Promise<Notification | null> {
-    // Evitar duplicados recientes (últimas 24 horas — el job corre cada hora)
-    const isDuplicate = await notificationRepository.existsRecent({
-      userId: data.userId,
-      type: 'CARD_OVERDUE',
-      cardId: data.cardId,
-      windowMinutes: 1440,
-    });
-
-    if (isDuplicate) {
-      return null;
-    }
-
-    const notification = await notificationRepository.create({
+    const notification = await notificationRepository.createOnce({
       userId: data.userId,
       type: 'CARD_OVERDUE',
       title: '¡Tarjeta vencida!',
       message: `La tarjeta "${data.cardTitle}" ha vencido`,
+      dedupeKey: `card-overdue:${data.cardId}:${data.dueDate.toISOString()}`,
       data: {
         cardId: data.cardId,
         cardTitle: data.cardTitle,
@@ -462,6 +441,8 @@ export class NotificationService {
         boardId: data.boardId,
       },
     });
+
+    if (!notification) return null;
 
     try {
       await eventStore.emit({

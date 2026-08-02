@@ -33,6 +33,37 @@ export class NotificationRepository {
   }
 
   /**
+   * Atomically creates an idempotent notification. The partial unique index on
+   * (user_id, dedupe_key) is the concurrency boundary for cron workers.
+   */
+  async createOnce(data: {
+    userId: string;
+    type: string;
+    title: string;
+    message: string;
+    data: Record<string, any>;
+    dedupeKey: string;
+  }): Promise<Notification | null> {
+    const result = await query(
+      `INSERT INTO notifications (user_id, type, title, message, data, dedupe_key)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+       RETURNING
+         id,
+         user_id as "userId",
+         type,
+         title,
+         message,
+         data,
+         read,
+         created_at as "createdAt"`,
+      [data.userId, data.type, data.title, data.message, JSON.stringify(data.data), data.dedupeKey]
+    );
+
+    return result.rows[0] ?? null;
+  }
+
+  /**
    * Obtener todas las notificaciones de un usuario
    */
   async findByUserId(userId: string, limit: number = 50): Promise<Notification[]> {
