@@ -85,4 +85,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Apply migrations without invoking Corepack at runtime. Railway's Docker
 # runtime uses this command directly, so package.json's start script is not
 # relied on here.
-CMD ["sh", "-c", "./apps/api/node_modules/.bin/prisma migrate deploy --schema ./apps/api/prisma/schema.prisma && node apps/api/dist/index.js"]
+CMD ["sh", "-c", "node apps/api/prisma/ensure-baseline.js && ./apps/api/node_modules/.bin/prisma migrate deploy --schema ./apps/api/prisma/schema.prisma && node apps/api/dist/index.js"]
