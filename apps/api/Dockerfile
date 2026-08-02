@@ -42,6 +42,9 @@ RUN pnpm --filter @aether/api build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
+# Prisma needs OpenSSL to select the correct Alpine engine binary.
+RUN apk add --no-cache openssl
+
 # Activate the repository's package manager without using npm.
 RUN corepack enable && corepack prepare pnpm@8.12.0 --activate
 
@@ -67,7 +70,7 @@ COPY --from=builder --chown=aether:nodejs /app/apps/api/prisma ./apps/api/prisma
 
 # Create uploads directory
 RUN mkdir -p /app/apps/api/public/uploads/avatars && \
-    chown -R aether:nodejs /app/apps/api/public
+    chown -R aether:nodejs /app
 
 # Switch to non-root user
 USER aether
@@ -79,7 +82,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Apply Prisma migrations before starting the API. Railway's Docker runtime uses
-# this command directly, so package.json's start script is intentionally not
+# Apply migrations without invoking Corepack at runtime. Railway's Docker
+# runtime uses this command directly, so package.json's start script is not
 # relied on here.
-CMD ["sh", "-c", "pnpm --filter @aether/api db:migrate:deploy && node apps/api/dist/index.js"]
+CMD ["sh", "-c", "./apps/api/node_modules/.bin/prisma migrate deploy --schema ./apps/api/prisma/schema.prisma && node apps/api/dist/index.js"]
