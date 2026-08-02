@@ -91,6 +91,7 @@ export interface Project {
   appliedStandardVersion?: number | null;
   standardAppliedAt?: string | null;
   ownerId: string;
+  ownerName?: string | null;
   createdAt: string;
   updatedAt: string;
   progressPercent?: number;

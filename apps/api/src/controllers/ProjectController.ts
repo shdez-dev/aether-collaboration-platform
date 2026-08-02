@@ -76,6 +76,7 @@ function fmtProject(row: any) {
     appliedStandardVersion: row.applied_standard_version,
     standardAppliedAt: row.standard_applied_at ? new Date(row.standard_applied_at).toISOString() : null,
     ownerId: row.owner_id,
+    ownerName: row.owner_name ?? null,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
   };
@@ -443,6 +444,7 @@ class ProjectController {
       const { wsId } = req.params;
       const result = await pool.query(
         `SELECT p.*,
+          MAX(owner.name) AS owner_name,
           COALESCE(
             ROUND(100.0 * SUM(CASE WHEN c.completed THEN 1 ELSE 0 END)
                   / NULLIF(COUNT(c.id), 0))
@@ -454,6 +456,7 @@ class ProjectController {
             ARRAY[]::jsonb[]
           ) AS boards
          FROM projects p
+         LEFT JOIN users owner ON owner.id = p.owner_id
          LEFT JOIN project_boards pb ON pb.project_id = p.id
          LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
          LEFT JOIN lists l ON l.board_id = b.id

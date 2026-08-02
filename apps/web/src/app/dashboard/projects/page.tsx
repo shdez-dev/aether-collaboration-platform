@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CheckCircle2, ChevronRight, CircleDashed, ClipboardList, Search, Target } from 'lucide-react';
+import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, CircleDashed, ClipboardList, Columns3, LayoutList, Search, Target, UserRound } from 'lucide-react';
 import { useProjectStore, type Project, type ProjectMaturityStage } from '@/stores/projectStore';
 import { useBoardStore } from '@/stores/boardStore';
 import { useTeamStore } from '@/stores/teamStore';
@@ -55,6 +55,56 @@ function hasChecklistGap(project: Project, key: 'team' | 'board' | 'milestone') 
   return project.formalization?.checklist.find((item) => item.key === key)?.done === false;
 }
 
+function getNextMilestone(project: Project) {
+  const milestones = (project.milestones ?? [])
+    .filter((milestone) => milestone.status === 'PENDING')
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const milestone = milestones[0];
+
+  if (milestone) {
+    const isOverdue = new Date(milestone.date).getTime() < Date.now();
+    return {
+      label: milestone.name,
+      date: new Date(milestone.date),
+      tone: isOverdue ? '#DB8A66' : '#C8BFAE',
+      hint: isOverdue ? 'Vencido' : 'Próximo hito',
+    };
+  }
+
+  if (project.endDate) {
+    const isOverdue = new Date(project.endDate).getTime() < Date.now();
+    return {
+      label: 'Fecha de cierre',
+      date: new Date(project.endDate),
+      tone: isOverdue ? '#DB8A66' : '#C8BFAE',
+      hint: isOverdue ? 'Vencida' : 'Fecha objetivo',
+    };
+  }
+
+  return { label: 'Sin hito definido', date: null, tone: '#DB8A66', hint: 'Requiere atención' };
+}
+
+function getPortfolioHealth(project: Project) {
+  if (project.status === 'ON_HOLD' || project.maturityStage === 'ON_HOLD') {
+    return { label: 'En pausa', tone: '#DB8A66', soft: 'rgba(219,138,102,0.12)' };
+  }
+  if (hasChecklistGap(project, 'team')) {
+    return { label: 'Bloqueado', tone: '#DB8A66', soft: 'rgba(219,138,102,0.12)' };
+  }
+  if (hasChecklistGap(project, 'board') || hasChecklistGap(project, 'milestone')) {
+    return { label: 'En riesgo', tone: '#C4A86E', soft: 'rgba(196,168,110,0.12)' };
+  }
+  if (isActiveProject(project)) {
+    return { label: 'En marcha', tone: '#F4905A', soft: 'rgba(242,87,30,0.12)' };
+  }
+  return { label: 'En seguimiento', tone: '#76A878', soft: 'rgba(118,168,120,0.12)' };
+}
+
+function formatPortfolioDate(date: Date | null) {
+  if (!date) return '—';
+  return new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short' }).format(date);
+}
+
 function getProjectPortfolioReason(project: Project) {
   const missingChecklist = project.formalization?.checklist.filter((item) => !item.done) ?? [];
   const missingCoverage = project.coverage?.fields.filter((field) => field.state === 'APPLIES_EMPTY') ?? [];
@@ -83,7 +133,7 @@ type FocusMode =
   | 'no-milestone'
   | 'low-coverage';
 
-type ViewMode = 'pipeline' | 'intake';
+type ViewMode = 'portfolio' | 'pipeline' | 'intake';
 type WorkspaceExperience = 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
 
 const EXPERIENCE_META: Record<WorkspaceExperience, { title: string; description: string; method: string; accent: string }> = {
@@ -292,6 +342,76 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
   );
 }
 
+function PortfolioList({ projects, onProjectClick }: { projects: Project[]; onProjectClick: (project: Project) => void }) {
+  if (projects.length === 0) {
+    return (
+      <div style={{ borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.12)', padding: '40px 24px', textAlign: 'center', color: '#827A6D', background: 'rgba(255,255,255,0.015)' }}>
+        No hay proyectos con los filtros actuales.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+      <div style={{ minWidth: '880px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 1.8fr) minmax(120px, .8fr) minmax(120px, .8fr) minmax(160px, 1fr) minmax(180px, 1.2fr)', gap: '16px', padding: '11px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: '#615846', fontFamily: SORA, fontSize: '10px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+          <span>Proyecto</span>
+          <span>Responsable</span>
+          <span>Salud</span>
+          <span>Próximo hito</span>
+          <span>Siguiente movimiento</span>
+        </div>
+
+        {projects.map((project) => {
+          const maturity = getMaturityMeta(project.maturityStage ?? 'IDEA');
+          const health = getPortfolioHealth(project);
+          const milestone = getNextMilestone(project);
+
+          return (
+            <button
+              key={project.id}
+              onClick={() => onProjectClick(project)}
+              style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(230px, 1.8fr) minmax(120px, .8fr) minmax(120px, .8fr) minmax(160px, 1fr) minmax(180px, 1.2fr)', gap: '16px', alignItems: 'center', padding: '14px 16px', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.055)', background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
+              onMouseEnter={(event) => { event.currentTarget.style.background = 'rgba(255,255,255,0.035)'; }}
+              onMouseLeave={(event) => { event.currentTarget.style.background = 'transparent'; }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                <div style={{ width: '32px', height: '32px', flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: '8px', background: project.color ? `${project.color}1E` : maturity.soft, border: `1px solid ${project.color ? `${project.color}44` : maturity.border}` }}>
+                  <WorkspaceIcon icon={project.icon} size={15} color={project.color ?? maturity.tone} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E8E1D2', fontFamily: SORA, fontSize: '13px', fontWeight: 700 }}>{project.name}</div>
+                  <div style={{ marginTop: '4px' }}><span style={{ color: maturity.tone, background: maturity.soft, borderRadius: '999px', padding: '3px 7px', fontSize: '10.5px', fontWeight: 700 }}>{maturity.label}</span></div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, color: project.ownerName ? '#C8BFAE' : '#DB8A66', fontSize: '12px' }}>
+                <UserRound style={{ width: '13px', height: '13px', flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.ownerName || 'Sin responsable'}</span>
+              </div>
+
+              <span style={{ width: 'fit-content', color: health.tone, background: health.soft, borderRadius: '999px', padding: '5px 8px', fontSize: '11px', fontWeight: 700 }}>{health.label}</span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0, color: milestone.tone }}>
+                <CalendarDays style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', fontWeight: 600 }}>{milestone.label}</div>
+                  <div style={{ marginTop: '2px', color: '#827A6D', fontSize: '10.5px' }}>{milestone.hint}{milestone.date ? ` · ${formatPortfolioDate(milestone.date)}` : ''}</div>
+                </div>
+              </div>
+
+              <div style={{ minWidth: 0, color: '#C8BFAE', fontSize: '12px', lineHeight: 1.4 }}>
+                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getProjectPortfolioReason(project)}</div>
+                {project.nextStep && <div style={{ marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#827A6D', fontSize: '11px' }}>{project.nextStep}</div>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MethodologyColumn({
   column,
   onProjectClick,
@@ -339,7 +459,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState('');
   const [showOnlyNeedsFormalization, setShowOnlyNeedsFormalization] = useState(false);
   const [focusMode, setFocusMode] = useState<FocusMode>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('pipeline');
+  const [viewMode, setViewMode] = useState<ViewMode>('portfolio');
   const [showCreate, setShowCreate] = useState(false);
   const [busyActionByProject, setBusyActionByProject] = useState<Record<string, string | null>>({});
   const [teamPickerProjectId, setTeamPickerProjectId] = useState<string | null>(null);
@@ -445,6 +565,35 @@ export default function ProjectsPage() {
       : 0;
     return { total, ready, blocked, averageCoverage, withoutTeam, withoutBoard, withoutMilestone, mentorNeeded };
   }, [projects]);
+
+  const portfolioMetrics = useMemo(() => {
+    const active = projects.filter((project) => isActiveProject(project)).length;
+    const blocked = projects.filter((project) => getPortfolioHealth(project).label === 'Bloqueado' || getPortfolioHealth(project).label === 'En pausa').length;
+    const atRisk = projects.filter((project) => getPortfolioHealth(project).label === 'En riesgo').length;
+    const upcomingOrOverdue = projects.filter((project) => {
+      const milestone = getNextMilestone(project);
+      if (!milestone.date) return false;
+      const days = (milestone.date.getTime() - Date.now()) / 86_400_000;
+      return days <= 7;
+    }).length;
+    return { active, blocked, atRisk, upcomingOrOverdue };
+  }, [projects]);
+
+  const portfolioProjects = useMemo(() => {
+    const priority: Record<string, number> = { Bloqueado: 0, 'En pausa': 1, 'En riesgo': 2, 'En marcha': 3, 'En seguimiento': 4 };
+    return [...filteredProjects].sort((a, b) => {
+      const healthDifference = priority[getPortfolioHealth(a).label] - priority[getPortfolioHealth(b).label];
+      if (healthDifference !== 0) return healthDifference;
+      const aDate = getNextMilestone(a).date?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bDate = getNextMilestone(b).date?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return aDate - bDate;
+    });
+  }, [filteredProjects]);
+
+  const portfolioAttention = useMemo(
+    () => portfolioProjects.filter((project) => ['Bloqueado', 'En pausa', 'En riesgo'].includes(getPortfolioHealth(project).label)).slice(0, 3),
+    [portfolioProjects]
+  );
 
   const reporting = useMemo(() => {
     const stageRows = PIPELINE.map((stage) => {
@@ -750,12 +899,16 @@ export default function ProjectsPage() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', marginBottom: '22px' }}>
           <div>
             <h1 style={{ margin: 0, fontFamily: SORA, fontSize: '26px', fontWeight: 700, color: '#E8E1D2' }}>
-              {isInstitutionalExperience
+              {viewMode === 'portfolio'
+                ? 'Cartera de proyectos'
+                : isInstitutionalExperience
                 ? (viewMode === 'pipeline' ? EXPERIENCE_META.institutional.title : 'Bandeja de intake')
                 : experienceMeta.title}
             </h1>
             <p style={{ margin: '7px 0 0', fontSize: '13px', color: '#827A6D', maxWidth: '760px', lineHeight: 1.55 }}>
-              {isInstitutionalExperience
+              {viewMode === 'portfolio'
+                ? 'Prioriza decisiones, bloqueos e hitos sin perder el contexto de cada proyecto.'
+                : isInstitutionalExperience
                 ? (viewMode === 'pipeline'
                   ? (workspace?.name ? `${workspace.name} puede usar este espacio para ver cómo cada iniciativa pasa de idea a operación.` : EXPERIENCE_META.institutional.description)
                   : 'Separa las iniciativas que todavía están entrando para formalizarlas antes de empujarlas a planificación.')
@@ -764,33 +917,32 @@ export default function ProjectsPage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {isInstitutionalExperience ? (
+            {(
               <div style={{ display: 'inline-flex', padding: '4px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 {([
-                  { key: 'pipeline', label: 'Pipeline' },
-                  { key: 'intake', label: 'Intake' },
-                ] as const).map((option) => {
+                  { key: 'portfolio', label: 'Cartera', icon: LayoutList },
+                  { key: 'pipeline', label: 'Pipeline', icon: Columns3 },
+                  { key: 'intake', label: 'Intake', icon: CircleDashed },
+                ] as const).filter((option) => isInstitutionalExperience || option.key !== 'intake').map((option) => {
                   const active = viewMode === option.key;
+                  const Icon = option.icon;
                   return (
                     <button
                       key={option.key}
                       onClick={() => setViewMode(option.key)}
                       style={{
-                        height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none',
+                        height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px',
                         background: active ? 'rgba(242,87,30,0.14)' : 'transparent',
                         color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
                         fontSize: '12px', fontWeight: 700, fontFamily: SORA,
                       }}
                     >
+                      {Icon && <Icon style={{ width: '13px', height: '13px' }} />}
                       {option.label}
                     </button>
                   );
                 })}
               </div>
-            ) : (
-              <span style={{ height: '34px', display: 'inline-flex', alignItems: 'center', padding: '0 12px', borderRadius: '999px', border: `1px solid ${experienceMeta.accent}44`, background: `${experienceMeta.accent}14`, color: experienceMeta.accent, fontFamily: SORA, fontSize: '12px', fontWeight: 700 }}>
-                {experienceMeta.method}
-              </span>
             )}
 
             <button
@@ -809,7 +961,14 @@ export default function ProjectsPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: KPI_GRID, gap: '12px', marginBottom: '18px' }}>
-          {(isInstitutionalExperience
+          {(viewMode === 'portfolio'
+            ? [
+                { label: 'En ejecución', value: portfolioMetrics.active, tone: '#F4905A', icon: Target },
+                { label: 'Bloqueados o en pausa', value: portfolioMetrics.blocked, tone: '#DB8A66', icon: AlertCircle },
+                { label: 'En riesgo', value: portfolioMetrics.atRisk, tone: '#C4A86E', icon: AlertCircle },
+                { label: 'Hitos en 7 días', value: portfolioMetrics.upcomingOrOverdue, tone: '#7B8FA8', icon: CalendarDays },
+              ]
+            : isInstitutionalExperience
             ? (viewMode === 'pipeline'
             ? [
                 { label: 'Proyectos', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
@@ -975,7 +1134,7 @@ export default function ProjectsPage() {
           </div>
         )}
 
-        {!isInstitutionalExperience && (
+        {!isInstitutionalExperience && viewMode === 'pipeline' && (
           <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
             <div style={{ borderRadius: '10px', border: `1px solid ${experienceMeta.accent}33`, background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
@@ -1017,7 +1176,7 @@ export default function ProjectsPage() {
           </div>
         )}
 
-        {isInstitutionalExperience && viewMode === 'intake' && (
+        {viewMode === 'intake' && (
           <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px' }}>
             <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
               <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Criterio de admisión</div>
@@ -1073,7 +1232,7 @@ export default function ProjectsPage() {
             />
           </label>
 
-          {isInstitutionalExperience && viewMode === 'pipeline' && (
+          {viewMode !== 'intake' && (
             <>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '38px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', flex: '0 1 260px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#615846', textTransform: 'uppercase', fontFamily: SORA }}>
@@ -1120,6 +1279,47 @@ export default function ProjectsPage() {
             <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E', animation: 'spin 0.7s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
+        ) : viewMode === 'portfolio' ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
+              <section style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Atención prioritaria</div>
+                    <div style={{ marginTop: '4px', color: '#827A6D', fontSize: '12px' }}>Los proyectos que más probablemente necesitan una decisión o desbloqueo.</div>
+                  </div>
+                  <span style={{ color: '#C8BFAE', fontSize: '11px', fontWeight: 700 }}>{portfolioAttention.length} por revisar</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                  {portfolioAttention.length === 0 ? (
+                    <div style={{ color: '#76A878', fontSize: '12px' }}>No hay bloqueos estructurales visibles.</div>
+                  ) : portfolioAttention.map((project) => {
+                    const health = getPortfolioHealth(project);
+                    return (
+                      <button key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '8px 0', background: 'transparent', border: 'none', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: '#E8E1D2', fontSize: '12.5px', fontWeight: 700 }}>{project.name}</div>
+                          <div style={{ marginTop: '3px', color: '#827A6D', fontSize: '11.5px' }}>{getProjectPortfolioReason(project)}</div>
+                        </div>
+                        <span style={{ color: health.tone, background: health.soft, borderRadius: '999px', padding: '4px 8px', fontSize: '10.5px', fontWeight: 700, flexShrink: 0 }}>{health.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <details style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '0 16px' }}>
+                <summary style={{ cursor: 'pointer', padding: '14px 0', color: '#E8E1D2', fontFamily: SORA, fontSize: '13px', fontWeight: 700 }}>Contexto del estándar</summary>
+                <div style={{ padding: '0 0 14px', color: '#827A6D', fontSize: '12px', lineHeight: 1.5 }}>
+                  {currentProjectStandard
+                    ? `${currentProjectStandard.name} v${currentProjectStandard.version} define los requisitos de formalización y planificación del workspace.`
+                    : 'Este workspace aún no tiene un estándar de proyectos configurado.'}
+                </div>
+              </details>
+            </div>
+
+            <PortfolioList projects={portfolioProjects} onProjectClick={(project) => router.push(`/dashboard/projects/${project.id}`)} />
+          </>
         ) : isInstitutionalExperience ? (viewMode === 'pipeline' ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: PIPELINE_GRID, gap: '14px', alignItems: 'start' }}>
