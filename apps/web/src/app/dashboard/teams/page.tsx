@@ -39,14 +39,14 @@ function TeamCard({ team, onClick }: { team: Team; onClick: () => void }) {
   const extra  = (team.memberCount ?? sample.length) - shown.length;
 
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
-      style={{ flex: '0 0 244px', maxWidth: '100%', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', padding: '18px', cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s' }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'; }}
+      style={{ minWidth: 0, width: '100%', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', padding: '16px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.15s, background 0.15s, transform 0.15s', fontFamily: MANROPE }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${color}88`; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.025)'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
     >
-      {/* Icon + name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
         <span style={{ width: '40px', height: '40px', borderRadius: '50%', background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
             <circle cx="9" cy="8" r="3" stroke={color} strokeWidth="1.8"/>
@@ -54,16 +54,20 @@ function TeamCard({ team, onClick }: { team: Team; onClick: () => void }) {
             <path d="M16 6a3 3 0 0 1 0 6M18.5 19a5.5 5.5 0 0 0-3-4.9" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
         </span>
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontFamily: SORA, fontSize: '15px', fontWeight: 600, color: '#E8E1D2' }}>{team.name}</div>
-          <div style={{ fontSize: '12px', color: '#827A6D', marginTop: '1px' }}>
+          <div style={{ fontSize: '12px', color: '#827A6D', marginTop: '2px' }}>
             {team.memberCount ?? 0} {(team.memberCount ?? 0) === 1 ? 'miembro' : 'miembros'}
           </div>
         </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: '#827A6D', marginTop: '2px', flexShrink: 0 }}><path d="m9 18 6-6-6-6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </div>
 
-      {/* Avatar stack */}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
+      {team.description && <p style={{ margin: '12px 0 14px', color: '#9C9486', fontSize: '12.5px', lineHeight: 1.45, minHeight: '36px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{team.description}</p>}
+      {!team.description && <div style={{ height: '14px' }} />}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
         {shown.map((m, i) => {
           const c = memberColor(m.id);
           return (
@@ -80,8 +84,10 @@ function TeamCard({ team, onClick }: { team: Team; onClick: () => void }) {
         {shown.length === 0 && (
           <span style={{ fontSize: '12px', color: '#615846' }}>Sin miembros</span>
         )}
+        </div>
+        <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color, background: tint, borderRadius: '999px', padding: '4px 8px' }}>Equipo</span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -240,6 +246,7 @@ export default function TeamsPage() {
 
   const [showCreate, setShowCreate]   = useState(false);
   const [showInvite, setShowInvite]   = useState(false);
+  const [workspaceFilter, setWorkspaceFilter] = useState<string>('ALL');
   const [pendingInvites, setPendingInvites] = useState<{ id: string; email: string; sentAt: string }[]>([]);
 
   const workspaceId = activeWorkspaceId ?? currentWorkspace?.id ?? '';
@@ -253,11 +260,11 @@ export default function TeamsPage() {
       setPendingInvites([]);
       return;
     }
-    fetchTeams(workspaceId);
-      fetchMembers(workspaceId);
-      const r = await apiService.get<{ invitations: { id: string; email: string; sentAt: string }[] }>(
-        `/api/workspaces/${workspaceId}/pending-invitations`, true
-      );
+    fetchTeams();
+    fetchMembers(workspaceId);
+    const r = await apiService.get<{ invitations: { id: string; email: string; sentAt: string }[] }>(
+      `/api/workspaces/${workspaceId}/pending-invitations`, true
+    );
     setPendingInvites(r.success && r.data ? r.data.invitations : []);
   }, [workspaceId, fetchTeams, fetchMembers]);
 
@@ -265,6 +272,17 @@ export default function TeamsPage() {
 
   const onlineMembers = currentMembers.filter((m) => (m as any).online);
   const totalMembers  = currentMembers.length;
+  const visibleWorkspaces = workspaces
+    .filter((workspace) => !workspace.archived)
+    .filter((workspace) => workspaceFilter === 'ALL' || workspace.id === workspaceFilter);
+  const knownWorkspaceIds = new Set(workspaces.map((workspace) => workspace.id));
+  const unassignedTeams = teams.filter((team) => !team.workspaceId || !knownWorkspaceIds.has(team.workspaceId));
+  const totalTeamMembers = teams.reduce((total, team) => total + (team.memberCount ?? 0), 0);
+
+  function selectWorkspaceFilter(id: string) {
+    setWorkspaceFilter(id);
+    if (id !== 'ALL') setActiveWorkspaceId(id);
+  }
 
   async function handleCreate(data: { workspaceId: string; name: string; description?: string; color: string }) {
     if (!data.workspaceId) throw new Error('Selecciona un espacio de trabajo antes de crear un equipo');
@@ -282,7 +300,7 @@ export default function TeamsPage() {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', padding: '36px 0 0' }}>
           <div>
             <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: 'clamp(1.7rem,3vw,2.2rem)', letterSpacing: '-0.02em', color: '#F4EEE2', margin: 0 }}>Equipo</h1>
-            <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: '#9C9486', fontFamily: MANROPE }}>Las personas que hacen que las cosas pasen.</p>
+            <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: '#9C9486', fontFamily: MANROPE }}>Equipos organizados por cada espacio de trabajo.</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
@@ -295,6 +313,26 @@ export default function TeamsPage() {
               Nuevo equipo
             </button>
           </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '10px', marginTop: '26px' }}>
+          {[
+            { label: 'Espacios activos', value: visibleWorkspaces.length },
+            { label: 'Equipos', value: teams.length },
+            { label: 'Personas en equipos', value: totalTeamMembers },
+          ].map((metric) => (
+            <div key={metric.label} style={{ padding: '13px 14px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9px', background: 'rgba(255,255,255,0.025)' }}>
+              <div style={{ fontFamily: SORA, color: '#E8E1D2', fontWeight: 650, fontSize: '20px' }}>{metric.value}</div>
+              <div style={{ marginTop: '3px', color: '#827A6D', fontSize: '11.5px', fontFamily: MANROPE }}>{metric.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '20px 0 3px' }}>
+          <button type="button" onClick={() => selectWorkspaceFilter('ALL')} style={{ flexShrink: 0, padding: '7px 11px', borderRadius: '999px', border: `1px solid ${workspaceFilter === 'ALL' ? 'rgba(242,87,30,0.7)' : 'rgba(255,255,255,0.1)'}`, background: workspaceFilter === 'ALL' ? 'rgba(242,87,30,0.12)' : 'transparent', color: workspaceFilter === 'ALL' ? '#F57A4A' : '#9C9486', cursor: 'pointer', fontFamily: MANROPE, fontSize: '12.5px', fontWeight: 600 }}>Todos</button>
+          {workspaces.filter((workspace) => !workspace.archived).map((workspace) => (
+            <button key={workspace.id} type="button" onClick={() => selectWorkspaceFilter(workspace.id)} style={{ flexShrink: 0, padding: '7px 11px', borderRadius: '999px', border: `1px solid ${workspaceFilter === workspace.id ? `${workspace.color ?? '#F2571E'}99` : 'rgba(255,255,255,0.1)'}`, background: workspaceFilter === workspace.id ? `${workspace.color ?? '#F2571E'}1e` : 'transparent', color: workspaceFilter === workspace.id ? '#E8E1D2' : '#9C9486', cursor: 'pointer', fontFamily: MANROPE, fontSize: '12.5px', fontWeight: 600 }}>{workspace.name}</button>
+          ))}
         </div>
 
         {/* Online count */}
@@ -317,30 +355,48 @@ export default function TeamsPage() {
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           </div>
         ) : (
-          <>
-            <div style={{ fontFamily: SORA, fontSize: '12px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', margin: '30px 0 14px' }}>Equipos</div>
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-              {teams.map((team) => (
-                <TeamCard key={team.id} team={team} onClick={() => router.push(`/dashboard/teams/${team.id}`)} />
-              ))}
-              {/* Dashed "new team" card */}
-              <div
-                onClick={() => setShowCreate(true)}
-                style={{ flex: '0 0 244px', maxWidth: '100%', minHeight: '138px', border: '1.5px dashed rgba(255,255,255,0.14)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', color: '#8B8275', fontFamily: SORA, fontWeight: 600, fontSize: '14px', cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.28)'; (e.currentTarget as HTMLElement).style.color = '#D8D0C1'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)'; (e.currentTarget as HTMLElement).style.color = '#8B8275'; }}
-              >
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                Nuevo equipo
-              </div>
-            </div>
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginTop: '20px' }}>
+            {visibleWorkspaces.map((workspace) => {
+              const workspaceTeams = teams.filter((team) => team.workspaceId === workspace.id);
+              const isActive = workspace.id === workspaceId;
+              return (
+                <section key={workspace.id} style={{ border: `1px solid ${isActive ? `${workspace.color ?? '#F2571E'}55` : 'rgba(255,255,255,0.08)'}`, borderRadius: '11px', background: 'rgba(255,255,255,0.018)', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: workspace.color ?? '#F2571E', boxShadow: `0 0 0 4px ${workspace.color ?? '#F2571E'}22`, flexShrink: 0 }} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: '#E8E1D2', fontFamily: SORA, fontWeight: 600, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{workspace.name}</div>
+                        <div style={{ color: '#827A6D', fontSize: '12px', fontFamily: MANROPE, marginTop: '2px' }}>{workspaceTeams.length} {workspaceTeams.length === 1 ? 'equipo' : 'equipos'}</div>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => { setActiveWorkspaceId(workspace.id); setShowCreate(true); }} style={{ flexShrink: 0, padding: '6px 9px', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,0.11)', color: '#D8D0C1', fontSize: '12px', fontFamily: MANROPE, fontWeight: 600, cursor: 'pointer' }}>+ Equipo</button>
+                  </div>
+                  {workspaceTeams.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', padding: '12px' }}>
+                      {workspaceTeams.map((team) => <TeamCard key={team.id} team={team} onClick={() => router.push(`/dashboard/teams/${team.id}`)} />)}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '22px 16px', color: '#827A6D', fontFamily: MANROPE, fontSize: '13px' }}>Aún no hay equipos en este espacio.</div>
+                  )}
+                </section>
+              );
+            })}
+            {unassignedTeams.length > 0 && workspaceFilter === 'ALL' && (
+              <section style={{ border: '1px dashed rgba(255,255,255,0.13)', borderRadius: '11px', padding: '14px' }}>
+                <div style={{ color: '#9C9486', fontFamily: SORA, fontSize: '13px', marginBottom: '10px' }}>Equipos sin espacio asignado</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                  {unassignedTeams.map((team) => <TeamCard key={team.id} team={team} onClick={() => router.push(`/dashboard/teams/${team.id}`)} />)}
+                </div>
+              </section>
+            )}
+            {visibleWorkspaces.length === 0 && <div style={{ padding: '34px 0', textAlign: 'center', color: '#827A6D', fontFamily: MANROPE }}>No hay espacios de trabajo para mostrar.</div>}
+          </div>
         )}
 
         {/* ── Members section ── */}
         {currentMembers.length > 0 && (
           <>
-            <div style={{ fontFamily: SORA, fontSize: '12px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', margin: '34px 0 8px' }}>Miembros</div>
+            <div style={{ fontFamily: SORA, fontSize: '12px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', margin: '34px 0 8px' }}>Miembros del espacio activo</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {currentMembers.map((member) => {
                 const u      = member.user;
@@ -394,7 +450,7 @@ export default function TeamsPage() {
         {/* ── Pending invitations ── */}
         {pendingInvites.length > 0 && (
           <>
-            <div style={{ fontFamily: SORA, fontSize: '12px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', margin: '32px 0 8px' }}>Invitaciones pendientes</div>
+            <div style={{ fontFamily: SORA, fontSize: '12px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', margin: '32px 0 8px' }}>Invitaciones del espacio activo</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {pendingInvites.map((inv) => (
                 <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '13px 14px', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.1)' }}>
