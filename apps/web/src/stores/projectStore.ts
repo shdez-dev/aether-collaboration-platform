@@ -43,6 +43,7 @@ export interface ProjectStats {
 
 export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
 export type ProjectMaturityStage = 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+export type ProjectWorkflowStage = 'INTAKE' | 'DIAGNOSIS' | 'VALIDATION' | 'PREPARATION' | 'EXECUTION' | 'CLOSURE' | 'PAUSED' | 'DECLINED';
 export type CoverageState = 'NOT_APPLICABLE' | 'APPLIES_EMPTY' | 'APPLIES_FILLED';
 
 export interface ProjectFormalizationItem {
@@ -73,6 +74,17 @@ export interface ProjectCoverageSummary {
   coveragePercent: number;
 }
 
+export interface ProjectWorkflowHistoryItem {
+  id: string;
+  fromStage?: ProjectWorkflowStage | null;
+  toStage: ProjectWorkflowStage;
+  decision?: string | null;
+  reason?: string | null;
+  actorId?: string | null;
+  actorName?: string | null;
+  createdAt: string;
+}
+
 export interface Project {
   id: string;
   workspaceId: string;
@@ -90,6 +102,15 @@ export interface Project {
   appliedStandardId?: string | null;
   appliedStandardVersion?: number | null;
   standardAppliedAt?: string | null;
+  workflowStage: ProjectWorkflowStage;
+  intakeReceivedAt?: string | null;
+  nextReviewAt?: string | null;
+  triageOwnerId?: string | null;
+  triageOwnerName?: string | null;
+  mentorId?: string | null;
+  workflowDecision?: string | null;
+  workflowDecisionReason?: string | null;
+  pausedReason?: string | null;
   ownerId: string;
   ownerName?: string | null;
   createdAt: string;
@@ -100,6 +121,16 @@ export interface Project {
   stats?: ProjectStats;
   formalization?: ProjectFormalizationSummary;
   coverage?: ProjectCoverageSummary;
+  workflowHistory?: ProjectWorkflowHistoryItem[];
+}
+
+interface ProjectWorkflowTransitionData {
+  workflowStage: ProjectWorkflowStage;
+  decision?: 'ACCEPTED' | 'NEEDS_INFO' | 'PAUSED' | 'DECLINED' | 'REACTIVATED' | 'COMPLETED';
+  reason?: string | null;
+  nextReviewAt?: string | null;
+  triageOwnerId?: string | null;
+  mentorId?: string | null;
 }
 
 interface CreateProjectData {
@@ -158,6 +189,7 @@ interface ProjectState {
   fetchStats: (id: string) => Promise<void>;
   createProject: (data: CreateProjectData) => Promise<Project>;
   updateProject: (id: string, data: UpdateProjectData) => Promise<void>;
+  transitionWorkflow: (id: string, data: ProjectWorkflowTransitionData) => Promise<Project>;
   adoptCurrentStandard: (id: string) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
 
@@ -275,6 +307,19 @@ export const useProjectStore = create<ProjectState>()(
           projects: state.projects.map((p) => (p.id === id ? updated : p)),
           currentProject: state.currentProject?.id === id ? updated : state.currentProject,
         }));
+      },
+
+      transitionWorkflow: async (id: string, data: ProjectWorkflowTransitionData) => {
+        const response = await apiService.post<{ project: Project }>(`/api/projects/${id}/workflow`, data, true);
+        if (!response.success || !response.data) {
+          throw new Error(response.error?.message || 'Error al mover la iniciativa');
+        }
+        const project = response.data.project;
+        set((state) => ({
+          projects: state.projects.map((item) => item.id === id ? { ...item, ...project } : item),
+          currentProject: state.currentProject?.id === id ? project : state.currentProject,
+        }));
+        return project;
       },
 
       adoptCurrentStandard: async (id: string) => {

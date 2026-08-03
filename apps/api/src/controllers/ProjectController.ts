@@ -36,6 +36,31 @@ const updateProjectSchema = z.object({
   endDate: z.string().optional().nullable(),
 });
 
+const workflowStageSchema = z.enum([
+  'INTAKE', 'DIAGNOSIS', 'VALIDATION', 'PREPARATION',
+  'EXECUTION', 'CLOSURE', 'PAUSED', 'DECLINED',
+]);
+
+const transitionWorkflowSchema = z.object({
+  workflowStage: workflowStageSchema,
+  decision: z.enum(['ACCEPTED', 'NEEDS_INFO', 'PAUSED', 'DECLINED', 'REACTIVATED', 'COMPLETED']).optional(),
+  reason: z.string().max(2000).optional().nullable(),
+  nextReviewAt: z.string().datetime().optional().nullable(),
+  triageOwnerId: z.string().uuid().optional().nullable(),
+  mentorId: z.string().uuid().optional().nullable(),
+});
+
+const workflowProjection: Record<string, { status: string; maturityStage: string }> = {
+  INTAKE: { status: 'PLANNING', maturityStage: 'IDEA' },
+  DIAGNOSIS: { status: 'PLANNING', maturityStage: 'DRAFT' },
+  VALIDATION: { status: 'PLANNING', maturityStage: 'FORMALIZED' },
+  PREPARATION: { status: 'PLANNING', maturityStage: 'PLANNED' },
+  EXECUTION: { status: 'ACTIVE', maturityStage: 'ACTIVE' },
+  CLOSURE: { status: 'COMPLETED', maturityStage: 'COMPLETED' },
+  PAUSED: { status: 'ON_HOLD', maturityStage: 'ON_HOLD' },
+  DECLINED: { status: 'ARCHIVED', maturityStage: 'ARCHIVED' },
+};
+
 const addBoardSchema = z.object({
   boardId: z.string().uuid(),
 });
@@ -75,6 +100,15 @@ function fmtProject(row: any) {
     appliedStandardId: row.applied_standard_id,
     appliedStandardVersion: row.applied_standard_version,
     standardAppliedAt: row.standard_applied_at ? new Date(row.standard_applied_at).toISOString() : null,
+    workflowStage: row.workflow_stage ?? 'INTAKE',
+    intakeReceivedAt: row.intake_received_at ? new Date(row.intake_received_at).toISOString() : null,
+    nextReviewAt: row.next_review_at ? new Date(row.next_review_at).toISOString() : null,
+    triageOwnerId: row.triage_owner_id,
+    triageOwnerName: row.triage_owner_name ?? null,
+    mentorId: row.mentor_id,
+    workflowDecision: row.workflow_decision,
+    workflowDecisionReason: row.workflow_decision_reason,
+    pausedReason: row.paused_reason,
     ownerId: row.owner_id,
     ownerName: row.owner_name ?? null,
     createdAt: new Date(row.created_at).toISOString(),
@@ -402,7 +436,7 @@ async function computeCoverage(
   };
 }
 
-async function hydrateProject(projectRow: any, relations?: { boards: any[]; milestones: any[] }) {
+async function hydrateProject(projectRow: any, relations?: { boards: any[]; milestones: any[] }, includeWorkflowHistory = false) {
   const rel = relations ?? await loadRelations(projectRow.id);
   const standard = await getWorkspaceProjectStandard(projectRow.workspace_id);
   const [formalization, coverage] = await Promise.all([
@@ -410,11 +444,32 @@ async function hydrateProject(projectRow: any, relations?: { boards: any[]; mile
     computeCoverage(projectRow, rel, standard.definition),
   ]);
 
+  const workflowHistory = includeWorkflowHistory
+    ? await pool.query(
+      `SELECT h.*, u.name AS actor_name
+       FROM project_workflow_history h
+       LEFT JOIN users u ON u.id = h.actor_id
+       WHERE h.project_id = $1
+       ORDER BY h.created_at DESC`,
+      [projectRow.id]
+    ).then((result) => result.rows.map((row) => ({
+      id: row.id,
+      fromStage: row.from_stage,
+      toStage: row.to_stage,
+      decision: row.decision,
+      reason: row.reason,
+      actorId: row.actor_id,
+      actorName: row.actor_name ?? null,
+      createdAt: new Date(row.created_at).toISOString(),
+    })))
+    : undefined;
+
   return {
     ...fmtProject(projectRow),
     ...rel,
     formalization,
     coverage,
+    ...(workflowHistory ? { workflowHistory } : {}),
   };
 }
 
@@ -445,6 +500,7 @@ class ProjectController {
       const result = await pool.query(
         `SELECT p.*,
           MAX(owner.name) AS owner_name,
+          MAX(triage_owner.name) AS triage_owner_name,
           COALESCE(
             ROUND(100.0 * SUM(CASE WHEN c.completed THEN 1 ELSE 0 END)
                   / NULLIF(COUNT(c.id), 0))
@@ -457,6 +513,7 @@ class ProjectController {
           ) AS boards
          FROM projects p
          LEFT JOIN users owner ON owner.id = p.owner_id
+         LEFT JOIN users triage_owner ON triage_owner.id = p.triage_owner_id
          LEFT JOIN project_boards pb ON pb.project_id = p.id
          LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
          LEFT JOIN lists l ON l.board_id = b.id
@@ -572,7 +629,7 @@ class ProjectController {
       const result = await pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
       if (!result.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
       const relations = await loadRelations(id);
-      res.json({ success: true, data: { project: await hydrateProject(result.rows[0], relations) } });
+      res.json({ success: true, data: { project: await hydrateProject(result.rows[0], relations, true) } });
     } catch (error) {
       console.error('[ProjectController.getById]', error);
       res.status(500).json({ success: false, error: { message: 'Error al obtener proyecto' } });
@@ -676,6 +733,103 @@ class ProjectController {
     } catch (error) {
       console.error('[ProjectController.update]', error);
       res.status(500).json({ success: false, error: { message: 'Error al actualizar' } });
+    }
+  }
+
+  /** POST /api/projects/:id/workflow — registrar una decisión y mover la iniciativa */
+  async transitionWorkflow(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const body = transitionWorkflowSchema.safeParse(req.body);
+      if (!body.success) {
+        return res.status(400).json({ success: false, error: { message: 'Datos de flujo inválidos', details: body.error.flatten() } });
+      }
+
+      const currentResult = await pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
+      if (!currentResult.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
+      const current = currentResult.rows[0];
+      const data = body.data;
+      const projection = workflowProjection[data.workflowStage];
+      const actorId = (req as any).user.id as string;
+
+      for (const userId of [data.triageOwnerId, data.mentorId]) {
+        if (!userId) continue;
+        const membership = await pool.query(
+          `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+          [current.workspace_id, userId]
+        );
+        if (!membership.rows.length) {
+          return res.status(400).json({ success: false, error: { message: 'El responsable debe pertenecer al workspace' } });
+        }
+      }
+
+      const fields = [
+        'workflow_stage = $1',
+        'status = $2',
+        'maturity_stage = $3',
+        'workflow_decision = $4',
+        'workflow_decision_reason = $5',
+        'paused_reason = $6',
+        'intake_received_at = COALESCE(intake_received_at, CURRENT_TIMESTAMP)',
+        'updated_at = CURRENT_TIMESTAMP',
+      ];
+      const values: any[] = [
+        data.workflowStage,
+        projection.status,
+        projection.maturityStage,
+        data.decision ?? null,
+        data.reason ?? null,
+        data.workflowStage === 'PAUSED' ? data.reason ?? current.paused_reason ?? null : null,
+      ];
+
+      if (data.nextReviewAt !== undefined) {
+        fields.push(`next_review_at = $${values.length + 1}`);
+        values.push(data.nextReviewAt);
+      }
+      if (data.triageOwnerId !== undefined) {
+        fields.push(`triage_owner_id = $${values.length + 1}`);
+        values.push(data.triageOwnerId);
+      } else if (data.workflowStage === 'DIAGNOSIS') {
+        fields.push(`triage_owner_id = COALESCE(triage_owner_id, $${values.length + 1})`);
+        values.push(actorId);
+      }
+      if (data.mentorId !== undefined) {
+        fields.push(`mentor_id = $${values.length + 1}`);
+        values.push(data.mentorId);
+      }
+      if (data.workflowStage === 'VALIDATION' || data.workflowStage === 'PREPARATION' || data.workflowStage === 'EXECUTION') {
+        fields.push('formalized_at = COALESCE(formalized_at, CURRENT_TIMESTAMP)');
+      }
+
+      values.push(id);
+      const result = await pool.query(
+        `UPDATE projects SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING *`,
+        values
+      );
+      const updated = result.rows[0];
+
+      await pool.query(
+        `INSERT INTO project_workflow_history (id, project_id, from_stage, to_stage, decision, reason, actor_id)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)`,
+        [id, current.workflow_stage ?? 'INTAKE', data.workflowStage, data.decision ?? null, data.reason ?? null, actorId]
+      );
+
+      try {
+        const actor = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        await eventStore.emit({
+          type: 'project.workflow.changed',
+          actor: { id: actorId, name: actor.rows[0]?.name ?? '' },
+          subject: { type: 'project', id, name: updated.name },
+          context: { workspaceId: updated.workspace_id },
+          payload: { fromStage: current.workflow_stage ?? 'INTAKE', toStage: data.workflowStage, decision: data.decision ?? null },
+        } as any);
+      } catch {}
+
+      const relations = await loadRelations(id);
+      return res.json({ success: true, data: { project: await hydrateProject(updated, relations, true) } });
+    } catch (error) {
+      console.error('[ProjectController.transitionWorkflow]', error);
+      return res.status(500).json({ success: false, error: { message: 'Error al actualizar el flujo del proyecto' } });
     }
   }
 

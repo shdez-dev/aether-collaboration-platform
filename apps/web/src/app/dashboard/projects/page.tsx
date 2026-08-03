@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, CircleDashed, ClipboardList, Columns3, LayoutList, Search, Target, UserRound } from 'lucide-react';
-import { useProjectStore, type Project, type ProjectMaturityStage } from '@/stores/projectStore';
+import { useProjectStore, type Project, type ProjectMaturityStage, type ProjectWorkflowStage } from '@/stores/projectStore';
 import { useBoardStore } from '@/stores/boardStore';
 import { useTeamStore } from '@/stores/teamStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
@@ -31,11 +31,12 @@ const PIPELINE: { key: ProjectMaturityStage; label: string; tone: string; soft: 
   { key: 'COMPLETED', label: 'Completado', tone: '#76A878', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Trabajo cerrado y entregado.' },
 ];
 
-const OPERATING_PIPELINE: { key: string; label: string; tone: string; soft: string; border: string; hint: string; stages: ProjectMaturityStage[] }[] = [
-  { key: 'intake', label: 'Entrada', tone: '#7B8FA8', soft: 'rgba(123,143,168,0.12)', border: 'rgba(123,143,168,0.26)', hint: 'Ideas y borradores que aún requieren definición.', stages: ['IDEA', 'DRAFT'] },
-  { key: 'preparation', label: 'Preparación', tone: '#C4A86E', soft: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.26)', hint: 'Proyectos listos para ordenar equipo, plan y ejecución.', stages: ['FORMALIZED', 'PLANNED'] },
-  { key: 'execution', label: 'En ejecución', tone: '#F4905A', soft: 'rgba(242,87,30,0.12)', border: 'rgba(242,87,30,0.26)', hint: 'Trabajo activo que necesita seguimiento y desbloqueos.', stages: ['ACTIVE'] },
-  { key: 'closure', label: 'Cierre', tone: '#76A878', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Entregas completadas y pendientes de cierre.', stages: ['COMPLETED'] },
+const OPERATING_PIPELINE: { key: string; label: string; tone: string; soft: string; border: string; hint: string; stages: ProjectWorkflowStage[] }[] = [
+  { key: 'diagnosis', label: 'Diagnóstico', tone: '#7B8FA8', soft: 'rgba(123,143,168,0.12)', border: 'rgba(123,143,168,0.26)', hint: 'Aclarar problema, beneficiarios y contexto.', stages: ['DIAGNOSIS'] },
+  { key: 'validation', label: 'Validación', tone: '#C4A86E', soft: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.26)', hint: 'Comprobar viabilidad, valor e interés.', stages: ['VALIDATION'] },
+  { key: 'preparation', label: 'Preparación', tone: '#4B607F', soft: 'rgba(75,96,127,0.14)', border: 'rgba(75,96,127,0.26)', hint: 'Ordenar equipo, plan e hitos antes de ejecutar.', stages: ['PREPARATION'] },
+  { key: 'execution', label: 'Ejecución', tone: '#F4905A', soft: 'rgba(242,87,30,0.12)', border: 'rgba(242,87,30,0.26)', hint: 'Trabajo activo que necesita seguimiento y desbloqueos.', stages: ['EXECUTION'] },
+  { key: 'closure', label: 'Cierre', tone: '#76A878', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Entregas terminadas y aprendizaje registrado.', stages: ['CLOSURE'] },
 ];
 
 function getMaturityMeta(stage: ProjectMaturityStage) {
@@ -252,14 +253,18 @@ function getMethodologyColumns(experience: WorkspaceExperience, projects: Projec
   ];
 }
 
-function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectCard({ project, onClick, onAdvance }: { project: Project; onClick: () => void; onAdvance?: () => void }) {
   const maturity = getMaturityMeta(project.maturityStage ?? 'IDEA');
   const health = getPortfolioHealth(project);
   const milestone = getNextMilestone(project);
+  const responsibleName = project.triageOwnerName ?? project.ownerName;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onClick(); }}
       style={{
         width: '100%',
         borderRadius: '10px',
@@ -295,8 +300,8 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
           <div style={{ fontFamily: SORA, fontSize: '13.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {project.name}
           </div>
-          <div style={{ marginTop: '3px', fontSize: '11px', color: project.ownerName ? '#827A6D' : '#DB8A66', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {project.ownerName ? `Responsable: ${project.ownerName}` : 'Sin responsable visible'}
+          <div style={{ marginTop: '3px', fontSize: '11px', color: responsibleName ? '#827A6D' : '#DB8A66', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {responsibleName ? `Responsable: ${responsibleName}` : 'Sin responsable visible'}
           </div>
         </div>
       </div>
@@ -320,7 +325,12 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
         <ChevronRight style={{ width: '12px', height: '12px', marginTop: '1px', flexShrink: 0 }} />
         <span>{getProjectPortfolioReason(project)}</span>
       </div>
-    </button>
+      {onAdvance && (
+        <button onClick={(event) => { event.stopPropagation(); onAdvance(); }} style={{ width: '100%', height: '28px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.04)', color: '#C8BFAE', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>
+          Avanzar etapa
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -348,6 +358,7 @@ function PortfolioList({ projects, onProjectClick }: { projects: Project[]; onPr
           const maturity = getMaturityMeta(project.maturityStage ?? 'IDEA');
           const health = getPortfolioHealth(project);
           const milestone = getNextMilestone(project);
+          const responsibleName = project.triageOwnerName ?? project.ownerName;
 
           return (
             <button
@@ -367,9 +378,9 @@ function PortfolioList({ projects, onProjectClick }: { projects: Project[]; onPr
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, color: project.ownerName ? '#C8BFAE' : '#DB8A66', fontSize: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, color: responsibleName ? '#C8BFAE' : '#DB8A66', fontSize: '12px' }}>
                 <UserRound style={{ width: '13px', height: '13px', flexShrink: 0 }} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.ownerName || 'Sin responsable'}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{responsibleName || 'Sin responsable'}</span>
               </div>
 
               <span style={{ width: 'fit-content', color: health.tone, background: health.soft, borderRadius: '999px', padding: '5px 8px', fontSize: '11px', fontWeight: 700 }}>{health.label}</span>
@@ -430,7 +441,7 @@ function MethodologyColumn({
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const { fetchProjectsByWorkspace, updateProject, addBoard, createMilestone } = useProjectStore();
+  const { fetchProjectsByWorkspace, updateProject, transitionWorkflow, addBoard, createMilestone } = useProjectStore();
   const { createBoard } = useBoardStore();
   const { teams, fetchTeams } = useTeamStore();
   const { activeWorkspaceId } = useActiveWorkspaceStore();
@@ -510,24 +521,20 @@ export default function ProjectsPage() {
     const grouped = new Map<string, Project[]>();
     for (const stage of OPERATING_PIPELINE) grouped.set(stage.key, []);
     for (const project of filteredProjects) {
-      const lane = isDoneProject(project)
-        ? OPERATING_PIPELINE.find((stage) => stage.key === 'closure')
-        : isActiveProject(project)
-        ? OPERATING_PIPELINE.find((stage) => stage.key === 'execution')
-        : OPERATING_PIPELINE.find((stage) => stage.stages.includes(project.maturityStage ?? 'IDEA'));
+      const lane = OPERATING_PIPELINE.find((stage) => stage.stages.includes(project.workflowStage ?? 'INTAKE'));
       if (lane) grouped.get(lane.key)!.push(project);
     }
     return OPERATING_PIPELINE.map((stage) => ({ ...stage, projects: grouped.get(stage.key) ?? [] }));
   }, [filteredProjects]);
 
   const pausedProjects = useMemo(
-    () => filteredProjects.filter((project) => project.status === 'ON_HOLD' || project.maturityStage === 'ON_HOLD'),
+    () => filteredProjects.filter((project) => project.workflowStage === 'PAUSED'),
     [filteredProjects]
   );
 
   const intakeProjects = useMemo(
     () => filteredProjects
-      .filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT')
+      .filter((project) => project.workflowStage === 'INTAKE')
       .sort((a, b) => {
         const aCoverage = a.coverage?.coveragePercent ?? 0;
         const bCoverage = b.coverage?.coveragePercent ?? 0;
@@ -722,11 +729,10 @@ export default function ProjectsPage() {
   }, [projects]);
 
   const intakeMetrics = useMemo(() => {
-    const draft = intakeProjects.filter((project) => project.maturityStage === 'DRAFT').length;
-    const idea = intakeProjects.filter((project) => project.maturityStage === 'IDEA').length;
-    const ready = intakeProjects.filter((project) => project.formalization?.readyToFormalize).length;
+    const withReview = intakeProjects.filter((project) => Boolean(project.nextReviewAt)).length;
+    const ready = intakeProjects.filter((project) => Boolean(project.problemStatement?.trim()) && Boolean(project.nextStep?.trim())).length;
     const missingProblem = intakeProjects.filter((project) => !project.problemStatement?.trim()).length;
-    return { total: intakeProjects.length, draft, idea, ready, missingProblem };
+    return { total: intakeProjects.length, withReview, ready, missingProblem };
   }, [intakeProjects]);
 
   const methodologyColumns = useMemo(
@@ -827,6 +833,49 @@ export default function ProjectsPage() {
     }
   }
 
+  async function handleStartDiagnosis(project: Project) {
+    await runProjectAction(project.id, 'diagnosis', async () => {
+      const nextReview = new Date();
+      nextReview.setDate(nextReview.getDate() + 7);
+      await transitionWorkflow(project.id, {
+        workflowStage: 'DIAGNOSIS',
+        decision: 'ACCEPTED',
+        nextReviewAt: nextReview.toISOString(),
+      });
+    });
+  }
+
+  async function handlePauseInitiative(project: Project) {
+    await runProjectAction(project.id, 'pause', async () => {
+      await transitionWorkflow(project.id, {
+        workflowStage: 'PAUSED',
+        decision: 'PAUSED',
+        reason: 'Pendiente de una próxima revisión institucional.',
+      });
+    });
+  }
+
+  async function handleAdvanceWorkflow(project: Project) {
+    const nextStage: Partial<Record<ProjectWorkflowStage, ProjectWorkflowStage>> = {
+      DIAGNOSIS: 'VALIDATION',
+      VALIDATION: 'PREPARATION',
+      PREPARATION: 'EXECUTION',
+      EXECUTION: 'CLOSURE',
+    };
+    const workflowStage = nextStage[project.workflowStage];
+    if (!workflowStage) return;
+
+    await runProjectAction(project.id, 'advance', async () => {
+      const nextReview = new Date();
+      nextReview.setDate(nextReview.getDate() + (workflowStage === 'CLOSURE' ? 0 : 14));
+      await transitionWorkflow(project.id, {
+        workflowStage,
+        decision: workflowStage === 'CLOSURE' ? 'COMPLETED' : undefined,
+        nextReviewAt: workflowStage === 'CLOSURE' ? null : nextReview.toISOString(),
+      });
+    });
+  }
+
   async function handleFormalize(project: Project) {
     await runProjectAction(project.id, 'formalize', async () => {
       await updateProject(project.id, {
@@ -892,7 +941,7 @@ export default function ProjectsPage() {
               {viewMode === 'portfolio'
                 ? 'Cartera de proyectos'
                 : isInstitutionalExperience
-                ? (viewMode === 'pipeline' ? EXPERIENCE_META.institutional.title : 'Bandeja de intake')
+                ? (viewMode === 'pipeline' ? EXPERIENCE_META.institutional.title : 'Nuevas iniciativas')
                 : experienceMeta.title}
             </h1>
             <p style={{ margin: '7px 0 0', fontSize: '13px', color: '#827A6D', maxWidth: '760px', lineHeight: 1.55 }}>
@@ -912,7 +961,7 @@ export default function ProjectsPage() {
                 {([
                   { key: 'portfolio', label: 'Cartera', icon: LayoutList },
                   { key: 'pipeline', label: 'Pipeline', icon: Columns3 },
-                  { key: 'intake', label: 'Intake', icon: CircleDashed },
+                  { key: 'intake', label: 'Iniciativas', icon: CircleDashed },
                 ] as const).filter((option) => isInstitutionalExperience || option.key !== 'intake').map((option) => {
                   const active = viewMode === option.key;
                   const Icon = option.icon;
@@ -967,9 +1016,9 @@ export default function ProjectsPage() {
                 { label: 'Baja cobertura', value: metrics.blocked, tone: '#DB8A66', icon: AlertCircle },
               ]
             : [
-                { label: 'En intake', value: intakeMetrics.total, tone: '#E8E1D2', icon: ClipboardList },
-                { label: 'Ideas iniciales', value: intakeMetrics.idea, tone: '#7B8FA8', icon: CircleDashed },
-                { label: 'Borradores', value: intakeMetrics.draft, tone: '#C4A86E', icon: Target },
+                { label: 'Recibidas', value: intakeMetrics.total, tone: '#E8E1D2', icon: ClipboardList },
+                { label: 'Con próxima revisión', value: intakeMetrics.withReview, tone: '#7B8FA8', icon: CalendarDays },
+                { label: 'Listas para diagnóstico', value: intakeMetrics.ready, tone: '#C4A86E', icon: Target },
                 { label: 'Sin problema claro', value: intakeMetrics.missingProblem, tone: '#DB8A66', icon: AlertCircle },
               ])
             : adaptiveMetrics).map((item) => {
@@ -1198,8 +1247,8 @@ export default function ProjectsPage() {
                   <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#DB8A66' }}>{intakeMetrics.missingProblem}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>Borradores que ya ameritan revisión</span>
-                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#C4A86E' }}>{intakeMetrics.draft}</span>
+                  <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>Iniciativas sin próxima revisión</span>
+                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#C4A86E' }}>{intakeMetrics.total - intakeMetrics.withReview}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                   <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>Proyectos listos para pasar de intake</span>
@@ -1359,7 +1408,12 @@ export default function ProjectsPage() {
                       </div>
                     ) : (
                       stage.projects.map((project) => (
-                        <ProjectCard key={project.id} project={project} onClick={() => router.push(`/dashboard/projects/${project.id}`)} />
+                        <ProjectCard
+                          key={project.id}
+                          project={project}
+                          onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                          onAdvance={stage.key === 'closure' ? undefined : () => handleAdvanceWorkflow(project)}
+                        />
                       ))
                     )}
                   </div>
@@ -1486,6 +1540,29 @@ export default function ProjectsPage() {
                   )}
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
+                    <button
+                      onClick={() => handleStartDiagnosis(project)}
+                      disabled={busyActionByProject[project.id] !== null}
+                      style={{
+                        height: '31px', padding: '0 12px', borderRadius: '8px', border: 'none',
+                        background: busyActionByProject[project.id] === null ? 'rgba(118,168,120,0.16)' : 'rgba(255,255,255,0.05)',
+                        color: busyActionByProject[project.id] === null ? '#76A878' : '#615846',
+                        cursor: busyActionByProject[project.id] === null ? 'pointer' : 'not-allowed', fontSize: '12px', fontWeight: 700,
+                      }}
+                    >
+                      {busyActionByProject[project.id] === 'diagnosis' ? 'Moviendo…' : 'Iniciar diagnóstico'}
+                    </button>
+                    <button
+                      onClick={() => handlePauseInitiative(project)}
+                      disabled={busyActionByProject[project.id] !== null}
+                      style={{
+                        height: '31px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(219,138,102,0.25)',
+                        background: 'rgba(219,138,102,0.08)', color: busyActionByProject[project.id] === null ? '#DB8A66' : '#615846',
+                        cursor: busyActionByProject[project.id] === null ? 'pointer' : 'not-allowed', fontSize: '12px', fontWeight: 700,
+                      }}
+                    >
+                      {busyActionByProject[project.id] === 'pause' ? 'Pausando…' : 'Pausar'}
+                    </button>
                     <button
                       onClick={() => handleFormalize(project)}
                       disabled={busyActionByProject[project.id] !== null || !project.formalization?.readyToFormalize}

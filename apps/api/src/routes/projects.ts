@@ -24,6 +24,7 @@ router.get('/:id', (req, res) => projectController.getById(req, res));
 router.put('/:id', requireProjectEditor, (req, res) => projectController.update(req, res));
 router.delete('/:id', requireProjectEditor, (req, res) => projectController.delete(req, res));
 router.post('/:id/adopt-current-standard', requireProjectEditor, (req, res) => projectController.adoptCurrentStandard(req, res));
+router.post('/:id/workflow', requireProjectEditor, (req, res) => projectController.transitionWorkflow(req, res));
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
 router.get('/:id/stats',           (req, res) => projectController.getStats(req, res));
