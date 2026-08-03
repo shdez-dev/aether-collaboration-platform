@@ -122,8 +122,6 @@ export class WorkspaceService {
       description?: string;
       icon?: string;
       color?: string;
-      initiativeTeamId?: string | null;
-      initiativeTeamId?: string | null;
       workspaceTemplateId?: WorkspaceTemplateId;
     }
   ): Promise<Workspace & { userRole: WorkspaceRole }> {
@@ -265,6 +263,7 @@ export class WorkspaceService {
       description?: string;
       icon?: string;
       color?: string;
+      initiativeTeamId?: string | null;
     }
   ): Promise<Workspace & { userRole: WorkspaceRole }> {
     const client = await pool.connect();
