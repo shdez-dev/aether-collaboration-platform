@@ -989,7 +989,9 @@ export default function ProjectsPage() {
         </div>
 
         {isInstitutionalExperience && viewMode === 'pipeline' && (
-          <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
+          <details style={{ marginBottom: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '0 16px' }}>
+            <summary style={{ cursor: 'pointer', padding: '12px 0', color: '#827A6D', fontFamily: SORA, fontSize: '12px', fontWeight: 700 }}>Reglas del estándar</summary>
+            <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', padding: '0 0 16px', alignItems: 'start' }}>
             <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
@@ -1121,7 +1123,8 @@ export default function ProjectsPage() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          </details>
         )}
 
         {!isInstitutionalExperience && viewMode === 'pipeline' && (
