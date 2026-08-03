@@ -18,6 +18,7 @@ interface Workspace {
   archivedAt?: string | null;
   visibility?: 'private' | 'public';
   inviteToken?: string | null;
+  initiativeTeamId?: string | null;
   createdAt: string;
   updatedAt: string;
   userRole?: string;
@@ -155,6 +156,7 @@ interface UpdateWorkspaceData {
   description?: string;
   icon?: string;
   color?: string;
+  initiativeTeamId?: string | null;
 }
 
 // ==================== STORE ====================

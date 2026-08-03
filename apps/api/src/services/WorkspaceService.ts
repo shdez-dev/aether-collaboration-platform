@@ -122,6 +122,8 @@ export class WorkspaceService {
       description?: string;
       icon?: string;
       color?: string;
+      initiativeTeamId?: string | null;
+      initiativeTeamId?: string | null;
       workspaceTemplateId?: WorkspaceTemplateId;
     }
   ): Promise<Workspace & { userRole: WorkspaceRole }> {
@@ -289,6 +291,10 @@ export class WorkspaceService {
       if (data.color !== undefined) {
         updates.push(`color = $${paramIndex++}`);
         values.push(data.color);
+      }
+      if (data.initiativeTeamId !== undefined) {
+        updates.push(`initiative_team_id = $${paramIndex++}`);
+        values.push(data.initiativeTeamId);
       }
 
       updates.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -1310,6 +1316,7 @@ export class WorkspaceService {
       archivedAt: row.archived_at ?? null,
       visibility: row.visibility ?? 'private',
       inviteToken: row.invite_token ?? null,
+      initiativeTeamId: row.initiative_team_id ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

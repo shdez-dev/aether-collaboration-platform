@@ -77,6 +77,7 @@ export interface Workspace {
   archivedAt?: string | null;
   visibility?: 'private' | 'public';
   inviteToken?: string | null;
+  initiativeTeamId?: string | null;
   createdAt: string;
   updatedAt: string;
   // Propiedades opcionales calculadas

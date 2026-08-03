@@ -597,6 +597,20 @@ class ProjectController {
             [project.id, bId]
           );
         }
+        const initiativeTeam = await client.query(
+          `SELECT initiative_team_id FROM workspaces WHERE id = $1`,
+          [wsId]
+        );
+        const initiativeTeamId = initiativeTeam.rows[0]?.initiative_team_id;
+        if (initiativeTeamId) {
+          await client.query(
+            `INSERT INTO project_teams (id, project_id, team_id, assigned_by)
+             SELECT gen_random_uuid(), $1, t.id, $2 FROM teams t
+             WHERE t.id = $3 AND t.workspace_id = $4
+             ON CONFLICT (project_id, team_id) DO NOTHING`,
+            [project.id, userId, initiativeTeamId, wsId]
+          );
+        }
         await client.query('COMMIT');
         const relations = await loadRelations(project.id);
         try {

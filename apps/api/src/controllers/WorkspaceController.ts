@@ -16,6 +16,7 @@ const createWorkspaceSchema = z.object({
   description: z.string().max(1000).optional(),
   icon: z.string().max(500).optional(),
   color: z.string().max(50).optional(),
+  initiativeTeamId: z.string().uuid().nullable().optional(),
   workspaceTemplateId: z.enum(['personal', 'team', 'institutional', 'marketing', 'construction']).optional(),
 });
 
