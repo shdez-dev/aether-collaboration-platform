@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTeamStore, type Team } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { apiService } from '@/services/apiService';
 import { C } from '@/lib/colors';
@@ -87,21 +88,25 @@ function TeamCard({ team, onClick }: { team: Team; onClick: () => void }) {
 // ── Create Team Modal ─────────────────────────────────────────────────────────
 const COLOR_OPTIONS = ['#F2571E','#76A878','#4B607F','#DB8A66','#8C7C9E','#C4A86E','#7B8FA8','#B85C5C'];
 
-function CreateTeamModal({ onClose, onCreate }: {
+function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, onCreate }: {
+  workspaceId: string;
+  workspaces: Array<{ id: string; name: string; archived?: boolean }>;
+  onWorkspaceChange: (workspaceId: string) => void;
   onClose: () => void;
-  onCreate: (data: { name: string; description?: string; color: string }) => Promise<void>;
+  onCreate: (data: { workspaceId: string; name: string; description?: string; color: string }) => Promise<void>;
 }) {
   const [name, setName]     = useState('');
   const [desc, setDesc]     = useState('');
   const [color, setColor]   = useState(COLOR_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState<string | null>(null);
+  const availableWorkspaces = workspaces.filter((workspace) => !workspace.archived);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !workspaceId) return;
     setLoading(true); setError(null);
-    try { await onCreate({ name: name.trim(), description: desc.trim() || undefined, color }); onClose(); }
+    try { await onCreate({ workspaceId, name: name.trim(), description: desc.trim() || undefined, color }); onClose(); }
     catch (err: any) { setError(err.message || 'Error al crear equipo'); }
     finally { setLoading(false); }
   }
@@ -116,6 +121,22 @@ function CreateTeamModal({ onClose, onCreate }: {
           </button>
         </div>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label htmlFor="team-workspace" style={{ fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#827A6D', fontFamily: MANROPE }}>Espacio de trabajo</label>
+            <select
+              id="team-workspace"
+              value={workspaceId}
+              onChange={(e) => onWorkspaceChange(e.target.value)}
+              disabled={availableWorkspaces.length === 0}
+              style={{ padding: '9px 12px', borderRadius: '7px', background: '#242B43', border: '1px solid rgba(255,255,255,0.1)', color: workspaceId ? '#E8E1D2' : '#827A6D', fontSize: '13.5px', outline: 'none', fontFamily: MANROPE, cursor: availableWorkspaces.length ? 'pointer' : 'not-allowed' }}
+            >
+              <option value="">{availableWorkspaces.length ? 'Selecciona un espacio de trabajo' : 'No tienes espacios de trabajo disponibles'}</option>
+              {availableWorkspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+              ))}
+            </select>
+            <span style={{ fontSize: '12px', color: '#827A6D', fontFamily: MANROPE }}>El equipo y sus miembros quedarán organizados dentro de este espacio.</span>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#827A6D', fontFamily: MANROPE }}>Nombre</label>
             <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Diseño, Desarrollo…"
@@ -140,9 +161,9 @@ function CreateTeamModal({ onClose, onCreate }: {
           {error && <div style={{ padding: '9px 12px', borderRadius: '7px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', fontSize: '12.5px', color: '#ef4444' }}>{error}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '4px' }}>
             <button type="button" onClick={onClose} style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer', fontFamily: SORA }} onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}>Cancelar</button>
-            <button type="submit" disabled={!name.trim() || loading}
-              style={{ padding: '9px 20px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: !name.trim() || loading ? 'rgba(255,255,255,0.07)' : '#F2571E', color: !name.trim() || loading ? '#615846' : '#24180A', border: 'none', cursor: !name.trim() || loading ? 'not-allowed' : 'pointer', fontFamily: SORA, transition: 'filter 0.12s' }}
-              onMouseEnter={(e) => { if (name.trim() && !loading) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
+            <button type="submit" disabled={!name.trim() || !workspaceId || loading}
+              style={{ padding: '9px 20px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: !name.trim() || !workspaceId || loading ? 'rgba(255,255,255,0.07)' : '#F2571E', color: !name.trim() || !workspaceId || loading ? '#615846' : '#24180A', border: 'none', cursor: !name.trim() || !workspaceId || loading ? 'not-allowed' : 'pointer', fontFamily: SORA, transition: 'filter 0.12s' }}
+              onMouseEnter={(e) => { if (name.trim() && workspaceId && !loading) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ''; }}
             >{loading ? 'Creando…' : 'Crear equipo'}</button>
           </div>
@@ -213,24 +234,31 @@ function InviteMemberModal({ workspaceId, onClose, onInvited }: { workspaceId: s
 export default function TeamsPage() {
   const router = useRouter();
   const { teams, isLoading, fetchTeams, createTeam } = useTeamStore();
-  const { currentWorkspace, currentMembers, fetchMembers } = useWorkspaceStore();
+  const { currentWorkspace, currentMembers, fetchMembers, workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const { activeWorkspaceId, setActiveWorkspaceId } = useActiveWorkspaceStore();
   const currentUser = useAuthStore((s) => s.user);
 
   const [showCreate, setShowCreate]   = useState(false);
   const [showInvite, setShowInvite]   = useState(false);
   const [pendingInvites, setPendingInvites] = useState<{ id: string; email: string; sentAt: string }[]>([]);
 
-  const workspaceId = currentWorkspace?.id ?? '';
+  const workspaceId = activeWorkspaceId ?? currentWorkspace?.id ?? '';
+
+  useEffect(() => {
+    if (workspaces.length === 0) fetchWorkspaces();
+  }, [workspaces.length, fetchWorkspaces]);
 
   const loadData = useCallback(async () => {
-    fetchTeams(workspaceId || undefined);
-    if (workspaceId) {
+    if (!workspaceId) {
+      setPendingInvites([]);
+      return;
+    }
+    fetchTeams(workspaceId);
       fetchMembers(workspaceId);
       const r = await apiService.get<{ invitations: { id: string; email: string; sentAt: string }[] }>(
         `/api/workspaces/${workspaceId}/pending-invitations`, true
       );
-      if (r.success && r.data) setPendingInvites(r.data.invitations);
-    }
+    setPendingInvites(r.success && r.data ? r.data.invitations : []);
   }, [workspaceId, fetchTeams, fetchMembers]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -238,9 +266,10 @@ export default function TeamsPage() {
   const onlineMembers = currentMembers.filter((m) => (m as any).online);
   const totalMembers  = currentMembers.length;
 
-  async function handleCreate(data: { name: string; description?: string; color: string }) {
-    if (!workspaceId) throw new Error('Selecciona un espacio de trabajo antes de crear un equipo');
-    const team = await createTeam({ ...data, workspaceId });
+  async function handleCreate(data: { workspaceId: string; name: string; description?: string; color: string }) {
+    if (!data.workspaceId) throw new Error('Selecciona un espacio de trabajo antes de crear un equipo');
+    setActiveWorkspaceId(data.workspaceId);
+    const team = await createTeam(data);
     router.push(`/dashboard/teams/${team.id}`);
   }
 
@@ -390,7 +419,15 @@ export default function TeamsPage() {
 
       </div>
 
-      {showCreate && <CreateTeamModal onClose={() => setShowCreate(false)} onCreate={handleCreate} />}
+      {showCreate && (
+        <CreateTeamModal
+          workspaceId={workspaceId}
+          workspaces={workspaces}
+          onWorkspaceChange={setActiveWorkspaceId}
+          onClose={() => setShowCreate(false)}
+          onCreate={handleCreate}
+        />
+      )}
       {showInvite && workspaceId && (
         <InviteMemberModal
           workspaceId={workspaceId}
