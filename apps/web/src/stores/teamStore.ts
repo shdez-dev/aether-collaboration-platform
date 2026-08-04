@@ -98,7 +98,7 @@ interface TeamState {
   updateTeam: (id: string, data: UpdateTeamData) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
 
-  addMember: (teamId: string, email: string) => Promise<void>;
+  addMember: (teamId: string, email: string, role?: 'ADMIN' | 'MEMBER' | 'VIEWER') => Promise<void>;
   removeMember: (teamId: string, userId: string) => Promise<void>;
   changeMemberRole: (teamId: string, userId: string, role: 'ADMIN' | 'MEMBER' | 'VIEWER') => Promise<void>;
 
@@ -195,13 +195,13 @@ export const useTeamStore = create<TeamState>()(
 
       // ── Members ─────────────────────────────────────────────────────────────
 
-      addMember: async (teamId: string, email: string) => {
+      addMember: async (teamId: string, email: string, role: 'ADMIN' | 'MEMBER' | 'VIEWER' = 'MEMBER') => {
         const response = await apiService.post<{ member: TeamMember }>(
           `/api/teams/${teamId}/members`,
-          { email },
+          { email, role },
           true
         );
-        if (!response.success || !response.data) {
+        if (!response.success) {
           throw new Error(response.error?.message || 'Error al añadir miembro');
         }
         // Refresh the current team if it matches
@@ -234,7 +234,7 @@ export const useTeamStore = create<TeamState>()(
           { role },
           true
         );
-        if (!response.success || !response.data) {
+        if (!response.success) {
           throw new Error(response.error?.message || 'Error al cambiar rol');
         }
         set((state) => ({

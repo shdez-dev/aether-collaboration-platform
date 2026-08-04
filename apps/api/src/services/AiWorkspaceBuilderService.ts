@@ -15,12 +15,33 @@ class AiWorkspaceBuilderService {
     try {
       await client.query('BEGIN');
 
+      const organizationResult = await client.query(
+        `INSERT INTO organizations (id, name, type, owner_user_id, created_at, updated_at)
+         SELECT gen_random_uuid(), COALESCE(NULLIF(TRIM(name), ''), 'Cuenta personal') || ' · Aether',
+                'PERSONAL'::"OrganizationType", id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+         FROM users WHERE id = $1
+         ON CONFLICT (owner_user_id) WHERE type = 'PERSONAL'::"OrganizationType"
+         DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+         RETURNING id`,
+        [userId]
+      );
+      const organizationId = organizationResult.rows[0]?.id;
+      if (!organizationId) throw new Error('No se pudo resolver la cuenta del usuario');
+
+      await client.query(
+        `INSERT INTO organization_members (id, organization_id, user_id, role)
+         VALUES (gen_random_uuid(), $1, $2, 'OWNER'::"OrganizationMemberRole")
+         ON CONFLICT (organization_id, user_id) DO NOTHING`,
+        [organizationId, userId]
+      );
+
       // 1. Crear workspace
       const wsResult = await client.query(
-        `INSERT INTO workspaces (id, name, description, owner_id, icon, color, updated_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        `INSERT INTO workspaces (id, organization_id, operating_mode, name, description, owner_id, icon, color, updated_at)
+         VALUES (gen_random_uuid(), $1, 'TEAM'::"WorkspaceMode", $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
          RETURNING id`,
         [
+          organizationId,
           plan.workspace.name,
           plan.workspace.description,
           userId,

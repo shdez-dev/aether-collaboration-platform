@@ -38,6 +38,8 @@ describe('WorkspaceService', () => {
 
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'org-personal' }] }) // ensure personal organization
+        .mockResolvedValueOnce({}) // ensure organization owner membership
         .mockResolvedValueOnce({
           // INSERT workspace
           rows: [
@@ -53,6 +55,7 @@ describe('WorkspaceService', () => {
           ],
         })
         .mockResolvedValueOnce({}) // INSERT workspace_member
+        .mockResolvedValueOnce({ rows: [{ id: 'standard-1' }] }) // INSERT project standard
         .mockResolvedValueOnce({}); // COMMIT
 
       // pool.query call: actor name lookup

@@ -91,14 +91,16 @@ interface ActiveWorkspace {
 
 // ── Add Member Modal ──────────────────────────────────────────────────────────
 
-function AddMemberModal({ teamId, onClose, onAdded }: {
+function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
   teamId: string;
+  allowedRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'>;
   onClose: () => void;
   onAdded: () => void;
 }) {
   const t = useT();
   const { addMember } = useTeamStore();
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'ADMIN' | 'MEMBER' | 'VIEWER'>('MEMBER');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,7 +110,7 @@ function AddMemberModal({ teamId, onClose, onAdded }: {
     setLoading(true);
     setError(null);
     try {
-      await addMember(teamId, email.trim());
+      await addMember(teamId, email.trim(), role);
       onAdded();
       onClose();
     } catch (err: any) {
@@ -146,6 +148,17 @@ function AddMemberModal({ teamId, onClose, onAdded }: {
               onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
               onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Rol en el equipo</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'ADMIN' | 'MEMBER' | 'VIEWER')}
+              className="rounded-[6px] px-3 text-[13px] outline-none"
+              style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '36px' }}
+            >
+              {allowedRoles.map((option) => <option key={option} value={option}>{roleLabel(option, t)}</option>)}
+            </select>
           </div>
           {error && (
             <div className="text-[12px] px-3 py-2 rounded-[6px]" style={{ background: 'rgba(239,68,68,0.1)', color: C.red }}>
@@ -346,14 +359,18 @@ function roleLabel(role: string, t: ReturnType<typeof import('@/lib/i18n').useT>
 function MemberCard({
   member,
   teamColor,
-  canManage,
+  canChangeRole,
+  canRemove,
+  allowedRoles,
   creatorId,
   onRemove,
   onChangeRole,
 }: {
   member: TeamMember;
   teamColor: string;
-  canManage: boolean;
+  canChangeRole: boolean;
+  canRemove: boolean;
+  allowedRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'>;
   creatorId: string;
   onRemove: (userId: string) => void;
   onChangeRole: (userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') => void;
@@ -376,7 +393,7 @@ function MemberCard({
       }}
     >
       {/* Remove button (hover) — el creador no puede ser eliminado */}
-      {canManage && hov && !isCreator && (
+      {canRemove && hov && !isCreator && (
         <button
           onClick={() => onRemove(member.id)}
           className="absolute top-3 right-3 flex items-center justify-center rounded-[4px] transition-colors"
@@ -415,7 +432,7 @@ function MemberCard({
         </div>
 
         {/* Dropdown para cambiar rol — solo si canManage y no es el creador */}
-        {canManage && !isCreator && (
+        {canChangeRole && !isCreator && (
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setRoleOpen((v) => !v)}
@@ -432,7 +449,7 @@ function MemberCard({
                 background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '8px',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '110px', overflow: 'hidden',
               }}>
-                {TEAM_ROLES.filter((r) => r !== member.role).map((r) => (
+                {allowedRoles.filter((r) => r !== member.role).map((r) => (
                   <button
                     key={r}
                     onClick={() => { onChangeRole(member.id, r); setRoleOpen(false); }}
@@ -777,10 +794,21 @@ export default function TeamDetailPage() {
   const currentUser = useAuthStore((s) => s.user);
   const teamColor = currentTeam?.color || '#3b82f6';
   const leadMember = members.find((m) => m.role === 'ADMIN');
-  const isOwnerOrAdmin =
-    currentUser != null &&
-    (currentTeam?.createdBy === currentUser.id ||
-      members.find((m) => m.id === currentUser.id)?.role === 'ADMIN');
+  const isTeamOwner = currentUser != null && currentTeam?.createdBy === currentUser.id;
+  const currentMemberRole = members.find((member) => member.id === currentUser?.id)?.role;
+  const isTeamAdmin = currentMemberRole === 'ADMIN';
+  const isOwnerOrAdmin = isTeamOwner || isTeamAdmin;
+  const inviteRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'> = isTeamOwner ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+
+  function canManageMember(member: TeamMember) {
+    if (!currentUser || member.id === currentTeam?.createdBy || member.id === currentUser.id) return false;
+    return isTeamOwner || (isTeamAdmin && member.role !== 'ADMIN');
+  }
+
+  function allowedRolesFor(member: TeamMember): Array<'ADMIN' | 'MEMBER' | 'VIEWER'> {
+    if (!canManageMember(member)) return [];
+    return isTeamOwner ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+  }
 
   if (isLoading) {
     return (
@@ -853,7 +881,7 @@ export default function TeamDetailPage() {
 
               {leadMember && (
                 <div className="flex items-center gap-1.5 text-[12px]" style={{ color: C.text3 }}>
-                  <span style={{ color: C.text4 }}>Lead:</span>
+                  <span style={{ color: C.text4 }}>Coordinación:</span>
                   <Avatar name={leadMember.name} size={18} color={teamColor} />
                   <span>{leadMember.name}</span>
                 </div>
@@ -863,24 +891,26 @@ export default function TeamDetailPage() {
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => setShowAssignProject(true)}
-              className="flex items-center gap-1.5 rounded-[6px] text-[12.5px] font-medium transition-all"
-              style={{ height: '32px', padding: '0 12px', color: C.text2, border: `1px solid ${C.border2}`, background: C.surface }}
-              onMouseEnter={(e) => { (e.currentTarget.style.borderColor = teamColor); (e.currentTarget.style.color = teamColor); (e.currentTarget.style.background = `${teamColor}10`); }}
-              onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border2); (e.currentTarget.style.color = C.text2); (e.currentTarget.style.background = C.surface); }}
-            >
-              <FolderKanban size={13} /> {t.teams_assign_project}
-            </button>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="flex-shrink-0 flex items-center justify-center rounded-[6px] transition-colors"
-              style={{ width: '32px', height: '32px', color: C.text3, border: `1px solid ${C.border}` }}
-              onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-              onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
-            >
-              <MoreHorizontal size={15} />
-            </button>
+            {isTeamOwner && <>
+              <button
+                onClick={() => setShowAssignProject(true)}
+                className="flex items-center gap-1.5 rounded-[6px] text-[12.5px] font-medium transition-all"
+                style={{ height: '32px', padding: '0 12px', color: C.text2, border: `1px solid ${C.border2}`, background: C.surface }}
+                onMouseEnter={(e) => { (e.currentTarget.style.borderColor = teamColor); (e.currentTarget.style.color = teamColor); (e.currentTarget.style.background = `${teamColor}10`); }}
+                onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border2); (e.currentTarget.style.color = C.text2); (e.currentTarget.style.background = C.surface); }}
+              >
+                <FolderKanban size={13} /> {t.teams_assign_project}
+              </button>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="flex-shrink-0 flex items-center justify-center rounded-[6px] transition-colors"
+                style={{ width: '32px', height: '32px', color: C.text3, border: `1px solid ${C.border}` }}
+                onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
+                onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
+              >
+                <MoreHorizontal size={15} />
+              </button>
+            </>}
           </div>
         </div>
 
@@ -1041,7 +1071,7 @@ export default function TeamDetailPage() {
               <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.text4 }}>
                 {t.teams_section_members}
               </div>
-              <button
+              {isOwnerOrAdmin && <button
                 onClick={() => setShowAddMember(true)}
                 className="flex items-center gap-1.5 rounded-[6px] text-[12px] transition-colors"
                 style={{ height: '28px', padding: '0 10px', color: C.text2, border: `1px solid ${C.border}` }}
@@ -1049,8 +1079,22 @@ export default function TeamDetailPage() {
                 onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text2); }}
               >
                 <Plus size={12} /> {t.teams_add_member}
-              </button>
+              </button>}
             </div>
+
+            <details style={{ margin: '-4px 0 14px', color: C.text3 }}>
+              <summary style={{ cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>Cómo funcionan los roles</summary>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginTop: '9px' }}>
+                {[
+                  ['Responsable', 'Configura el equipo, administra admins y puede eliminarlo.'],
+                  ['Administrador', 'Invita y gestiona miembros u observadores.'],
+                  ['Miembro', 'Participa y trabaja en los proyectos del equipo.'],
+                  ['Observador', 'Puede consultar el trabajo sin administrar el equipo.'],
+                ].map(([role, description]) => (
+                  <div key={role} style={{ padding: '8px 9px', borderRadius: '6px', background: C.bg2, border: `1px solid ${C.border}`, fontSize: '11.5px', lineHeight: 1.35 }}><strong style={{ color: C.text2 }}>{role}.</strong> {description}</div>
+                ))}
+              </div>
+            </details>
 
             {membersLoading ? (
               <div className="py-8 flex justify-center">
@@ -1058,9 +1102,9 @@ export default function TeamDetailPage() {
               </div>
             ) : members.length === 0 ? (
               <div
-                className="flex flex-col items-center justify-center py-10 rounded-[8px] gap-3 cursor-pointer transition-colors"
+                className={`flex flex-col items-center justify-center py-10 rounded-[8px] gap-3 transition-colors ${isOwnerOrAdmin ? 'cursor-pointer' : ''}`}
                 style={{ border: `1px dashed ${C.border2}`, color: C.text4 }}
-                onClick={() => setShowAddMember(true)}
+                onClick={() => { if (isOwnerOrAdmin) setShowAddMember(true); }}
               >
                 <Users size={24} />
                 <div className="text-[13px]">{t.teams_no_members}</div>
@@ -1072,14 +1116,16 @@ export default function TeamDetailPage() {
                     key={m.id}
                     member={m}
                     teamColor={teamColor}
-                    canManage={isOwnerOrAdmin}
+                    canChangeRole={canManageMember(m)}
+                    canRemove={canManageMember(m)}
+                    allowedRoles={allowedRolesFor(m)}
                     creatorId={currentTeam?.createdBy ?? ''}
                     onRemove={handleRemoveMember}
                     onChangeRole={handleChangeRole}
                   />
                 ))}
                 {/* Add button as last card */}
-                <div
+                {isOwnerOrAdmin && <div
                   onClick={() => setShowAddMember(true)}
                   className="rounded-[8px] flex items-center justify-center gap-2 cursor-pointer transition-colors text-[13px]"
                   style={{ border: `1px dashed ${C.border2}`, color: C.text4, minHeight: '120px' }}
@@ -1087,7 +1133,7 @@ export default function TeamDetailPage() {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border2; (e.currentTarget as HTMLElement).style.color = C.text4; }}
                 >
                   <Plus size={14} /> {t.teams_add_member}
-                </div>
+                </div>}
               </div>
             )}
           </section>
@@ -1308,6 +1354,7 @@ export default function TeamDetailPage() {
       {showAddMember && (
         <AddMemberModal
           teamId={teamId}
+          allowedRoles={inviteRoles}
           onClose={() => setShowAddMember(false)}
           onAdded={loadMembers}
         />

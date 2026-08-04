@@ -204,14 +204,13 @@ class TeamController {
       const body = updateTeamSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: body.error.issues[0].message } });
 
-      // Solo el lead o creador puede editar
+      // El responsable (creador) conserva la configuración estructural del equipo.
       const check = await pool.query(
-        `SELECT 1 FROM teams t
-         WHERE t.id = $1 AND (t.created_by = $2 OR t.lead_id = $2)`,
+        `SELECT 1 FROM teams WHERE id = $1 AND created_by = $2`,
         [id, userId]
       );
       if (!check.rows.length) {
-        return res.status(403).json({ success: false, error: { message: 'Solo el lead o creador puede editar el equipo' } });
+        return res.status(403).json({ success: false, error: { message: 'Solo el responsable puede editar la configuración del equipo' } });
       }
 
       const { name, description, color, icon, leadId } = body.data;
@@ -342,15 +341,21 @@ class TeamController {
       const body = addMemberSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: body.error.issues[0].message } });
 
-      // Solo ADMIN o creador puede añadir miembros
-      const canEdit = await pool.query(
-        `SELECT 1 FROM teams WHERE id = $1 AND created_by = $2
-         UNION
-         SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 AND role = 'ADMIN'`,
+      const actor = await pool.query(
+        `SELECT t.created_by, tm.role
+         FROM teams t
+         LEFT JOIN team_members tm ON tm.team_id = t.id AND tm.user_id = $2
+         WHERE t.id = $1`,
         [id, userId]
       );
-      if (!canEdit.rows.length) {
+      if (!actor.rows.length) return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado' } });
+      const isOwner = actor.rows[0].created_by === userId;
+      const isAdmin = actor.rows[0].role === 'ADMIN';
+      if (!isOwner && !isAdmin) {
         return res.status(403).json({ success: false, error: { message: 'Solo un administrador puede añadir miembros' } });
+      }
+      if (!isOwner && body.data.role === 'ADMIN') {
+        return res.status(403).json({ success: false, error: { message: 'Solo el responsable puede asignar el rol de administrador' } });
       }
 
       // Resolver userId desde email si es necesario
@@ -435,20 +440,27 @@ class TeamController {
       if (!body.success) return res.status(400).json({ success: false, error: { message: body.error.issues[0].message } });
 
       // El creador no puede cambiarle el rol a sí mismo
-      const teamRow = await pool.query(`SELECT created_by FROM teams WHERE id = $1`, [id]);
+      const teamRow = await pool.query(`SELECT created_by, workspace_id FROM teams WHERE id = $1`, [id]);
       if (!teamRow.rows.length) return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado' } });
       if (teamRow.rows[0].created_by === targetId) {
         return res.status(403).json({ success: false, error: { code: 'CANNOT_CHANGE_CREATOR_ROLE', message: 'No se puede cambiar el rol del creador del equipo' } });
       }
 
-      const canEdit = await pool.query(
-        `SELECT 1 FROM teams WHERE id = $1 AND created_by = $2
-         UNION
-         SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 AND role = 'ADMIN'`,
-        [id, userId]
+      const roles = await pool.query(
+        `SELECT
+           (SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2) AS actor_role,
+           (SELECT role FROM team_members WHERE team_id = $1 AND user_id = $3) AS target_role`,
+        [id, userId, targetId]
       );
-      if (!canEdit.rows.length) {
+      const isOwner = teamRow.rows[0].created_by === userId;
+      const actorRole = roles.rows[0]?.actor_role;
+      const targetRole = roles.rows[0]?.target_role;
+      if (!targetRole) return res.status(404).json({ success: false, error: { message: 'Miembro no encontrado' } });
+      if (!isOwner && actorRole !== 'ADMIN') {
         return res.status(403).json({ success: false, error: { message: 'Solo un administrador puede cambiar roles' } });
+      }
+      if (!isOwner && (targetRole === 'ADMIN' || body.data.role === 'ADMIN')) {
+        return res.status(403).json({ success: false, error: { message: 'Solo el responsable puede administrar roles de administrador' } });
       }
 
       await pool.query(
@@ -478,7 +490,7 @@ class TeamController {
           type: 'team.member.role-changed',
           actor: { id: userId, name: actorRoleName },
           subject: { type: 'member', id: targetId, name: '' },
-          context: { workspaceId: '' },
+          context: { workspaceId: teamRow.rows[0].workspace_id ?? '' },
           payload: { teamId: id, teamName, newRole: body.data.role },
           targetUserId: targetId,
         } as any);
@@ -500,7 +512,7 @@ class TeamController {
       const { id, userId: targetId } = req.params;
 
       // El creador del equipo no puede ser eliminado
-      const teamRow = await pool.query(`SELECT created_by FROM teams WHERE id = $1`, [id]);
+      const teamRow = await pool.query(`SELECT created_by, workspace_id FROM teams WHERE id = $1`, [id]);
       if (!teamRow.rows.length) {
         return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado' } });
       }
@@ -509,11 +521,18 @@ class TeamController {
       }
 
       // Solo lead/creador puede remover a otros; cualquiera puede salir él mismo
-      const canRemove = await pool.query(
-        `SELECT 1 FROM teams WHERE id = $1 AND (created_by = $2 OR lead_id = $2)`,
-        [id, userId]
+      const roles = await pool.query(
+        `SELECT
+           (SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2) AS actor_role,
+           (SELECT role FROM team_members WHERE team_id = $1 AND user_id = $3) AS target_role`,
+        [id, userId, targetId]
       );
-      if (!canRemove.rows.length && userId !== targetId) {
+      const isOwner = teamRow.rows[0].created_by === userId;
+      const actorRole = roles.rows[0]?.actor_role;
+      const targetRole = roles.rows[0]?.target_role;
+      if (!targetRole) return res.status(404).json({ success: false, error: { message: 'Miembro no encontrado' } });
+      const canRemove = userId === targetId || isOwner || (actorRole === 'ADMIN' && targetRole !== 'ADMIN');
+      if (!canRemove) {
         return res.status(403).json({ success: false, error: { message: 'No tienes permiso para remover este miembro' } });
       }
 
@@ -530,7 +549,7 @@ class TeamController {
           type: 'team.member.removed',
           actor: { id: userId, name: actorName },
           subject: { type: 'member', id: targetId, name: '' },
-          context: { workspaceId: '' },
+          context: { workspaceId: teamRow.rows[0].workspace_id ?? '' },
           payload: { teamId: id, teamName },
           targetUserId: targetId,
         } as any);

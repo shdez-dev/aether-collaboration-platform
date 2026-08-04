@@ -1,6 +1,7 @@
 // apps/api/src/services/WorkspaceService.ts
 
 import { randomBytes } from 'crypto';
+import type { PoolClient } from 'pg';
 import { pool } from '../lib/db';
 import { eventStore } from './EventStoreService';
 import type {
@@ -111,6 +112,35 @@ function resolveWorkspaceTemplate(templateId?: string): WorkspaceTemplatePreset 
   return WORKSPACE_TEMPLATE_PRESETS[(templateId as WorkspaceTemplateId) || 'team'] ?? WORKSPACE_TEMPLATE_PRESETS.team;
 }
 
+function workspaceModeForTemplate(templateId?: WorkspaceTemplateId): 'PERSONAL' | 'TEAM' | 'INSTITUTIONAL' {
+  if (templateId === 'personal') return 'PERSONAL';
+  if (templateId === 'institutional') return 'INSTITUTIONAL';
+  return 'TEAM';
+}
+
+async function ensurePersonalOrganization(client: PoolClient, userId: string): Promise<string> {
+  const organization = await client.query(
+    `INSERT INTO organizations (id, name, type, owner_user_id, created_at, updated_at)
+     SELECT uuid_generate_v4(), COALESCE(NULLIF(TRIM(name), ''), 'Cuenta personal') || ' · Aether',
+            'PERSONAL'::"OrganizationType", id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+     FROM users WHERE id = $1
+     ON CONFLICT (owner_user_id) WHERE type = 'PERSONAL'::"OrganizationType"
+     DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+     RETURNING id`,
+    [userId]
+  );
+  const organizationId = organization.rows[0]?.id;
+  if (!organizationId) throw new Error('No se pudo resolver la cuenta del usuario');
+
+  await client.query(
+    `INSERT INTO organization_members (id, organization_id, user_id, role)
+     VALUES (uuid_generate_v4(), $1, $2, 'OWNER'::"OrganizationMemberRole")
+     ON CONFLICT (organization_id, user_id) DO NOTHING`,
+    [organizationId, userId]
+  );
+  return organizationId;
+}
+
 export class WorkspaceService {
   /**
    * Crear un nuevo workspace
@@ -130,13 +160,15 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
       const template = resolveWorkspaceTemplate(data.workspaceTemplateId);
+      const organizationId = await ensurePersonalOrganization(client, userId);
+      const workspaceMode = workspaceModeForTemplate(data.workspaceTemplateId);
 
       // 1. Crear el workspace
       const workspaceResult = await client.query(
-        `INSERT INTO workspaces (id, name, description, owner_id, icon, color, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        `INSERT INTO workspaces (id, organization_id, operating_mode, name, description, owner_id, icon, color, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2::"WorkspaceMode", $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
          RETURNING *`,
-        [data.name, data.description || null, userId, data.icon || null, data.color || null]
+        [organizationId, workspaceMode, data.name, data.description || null, userId, data.icon || null, data.color || null]
       );
 
       const workspace = workspaceResult.rows[0];
@@ -149,13 +181,23 @@ export class WorkspaceService {
       );
 
       // 3. Persistir el marco inicial de proyectos segun la plantilla elegida
-      await client.query(
+      const standardResult = await client.query(
         `INSERT INTO workspace_project_standards
           (id, workspace_id, name, version, is_active, definition_json, created_by, created_at, updated_at)
          VALUES
-          (uuid_generate_v4(), $1, $2, 1, true, $3::jsonb, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          (uuid_generate_v4(), $1, $2, 1, true, $3::jsonb, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING id`,
         [workspace.id, template.standardName, JSON.stringify(template.definition), userId]
       );
+
+      if (workspaceMode === 'INSTITUTIONAL') {
+        await client.query(
+          `INSERT INTO workspace_institutional_settings (workspace_id, active_standard_id, intake_enabled)
+           VALUES ($1, $2, true)
+           ON CONFLICT (workspace_id) DO UPDATE SET active_standard_id = EXCLUDED.active_standard_id, intake_enabled = true, updated_at = CURRENT_TIMESTAMP`,
+          [workspace.id, standardResult.rows[0].id]
+        );
+      }
 
       await client.query('COMMIT');
 
@@ -846,10 +888,10 @@ export class WorkspaceService {
 
       // Crear copia
       const newWorkspaceResult = await client.query(
-        `INSERT INTO workspaces (id, name, description, owner_id, icon, color, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        `INSERT INTO workspaces (id, organization_id, operating_mode, name, description, owner_id, icon, color, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2::"WorkspaceMode", $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
          RETURNING *`,
-        [`${source.name} (copia)`, source.description, userId, source.icon, source.color]
+        [source.organization_id, source.operating_mode, `${source.name} (copia)`, source.description, userId, source.icon, source.color]
       );
       const newWorkspace = newWorkspaceResult.rows[0];
 
@@ -1238,12 +1280,13 @@ export class WorkspaceService {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const organizationId = await ensurePersonalOrganization(client, userId);
 
       // Crear workspace
       const wsResult = await client.query(
-        `INSERT INTO workspaces (id, name, description, owner_id, icon, color, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING *`,
-        [name, template.description, userId, template.icon, template.color]
+        `INSERT INTO workspaces (id, organization_id, operating_mode, name, description, owner_id, icon, color, updated_at)
+         VALUES (uuid_generate_v4(), $1, 'TEAM'::"WorkspaceMode", $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) RETURNING *`,
+        [organizationId, name, template.description, userId, template.icon, template.color]
       );
       const workspace = wsResult.rows[0];
 
