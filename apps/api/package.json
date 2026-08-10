@@ -17,6 +17,7 @@
     "lint": "eslint src --ext .ts",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File prisma/migration-smoke-test.ps1",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio"
