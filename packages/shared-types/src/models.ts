@@ -23,6 +23,27 @@ export enum UserRole {
  */
 export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
 
+/** Modelo operativo del espacio. La organizacion es la cuenta que agrupa uno o mas workspaces. */
+export type WorkspaceMode = 'PERSONAL' | 'TEAM' | 'INSTITUTIONAL';
+
+export type OrganizationType = 'PERSONAL' | 'COMPANY' | 'INSTITUTION' | 'NETWORK_OPERATOR';
+export type OrganizationMemberRole = 'OWNER' | 'BILLING_ADMIN' | 'ADMIN' | 'MEMBER';
+
+export interface WorkspaceCapabilities {
+  projects: boolean;
+  boards: boolean;
+  portfolio: boolean;
+  institutionalIntake: boolean;
+  networks: boolean;
+}
+
+export interface WorkspaceOrganizationSummary {
+  id: string;
+  name: string;
+  type: OrganizationType;
+  role?: OrganizationMemberRole;
+}
+
 export enum CardPriority {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
@@ -68,6 +89,8 @@ export interface UserProfile extends User {
 
 export interface Workspace {
   id: string;
+  organizationId: string;
+  mode: WorkspaceMode;
   name: string;
   description?: string;
   ownerId: string;
@@ -80,6 +103,13 @@ export interface Workspace {
   initiativeTeamId?: string | null;
   createdAt: string;
   updatedAt: string;
+  organization?: WorkspaceOrganizationSummary;
+  institutionalSettings?: {
+    initiativeTeamId?: string | null;
+    activeStandardId?: string | null;
+    intakeEnabled: boolean;
+  } | null;
+  capabilities?: WorkspaceCapabilities;
   // Propiedades opcionales calculadas
   userRole?: WorkspaceRole;
   boardCount?: number;

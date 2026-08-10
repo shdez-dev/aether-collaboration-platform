@@ -7,8 +7,12 @@ import { useProjectStore } from './projectStore';
 
 // ==================== TYPES ====================
 
-interface Workspace {
+export type WorkspaceMode = 'PERSONAL' | 'TEAM' | 'INSTITUTIONAL';
+
+export interface Workspace {
   id: string;
+  organizationId: string;
+  mode: WorkspaceMode;
   name: string;
   description?: string;
   ownerId: string;
@@ -24,6 +28,9 @@ interface Workspace {
   userRole?: string;
   boardCount?: number;
   memberCount?: number;
+  organization?: { id: string; name: string; type: string; role?: string };
+  institutionalSettings?: { initiativeTeamId?: string | null; activeStandardId?: string | null; intakeEnabled: boolean } | null;
+  capabilities?: { projects: boolean; boards: boolean; portfolio: boolean; institutionalIntake: boolean; networks: boolean };
 }
 
 interface WorkspaceStats {
@@ -112,6 +119,7 @@ interface WorkspaceState {
   fetchWorkspaceById: (id: string) => Promise<void>;
   createWorkspace: (data: CreateWorkspaceData) => Promise<Workspace>;
   updateWorkspace: (id: string, data: UpdateWorkspaceData) => Promise<void>;
+  updateWorkspaceMode: (id: string, mode: WorkspaceMode) => Promise<void>;
   deleteWorkspace: (id: string) => Promise<void>;
   archiveWorkspace: (id: string) => Promise<void>;
   restoreWorkspace: (id: string) => Promise<void>;
@@ -148,6 +156,7 @@ interface CreateWorkspaceData {
   description?: string;
   icon?: string;
   color?: string;
+  organizationId?: string;
   workspaceTemplateId?: 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
 }
 
@@ -678,6 +687,32 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           }
         } catch (err) {
           // Error fetching stats
+        }
+      },
+
+      // ==================== UPDATE OPERATING MODE ====================
+      updateWorkspaceMode: async (id: string, mode: WorkspaceMode) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiService.put<{ workspace: Workspace }>(
+            `/api/workspaces/${id}/mode`,
+            { mode },
+            true
+          );
+          if (!response.success || !response.data) {
+            set({ error: response.error?.message || 'Failed to update workspace mode', isLoading: false });
+            throw new Error(response.error?.message || 'Failed to update workspace mode');
+          }
+          set((state) => ({
+            workspaces: state.workspaces.map((w) => w.id === id ? { ...response.data!.workspace, userRole: w.userRole } : w),
+            currentWorkspace: state.currentWorkspace?.id === id
+              ? { ...response.data!.workspace, userRole: state.currentWorkspace.userRole }
+              : state.currentWorkspace,
+            isLoading: false,
+          }));
+        } catch (error: any) {
+          set({ error: error?.message || 'Error al cambiar el contexto del workspace', isLoading: false });
+          throw error;
         }
       },
 

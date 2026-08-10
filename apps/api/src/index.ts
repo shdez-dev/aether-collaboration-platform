@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 // Import routes
 import authRoutes from './routes/auth';
 import workspaceRoutes from './routes/workspace';
+import organizationRoutes from './routes/organizations';
 import boardRoutes from './routes/board';
 import cardRoutes from './routes/cards';
 import labelRoutes from './routes/labels';
@@ -195,6 +196,7 @@ app.use('/api/auth/reset-password', passwordResetLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/workspaces', workspaceRoutes);
+app.use('/api/organizations', organizationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', boardRoutes);
 app.use('/api', cardRoutes);

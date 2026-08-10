@@ -17,6 +17,7 @@ const createWorkspaceSchema = z.object({
   icon: z.string().max(500).optional(),
   color: z.string().max(50).optional(),
   initiativeTeamId: z.string().uuid().nullable().optional(),
+  organizationId: z.string().uuid().optional(),
   workspaceTemplateId: z.enum(['personal', 'team', 'institutional', 'marketing', 'construction']).optional(),
 });
 
@@ -25,6 +26,11 @@ const updateWorkspaceSchema = z.object({
   description: z.string().max(1000).optional(),
   icon: z.string().max(500).optional(),
   color: z.string().max(50).optional(),
+  initiativeTeamId: z.string().uuid().nullable().optional(),
+});
+
+const updateWorkspaceModeSchema = z.object({
+  mode: z.enum(['PERSONAL', 'TEAM', 'INSTITUTIONAL']),
 });
 
 const inviteMemberSchema = z.object({
@@ -293,7 +299,13 @@ class WorkspaceController {
         success: true,
         data: { workspace },
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message === 'Organization admin access required') {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: error.message },
+        });
+      }
       return res.status(500).json({
         success: false,
         error: {
@@ -444,6 +456,35 @@ class WorkspaceController {
           code: 'INTERNAL_ERROR',
           message: 'Failed to update workspace',
         },
+      });
+    }
+  }
+
+  /**
+   * PUT /api/workspaces/:id/mode
+   * Cambiar el contexto operativo del workspace (solo OWNER).
+   */
+  async updateMode(req: WorkspaceRequest, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+    const validation = updateWorkspaceModeSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid workspace mode', details: validation.error.errors },
+      });
+    }
+    try {
+      const workspace = await workspaceService.setWorkspaceMode(req.params.id, userId, validation.data.mode);
+      return res.json({ success: true, data: { workspace } });
+    } catch (error: any) {
+      const message = error?.message ?? 'Failed to update workspace mode';
+      const status = message.includes('Only workspace owner') ? 403 : message === 'Workspace not found' ? 404 : 500;
+      return res.status(status).json({
+        success: false,
+        error: { code: status === 403 ? 'FORBIDDEN' : status === 404 ? 'WORKSPACE_NOT_FOUND' : 'INTERNAL_ERROR', message },
       });
     }
   }

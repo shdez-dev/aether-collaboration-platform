@@ -488,7 +488,13 @@ export default function ProjectsPage() {
   }, [activeWorkspaceId, fetchProjectsByWorkspace]);
 
   const workspace = workspaces.find((item) => item.id === activeWorkspaceId);
-  const workspaceExperience = inferWorkspaceExperience(currentProjectStandard?.name);
+  // El modo es el contrato de contexto; el estándar solo conserva sub-plantillas
+  // (por ejemplo marketing/construcción) dentro de un workspace TEAM.
+  const workspaceExperience = workspace?.mode === 'PERSONAL'
+    ? 'personal'
+    : workspace?.mode === 'INSTITUTIONAL'
+      ? 'institutional'
+      : inferWorkspaceExperience(currentProjectStandard?.name);
   const experienceMeta = EXPERIENCE_META[workspaceExperience];
   const isInstitutionalExperience = workspaceExperience === 'institutional';
 

@@ -8,6 +8,8 @@ import type {
   Workspace,
   WorkspaceMembership,
   WorkspaceRole,
+  WorkspaceMode,
+  WorkspaceCapabilities,
 } from '@aether/types';
 
 type WorkspaceTemplateId = 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
@@ -152,6 +154,8 @@ export class WorkspaceService {
       description?: string;
       icon?: string;
       color?: string;
+      initiativeTeamId?: string | null;
+      organizationId?: string;
       workspaceTemplateId?: WorkspaceTemplateId;
     }
   ): Promise<Workspace & { userRole: WorkspaceRole }> {
@@ -160,15 +164,17 @@ export class WorkspaceService {
     try {
       await client.query('BEGIN');
       const template = resolveWorkspaceTemplate(data.workspaceTemplateId);
-      const organizationId = await ensurePersonalOrganization(client, userId);
+      const organizationId = data.organizationId
+        ? await this.assertOrganizationAccess(client, data.organizationId, userId)
+        : await ensurePersonalOrganization(client, userId);
       const workspaceMode = workspaceModeForTemplate(data.workspaceTemplateId);
 
       // 1. Crear el workspace
       const workspaceResult = await client.query(
-        `INSERT INTO workspaces (id, organization_id, operating_mode, name, description, owner_id, icon, color, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2::"WorkspaceMode", $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+        `INSERT INTO workspaces (id, organization_id, operating_mode, name, description, owner_id, icon, color, initiative_team_id, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2::"WorkspaceMode", $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
          RETURNING *`,
-        [organizationId, workspaceMode, data.name, data.description || null, userId, data.icon || null, data.color || null]
+        [organizationId, workspaceMode, data.name, data.description || null, userId, data.icon || null, data.color || null, data.initiativeTeamId || null]
       );
 
       const workspace = workspaceResult.rows[0];
@@ -192,10 +198,10 @@ export class WorkspaceService {
 
       if (workspaceMode === 'INSTITUTIONAL') {
         await client.query(
-          `INSERT INTO workspace_institutional_settings (workspace_id, active_standard_id, intake_enabled)
-           VALUES ($1, $2, true)
+          `INSERT INTO workspace_institutional_settings (workspace_id, initiative_team_id, active_standard_id, intake_enabled)
+           VALUES ($1, $2, $3, true)
            ON CONFLICT (workspace_id) DO UPDATE SET active_standard_id = EXCLUDED.active_standard_id, intake_enabled = true, updated_at = CURRENT_TIMESTAMP`,
-          [workspace.id, standardResult.rows[0].id]
+          [workspace.id, data.initiativeTeamId || null, standardResult.rows[0].id]
         );
       }
 
@@ -236,6 +242,10 @@ export class WorkspaceService {
     const result = await pool.query(
       `SELECT 
         w.*,
+        (SELECT json_build_object('id', o.id, 'name', o.name, 'type', o.type)
+           FROM organizations o WHERE o.id = w.organization_id) AS organization_summary,
+        (SELECT json_build_object('initiativeTeamId', wis.initiative_team_id, 'activeStandardId', wis.active_standard_id, 'intakeEnabled', wis.intake_enabled)
+           FROM workspace_institutional_settings wis WHERE wis.workspace_id = w.id) AS institutional_settings,
         wm.role as user_role,
         COUNT(DISTINCT b.id) as board_count,
         COUNT(DISTINCT wm2.user_id) as member_count
@@ -269,6 +279,10 @@ export class WorkspaceService {
     const result = await pool.query(
       `SELECT 
         w.*,
+        (SELECT json_build_object('id', o.id, 'name', o.name, 'type', o.type)
+           FROM organizations o WHERE o.id = w.organization_id) AS organization_summary,
+        (SELECT json_build_object('initiativeTeamId', wis.initiative_team_id, 'activeStandardId', wis.active_standard_id, 'intakeEnabled', wis.intake_enabled)
+           FROM workspace_institutional_settings wis WHERE wis.workspace_id = w.id) AS institutional_settings,
         wm.role as user_role,
         COUNT(DISTINCT b.id) as board_count,
         COUNT(DISTINCT wm2.user_id) as member_count
@@ -375,6 +389,70 @@ export class WorkspaceService {
         ...this.formatWorkspace(workspace),
         userRole,
       };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async assertOrganizationAccess(client: PoolClient, organizationId: string, userId: string): Promise<string> {
+    const result = await client.query(
+      `SELECT organization_id, role FROM organization_members WHERE organization_id = $1 AND user_id = $2`,
+      [organizationId, userId]
+    );
+    if (!result.rows[0] || !['OWNER', 'ADMIN'].includes(result.rows[0].role)) {
+      throw new Error('Organization admin access required');
+    }
+    return result.rows[0].organization_id;
+  }
+
+  /** Cambiar el contexto operativo del workspace. Solo el propietario puede hacerlo. */
+  async setWorkspaceMode(
+    workspaceId: string,
+    userId: string,
+    mode: WorkspaceMode
+  ): Promise<Workspace & { userRole: WorkspaceRole }> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const membership = await client.query(
+        `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+        [workspaceId, userId]
+      );
+      if (membership.rows[0]?.role !== 'OWNER') throw new Error('Only workspace owner can change the operating mode');
+
+      const workspaceResult = await client.query(
+        `UPDATE workspaces SET operating_mode = $1::"WorkspaceMode", updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2 RETURNING *`,
+        [mode, workspaceId]
+      );
+      if (workspaceResult.rowCount === 0) throw new Error('Workspace not found');
+
+      if (mode === 'INSTITUTIONAL') {
+        const standard = await client.query(
+          `SELECT id FROM workspace_project_standards WHERE workspace_id = $1 AND is_active = true
+           ORDER BY version DESC, updated_at DESC LIMIT 1`,
+          [workspaceId]
+        );
+        await client.query(
+          `INSERT INTO workspace_institutional_settings (workspace_id, initiative_team_id, active_standard_id, intake_enabled)
+           SELECT $1, initiative_team_id, $2, true FROM workspaces WHERE id = $1
+           ON CONFLICT (workspace_id) DO UPDATE SET active_standard_id = EXCLUDED.active_standard_id, intake_enabled = true, updated_at = CURRENT_TIMESTAMP`,
+          [workspaceId, standard.rows[0]?.id ?? null]
+        );
+      } else {
+        await client.query(
+          `UPDATE workspace_institutional_settings SET intake_enabled = false, updated_at = CURRENT_TIMESTAMP WHERE workspace_id = $1`,
+          [workspaceId]
+        );
+      }
+
+      await client.query('COMMIT');
+      const workspace = await this.getWorkspaceById(workspaceId, userId);
+      if (!workspace) throw new Error('Workspace not found');
+      return workspace as Workspace & { userRole: WorkspaceRole };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -888,12 +966,22 @@ export class WorkspaceService {
 
       // Crear copia
       const newWorkspaceResult = await client.query(
-        `INSERT INTO workspaces (id, organization_id, operating_mode, name, description, owner_id, icon, color, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2::"WorkspaceMode", $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+        `INSERT INTO workspaces (id, organization_id, operating_mode, name, description, owner_id, icon, color, initiative_team_id, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2::"WorkspaceMode", $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
          RETURNING *`,
-        [source.organization_id, source.operating_mode, `${source.name} (copia)`, source.description, userId, source.icon, source.color]
+        [source.organization_id, source.operating_mode, `${source.name} (copia)`, source.description, userId, source.icon, source.color, source.initiative_team_id]
       );
       const newWorkspace = newWorkspaceResult.rows[0];
+
+      if (source.operating_mode === 'INSTITUTIONAL') {
+        await client.query(
+          `INSERT INTO workspace_institutional_settings (workspace_id, initiative_team_id, active_standard_id, intake_enabled)
+           SELECT $1, initiative_team_id, active_standard_id, intake_enabled
+             FROM workspace_institutional_settings WHERE workspace_id = $2
+           ON CONFLICT (workspace_id) DO NOTHING`,
+          [newWorkspace.id, workspaceId]
+        );
+      }
 
       // Añadir al creador como OWNER
       await client.query(
@@ -1347,8 +1435,21 @@ export class WorkspaceService {
    * Formatear workspace desde resultado de DB
    */
   private formatWorkspace(row: any): Workspace {
+    const mode = (row.operating_mode ?? 'TEAM') as WorkspaceMode;
+    const capabilities: WorkspaceCapabilities = {
+      projects: true,
+      boards: true,
+      portfolio: mode !== 'PERSONAL',
+      institutionalIntake: mode === 'INSTITUTIONAL',
+      networks: false,
+    };
+    const organization = row.organization_summary
+      ? { ...row.organization_summary, role: row.organization_role ?? undefined }
+      : undefined;
     return {
       id: row.id,
+      organizationId: row.organization_id,
+      mode,
       name: row.name,
       description: row.description,
       ownerId: row.owner_id,
@@ -1361,6 +1462,9 @@ export class WorkspaceService {
       initiativeTeamId: row.initiative_team_id ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      organization,
+      institutionalSettings: row.institutional_settings ?? null,
+      capabilities,
     };
   }
 }

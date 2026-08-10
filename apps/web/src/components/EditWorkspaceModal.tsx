@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useWorkspaceStore, type WorkspaceMode } from '@/stores/workspaceStore';
 import { WorkspaceIcon, WORKSPACE_ICON_KEYS } from '@/components/WorkspaceIcon';
 import { C } from '@/lib/colors';
 
@@ -18,6 +18,8 @@ interface Workspace {
   name: string;
   icon?: string;
   color?: string;
+  mode?: WorkspaceMode;
+  userRole?: string;
 }
 
 interface EditWorkspaceModalProps {
@@ -37,11 +39,12 @@ const FL = ({ children }: { children: React.ReactNode }) => (
 );
 
 export default function EditWorkspaceModal({ workspace, onClose, onDeleted }: EditWorkspaceModalProps) {
-  const { updateWorkspace, deleteWorkspace, isLoading } = useWorkspaceStore();
+  const { updateWorkspace, updateWorkspaceMode, deleteWorkspace, isLoading } = useWorkspaceStore();
 
   const [name,          setName]          = useState(workspace.name);
   const [selectedIcon,  setSelectedIcon]  = useState(workspace.icon  ?? WORKSPACE_ICON_KEYS[0]);
   const [selectedColor, setSelectedColor] = useState(workspace.color ?? COLORS[0]);
+  const [selectedMode, setSelectedMode] = useState<WorkspaceMode>(workspace.mode ?? 'TEAM');
   const [error,         setError]         = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [animIn,        setAnimIn]        = useState(false);
@@ -66,6 +69,9 @@ export default function EditWorkspaceModal({ workspace, onClose, onDeleted }: Ed
     if (!name.trim()) { setError('El nombre es obligatorio'); return; }
     try {
       await updateWorkspace(workspace.id, { name: name.trim(), icon: selectedIcon, color: selectedColor });
+      if (workspace.userRole === 'OWNER' && selectedMode !== (workspace.mode ?? 'TEAM')) {
+        await updateWorkspaceMode(workspace.id, selectedMode);
+      }
       handleClose();
     } catch (err: any) {
       setError(err.message || 'Error al guardar los cambios');
@@ -152,6 +158,28 @@ export default function EditWorkspaceModal({ workspace, onClose, onDeleted }: Ed
                   />
                 ))}
               </div>
+            </div>
+
+            {/* Contexto operativo: cambia las capacidades y el flujo del espacio. */}
+            <div>
+              <FL>Contexto del espacio</FL>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                {([
+                  ['PERSONAL', 'Personal'],
+                  ['TEAM', 'Teams'],
+                  ['INSTITUTIONAL', 'Institucional'],
+                ] as Array<[WorkspaceMode, string]>).map(([mode, label]) => {
+                  const active = selectedMode === mode;
+                  const disabled = isLoading || workspace.userRole !== 'OWNER';
+                  return (
+                    <button
+                      key={mode} type="button" disabled={disabled} onClick={() => setSelectedMode(mode)}
+                      style={{ padding: '9px 6px', borderRadius: '7px', border: `1px solid ${active ? selectedColor : C.border}`, background: active ? `${selectedColor}20` : C.surface, color: active ? C.text : C.text2, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.65 : 1, fontSize: '11px', fontWeight: active ? 700 : 500, fontFamily: MANROPE }}
+                    >{label}</button>
+                  );
+                })}
+              </div>
+              {workspace.userRole !== 'OWNER' && <div style={{ marginTop: '6px', color: C.text4, fontSize: '11px' }}>Solo el propietario puede cambiar el contexto.</div>}
             </div>
 
             {/* Icono */}

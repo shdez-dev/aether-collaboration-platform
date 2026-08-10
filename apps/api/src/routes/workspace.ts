@@ -77,6 +77,15 @@ router.put('/:id', checkWorkspaceMembership, requireAdmin, (req, res) =>
 );
 
 /**
+ * PUT /api/workspaces/:id/mode
+ * Cambiar el contexto operativo (PERSONAL, TEAM o INSTITUTIONAL).
+ * Permisos: solo OWNER.
+ */
+router.put('/:id/mode', checkWorkspaceMembership, requireOwner, (req, res) =>
+  workspaceController.updateMode(req, res)
+);
+
+/**
  * DELETE /api/workspaces/:id
  * Eliminar un workspace
  * Permisos: Solo OWNER

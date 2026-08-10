@@ -72,6 +72,7 @@ export interface CreateWorkspaceRequest {
   description?: string;
   icon?: string;
   color?: string;
+  organizationId?: string;
   workspaceTemplateId?: 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
 }
 
@@ -80,6 +81,30 @@ export interface UpdateWorkspaceRequest {
   description?: string;
   icon?: string;
   color?: string;
+  initiativeTeamId?: string | null;
+}
+
+export interface UpdateWorkspaceModeRequest {
+  mode: 'PERSONAL' | 'TEAM' | 'INSTITUTIONAL';
+}
+
+export interface OrganizationSummary {
+  id: string;
+  name: string;
+  type: 'PERSONAL' | 'COMPANY' | 'INSTITUTION' | 'NETWORK_OPERATOR';
+  role: 'OWNER' | 'BILLING_ADMIN' | 'ADMIN' | 'MEMBER';
+  workspaceCount: number;
+  memberCount: number;
+  subscription?: {
+    planCode: string;
+    status: string;
+  } | null;
+}
+
+export interface CreateOrganizationRequest {
+  name: string;
+  type: 'COMPANY' | 'INSTITUTION' | 'NETWORK_OPERATOR';
+  billingEmail?: string | null;
 }
 
 export interface InviteMemberRequest {

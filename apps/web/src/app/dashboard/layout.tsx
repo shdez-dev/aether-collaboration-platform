@@ -35,6 +35,12 @@ function getInitials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
+function workspaceModeLabel(mode?: string) {
+  if (mode === 'PERSONAL') return 'Personal';
+  if (mode === 'INSTITUTIONAL') return 'Institucional';
+  return 'Teams';
+}
+
 // ── Workspace switcher ──────────────────────────────────────────────────────────
 
 function WorkspaceSwitcher({
@@ -89,6 +95,7 @@ function WorkspaceSwitcher({
         <span style={{ fontFamily: SORA, fontSize: '13.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, textAlign: 'left' }}>
           {active?.name ?? 'Tu espacio'}
         </span>
+        {active && <span style={{ fontSize: '9px', color: '#9C9486', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '999px', padding: '2px 5px', flexShrink: 0 }}>{workspaceModeLabel(active.mode)}</span>}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
           <path d="M8 9l4 4 4-4M8 15l4-4 4 4" stroke="#827A6D" strokeWidth="1.6" strokeLinecap="round"/>
         </svg>
@@ -122,6 +129,7 @@ function WorkspaceSwitcher({
                     <span style={{ flex: 1, fontSize: '13px', fontWeight: isAct ? 600 : 400, color: isAct ? '#E8E1D2' : '#9C9486', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>
                       {ws.name}
                     </span>
+                    <span style={{ fontSize: '9px', color: '#827A6D', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', padding: '2px 4px', flexShrink: 0 }}>{workspaceModeLabel(ws.mode)}</span>
                     {isAct && (
                       <svg viewBox="0 0 12 12" fill="none" stroke="#F2571E" strokeWidth="2" width="11" height="11" style={{ flexShrink: 0 }}>
                         <path d="M2 6l3 3 5-5" />
