@@ -81,7 +81,6 @@ export interface UpdateWorkspaceRequest {
   description?: string;
   icon?: string;
   color?: string;
-  initiativeTeamId?: string | null;
 }
 
 export interface UpdateWorkspaceModeRequest {
@@ -105,6 +104,29 @@ export interface CreateOrganizationRequest {
   name: string;
   type: 'COMPANY' | 'INSTITUTION' | 'NETWORK_OPERATOR';
   billingEmail?: string | null;
+}
+
+export interface OrganizationMemberSummary {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  avatar?: string | null;
+  role: 'OWNER' | 'BILLING_ADMIN' | 'ADMIN' | 'MEMBER';
+  joinedAt: string;
+}
+
+export interface InviteOrganizationMemberRequest {
+  email: string;
+  role?: 'BILLING_ADMIN' | 'ADMIN' | 'MEMBER';
+}
+
+export interface UpdateOrganizationMemberRequest {
+  role: 'BILLING_ADMIN' | 'ADMIN' | 'MEMBER';
+}
+
+export interface TransferOrganizationOwnershipRequest {
+  userId: string;
 }
 
 export interface InviteMemberRequest {

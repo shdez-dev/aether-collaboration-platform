@@ -16,7 +16,6 @@ const createWorkspaceSchema = z.object({
   description: z.string().max(1000).optional(),
   icon: z.string().max(500).optional(),
   color: z.string().max(50).optional(),
-  initiativeTeamId: z.string().uuid().nullable().optional(),
   organizationId: z.string().uuid().optional(),
   workspaceTemplateId: z.enum(['personal', 'team', 'institutional', 'marketing', 'construction']).optional(),
 });
@@ -26,7 +25,6 @@ const updateWorkspaceSchema = z.object({
   description: z.string().max(1000).optional(),
   icon: z.string().max(500).optional(),
   color: z.string().max(50).optional(),
-  initiativeTeamId: z.string().uuid().nullable().optional(),
 });
 
 const updateWorkspaceModeSchema = z.object({
@@ -483,6 +481,9 @@ class WorkspaceController {
       const workspace = await workspaceService.setWorkspaceMode(req.params.id, userId, validation.data.mode);
       return res.json({ success: true, data: { workspace } });
     } catch (error: any) {
+      if (error?.code === 'CAPABILITY_REQUIRED') {
+        return res.status(403).json({ success: false, error: { code: error.code, message: error.message, details: error.details } });
+      }
       const message = error?.message ?? 'Failed to update workspace mode';
       const status = message.includes('Only workspace owner') ? 403 : message === 'Workspace not found' ? 404 : 500;
       return res.status(status).json({

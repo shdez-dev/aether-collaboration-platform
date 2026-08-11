@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
 import { WorkspaceIcon, WORKSPACE_ICON_KEYS } from '@/components/WorkspaceIcon';
 import { useT } from '@/lib/i18n';
 import { C } from '@/lib/colors';
@@ -22,6 +23,7 @@ const COLORS = [
 ];
 
 type WorkspaceTemplateId = 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
+type OrganizationOption = { id: string; name: string; type: string; role: 'OWNER' | 'ADMIN' | 'BILLING_ADMIN' | 'MEMBER' };
 
 const WORKSPACE_TEMPLATES: Array<{
   id: WorkspaceTemplateId;
@@ -86,13 +88,15 @@ interface CreateWorkspaceModalProps {
 
 export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspaceModalProps) {
   const t = useT();
-  const { createWorkspace, isLoading } = useWorkspaceStore();
+  const { createWorkspace, isLoading, currentWorkspace } = useWorkspaceStore();
 
   const [name, setName]               = useState('');
   const [description, setDescription] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(WORKSPACE_ICON_KEYS[0]);
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<WorkspaceTemplateId>('team');
+  const [organizations, setOrganizations] = useState<OrganizationOption[]>([]);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState('');
   const [error, setError]             = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const selectedTemplate = WORKSPACE_TEMPLATES.find((template) => template.id === selectedTemplateId) ?? WORKSPACE_TEMPLATES[0];
@@ -111,6 +115,21 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    apiService.get<{ organizations: OrganizationOption[] }>('/api/organizations', true)
+      .then((response) => {
+        if (!active || !response.success || !response.data) return;
+        const manageable = response.data.organizations.filter((organization) => organization.role === 'OWNER' || organization.role === 'ADMIN');
+        setOrganizations(manageable);
+        const currentOrganizationId = currentWorkspace?.organizationId;
+        setSelectedOrganizationId(manageable.some((organization) => organization.id === currentOrganizationId) ? currentOrganizationId! : (manageable[0]?.id ?? ''));
+      })
+      .catch(() => { if (active) setOrganizations([]); });
+    return () => { active = false; };
+  }, [isOpen, currentWorkspace?.organizationId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -121,6 +140,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
         description: description.trim() || undefined,
         icon: selectedIcon,
         color: selectedColor,
+        organizationId: selectedOrganizationId || undefined,
         workspaceTemplateId: selectedTemplateId,
       });
       handleClose();
@@ -221,6 +241,26 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
             </div>
 
             {/* ── Plantilla ────────────────────────────────────────────── */}
+            {organizations.length > 0 && (
+              <div className="mb-5">
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
+                  Organización
+                </label>
+                <select
+                  value={selectedOrganizationId}
+                  onChange={(event) => setSelectedOrganizationId(event.target.value)}
+                  disabled={isLoading}
+                  style={{ width: '100%', height: '42px', borderRadius: '8px', padding: '0 12px', background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MANROPE, fontSize: '13px' }}
+                >
+                  {organizations.map((organization) => (
+                    <option key={organization.id} value={organization.id}>
+                      {organization.name} · {organization.type === 'INSTITUTION' ? 'Institución' : organization.type === 'PERSONAL' ? 'Personal' : 'Organización'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="mb-5">
               <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
                 Tipo de workspace

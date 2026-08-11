@@ -67,6 +67,9 @@ export class AuthController {
       const validatedData = registerSchema.parse(req.body);
       const { email: rawEmail, password, name } = validatedData;
       const email = rawEmail.trim().toLowerCase();
+      // organizations.name es VARCHAR(255); reservar los 9 caracteres del
+      // sufijo evita que un nombre de usuario válido rompa el registro.
+      const personalOrganizationName = `${name.trim().slice(0, 246) || 'Cuenta personal'} · Aether`;
 
       // 2. Obtener conexión del pool
       client = await pool.connect();
@@ -93,15 +96,38 @@ export class AuthController {
       const verificationToken = crypto.randomBytes(32).toString('hex');
       const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
-      // 6. Crear usuario en la base de datos con email_verified=FALSE
-      const result = await client.query(
-        `INSERT INTO users (id, email, password, name, email_verified, email_verification_token, email_verification_expires, created_at, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2, $3, FALSE, $4, $5, NOW(), NOW())
-         RETURNING id, email, name, avatar, created_at`,
-        [email, hashedPassword, name, hashToken(verificationToken), verificationExpires]
-      );
+      // 6. Crear la cuenta y su contexto personal como una sola unidad. El
+      // workspace deja de ser el disparador de la organización: toda cuenta
+      // nueva tiene desde el inicio una organización PERSONAL y su OWNER.
+      await client.query('BEGIN');
+      let user;
+      try {
+        const result = await client.query(
+          `INSERT INTO users (id, email, password, name, email_verified, email_verification_token, email_verification_expires, created_at, updated_at)
+           VALUES (uuid_generate_v4(), $1, $2, $3, FALSE, $4, $5, NOW(), NOW())
+           RETURNING id, email, name, avatar, created_at`,
+          [email, hashedPassword, name, hashToken(verificationToken), verificationExpires]
+        );
+        user = result.rows[0];
 
-      const user = result.rows[0];
+        const organization = await client.query(
+          `INSERT INTO organizations (id, name, type, owner_user_id, created_at, updated_at)
+           VALUES (uuid_generate_v4(), $1, 'PERSONAL'::"OrganizationType", $2, NOW(), NOW())
+           RETURNING id`,
+          [personalOrganizationName, user.id]
+        );
+
+        await client.query(
+          `INSERT INTO organization_members (id, organization_id, user_id, role)
+           VALUES (uuid_generate_v4(), $1, $2, 'OWNER'::"OrganizationMemberRole")`,
+          [organization.rows[0].id, user.id]
+        );
+        await client.query('COMMIT');
+      } catch (registrationError) {
+        await client.query('ROLLBACK');
+        throw registrationError;
+      }
+
       const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
       const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 

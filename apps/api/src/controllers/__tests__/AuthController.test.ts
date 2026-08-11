@@ -73,7 +73,8 @@ describe('AuthController', () => {
 
       mockRequest.body = userData;
 
-      // Mock: user doesn't exist
+      // Mock: user doesn't exist, then transaction starts.
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
       mockClient.query.mockResolvedValueOnce({ rows: [] });
 
       // Mock bcrypt hash
@@ -97,6 +98,11 @@ describe('AuthController', () => {
         ],
       });
 
+      // Mock personal organization creation and its owner membership.
+      mockClient.query.mockResolvedValueOnce({ rows: [{ id: 'organization-123' }] });
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
       // Mock event store
       (eventStore.emit as jest.Mock).mockResolvedValue({});
 
@@ -118,7 +124,39 @@ describe('AuthController', () => {
       // Verify password was hashed
       expect(bcrypt.hash).toHaveBeenCalledWith(userData.password, 12);
 
+      expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO organizations'),
+        ['Test User · Aether', 'user-123']
+      );
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO organization_members'),
+        ['organization-123', 'user-123']
+      );
+      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
+
       // Note: AuthController does not emit events directly
+    });
+
+    it('rolls back the account when its personal organization cannot be created', async () => {
+      mockRequest.body = {
+        email: 'rollback@example.com',
+        password: 'password123',
+        name: 'Rollback User',
+      };
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ id: 'user-rollback', email: 'rollback@example.com', name: 'Rollback User' }] })
+        .mockRejectedValueOnce(new Error('organization insert failed'))
+        .mockResolvedValueOnce({ rows: [] });
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed_password');
+      (crypto.randomBytes as jest.Mock).mockReturnValue({ toString: jest.fn().mockReturnValue('verification_token') });
+
+      await authController.register(mockRequest as Request, mockResponse as Response);
+
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+      expect(mockResponse.status).toHaveBeenCalledWith(500);
     });
 
     it('should return error if email already exists', async () => {

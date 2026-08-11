@@ -598,7 +598,7 @@ class ProjectController {
           );
         }
         const initiativeTeam = await client.query(
-          `SELECT initiative_team_id FROM workspaces WHERE id = $1`,
+          `SELECT initiative_team_id FROM workspace_institutional_settings WHERE workspace_id = $1`,
           [wsId]
         );
         const initiativeTeamId = initiativeTeam.rows[0]?.initiative_team_id;

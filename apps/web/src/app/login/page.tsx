@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useT } from '@/lib/i18n';
 
@@ -32,6 +32,9 @@ function FieldError({ message }: { message: string }) {
 export default function LoginPage() {
   const t = useT();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedNext = searchParams.get('next');
+  const nextPath = requestedNext?.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : '/dashboard';
   const { login, isLoading, error, isAuthenticated, isHydrated, clearError, emailNotVerified } = useAuthStore();
 
   const [email, setEmail] = useState('');
@@ -48,8 +51,8 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (isHydrated && isAuthenticated) router.push('/dashboard');
-  }, [isAuthenticated, isHydrated, router]);
+    if (isHydrated && isAuthenticated) router.push(nextPath);
+  }, [isAuthenticated, isHydrated, nextPath, router]);
 
   // Only redirect to verify-email when emailNotVerified is set AFTER a login
   // attempt on this page (not from a previous session).

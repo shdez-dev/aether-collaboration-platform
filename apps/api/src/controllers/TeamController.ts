@@ -877,6 +877,28 @@ class TeamController {
         }
         const inv = invResult.rows[0];
 
+        const teamWorkspace = await client.query(
+          `SELECT workspace_id FROM teams WHERE id = $1 FOR UPDATE`,
+          [inv.team_id]
+        );
+        if (!teamWorkspace.rows[0]?.workspace_id) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ success: false, error: { code: 'TEAM_WORKSPACE_UNRESOLVED', message: 'Este equipo heredado debe clasificarse en un espacio de trabajo antes de aceptar invitaciones' } });
+        }
+
+        const revoked = await client.query(
+          `SELECT 1
+             FROM teams t
+             JOIN workspaces w ON w.id = t.workspace_id
+             JOIN organization_access_revocations r ON r.organization_id = w.organization_id
+            WHERE t.id = $1 AND r.user_id = $2`,
+          [inv.team_id, userId]
+        );
+        if (revoked.rows[0]) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ success: false, error: { code: 'ORGANIZATION_ACCESS_REVOKED', message: 'El acceso a la organización fue revocado' } });
+        }
+
         const memberCount = await client.query(`SELECT COUNT(*) FROM team_members WHERE team_id = $1`, [inv.team_id]);
         if (parseInt(memberCount.rows[0].count) >= 5) {
           await client.query('ROLLBACK');
