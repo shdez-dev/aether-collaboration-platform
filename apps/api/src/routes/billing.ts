@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { authenticateJWT } from '../middleware/auth';
+import { billingController } from '../controllers/BillingController';
+const router=Router();
+router.get('/catalog',(req,res)=>billingController.catalog(req,res));
+router.post('/webhook',(req,res)=>billingController.webhook(req,res));
+router.use(authenticateJWT);
+router.get('/organizations/:organizationId',(req,res)=>billingController.overview(req,res));
+router.post('/organizations/:organizationId/checkout',(req,res)=>billingController.checkout(req,res));
+export default router;

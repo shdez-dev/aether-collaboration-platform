@@ -300,6 +300,9 @@ class WorkspaceController {
         data: { workspace },
       });
     } catch (error: any) {
+      if (error?.code === 'CAPABILITY_REQUIRED') {
+        return res.status(403).json({ success: false, error: { code: error.code, message: error.message, details: error.details } });
+      }
       if (error?.message === 'Organization admin access required') {
         return res.status(403).json({
           success: false,

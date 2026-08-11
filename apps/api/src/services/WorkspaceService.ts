@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import type { PoolClient } from 'pg';
 import { pool } from '../lib/db';
 import { eventStore } from './EventStoreService';
+import { capabilityService } from './CapabilityService';
 import type {
   Workspace,
   WorkspaceMembership,
@@ -167,6 +168,8 @@ export class WorkspaceService {
       const organizationId = data.organizationId
         ? await this.assertOrganizationAccess(client, data.organizationId, userId)
         : await ensurePersonalOrganization(client, userId);
+      const usage = await client.query('SELECT COUNT(*)::int AS total FROM workspaces WHERE organization_id = $1', [organizationId]);
+      await capabilityService.require(organizationId, 'workspaces', usage.rows[0].total);
       const workspaceMode = workspaceModeForTemplate(data.workspaceTemplateId);
 
       // 1. Crear el workspace
