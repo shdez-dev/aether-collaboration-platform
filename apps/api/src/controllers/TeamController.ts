@@ -49,6 +49,11 @@ function fmtTeam(row: any) {
     createdAt:   new Date(row.created_at).toISOString(),
     updatedAt:   new Date(row.updated_at).toISOString(),
     memberCount:   Number(row.member_count ?? 0),
+    projectCount: Number(row.project_count ?? 0),
+    activeCards: Number(row.active_cards ?? 0),
+    workspaceName: row.workspace_name ?? null,
+    viewerRole: row.viewer_role ?? null,
+    canManage: Boolean(row.viewer_role === 'ADMIN' || row.created_by === row.viewer_user_id),
     lead:          row.lead_name ? { id: row.lead_id, name: row.lead_name, avatar: row.lead_avatar } : null,
     sampleMembers: row.sample_members ?? [],
   };
@@ -73,6 +78,25 @@ function fmtMember(row: any) {
   };
 }
 
+async function getTeamAccess(teamId: string, userId: string) {
+  const result = await pool.query(
+    `SELECT t.created_by, t.workspace_id,
+            wm.role AS workspace_role, tm.role AS team_role
+       FROM teams t
+       LEFT JOIN workspace_members wm ON wm.workspace_id = t.workspace_id AND wm.user_id = $2
+       LEFT JOIN team_members tm ON tm.team_id = t.id AND tm.user_id = $2
+      WHERE t.id = $1`,
+    [teamId, userId]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    ...row,
+    isCreator: row.created_by === userId,
+    isTeamAdmin: row.team_role === 'ADMIN' || ['OWNER', 'ADMIN'].includes(row.workspace_role),
+  };
+}
+
 // ── Controller ────────────────────────────────────────────────────────────────
 
 class TeamController {
@@ -88,6 +112,11 @@ class TeamController {
         `SELECT t.*,
                 COUNT(tm.id)::int AS member_count,
                 u.name AS lead_name, u.avatar AS lead_avatar,
+                w.name AS workspace_name,
+                tm_viewer.role AS viewer_role,
+                $1::uuid AS viewer_user_id,
+                COUNT(DISTINCT p.id)::int AS project_count,
+                COUNT(DISTINCT cm.card_id) FILTER (WHERE c.completed = false)::int AS active_cards,
                 (
                   SELECT json_agg(jsonb_build_object('id', mu.id, 'name', mu.name) ORDER BY tm2.joined_at ASC)
                   FROM (SELECT * FROM team_members WHERE team_id = t.id ORDER BY joined_at ASC LIMIT 4) tm2
@@ -95,11 +124,20 @@ class TeamController {
                 ) AS sample_members
          FROM teams t
          LEFT JOIN team_members tm ON tm.team_id = t.id
+         LEFT JOIN team_members tm_viewer ON tm_viewer.team_id = t.id AND tm_viewer.user_id = $1
+         LEFT JOIN project_teams pt ON pt.team_id = t.id
+         LEFT JOIN projects p ON p.id = pt.project_id AND p.status != 'ARCHIVED'
+         LEFT JOIN project_boards pb ON pb.project_id = p.id
+         LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
+         LEFT JOIN lists l ON l.board_id = b.id
+         LEFT JOIN cards c ON c.list_id = l.id
+         LEFT JOIN card_members cm ON cm.card_id = c.id
          LEFT JOIN users u ON u.id = t.lead_id
+         LEFT JOIN workspaces w ON w.id = t.workspace_id
          WHERE (t.created_by = $1
             OR EXISTS (SELECT 1 FROM team_members WHERE team_id = t.id AND user_id = $1))
            AND ($2::uuid IS NULL OR t.workspace_id = $2::uuid)
-         GROUP BY t.id, u.name, u.avatar
+         GROUP BY t.id, u.name, u.avatar, w.name, tm_viewer.role
          ORDER BY t.updated_at DESC`,
         [userId, workspaceId]
       );
@@ -122,11 +160,11 @@ class TeamController {
 
       const { workspaceId, name, description, color, icon } = body.data;
       const membership = await pool.query(
-        `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+        `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
         [workspaceId, userId]
       );
-      if (!membership.rowCount) {
-        return res.status(403).json({ success: false, error: { message: 'No puedes crear equipos en este espacio de trabajo' } });
+      if (!membership.rowCount || !['OWNER', 'ADMIN'].includes(membership.rows[0].role)) {
+        return res.status(403).json({ success: false, error: { code: 'WORKSPACE_ADMIN_REQUIRED', message: 'Solo administradores del workspace pueden crear equipos' } });
       }
 
       const result = await pool.query(
@@ -155,7 +193,7 @@ class TeamController {
         } as any);
       } catch {}
 
-      res.status(201).json({ success: true, data: { team: fmtTeam({ ...team, member_count: 1 }) } });
+      res.status(201).json({ success: true, data: { team: fmtTeam({ ...team, member_count: 1, viewer_role: 'ADMIN', viewer_user_id: userId }) } });
     } catch (error) {
       console.error('[TeamController.create]', error);
       res.status(500).json({ success: false, error: { message: 'Error al crear equipo' } });
@@ -173,13 +211,27 @@ class TeamController {
       const result = await pool.query(
         `SELECT t.*,
                 COUNT(tm.id)::int AS member_count,
-                u.name AS lead_name, u.avatar AS lead_avatar
+                u.name AS lead_name, u.avatar AS lead_avatar,
+                w.name AS workspace_name,
+                tm_viewer.role AS viewer_role,
+                $2::uuid AS viewer_user_id,
+                COUNT(DISTINCT p.id)::int AS project_count,
+                COUNT(DISTINCT cm.card_id) FILTER (WHERE c.completed = false)::int AS active_cards
          FROM teams t
          LEFT JOIN team_members tm ON tm.team_id = t.id
+         LEFT JOIN team_members tm_viewer ON tm_viewer.team_id = t.id AND tm_viewer.user_id = $2
+         LEFT JOIN project_teams pt ON pt.team_id = t.id
+         LEFT JOIN projects p ON p.id = pt.project_id AND p.status != 'ARCHIVED'
+         LEFT JOIN project_boards pb ON pb.project_id = p.id
+         LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
+         LEFT JOIN lists l ON l.board_id = b.id
+         LEFT JOIN cards c ON c.list_id = l.id
+         LEFT JOIN card_members cm ON cm.card_id = c.id
          LEFT JOIN users u ON u.id = t.lead_id
+         LEFT JOIN workspaces w ON w.id = t.workspace_id
          WHERE t.id = $1
            AND (t.created_by = $2 OR EXISTS (SELECT 1 FROM team_members WHERE team_id = t.id AND user_id = $2))
-         GROUP BY t.id, u.name, u.avatar`,
+         GROUP BY t.id, u.name, u.avatar, w.name, tm_viewer.role`,
         [id, userId]
       );
 
@@ -206,7 +258,7 @@ class TeamController {
 
       // El responsable (creador) conserva la configuración estructural del equipo.
       const check = await pool.query(
-        `SELECT 1 FROM teams WHERE id = $1 AND created_by = $2`,
+        `SELECT 1 FROM teams WHERE id = $1 AND (created_by = $2 OR EXISTS (SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 AND role = 'ADMIN'))`,
         [id, userId]
       );
       if (!check.rows.length) {
@@ -214,17 +266,26 @@ class TeamController {
       }
 
       const { name, description, color, icon, leadId } = body.data;
+      if (leadId !== undefined) {
+        const leadMember = await pool.query(
+          `SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2`,
+          [id, leadId]
+        );
+        if (!leadMember.rows.length) {
+          return res.status(400).json({ success: false, error: { code: 'LEAD_MUST_BE_MEMBER', message: 'El lﾃｭder debe pertenecer al equipo' } });
+        }
+      }
       const result = await pool.query(
         `UPDATE teams SET
            name        = COALESCE($1, name),
            description = COALESCE($2, description),
            color       = COALESCE($3, color),
            icon        = COALESCE($4, icon),
-           lead_id     = CASE WHEN $5::text IS NOT NULL THEN $5::uuid ELSE lead_id END,
+           lead_id     = CASE WHEN $5::boolean THEN $6::uuid ELSE lead_id END,
            updated_at  = NOW()
-         WHERE id = $6
+         WHERE id = $7
          RETURNING *`,
-        [name ?? null, description ?? null, color ?? null, icon ?? null, leadId ?? null, id]
+        [name ?? null, description ?? null, color ?? null, icon ?? null, leadId !== undefined, leadId ?? null, id]
       );
 
       try {
@@ -252,9 +313,9 @@ class TeamController {
       if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
 
       const { id } = req.params;
-      const check = await pool.query(`SELECT 1 FROM teams WHERE id = $1 AND created_by = $2`, [id, userId]);
+      const check = await pool.query(`SELECT 1 FROM teams WHERE id = $1 AND (created_by = $2 OR EXISTS (SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 AND role = 'ADMIN'))`, [id, userId]);
       if (!check.rows.length) {
-        return res.status(403).json({ success: false, error: { message: 'Solo el creador puede eliminar el equipo' } });
+        return res.status(403).json({ success: false, error: { code: 'TEAM_ADMIN_REQUIRED', message: 'Solo administradores del equipo pueden eliminarlo' } });
       }
 
       // Get team name before deleting
@@ -364,6 +425,20 @@ class TeamController {
         const userRes = await pool.query(`SELECT id FROM users WHERE email = $1`, [body.data.email]);
         if (!userRes.rows.length) return res.status(404).json({ success: false, error: { message: 'Usuario no encontrado' } });
         targetUserId = userRes.rows[0].id;
+      }
+
+      // Un equipo sólo puede incorporar usuarios que ya tienen acceso al workspace.
+      const workspaceAccess = await pool.query(
+        `SELECT 1 FROM teams t
+          JOIN workspace_members wm ON wm.workspace_id = t.workspace_id AND wm.user_id = $2
+         WHERE t.id = $1`,
+        [id, targetUserId]
+      );
+      if (!workspaceAccess.rows.length) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'WORKSPACE_MEMBER_REQUIRED', message: 'El usuario debe pertenecer primero al workspace del equipo' },
+        });
       }
 
       // Verificar si ya es miembro
@@ -577,7 +652,14 @@ class TeamController {
   /** GET /api/teams/:id/workspaces — workspaces activos derivados de project_teams */
   async getWorkspaces(req: Request, res: Response) {
     try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
       const { id } = req.params;
+      const access = await pool.query(
+        `SELECT 1 FROM teams WHERE id = $1 AND (created_by = $2 OR EXISTS (SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2))`,
+        [id, userId]
+      );
+      if (!access.rows.length) return res.status(404).json({ success: false, error: { message: 'Equipo no encontrado' } });
       const result = await pool.query(
         `SELECT
            w.id, w.name, w.color,

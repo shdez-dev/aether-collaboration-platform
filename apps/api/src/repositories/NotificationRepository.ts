@@ -4,6 +4,18 @@ import { query } from '../lib/db';
 import type { Notification } from '@aether/types';
 
 export class NotificationRepository {
+  private logicalKey(data: Record<string, any>): string | null {
+    const key = data.commentId ?? data.invitationId ?? data.cardId ?? data.documentId ?? data.milestoneId ?? data.projectId ?? data.teamId ?? data.workspaceId;
+    return key ? `${String(data.type ?? 'notification')}:${key}` : null;
+  }
+
+  private readonly logicalKeySql = `COALESCE(
+    data->>'commentId', data->>'invitationId', data->>'cardId', data->>'documentId',
+    data->>'milestoneId', data->>'projectId', data->>'teamId', data->>'workspaceId',
+    dedupe_key, id::text
+  )`;
+
+  private readonly selectColumns = `id, user_id as "userId", type, title, message, data, read, created_at as "createdAt"`;
   /**
    * Crear una nueva notificación
    */
@@ -14,19 +26,16 @@ export class NotificationRepository {
     message: string;
     data: Record<string, any>;
   }): Promise<Notification> {
+    const dedupeKey = this.logicalKey({ type: data.type, ...data.data });
     const result = await query(
-      `INSERT INTO notifications (user_id, type, title, message, data)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO notifications (user_id, type, title, message, data, dedupe_key)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id, dedupe_key) WHERE dedupe_key IS NOT NULL
+       DO UPDATE SET title = EXCLUDED.title, message = EXCLUDED.message,
+                     data = EXCLUDED.data, read = FALSE, created_at = NOW()
        RETURNING 
-         id,
-         user_id as "userId",
-         type,
-         title,
-         message,
-         data,
-         read,
-         created_at as "createdAt"`,
-      [data.userId, data.type, data.title, data.message, JSON.stringify(data.data)]
+         ${this.selectColumns}`,
+      [data.userId, data.type, data.title, data.message, JSON.stringify(data.data), dedupeKey]
     );
 
     return result.rows[0];
@@ -49,14 +58,7 @@ export class NotificationRepository {
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (user_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
        RETURNING
-         id,
-         user_id as "userId",
-         type,
-         title,
-         message,
-         data,
-         read,
-         created_at as "createdAt"`,
+         ${this.selectColumns}`,
       [data.userId, data.type, data.title, data.message, JSON.stringify(data.data), data.dedupeKey]
     );
 
@@ -68,19 +70,12 @@ export class NotificationRepository {
    */
   async findByUserId(userId: string, limit: number = 50): Promise<Notification[]> {
     const result = await query(
-      `SELECT 
-         id,
-         user_id as "userId",
-         type,
-         title,
-         message,
-         data,
-         read,
-         created_at as "createdAt"
-       FROM notifications
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT $2`,
+      `WITH ranked AS (
+         SELECT ${this.selectColumns}, ROW_NUMBER() OVER (
+           PARTITION BY type || ':' || ${this.logicalKeySql} ORDER BY created_at DESC
+         ) AS rn
+         FROM notifications WHERE user_id = $1
+       ) SELECT ${this.selectColumns} FROM ranked WHERE rn = 1 ORDER BY "createdAt" DESC LIMIT $2`,
       [userId, limit]
     );
 
@@ -92,19 +87,12 @@ export class NotificationRepository {
    */
   async findUnreadByUserId(userId: string, limit: number = 50): Promise<Notification[]> {
     const result = await query(
-      `SELECT 
-         id,
-         user_id as "userId",
-         type,
-         title,
-         message,
-         data,
-         read,
-         created_at as "createdAt"
-       FROM notifications
-       WHERE user_id = $1 AND read = FALSE
-       ORDER BY created_at DESC
-       LIMIT $2`,
+      `WITH ranked AS (
+         SELECT ${this.selectColumns}, ROW_NUMBER() OVER (
+           PARTITION BY type || ':' || ${this.logicalKeySql} ORDER BY created_at DESC
+         ) AS rn
+         FROM notifications WHERE user_id = $1
+       ) SELECT ${this.selectColumns} FROM ranked WHERE rn = 1 AND read = FALSE ORDER BY "createdAt" DESC LIMIT $2`,
       [userId, limit]
     );
 
@@ -116,9 +104,10 @@ export class NotificationRepository {
    */
   async markAsRead(notificationId: string, userId: string): Promise<void> {
     await query(
-      `UPDATE notifications 
-       SET read = TRUE 
-       WHERE id = $1 AND user_id = $2`,
+      `UPDATE notifications n SET read = TRUE
+       WHERE n.user_id = $2 AND (n.id = $1 OR (n.type || ':' || ${this.logicalKeySql}) = (
+         SELECT type || ':' || ${this.logicalKeySql} FROM notifications WHERE id = $1 AND user_id = $2
+       ))`,
       [notificationId, userId]
     );
   }
@@ -140,9 +129,11 @@ export class NotificationRepository {
    */
   async getUnreadCount(userId: string): Promise<number> {
     const result = await query(
-      `SELECT COUNT(*) as count
-       FROM notifications
-       WHERE user_id = $1 AND read = FALSE`,
+      `WITH ranked AS (
+         SELECT read, ROW_NUMBER() OVER (
+           PARTITION BY type || ':' || ${this.logicalKeySql} ORDER BY created_at DESC
+         ) AS rn FROM notifications WHERE user_id = $1
+       ) SELECT COUNT(*) as count FROM ranked WHERE rn = 1 AND read = FALSE`,
       [userId]
     );
 
@@ -154,8 +145,10 @@ export class NotificationRepository {
    */
   async delete(notificationId: string, userId: string): Promise<void> {
     await query(
-      `DELETE FROM notifications 
-       WHERE id = $1 AND user_id = $2`,
+      `DELETE FROM notifications n
+       WHERE n.user_id = $2 AND (n.id = $1 OR (n.type || ':' || ${this.logicalKeySql}) = (
+         SELECT type || ':' || ${this.logicalKeySql} FROM notifications WHERE id = $1 AND user_id = $2
+       ))`,
       [notificationId, userId]
     );
   }

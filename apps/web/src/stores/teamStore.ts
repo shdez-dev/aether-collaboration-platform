@@ -38,6 +38,11 @@ export interface Team {
   createdAt: string;
   updatedAt: string;
   memberCount?: number;
+  projectCount?: number;
+  activeCards?: number;
+  workspaceName?: string | null;
+  viewerRole?: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER' | null;
+  canManage?: boolean;
   members?: TeamMember[];
   sampleMembers?: { id: string; name: string }[];
 }

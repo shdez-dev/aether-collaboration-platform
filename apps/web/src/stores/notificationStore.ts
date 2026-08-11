@@ -55,6 +55,12 @@ function getNotificationVariant(type: string): 'info' | 'warning' | 'error' | 's
   }
 }
 
+function logicalNotificationKey(notification: Notification): string {
+  const data = notification.data as Record<string, any> | undefined;
+  const entity = data?.commentId ?? data?.invitationId ?? data?.cardId ?? data?.documentId ?? data?.milestoneId ?? data?.projectId ?? data?.teamId ?? data?.workspaceId;
+  return `${notification.type}:${entity ?? notification.id}`;
+}
+
 export const useNotificationStore = create<NotificationState & NotificationActions>()(
   devtools(
     (set, get) => ({
@@ -125,12 +131,15 @@ export const useNotificationStore = create<NotificationState & NotificationActio
 
       addNotification: (notification) => {
         // Dedup: nunca agregar la misma notificación dos veces
-        const already = get().notifications.some((n) => n.id === notification.id);
-        if (already) return;
-        set((s) => ({
-          notifications: [notification, ...s.notifications],
-          unreadCount: s.unreadCount + 1,
-        }));
+        const key = logicalNotificationKey(notification);
+        set((s) => {
+          const index = s.notifications.findIndex((n) => n.id === notification.id || logicalNotificationKey(n) === key);
+          if (index < 0) return { notifications: [notification, ...s.notifications], unreadCount: s.unreadCount + 1 };
+          const previous = s.notifications[index];
+          const next = [...s.notifications];
+          next[index] = notification;
+          return { notifications: next, unreadCount: previous.read ? s.unreadCount + 1 : s.unreadCount };
+        });
       },
 
       updateUnreadCount: (count) => set({ unreadCount: count }),

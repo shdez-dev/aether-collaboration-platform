@@ -197,8 +197,9 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
 
 const COLOR_OPTIONS = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#fb923c','#84cc16','#ef4444','#8b5cf6'];
 
-function SettingsModal({ team, onClose, onUpdated, onDeleted }: {
+function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
   team: Team;
+  members: TeamMember[];
   onClose: () => void;
   onUpdated: () => void;
   onDeleted: () => void;
@@ -208,6 +209,7 @@ function SettingsModal({ team, onClose, onUpdated, onDeleted }: {
   const [name, setName] = useState(team.name);
   const [description, setDescription] = useState(team.description ?? '');
   const [color, setColor] = useState(team.color ?? COLOR_OPTIONS[0]);
+  const [leadId, setLeadId] = useState(team.leadId ?? '');
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -219,7 +221,7 @@ function SettingsModal({ team, onClose, onUpdated, onDeleted }: {
     setLoading(true);
     setError(null);
     try {
-      await updateTeam(team.id, { name: name.trim(), description: description.trim() || null, color });
+      await updateTeam(team.id, { name: name.trim(), description: description.trim() || null, color, leadId: leadId || null });
       onUpdated();
       onClose();
     } catch (err: any) {
@@ -661,7 +663,7 @@ export default function TeamDetailPage() {
   const router = useRouter();
   const teamId = params.id as string;
 
-  const { currentTeam, isLoading, error, fetchTeamById, removeMember, changeMemberRole, pendingTeamInvitations, loadPendingTeamInvitations, acceptTeamInvitation, rejectTeamInvitation } = useTeamStore();
+  const { currentTeam, isLoading, error, fetchTeamById, updateTeam, removeMember, changeMemberRole, pendingTeamInvitations, loadPendingTeamInvitations, acceptTeamInvitation, rejectTeamInvitation } = useTeamStore();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
 
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -673,6 +675,7 @@ export default function TeamDetailPage() {
   const [activityDate, setActivityDate] = useState<'today' | '7d' | '30d' | 'all'>('all');
 
   const [activeWorkspaces, setActiveWorkspaces] = useState<ActiveWorkspace[]>([]);
+  const [leadId, setLeadId] = useState('');
 
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -688,6 +691,21 @@ export default function TeamDetailPage() {
   useEffect(() => {
     if (teamId) fetchTeamById(teamId);
   }, [teamId, fetchTeamById]);
+
+  useEffect(() => {
+    if (currentTeam) setLeadId(currentTeam.leadId ?? '');
+  }, [currentTeam]);
+
+  async function handleLeadChange(nextLeadId: string) {
+    setLeadId(nextLeadId);
+    try {
+      await updateTeam(teamId, { leadId: nextLeadId || null });
+      await fetchTeamById(teamId);
+    } catch (err: any) {
+      alert(err.message || 'Error al cambiar líder');
+      setLeadId(currentTeam?.leadId ?? '');
+    }
+  }
 
   // Ensure workspaces are loaded (needed for AssignProjectModal)
   useEffect(() => {
@@ -793,7 +811,7 @@ export default function TeamDetailPage() {
 
   const currentUser = useAuthStore((s) => s.user);
   const teamColor = currentTeam?.color || '#3b82f6';
-  const leadMember = members.find((m) => m.role === 'ADMIN');
+  const leadMember = members.find((m) => m.id === currentTeam?.leadId) || members.find((m) => m.role === 'ADMIN');
   const isTeamOwner = currentUser != null && currentTeam?.createdBy === currentUser.id;
   const currentMemberRole = members.find((member) => member.id === currentUser?.id)?.role;
   const isTeamAdmin = currentMemberRole === 'ADMIN';
@@ -891,7 +909,7 @@ export default function TeamDetailPage() {
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {isTeamOwner && <>
+            {isOwnerOrAdmin && <>
               <button
                 onClick={() => setShowAssignProject(true)}
                 className="flex items-center gap-1.5 rounded-[6px] text-[12.5px] font-medium transition-all"
@@ -911,6 +929,14 @@ export default function TeamDetailPage() {
                 <MoreHorizontal size={15} />
               </button>
             </>}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Líder del equipo</label>
+            <select value={leadId} onChange={(e) => handleLeadChange(e.target.value)} disabled={!isOwnerOrAdmin} className="rounded-[6px] px-3 text-[13px] outline-none" style={{ height: '36px', background: C.bg, border: `1px solid ${C.border2}`, color: C.text, opacity: isOwnerOrAdmin ? 1 : 0.65 }}>
+              <option value="">Sin líder asignado</option>
+              {members.map((member) => <option key={member.id} value={member.id}>{member.name} · {member.role}</option>)}
+            </select>
           </div>
         </div>
 
@@ -1363,6 +1389,7 @@ export default function TeamDetailPage() {
       {showSettings && (
         <SettingsModal
           team={currentTeam}
+          members={members}
           onClose={() => setShowSettings(false)}
           onUpdated={() => fetchTeamById(teamId)}
           onDeleted={() => router.push('/dashboard/teams')}
