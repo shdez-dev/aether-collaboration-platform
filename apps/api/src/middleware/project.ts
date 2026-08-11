@@ -23,7 +23,14 @@ export async function requireProjectMembership(req: Request, res: Response, next
       [projectId, userId]
     );
     if (membership.rowCount === 0) {
-      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Proyecto no encontrado' } });
+      const external = await pool.query(
+        `SELECT p.workspace_id FROM projects p JOIN network_access_grants g ON g.resource_type = 'PROJECT' AND g.resource_id = p.id
+         WHERE p.id = $1 AND g.user_id = $2 AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)`,
+        [projectId, userId]
+      );
+      if (external.rowCount === 0) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Proyecto no encontrado' } });
+      (req as ProjectRequest).projectContext = { workspaceId: external.rows[0].workspace_id, role: 'EXTERNAL' };
+      return next();
     }
 
     (req as ProjectRequest).projectContext = {

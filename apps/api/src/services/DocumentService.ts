@@ -719,8 +719,10 @@ export class DocumentService {
     const result = await pool.query(
       `SELECT 1
        FROM documents d
-       INNER JOIN workspace_members wm ON d.workspace_id = wm.workspace_id
-       WHERE d.id = $1 AND wm.user_id = $2
+       LEFT JOIN workspace_members wm ON d.workspace_id = wm.workspace_id AND wm.user_id = $2
+       LEFT JOIN network_access_grants nag ON nag.resource_type = 'DOCUMENT' AND nag.resource_id = d.id AND nag.user_id = $2
+         AND nag.revoked_at IS NULL AND (nag.expires_at IS NULL OR nag.expires_at > CURRENT_TIMESTAMP)
+       WHERE d.id = $1 AND (wm.user_id IS NOT NULL OR nag.id IS NOT NULL)
        LIMIT 1`,
       [documentId, userId]
     );
@@ -778,7 +780,13 @@ export class DocumentService {
     );
 
     if (result.rows.length === 0) {
-      return null; // User is not a member of the workspace
+      const external = await pool.query(
+        `SELECT 1 FROM network_access_grants
+         WHERE user_id = $2 AND resource_type = 'DOCUMENT' AND resource_id = $1
+           AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+        [documentId, userId]
+      );
+      return external.rows.length ? 'VIEW' : null;
     }
 
     const { created_by, workspace_role, explicit_permission } = result.rows[0];

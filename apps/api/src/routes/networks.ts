@@ -1,0 +1,23 @@
+import { NextFunction, Request, Response, Router } from 'express';
+import { authenticateJWT } from '../middleware/auth';
+import { networkController } from '../controllers/NetworkController';
+
+const router = Router();
+const action = (handler: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(handler(req, res)).catch(next);
+router.use(authenticateJWT);
+router.get('/', action((req,res) => networkController.list(req,res)));
+router.post('/', action((req,res) => networkController.create(req,res)));
+router.get('/assignments', action((req,res) => networkController.assignments(req,res)));
+router.post('/invitations/:token/accept', action((req,res) => networkController.acceptInvitation(req,res)));
+router.get('/:id', action((req,res) => networkController.get(req,res)));
+router.post('/:id/organizations', action((req,res) => networkController.addOrganization(req,res)));
+router.post('/:id/members', action((req,res) => networkController.addMember(req,res)));
+router.post('/:id/programs', action((req,res) => networkController.createProgram(req,res)));
+router.post('/:networkId/programs/:programId/initiatives', action((req,res) => networkController.attachInitiative(req,res)));
+router.post('/:id/invitations', action((req,res) => networkController.createInvitation(req,res)));
+router.post('/:id/grants', action((req,res) => networkController.grant(req,res)));
+router.delete('/:id/grants/:grantId', action((req,res) => networkController.revoke(req,res)));
+router.post('/:networkId/programs/:programId/criteria', action((req,res) => networkController.createCriterion(req,res)));
+router.put('/initiatives/:initiativeId/evaluation', action((req,res) => networkController.evaluate(req,res)));
+router.get('/:id/reports', action((req,res) => networkController.reports(req,res)));
+export default router;

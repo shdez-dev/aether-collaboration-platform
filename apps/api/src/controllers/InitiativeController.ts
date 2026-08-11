@@ -68,13 +68,14 @@ async function access(initiativeId: string, userId: string) {
     `SELECT i.workspace_id, i.submitted_by, i.stage, wm.role AS workspace_role,
       EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2) AS participant,
       EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role = 'TRIAGE_COORDINATOR') AS explicit_coordinator,
-      EXISTS(SELECT 1 FROM workspaces w LEFT JOIN workspace_institutional_settings s ON s.workspace_id = w.id JOIN team_members tm ON tm.team_id = COALESCE(s.initiative_team_id, w.initiative_team_id) WHERE w.id = i.workspace_id AND tm.user_id = $2) AS team_coordinator
-     FROM initiatives i JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2 WHERE i.id = $1`,
+      EXISTS(SELECT 1 FROM workspaces w LEFT JOIN workspace_institutional_settings s ON s.workspace_id = w.id JOIN team_members tm ON tm.team_id = COALESCE(s.initiative_team_id, w.initiative_team_id) WHERE w.id = i.workspace_id AND tm.user_id = $2) AS team_coordinator,
+      EXISTS(SELECT 1 FROM network_access_grants nag WHERE nag.user_id = $2 AND nag.resource_type = 'INITIATIVE' AND nag.resource_id = i.id AND nag.revoked_at IS NULL AND (nag.expires_at IS NULL OR nag.expires_at > CURRENT_TIMESTAMP)) AS external_access
+     FROM initiatives i LEFT JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2 WHERE i.id = $1`,
     [initiativeId, userId]
   );
   if (!rows[0]) return null;
   const row = rows[0];
-  return { ...row, isRequester: row.submitted_by === userId, isCoordinator: row.explicit_coordinator || row.team_coordinator, isAdmin: ['OWNER', 'ADMIN'].includes(row.workspace_role) };
+  return { ...row, isRequester: row.submitted_by === userId, isCoordinator: row.explicit_coordinator || row.team_coordinator, isAdmin: ['OWNER', 'ADMIN'].includes(row.workspace_role), isExternal: row.external_access };
 }
 
 async function assertWorkspaceUser(workspaceId: string, userId: string) {
@@ -100,7 +101,8 @@ export class InitiativeController {
 
   async getById(req: Request, res: Response) {
     const actorId = userId(req); if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
-    const gate = await access(req.params.id, actorId); if (!gate || !(gate.isRequester || gate.participant || gate.isCoordinator || gate.isAdmin)) return error(res, 403, 'FORBIDDEN', 'Initiative access required');
+    const gate = await access(req.params.id, actorId); if (!gate || !(gate.isRequester || gate.participant || gate.isCoordinator || gate.isAdmin || gate.isExternal)) return error(res, 403, 'FORBIDDEN', 'Initiative access required');
+    if (gate.isExternal) await pool.query(`INSERT INTO network_access_audits (id, network_id, user_id, resource_type, resource_id, action) SELECT gen_random_uuid(), network_id, $2, 'INITIATIVE'::"NetworkResourceType", $1, 'VIEWED_RESOURCE' FROM network_access_grants WHERE user_id = $2 AND resource_type = 'INITIATIVE' AND resource_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1`, [req.params.id, actorId]);
     const [initiative, participants, history] = await Promise.all([
       pool.query(`${initiativeSelect} WHERE i.id = $1`, [req.params.id]),
       pool.query(`SELECT ip.id, ip.role, ip.assigned_at, u.id AS user_id, u.name, u.email, u.avatar FROM initiative_participants ip JOIN users u ON u.id = ip.user_id WHERE ip.initiative_id = $1 ORDER BY ip.assigned_at`, [req.params.id]),

@@ -90,6 +90,28 @@ enum NetworkProgramStatus {
   ARCHIVED
 }
 
+enum NetworkProgramType {
+  CALL
+  INCUBATOR
+  CHALLENGE
+  FUND
+  MENTORSHIP
+}
+
+enum NetworkExternalRole {
+  MENTOR
+  EVALUATOR
+  SPONSOR
+  PARTNER
+  REQUESTER
+}
+
+enum NetworkResourceType {
+  INITIATIVE
+  DOCUMENT
+  PROJECT
+}
+
 // Production schema changes are applied from the committed Prisma migrations.
 // `ensure-baseline.js` only marks the legacy pre-Prisma database as baseline.
 
@@ -183,6 +205,11 @@ model User {
   initiativeParticipation      InitiativeParticipant[]
   projectRoleAssignments       ProjectRoleAssignment[] @relation("ProjectRoleAssignee")
   networkMemberships           NetworkMember[]
+  networkAccessGrants          NetworkAccessGrant[] @relation("NetworkGrantUser")
+  networkInvitationsAccepted   NetworkExternalInvitation[] @relation("NetworkInvitationAcceptor")
+  networkInvitationsSent       NetworkExternalInvitation[] @relation("NetworkInvitationSender")
+  networkEvaluations           InitiativeEvaluation[]
+  networkAccessAudits          NetworkAccessAudit[] @relation("NetworkAccessActor")
 
   @@map("users")
 }
@@ -1150,6 +1177,7 @@ model Initiative {
   mentor         User?                        @relation("InitiativeMentor", fields: [mentorId], references: [id], onDelete: SetNull)
   participants   InitiativeParticipant[]
   workflowHistory InitiativeWorkflowHistory[]
+  evaluations     InitiativeEvaluation[]
   formalizedProject Project?                  @relation("InitiativeFormalizedProject")
 
   @@index([workspaceId, stage])
@@ -1225,6 +1253,9 @@ model Network {
   organizations     NetworkOrganization[]
   members           NetworkMember[]
   programs          NetworkProgram[]
+  externalInvitations NetworkExternalInvitation[]
+  accessGrants      NetworkAccessGrant[]
+  accessAudits      NetworkAccessAudit[]
 
   @@index([ownerOrganizationId])
   @@map("networks")
@@ -1264,6 +1295,7 @@ model NetworkProgram {
   hostWorkspaceId String               @map("host_workspace_id") @db.Uuid
   name            String               @db.VarChar(255)
   description     String?
+  type            NetworkProgramType @default(CALL)
   status          NetworkProgramStatus @default(DRAFT)
   startsAt        DateTime?            @map("starts_at")
   endsAt          DateTime?            @map("ends_at")
@@ -1273,8 +1305,132 @@ model NetworkProgram {
   network       Network      @relation(fields: [networkId], references: [id], onDelete: Cascade)
   hostWorkspace Workspace    @relation("NetworkProgramHostWorkspace", fields: [hostWorkspaceId], references: [id], onDelete: Cascade)
   initiatives   Initiative[]
+  criteria      NetworkEvaluationCriterion[]
+  invitations   NetworkExternalInvitation[]
+  accessGrants  NetworkAccessGrant[]
+  evaluations   InitiativeEvaluation[]
 
   @@index([networkId, status])
   @@index([hostWorkspaceId])
   @@map("network_programs")
+}
+
+model NetworkExternalInvitation {
+  id          String              @id @default(uuid()) @db.Uuid
+  networkId   String              @map("network_id") @db.Uuid
+  programId   String?             @map("program_id") @db.Uuid
+  email       String              @db.VarChar(255)
+  role        NetworkExternalRole
+  resourceType NetworkResourceType @map("resource_type")
+  resourceId  String              @map("resource_id") @db.Uuid
+  permission  String              @default("VIEW") @db.VarChar(20)
+  token       String              @unique @db.VarChar(100)
+  status      String              @default("PENDING") @db.VarChar(20)
+  invitedById String              @map("invited_by") @db.Uuid
+  acceptedById String?            @map("accepted_by") @db.Uuid
+  expiresAt   DateTime?           @map("expires_at")
+  revokedAt   DateTime?           @map("revoked_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  network    Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  program    NetworkProgram? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  invitedBy  User            @relation("NetworkInvitationSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedBy User?           @relation("NetworkInvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@index([email, status])
+  @@index([networkId, status])
+  @@map("network_external_invitations")
+}
+
+model NetworkAccessGrant {
+  id           String              @id @default(uuid()) @db.Uuid
+  networkId    String              @map("network_id") @db.Uuid
+  programId    String?             @map("program_id") @db.Uuid
+  userId       String              @map("user_id") @db.Uuid
+  role         NetworkExternalRole
+  resourceType NetworkResourceType @map("resource_type")
+  resourceId   String              @map("resource_id") @db.Uuid
+  permission   String              @default("VIEW") @db.VarChar(20)
+  grantedById  String              @map("granted_by") @db.Uuid
+  expiresAt    DateTime?           @map("expires_at")
+  revokedAt    DateTime?           @map("revoked_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  network   Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  program   NetworkProgram? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  user      User            @relation("NetworkGrantUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([networkId, userId, resourceType, resourceId])
+  @@index([userId, resourceType, resourceId])
+  @@map("network_access_grants")
+}
+
+model NetworkEvaluationCriterion {
+  id          String   @id @default(uuid()) @db.Uuid
+  programId   String   @map("program_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?
+  maxScore    Int      @default(5) @map("max_score")
+  position    Int      @default(0)
+  required    Boolean  @default(true)
+
+  program NetworkProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  scores  InitiativeEvaluationScore[]
+
+  @@index([programId, position])
+  @@map("network_evaluation_criteria")
+}
+
+model InitiativeEvaluation {
+  id              String   @id @default(uuid()) @db.Uuid
+  initiativeId    String   @map("initiative_id") @db.Uuid
+  programId       String   @map("program_id") @db.Uuid
+  evaluatorId     String   @map("evaluator_id") @db.Uuid
+  recommendation  String?  @db.VarChar(30)
+  comments        String?
+  conflictDeclared Boolean @default(false) @map("conflict_declared")
+  conflictDetails String?  @map("conflict_details")
+  submittedAt     DateTime? @map("submitted_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  initiative Initiative     @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  program    NetworkProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  evaluator  User           @relation(fields: [evaluatorId], references: [id], onDelete: Cascade)
+  scores     InitiativeEvaluationScore[]
+
+  @@unique([initiativeId, evaluatorId])
+  @@index([programId])
+  @@map("initiative_evaluations")
+}
+
+model InitiativeEvaluationScore {
+  evaluationId String @map("evaluation_id") @db.Uuid
+  criterionId  String @map("criterion_id") @db.Uuid
+  score        Int
+  comment      String?
+
+  evaluation InitiativeEvaluation      @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criterion  NetworkEvaluationCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@id([evaluationId, criterionId])
+  @@map("initiative_evaluation_scores")
+}
+
+model NetworkAccessAudit {
+  id           String              @id @default(uuid()) @db.Uuid
+  networkId    String              @map("network_id") @db.Uuid
+  userId       String              @map("user_id") @db.Uuid
+  resourceType NetworkResourceType @map("resource_type")
+  resourceId   String              @map("resource_id") @db.Uuid
+  action       String              @db.VarChar(50)
+  metadata     Json                @default("{}")
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  network Network @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  user    User    @relation("NetworkAccessActor", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([networkId, createdAt])
+  @@index([userId, createdAt])
+  @@map("network_access_audits")
 }
