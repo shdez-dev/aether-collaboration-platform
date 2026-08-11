@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getClient, pool } from '../lib/db';
 
 const stages = ['SUBMITTED', 'TRIAGE', 'DIAGNOSIS', 'VALIDATION', 'APPROVED', 'DECLINED', 'PAUSED', 'ARCHIVED'] as const;
+type InitiativeStage = (typeof stages)[number];
 const participantRoles = ['REQUESTER', 'TRIAGE_COORDINATOR', 'MENTOR', 'EVALUATOR', 'PROJECT_LEAD', 'COLLABORATOR', 'SPONSOR'] as const;
 const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 const allowedTransitions: Record<string, InitiativeStage[]> = {
