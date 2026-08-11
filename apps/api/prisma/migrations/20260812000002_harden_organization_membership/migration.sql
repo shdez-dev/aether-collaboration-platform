@@ -15,6 +15,11 @@ WHERE o.owner_user_id IS NOT NULL
 ON CONFLICT (organization_id, user_id) DO UPDATE
 SET role = 'OWNER'::"OrganizationMemberRole";
 
+-- The lifecycle migration installs deferred ownership constraint triggers.
+-- Flush their pending events before DDL: PostgreSQL refuses CREATE INDEX on a
+-- table with pending trigger events in the current transaction.
+SET CONSTRAINTS organization_members_validate_owner, organizations_validate_owner IMMEDIATE;
+
 CREATE UNIQUE INDEX IF NOT EXISTS organization_members_single_owner_idx
   ON organization_members (organization_id)
   WHERE role = 'OWNER'::"OrganizationMemberRole";
