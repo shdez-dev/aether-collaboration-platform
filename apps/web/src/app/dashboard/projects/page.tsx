@@ -974,7 +974,7 @@ export default function ProjectsPage() {
                   return (
                     <button
                       key={option.key}
-                      onClick={() => setViewMode(option.key)}
+                      onClick={() => option.key === 'intake' ? router.push('/dashboard/initiatives') : setViewMode(option.key)}
                       style={{
                         height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px',
                         background: active ? 'rgba(242,87,30,0.14)' : 'transparent',

@@ -64,6 +64,8 @@ enum InitiativeParticipantRole {
   TRIAGE_COORDINATOR
   MENTOR
   EVALUATOR
+  PROJECT_LEAD
+  COLLABORATOR
   SPONSOR
 }
 
@@ -176,6 +178,8 @@ model User {
   ownedOrganizations           Organization[]        @relation("OrganizationOwner")
   organizationMemberships      OrganizationMember[]
   submittedInitiatives         Initiative[]          @relation("InitiativeSubmitter")
+  triageOwnedInitiatives       Initiative[]          @relation("InitiativeTriageOwner")
+  mentoredInitiatives          Initiative[]          @relation("InitiativeMentor")
   initiativeParticipation      InitiativeParticipant[]
   projectRoleAssignments       ProjectRoleAssignment[] @relation("ProjectRoleAssignee")
   networkMemberships           NetworkMember[]
@@ -1102,6 +1106,9 @@ model WorkspaceInstitutionalSettings {
   initiativeTeamId  String?  @map("initiative_team_id") @db.Uuid
   activeStandardId  String?  @map("active_standard_id") @db.Uuid
   intakeEnabled     Boolean  @default(true) @map("intake_enabled")
+  triageCriteria    Json     @default("[]") @map("triage_criteria")
+  reviewCadenceDays Int      @default(7) @map("review_cadence_days")
+  requiredInitiativeFields Json @default("[\"title\", \"problemStatement\", \"proposedNextStep\"]") @map("required_initiative_fields")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -1123,6 +1130,11 @@ model Initiative {
   description        String?
   problemStatement   String?        @map("problem_statement")
   proposedNextStep   String?        @map("proposed_next_step")
+  priority           String         @default("MEDIUM") @db.VarChar(20)
+  evidence           Json           @default("[]")
+  attachments        Json           @default("[]")
+  triageOwnerId      String?        @map("triage_owner_id") @db.Uuid
+  mentorId           String?        @map("mentor_id") @db.Uuid
   stage              InitiativeStage @default(SUBMITTED)
   decision           String?        @db.VarChar(30)
   decisionReason     String?        @map("decision_reason")
@@ -1134,6 +1146,8 @@ model Initiative {
   workspace      Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   networkProgram NetworkProgram?              @relation(fields: [networkProgramId], references: [id], onDelete: SetNull)
   submitter      User?                        @relation("InitiativeSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  triageOwner    User?                        @relation("InitiativeTriageOwner", fields: [triageOwnerId], references: [id], onDelete: SetNull)
+  mentor         User?                        @relation("InitiativeMentor", fields: [mentorId], references: [id], onDelete: SetNull)
   participants   InitiativeParticipant[]
   workflowHistory InitiativeWorkflowHistory[]
   formalizedProject Project?                  @relation("InitiativeFormalizedProject")
@@ -1141,6 +1155,8 @@ model Initiative {
   @@index([workspaceId, stage])
   @@index([networkProgramId])
   @@index([submittedById])
+  @@index([triageOwnerId])
+  @@index([mentorId])
   @@map("initiatives")
 }
 
