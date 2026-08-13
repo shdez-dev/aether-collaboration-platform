@@ -1395,7 +1395,7 @@ export default function ProjectsPage() {
         // sólo se conserva temporalmente para datos históricos que pudieran
         // abrirse de forma explícita; la navegación normal de proyectos nunca
         // entra en intake ni ejecuta decisiones de triage.
-        ) : isInstitutionalExperience && viewMode === 'intake' ? (viewMode === 'pipeline' ? (
+        ) : false ? (viewMode === 'pipeline' ? (
           <>
             {pausedProjects.length > 0 && (
               <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: '14px', padding: '11px 14px', borderRadius: '10px', border: '1px solid rgba(219,138,102,0.28)', background: 'rgba(219,138,102,0.08)' }}>
