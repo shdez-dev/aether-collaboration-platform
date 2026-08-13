@@ -6,6 +6,7 @@ import { SprintService } from '../services/SprintService';
 import { WorkspaceRequest } from '../middleware/workspace';
 import { eventStore } from '../services/EventStoreService';
 import { pool } from '../lib/db';
+import { canContributeToProjectBoundResource, canManageProjectBoundResource } from '../middleware/project';
 
 async function resolveSprintContext(boardId: string): Promise<{ workspaceId: string; projectId: string | null; boardName: string }> {
   const r = await pool.query(
@@ -76,10 +77,6 @@ const updateMilestoneSchema = z.object({
   sprintId: z.string().uuid().nullable().optional(),
 });
 
-function canEdit(role?: string) {
-  return role === 'ADMIN' || role === 'OWNER';
-}
-
 export class SprintController {
   // ── Sprints ────────────────────────────────────────────────────────────────
 
@@ -100,7 +97,7 @@ export class SprintController {
       const { boardId } = req.params;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
-      if (!canEdit(req.workspace?.role))
+      if (!canManageProjectBoundResource(req))
         return res
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
@@ -133,7 +130,7 @@ export class SprintController {
   static async updateSprint(req: WorkspaceRequest, res: Response) {
     try {
       const { sprintId } = req.params;
-      if (!canEdit(req.workspace?.role))
+      if (!canManageProjectBoundResource(req))
         return res
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
@@ -174,7 +171,7 @@ export class SprintController {
   static async deleteSprint(req: WorkspaceRequest, res: Response) {
     try {
       const { sprintId } = req.params;
-      if (!canEdit(req.workspace?.role))
+      if (!canManageProjectBoundResource(req))
         return res
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
@@ -195,6 +192,9 @@ export class SprintController {
       const { cardId } = req.body;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
+      if (!canContributeToProjectBoundResource(req)) {
+        return res.status(403).json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
+      }
       if (!cardId)
         return res
           .status(400)
@@ -216,6 +216,10 @@ export class SprintController {
       const { sprintId, cardId } = req.params;
       const userId = req.user?.id;
       const socketId = (req.headers['x-socket-id'] as string) || undefined;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
+      if (!canContributeToProjectBoundResource(req)) {
+        return res.status(403).json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
+      }
       await SprintService.removeCardFromSprint(sprintId, cardId, userId, socketId);
       return res.json({ success: true, data: { message: 'Card eliminada del sprint' } });
     } catch (e: any) {
@@ -244,7 +248,7 @@ export class SprintController {
       const { boardId } = req.params;
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
-      if (!canEdit(req.workspace?.role))
+      if (!canManageProjectBoundResource(req))
         return res
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
@@ -267,7 +271,7 @@ export class SprintController {
   static async updateMilestone(req: WorkspaceRequest, res: Response) {
     try {
       const { milestoneId } = req.params;
-      if (!canEdit(req.workspace?.role))
+      if (!canManageProjectBoundResource(req))
         return res
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
@@ -292,7 +296,7 @@ export class SprintController {
   static async deleteMilestone(req: WorkspaceRequest, res: Response) {
     try {
       const { milestoneId } = req.params;
-      if (!canEdit(req.workspace?.role))
+      if (!canManageProjectBoundResource(req))
         return res
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });

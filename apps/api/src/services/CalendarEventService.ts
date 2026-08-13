@@ -295,7 +295,7 @@ class CalendarEventService {
 
     for (const attendeeId of data.attendeeIds) {
       try {
-        await notificationRepository.create({
+        await notificationRepository.upsertActive({
           userId:  attendeeId,
           type:    'CALENDAR_EVENT_INVITE' as any,
           title:   'Nuevo evento en tu calendario',
@@ -308,6 +308,7 @@ class CalendarEventService {
             ...(data.workspaceId && { workspaceId: data.workspaceId }),
             ...(data.teamId      && { teamId:      data.teamId }),
           },
+          dedupeKey: `calendar-event-invite:${data.eventId}`,
         });
       } catch (_) {
         // Silencioso — no bloquear la creación del evento

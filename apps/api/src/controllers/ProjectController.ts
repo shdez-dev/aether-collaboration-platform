@@ -6,6 +6,8 @@ import { pool } from '../lib/db';
 import { eventStore } from '../services/EventStoreService';
 import { activityLogService } from '../services/ActivityLogService';
 import { notificationService } from '../services/NotificationService';
+import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
+import type { ProjectRequest } from '../middleware/project';
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,11 @@ const updateMilestoneSchema = z.object({
   color: z.string().max(50).optional().nullable(),
 });
 
+const directProjectMemberSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
+});
+
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 function fmtProject(row: any) {
@@ -146,7 +153,7 @@ function fmtBoard(row: any) {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
-async function computeStats(projectId: string) {
+async function computeStats(projectId: string, userId?: string) {
   const now = new Date();
 
   const documentCountResult = await pool.query(
@@ -156,13 +163,14 @@ async function computeStats(projectId: string) {
   const totalDocuments = parseInt(documentCountResult.rows[0]?.total ?? '0', 10);
 
   // Boards asignados al proyecto
-  const boardsResult = await pool.query(
-    `SELECT b.id FROM boards b
-     JOIN project_boards pb ON pb.board_id = b.id
-     WHERE pb.project_id = $1 AND b.archived = false`,
-    [projectId]
-  );
-  const boardIds: string[] = boardsResult.rows.map((r: any) => r.id);
+  const boardIds = userId
+    ? await projectAuthorizationService.getVisibleBoardIds(projectId, userId)
+    : await pool.query(
+      `SELECT b.id FROM boards b
+       JOIN project_boards pb ON pb.board_id = b.id
+       WHERE pb.project_id = $1 AND b.archived = false`,
+      [projectId]
+    ).then((result) => result.rows.map((row: any) => row.id as string));
 
   if (boardIds.length === 0) {
     return { totalBoards: 0, totalCards: 0, completedCards: 0, overdueCards: 0, totalDocuments, progressPercent: 0, healthScore: 100, bottleneckBoardId: null, bottleneckBoardName: null };
@@ -234,15 +242,27 @@ async function computeStats(projectId: string) {
 
 // ── Relations loader ──────────────────────────────────────────────────────────
 
-async function loadRelations(projectId: string) {
-  const [boardsResult, msResult] = await Promise.all([
-    pool.query(
+async function loadRelations(projectId: string, userId?: string) {
+  const boardIds = userId ? await projectAuthorizationService.getVisibleBoardIds(projectId, userId) : null;
+  const boardQuery = boardIds
+    ? boardIds.length === 0
+      ? Promise.resolve({ rows: [] as any[] })
+      : pool.query(
+        `SELECT b.* FROM boards b
+         JOIN project_boards pb ON pb.board_id = b.id
+         WHERE pb.project_id = $1 AND b.id = ANY($2::uuid[])
+         ORDER BY pb.added_at ASC`,
+        [projectId, boardIds]
+      )
+    : pool.query(
       `SELECT b.* FROM boards b
        JOIN project_boards pb ON pb.board_id = b.id
        WHERE pb.project_id = $1
        ORDER BY pb.added_at ASC`,
       [projectId]
-    ),
+    );
+  const [boardsResult, msResult] = await Promise.all([
+    boardQuery,
     pool.query(`SELECT * FROM project_milestones WHERE project_id = $1 ORDER BY date ASC`, [projectId]),
   ]);
   return {
@@ -497,6 +517,12 @@ class ProjectController {
   async listByWorkspace(req: Request, res: Response) {
     try {
       const { wsId } = req.params;
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(userId, wsId);
+      if (accessibleProjectIds.length === 0) {
+        return res.json({ success: true, data: { projects: [] } });
+      }
       const result = await pool.query(
         `SELECT p.*,
           MAX(owner.name) AS owner_name,
@@ -515,13 +541,18 @@ class ProjectController {
          LEFT JOIN users owner ON owner.id = p.owner_id
          LEFT JOIN users triage_owner ON triage_owner.id = p.triage_owner_id
          LEFT JOIN project_boards pb ON pb.project_id = p.id
-         LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
+          LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
+            AND NOT EXISTS (
+              SELECT 1 FROM project_boards other
+              WHERE other.board_id = pb.board_id
+                AND NOT (other.project_id = ANY($2::uuid[]))
+            )
          LEFT JOIN lists l ON l.board_id = b.id
          LEFT JOIN cards c ON c.list_id = l.id
-         WHERE p.workspace_id = $1 AND p.status != 'ARCHIVED'
+         WHERE p.workspace_id = $1 AND p.id = ANY($2::uuid[]) AND p.status != 'ARCHIVED'
          GROUP BY p.id
          ORDER BY p.updated_at DESC`,
-        [wsId]
+        [wsId, accessibleProjectIds]
       );
       const projects = await Promise.all(result.rows.map(async (row) => {
         const relations = {
@@ -547,13 +578,17 @@ class ProjectController {
   async list(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(userId);
+      if (accessibleProjectIds.length === 0) {
+        return res.json({ success: true, data: { projects: [] } });
+      }
       const result = await pool.query(
         `SELECT DISTINCT p.*
          FROM projects p
-         JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = $1
-         WHERE p.status IN ('PLANNING', 'ACTIVE', 'ON_HOLD')
+         WHERE p.id = ANY($1::uuid[])
+           AND p.status IN ('PLANNING', 'ACTIVE', 'ON_HOLD')
          ORDER BY p.updated_at DESC`,
-        [userId]
+        [accessibleProjectIds]
       );
       const projects = result.rows.map(fmtProject);
       res.json({ success: true, data: { projects } });
@@ -573,6 +608,39 @@ class ProjectController {
         return res.status(400).json({ success: false, error: { message: 'Datos inválidos', details: body.error.flatten() } });
       }
       const { boardIds = [], ...data } = body.data;
+      const uniqueBoardIds = [...new Set(boardIds)];
+      if (uniqueBoardIds.length) {
+        const boards = await pool.query(
+          `SELECT id FROM boards WHERE workspace_id = $1 AND id = ANY($2::uuid[])`,
+          [wsId, uniqueBoardIds],
+        );
+        if (boards.rowCount !== uniqueBoardIds.length) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_PROJECT_BOARDS', message: 'Todos los tableros deben pertenecer al espacio de trabajo del proyecto' },
+          });
+        }
+        const existingLinks = await pool.query(
+          `SELECT board_id FROM project_boards WHERE board_id = ANY($1::uuid[]) LIMIT 1`,
+          [uniqueBoardIds],
+        );
+        if (existingLinks.rows.length) {
+          return res.status(409).json({
+            success: false,
+            error: { code: 'BOARD_ALREADY_ATTACHED', message: 'Un tablero ya pertenece a otro proyecto' },
+          });
+        }
+        const workspaceAdmin = await pool.query(
+          `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND role IN ('OWNER', 'ADMIN')`,
+          [wsId, userId],
+        );
+        if (!workspaceAdmin.rows.length) {
+          return res.status(403).json({
+            success: false,
+            error: { code: 'BOARD_MANAGE_REQUIRED', message: 'Se requiere administrar el workspace para asociar un tablero existente' },
+          });
+        }
+      }
       const workspaceStandard = await getWorkspaceProjectStandard(wsId);
       const client = await pool.connect();
       try {
@@ -591,7 +659,7 @@ class ProjectController {
            workspaceStandard.id, workspaceStandard.version]
         );
         const project = result.rows[0];
-        for (const bId of boardIds) {
+        for (const bId of uniqueBoardIds) {
           await client.query(
             `INSERT INTO project_boards (id, project_id, board_id) VALUES (gen_random_uuid(), $1, $2) ON CONFLICT DO NOTHING`,
             [project.id, bId]
@@ -642,8 +710,23 @@ class ProjectController {
       const { id } = req.params;
       const result = await pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
       if (!result.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
-      const relations = await loadRelations(id);
-      res.json({ success: true, data: { project: await hydrateProject(result.rows[0], relations, true) } });
+      const relations = await loadRelations(id, req.user?.id);
+      const access = (req as ProjectRequest).projectContext;
+      res.json({
+        success: true,
+        data: {
+          project: {
+            ...(await hydrateProject(result.rows[0], relations, true)),
+            access: access ? {
+              level: access.level,
+              external: access.external,
+              canRead: true,
+              canContribute: access.level !== 'READ',
+              canManage: access.level === 'MANAGE',
+            } : undefined,
+          },
+        },
+      });
     } catch (error) {
       console.error('[ProjectController.getById]', error);
       res.status(500).json({ success: false, error: { message: 'Error al obtener proyecto' } });
@@ -909,7 +992,7 @@ class ProjectController {
   /** GET /api/projects/:id/stats */
   async getStats(req: Request, res: Response) {
     try {
-      const stats = await computeStats(req.params.id);
+      const stats = await computeStats(req.params.id, req.user?.id);
       res.json({ success: true, data: { stats } });
     } catch (error) {
       console.error('[ProjectController.getStats]', error);
@@ -932,6 +1015,24 @@ class ProjectController {
       );
       if (boardResult.rowCount === 0) {
         return res.status(404).json({ success: false, error: { message: 'Board no encontrado en el espacio de trabajo del proyecto' } });
+      }
+      const actorId = req.user?.id;
+      if (!actorId) return res.status(401).json({ success: false, error: { message: 'Autenticación requerida' } });
+      const boardProjects = await pool.query('SELECT project_id FROM project_boards WHERE board_id = $1', [body.data.boardId]);
+      const linkedProjectId = boardProjects.rows[0]?.project_id;
+      if (linkedProjectId && linkedProjectId !== id) {
+        return res.status(409).json({
+          success: false,
+          error: { code: 'BOARD_ALREADY_ATTACHED', message: 'El tablero ya pertenece a otro proyecto' },
+        });
+      }
+      if (!linkedProjectId) {
+        const workspaceAdmin = await pool.query(
+          `SELECT 1 FROM workspace_members wm JOIN projects p ON p.workspace_id = wm.workspace_id
+           WHERE p.id = $1 AND wm.user_id = $2 AND wm.role IN ('OWNER', 'ADMIN')`,
+          [id, actorId]
+        );
+        if (!workspaceAdmin.rows[0]) return res.status(403).json({ success: false, error: { message: 'Se requiere administración del board' } });
       }
       await pool.query(
         `INSERT INTO project_boards (id, project_id, board_id) VALUES (gen_random_uuid(), $1, $2) ON CONFLICT DO NOTHING`,
@@ -964,13 +1065,18 @@ class ProjectController {
   /** DELETE /api/projects/:id/boards/:boardId */
   async removeBoard(req: Request, res: Response) {
     try {
-      // Get project info for event
-      const projectInfo = await pool.query(`SELECT name, workspace_id FROM projects WHERE id = $1`, [req.params.id]);
-      const projectName = projectInfo.rows[0]?.name;
-      const wsId = projectInfo.rows[0]?.workspace_id;
-      const boardInfo = await pool.query(`SELECT name FROM boards WHERE id = $1`, [req.params.boardId]);
-      const boardName = boardInfo.rows[0]?.name ?? '';
-      await pool.query(`DELETE FROM project_boards WHERE project_id = $1 AND board_id = $2`, [req.params.id, req.params.boardId]);
+      const removed = await pool.query(
+        `DELETE FROM project_boards pb
+         USING projects p, boards b
+         WHERE pb.project_id = $1 AND pb.board_id = $2
+           AND p.id = pb.project_id AND b.id = pb.board_id AND p.workspace_id = b.workspace_id
+         RETURNING p.name AS project_name, p.workspace_id, b.name AS board_name`,
+        [req.params.id, req.params.boardId]
+      );
+      if (!removed.rows[0]) return res.status(404).json({ success: false, error: { message: 'Asociación de board no encontrada' } });
+      const projectName = removed.rows[0].project_name;
+      const wsId = removed.rows[0].workspace_id;
+      const boardName = removed.rows[0].board_name;
       try {
         if (wsId) {
           const actorId = (req as any).user?.id as string;
@@ -1042,8 +1148,8 @@ class ProjectController {
       if (data.color       !== undefined) { fields.push(`color = $${idx++}`);       values.push(data.color); }
       if (!fields.length) return res.status(400).json({ success: false, error: { message: 'Sin campos' } });
       fields.push(`updated_at = CURRENT_TIMESTAMP`);
-      values.push(milestoneId);
-      const result = await pool.query(`UPDATE project_milestones SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`, values);
+      values.push(milestoneId, req.params.id);
+      const result = await pool.query(`UPDATE project_milestones SET ${fields.join(', ')} WHERE id = $${idx} AND project_id = $${idx + 1} RETURNING *`, values);
       if (!result.rows.length) return res.status(404).json({ success: false, error: { message: 'Milestone no encontrado' } });
       // Get project info for milestone event
       const msInfo = await pool.query(`SELECT pm.project_id, p.name AS project_name, p.workspace_id FROM project_milestones pm JOIN projects p ON p.id = pm.project_id WHERE pm.id = $1`, [milestoneId]);
@@ -1116,9 +1222,10 @@ class ProjectController {
       const msInfo = await pool.query(
         `SELECT pm.name, pm.project_id, p.name AS project_name, p.workspace_id
          FROM project_milestones pm JOIN projects p ON p.id = pm.project_id
-         WHERE pm.id = $1`, [milestoneId]
+       WHERE pm.id = $1 AND pm.project_id = $2`, [milestoneId, req.params.id]
       );
-      await pool.query(`DELETE FROM project_milestones WHERE id = $1`, [milestoneId]);
+      const deleted = await pool.query(`DELETE FROM project_milestones WHERE id = $1 AND project_id = $2 RETURNING id`, [milestoneId, req.params.id]);
+      if (!deleted.rows[0]) return res.status(404).json({ success: false, error: { message: 'Milestone no encontrado' } });
       try {
         if (msInfo.rows[0]) {
           const actorId   = (req as any).user?.id as string;
@@ -1183,13 +1290,10 @@ class ProjectController {
       const userId = req.user?.id;
       const { id } = req.params;
 
-      const access = await pool.query(
-        `SELECT p.id FROM projects p
-         JOIN workspace_members wm ON wm.workspace_id = p.workspace_id
-         WHERE p.id = $1 AND wm.user_id = $2`,
-        [id, userId]
-      );
-      if (!access.rows.length) return res.status(404).json({ success: false });
+      const access = userId ? await projectAuthorizationService.can(id, userId, 'READ') : null;
+      if (!access) return res.status(404).json({ success: false });
+      const boardIds = await projectAuthorizationService.getVisibleBoardIds(id, userId!);
+      if (boardIds.length === 0) return res.json({ success: true, data: { cards: [] } });
 
       const result = await pool.query(
         `SELECT c.id, c.title, c.due_date, c.start_date, c.priority, c.completed,
@@ -1198,10 +1302,10 @@ class ProjectController {
          JOIN lists l ON l.id = c.list_id
          JOIN boards b ON b.id = l.board_id
          JOIN project_boards pb ON pb.board_id = b.id
-         WHERE pb.project_id = $1
+          WHERE pb.project_id = $1 AND b.id = ANY($2::uuid[])
            AND (c.due_date IS NOT NULL OR c.start_date IS NOT NULL)
          ORDER BY c.due_date ASC NULLS LAST, b.position ASC`,
-        [id]
+        [id, boardIds]
       );
 
       const cards = result.rows.map((r: any) => ({
@@ -1247,17 +1351,6 @@ class ProjectController {
          VALUES ($1, $2, $3)
          ON CONFLICT (project_id, team_id) DO NOTHING`,
         [id, teamId, userId]
-      );
-
-      // Grant workspace access to all current team members
-      await pool.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role)
-         SELECT p.workspace_id, tm.user_id, 'MEMBER'
-         FROM projects p
-         JOIN team_members tm ON tm.team_id = $2
-         WHERE p.id = $1
-         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
-        [id, teamId]
       );
 
       try {
@@ -1353,21 +1446,29 @@ class ProjectController {
     try {
       const actorId = req.user?.id;
       const { id }  = req.params;
-      const { userId, role = 'MEMBER' } = req.body;
-      if (!userId) return res.status(400).json({ success: false, error: { message: 'userId requerido' } });
+      const input = directProjectMemberSchema.safeParse(req.body);
+      if (!input.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: input.error.issues[0]?.message ?? 'Datos inv\u00e1lidos' } });
+      const { userId, role } = input.data;
 
-      // Fetch workspace for auto-linking
+      // Project access is narrower than workspace access. Adding someone to a
+      // project must never silently grant them a workspace membership.
       const projRow = await pool.query(`SELECT workspace_id FROM projects WHERE id = $1`, [id]);
       if (!projRow.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
       const workspaceId = projRow.rows[0].workspace_id;
 
-      // Auto-add user to workspace if not already a member
-      await pool.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role)
-         VALUES ($1, $2, 'MEMBER')
-         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
-        [workspaceId, userId]
+      const member = await pool.query(
+        `SELECT u.id, u.name, u.email, u.avatar
+         FROM users u
+         JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $2
+         WHERE u.id = $1`,
+        [userId, workspaceId]
       );
+      if (!member.rows.length) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'WORKSPACE_MEMBER_REQUIRED', message: 'La persona debe pertenecer primero al workspace' },
+        });
+      }
 
       // Add (or update role) in project_members
       await pool.query(
@@ -1377,13 +1478,7 @@ class ProjectController {
         [id, userId, role, actorId]
       );
 
-      const userRow = await pool.query(
-        `SELECT id, name, email, avatar FROM users WHERE id = $1`,
-        [userId]
-      );
-      if (!userRow.rows.length) return res.status(404).json({ success: false, error: { message: 'Usuario no encontrado' } });
-
-      const u = userRow.rows[0];
+      const u = member.rows[0];
       try {
         const projInfo  = await pool.query(`SELECT name FROM projects WHERE id = $1`, [id]);
         const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);

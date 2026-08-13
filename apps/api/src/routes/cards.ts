@@ -5,7 +5,7 @@ import { CardController } from '../controllers/CardController';
 import { ChecklistController } from '../controllers/ChecklistController';
 import { DependencyController } from '../controllers/DependencyController';
 import { authenticateJWT } from '../middleware/auth';
-import { checkWorkspaceMembership } from '../middleware/workspace';
+import { requireProjectBoundResourceAccess } from '../middleware/project';
 
 const router = Router();
 
@@ -26,7 +26,7 @@ const router = Router();
 router.get(
   '/lists/:listId/cards',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('READ', 'list'),
   CardController.getListCards
 );
 
@@ -36,29 +36,29 @@ router.get(
 router.post(
   '/lists/:listId/cards',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('CONTRIBUTE', 'list'),
   CardController.createCard
 );
 
 // Obtener card por ID
 // Middleware: checkWorkspaceMembership (resuelve workspace desde cardId)
 // Permite: Todos los roles
-router.get('/cards/:id', authenticateJWT, checkWorkspaceMembership, CardController.getCard);
+router.get('/cards/:id', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), CardController.getCard);
 
 // Actualizar card
 // Middleware: checkWorkspaceMembership (resuelve workspace desde cardId)
 // Controller: Valida rol ADMIN/OWNER
-router.put('/cards/:id', authenticateJWT, checkWorkspaceMembership, CardController.updateCard);
+router.put('/cards/:id', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'card'), CardController.updateCard);
 
 // Mover card (cambiar de lista o reordenar)
 // Middleware: checkWorkspaceMembership (resuelve workspace desde cardId)
 // Controller: Valida rol ADMIN/OWNER
-router.put('/cards/:id/move', authenticateJWT, checkWorkspaceMembership, CardController.moveCard);
+router.put('/cards/:id/move', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'card'), CardController.moveCard);
 
 // Eliminar card
 // Middleware: checkWorkspaceMembership (resuelve workspace desde cardId)
 // Controller: Valida rol ADMIN/OWNER
-router.delete('/cards/:id', authenticateJWT, checkWorkspaceMembership, CardController.deleteCard);
+router.delete('/cards/:id', authenticateJWT, requireProjectBoundResourceAccess('MANAGE', 'card'), CardController.deleteCard);
 
 // ==================== MIEMBROS DE CARD ====================
 
@@ -68,7 +68,7 @@ router.delete('/cards/:id', authenticateJWT, checkWorkspaceMembership, CardContr
 router.post(
   '/cards/:id/members',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('MANAGE', 'card'),
   CardController.assignMember
 );
 
@@ -78,7 +78,7 @@ router.post(
 router.delete(
   '/cards/:id/members/:userId',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('MANAGE', 'card'),
   CardController.unassignMember
 );
 
@@ -90,7 +90,7 @@ router.delete(
 router.post(
   '/cards/:id/labels',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
   CardController.addLabel
 );
 
@@ -100,7 +100,7 @@ router.post(
 router.delete(
   '/cards/:id/labels/:labelId',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
   CardController.removeLabel
 );
 
@@ -110,7 +110,7 @@ router.delete(
 router.get(
   '/cards/:id/checklist',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('READ', 'card'),
   ChecklistController.getItems
 );
 
@@ -118,7 +118,7 @@ router.get(
 router.post(
   '/cards/:id/checklist',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
   ChecklistController.createItem
 );
 
@@ -126,7 +126,7 @@ router.post(
 router.put(
   '/cards/:id/checklist/:itemId',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
   ChecklistController.updateItem
 );
 
@@ -134,7 +134,7 @@ router.put(
 router.delete(
   '/cards/:id/checklist/:itemId',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('MANAGE', 'card'),
   ChecklistController.deleteItem
 );
 
@@ -144,7 +144,7 @@ router.delete(
 router.get(
   '/cards/:id/dependencies/search',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('READ', 'card'),
   DependencyController.searchCards
 );
 
@@ -152,7 +152,7 @@ router.get(
 router.get(
   '/cards/:id/dependencies',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('READ', 'card'),
   DependencyController.getDependencies
 );
 
@@ -160,7 +160,7 @@ router.get(
 router.post(
   '/cards/:id/dependencies',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
   DependencyController.addDependency
 );
 
@@ -168,7 +168,7 @@ router.post(
 router.delete(
   '/cards/:id/dependencies/:depId',
   authenticateJWT,
-  checkWorkspaceMembership,
+  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
   DependencyController.removeDependency
 );
 

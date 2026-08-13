@@ -1,11 +1,16 @@
 import type { Request, Response } from 'express';
 import { pool } from '../../lib/db';
+import { projectAuthorizationService } from '../../services/ProjectAuthorizationService';
 
 /** Read model for project planning surfaces. */
 export class ProjectPlanningController {
   async getBacklog(req: Request, res: Response) {
     try {
       const projectId = req.params.id;
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
+      const boardIds = await projectAuthorizationService.getVisibleBoardIds(projectId, userId);
+      if (boardIds.length === 0) return res.json({ success: true, data: { cards: [] } });
 
       const result = await pool.query(
         `SELECT c.id, c.title, c.priority, c.due_date,
@@ -15,10 +20,10 @@ export class ProjectPlanningController {
          JOIN boards b ON b.id = pb.board_id AND b.archived = false
          JOIN lists l ON l.board_id = b.id
          JOIN cards c ON c.list_id = l.id AND c.completed = false
-         WHERE pb.project_id = $1
+         WHERE pb.project_id = $1 AND b.id = ANY($2::uuid[])
          ORDER BY CASE c.priority WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 WHEN 'LOW' THEN 2 ELSE 3 END,
                   c.due_date NULLS LAST, c.created_at DESC`,
-        [projectId]
+        [projectId, boardIds]
       );
 
       return res.json({

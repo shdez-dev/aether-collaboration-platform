@@ -818,6 +818,24 @@ export class WorkspaceService {
         throw new Error('Member not found or already removed');
       }
 
+      // Workspace membership is the root of access. Remove every team
+      // membership and pending team invitation scoped to this workspace in
+      // the same transaction so an old invitation cannot restore access.
+      await client.query(
+        `DELETE FROM team_members tm
+         USING teams t
+         WHERE tm.team_id = t.id AND t.workspace_id = $1 AND tm.user_id = $2`,
+        [workspaceId, targetUserId]
+      );
+      await client.query(
+        `UPDATE team_invitations ti
+         SET status = 'REVOKED'
+         FROM teams t
+         WHERE ti.team_id = t.id AND t.workspace_id = $1
+           AND ti.invited_user_id = $2 AND ti.status = 'PENDING'`,
+        [workspaceId, targetUserId]
+      );
+
       await client.query('COMMIT');
 
       const [removerResult, targetMemberResult] = await Promise.all([

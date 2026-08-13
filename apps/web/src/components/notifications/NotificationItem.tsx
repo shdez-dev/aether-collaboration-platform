@@ -15,6 +15,8 @@ interface NotificationItemProps {
   notification: Notification;
   onMarkAsRead?: (id: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onArchive?: (id: string) => Promise<void>;
+  onResolve?: (id: string) => Promise<void>;
   onClose?: () => void;
   hasBorder?: boolean;
 }
@@ -148,6 +150,8 @@ export function NotificationItem({
   notification,
   onMarkAsRead,
   onDelete,
+  onArchive,
+  onResolve,
   onClose,
   hasBorder = false,
 }: NotificationItemProps) {
@@ -226,6 +230,20 @@ export function NotificationItem({
     try { await onDelete(notification.id); } catch {} finally { setIsLoading(false); }
   };
 
+  const handleArchive = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onArchive) return;
+    setIsLoading(true);
+    try { await onArchive(notification.id); } finally { setIsLoading(false); }
+  };
+
+  const handleResolve = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onResolve) return;
+    setIsLoading(true);
+    try { await onResolve(notification.id); } finally { setIsLoading(false); }
+  };
+
   return (
     <div
       onClick={handleClick}
@@ -302,6 +320,16 @@ export function NotificationItem({
               <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10">
                 <path d="M2 6l2.5 2.5 5.5-5" />
               </svg>
+            </button>
+          )}
+          {onResolve && (
+            <button onClick={handleResolve} title="Resolver" style={{ width: '22px', height: '22px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: C.text3 }}>
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" width="10" height="10"><path d="M2 6l2.5 2.5 5.5-5" /></svg>
+            </button>
+          )}
+          {onArchive && (
+            <button onClick={handleArchive} title="Archivar" style={{ width: '22px', height: '22px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: C.text3 }}>
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10"><path d="M2 3h8v7H2zM4 1h4" /></svg>
             </button>
           )}
           {onDelete && (

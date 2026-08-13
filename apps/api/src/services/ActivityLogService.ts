@@ -10,6 +10,7 @@ export interface ActivityLogFilters {
   endDate?: Date;
   limit?: number;
   offset?: number;
+  accessibleProjectIds?: string[];
 }
 
 export interface ActivityLogEntry {
@@ -69,6 +70,33 @@ export class ActivityLogService {
     if (workspaceId) {
       conditions.push(`e.workspace_id = $${paramIndex}`);
       params.push(workspaceId);
+      paramIndex++;
+    }
+
+    if (filters.accessibleProjectIds) {
+      conditions.push(`(
+        (e.board_id IS NULL AND (
+          (e.subject_type = 'project' AND EXISTS (
+            SELECT 1 FROM projects p WHERE p.id::text = e.subject_id::text AND p.id = ANY($${paramIndex}::uuid[])
+          ))
+          OR ((e.document_id IS NOT NULL OR e.subject_type = 'document') AND EXISTS (
+            SELECT 1 FROM documents d
+            WHERE (d.id = e.document_id OR (e.subject_type = 'document' AND d.id::text = e.subject_id::text))
+              AND (d.project_id IS NULL OR d.project_id = ANY($${paramIndex}::uuid[]))
+          ))
+          OR (e.subject_type NOT IN ('project', 'document') AND e.document_id IS NULL AND (
+            e.payload->>'projectId' IS NULL OR EXISTS (
+              SELECT 1 FROM projects p
+              WHERE p.id::text = e.payload->>'projectId' AND p.id = ANY($${paramIndex}::uuid[])
+            )
+          ))
+        ))
+        OR (e.board_id IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM project_boards pb
+          WHERE pb.board_id = e.board_id AND NOT (pb.project_id = ANY($${paramIndex}::uuid[]))
+        ))
+      )`);
+      params.push(filters.accessibleProjectIds);
       paramIndex++;
     }
 
@@ -258,6 +286,7 @@ export class ActivityLogService {
    */
   async getActivityStats(
     workspaceId: string,
+    accessibleProjectIds: string[],
     days: number = 30
   ): Promise<{
     totalEvents: number;
@@ -268,31 +297,53 @@ export class ActivityLogService {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
+    const visibleActivity = `
+      AND (
+        (board_id IS NULL AND (
+          (subject_type = 'project' AND EXISTS (
+            SELECT 1 FROM projects p WHERE p.id::text = events.subject_id::text AND p.id = ANY($3::uuid[])
+          ))
+          OR ((document_id IS NOT NULL OR subject_type = 'document') AND EXISTS (
+            SELECT 1 FROM documents d
+            WHERE (d.id = events.document_id OR (events.subject_type = 'document' AND d.id::text = events.subject_id::text))
+              AND (d.project_id IS NULL OR d.project_id = ANY($3::uuid[]))
+          ))
+          OR (subject_type NOT IN ('project', 'document') AND document_id IS NULL AND (
+            payload->>'projectId' IS NULL OR EXISTS (
+              SELECT 1 FROM projects p WHERE p.id::text = payload->>'projectId' AND p.id = ANY($3::uuid[])
+            )
+          ))
+        ))
+        OR (board_id IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM project_boards pb WHERE pb.board_id = events.board_id
+            AND NOT (pb.project_id = ANY($3::uuid[]))
+        ))
+      )`;
     const [totalResult, typeResult, contributorsResult, activityResult] = await Promise.all([
       pool.query(
-        `SELECT COUNT(*) as total FROM events WHERE workspace_id = $1 AND created_at >= $2`,
-        [workspaceId, since]
+        `SELECT COUNT(*) as total FROM events WHERE workspace_id = $1 AND created_at >= $2 ${visibleActivity}`,
+        [workspaceId, since, accessibleProjectIds]
       ),
       pool.query(
         `SELECT type as event_type, COUNT(*) as count
          FROM events
-         WHERE workspace_id = $1 AND created_at >= $2
+         WHERE workspace_id = $1 AND created_at >= $2 ${visibleActivity}
          GROUP BY type ORDER BY count DESC`,
-        [workspaceId, since]
+        [workspaceId, since, accessibleProjectIds]
       ),
       pool.query(
         `SELECT actor_id as user_id, actor_name as user_name, COUNT(*) as count
          FROM events
-         WHERE workspace_id = $1 AND created_at >= $2
+         WHERE workspace_id = $1 AND created_at >= $2 ${visibleActivity}
          GROUP BY actor_id, actor_name ORDER BY count DESC LIMIT 5`,
-        [workspaceId, since]
+        [workspaceId, since, accessibleProjectIds]
       ),
       pool.query(
         `SELECT DATE(created_at) as date, COUNT(*) as count
          FROM events
-         WHERE workspace_id = $1 AND created_at >= $2
+         WHERE workspace_id = $1 AND created_at >= $2 ${visibleActivity}
          GROUP BY DATE(created_at) ORDER BY date DESC`,
-        [workspaceId, since]
+        [workspaceId, since, accessibleProjectIds]
       ),
     ]);
 

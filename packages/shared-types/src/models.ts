@@ -891,7 +891,9 @@ export type NotificationType =
   | 'PROJECT_INVITE'
   | 'MILESTONE_MISSED'
   | 'MILESTONE_COMPLETED'
-  | 'PROJECT_STATUS_CHANGED';
+  | 'PROJECT_STATUS_CHANGED'
+  | 'TEAM_MEMBER_ADDED'
+  | 'TEAM_MEMBER_REMOVED';
 
 /**
  * Notification
@@ -905,6 +907,9 @@ export interface Notification {
   message: string;
   data: NotificationData;
   read: boolean;
+  readAt?: string | null;
+  archivedAt?: string | null;
+  resolvedAt?: string | null;
   createdAt: string;
 }
 
@@ -987,6 +992,8 @@ export interface CreateNotificationDto {
   title: string;
   message: string;
   data: NotificationData;
+  /** Stable idempotency key supplied by the triggering domain event. */
+  dedupeKey?: string;
 }
 
 /**

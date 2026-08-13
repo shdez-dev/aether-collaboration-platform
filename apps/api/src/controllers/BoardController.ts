@@ -6,6 +6,8 @@ import { boardService } from '../services/BoardService';
 import { DependencyGraphService } from '../services/DependencyGraphService';
 import { WorkspaceRequest } from '../middleware/workspace';
 import { pool } from '../lib/db';
+import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
+import { canManageProjectBoundResource } from '../middleware/project';
 
 /**
  * Schemas de validación con Zod
@@ -46,16 +48,6 @@ class BoardController {
       }
 
       // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'INSUFFICIENT_PERMISSIONS',
-            message: 'Solo ADMIN o OWNER pueden crear boards',
-          },
-        });
-      }
-
       // Validar datos
       const validation = createBoardSchema.safeParse(req.body);
       if (!validation.success) {
@@ -70,6 +62,28 @@ class BoardController {
       }
 
       const { projectId, ...boardData } = validation.data;
+
+      let canManageProject = false;
+      if (projectId) {
+        const projectAccess = await projectAuthorizationService.can(projectId, userId, 'MANAGE');
+        if (!projectAccess || projectAccess.workspaceId !== workspaceId) {
+          return res.status(404).json({
+            success: false,
+            error: { code: 'PROJECT_NOT_FOUND', message: 'Proyecto no encontrado en este espacio de trabajo' },
+          });
+        }
+        canManageProject = true;
+      }
+
+      if (userRole !== 'ADMIN' && userRole !== 'OWNER' && !canManageProject) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Se requiere administración del espacio o del proyecto para crear boards',
+          },
+        });
+      }
 
       // Crear board
       const board = await boardService.createBoard(workspaceId, userId, boardData);
@@ -119,11 +133,23 @@ class BoardController {
         });
       }
 
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(userId, workspaceId);
+      const visibleBoardIds = await pool.query(
+        `SELECT b.id
+         FROM boards b
+         LEFT JOIN project_boards pb ON pb.board_id = b.id
+         WHERE b.workspace_id = $1
+         GROUP BY b.id
+         HAVING COUNT(pb.project_id) = 0
+            OR COUNT(pb.project_id) = COUNT(pb.project_id) FILTER (WHERE pb.project_id = ANY($2::uuid[]))`,
+        [workspaceId, accessibleProjectIds],
+      );
+      const visibleIds = new Set(visibleBoardIds.rows.map((row) => row.id as string));
       const boards = await boardService.getWorkspaceBoards(workspaceId);
 
       return res.json({
         success: true,
-        data: { boards },
+        data: { boards: boards.filter((board) => visibleIds.has(board.id)) },
       });
     } catch (error) {
       return res.status(500).json({
@@ -157,17 +183,6 @@ class BoardController {
       }
 
       // Verificar acceso
-      const hasAccess = await boardService.checkBoardAccess(id, userId);
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'ACCESS_DENIED',
-            message: 'No tienes acceso a este board',
-          },
-        });
-      }
-
       const board = await boardService.getBoardById(id);
 
       if (!board) {
@@ -217,19 +232,9 @@ class BoardController {
       }
 
       // Verificar acceso al board
-      const hasAccess = await boardService.checkBoardAccess(id, userId);
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'ACCESS_DENIED',
-            message: 'No tienes acceso a este board',
-          },
-        });
-      }
 
       // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -291,19 +296,9 @@ class BoardController {
       }
 
       // Verificar acceso
-      const hasAccess = await boardService.checkBoardAccess(id, userId);
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'ACCESS_DENIED',
-            message: 'No tienes acceso a este board',
-          },
-        });
-      }
 
       // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -352,19 +347,9 @@ class BoardController {
       }
 
       // Verificar acceso
-      const hasAccess = await boardService.checkBoardAccess(id, userId);
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'ACCESS_DENIED',
-            message: 'No tienes acceso a este board',
-          },
-        });
-      }
 
       // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {

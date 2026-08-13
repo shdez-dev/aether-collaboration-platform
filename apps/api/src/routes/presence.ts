@@ -6,6 +6,7 @@ import { getPresenceService } from '../services/PresenceService';
 import { eventStore } from '../services/EventStoreService';
 import { redisClient } from '../lib/redis';
 import type { Request, Response } from 'express';
+import { requireProjectBoundResourceAccess } from '../middleware/project';
 
 const router = Router();
 const presenceService = getPresenceService(redisClient);
@@ -38,6 +39,7 @@ const presenceService = getPresenceService(redisClient);
 router.get(
   '/boards/:boardId/active-users',
   authenticateJWT,
+  requireProjectBoundResourceAccess('READ', 'board'),
   async (req: Request, res: Response) => {
     try {
       const { boardId } = req.params;
@@ -78,7 +80,7 @@ router.get(
  *   }
  * }
  */
-router.get('/cards/:cardId/typing', authenticateJWT, async (req: Request, res: Response) => {
+router.get('/cards/:cardId/typing', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), async (req: Request, res: Response) => {
   try {
     const { cardId } = req.params;
 
@@ -123,7 +125,7 @@ router.get('/cards/:cardId/typing', authenticateJWT, async (req: Request, res: R
  *   }
  * }
  */
-router.get('/boards/:boardId/events', authenticateJWT, async (req: Request, res: Response) => {
+router.get('/boards/:boardId/events', authenticateJWT, requireProjectBoundResourceAccess('READ', 'board'), async (req: Request, res: Response) => {
   try {
     const { boardId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
@@ -166,7 +168,7 @@ router.get('/boards/:boardId/events', authenticateJWT, async (req: Request, res:
  *   }
  * }
  */
-router.get('/cards/:cardId/activity', authenticateJWT, async (req: Request, res: Response) => {
+router.get('/cards/:cardId/activity', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), async (req: Request, res: Response) => {
   try {
     const { cardId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
@@ -207,7 +209,7 @@ router.get('/cards/:cardId/activity', authenticateJWT, async (req: Request, res:
  *   }
  * }
  */
-router.get('/boards/:boardId/stats', authenticateJWT, async (req: Request, res: Response) => {
+router.get('/boards/:boardId/stats', authenticateJWT, requireProjectBoundResourceAccess('READ', 'board'), async (req: Request, res: Response) => {
   try {
     const { boardId } = req.params;
 

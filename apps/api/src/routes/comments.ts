@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { CommentController } from '../controllers/CommentController';
 import { authenticateJWT } from '../middleware/auth';
+import { requireProjectBoundResourceAccess } from '../middleware/project';
 
 const router = Router();
 
@@ -20,13 +21,13 @@ const router = Router();
  * para evitar conflictos de patrón
  */
 // Obtener contador de comentarios de una card
-router.get('/cards/:cardId/comments/count', authenticateJWT, CommentController.getCommentCount);
+router.get('/cards/:cardId/comments/count', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), CommentController.getCommentCount);
 
 // Obtener todos los comentarios de una card
-router.get('/cards/:cardId/comments', authenticateJWT, CommentController.getCommentsByCard);
+router.get('/cards/:cardId/comments', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), CommentController.getCommentsByCard);
 
 // Crear comentario en una card
-router.post('/cards/:cardId/comments', authenticateJWT, CommentController.createComment);
+router.post('/cards/:cardId/comments', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'card'), CommentController.createComment);
 
 // ==================== RUTAS POR BOARD ====================
 
@@ -34,18 +35,19 @@ router.post('/cards/:cardId/comments', authenticateJWT, CommentController.create
 router.get(
   '/boards/:boardId/comments/recent',
   authenticateJWT,
+  requireProjectBoundResourceAccess('READ', 'board'),
   CommentController.getRecentComments
 );
 
 // ==================== RUTAS POR COMENTARIO ====================
 
 // Obtener comentario por ID
-router.get('/comments/:commentId', authenticateJWT, CommentController.getCommentById);
+router.get('/comments/:commentId', authenticateJWT, requireProjectBoundResourceAccess('READ', 'comment'), CommentController.getCommentById);
 
 // Actualizar comentario (solo autor)
-router.patch('/comments/:commentId', authenticateJWT, CommentController.updateComment);
+router.patch('/comments/:commentId', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'comment'), CommentController.updateComment);
 
 // Eliminar comentario (solo autor)
-router.delete('/comments/:commentId', authenticateJWT, CommentController.deleteComment);
+router.delete('/comments/:commentId', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'comment'), CommentController.deleteComment);
 
 export default router;

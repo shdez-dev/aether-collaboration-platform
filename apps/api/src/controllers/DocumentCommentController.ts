@@ -89,11 +89,11 @@ class DocumentCommentController {
         });
       }
 
-      const hasAccess = await documentService.checkDocumentAccess(documentId, userId);
-      if (!hasAccess) {
+      const permission = await documentService.getEffectiveUserPermission(documentId, userId);
+      if (permission !== 'COMMENT' && permission !== 'EDIT') {
         return res.status(403).json({
           success: false,
-          error: { code: 'FORBIDDEN', message: 'Sin acceso al documento' },
+          error: { code: 'FORBIDDEN', message: 'Se requiere permiso para comentar' },
         });
       }
 
@@ -134,9 +134,10 @@ class DocumentCommentController {
           const document = await documentService.getDocumentById(documentId);
           const documentTitle = (document as any)?.title ?? 'Documento';
 
-          for (const mentionedUserId of mentions) {
-            try {
-              await notificationService.createDocumentMentionNotification({
+           for (const mentionedUserId of mentions) {
+             try {
+               if (!(await documentService.checkDocumentAccess(documentId, mentionedUserId))) continue;
+               await notificationService.createDocumentMentionNotification({
                 mentionedUserId,
                 authorId: userId,
                 authorName,
@@ -179,6 +180,15 @@ class DocumentCommentController {
         return res.status(403).json({
           success: false,
           error: { code: 'FORBIDDEN', message: 'Solo el autor puede editar este comentario' },
+        });
+      }
+
+      const documentId = await repo.getDocumentId(commentId);
+      const permission = documentId ? await documentService.getEffectiveUserPermission(documentId, userId) : null;
+      if (permission !== 'COMMENT' && permission !== 'EDIT') {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Se requiere permiso para comentar' },
         });
       }
 
@@ -236,7 +246,7 @@ class DocumentCommentController {
 
       const repo = getDocumentCommentRepository();
 
-      // Verificar acceso al documento (cualquier miembro puede resolver)
+      // VIEW is read-only; resolving a comment requires COMMENT or EDIT.
       const documentId = await repo.getDocumentId(commentId);
       if (!documentId) {
         return res.status(404).json({
@@ -245,11 +255,11 @@ class DocumentCommentController {
         });
       }
 
-      const hasAccess = await documentService.checkDocumentAccess(documentId, userId);
-      if (!hasAccess) {
+      const permission = await documentService.getEffectiveUserPermission(documentId, userId);
+      if (permission !== 'COMMENT' && permission !== 'EDIT') {
         return res.status(403).json({
           success: false,
-          error: { code: 'FORBIDDEN', message: 'Sin acceso al documento' },
+          error: { code: 'FORBIDDEN', message: 'Se requiere permiso para comentar' },
         });
       }
 
@@ -300,6 +310,13 @@ class DocumentCommentController {
       }
 
       const documentId = await repo.getDocumentId(commentId);
+      const permission = documentId ? await documentService.getEffectiveUserPermission(documentId, userId) : null;
+      if (permission !== 'COMMENT' && permission !== 'EDIT') {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Se requiere permiso para comentar' },
+        });
+      }
       const deleted = await repo.delete(commentId);
 
       if (!deleted) {

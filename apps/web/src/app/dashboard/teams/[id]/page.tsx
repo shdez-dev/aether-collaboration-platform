@@ -508,14 +508,14 @@ interface ProjectOption {
   workspaceName: string;
 }
 
-function AssignProjectModal({ teamId, teamColor, onClose, onAssigned }: {
+function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigned }: {
   teamId: string;
   teamColor: string;
+  workspaceId: string | null | undefined;
   onClose: () => void;
   onAssigned: () => void;
 }) {
   const t = useT();
-  const { workspaces } = useWorkspaceStore();
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -526,24 +526,17 @@ function AssignProjectModal({ teamId, teamColor, onClose, onAssigned }: {
     async function load() {
       setLoading(true);
       try {
-        const results: ProjectOption[] = [];
-        await Promise.all(
-          workspaces.map(async (ws) => {
-            const res = await apiService.get<{ projects: any[] }>(`/api/workspaces/${ws.id}/projects`, true);
-            if (res.success && res.data) {
-              res.data.projects.forEach((p) => {
-                results.push({ id: p.id, name: p.name, color: p.color ?? null, description: p.description ?? null, workspaceName: ws.name });
-              });
-            }
-          })
-        );
-        setProjects(results);
+        if (!workspaceId) { setProjects([]); return; }
+        const res = await apiService.get<{ projects: any[] }>(`/api/workspaces/${workspaceId}/projects`, true);
+        setProjects(res.success && res.data ? res.data.projects.map((p) => ({
+          id: p.id, name: p.name, color: p.color ?? null, description: p.description ?? null, workspaceName: p.workspaceName ?? '',
+        })) : []);
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [workspaces]);
+  }, [workspaceId]);
 
   async function handleAssign(projectId: string) {
     setAssigning(projectId);
@@ -1400,6 +1393,7 @@ export default function TeamDetailPage() {
         <AssignProjectModal
           teamId={teamId}
           teamColor={teamColor}
+          workspaceId={currentTeam?.workspaceId}
           onClose={() => setShowAssignProject(false)}
           onAssigned={loadWorkspaces}
         />

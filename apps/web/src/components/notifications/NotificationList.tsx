@@ -23,6 +23,8 @@ export function NotificationList({ onClose }: NotificationListProps) {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    archiveNotification,
+    resolveNotification,
   } = useNotifications();
 
   useEffect(() => {
@@ -106,6 +108,8 @@ export function NotificationList({ onClose }: NotificationListProps) {
                 notification={n}
                 onMarkAsRead={markAsRead}
                 onDelete={deleteNotification}
+                onArchive={archiveNotification}
+                onResolve={resolveNotification}
                 onClose={onClose}
                 hasBorder={i < notifications.length - 1}
               />

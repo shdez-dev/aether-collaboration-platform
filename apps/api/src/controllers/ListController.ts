@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { listService } from '../services/ListService';
 import { WorkspaceRequest } from '../middleware/workspace';
+import { canManageProjectBoundResource } from '../middleware/project';
 
 /**
  * Schemas de validación con Zod
@@ -43,7 +44,7 @@ class ListController {
       }
 
       // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -143,19 +144,9 @@ class ListController {
       }
 
       // Verificar acceso
-      const hasAccess = await listService.checkListAccess(id, userId);
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'ACCESS_DENIED',
-            message: 'No tienes acceso a esta lista',
-          },
-        });
-      }
 
       // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -217,19 +208,9 @@ class ListController {
       }
 
       // Verificar acceso
-      const hasAccess = await listService.checkListAccess(id, userId);
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'ACCESS_DENIED',
-            message: 'No tienes acceso a esta lista',
-          },
-        });
-      }
 
       // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -291,19 +272,9 @@ class ListController {
       }
 
       // Verificar acceso
-      const hasAccess = await listService.checkListAccess(id, userId);
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'ACCESS_DENIED',
-            message: 'No tienes acceso a esta lista',
-          },
-        });
-      }
 
       // ✅ VERIFICAR PERMISOS: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {

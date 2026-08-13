@@ -15,6 +15,7 @@ import type {
 import { getPresenceService } from '../services/PresenceService';
 import { redisClient } from '../lib/redis';
 import { query } from '../lib/db';
+import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -406,14 +407,24 @@ export class RealtimeGateway {
   private async checkBoardAccess(userId: string, boardId: string): Promise<boolean> {
     try {
       const result = await query(
-        `SELECT 1 FROM boards b
-         INNER JOIN workspaces w ON b.workspace_id = w.id
-         INNER JOIN workspace_members wm ON w.id = wm.workspace_id
-         WHERE b.id = $1 AND wm.user_id = $2`,
-        [boardId, userId]
+        `SELECT b.workspace_id,
+                COALESCE(array_agg(pb.project_id) FILTER (WHERE pb.project_id IS NOT NULL), ARRAY[]::uuid[]) AS project_ids
+         FROM boards b
+         LEFT JOIN project_boards pb ON pb.board_id = b.id
+         WHERE b.id = $1
+         GROUP BY b.workspace_id`,
+        [boardId]
       );
-
-      return result.rows.length > 0;
+      const board = result.rows[0] as { workspace_id: string; project_ids: string[] } | undefined;
+      if (!board) return false;
+      if (board.project_ids.length === 0) {
+        return Boolean((await query(
+          'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+          [board.workspace_id, userId]
+        )).rows[0]);
+      }
+      const access = await Promise.all(board.project_ids.map((projectId) => projectAuthorizationService.can(projectId, userId, 'READ')));
+      return access.every(Boolean);
     } catch (error) {
       return false;
     }

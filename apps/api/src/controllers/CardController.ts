@@ -6,6 +6,7 @@ import { CardService } from '../services/CardService';
 import { z } from 'zod';
 import { WorkspaceRequest } from '../middleware/workspace';
 import { query } from '../lib/db';
+import { canContributeToProjectBoundResource, canManageProjectBoundResource } from '../middleware/project';
 
 // ==================== SCHEMAS DE VALIDACIÓN ====================
 
@@ -95,7 +96,7 @@ export class CardController {
       }
 
       // Verificar permisos: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canContributeToProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -181,8 +182,11 @@ export class CardController {
       }
 
       // Verificar permisos
-      const isMember = userRole === 'MEMBER';
-      const isPrivileged = userRole === 'ADMIN' || userRole === 'OWNER';
+      const isProjectContributor = canContributeToProjectBoundResource(req);
+      // Keep the limited MEMBER rule for an orphan workspace board. A project
+      // contributor is governed by the explicit project permission instead.
+      const isMember = !isProjectContributor && userRole === 'MEMBER';
+      const isPrivileged = isProjectContributor || userRole === 'ADMIN' || userRole === 'OWNER';
 
       if (!isPrivileged && !isMember) {
         return res.status(403).json({
@@ -294,7 +298,7 @@ export class CardController {
       }
 
       // ✅ CAMBIO CRÍTICO: MEMBER también puede mover cards
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER' && userRole !== 'MEMBER') {
+      if (!canContributeToProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -350,7 +354,7 @@ export class CardController {
       }
 
       // Verificar permisos: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -394,7 +398,7 @@ export class CardController {
       }
 
       // Verificar permisos: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {
@@ -457,7 +461,7 @@ export class CardController {
       }
 
       // Verificar permisos: Solo ADMIN o OWNER
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {

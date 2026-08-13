@@ -138,6 +138,11 @@ export class YjsGateway {
             socket.emit('error', { message: 'No access to document' });
             return;
           }
+          const permission = await documentService.getEffectiveUserPermission(documentId, authSocket.userId);
+          if (permission !== 'EDIT') {
+            socket.emit('error', { message: 'Edit permission required' });
+            return;
+          }
 
           let doc = this.docs.get(documentId);
           if (!doc) {
@@ -183,8 +188,9 @@ export class YjsGateway {
       // ================================================================
       // AWARENESS UPDATE (cursores y presencia)
       // ================================================================
-      socket.on('document:awareness:update', (data: { documentId: string; update: number[] }) => {
-        if (!this.isSocketInDocument(socket, data.documentId)) {
+      socket.on('document:awareness:update', async (data: { documentId: string; update: number[] }) => {
+        const hasAccess = await documentService.checkDocumentAccess(data.documentId, authSocket.userId);
+        if (!hasAccess || !this.isSocketInDocument(socket, data.documentId)) {
           socket.emit('error', { message: 'No access to document' });
           return;
         }

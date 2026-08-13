@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { DependencyService } from '../services/DependencyService';
 import { z } from 'zod';
 import { WorkspaceRequest } from '../middleware/workspace';
+import { canContributeToProjectBoundResource } from '../middleware/project';
 
 const addDepSchema = z.object({
   blockingCardId: z.string().uuid(),
@@ -44,7 +45,7 @@ export class DependencyController {
       const socketId = getSocketId(req);
 
       if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
-      if (userRole === 'VIEWER') {
+      if (!canContributeToProjectBoundResource(req)) {
         return res
           .status(403)
           .json({
@@ -107,7 +108,7 @@ export class DependencyController {
       const socketId = getSocketId(req);
 
       if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
-      if (userRole === 'VIEWER') {
+      if (!canContributeToProjectBoundResource(req)) {
         return res
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });

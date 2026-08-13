@@ -8,6 +8,7 @@ import { documentTemplateService } from '../services/DocumentTemplateService';
 import { WorkspaceRequest } from '../middleware/workspace';
 import { pool } from '../lib/db';
 import { projectDocumentService } from '../modules/projects/ProjectDocumentService';
+import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
 
 /**
  * Validation schemas
@@ -74,6 +75,16 @@ class DocumentController {
         });
       }
 
+      if (validation.data.projectId) {
+        const projectAccess = await projectAuthorizationService.can(validation.data.projectId, userId, 'CONTRIBUTE');
+        if (!projectAccess || projectAccess.workspaceId !== workspaceId) {
+          return res.status(404).json({
+            success: false,
+            error: { code: 'PROJECT_NOT_FOUND', message: 'Proyecto no encontrado en este espacio de trabajo' },
+          });
+        }
+      }
+
       const document = await documentService.createDocument(workspaceId, userId, validation.data);
 
       return res.status(201).json({
@@ -105,12 +116,14 @@ class DocumentController {
         });
       }
 
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(userId, workspaceId);
       const result = await documentService.getWorkspaceDocuments(workspaceId, {
         search: search as string,
         sortBy: sortBy as any,
         sortOrder: sortOrder as any,
         limit: limit ? parseInt(limit as string) : undefined,
         offset: offset ? parseInt(offset as string) : undefined,
+        accessibleProjectIds,
       });
 
       return res.json({
@@ -175,7 +188,10 @@ class DocumentController {
         });
       }
 
-      const document = await documentService.getDocumentWithDetails(id, userId);
+      const [document, canManage] = await Promise.all([
+        documentService.getDocumentWithDetails(id, userId),
+        documentService.canManageDocument(id, userId),
+      ]);
 
       if (!document) {
         return res.status(404).json({
@@ -186,7 +202,9 @@ class DocumentController {
 
       return res.json({
         success: true,
-        data: { document },
+        // Permission entries identify internal users. Readers only need their
+        // effective permission; management views receive the full roster.
+        data: { document: canManage ? document : { ...document, permissions: [] } },
       });
     } catch (error) {
       return res.status(500).json({
@@ -280,46 +298,11 @@ class DocumentController {
         });
       }
 
-      // Obtener el documento para saber el workspace
-      const document = await documentService.getDocumentById(id);
-
-      if (!document) {
-        return res.status(404).json({
+      if (!(await documentService.canManageDocument(id, userId))) {
+        return res.status(403).json({
           success: false,
-          error: { code: 'NOT_FOUND', message: 'Documento no encontrado' },
+          error: { code: 'INSUFFICIENT_PERMISSIONS', message: 'No tienes permiso para eliminar este documento' },
         });
-      }
-
-      // Verificar si el usuario es el creador del documento o OWNER/ADMIN del workspace
-      const isCreator = document.createdBy === userId;
-
-      if (!isCreator) {
-        // Si no es el creador, verificar rol en el workspace
-        const { pool } = await import('../lib/db');
-        const roleResult = await pool.query(
-          `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-          [document.workspaceId, userId]
-        );
-
-        if (roleResult.rows.length === 0) {
-          return res.status(403).json({
-            success: false,
-            error: { code: 'ACCESS_DENIED', message: 'No eres miembro de este workspace' },
-          });
-        }
-
-        const userRole = roleResult.rows[0].role;
-
-        if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
-          return res.status(403).json({
-            success: false,
-            error: {
-              code: 'INSUFFICIENT_PERMISSIONS',
-              message:
-                'Solo el creador del documento o ADMIN/OWNER del workspace pueden eliminar documentos',
-            },
-          });
-        }
       }
 
       await documentService.deleteDocument(id, userId);
@@ -487,24 +470,7 @@ class DocumentController {
         });
       }
 
-      // Check if user is document creator or workspace owner
-      const document = await documentService.getDocumentById(id);
-      const workspaceId = document?.workspaceId;
-
-      if (!workspaceId) {
-        return res.status(404).json({
-          success: false,
-          error: { code: 'NOT_FOUND', message: 'Documento no encontrado' },
-        });
-      }
-
-      const workspaceMemberResult = await documentService.checkUserIsOwnerOrCreator(
-        id,
-        userId,
-        workspaceId
-      );
-
-      if (!workspaceMemberResult) {
+      if (!(await documentService.canManageDocument(id, userId))) {
         return res.status(403).json({
           success: false,
           error: {
@@ -568,6 +534,13 @@ class DocumentController {
         return res.status(403).json({
           success: false,
           error: { code: 'ACCESS_DENIED', message: 'No tienes acceso a este documento' },
+        });
+      }
+
+      if (!(await documentService.canManageDocument(id, userId))) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'INSUFFICIENT_PERMISSIONS', message: 'No tienes permiso para ver los integrantes' },
         });
       }
 
@@ -734,15 +707,22 @@ class DocumentController {
         return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED' } });
       }
 
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(userId);
+
       const result = await pool.query(
         `SELECT d.id, d.title, d.updated_at, w.id AS workspace_id, w.name AS workspace_name, w.icon AS workspace_icon
          FROM documents d
          JOIN workspaces w ON w.id = d.workspace_id
-         JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $1
          WHERE d.deleted_at IS NULL
+           AND (
+             (d.project_id IS NULL AND EXISTS (
+               SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.user_id = $1
+             ))
+             OR d.project_id = ANY($2::uuid[])
+           )
          ORDER BY d.updated_at DESC
          LIMIT 100`,
-        [userId]
+        [userId, accessibleProjectIds]
       );
 
       return res.json({ success: true, data: { documents: result.rows } });

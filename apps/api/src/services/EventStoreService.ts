@@ -166,7 +166,14 @@ export class EventStoreService {
         }
       }
 
-      if (context.workspaceId && !context.boardId) {
+      // A workspace room is membership-scoped, not project-scoped. Never use
+      // it for a project/document event or it would leak private names and
+      // payloads to every workspace member. Targeted/project delivery can be
+      // added later through explicit project rooms.
+      const isProjectScoped = subject.type === 'project'
+        || Boolean((payload as Record<string, unknown>).projectId)
+        || Boolean(context.documentId);
+      if (context.workspaceId && !context.boardId && !isProjectScoped) {
         gateway.broadcastToWorkspace(context.workspaceId, event);
       }
     } catch {

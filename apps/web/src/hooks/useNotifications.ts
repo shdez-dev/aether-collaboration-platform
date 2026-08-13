@@ -19,6 +19,8 @@ export function useNotifications() {
   const markAsRead = useNotificationStore((state) => state.markAsRead);
   const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
   const deleteNotification = useNotificationStore((state) => state.deleteNotification);
+  const archiveNotification = useNotificationStore((state) => state.archiveNotification);
+  const resolveNotification = useNotificationStore((state) => state.resolveNotification);
   const toggleDropdown = useNotificationStore((state) => state.toggleDropdown);
   const closeDropdown = useNotificationStore((state) => state.closeDropdown);
   // NO escuchamos eventos aquí - eso lo hace NotificationListener globalmente
@@ -73,6 +75,16 @@ export function useNotifications() {
     [deleteNotification]
   );
 
+  const handleArchiveNotification = useCallback(async (notificationId: string) => {
+    try { await archiveNotification(notificationId); }
+    catch { showToast({ title: 'Error al archivar la notificación', variant: 'destructive' }); }
+  }, [archiveNotification]);
+
+  const handleResolveNotification = useCallback(async (notificationId: string) => {
+    try { await resolveNotification(notificationId); }
+    catch { showToast({ title: 'Error al resolver la notificación', variant: 'destructive' }); }
+  }, [resolveNotification]);
+
   const handleLoadNotifications = useCallback(async () => {
     try {
       await fetchNotifications();
@@ -111,6 +123,8 @@ export function useNotifications() {
     markAsRead: handleMarkAsRead,
     markAllAsRead: handleMarkAllAsRead,
     deleteNotification: handleDeleteNotification,
+    archiveNotification: handleArchiveNotification,
+    resolveNotification: handleResolveNotification,
   };
 }
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { activityLogService } from '../services/ActivityLogService';
 import { pool } from '../lib/db';
 import type { EventType } from '@aether/types';
+import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
 
 // Validation schema
 const getActivityLogSchema = z.object({
@@ -62,6 +63,7 @@ export class ActivityLogController {
       // Parse filters
       const filters: any = {
         workspaceId,
+        accessibleProjectIds: await projectAuthorizationService.getAccessibleProjectIds(requestingUserId, workspaceId),
         limit: validated.limit ? parseInt(validated.limit) : 50,
         offset: validated.offset ? parseInt(validated.offset) : 0,
       };
@@ -152,7 +154,8 @@ export class ActivityLogController {
       }
 
       const daysNum = days ? parseInt(days as string) : 30;
-      const stats = await activityLogService.getActivityStats(workspaceId, daysNum);
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(requestingUserId, workspaceId);
+      const stats = await activityLogService.getActivityStats(workspaceId, accessibleProjectIds, daysNum);
 
       return res.json({
         success: true,

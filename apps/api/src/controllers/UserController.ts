@@ -7,6 +7,7 @@ import { storageService } from '../services/StorageService';
 import path from 'path';
 import bcrypt from 'bcrypt';
 import { decryptSecret, encryptSecret } from '../utils/secrets';
+import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
 
 class UserController {
   /**
@@ -42,6 +43,7 @@ class UserController {
       }
 
       const pattern = `%${q}%`;
+
       const result = await pool.query(
         `SELECT
           id,
@@ -252,6 +254,7 @@ class UserController {
       }
 
       // Query para obtener todas las cards donde el usuario está asignado
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(userId);
       const result = await pool.query(
         `SELECT 
           c.id,
@@ -277,6 +280,17 @@ class UserController {
         INNER JOIN workspaces w ON w.id = b.workspace_id
         WHERE cm.user_id = $1
           AND b.archived = false
+          AND (
+            (NOT EXISTS (SELECT 1 FROM project_boards pb WHERE pb.board_id = b.id)
+              AND EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = b.workspace_id AND wm.user_id = $1))
+            OR (
+              EXISTS (SELECT 1 FROM project_boards pb WHERE pb.board_id = b.id)
+              AND NOT EXISTS (
+                SELECT 1 FROM project_boards pb
+                WHERE pb.board_id = b.id AND NOT (pb.project_id = ANY($2::uuid[]))
+              )
+            )
+          )
         ORDER BY 
           c.completed ASC,
           CASE 
@@ -285,7 +299,7 @@ class UserController {
           END,
           c.due_date ASC,
           c.created_at DESC`,
-        [userId]
+        [userId, accessibleProjectIds]
       );
 
       // ✅ CLASIFICAR USANDO EL CAMPO `completed` COMO FUENTE DE VERDAD

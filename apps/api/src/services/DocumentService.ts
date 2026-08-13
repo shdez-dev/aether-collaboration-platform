@@ -12,6 +12,7 @@ import type {
   DocumentPermission,
 } from '@aether/types';
 import { documentTemplateService, type TemplateCategory } from './DocumentTemplateService';
+import { projectAuthorizationService } from './ProjectAuthorizationService';
 
 export class DocumentService {
   /**
@@ -214,9 +215,13 @@ export class DocumentService {
       sortOrder?: 'asc' | 'desc';
       limit?: number;
       offset?: number;
+      accessibleProjectIds?: string[];
     } = {}
   ): Promise<{ documents: DocumentWithCreator[]; total: number }> {
-    const { search, sortBy = 'updatedAt', sortOrder = 'desc', limit = 50, offset = 0 } = options;
+    const { search, sortBy = 'updatedAt', sortOrder = 'desc' } = options;
+    const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 100);
+    const offset = Math.max(Number(options.offset) || 0, 0);
+    const normalizedSortOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
     let query = `
       SELECT 
@@ -241,6 +246,12 @@ export class DocumentService {
       paramIndex++;
     }
 
+    if (options.accessibleProjectIds) {
+      query += ` AND (d.project_id IS NULL OR d.project_id = ANY($${paramIndex}::uuid[]))`;
+      params.push(options.accessibleProjectIds);
+      paramIndex++;
+    }
+
     if (search) {
       query += ` AND (
         d.title ILIKE $${paramIndex} OR
@@ -255,6 +266,10 @@ export class DocumentService {
     if (options.projectId) {
       countConditions.push(`project_id = $${countParams.length + 1}`);
       countParams.push(options.projectId);
+    }
+    if (options.accessibleProjectIds) {
+      countConditions.push(`(project_id IS NULL OR project_id = ANY($${countParams.length + 1}::uuid[]))`);
+      countParams.push(options.accessibleProjectIds);
     }
     if (search) {
       countConditions.push(`(title ILIKE $${countParams.length + 1} OR content ILIKE $${countParams.length + 1})`);
@@ -274,7 +289,7 @@ export class DocumentService {
     };
 
     const sortColumn = sortColumnMap[sortBy] || 'd.updated_at';
-    query += ` ORDER BY ${sortColumn} ${sortOrder.toUpperCase()}`;
+    query += ` ORDER BY ${sortColumn} ${normalizedSortOrder}`;
 
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
@@ -712,22 +727,51 @@ export class DocumentService {
   }
 
   /**
-   * Check if user has access to document
-   * Returns true if user is a member of the document's workspace
+   * Project documents inherit the project's explicit access policy. Workspace
+   * membership remains sufficient only for documents without a project.
    */
   async checkDocumentAccess(documentId: string, userId: string): Promise<boolean> {
     const result = await pool.query(
-      `SELECT 1
+      `SELECT d.workspace_id, d.project_id,
+         EXISTS (
+           SELECT 1 FROM network_access_grants nag
+           WHERE nag.resource_type = 'DOCUMENT' AND nag.resource_id = d.id AND nag.user_id = $2
+             AND nag.revoked_at IS NULL AND (nag.expires_at IS NULL OR nag.expires_at > CURRENT_TIMESTAMP)
+         ) AS has_external_grant
        FROM documents d
-       LEFT JOIN workspace_members wm ON d.workspace_id = wm.workspace_id AND wm.user_id = $2
-       LEFT JOIN network_access_grants nag ON nag.resource_type = 'DOCUMENT' AND nag.resource_id = d.id AND nag.user_id = $2
-         AND nag.revoked_at IS NULL AND (nag.expires_at IS NULL OR nag.expires_at > CURRENT_TIMESTAMP)
-       WHERE d.id = $1 AND (wm.user_id IS NOT NULL OR nag.id IS NOT NULL)
-       LIMIT 1`,
+       WHERE d.id = $1`,
       [documentId, userId]
     );
+    const document = result.rows[0];
+    if (!document) return false;
+    if (document.has_external_grant) return true;
+    if (document.project_id) {
+      return Boolean(await projectAuthorizationService.can(document.project_id, userId, 'READ'));
+    }
 
-    return result.rows.length > 0;
+    const membership = await pool.query(
+      `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      [document.workspace_id, userId],
+    );
+    return membership.rowCount > 0;
+  }
+
+  /** Document administration follows project MANAGE when the document is project-bound. */
+  async canManageDocument(documentId: string, userId: string): Promise<boolean> {
+    const result = await pool.query(
+      `SELECT d.project_id, d.workspace_id, d.created_by,
+              (SELECT wm.role FROM workspace_members wm
+               WHERE wm.workspace_id = d.workspace_id AND wm.user_id = $2) AS workspace_role
+       FROM documents d WHERE d.id = $1`,
+      [documentId, userId]
+    );
+    const document = result.rows[0];
+    if (!document) return false;
+    if (document.created_by === userId) return true;
+    if (document.project_id) {
+      return Boolean(await projectAuthorizationService.can(document.project_id, userId, 'MANAGE'));
+    }
+    return ['OWNER', 'ADMIN'].includes(document.workspace_role);
   }
 
   /**
@@ -754,42 +798,42 @@ export class DocumentService {
     return result.rows[0]?.permission || null;
   }
 
-  /**
-   * Get effective user permission (considering workspace owner and creator)
-   * Returns the highest permission level for the user:
-   * - Workspace OWNER: always EDIT
-   * - Document creator: always EDIT
-   * - Explicit permission: as defined
-   * - Default: VIEW (if member of workspace)
-   */
+  /** Get the effective permission, intersecting project access when relevant. */
   async getEffectiveUserPermission(
     documentId: string,
     userId: string
   ): Promise<DocumentPermission | null> {
     const result = await pool.query(
-      `SELECT 
-        d.created_by,
-        d.workspace_id,
-        wm.role as workspace_role,
-        dp.permission as explicit_permission
+      `SELECT d.created_by, d.workspace_id, d.project_id,
+              (SELECT wm.role FROM workspace_members wm
+               WHERE wm.workspace_id = d.workspace_id AND wm.user_id = $2) AS workspace_role,
+              (SELECT dp.permission FROM document_permissions dp
+               WHERE dp.document_id = d.id AND dp.user_id = $2) AS explicit_permission,
+              (SELECT nag.permission FROM network_access_grants nag
+               WHERE nag.resource_type = 'DOCUMENT' AND nag.resource_id = d.id AND nag.user_id = $2
+                 AND nag.revoked_at IS NULL AND (nag.expires_at IS NULL OR nag.expires_at > CURRENT_TIMESTAMP)
+               ORDER BY nag.created_at DESC LIMIT 1) AS external_permission
        FROM documents d
-       INNER JOIN workspace_members wm ON d.workspace_id = wm.workspace_id AND wm.user_id = $2
-       LEFT JOIN document_permissions dp ON d.id = dp.document_id AND dp.user_id = $2
        WHERE d.id = $1`,
-      [documentId, userId]
+      [documentId, userId],
     );
+    const document = result.rows[0];
+    if (!document) return null;
 
-    if (result.rows.length === 0) {
-      const external = await pool.query(
-        `SELECT 1 FROM network_access_grants
-         WHERE user_id = $2 AND resource_type = 'DOCUMENT' AND resource_id = $1
-           AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-        [documentId, userId]
-      );
-      return external.rows.length ? 'VIEW' : null;
+    const { created_by, workspace_role, explicit_permission, external_permission } = document;
+    if (external_permission && ['VIEW', 'COMMENT', 'EDIT'].includes(external_permission)) {
+      return external_permission as DocumentPermission;
     }
 
-    const { created_by, workspace_role, explicit_permission } = result.rows[0];
+    if (document.project_id) {
+      const access = await projectAuthorizationService.can(document.project_id, userId, 'READ');
+      if (!access) return null;
+      if (explicit_permission) return explicit_permission as DocumentPermission;
+      if (created_by === userId || access.level !== 'READ') return 'EDIT';
+      return 'VIEW';
+    }
+
+    if (!workspace_role) return null;
 
     // Workspace OWNER always has EDIT permission
     if (workspace_role === 'OWNER') {

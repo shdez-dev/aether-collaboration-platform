@@ -150,12 +150,28 @@ export class SprintService {
   // ── Cards de un sprint ────────────────────────────────────────────────────
 
   static async addCardToSprint(sprintId: string, cardId: string, userId: string, socketId?: string): Promise<void> {
-    await pool.query(
+    const inserted = await pool.query(
       `INSERT INTO sprint_cards (sprint_id, card_id, added_by)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (sprint_id, card_id) DO NOTHING`,
+       SELECT s.id, c.id, $3
+       FROM board_sprints s
+       JOIN cards c ON c.id = $2
+       JOIN lists l ON l.id = c.list_id
+       WHERE s.id = $1 AND l.board_id = s.board_id
+       ON CONFLICT (sprint_id, card_id) DO NOTHING
+       RETURNING sprint_id`,
       [sprintId, cardId, userId]
     );
+    if (inserted.rows.length === 0) {
+      const validScope = await pool.query(
+        `SELECT 1
+         FROM board_sprints s
+         JOIN cards c ON c.id = $2
+         JOIN lists l ON l.id = c.list_id
+         WHERE s.id = $1 AND l.board_id = s.board_id`,
+        [sprintId, cardId]
+      );
+      if (!validScope.rows[0]) throw new Error('Card must belong to the sprint board');
+    }
 
     try {
       const [actorResult, cardResult, sprintResult] = await Promise.all([
@@ -190,10 +206,26 @@ export class SprintService {
   }
 
   static async removeCardFromSprint(sprintId: string, cardId: string, userId?: string, socketId?: string): Promise<void> {
-    await pool.query(`DELETE FROM sprint_cards WHERE sprint_id = $1 AND card_id = $2`, [
-      sprintId,
-      cardId,
-    ]);
+    const removed = await pool.query(
+      `DELETE FROM sprint_cards sc
+       USING board_sprints s, cards c, lists l
+       WHERE sc.sprint_id = $1
+         AND sc.card_id = $2
+         AND s.id = sc.sprint_id
+         AND c.id = sc.card_id
+         AND l.id = c.list_id
+         AND l.board_id = s.board_id
+       RETURNING sc.sprint_id`,
+      [sprintId, cardId]
+    );
+    if (removed.rows.length === 0) {
+      const validScope = await pool.query(
+        `SELECT 1 FROM board_sprints s JOIN cards c ON c.id = $2 JOIN lists l ON l.id = c.list_id
+         WHERE s.id = $1 AND l.board_id = s.board_id`,
+        [sprintId, cardId]
+      );
+      if (!validScope.rows[0]) throw new Error('Card must belong to the sprint board');
+    }
 
     if (!userId) return;
     try {
@@ -243,6 +275,10 @@ export class SprintService {
     userId: string,
     data: { name: string; date: string; description?: string; color?: string; sprintId?: string }
   ): Promise<Milestone> {
+    if (data.sprintId) {
+      const sprint = await pool.query('SELECT 1 FROM board_sprints WHERE id = $1 AND board_id = $2', [data.sprintId, boardId]);
+      if (!sprint.rows[0]) throw new Error('Sprint must belong to the same board');
+    }
     const r = await pool.query(
       `INSERT INTO board_milestones (board_id, sprint_id, name, description, date, color, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -270,6 +306,15 @@ export class SprintService {
       sprintId: string | null;
     }>
   ): Promise<Milestone> {
+    if (data.sprintId) {
+      const sprint = await pool.query(
+        `SELECT 1 FROM board_milestones m JOIN board_sprints s ON s.board_id = m.board_id
+         WHERE m.id = $1 AND s.id = $2`,
+        [milestoneId, data.sprintId]
+      );
+      if (!sprint.rows[0]) throw new Error('Sprint must belong to the same board');
+    }
+
     const fields: string[] = [];
     const values: any[] = [];
     let idx = 1;

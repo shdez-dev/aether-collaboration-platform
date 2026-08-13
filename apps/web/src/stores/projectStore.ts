@@ -122,6 +122,13 @@ export interface Project {
   formalization?: ProjectFormalizationSummary;
   coverage?: ProjectCoverageSummary;
   workflowHistory?: ProjectWorkflowHistoryItem[];
+  access?: {
+    level: 'READ' | 'CONTRIBUTE' | 'MANAGE';
+    external: boolean;
+    canRead: boolean;
+    canContribute: boolean;
+    canManage: boolean;
+  };
 }
 
 interface ProjectWorkflowTransitionData {

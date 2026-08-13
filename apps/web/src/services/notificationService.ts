@@ -146,6 +146,19 @@ class NotificationService {
       throw error;
     }
   }
+
+  private async lifecycle(notificationId: string, action: 'archive' | 'restore' | 'resolve' | 'reopen'): Promise<void> {
+    const response = await fetch(`${API_URL}/api/notifications/${notificationId}/${action}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) throw new Error(`Failed to ${action} notification`);
+  }
+
+  archiveNotification(notificationId: string) { return this.lifecycle(notificationId, 'archive'); }
+  restoreNotification(notificationId: string) { return this.lifecycle(notificationId, 'restore'); }
+  resolveNotification(notificationId: string) { return this.lifecycle(notificationId, 'resolve'); }
+  reopenNotification(notificationId: string) { return this.lifecycle(notificationId, 'reopen'); }
 }
 
 export const notificationService = new NotificationService();

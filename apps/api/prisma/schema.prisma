@@ -600,6 +600,9 @@ model Notification {
   data      Json     @default("{}")
   dedupeKey String?  @map("dedupe_key") @db.VarChar(255)
   read      Boolean  @default(false)
+  readAt    DateTime? @map("read_at")
+  archivedAt DateTime? @map("archived_at")
+  resolvedAt DateTime? @map("resolved_at")
   createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

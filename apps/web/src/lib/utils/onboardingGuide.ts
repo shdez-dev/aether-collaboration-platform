@@ -9,7 +9,7 @@ export const GUIDE_STEP_EVENT    = 'aether:guide:step';
 export const GUIDE_DISMISS_EVENT = 'aether:guide:dismissed';
 export const GUIDE_OPEN_EVENT    = 'aether:guide:open';
 
-export const GUIDE_STEP_IDS = ['workspace', 'invite', 'project', 'board', 'card'] as const;
+export const GUIDE_STEP_IDS = ['workspace', 'team', 'invite', 'project', 'board', 'card'] as const;
 export type GuideStepId = typeof GUIDE_STEP_IDS[number];
 
 export function getCompletedSteps(): Set<GuideStepId> {

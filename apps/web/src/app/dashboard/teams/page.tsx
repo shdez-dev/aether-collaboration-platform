@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTeamStore, type Team } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
+import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { C } from '@/lib/colors';
 
 const SORA = "'Sora', system-ui, sans-serif";
@@ -160,6 +161,12 @@ export default function TeamsPage() {
   const loadTeams = useCallback(() => fetchTeams(), [fetchTeams]);
   useEffect(() => { loadTeams(); }, [loadTeams]);
 
+  useEffect(() => {
+    if (workspaceId && teams.some((team) => team.workspaceId === workspaceId)) {
+      markStepDone('team');
+    }
+  }, [teams, workspaceId]);
+
   function selectFilter(id: string) {
     setWorkspaceFilter(id);
     if (id !== 'ALL') setActiveWorkspaceId(id);
@@ -168,6 +175,7 @@ export default function TeamsPage() {
   async function handleCreate(data: { workspaceId: string; name: string; description?: string; color: string }) {
     setActiveWorkspaceId(data.workspaceId);
     const team = await createTeam(data);
+    markStepDone('team');
     router.push(`/dashboard/teams/${team.id}`);
   }
 

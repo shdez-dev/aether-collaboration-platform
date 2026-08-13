@@ -1964,9 +1964,8 @@ export default function ProjectDetailPage() {
 
   // ── Role-based permissions ─────────────────────────────────────────────────
   // Derived after currentProject loads (workspaceId needed to find the workspace)
-  const wsRole   = workspaces.find((w) => w.id === currentProject?.workspaceId)?.userRole ?? 'VIEWER';
-  const canEdit  = wsRole === 'OWNER' || wsRole === 'ADMIN';
-  const isOwner  = wsRole === 'OWNER';
+  const canEdit  = currentProject?.access?.canManage === true;
+  const isOwner  = currentProject?.access?.canManage === true;
   const { documents, fetchProjectDocuments } = useDocumentStore();
 
   const [showConfig,    setShowConfig]    = useState(false);
@@ -3336,7 +3335,7 @@ export default function ProjectDetailPage() {
                     </button>
                     <ProjectTeamSelector
                       assigned={assignedTeams}
-                      allTeams={(allTeams as any[]).map((tm) => ({ id: tm.id, name: tm.name, color: tm.color ?? null, memberCount: tm.memberCount ?? 0, leadName: tm.leadName ?? null }))}
+                      allTeams={(allTeams as any[]).filter((tm) => tm.workspaceId === project.workspaceId).map((tm) => ({ id: tm.id, name: tm.name, color: tm.color ?? null, memberCount: tm.memberCount ?? 0, leadName: tm.leadName ?? null }))}
                       onAssign={handleAssignTeam}
                       onRemove={handleRemoveTeam}
                     />

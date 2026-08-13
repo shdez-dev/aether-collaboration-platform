@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { teamController } from '../controllers/TeamController';
 import { authenticateJWT } from '../middleware/auth';
+import { requireTeamAccess } from '../middleware/team';
 
 const router = Router();
 
@@ -18,20 +19,20 @@ router.post('/invitations/:invitationId/accept',         (req, res) => teamContr
 router.post('/invitations/:invitationId/reject',         (req, res) => teamController.rejectTeamInvitation(req, res));
 
 // ── Equipo individual ──────────────────────────────────────────────────────────
-router.get('/:id',    (req, res) => teamController.getById(req, res));
-router.put('/:id',    (req, res) => teamController.update(req, res));
-router.delete('/:id', (req, res) => teamController.delete(req, res));
+router.get('/:id',    requireTeamAccess(), (req, res) => teamController.getById(req, res));
+router.put('/:id',    requireTeamAccess(true), (req, res) => teamController.update(req, res));
+router.delete('/:id', requireTeamAccess(true), (req, res) => teamController.delete(req, res));
 
 // ── Workspaces activos (derivados de project_teams) ───────────────────────────
-router.get('/:id/workspaces', (req, res) => teamController.getWorkspaces(req, res));
+router.get('/:id/workspaces', requireTeamAccess(), (req, res) => teamController.getWorkspaces(req, res));
 
 // ── Actividad ──────────────────────────────────────────────────────────────────
-router.get('/:id/activity', (req, res) => teamController.getActivity(req, res));
+router.get('/:id/activity', requireTeamAccess(), (req, res) => teamController.getActivity(req, res));
 
 // ── Miembros ───────────────────────────────────────────────────────────────────
-router.get('/:id/members',             (req, res) => teamController.getMembers(req, res));
-router.post('/:id/members',            (req, res) => teamController.addMember(req, res));
-router.put('/:id/members/:userId',     (req, res) => teamController.changeMemberRole(req, res));
-router.delete('/:id/members/:userId',  (req, res) => teamController.removeMember(req, res));
+router.get('/:id/members',             requireTeamAccess(), (req, res) => teamController.getMembers(req, res));
+router.post('/:id/members',            requireTeamAccess(true), (req, res) => teamController.addMember(req, res));
+router.put('/:id/members/:userId',     requireTeamAccess(true), (req, res) => teamController.changeMemberRole(req, res));
+router.delete('/:id/members/:userId',  requireTeamAccess(true), (req, res) => teamController.removeMember(req, res));
 
 export default router;

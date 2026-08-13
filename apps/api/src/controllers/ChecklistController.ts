@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { ChecklistService } from '../services/ChecklistService';
 import { z } from 'zod';
 import { WorkspaceRequest } from '../middleware/workspace';
+import { canContributeToProjectBoundResource, canManageProjectBoundResource } from '../middleware/project';
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export class ChecklistController {
         });
       }
 
-      if (userRole === 'VIEWER') {
+      if (!canContributeToProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: { code: 'INSUFFICIENT_PERMISSIONS', message: 'Los VIEWER no pueden crear ítems' },
@@ -115,7 +116,7 @@ export class ChecklistController {
         });
       }
 
-      if (userRole === 'VIEWER') {
+      if (!canContributeToProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: { code: 'INSUFFICIENT_PERMISSIONS', message: 'Los VIEWER no pueden editar ítems' },
@@ -175,7 +176,7 @@ export class ChecklistController {
         });
       }
 
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER') {
+      if (!canManageProjectBoundResource(req)) {
         return res.status(403).json({
           success: false,
           error: {

@@ -2,6 +2,7 @@
 
 import { pool } from '../lib/db';
 import { eventStore } from './EventStoreService';
+import { projectAuthorizationService } from './ProjectAuthorizationService';
 import type { Card } from '@aether/types';
 
 export class CardService {
@@ -249,6 +250,12 @@ export class CardService {
 
       const currentCard   = currentCardResult.rows[0];
       const originalListId = currentCard.list_id;
+      const currentBoardResult = await client.query(
+        `SELECT l.board_id FROM lists l WHERE l.id = $1`,
+        [originalListId]
+      );
+      const currentBoardId = currentBoardResult.rows[0]?.board_id;
+      if (!currentBoardId) throw new Error('Card board not found');
 
       // Validar dependencias bloqueantes al completar
       if (data.completed === true && !currentCard.completed) {
@@ -298,8 +305,11 @@ export class CardService {
       }
 
       if (data.listId !== undefined && data.listId !== originalListId) {
-        const listExists = await client.query('SELECT id FROM lists WHERE id = $1', [data.listId]);
+        const listExists = await client.query('SELECT id, board_id FROM lists WHERE id = $1', [data.listId]);
         if (listExists.rows.length === 0) throw new Error('Target list not found');
+        if (listExists.rows[0].board_id !== currentBoardId) {
+          throw new Error('Target list must belong to the same board');
+        }
 
         const maxPosResult = await client.query(
           'SELECT COALESCE(MAX(position), 0) as max_pos FROM cards WHERE list_id = $1',
@@ -308,6 +318,16 @@ export class CardService {
         const newPosition = maxPosResult.rows[0].max_pos + 1;
         updates.push(`list_id = $${paramCount++}`);   values.push(data.listId);
         updates.push(`position = $${paramCount++}`);  values.push(newPosition);
+      }
+
+      if (data.milestoneId) {
+        const milestone = await client.query(
+          'SELECT board_id FROM board_milestones WHERE id = $1',
+          [data.milestoneId]
+        );
+        if (!milestone.rows[0] || milestone.rows[0].board_id !== currentBoardId) {
+          throw new Error('Milestone must belong to the same board');
+        }
       }
 
       updates.push(`updated_at = NOW()`);
@@ -529,6 +549,17 @@ export class CardService {
 
       const fromListId    = currentCard.list_id;
       const fromPosition  = currentCard.position;
+      const targetList = await client.query(
+        `SELECT target.board_id AS target_board_id, source.board_id AS source_board_id
+         FROM lists target
+         JOIN lists source ON source.id = $2
+         WHERE target.id = $1`,
+        [data.toListId, fromListId]
+      );
+      if (!targetList.rows[0]) throw new Error('Target list not found');
+      if (targetList.rows[0].target_board_id !== targetList.rows[0].source_board_id) {
+        throw new Error('Target list must belong to the same board');
+      }
 
       if (fromListId !== data.toListId) {
         await client.query(
@@ -643,6 +674,30 @@ export class CardService {
         [cardId, memberId]
       );
       if (existingResult.rows.length > 0) throw new Error('Member already assigned');
+
+      const cardScope = await client.query(
+        `SELECT b.workspace_id,
+                COALESCE(array_agg(pb.project_id) FILTER (WHERE pb.project_id IS NOT NULL), ARRAY[]::uuid[]) AS project_ids
+         FROM cards c
+         JOIN lists l ON l.id = c.list_id
+         JOIN boards b ON b.id = l.board_id
+         LEFT JOIN project_boards pb ON pb.board_id = b.id
+         WHERE c.id = $1
+         GROUP BY b.workspace_id`,
+        [cardId]
+      );
+      const scope = cardScope.rows[0] as { workspace_id: string; project_ids: string[] } | undefined;
+      if (!scope) throw new Error('Card not found');
+      if (scope.project_ids.length === 0) {
+        const member = await client.query(
+          'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+          [scope.workspace_id, memberId]
+        );
+        if (!member.rows[0]) throw new Error('Card member must belong to the workspace');
+      } else {
+        const access = await Promise.all(scope.project_ids.map((projectId) => projectAuthorizationService.can(projectId, memberId, 'READ')));
+        if (access.some((value) => !value)) throw new Error('Card member requires project access');
+      }
 
       await client.query('INSERT INTO card_members (card_id, user_id) VALUES ($1, $2)', [cardId, memberId]);
       await client.query('COMMIT');

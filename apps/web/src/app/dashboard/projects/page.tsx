@@ -137,7 +137,7 @@ type WorkspaceExperience = 'personal' | 'team' | 'institutional' | 'marketing' |
 const EXPERIENCE_META: Record<WorkspaceExperience, { title: string; description: string; method: string; accent: string }> = {
   institutional: {
     title: 'Pipeline de proyectos',
-    description: 'Formaliza iniciativas, compara cohortes y protege trazabilidad entre versiones del estándar.',
+    description: 'Coordina proyectos en ejecución, detecta bloqueos y mantiene visibles los próximos hitos.',
     method: 'Portfolio formalizado',
     accent: '#F2571E',
   },
@@ -463,8 +463,8 @@ export default function ProjectsPage() {
   }, [workspaces.length, fetchWorkspaces]);
 
   useEffect(() => {
-    fetchTeams();
-  }, [fetchTeams]);
+    if (activeWorkspaceId) fetchTeams(activeWorkspaceId);
+  }, [activeWorkspaceId, fetchTeams]);
 
   useEffect(() => {
     if (activeWorkspaceId) fetchProjectStandard(activeWorkspaceId);
@@ -931,6 +931,7 @@ export default function ProjectsPage() {
   async function handleAssignBaseTeam(project: Project) {
     const teamId = selectedTeamByProject[project.id];
     if (!teamId) return;
+    if (teams.find((team) => team.id === teamId)?.workspaceId !== project.workspaceId) return;
 
     await runProjectAction(project.id, 'team', async () => {
       await apiService.post(`/api/projects/${project.id}/teams`, { teamId }, true);
@@ -947,34 +948,30 @@ export default function ProjectsPage() {
               {viewMode === 'portfolio'
                 ? 'Cartera de proyectos'
                 : isInstitutionalExperience
-                ? (viewMode === 'pipeline' ? EXPERIENCE_META.institutional.title : 'Nuevas iniciativas')
+                ? EXPERIENCE_META.institutional.title
                 : experienceMeta.title}
             </h1>
             <p style={{ margin: '7px 0 0', fontSize: '13px', color: '#827A6D', maxWidth: '760px', lineHeight: 1.55 }}>
               {viewMode === 'portfolio'
                 ? 'Prioriza decisiones, bloqueos e hitos sin perder el contexto de cada proyecto.'
                 : isInstitutionalExperience
-                ? (viewMode === 'pipeline'
-                  ? (workspace?.name ? `${workspace.name} puede usar este espacio para ver cómo cada iniciativa pasa de idea a operación.` : EXPERIENCE_META.institutional.description)
-                  : 'Separa las iniciativas que todavía están entrando para formalizarlas antes de empujarlas a planificación.')
+                ? (workspace?.name ? `${workspace.name} puede usar este espacio para coordinar proyectos, hitos y bloqueos de ejecución.` : EXPERIENCE_META.institutional.description)
                 : experienceMeta.description}
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {(
-              <div style={{ display: 'inline-flex', padding: '4px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                {([
-                  { key: 'portfolio', label: 'Cartera', icon: LayoutList },
-                  { key: 'pipeline', label: 'Pipeline', icon: Columns3 },
-                  { key: 'intake', label: 'Iniciativas', icon: CircleDashed },
-                ] as const).filter((option) => isInstitutionalExperience || option.key !== 'intake').map((option) => {
+            <div style={{ display: 'inline-flex', padding: '4px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {([
+                { key: 'portfolio', label: 'Cartera', icon: LayoutList },
+                { key: 'pipeline', label: 'Pipeline', icon: Columns3 },
+              ] as const).map((option) => {
                   const active = viewMode === option.key;
                   const Icon = option.icon;
                   return (
                     <button
                       key={option.key}
-                      onClick={() => option.key === 'intake' ? router.push('/dashboard/initiatives') : setViewMode(option.key)}
+                      onClick={() => setViewMode(option.key)}
                       style={{
                         height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px',
                         background: active ? 'rgba(242,87,30,0.14)' : 'transparent',
@@ -986,8 +983,23 @@ export default function ProjectsPage() {
                       {option.label}
                     </button>
                   );
-                })}
-              </div>
+              })}
+            </div>
+
+            {isInstitutionalExperience && (
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/initiatives')}
+                style={{
+                  height: '32px', padding: '0 12px', borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.03)',
+                  display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#C8BFAE', cursor: 'pointer',
+                  fontSize: '12px', fontWeight: 700, fontFamily: SORA,
+                }}
+              >
+                <CircleDashed style={{ width: '13px', height: '13px' }} />
+                Iniciativas
+              </button>
             )}
 
             <button
@@ -1379,7 +1391,11 @@ export default function ProjectsPage() {
 
             <PortfolioList projects={portfolioProjects} onProjectClick={(project) => router.push(`/dashboard/projects/${project.id}`)} />
           </>
-        ) : isInstitutionalExperience ? (viewMode === 'pipeline' ? (
+        // La bandeja institucional vive en /dashboard/initiatives. Este bloque
+        // sólo se conserva temporalmente para datos históricos que pudieran
+        // abrirse de forma explícita; la navegación normal de proyectos nunca
+        // entra en intake ni ejecuta decisiones de triage.
+        ) : isInstitutionalExperience && viewMode === 'intake' ? (viewMode === 'pipeline' ? (
           <>
             {pausedProjects.length > 0 && (
               <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: '14px', padding: '11px 14px', borderRadius: '10px', border: '1px solid rgba(219,138,102,0.28)', background: 'rgba(219,138,102,0.08)' }}>
@@ -1630,11 +1646,12 @@ export default function ProjectsPage() {
                     <button
                       onClick={() => {
                         setTeamPickerProjectId((current) => current === project.id ? null : project.id);
-                        if (!selectedTeamByProject[project.id] && teams[0]?.id) {
-                          setSelectedTeamByProject((prev) => ({ ...prev, [project.id]: teams[0].id }));
+                        const projectTeams = teams.filter((team) => team.workspaceId === project.workspaceId);
+                        if (!selectedTeamByProject[project.id] && projectTeams[0]?.id) {
+                          setSelectedTeamByProject((prev) => ({ ...prev, [project.id]: projectTeams[0].id }));
                         }
                       }}
-                      disabled={busyActionByProject[project.id] !== null || !hasChecklistGap(project, 'team') || teams.length === 0}
+                      disabled={busyActionByProject[project.id] !== null || !hasChecklistGap(project, 'team') || !teams.some((team) => team.workspaceId === project.workspaceId)}
                       style={{
                         height: '31px', padding: '0 12px', borderRadius: '8px',
                         border: '1px solid rgba(255,255,255,0.08)',
@@ -1648,7 +1665,7 @@ export default function ProjectsPage() {
                     </button>
                   </div>
 
-                  {teamPickerProjectId === project.id && teams.length > 0 && (
+                  {teamPickerProjectId === project.id && teams.some((team) => team.workspaceId === project.workspaceId) && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
                       <select
                         value={selectedTeamByProject[project.id] ?? ''}
@@ -1659,7 +1676,7 @@ export default function ProjectsPage() {
                           outline: 'none', fontSize: '12px',
                         }}
                       >
-                        {teams.map((team) => (
+                        {teams.filter((team) => team.workspaceId === project.workspaceId).map((team) => (
                           <option key={team.id} value={team.id}>{team.name}</option>
                         ))}
                       </select>

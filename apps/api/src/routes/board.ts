@@ -6,6 +6,7 @@ import { listController } from '../controllers/ListController';
 import { SprintController } from '../controllers/SprintController';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
+import { requireProjectBoundResourceAccess } from '../middleware/project';
 
 const router = Router();
 
@@ -48,11 +49,11 @@ router.get('/workspaces/:workspaceId/boards/orphaned', checkWorkspaceMembership,
  * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
  * Permite: Todos los roles
  */
-router.get('/boards/:id', checkWorkspaceMembership, (req, res) =>
+router.get('/boards/:id', requireProjectBoundResourceAccess('READ', 'board'), (req, res) =>
   boardController.getById(req, res)
 );
 
-router.get('/boards/:id/project', checkWorkspaceMembership, (req, res) =>
+router.get('/boards/:id/project', requireProjectBoundResourceAccess('READ', 'board'), (req, res) =>
   boardController.getParentProject(req, res)
 );
 
@@ -62,7 +63,7 @@ router.get('/boards/:id/project', checkWorkspaceMembership, (req, res) =>
  * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
  * Permite: Todos los roles
  */
-router.get('/boards/:id/dependency-graph', checkWorkspaceMembership, (req, res) =>
+router.get('/boards/:id/dependency-graph', requireProjectBoundResourceAccess('READ', 'board'), (req, res) =>
   boardController.getDependencyGraph(req, res)
 );
 
@@ -72,7 +73,7 @@ router.get('/boards/:id/dependency-graph', checkWorkspaceMembership, (req, res) 
  * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
  * Controller: Valida rol ADMIN/OWNER
  */
-router.put('/boards/:id', checkWorkspaceMembership, (req, res) => boardController.update(req, res));
+router.put('/boards/:id', requireProjectBoundResourceAccess('MANAGE', 'board'), (req, res) => boardController.update(req, res));
 
 /**
  * POST /api/boards/:id/archive
@@ -80,7 +81,7 @@ router.put('/boards/:id', checkWorkspaceMembership, (req, res) => boardControlle
  * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
  * Controller: Valida rol ADMIN/OWNER
  */
-router.post('/boards/:id/archive', checkWorkspaceMembership, (req, res) =>
+router.post('/boards/:id/archive', requireProjectBoundResourceAccess('MANAGE', 'board'), (req, res) =>
   boardController.archive(req, res)
 );
 
@@ -91,7 +92,7 @@ router.post('/boards/:id/archive', checkWorkspaceMembership, (req, res) =>
  * Controller: Valida rol ADMIN/OWNER
  * Requisitos: Board debe estar archivado y no tener listas
  */
-router.delete('/boards/:id', checkWorkspaceMembership, (req, res) =>
+router.delete('/boards/:id', requireProjectBoundResourceAccess('MANAGE', 'board'), (req, res) =>
   boardController.delete(req, res)
 );
 
@@ -103,7 +104,7 @@ router.delete('/boards/:id', checkWorkspaceMembership, (req, res) =>
  * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
  * Controller: Valida rol ADMIN/OWNER
  */
-router.post('/boards/:boardId/lists', checkWorkspaceMembership, (req, res) =>
+router.post('/boards/:boardId/lists', requireProjectBoundResourceAccess('MANAGE', 'board'), (req, res) =>
   listController.create(req, res)
 );
 
@@ -113,7 +114,7 @@ router.post('/boards/:boardId/lists', checkWorkspaceMembership, (req, res) =>
  * Middleware: checkWorkspaceMembership (resuelve workspace desde boardId)
  * Permite: Todos los roles
  */
-router.get('/boards/:boardId/lists', checkWorkspaceMembership, (req, res) =>
+router.get('/boards/:boardId/lists', requireProjectBoundResourceAccess('READ', 'board'), (req, res) =>
   listController.list(req, res)
 );
 
@@ -123,7 +124,7 @@ router.get('/boards/:boardId/lists', checkWorkspaceMembership, (req, res) =>
  * Middleware: checkWorkspaceMembership (resuelve workspace desde listId)
  * Controller: Valida rol ADMIN/OWNER
  */
-router.put('/lists/:id', checkWorkspaceMembership, (req, res) => listController.update(req, res));
+router.put('/lists/:id', requireProjectBoundResourceAccess('MANAGE', 'list'), (req, res) => listController.update(req, res));
 
 /**
  * PUT /api/lists/:id/reorder
@@ -131,7 +132,7 @@ router.put('/lists/:id', checkWorkspaceMembership, (req, res) => listController.
  * Middleware: checkWorkspaceMembership (resuelve workspace desde listId)
  * Controller: Valida rol ADMIN/OWNER
  */
-router.put('/lists/:id/reorder', checkWorkspaceMembership, (req, res) =>
+router.put('/lists/:id/reorder', requireProjectBoundResourceAccess('MANAGE', 'list'), (req, res) =>
   listController.reorder(req, res)
 );
 
@@ -142,43 +143,43 @@ router.put('/lists/:id/reorder', checkWorkspaceMembership, (req, res) =>
  * Controller: Valida rol ADMIN/OWNER
  * Requisitos: Lista no debe tener cards
  */
-router.delete('/lists/:id', checkWorkspaceMembership, (req, res) =>
+router.delete('/lists/:id', requireProjectBoundResourceAccess('MANAGE', 'list'), (req, res) =>
   listController.delete(req, res)
 );
 
 // ==================== SPRINT ROUTES ====================
 
-router.get('/boards/:boardId/sprints', checkWorkspaceMembership, (req, res) =>
+router.get('/boards/:boardId/sprints', requireProjectBoundResourceAccess('READ', 'board'), (req, res) =>
   SprintController.getSprints(req, res)
 );
-router.post('/boards/:boardId/sprints', checkWorkspaceMembership, (req, res) =>
+router.post('/boards/:boardId/sprints', requireProjectBoundResourceAccess('MANAGE', 'board'), (req, res) =>
   SprintController.createSprint(req, res)
 );
-router.put('/sprints/:sprintId', checkWorkspaceMembership, (req, res) =>
+router.put('/sprints/:sprintId', requireProjectBoundResourceAccess('MANAGE', 'sprint'), (req, res) =>
   SprintController.updateSprint(req, res)
 );
-router.delete('/sprints/:sprintId', checkWorkspaceMembership, (req, res) =>
+router.delete('/sprints/:sprintId', requireProjectBoundResourceAccess('MANAGE', 'sprint'), (req, res) =>
   SprintController.deleteSprint(req, res)
 );
-router.post('/sprints/:sprintId/cards', checkWorkspaceMembership, (req, res) =>
+router.post('/sprints/:sprintId/cards', requireProjectBoundResourceAccess('CONTRIBUTE', 'sprint'), (req, res) =>
   SprintController.addCardToSprint(req, res)
 );
-router.delete('/sprints/:sprintId/cards/:cardId', checkWorkspaceMembership, (req, res) =>
+router.delete('/sprints/:sprintId/cards/:cardId', requireProjectBoundResourceAccess('CONTRIBUTE', 'sprint'), (req, res) =>
   SprintController.removeCardFromSprint(req, res)
 );
 
 // ==================== MILESTONE ROUTES ====================
 
-router.get('/boards/:boardId/milestones', checkWorkspaceMembership, (req, res) =>
+router.get('/boards/:boardId/milestones', requireProjectBoundResourceAccess('READ', 'board'), (req, res) =>
   SprintController.getMilestones(req, res)
 );
-router.post('/boards/:boardId/milestones', checkWorkspaceMembership, (req, res) =>
+router.post('/boards/:boardId/milestones', requireProjectBoundResourceAccess('MANAGE', 'board'), (req, res) =>
   SprintController.createMilestone(req, res)
 );
-router.put('/milestones/:milestoneId', checkWorkspaceMembership, (req, res) =>
+router.put('/milestones/:milestoneId', requireProjectBoundResourceAccess('MANAGE', 'milestone'), (req, res) =>
   SprintController.updateMilestone(req, res)
 );
-router.delete('/milestones/:milestoneId', checkWorkspaceMembership, (req, res) =>
+router.delete('/milestones/:milestoneId', requireProjectBoundResourceAccess('MANAGE', 'milestone'), (req, res) =>
   SprintController.deleteMilestone(req, res)
 );
 

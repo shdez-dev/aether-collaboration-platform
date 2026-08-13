@@ -2,6 +2,7 @@
 
 import { Request, Response } from 'express';
 import { pool } from '../lib/db';
+import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
 
 export class SearchController {
   /**
@@ -19,6 +20,7 @@ export class SearchController {
     const pattern = `%${q}%`;
 
     try {
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(userId);
       const [cardsRes, projectsRes, boardsRes, workspacesRes, docsRes] = await Promise.all([
         // Cards — visibles para el usuario (en boards de workspaces donde es miembro)
         pool.query(
@@ -33,9 +35,13 @@ export class SearchController {
            JOIN workspaces w ON w.id = b.workspace_id
            JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $1
            WHERE c.title ILIKE $2
+             AND NOT EXISTS (
+               SELECT 1 FROM project_boards pb
+               WHERE pb.board_id = b.id AND NOT (pb.project_id = ANY($3::uuid[]))
+             )
            ORDER BY c.id, c.updated_at DESC
            LIMIT 8`,
-          [userId, pattern]
+          [userId, pattern, accessibleProjectIds]
         ),
 
         // Proyectos
@@ -44,11 +50,10 @@ export class SearchController {
                   w.id AS workspace_id, w.name AS workspace_name
            FROM projects p
            JOIN workspaces w ON w.id = p.workspace_id
-           JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $1
-           WHERE p.name ILIKE $2
+           WHERE p.name ILIKE $2 AND p.id = ANY($1::uuid[])
            ORDER BY p.updated_at DESC
            LIMIT 5`,
-          [userId, pattern]
+          [accessibleProjectIds, pattern]
         ),
 
         // Boards
@@ -60,9 +65,13 @@ export class SearchController {
            JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $1
            WHERE b.name ILIKE $2
              AND b.archived = false
+             AND NOT EXISTS (
+               SELECT 1 FROM project_boards pb
+               WHERE pb.board_id = b.id AND NOT (pb.project_id = ANY($3::uuid[]))
+             )
            ORDER BY b.updated_at DESC
            LIMIT 5`,
-          [userId, pattern]
+          [userId, pattern, accessibleProjectIds]
         ),
 
         // Workspaces
@@ -84,9 +93,10 @@ export class SearchController {
            JOIN workspaces w ON w.id = d.workspace_id
            JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $1
            WHERE d.title ILIKE $2
+             AND (d.project_id IS NULL OR d.project_id = ANY($3::uuid[]))
            ORDER BY d.updated_at DESC
            LIMIT 5`,
-          [userId, pattern]
+          [userId, pattern, accessibleProjectIds]
         ),
       ]);
 

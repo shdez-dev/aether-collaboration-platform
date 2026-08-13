@@ -29,6 +29,11 @@ router.patch(
 // Marcar todas las notificaciones como leídas
 router.post('/notifications/mark-all-read', authenticateJWT, NotificationController.markAllAsRead);
 
+router.patch('/notifications/:notificationId/archive', authenticateJWT, NotificationController.archive);
+router.patch('/notifications/:notificationId/restore', authenticateJWT, NotificationController.restore);
+router.patch('/notifications/:notificationId/resolve', authenticateJWT, NotificationController.resolve);
+router.patch('/notifications/:notificationId/reopen', authenticateJWT, NotificationController.reopen);
+
 // Eliminar una notificación
 router.delete(
   '/notifications/:notificationId',

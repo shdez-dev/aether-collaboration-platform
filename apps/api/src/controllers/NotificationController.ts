@@ -10,6 +10,13 @@ const markAsReadSchema = z.object({
   notificationId: z.string().uuid(),
 });
 
+const notificationListSchema = z.object({
+  unread: z.enum(['true', 'false']).optional(),
+  archived: z.enum(['true', 'false']).optional(),
+  resolved: z.enum(['true', 'false']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 // ==================== CONTROLLER ====================
 
 export class NotificationController {
@@ -32,10 +39,16 @@ export class NotificationController {
       }
 
       const userId = user.id;
-      const onlyUnread = req.query.unread === 'true';
-
-
-      const notifications = await notificationService.getNotifications(userId, onlyUnread);
+      const filters = notificationListSchema.safeParse(req.query);
+      if (!filters.success) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: filters.error.flatten() } });
+      }
+      const notifications = await notificationService.getNotifications(userId, {
+        onlyUnread: filters.data.unread === 'true',
+        includeArchived: filters.data.archived === 'true',
+        includeResolved: filters.data.resolved === 'true',
+        limit: filters.data.limit,
+      });
 
       return res.status(200).json({
         success: true,
@@ -101,9 +114,8 @@ export class NotificationController {
       }
 
       const userId = user.id;
-      const { notificationId } = req.params;
-
-      if (!notificationId) {
+      const parsed = markAsReadSchema.safeParse(req.params);
+      if (!parsed.success) {
         return res.status(400).json({
           success: false,
           error: {
@@ -113,7 +125,7 @@ export class NotificationController {
         });
       }
 
-      await notificationService.markAsRead(notificationId, userId);
+      await notificationService.markAsRead(parsed.data.notificationId, userId);
 
       return res.status(200).json({
         success: true,
@@ -180,9 +192,8 @@ export class NotificationController {
       }
 
       const userId = user.id;
-      const { notificationId } = req.params;
-
-      if (!notificationId) {
+      const parsed = markAsReadSchema.safeParse(req.params);
+      if (!parsed.success) {
         return res.status(400).json({
           success: false,
           error: {
@@ -192,7 +203,7 @@ export class NotificationController {
         });
       }
 
-      await notificationService.deleteNotification(notificationId, userId);
+      await notificationService.deleteNotification(parsed.data.notificationId, userId);
 
       return res.status(200).json({
         success: true,
@@ -203,6 +214,41 @@ export class NotificationController {
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
       });
+    }
+  }
+
+  static async archive(req: Request, res: Response) {
+    return NotificationController.transition(req, res, 'archive');
+  }
+
+  static async restore(req: Request, res: Response) {
+    return NotificationController.transition(req, res, 'restore');
+  }
+
+  static async resolve(req: Request, res: Response) {
+    return NotificationController.transition(req, res, 'resolve');
+  }
+
+  static async reopen(req: Request, res: Response) {
+    return NotificationController.transition(req, res, 'reopen');
+  }
+
+  private static async transition(req: Request, res: Response, action: 'archive' | 'restore' | 'resolve' | 'reopen') {
+    const userId = (req as any).user?.id as string | undefined;
+    const parsed = markAsReadSchema.safeParse(req.params);
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'INVALID_NOTIFICATION_ID', message: 'Notification ID must be a UUID' } });
+    try {
+      const method = {
+        archive: notificationService.archiveNotification,
+        restore: notificationService.restoreNotification,
+        resolve: notificationService.resolveNotification,
+        reopen: notificationService.reopenNotification,
+      }[action];
+      await method.call(notificationService, parsed.data.notificationId, userId);
+      return res.json({ success: true, data: { notificationId: parsed.data.notificationId, action } });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: error.message } });
     }
   }
 }

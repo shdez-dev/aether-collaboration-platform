@@ -21,6 +21,8 @@ interface NotificationActions {
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
+  archiveNotification: (notificationId: string) => Promise<void>;
+  resolveNotification: (notificationId: string) => Promise<void>;
   toggleDropdown: () => void;
   closeDropdown: () => void;
   reset: () => void;
@@ -56,9 +58,10 @@ function getNotificationVariant(type: string): 'info' | 'warning' | 'error' | 's
 }
 
 function logicalNotificationKey(notification: Notification): string {
-  const data = notification.data as Record<string, any> | undefined;
-  const entity = data?.commentId ?? data?.invitationId ?? data?.cardId ?? data?.documentId ?? data?.milestoneId ?? data?.projectId ?? data?.teamId ?? data?.workspaceId;
-  return `${notification.type}:${entity ?? notification.id}`;
+  // The server deduplicates domain events atomically. Collapsing by resource
+  // here would hide distinct events (such as status transitions) or replace a
+  // locally read event after a reconnect. The id is stable for a retry.
+  return notification.id;
 }
 
 export const useNotificationStore = create<NotificationState & NotificationActions>()(
@@ -116,6 +119,28 @@ export const useNotificationStore = create<NotificationState & NotificationActio
             };
           });
         } catch {}
+      },
+
+      archiveNotification: async (notificationId) => {
+        await notificationService.archiveNotification(notificationId);
+        set((s) => {
+          const notification = s.notifications.find((n) => n.id === notificationId);
+          return {
+            notifications: s.notifications.filter((n) => n.id !== notificationId),
+            unreadCount: notification && !notification.read ? Math.max(0, s.unreadCount - 1) : s.unreadCount,
+          };
+        });
+      },
+
+      resolveNotification: async (notificationId) => {
+        await notificationService.resolveNotification(notificationId);
+        set((s) => {
+          const notification = s.notifications.find((n) => n.id === notificationId);
+          return {
+            notifications: s.notifications.filter((n) => n.id !== notificationId),
+            unreadCount: notification && !notification.read ? Math.max(0, s.unreadCount - 1) : s.unreadCount,
+          };
+        });
       },
 
       reset: () => {
@@ -191,6 +216,12 @@ export const useNotificationStore = create<NotificationState & NotificationActio
 
           if (event.type === 'notification.deleted') {
             const p = event.payload as any;
+            if (p.unreadCount !== undefined) get().updateUnreadCount(p.unreadCount);
+          }
+
+          if (['notification.archived', 'notification.resolved'].includes(event.type)) {
+            const p = event.payload as any;
+            if (p.notificationId) set((s) => ({ notifications: s.notifications.filter((n) => n.id !== p.notificationId) }));
             if (p.unreadCount !== undefined) get().updateUnreadCount(p.unreadCount);
           }
         };

@@ -99,9 +99,9 @@ function filterMatch(n: any, filter: Filter): boolean {
 
 // ── Notification row ──────────────────────────────────────────────────────────
 
-function NotifRow({ n, isOld, onRead, onDelete, onClick }: {
+function NotifRow({ n, isOld, onRead, onArchive, onResolve, onClick }: {
   n: any; isOld?: boolean;
-  onRead: () => void; onDelete: () => void; onClick: () => void;
+  onRead: () => void; onArchive: () => void; onResolve: () => void; onClick: () => void;
 }) {
   const [hov, setHov] = useState(false);
   const { who, action, target, project } = parseNotification(n);
@@ -186,20 +186,23 @@ function NotifRow({ n, isOld, onRead, onDelete, onClick }: {
               </button>
             )}
             <button
-              onClick={e => { e.stopPropagation(); onDelete(); }}
-              title="Eliminar"
+              onClick={e => { e.stopPropagation(); onResolve(); }}
+              title="Resolver"
               style={{
                 width: '26px', height: '26px', borderRadius: '6px',
                 background: 'none', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#827A6D',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.1)'; (e.currentTarget as HTMLElement).style.color = '#E05252'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(118,168,120,0.12)'; (e.currentTarget as HTMLElement).style.color = '#76A878'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = '#827A6D'; }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
+            </button>
+            <button onClick={e => { e.stopPropagation(); onArchive(); }} title="Archivar" style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#827A6D' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v13H4zM8 3h8v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </>
         ) : (
@@ -214,7 +217,7 @@ function NotifRow({ n, isOld, onRead, onDelete, onClick }: {
 
 export default function BandejaPage() {
   const router = useRouter();
-  const { notifications, isLoading, loadNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const { notifications, isLoading, loadNotifications, markAsRead, markAllAsRead, archiveNotification, resolveNotification } = useNotifications();
   const setActiveWorkspaceId = useActiveWorkspaceStore((s) => s.setActiveWorkspaceId);
   const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
   const [filter, setFilter] = useState<Filter>('todo');
@@ -385,7 +388,8 @@ export default function BandejaPage() {
                 key={n.id}
                 n={n}
                 onRead={() => markAsRead(n.id)}
-                onDelete={() => deleteNotification(n.id)}
+                onArchive={() => archiveNotification(n.id)}
+                onResolve={() => resolveNotification(n.id)}
                 onClick={() => handleClick(n)}
               />
             ))}
@@ -410,7 +414,8 @@ export default function BandejaPage() {
                 n={n}
                 isOld
                 onRead={() => markAsRead(n.id)}
-                onDelete={() => deleteNotification(n.id)}
+                onArchive={() => archiveNotification(n.id)}
+                onResolve={() => resolveNotification(n.id)}
                 onClick={() => handleClick(n)}
               />
             ))}

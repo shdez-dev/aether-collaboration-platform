@@ -7,6 +7,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import {
   CheckCircle2, Circle, ChevronUp, ChevronDown,
   X, Map, ArrowRight,
@@ -35,6 +36,9 @@ export default function OnboardingCompanion() {
   const router = useRouter();
   const t = useT();
   const { workspaces } = useWorkspaceStore();
+  const activeWorkspaceId = useActiveWorkspaceStore((state) => state.activeWorkspaceId);
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
+  const needsTeamSetup = activeWorkspace?.mode === 'TEAM' || activeWorkspace?.mode === 'INSTITUTIONAL';
 
   const STEPS: GuideStep[] = [
     {
@@ -45,11 +49,18 @@ export default function OnboardingCompanion() {
       href: '/dashboard/projects',
     },
     {
+      id: 'team',
+      title: 'Crea un equipo',
+      instruction: 'Define el equipo que se hará cargo del trabajo antes de repartir proyectos.',
+      cta: 'Ir a equipos',
+      href: '/dashboard/teams',
+    },
+    {
       id: 'invite',
       title: t.guide_step_invite_title,
       instruction: t.guide_step_invite_instruction,
       cta: t.guide_step_invite_cta,
-      href: '/dashboard/projects',
+      href: '/dashboard/teams',
     },
     {
       id: 'project',
@@ -73,6 +84,7 @@ export default function OnboardingCompanion() {
       href: '/dashboard/projects',
     },
   ];
+  const visibleSteps = needsTeamSetup ? STEPS : STEPS.filter((step) => step.id !== 'team');
 
   const [dismissed,  setDismissed]  = useState(true);  // true hasta hidratar
   const [expanded,   setExpanded]   = useState(false);
@@ -80,6 +92,9 @@ export default function OnboardingCompanion() {
   const [allDone,    setAllDone]    = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   const [hydrated,   setHydrated]   = useState(false);
+  const currentStep = visibleSteps.find((step) => !completed.has(step.id)) ?? null;
+  const completedVisibleSteps = visibleSteps.filter((step) => completed.has(step.id)).length;
+  const totalCount = visibleSteps.length;
 
   // ── Hidratación inicial ──────────────────────────────────────────────────
   useEffect(() => {
@@ -134,7 +149,7 @@ export default function OnboardingCompanion() {
 
   // ── Detectar cuando todos los pasos están completos ──────────────────────
   useEffect(() => {
-    if (completed.size >= STEPS.length && !allDone) {
+    if (completedVisibleSteps >= totalCount && !allDone) {
       setAllDone(true);
       setCelebrating(true);
       setExpanded(true);
@@ -145,7 +160,7 @@ export default function OnboardingCompanion() {
       }, 4000);
       return () => clearTimeout(t);
     }
-  }, [completed.size, allDone]);
+  }, [completedVisibleSteps, totalCount, allDone]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   const handleDismiss = () => {
@@ -158,10 +173,8 @@ export default function OnboardingCompanion() {
     setExpanded(false);
   };
 
-  // Primer paso no completado
-  const currentStep = STEPS.find((s) => !completed.has(s.id)) ?? null;
-  const doneCount   = completed.size;
-  const totalCount  = STEPS.length;
+  // Progreso de los pasos que aplican al contexto actual.
+  const doneCount   = completedVisibleSteps;
   const pct         = Math.round((doneCount / totalCount) * 100);
 
   if (!hydrated || dismissed) return null;
@@ -298,7 +311,7 @@ export default function OnboardingCompanion() {
 
           {/* Checklist de todos los pasos */}
           <div style={{ padding: '10px 16px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {STEPS.map((step, i) => {
+            {visibleSteps.map((step, i) => {
               const done = completed.has(step.id);
               const isCurrent = currentStep?.id === step.id;
               return (
@@ -371,7 +384,7 @@ export default function OnboardingCompanion() {
             {t.guide_title}
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginTop: '4px' }}>
-            {STEPS.map((s) => (
+            {visibleSteps.map((s) => (
               <div
                 key={s.id}
                 style={{

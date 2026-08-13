@@ -132,14 +132,28 @@ export class DependencyService {
       throw new Error('A card cannot depend on itself');
     }
 
-    // Verificar ciclo
-    if (await this.wouldCreateCycle(blockingCardId, blockedCardId)) {
-      throw new Error('Circular dependency detected');
-    }
-
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // A dependency is internal to a board. Without this check a caller
+      // allowed on the blocked card could link a private card from another
+      // project/workspace and expose it through the dependency response.
+      const cards = await client.query(
+        `SELECT c.id, l.board_id
+         FROM cards c
+         JOIN lists l ON l.id = c.list_id
+         WHERE c.id = ANY($1::uuid[])`,
+        [[blockingCardId, blockedCardId]]
+      );
+      if (cards.rows.length !== 2 || cards.rows[0].board_id !== cards.rows[1].board_id) {
+        throw new Error('Cards must belong to the same board');
+      }
+
+      // Verificar ciclo only after both cards are known to be in scope.
+      if (await this.wouldCreateCycle(blockingCardId, blockedCardId)) {
+        throw new Error('Circular dependency detected');
+      }
 
       const result = await client.query(
         `INSERT INTO card_dependencies (blocking_card_id, blocked_card_id, created_by)

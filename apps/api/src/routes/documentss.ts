@@ -6,6 +6,7 @@ import { documentCommentController } from '../controllers/DocumentCommentControl
 import { documentService } from '../services/DocumentService';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
+import { requireProjectAccess } from '../middleware/project';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.use(authenticateJWT);
 router.get('/documents/mine', (req, res) => documentController.getMyDocuments(req, res));
 
 // Project context is explicit: operational documents are queried from the project.
-router.get('/projects/:projectId/documents', (req, res) => documentController.listProjectDocuments(req, res));
+router.get('/projects/:projectId/documents', requireProjectAccess('READ', 'projectId'), (req, res) => documentController.listProjectDocuments(req, res));
 
 // CREATE - requires workspace membership
 router.post('/workspaces/:workspaceId/documents', checkWorkspaceMembership, (req, res) =>
