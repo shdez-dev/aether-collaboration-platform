@@ -427,6 +427,46 @@ class OrganizationService {
            AND dp.user_id = $2`,
         [organizationId, memberUserId]
       );
+      // Portfolio membership is an explicit organizational grant. Remove it
+      // with the organization membership so stale rows cannot be reused if the
+      // account is invited back later.
+      await client.query(
+        `DELETE FROM portfolio_members pm
+          USING portfolios p
+         WHERE pm.portfolio_id = p.id
+           AND p.organization_id = $1
+           AND pm.user_id = $2`,
+        [organizationId, memberUserId]
+      );
+      // Preserve past capacity planning but never let it reactivate when the
+      // person is invited back to the organization. Ranges starting today are
+      // removed because the database requires effective_until > effective_from.
+      await client.query(
+        `UPDATE organization_member_capacities
+            SET effective_until = CURRENT_DATE
+          WHERE organization_id = $1 AND user_id = $2
+            AND effective_from < CURRENT_DATE
+            AND (effective_until IS NULL OR effective_until > CURRENT_DATE)`,
+        [organizationId, memberUserId]
+      );
+      await client.query(
+        `DELETE FROM organization_member_capacities
+          WHERE organization_id = $1 AND user_id = $2 AND effective_from >= CURRENT_DATE`,
+        [organizationId, memberUserId]
+      );
+      await client.query(
+        `UPDATE project_capacity_allocations
+            SET effective_until = CURRENT_DATE
+          WHERE organization_id = $1 AND user_id = $2
+            AND effective_from < CURRENT_DATE
+            AND (effective_until IS NULL OR effective_until > CURRENT_DATE)`,
+        [organizationId, memberUserId]
+      );
+      await client.query(
+        `DELETE FROM project_capacity_allocations
+          WHERE organization_id = $1 AND user_id = $2 AND effective_from >= CURRENT_DATE`,
+        [organizationId, memberUserId]
+      );
       await client.query(
         `DELETE FROM workspace_members wm
           USING workspaces w

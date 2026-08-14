@@ -22,6 +22,14 @@ enum OrganizationMemberRole {
   MEMBER
 }
 
+// Authorization inside an organization-level portfolio. These roles deliberately
+// do not grant workspace or project access on their own.
+enum PortfolioMemberRole {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
 enum SubscriptionStatus {
   TRIALING
   ACTIVE
@@ -216,6 +224,14 @@ model User {
   networkInvitationsSent       NetworkExternalInvitation[] @relation("NetworkInvitationSender")
   networkEvaluations           InitiativeEvaluation[]
   networkAccessAudits          NetworkAccessAudit[] @relation("NetworkAccessActor")
+  portfolioMemberships         PortfolioMember[] @relation("PortfolioMemberUser")
+  portfolioMembershipsAdded    PortfolioMember[] @relation("PortfolioMemberAdder")
+  organizationCapacities       OrganizationMemberCapacity[]
+  projectCapacityAllocations   ProjectCapacityAllocation[] @relation("ProjectCapacityAllocationAssignee")
+  projectCapacityAllocationsAssigned ProjectCapacityAllocation[] @relation("ProjectCapacityAllocationAssigner")
+  portfolioAlertsAcknowledged  PortfolioAlert[] @relation("PortfolioAlertAcknowledgedBy")
+  portfolioAlertsResolved      PortfolioAlert[] @relation("PortfolioAlertResolvedBy")
+  portfolioExports             PortfolioExportAudit[] @relation("PortfolioExportActor")
 
   @@map("users")
 }
@@ -472,6 +488,7 @@ model Card {
   startDate   DateTime? @map("start_date")
   dueDate     DateTime? @map("due_date")
   priority    String?   @db.VarChar(20)
+  estimatedMinutes Int? @map("estimated_minutes")
   completed   Boolean   @default(false)
   completedAt DateTime? @map("completed_at")
   createdBy   String    @map("created_by") @db.Uuid
@@ -878,6 +895,8 @@ model Project {
   sourceInitiative Initiative? @relation("InitiativeFormalizedProject", fields: [sourceInitiativeId], references: [id], onDelete: SetNull)
   roleAssignments ProjectRoleAssignment[]
   portfolioLinks PortfolioProject[]
+  capacityAllocations ProjectCapacityAllocation[]
+  portfolioAlerts PortfolioAlert[]
 
   @@index([workspaceId])
   @@index([ownerId])
@@ -1051,6 +1070,9 @@ model Organization {
   networkMemberships NetworkOrganization[]
   invitations     OrganizationInvitation[]
   accessRevocations OrganizationAccessRevocation[]
+  memberCapacities OrganizationMemberCapacity[]
+  projectCapacityAllocations ProjectCapacityAllocation[]
+  portfolioExportAudits PortfolioExportAudit[]
 
   @@index([ownerUserId])
   @@map("organizations")
@@ -1151,14 +1173,39 @@ model Portfolio {
   name           String   @db.VarChar(255)
   description    String?
   createdBy      String?  @map("created_by") @db.Uuid
+  archivedAt     DateTime? @map("archived_at")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projects     PortfolioProject[]
+  members      PortfolioMember[]
+  alerts       PortfolioAlert[]
+  exportAudits PortfolioExportAudit[]
 
   @@index([organizationId])
+  @@index([organizationId, archivedAt])
   @@map("portfolios")
+}
+
+// Membership is intentionally separate from organization membership: a person
+// must be active in the organization to receive a portfolio role, but being an
+// organization member does not automatically expose every portfolio.
+model PortfolioMember {
+  portfolioId String              @map("portfolio_id") @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
+  role        PortfolioMemberRole @default(VIEWER)
+  addedById   String?             @map("added_by") @db.Uuid
+  addedAt     DateTime            @default(now()) @map("added_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  user      User      @relation("PortfolioMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  addedBy   User?     @relation("PortfolioMemberAdder", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@id([portfolioId, userId])
+  @@index([userId, role])
+  @@map("portfolio_members")
 }
 
 model PortfolioProject {
@@ -1173,6 +1220,117 @@ model PortfolioProject {
   @@id([portfolioId, projectId])
   @@index([projectId])
   @@map("portfolio_projects")
+}
+
+// Weekly availability is kept as dated history so capacity can be evaluated at
+// the time a portfolio decision is made. The database verifies active
+// organization membership; it is not a substitute for workspace/project access.
+model OrganizationMemberCapacity {
+  id                     String   @id @default(uuid()) @db.Uuid
+  organizationId         String   @map("organization_id") @db.Uuid
+  userId                 String   @map("user_id") @db.Uuid
+  weeklyAvailableMinutes Int      @map("weekly_available_minutes")
+  effectiveFrom          DateTime @map("effective_from") @db.Date
+  effectiveUntil         DateTime? @map("effective_until") @db.Date
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, effectiveFrom])
+  @@index([organizationId, effectiveUntil])
+  @@map("organization_member_capacities")
+}
+
+// An allocation measures planned demand, not an authorization grant. Its
+// organization is duplicated intentionally to make portfolio capacity queries
+// and database scope validation deterministic.
+model ProjectCapacityAllocation {
+  id            String   @id @default(uuid()) @db.Uuid
+  organizationId String  @map("organization_id") @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  weeklyMinutes Int      @map("weekly_minutes")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveUntil DateTime? @map("effective_until") @db.Date
+  assignedById  String?  @map("assigned_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user         User         @relation("ProjectCapacityAllocationAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy   User?        @relation("ProjectCapacityAllocationAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, userId, effectiveFrom])
+  @@index([projectId, effectiveFrom])
+  @@map("project_capacity_allocations")
+}
+
+enum PortfolioAlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum PortfolioAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+// A fingerprint identifies the condition, rather than a single evaluation run.
+// It makes alert upserts idempotent while preserving acknowledgement/resolution.
+model PortfolioAlert {
+  id               String                @id @default(uuid()) @db.Uuid
+  portfolioId      String                @map("portfolio_id") @db.Uuid
+  projectId        String?               @map("project_id") @db.Uuid
+  fingerprint      String                @db.VarChar(255)
+  type             String                @db.VarChar(100)
+  severity         PortfolioAlertSeverity @default(WARNING)
+  status           PortfolioAlertStatus  @default(OPEN)
+  title            String                @db.VarChar(500)
+  detail           String?
+  metadata         Json                  @default("{}")
+  acknowledgedAt   DateTime?             @map("acknowledged_at")
+  acknowledgedById String?               @map("acknowledged_by") @db.Uuid
+  resolvedAt       DateTime?             @map("resolved_at")
+  resolvedById     String?               @map("resolved_by") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+
+  portfolio      Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  acknowledgedBy User?     @relation("PortfolioAlertAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  resolvedBy     User?     @relation("PortfolioAlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@unique([portfolioId, fingerprint])
+  @@index([portfolioId, status, severity])
+  @@index([projectId, status])
+  @@map("portfolio_alerts")
+}
+
+// Export events are append-only evidence of directional data leaving the
+// product. The exported rows are deliberately not stored: filters and count
+// are sufficient to investigate an export without duplicating project data.
+model PortfolioExportAudit {
+  id             String   @id @default(uuid()) @db.Uuid
+  portfolioId    String   @map("portfolio_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  exportedById   String   @map("exported_by") @db.Uuid
+  filters        Json     @default("{}")
+  rowCount       Int      @map("row_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  portfolio    Portfolio    @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  exportedBy   User         @relation("PortfolioExportActor", fields: [exportedById], references: [id], onDelete: Cascade)
+
+  @@index([portfolioId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([exportedById, createdAt])
+  @@map("portfolio_export_audits")
 }
 
 // ── Institutional intake and operational responsibilities ─────────────────

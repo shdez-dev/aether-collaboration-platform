@@ -11,7 +11,32 @@ export const PLAN_CATALOG: Record<string, { name: string; capabilities: Partial<
 
 export class CapabilityService {
   async getOrganizationCapabilities(organizationId: string) {
-    const result = await pool.query(`SELECT s.id,s.plan_code,s.status,e.capability,e.limit_value FROM subscriptions s LEFT JOIN subscription_entitlements e ON e.subscription_id=s.id WHERE s.organization_id=$1 AND s.status IN ('TRIALING','ACTIVE','PAST_DUE') ORDER BY CASE s.status WHEN 'ACTIVE' THEN 1 WHEN 'TRIALING' THEN 2 ELSE 3 END, s.updated_at DESC`, [organizationId]);
+    // An organization can retain historical provider rows while a plan changes.
+    // Select the one effective subscription first, then read only its overrides:
+    // joining before selecting would otherwise merge entitlements from several plans.
+    const result = await pool.query(`
+      WITH effective_subscription AS (
+        SELECT s.id, s.plan_code, s.status
+          FROM subscriptions s
+         WHERE s.organization_id = $1
+           AND s.status IN ('TRIALING', 'ACTIVE', 'PAST_DUE')
+           AND (s.current_period_end IS NULL OR s.current_period_end > CURRENT_TIMESTAMP)
+         ORDER BY
+           CASE s.status
+             WHEN 'ACTIVE' THEN 1
+             WHEN 'TRIALING' THEN 2
+             WHEN 'PAST_DUE' THEN 3
+           END,
+           s.updated_at DESC,
+           s.created_at DESC,
+           s.id DESC
+         LIMIT 1
+      )
+      SELECT s.id, s.plan_code, s.status, e.capability, e.limit_value
+        FROM effective_subscription s
+        LEFT JOIN subscription_entitlements e ON e.subscription_id = s.id
+       ORDER BY e.capability ASC NULLS LAST
+    `, [organizationId]);
     const subscription = result.rows[0]; const planCode = subscription?.plan_code ?? 'FREE'; const base = PLAN_CATALOG[planCode]?.capabilities ?? PLAN_CATALOG.FREE.capabilities; const capabilities = { ...base } as Record<string, number | boolean>;
     for (const row of result.rows) if (row.capability) capabilities[row.capability] = row.limit_value ?? true;
     return { planCode, status: subscription?.status ?? 'FREE', capabilities };

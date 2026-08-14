@@ -264,7 +264,11 @@ function Sidebar({
   ];
 
   const activeProjects = sidebarProjects.filter(p => p.status !== 'ARCHIVED' && p.status !== 'COMPLETED').slice(0, 6);
-  const isInstitutionalWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.mode === 'INSTITUTIONAL';
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
+  const isInstitutionalWorkspace = activeWorkspace?.mode === 'INSTITUTIONAL';
+  // This is only a navigation affordance. Portfolio endpoints still enforce
+  // organization capability and portfolio membership on every request.
+  const hasPortfolioCapability = activeWorkspace?.capabilities?.portfolio === true;
 
   return (
     <aside className="dshScroll" style={{
@@ -394,6 +398,15 @@ function Sidebar({
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" strokeLinecap="round"/><path d="M16 6a3 3 0 0 1 0 6M18.5 19a5.5 5.5 0 0 0-3-4.9" strokeLinecap="round"/></svg>}
         />
       </div>
+
+      {hasPortfolioCapability && <div style={{ marginTop: '3px' }}>
+        <NavItem
+          href="/dashboard/portfolios"
+          label="Carteras"
+          active={!!pathname?.startsWith('/dashboard/portfolios')}
+          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M9 5V3.5h6V5M4 10h16M9 14h6" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        />
+      </div>}
 
       {isInstitutionalWorkspace && <div style={{ marginTop: '3px' }}>
         <NavItem
