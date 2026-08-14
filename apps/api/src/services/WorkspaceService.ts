@@ -836,6 +836,42 @@ export class WorkspaceService {
         [workspaceId, targetUserId]
       );
 
+      // Initiative assignments are internal workspace responsibilities. They
+      // must not survive a workspace revocation or later become valid again if
+      // the user is re-invited.
+      await client.query(
+        `INSERT INTO initiative_assignment_history (id, initiative_id, subject_user_id, role, action, actor_id, reason)
+         SELECT gen_random_uuid(), ip.initiative_id, ip.user_id, ip.role, 'REVOKED', $3, 'Workspace membership revoked'
+         FROM initiative_participants ip
+         JOIN initiatives i ON i.id = ip.initiative_id
+         WHERE i.workspace_id = $1 AND ip.user_id = $2`,
+        [workspaceId, targetUserId, removerId]
+      );
+      await client.query(
+        `DELETE FROM initiative_participants ip
+         USING initiatives i
+         WHERE ip.initiative_id = i.id AND i.workspace_id = $1 AND ip.user_id = $2`,
+        [workspaceId, targetUserId]
+      );
+      await client.query(
+        `UPDATE initiatives i
+         SET triage_owner_id = CASE WHEN i.triage_owner_id = $2 THEN (
+               SELECT ip.user_id FROM initiative_participants ip
+               JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = ip.user_id
+               WHERE ip.initiative_id = i.id AND ip.role = 'TRIAGE_COORDINATOR'
+               ORDER BY ip.assigned_at DESC LIMIT 1
+             ) ELSE i.triage_owner_id END,
+             mentor_id = CASE WHEN i.mentor_id = $2 THEN (
+               SELECT ip.user_id FROM initiative_participants ip
+               JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = ip.user_id
+               WHERE ip.initiative_id = i.id AND ip.role = 'MENTOR'
+               ORDER BY ip.assigned_at DESC LIMIT 1
+             ) ELSE i.mentor_id END,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE i.workspace_id = $1 AND (i.triage_owner_id = $2 OR i.mentor_id = $2)`,
+        [workspaceId, targetUserId]
+      );
+
       await client.query('COMMIT');
 
       const [removerResult, targetMemberResult] = await Promise.all([

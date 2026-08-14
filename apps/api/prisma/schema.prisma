@@ -207,6 +207,8 @@ model User {
   triageOwnedInitiatives       Initiative[]          @relation("InitiativeTriageOwner")
   mentoredInitiatives          Initiative[]          @relation("InitiativeMentor")
   initiativeParticipation      InitiativeParticipant[]
+  initiativeAssignmentsReceived InitiativeAssignmentHistory[] @relation("InitiativeAssignmentSubject")
+  initiativeAssignmentsRecorded InitiativeAssignmentHistory[] @relation("InitiativeAssignmentActor")
   projectRoleAssignments       ProjectRoleAssignment[] @relation("ProjectRoleAssignee")
   networkMemberships           NetworkMember[]
   networkAccessGrants          NetworkAccessGrant[] @relation("NetworkGrantUser")
@@ -1207,6 +1209,8 @@ model Initiative {
   priority           String         @default("MEDIUM") @db.VarChar(20)
   evidence           Json           @default("[]")
   attachments        Json           @default("[]")
+  triageCriteriaSnapshot Json      @default("[]") @map("triage_criteria_snapshot")
+  triageAssessment   Json           @default("[]") @map("triage_assessment")
   triageOwnerId      String?        @map("triage_owner_id") @db.Uuid
   mentorId           String?        @map("mentor_id") @db.Uuid
   stage              InitiativeStage @default(SUBMITTED)
@@ -1224,6 +1228,7 @@ model Initiative {
   mentor         User?                        @relation("InitiativeMentor", fields: [mentorId], references: [id], onDelete: SetNull)
   participants   InitiativeParticipant[]
   workflowHistory InitiativeWorkflowHistory[]
+  assignmentHistory InitiativeAssignmentHistory[]
   evaluations     InitiativeEvaluation[]
   formalizedProject Project?                  @relation("InitiativeFormalizedProject")
 
@@ -1265,6 +1270,25 @@ model InitiativeWorkflowHistory {
 
   @@index([initiativeId, createdAt])
   @@map("initiative_workflow_history")
+}
+
+model InitiativeAssignmentHistory {
+  id            String                    @id @default(uuid()) @db.Uuid
+  initiativeId  String                    @map("initiative_id") @db.Uuid
+  subjectUserId String?                   @map("subject_user_id") @db.Uuid
+  role          InitiativeParticipantRole
+  action        String                    @db.VarChar(20)
+  actorId       String?                   @map("actor_id") @db.Uuid
+  reason        String?
+  createdAt     DateTime                  @default(now()) @map("created_at")
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  subject    User?      @relation("InitiativeAssignmentSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  actor      User?      @relation("InitiativeAssignmentActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([initiativeId, createdAt, id])
+  @@index([subjectUserId, createdAt, id])
+  @@map("initiative_assignment_history")
 }
 
 model ProjectRoleAssignment {

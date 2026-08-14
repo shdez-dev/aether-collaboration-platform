@@ -264,6 +264,7 @@ function Sidebar({
   ];
 
   const activeProjects = sidebarProjects.filter(p => p.status !== 'ARCHIVED' && p.status !== 'COMPLETED').slice(0, 6);
+  const isInstitutionalWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.mode === 'INSTITUTIONAL';
 
   return (
     <aside className="dshScroll" style={{
@@ -393,6 +394,15 @@ function Sidebar({
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" strokeLinecap="round"/><path d="M16 6a3 3 0 0 1 0 6M18.5 19a5.5 5.5 0 0 0-3-4.9" strokeLinecap="round"/></svg>}
         />
       </div>
+
+      {isInstitutionalWorkspace && <div style={{ marginTop: '3px' }}>
+        <NavItem
+          href="/dashboard/initiatives"
+          label="Iniciativas"
+          active={!!pathname?.startsWith('/dashboard/initiatives')}
+          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><path d="M7 3.5h10A2.5 2.5 0 0 1 19.5 6v12A2.5 2.5 0 0 1 17 20.5H7A2.5 2.5 0 0 1 4.5 18V6A2.5 2.5 0 0 1 7 3.5Z"/><path d="M8 8h8M8 12h8M8 16h4" strokeLinecap="round"/></svg>}
+        />
+      </div>}
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
