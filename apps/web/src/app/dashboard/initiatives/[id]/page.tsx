@@ -235,7 +235,7 @@ export default function InitiativeDetailPage() {
           <h2 style={sectionTitle}>Diagnóstico y siguiente paso</h2>
           <div style={contentBlock}><span style={label}>Problema u oportunidad</span><p>{initiative.problemStatement || 'Aún no se ha declarado un problema u oportunidad.'}</p></div>
           <div style={contentBlock}><span style={label}>Siguiente paso</span><p>{initiative.proposedNextStep || 'Pendiente de definir por la coordinación.'}</p></div>
-          {(initiative.decision || initiative.decisionReason) && <div style={decision}><CheckCircle2 size={18} /><div><strong>{initiative.decision || 'Decisión registrada'}</strong><p>{initiative.decisionReason || 'Sin motivo adicional.'}</p></div></div>}
+          {(initiative.decision || initiative.decisionReason) && <div style={decisionStyle}><CheckCircle2 size={18} /><div><strong>{initiative.decision || 'Decisión registrada'}</strong><p>{initiative.decisionReason || 'Sin motivo adicional.'}</p></div></div>}
         </section>
 
         {!access.isExternal && triageCriteria.length > 0 && <section style={panel}>
@@ -379,7 +379,7 @@ const panel: CSSProperties = { border: '1px solid #2d3853', borderRadius: 12, pa
 const sectionTitle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, margin: '0 0 16px', fontSize: 16, color: '#f1f5f9' };
 const contentBlock: CSSProperties = { borderTop: '1px solid #29334b', padding: '13px 0 0', marginTop: 13, lineHeight: 1.58, color: '#c8d1df' };
 const label: CSSProperties = { display: 'block', color: '#8390a8', fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' };
-const decision: CSSProperties = { display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 18, padding: 13, borderRadius: 9, border: '1px solid #31563e', background: '#172b25', color: '#bde7c8' };
+const decisionStyle: CSSProperties = { display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 18, padding: 13, borderRadius: 9, border: '1px solid #31563e', background: '#172b25', color: '#bde7c8' };
 const resourceList: CSSProperties = { display: 'grid', gap: 8 };
 const resource: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: 11, border: '1px solid #2c3851', borderRadius: 9, color: '#9db4d2' };
 const iconLink: CSSProperties = { color: '#f7ae86', marginLeft: 'auto', display: 'inline-flex' };
