@@ -753,7 +753,7 @@ export class DocumentService {
       `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
       [document.workspace_id, userId],
     );
-    return membership.rowCount > 0;
+    return (membership.rowCount ?? 0) > 0;
   }
 
   /** Document administration follows project MANAGE when the document is project-bound. */
