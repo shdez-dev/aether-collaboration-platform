@@ -22,7 +22,7 @@ const dateRangeFields = {
   effectiveFrom: z.coerce.date(),
   effectiveUntil: z.coerce.date().nullable().optional(),
 };
-const dateRange = <T extends z.ZodRawShape>(shape: T) => z.object({ ...shape, ...dateRangeFields }).refine((value) => !value.effectiveUntil || value.effectiveUntil > value.effectiveFrom, {
+const dateRange = <T extends z.ZodRawShape>(shape: T) => z.object({ ...shape, ...dateRangeFields }).refine((value) => value.effectiveUntil == null || (value.effectiveFrom != null && value.effectiveUntil > value.effectiveFrom), {
   message: 'effectiveUntil must be after effectiveFrom',
 });
 const availabilityInput = dateRange({
