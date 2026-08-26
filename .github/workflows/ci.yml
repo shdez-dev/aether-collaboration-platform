@@ -61,8 +61,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run migrations against PostgreSQL
-        run: corepack pnpm --dir apps/api exec tsx -e "import { runMigrations } from './src/migrations/run-migrations.ts'; await runMigrations();"
+      - name: Apply Prisma migrations against PostgreSQL
+        run: corepack pnpm --dir apps/api run db:migrate:deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aether_ci
 

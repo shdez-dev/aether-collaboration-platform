@@ -13,7 +13,7 @@
     "dev": "turbo run dev",
     "build": "corepack pnpm --dir packages/shared-types run build && corepack pnpm --dir apps/api run build && corepack pnpm --dir apps/web run build",
     "test": "corepack pnpm --dir apps/api run test && corepack pnpm --dir apps/web run test",
-    "test:ci": "corepack pnpm --dir apps/api exec jest --testPathIgnorePatterns=integration --testPathIgnorePatterns=upload --passWithNoTests && corepack pnpm --dir apps/web exec jest --passWithNoTests",
+    "test:ci": "corepack pnpm --dir packages/shared-types run build && corepack pnpm --dir apps/api exec jest --testPathIgnorePatterns=integration --testPathIgnorePatterns=upload --passWithNoTests && corepack pnpm --dir apps/web exec jest --passWithNoTests",
     "test:watch": "turbo run test:watch",
     "test:coverage": "turbo run test:coverage",
     "test:integration": "corepack pnpm --dir apps/api run test:integration",

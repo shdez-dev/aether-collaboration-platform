@@ -190,7 +190,7 @@ export class InitiativeController {
   async getById(req: Request, res: Response) {
     const actorId = userId(req); if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
     const gate = await access(req.params.id, actorId); if (!gate || !(gate.isRequester || gate.isParticipant || gate.isCoordinator || gate.isAdmin || gate.isExternal)) return error(res, 403, 'FORBIDDEN', 'Initiative access required');
-    const externalOnly = Boolean(gate.isExternal) && !Boolean(gate.internal_member);
+    const externalOnly = gate.isExternal && !gate.internal_member;
     if (gate.isExternal) await pool.query(`INSERT INTO network_access_audits (id, network_id, user_id, resource_type, resource_id, action) SELECT gen_random_uuid(), network_id, $2, 'INITIATIVE'::"NetworkResourceType", $1, 'VIEWED_RESOURCE' FROM network_access_grants WHERE user_id = $2 AND resource_type = 'INITIATIVE' AND resource_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1`, [req.params.id, actorId]);
     const [initiative, participants, history, assignmentHistory] = await Promise.all([
       pool.query(`${initiativeSelect} WHERE i.id = $1`, [req.params.id]),
