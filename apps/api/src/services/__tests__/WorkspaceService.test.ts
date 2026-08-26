@@ -40,6 +40,7 @@ describe('WorkspaceService', () => {
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rows: [{ id: 'org-personal' }] }) // ensure personal organization
         .mockResolvedValueOnce({}) // ensure organization owner membership
+        .mockResolvedValueOnce({ rows: [{ total: 0 }] }) // current workspace usage
         .mockResolvedValueOnce({
           // INSERT workspace
           rows: [

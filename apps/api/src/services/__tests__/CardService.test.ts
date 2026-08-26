@@ -248,6 +248,7 @@ describe('CardService', () => {
             },
           ],
         })
+        .mockResolvedValueOnce({ rows: [{ board_id: 'board-1' }] }) // resolve source board
         .mockResolvedValueOnce({
           // UPDATE
           rows: [
@@ -377,6 +378,10 @@ describe('CardService', () => {
             },
           ],
         })
+        .mockResolvedValueOnce({
+          // Validate source and target lists share a board
+          rows: [{ source_board_id: 'board-1', target_board_id: 'board-1' }],
+        })
         .mockResolvedValueOnce({}) // UPDATE positions in source list
         .mockResolvedValueOnce({}) // UPDATE positions in target list
         .mockResolvedValueOnce({
@@ -427,6 +432,8 @@ describe('CardService', () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rows: [] }) // SELECT existing (not found, so can assign)
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'ws-1', project_ids: [] }] }) // card scope
+        .mockResolvedValueOnce({ rows: [{ user_id: userId }] }) // workspace membership
         .mockResolvedValueOnce({}) // INSERT into card_members
         .mockResolvedValueOnce({}); // COMMIT
 

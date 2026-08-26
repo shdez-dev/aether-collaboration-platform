@@ -22,7 +22,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:all": "corepack pnpm test && corepack pnpm test:integration && corepack pnpm test:e2e",
     "lint": "corepack pnpm --dir apps/api exec eslint src --ext .ts && corepack pnpm --dir apps/web exec next lint",
-    "typecheck": "corepack pnpm --dir packages/shared-types exec tsc --noEmit && corepack pnpm exec tsc --noEmit -p apps/api/tsconfig.json && corepack pnpm --dir apps/web exec next typegen . && corepack pnpm exec tsc --noEmit --incremental false -p apps/web/tsconfig.json",
+    "typecheck": "corepack pnpm --dir packages/shared-types run build && corepack pnpm exec tsc --noEmit -p apps/api/tsconfig.json && corepack pnpm --dir apps/web exec next typegen . && corepack pnpm exec tsc --noEmit --incremental false -p apps/web/tsconfig.json",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
     "db:migrate": "pnpm --filter @aether/api db:migrate",

@@ -9,6 +9,12 @@ jest.mock('../EventStoreService');
 
 describe('DependencyService', () => {
   let mockClient: any;
+  const sameBoardCards = (firstId: string, secondId: string) => ({
+    rows: [
+      { id: firstId, board_id: 'board-123' },
+      { id: secondId, board_id: 'board-123' },
+    ],
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -101,6 +107,7 @@ describe('DependencyService', () => {
       // Mock transaction queries
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce(sameBoardCards(blockingCardId, blockedCardId)) // scope validation
         .mockResolvedValueOnce({
           // INSERT
           rows: [
@@ -156,6 +163,10 @@ describe('DependencyService', () => {
           rows: [{ blocked_card_id: blockingCardId }], // Found cycle!
         });
 
+      mockClient.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce(sameBoardCards(blockingCardId, blockedCardId)); // scope validation
+
       await expect(
         DependencyService.addDependency(blockingCardId, blockedCardId, 'user-123')
       ).rejects.toThrow('Circular dependency detected');
@@ -171,6 +182,7 @@ describe('DependencyService', () => {
       // Mock transaction: BEGIN succeeds, INSERT fails
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce(sameBoardCards(blockingCardId, blockedCardId)) // scope validation
         .mockRejectedValueOnce(new Error('Database error')); // INSERT fails
 
       await expect(
@@ -246,6 +258,10 @@ describe('DependencyService', () => {
         rows: [{ blocked_card_id: cardB }], // A → B exists, so adding B → A creates cycle
       });
 
+      mockClient.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce(sameBoardCards(cardB, cardA)); // scope validation
+
       await expect(DependencyService.addDependency(cardB, cardA, 'user')).rejects.toThrow(
         'Circular dependency detected'
       );
@@ -266,6 +282,10 @@ describe('DependencyService', () => {
         .mockResolvedValueOnce({
           rows: [{ blocked_card_id: cardC }], // B → C exists, cycle detected!
         });
+
+      mockClient.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce(sameBoardCards(cardC, cardA)); // scope validation
 
       await expect(DependencyService.addDependency(cardC, cardA, 'user')).rejects.toThrow(
         'Circular dependency detected'
@@ -290,6 +310,7 @@ describe('DependencyService', () => {
 
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce(sameBoardCards(cardD, cardA)) // scope validation
         .mockResolvedValueOnce({
           rows: [
             {
@@ -340,6 +361,7 @@ describe('DependencyService', () => {
 
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce(sameBoardCards(cardD, cardE)) // scope validation
         .mockResolvedValueOnce({
           rows: [
             {
