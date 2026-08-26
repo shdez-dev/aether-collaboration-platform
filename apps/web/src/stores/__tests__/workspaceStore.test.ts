@@ -12,6 +12,8 @@ describe('WorkspaceStore', () => {
 
   const mockWorkspace = {
     id: 'ws-1',
+    organizationId: 'org-1',
+    mode: 'TEAM' as const,
     name: 'Test Workspace',
     description: 'Test description',
     ownerId: 'user-1',
