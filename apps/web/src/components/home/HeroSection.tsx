@@ -462,7 +462,7 @@ export function HeroSection() {
             }}
           >
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block', flexShrink: 0 }} />
-            Open source · Real-time · No vendor lock-in
+            Open source - Real-time - No vendor lock-in
           </motion.div>
 
           {/* Title */}

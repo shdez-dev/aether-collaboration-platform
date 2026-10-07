@@ -317,7 +317,7 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
           <div style={{ fontSize: '13px', color: '#827A6D', marginTop: '3px' }}>{MONTHS_ES[date.getMonth()]} {date.getFullYear()}</div>
           <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '1px' }}>
             {eventsCount === 0 ? 'Sin eventos' : `${eventsCount} ${eventsCount === 1 ? 'evento' : 'eventos'}`}
-            {isToday && <span style={{ color: '#F2571E', marginLeft: '8px' }}>· Hoy</span>}
+            {isToday && <span style={{ color: '#F2571E', marginLeft: '8px' }}>- Hoy</span>}
           </div>
         </div>
       </div>
@@ -373,7 +373,7 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
                 style={{ position: 'absolute', left: '68px', right: '8px', top: `${topPx}px`, height: `${HOUR_PX * 0.7}px`, borderRadius: '8px', background: `${color}14`, borderLeft: `3px solid ${color}`, padding: '5px 10px', cursor: 'pointer', overflow: 'hidden', zIndex: 2 }}
                 onClick={e => e.stopPropagation()}>
                 <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#E8E1D2' }}>{c.title}</div>
-                <div style={{ fontSize: '11px', color: '#8B8275', marginTop: '1px' }}>{c.boardName} · Fecha límite</div>
+                <div style={{ fontSize: '11px', color: '#8B8275', marginTop: '1px' }}>{c.boardName} - Fecha límite</div>
               </div>
             );
           })}
@@ -589,7 +589,7 @@ function EventDetailModal({ event, onClose, onDelete }: {
             />
             <DetailRow
               icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
-              text={`${fmtHM(start.getHours(), start.getMinutes())} → ${fmtHM(end.getHours(), end.getMinutes())}  ·  ${durStr}`}
+              text={`${fmtHM(start.getHours(), start.getMinutes())} → ${fmtHM(end.getHours(), end.getMinutes())}  -  ${durStr}`}
             />
             {event.description && (
               <DetailRow

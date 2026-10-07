@@ -90,6 +90,8 @@ const envSchema = z.object({
     .min(20, 'BREVO_API_KEY appears to be invalid')
     .optional()
     .default('xkeysib-placeholder-not-configured'),
+  BREVO_SMTP_LOGIN: z.string().optional(),
+  BREVO_SMTP_KEY: z.string().optional(),
   EMAIL_FROM: z
     .string()
     .email('EMAIL_FROM must be a valid email address')

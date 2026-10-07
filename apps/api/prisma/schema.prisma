@@ -183,6 +183,7 @@ model User {
   preferences                  UserPreferences?
   workspaces                   WorkspaceMember[]
   sessions                     UserSession[]
+  refreshTokens                RefreshToken[]
   createdBoards                Board[]
   createdLists                 List[]
   createdCards                 Card[]
@@ -278,6 +279,21 @@ model UserSession {
   @@index([boardId])
   @@index([socketId])
   @@map("user_sessions")
+}
+
+model RefreshToken {
+  tokenHash  String   @id @map("token_hash") @db.VarChar(64)
+  userId     String   @map("user_id") @db.Uuid
+  expiresAt  DateTime @map("expires_at")
+  revoked    Boolean  @default(false)
+  replacedBy String?  @map("replaced_by") @db.VarChar(64)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revoked])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }
 
 // ── User Favorite Contact ─────────────────────────────────────────────────────
@@ -866,6 +882,12 @@ model Project {
   status      String    @default("PLANNING") @db.VarChar(20)
   maturityStage String  @default("IDEA") @map("maturity_stage") @db.VarChar(20)
   problemStatement String? @map("problem_statement")
+  impactedPeople String? @map("impacted_people")
+  problemImpact String? @map("problem_impact")
+  impactedCount Int? @map("impacted_count")
+  expectedOutcome String? @map("expected_outcome")
+  proposedSolution String? @map("proposed_solution")
+  differentiation String?
   nextStep    String?   @map("next_step")
   startDate   DateTime? @map("start_date")
   endDate     DateTime? @map("end_date")
@@ -1342,7 +1364,7 @@ model WorkspaceInstitutionalSettings {
   intakeEnabled     Boolean  @default(true) @map("intake_enabled")
   triageCriteria    Json     @default("[]") @map("triage_criteria")
   reviewCadenceDays Int      @default(7) @map("review_cadence_days")
-  requiredInitiativeFields Json @default("[\"title\", \"problemStatement\", \"proposedNextStep\"]") @map("required_initiative_fields")
+  requiredInitiativeFields Json @default("[\"title\", \"description\", \"problemStatement\", \"impactedPeople\", \"problemImpact\", \"impactedCount\", \"expectedOutcome\", \"proposedSolution\", \"differentiation\"]") @map("required_initiative_fields")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -1363,6 +1385,12 @@ model Initiative {
   title              String         @db.VarChar(500)
   description        String?
   problemStatement   String?        @map("problem_statement")
+  impactedPeople     String?        @map("impacted_people")
+  problemImpact      String?        @map("problem_impact")
+  impactedCount      Int?           @map("impacted_count")
+  expectedOutcome    String?        @map("expected_outcome")
+  proposedSolution   String?        @map("proposed_solution")
+  differentiation   String?
   proposedNextStep   String?        @map("proposed_next_step")
   priority           String         @default("MEDIUM") @db.VarChar(20)
   evidence           Json           @default("[]")

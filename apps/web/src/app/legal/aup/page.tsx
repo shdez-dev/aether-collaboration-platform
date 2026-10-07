@@ -27,7 +27,7 @@ export default function AUPPage() {
       </nav>
 
       <main style={{ maxWidth: 800, margin: '0 auto', padding: '56px 24px 100px' }}>
-        <p style={{ fontSize: 12, color: '#615846', marginBottom: 12 }}>Legal · Aether</p>
+        <p style={{ fontSize: 12, color: '#615846', marginBottom: 12 }}>Legal - Aether</p>
         <h1 style={{ fontFamily: "'Sora', sans-serif", fontSize: 'clamp(28px, 5vw, 40px)', fontWeight: 700, color: '#F4EEE2', margin: '0 0 8px', lineHeight: 1.2 }}>
           Política de Uso Aceptable
         </h1>

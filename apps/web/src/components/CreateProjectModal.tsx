@@ -1,49 +1,18 @@
-// apps/web/src/components/CreateProjectModal.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useProjectStore, type Project, type ProjectMaturityStage } from '@/stores/projectStore';
-import { useWorkspaceStore, type WorkspaceProjectStandardDefinition } from '@/stores/workspaceStore';
-import { markStepDone } from '@/lib/utils/onboardingGuide';
-import { WorkspaceIcon, WORKSPACE_ICON_KEYS } from '@/components/WorkspaceIcon';
-import { X, Check, ChevronDown } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, FolderKanban, Plus, X } from 'lucide-react';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
+import { ProjectProposalFields, EMPTY_PROJECT_PROPOSAL, PROPOSAL_STEPS, type ProjectProposalAnswers, type ProposalStep } from '@/components/ProjectProposalFields';
 import { useT } from '@/lib/i18n';
-import { C } from '@/lib/colors';
+import { useProjectStore, type Project } from '@/stores/projectStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { markStepDone } from '@/lib/utils/onboardingGuide';
 
-const SORA    = "'Sora', system-ui, sans-serif";
+const PROJECT_COLOR = '#F2571E';
+const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
-
-const TWO_COLUMN_GRID = 'repeat(auto-fit, minmax(220px, 1fr))';
-const PANEL_GRID = 'repeat(auto-fit, minmax(250px, 1fr))';
-const METRIC_GRID = 'repeat(auto-fit, minmax(135px, 1fr))';
-
-const COLORS = [
-  '#F2571E', '#DB8A66', '#76A878', '#4B607F',
-  '#9C9486', '#B85C5C', '#7B8FA8', '#C4A86E',
-];
-
-const DEFAULT_STANDARD: WorkspaceProjectStandardDefinition = {
-  requiredProjectFields: ['problemStatement', 'nextStep'],
-  requiredChecklist: ['owner', 'problem', 'team', 'board', 'milestone', 'nextStep'],
-  minimumMaturityForPlanning: 'FORMALIZED',
-  intakeStages: ['IDEA', 'DRAFT'],
-  targetLabels: {
-    intake: 'Intake',
-    formalized: 'Formalizado',
-    execution: 'Operacion',
-  },
-};
-
-const MATURITY_LABELS: Record<ProjectMaturityStage, string> = {
-  IDEA: 'Idea',
-  DRAFT: 'Borrador',
-  FORMALIZED: 'Formalizado',
-  PLANNED: 'Planificado',
-  ACTIVE: 'Activo',
-  ON_HOLD: 'En pausa',
-  COMPLETED: 'Completado',
-  ARCHIVED: 'Archivado',
-};
 
 interface CreateProjectModalProps {
   onClose: () => void;
@@ -53,584 +22,189 @@ interface CreateProjectModalProps {
 
 export default function CreateProjectModal({ onClose, onCreated, defaultWorkspaceId }: CreateProjectModalProps) {
   const t = useT();
-  const { createProject } = useProjectStore();
-  const { workspaces, fetchWorkspaces, currentProjectStandard, fetchProjectStandard } = useWorkspaceStore();
+  const createProject = useProjectStore((state) => state.createProject);
+  const workspaces = useWorkspaceStore((state) => state.workspaces);
+  const fetchWorkspaces = useWorkspaceStore((state) => state.fetchWorkspaces);
+  const projectWorkspaces = useMemo(() => workspaces.filter((workspace) => !workspace.archived && workspace.organization?.type !== 'INSTITUTION'), [workspaces]);
 
-  const [name,             setName]             = useState('');
-  const [description,      setDescription]      = useState('');
-  const [problemStatement, setProblemStatement] = useState('');
-  const [nextStep,         setNextStep]         = useState('');
-  const [maturityStage,    setMaturityStage]    = useState<ProjectMaturityStage>('IDEA');
-  const [selectedIcon,     setSelectedIcon]     = useState(WORKSPACE_ICON_KEYS[3]);
-  const [selectedColor,    setSelectedColor]    = useState(COLORS[0]);
-  const [selectedWsId,     setSelectedWsId]     = useState(defaultWorkspaceId ?? '');
-  const [startDate,      setStartDate]      = useState('');
-  const [endDate,        setEndDate]        = useState('');
-  const [isLoading,      setIsLoading]      = useState(false);
-  const [error,          setError]          = useState('');
-  const [closing,        setClosing]        = useState(false);
-  const [showIconPicker, setShowIconPicker] = useState(false);
-  const [showWsPicker,   setShowWsPicker]   = useState(false);
+  const [proposal, setProposal] = useState<ProjectProposalAnswers>(EMPTY_PROJECT_PROPOSAL);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
+  const [step, setStep] = useState<ProposalStep>(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [closing, setClosing] = useState(false);
 
-  useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
+  useEffect(() => { void fetchWorkspaces(); }, [fetchWorkspaces]);
 
   useEffect(() => {
-    if (selectedWsId) {
-      fetchProjectStandard(selectedWsId);
-    }
-  }, [selectedWsId, fetchProjectStandard]);
-
-  // Sync selected workspace when workspaces load or defaultWorkspaceId arrives late
-  useEffect(() => {
-    if (defaultWorkspaceId && (!selectedWsId || !workspaces.find((w) => w.id === selectedWsId))) {
-      setSelectedWsId(defaultWorkspaceId);
-    }
-  }, [defaultWorkspaceId, workspaces, selectedWsId]);
-
-  const activeStandard = currentProjectStandard?.workspaceId === selectedWsId
-    ? currentProjectStandard
-    : null;
-  const standardDefinition = activeStandard?.definition ?? DEFAULT_STANDARD;
-
-  useEffect(() => {
-    if (!standardDefinition.intakeStages.includes(maturityStage as 'IDEA' | 'DRAFT')) {
-      setMaturityStage(standardDefinition.intakeStages[0] ?? 'IDEA');
-    }
-  }, [standardDefinition, maturityStage]);
-
-  const inputFieldStatus = {
-    description: Boolean(description.trim()),
-    problemStatement: Boolean(problemStatement.trim()),
-    nextStep: Boolean(nextStep.trim()),
-    startDate: Boolean(startDate),
-    endDate: Boolean(endDate),
-    owner: true,
-    problem: Boolean(problemStatement.trim()),
-    team: false,
-    board: false,
-    milestone: false,
-  };
-
-  const requiredNow = [
-    ...standardDefinition.requiredProjectFields,
-    ...standardDefinition.requiredChecklist.filter((item) => item === 'problem' || item === 'nextStep'),
-  ];
-
-  const unmetRequiredNow = Array.from(new Set(requiredNow)).filter((item) => {
-    if (item === 'problemStatement' || item === 'problem') return !inputFieldStatus.problemStatement;
-    if (item === 'nextStep') return !inputFieldStatus.nextStep;
-    if (item === 'description') return !inputFieldStatus.description;
-    if (item === 'startDate') return !inputFieldStatus.startDate;
-    if (item === 'endDate') return !inputFieldStatus.endDate;
-    return false;
-  });
-
-  const postCreateChecklist = standardDefinition.requiredChecklist.map((item) => {
-    const done =
-      item === 'owner' ? true :
-      item === 'problem' ? inputFieldStatus.problem :
-      item === 'nextStep' ? inputFieldStatus.nextStep :
-      false;
-
-    const label =
-      item === 'owner' ? 'Responsable definido' :
-      item === 'problem' ? 'Problema u oportunidad' :
-      item === 'team' ? 'Equipo o miembros asignados' :
-      item === 'board' ? 'Tablero de ejecucion' :
-      item === 'milestone' ? 'Hito proximo declarado' :
-      item === 'document' ? 'Documento base o evidencia' :
-      'Siguiente paso explicito';
-
-    const hint =
-      item === 'owner' ? 'Se asigna automaticamente al crear.' :
-      item === 'problem' ? 'Puedes dejarlo listo desde este formulario.' :
-      item === 'team' ? 'Se completa vinculando miembros o equipos.' :
-      item === 'board' ? 'Se completa creando o enlazando un tablero.' :
-      item === 'milestone' ? 'Se completa agregando el primer hito.' :
-      item === 'document' ? 'Se completa creando o vinculando un documento.' :
-      'Puedes dejarlo listo desde este formulario.';
-
-    return { key: item, label, hint, done };
-  });
-
-  const handleClose = () => {
-    if (isLoading) return;
-    setClosing(true);
-    setTimeout(onClose, 200);
-  };
-
-  const handleSubmit = async () => {
-    if (!name.trim())  { setError(t.create_ws_validation_name); return; }
-    if (!selectedWsId) { setError('Selecciona una workspace'); return; }
-    if (unmetRequiredNow.length > 0) {
-      setError('Completa los campos obligatorios del estandar antes de crear el proyecto.');
+    if (!projectWorkspaces.length) {
+      setSelectedWorkspaceId('');
       return;
     }
+    const requested = projectWorkspaces.find((workspace) => workspace.id === defaultWorkspaceId);
+    if (requested) {
+      if (selectedWorkspaceId !== requested.id) setSelectedWorkspaceId(requested.id);
+      return;
+    }
+    if (projectWorkspaces.some((workspace) => workspace.id === selectedWorkspaceId)) return;
+    setSelectedWorkspaceId(projectWorkspaces.length === 1 ? projectWorkspaces[0].id : '');
+  }, [projectWorkspaces, defaultWorkspaceId, selectedWorkspaceId]);
+
+  const selectedWorkspace = projectWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId);
+  const hasInstitutionalWorkspace = workspaces.some((workspace) => !workspace.archived && workspace.organization?.type === 'INSTITUTION');
+  const canSubmit = Boolean(selectedWorkspace && proposal.title.trim() && !isLoading);
+
+  const handleClose = () => {
+    if (isLoading || closing) return;
+    setClosing(true);
+    window.setTimeout(onClose, 180);
+  };
+
+  const updateProposal = (key: keyof ProjectProposalAnswers, value: string) => {
+    setProposal((current) => ({ ...current, [key]: value }));
+    if (error) setError('');
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (step < 2) {
+      setStep((current) => (current + 1) as ProposalStep);
+      return;
+    }
+    if (!selectedWorkspace) {
+      setError('Selecciona un espacio personal o de equipo para crear el proyecto.');
+      return;
+    }
+
     setError('');
     setIsLoading(true);
     try {
       const project = await createProject({
-        workspaceId: selectedWsId,
-        name: name.trim(),
-        description: description.trim() || undefined,
-        problemStatement: problemStatement.trim() || undefined,
-        nextStep: nextStep.trim() || undefined,
-        maturityStage,
-        icon: selectedIcon,
-        color: selectedColor,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
+        workspaceId: selectedWorkspace.id,
+        name: proposal.title.trim(),
+        description: proposal.summary.trim(),
+        problemStatement: proposal.problemStatement.trim(),
+        impactedPeople: proposal.impactedPeople.trim(),
+        problemImpact: proposal.problemImpact.trim(),
+        impactedCount: Number(proposal.impactedCount),
+        expectedOutcome: proposal.expectedOutcome.trim(),
+        proposedSolution: proposal.proposedSolution.trim(),
+        differentiation: proposal.differentiation.trim(),
+        maturityStage: 'IDEA',
+        icon: 'Folder',
+        color: PROJECT_COLOR,
       });
       markStepDone('project');
       onCreated(project);
-    } catch (e: any) {
-      setError(e.message || 'Error al crear proyecto');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo crear el proyecto. Inténtalo de nuevo.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const selectedWs = workspaces.find((w) => w.id === selectedWsId);
-
-  // ── shared input base ─────────────────────────────────────────────────────
-  const inputBase: React.CSSProperties = {
-    width: '100%', padding: '9px 13px', borderRadius: '9px',
-    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.09)',
-    color: '#F4EEE2', fontSize: '13.5px', outline: 'none', boxSizing: 'border-box',
-    fontFamily: MANROPE, transition: 'border-color 0.15s',
-  };
-
-  // ── field label helper ────────────────────────────────────────────────────
-  const FL = ({ children }: { children: React.ReactNode }) => (
-    <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA, display: 'block', marginBottom: '7px' }}>
-      {children}
-    </span>
-  );
-
   return (
     <>
       <style>{`
-        @keyframes cpOvIn  { from { opacity:0 } to { opacity:1 } }
-        @keyframes cpOvOut { from { opacity:1 } to { opacity:0 } }
-        @keyframes cpPnIn  { from { opacity:0; transform:translateY(18px) scale(0.96) } to { opacity:1; transform:translateY(0) scale(1) } }
-        @keyframes cpPnOut { from { opacity:1; transform:translateY(0) scale(1) } to { opacity:0; transform:translateY(10px) scale(0.98) } }
-        @keyframes cpSpin  { to { transform:rotate(360deg) } }
-        .cp-scroll { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent; }
-        .cp-scroll::-webkit-scrollbar { width:4px; }
-        .cp-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
-        .cp-input::placeholder { color:#403832; }
+        @keyframes createProjectOverlayIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes createProjectOverlayOut { from { opacity: 1 } to { opacity: 0 } }
+        @keyframes createProjectPanelIn { from { opacity: 0; transform: translateY(12px) scale(.985) } to { opacity: 1; transform: translateY(0) scale(1) } }
+        @keyframes createProjectPanelOut { from { opacity: 1; transform: translateY(0) scale(1) } to { opacity: 0; transform: translateY(6px) scale(.99) } }
+        @keyframes createProjectSpin { to { transform: rotate(360deg) } }
+        .create-project-input::placeholder { color: #777365; }
+        .create-project-action:hover:not(:disabled) { filter: brightness(1.07); }
+        @media (prefers-reduced-motion: reduce) {
+          .create-project-overlay, .create-project-panel { animation-duration: .01ms !important; }
+        }
       `}</style>
 
-      {/* Overlay */}
       <div
+        className="create-project-overlay"
         onClick={handleClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 50,
-          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-          animation: `${closing ? 'cpOvOut' : 'cpOvIn'} 0.22s ease forwards`,
-        }}
-      />
-
-      {/* Center positioner */}
-      <div
-        onClick={handleClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 51, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(5,8,15,0.68)', backdropFilter: 'blur(5px)', animation: `${closing ? 'createProjectOverlayOut' : 'createProjectOverlayIn'} 180ms ease both` }}
       >
-        {/* Panel */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            width: '720px', maxWidth: '96vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column',
-            background: '#171E30', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '12px', overflow: 'hidden',
-            boxShadow: '0 40px 90px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.03) inset',
-            animation: `${closing ? 'cpPnOut 0.18s ease forwards' : 'cpPnIn 0.35s cubic-bezier(0.16,1,0.3,1) both'}`,
-          }}
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-project-title"
+          onClick={(event) => event.stopPropagation()}
+          className="create-project-panel"
+          style={{ width: '100%', maxWidth: 560, maxHeight: 'min(92vh, 790px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, background: '#171E30', boxShadow: '0 32px 90px rgba(0,0,0,0.56)', animation: `${closing ? 'createProjectPanelOut' : 'createProjectPanelIn'} 220ms cubic-bezier(.2,.75,.25,1) both` }}
         >
-
-          {/* ── Header ──────────────────────────────────────────────────── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '16px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '9px', flexShrink: 0,
-              background: `${selectedColor}20`, border: `1px solid ${selectedColor}45`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background 0.2s, border-color 0.2s',
-            }}>
-              <WorkspaceIcon icon={selectedIcon} style={{ width: '16px', height: '16px', color: selectedColor }} />
+          <header style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '22px 24px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 12, color: PROJECT_COLOR, background: 'rgba(242,87,30,0.1)', border: '1px solid rgba(242,87,30,0.2)' }}><FolderKanban size={19} strokeWidth={1.8} /></div>
+            <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
+              <h2 id="create-project-title" style={{ margin: 0, color: '#F4EEE2', fontSize: 19, lineHeight: 1.3, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: SORA }}>Crear proyecto</h2>
+              <p style={{ margin: '5px 0 0', color: '#9C9486', fontSize: 13, lineHeight: 1.5, fontFamily: MANROPE }}>Contexto, impacto y propuesta en tres pasos.</p>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
-                Crear proyecto
-              </div>
-              <div style={{ marginTop: '3px', fontSize: '12px', color: '#827A6D', lineHeight: 1.4, fontFamily: MANROPE }}>
-                Convierte una idea en un proyecto con el mínimo explícito que pide este workspace.
-              </div>
-            </div>
-            <button
-              onClick={handleClose}
-              style={{ width: '26px', height: '26px', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', color: '#615846', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s', flexShrink: 0 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.15)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#615846'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
-            >
-              <X style={{ width: '13px', height: '13px' }} />
-            </button>
-          </div>
+            <button type="button" onClick={handleClose} aria-label="Cerrar" disabled={isLoading} style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, color: '#9C9486', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', cursor: isLoading ? 'not-allowed' : 'pointer' }}><X size={16} /></button>
+          </header>
 
-          {/* ── Body ────────────────────────────────────────────────────── */}
-          <div className="cp-scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                {/* Icono + Color */}
-                <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start', flexWrap: 'wrap', padding: '14px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-
-                  {/* Icon picker */}
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <FL>{t.create_ws_label_icon}</FL>
-                    <button
-                      onClick={() => { setShowIconPicker((v) => !v); setShowWsPicker(false); }}
-                      style={{ width: '48px', height: '48px', borderRadius: '11px', background: `${selectedColor}18`, border: `1.5px solid ${selectedColor}45`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s, border-color 0.15s' }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `${selectedColor}28`; (e.currentTarget as HTMLElement).style.borderColor = `${selectedColor}70`; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `${selectedColor}18`; (e.currentTarget as HTMLElement).style.borderColor = `${selectedColor}45`; }}
-                    >
-                      <WorkspaceIcon icon={selectedIcon} style={{ width: '22px', height: '22px', color: selectedColor }} />
-                    </button>
-                    {showIconPicker && (
-                      <div
-                        className="cp-scroll"
-                        style={{ position: 'absolute', top: '56px', left: 0, width: '218px', maxHeight: '178px', overflowY: 'auto', background: '#141928', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', boxShadow: '0 16px 40px rgba(0,0,0,0.6)', zIndex: 10, padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px' }}
-                      >
-                        {WORKSPACE_ICON_KEYS.map((key) => (
-                          <button
-                            key={key}
-                            onClick={() => { setSelectedIcon(key); setShowIconPicker(false); }}
-                            style={{ width: '28px', height: '28px', borderRadius: '6px', background: selectedIcon === key ? `${selectedColor}28` : 'transparent', border: `1px solid ${selectedIcon === key ? `${selectedColor}50` : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}
-                            title={key}
-                          >
-                            <WorkspaceIcon icon={key} style={{ width: '14px', height: '14px', color: selectedIcon === key ? selectedColor : '#615846' }} />
-                          </button>
-                        ))}
-                      </div>
-                    )}
+          <form onSubmit={handleSubmit} style={{ minHeight: 0, display: 'flex', flex: 1, flexDirection: 'column' }}>
+            <div style={{ padding: '18px 24px 10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }} aria-label="Pasos para crear proyecto">
+                {PROPOSAL_STEPS.map((item, index) => (
+                  <div key={item.title} aria-current={index === step ? 'step' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, padding: '8px 9px', borderRadius: 9, border: `1px solid ${index === step ? 'rgba(242,87,30,0.34)' : 'rgba(255,255,255,0.07)'}`, background: index === step ? 'rgba(242,87,30,0.09)' : 'transparent' }}>
+                    <span style={{ width: 22, height: 22, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 99, color: index <= step ? PROJECT_COLOR : '#777365', background: index <= step ? 'rgba(242,87,30,0.12)' : 'rgba(255,255,255,0.04)', fontSize: 10, fontWeight: 800 }}>{index < step ? <Check size={12} /> : `0${index + 1}`}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', color: index === step ? '#F4EEE2' : '#9C9486', fontSize: 11, fontWeight: 700 }}>{item.title}</span>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  {/* Color */}
-                  <div style={{ flex: '1 1 260px', minWidth: 0 }}>
-                    <FL>{t.create_ws_label_color}</FL>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
-                      {COLORS.map((color) => {
-                        const active = selectedColor === color;
-                        return (
-                          <button
-                            key={color}
-                            onClick={() => setSelectedColor(color)}
-                            style={{ width: '26px', height: '26px', borderRadius: '50%', background: color, cursor: 'pointer', border: 'none', outline: `2px solid ${active ? 'rgba(255,255,255,0.35)' : 'transparent'}`, outlineOffset: '2px', transform: active ? 'scale(1.16)' : 'scale(1)', transition: 'transform 0.14s, outline 0.14s', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                          >
-                            {active && <Check style={{ width: '11px', height: '11px', color: '#fff' }} />}
-                          </button>
-                        );
-                      })}
+            <div style={{ minHeight: 0, padding: '8px 24px 24px', overflowY: 'auto' }}>
+              <div style={{ marginBottom: 18 }}>
+                <h3 style={{ margin: '4px 0 5px', color: '#F4EEE2', fontFamily: SORA, fontSize: 16, letterSpacing: '-0.02em' }}>{PROPOSAL_STEPS[step].title}</h3>
+                <p style={{ margin: 0, color: '#9C9486', fontSize: 12, lineHeight: 1.5 }}>{PROPOSAL_STEPS[step].description}</p>
+              </div>
+
+              {step === 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <label htmlFor="create-project-workspace" style={{ display: 'block', marginBottom: 8, color: '#C8BFAE', fontSize: 12, fontWeight: 700, fontFamily: MANROPE }}>Espacio de trabajo <span style={{ color: PROJECT_COLOR }}>*</span></label>
+                  {projectWorkspaces.length > 1 ? (
+                    <div style={{ position: 'relative' }}>
+                      <select id="create-project-workspace" required value={selectedWorkspaceId} onChange={(event) => { setSelectedWorkspaceId(event.target.value); if (error) setError(''); }} className="create-project-input" style={{ width: '100%', height: 46, boxSizing: 'border-box', appearance: 'none', padding: '0 42px 0 13px', borderRadius: 9, background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.1)', color: '#F4EEE2', colorScheme: 'dark', fontSize: 13, fontFamily: MANROPE }}>
+                        <option value="" disabled>Selecciona dónde guardar el proyecto</option>
+                        {projectWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
+                      </select>
+                      <ChevronDown size={16} aria-hidden="true" style={{ position: 'absolute', top: 15, right: 13, color: '#9C9486', pointerEvents: 'none' }} />
                     </div>
-                  </div>
-                </div>
-
-                {/* Nombre */}
-                <div>
-                  <FL>{t.projects_config_name} *</FL>
-                  <input
-                    autoFocus
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
-                    placeholder={t.projects_config_name}
-                    className="cp-input"
-                    style={{ ...inputBase, borderColor: error && !name.trim() ? '#B85C5C' : 'rgba(255,255,255,0.09)' }}
-                    onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                    onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = error && !name.trim() ? '#B85C5C' : 'rgba(255,255,255,0.09)')}
-                  />
-                </div>
-
-                {/* Workspace */}
-                <div>
-                  <FL>Workspace *</FL>
-                  <button
-                    onClick={() => { setShowWsPicker((v) => !v); setShowIconPicker(false); }}
-                    style={{ ...inputBase, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left', borderColor: error && !selectedWsId ? '#B85C5C' : showWsPicker ? selectedColor : 'rgba(255,255,255,0.09)' }}
-                    onMouseEnter={(e) => { if (!showWsPicker) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                    onMouseLeave={(e) => { if (!showWsPicker) (e.currentTarget as HTMLElement).style.borderColor = error && !selectedWsId ? '#B85C5C' : 'rgba(255,255,255,0.09)'; }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {selectedWs ? (
-                        <>
-                          <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: `${selectedWs.color ?? C.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <WorkspaceIcon icon={selectedWs.icon ?? 'Folder'} style={{ width: '10px', height: '10px', color: selectedWs.color ?? C.accent }} />
-                          </div>
-                          <span style={{ fontSize: '13.5px', color: '#C8BFAE', fontFamily: MANROPE }}>{selectedWs.name}</span>
-                        </>
-                      ) : (
-                        <span style={{ fontSize: '13.5px', color: '#403832', fontFamily: MANROPE }}>Selecciona una workspace…</span>
-                      )}
-                    </span>
-                    <ChevronDown style={{ width: '13px', height: '13px', color: '#615846', transition: 'transform 0.15s', transform: showWsPicker ? 'rotate(180deg)' : 'none', flexShrink: 0 }} />
-                  </button>
-
-                  {showWsPicker && workspaces.filter((w) => !w.archived).length > 0 && (
-                    <div className="cp-scroll" style={{ marginTop: '4px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '150px', overflowY: 'auto', background: '#141928', boxShadow: '0 10px 28px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-                      {workspaces.filter((w) => !w.archived).map((ws) => {
-                        const sel = ws.id === selectedWsId;
-                        return (
-                          <button
-                            key={ws.id}
-                            onClick={() => { setSelectedWsId(ws.id); setShowWsPicker(false); }}
-                            style={{ width: '100%', padding: '9px 12px', background: sel ? `${selectedColor}14` : 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '9px', cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s' }}
-                            onMouseEnter={(e) => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = sel ? `${selectedColor}14` : 'transparent'; }}
-                          >
-                            <div style={{ width: '22px', height: '22px', borderRadius: '6px', background: `${ws.color ?? C.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <WorkspaceIcon icon={ws.icon ?? 'Folder'} style={{ width: '11px', height: '11px', color: ws.color ?? C.accent }} />
-                            </div>
-                            <span style={{ flex: 1, fontSize: '13px', color: sel ? '#F4EEE2' : '#9C9486', fontFamily: MANROPE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
-                            {sel && <Check style={{ width: '13px', height: '13px', color: selectedColor, flexShrink: 0 }} />}
-                          </button>
-                        );
-                      })}
+                  ) : selectedWorkspace ? (
+                    <div style={{ minHeight: 46, display: 'flex', alignItems: 'center', gap: 11, padding: '0 13px', borderRadius: 9, background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <span style={{ width: 27, height: 27, display: 'grid', placeItems: 'center', flexShrink: 0, borderRadius: 8, color: selectedWorkspace.color ?? PROJECT_COLOR, background: `${selectedWorkspace.color ?? PROJECT_COLOR}1A` }}><WorkspaceIcon icon={selectedWorkspace.icon ?? 'Folder'} style={{ width: 14, height: 14 }} /></span>
+                      <span style={{ minWidth: 0, flex: 1, color: '#E8E1D2', fontSize: 13, fontWeight: 600, fontFamily: MANROPE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedWorkspace.name}</span>
+                      <Check size={16} aria-label="Espacio seleccionado" style={{ color: PROJECT_COLOR, flexShrink: 0 }} />
+                    </div>
+                  ) : (
+                    <div style={{ minHeight: 46, display: 'flex', alignItems: 'center', padding: '10px 13px', borderRadius: 9, color: '#9C9486', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 12, lineHeight: 1.45, fontFamily: MANROPE }}>
+                      No hay espacios personales o de equipo disponibles para crear proyectos.
                     </div>
                   )}
                 </div>
-
-                <div style={{
-                  padding: '14px 16px',
-                  borderRadius: '10px',
-                  background: 'rgba(255,255,255,0.025)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#F4EEE2', fontFamily: SORA }}>
-                        {activeStandard ? `${activeStandard.name} · v${activeStandard.version}` : 'Aether Core Standard'}
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: '#9C9486', marginTop: '4px', lineHeight: 1.45, fontFamily: MANROPE }}>
-                        Mínimo para planificar: {MATURITY_LABELS[standardDefinition.minimumMaturityForPlanning]}.
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {standardDefinition.intakeStages.map((stage) => (
-                        <span
-                          key={stage}
-                          style={{
-                            fontSize: '10.5px',
-                            fontWeight: 700,
-                            color: stage === maturityStage ? '#24180A' : '#C8BFAE',
-                            background: stage === maturityStage ? '#F2571E' : 'rgba(255,255,255,0.05)',
-                            borderRadius: '999px',
-                            padding: '5px 9px',
-                            fontFamily: SORA,
-                          }}
-                        >
-                          {MATURITY_LABELS[stage]}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: METRIC_GRID, gap: '10px', marginTop: '12px' }}>
-                    {[
-                      { label: 'Checks base', value: String(standardDefinition.requiredChecklist.length) },
-                      { label: 'Campos', value: String(standardDefinition.requiredProjectFields.length) },
-                      { label: 'Pendientes', value: String(postCreateChecklist.filter((item) => !item.done).length) },
-                    ].map((item) => (
-                      <div key={item.label} style={{ padding: '9px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', fontFamily: SORA, textTransform: 'uppercase' }}>
-                          {item.label}
-                        </div>
-                        <div style={{ marginTop: '5px', fontSize: '16px', fontWeight: 700, color: '#E8E1D2', fontFamily: SORA }}>
-                          {item.value}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: TWO_COLUMN_GRID, gap: '12px' }}>
-                  <div>
-                    <FL>Madurez inicial</FL>
-                    <select
-                      value={maturityStage}
-                      onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
-                      className="cp-input"
-                      style={{ ...inputBase, color: '#C8BFAE', colorScheme: 'dark', cursor: 'pointer' }}
-                      onFocus={(e) => ((e.currentTarget as HTMLSelectElement).style.borderColor = selectedColor)}
-                      onBlur={(e)  => ((e.currentTarget as HTMLSelectElement).style.borderColor = 'rgba(255,255,255,0.09)')}
-                    >
-                      {standardDefinition.intakeStages.map((stage) => (
-                        <option key={stage} value={stage}>{MATURITY_LABELS[stage]}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <FL>Siguiente paso{standardDefinition.requiredProjectFields.includes('nextStep') || standardDefinition.requiredChecklist.includes('nextStep') ? ' *' : ''}</FL>
-                    <input
-                      value={nextStep}
-                      onChange={(e) => setNextStep(e.target.value)}
-                      placeholder="Ej: definir equipo base"
-                      className="cp-input"
-                      style={{ ...inputBase, borderColor: unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                      onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                      onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('nextStep') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-                    />
-                  </div>
-                </div>
-
-                {/* Descripción */}
-                <div>
-                  <FL>{t.projects_config_desc}{standardDefinition.requiredProjectFields.includes('description') ? ' *' : ''}</FL>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Descripción opcional…"
-                    rows={2}
-                    className="cp-input"
-                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6 }}
-                    onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
-                    onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)')}
-                  />
-                </div>
-
-                <div>
-                  <FL>Problema u oportunidad{standardDefinition.requiredProjectFields.includes('problemStatement') || standardDefinition.requiredChecklist.includes('problem') ? ' *' : ''}</FL>
-                  <textarea
-                    value={problemStatement}
-                    onChange={(e) => setProblemStatement(e.target.value)}
-                    placeholder="Qué se quiere resolver y por qué importa"
-                    rows={3}
-                    className="cp-input"
-                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, borderColor: unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                    onFocus={(e) => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = selectedColor)}
-                    onBlur={(e)  => ((e.currentTarget as HTMLTextAreaElement).style.borderColor = unmetRequiredNow.includes('problemStatement') || unmetRequiredNow.includes('problem') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-                  />
-                </div>
-
-                {/* Fechas */}
-                <div style={{ display: 'grid', gridTemplateColumns: TWO_COLUMN_GRID, gap: '12px' }}>
-                  <div>
-                    <FL>{t.projects_config_start}{standardDefinition.requiredProjectFields.includes('startDate') ? ' *' : ''}</FL>
-                    <input
-                      type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                      className="cp-input"
-                      style={{ ...inputBase, color: startDate ? '#C8BFAE' : '#403832', colorScheme: 'dark', borderColor: unmetRequiredNow.includes('startDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                      onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                      onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('startDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-                    />
-                  </div>
-                  <div>
-                    <FL>{t.projects_config_end}{standardDefinition.requiredProjectFields.includes('endDate') ? ' *' : ''}</FL>
-                    <input
-                      type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                      className="cp-input"
-                      style={{ ...inputBase, color: endDate ? '#C8BFAE' : '#403832', colorScheme: 'dark', borderColor: unmetRequiredNow.includes('endDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)' }}
-                      onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = selectedColor)}
-                      onBlur={(e)  => ((e.currentTarget as HTMLInputElement).style.borderColor = unmetRequiredNow.includes('endDate') ? '#C4A86E' : 'rgba(255,255,255,0.09)')}
-                    />
-                  </div>
-                </div>
-
-                {/* Error */}
-                {error && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 13px', borderRadius: '8px', background: 'rgba(184,92,92,0.1)', border: '1px solid rgba(184,92,92,0.25)' }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#B85C5C" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#B85C5C" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                    <span style={{ fontSize: '12px', color: '#B85C5C', fontFamily: MANROPE }}>{error}</span>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: PANEL_GRID, gap: '14px' }}>
-                <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA }}>
-                    Debe quedar explícito hoy
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-                    {requiredNow.length > 0 ? Array.from(new Set(requiredNow)).map((item) => {
-                      const done = !unmetRequiredNow.includes(item);
-                      const label =
-                        item === 'description' ? 'Descripcion general' :
-                        item === 'problemStatement' || item === 'problem' ? 'Problema u oportunidad' :
-                        item === 'nextStep' ? 'Siguiente paso' :
-                        item === 'startDate' ? 'Fecha de inicio' :
-                        'Fecha de cierre';
-                      return (
-                        <div key={item} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                          <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>{label}</span>
-                          <span style={{ fontSize: '10.5px', fontWeight: 700, color: done ? '#76A878' : '#C4A86E', letterSpacing: '0.04em' }}>
-                            {done ? 'LISTO' : 'FALTA'}
-                          </span>
-                        </div>
-                      );
-                    }) : (
-                      <span style={{ fontSize: '11.5px', color: '#9C9486' }}>Sin campos obligatorios adicionales.</span>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', fontFamily: SORA }}>
-                    Lo siguiente después de crear
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
-                    {postCreateChecklist.filter((item) => !item.done).length > 0 ? postCreateChecklist.filter((item) => !item.done).map((item) => (
-                      <div key={item.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#9C9486', fontSize: '12px', lineHeight: 1.45 }}>
-                        <span style={{ width: '16px', height: '16px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#615846', fontSize: '10px' }}>•</span>
-                        <span><strong style={{ color: '#C8BFAE' }}>{item.label}:</strong> {item.hint}</span>
-                      </div>
-                    )) : (
-                      <span style={{ fontSize: '11.5px', color: '#76A878' }}>Este intake ya deja la formalizacion muy encaminada.</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Footer ──────────────────────────────────────────────────── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap', padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, background: 'rgba(255,255,255,0.015)' }}>
-            <button
-              onClick={handleClose} disabled={isLoading}
-              style={{ height: '36px', padding: '0 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#9C9486', cursor: 'pointer', fontFamily: MANROPE, transition: 'all 0.12s' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; }}
-            >
-              {t.btn_cancel}
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={isLoading || !name.trim() || !selectedWsId}
-              style={{
-                height: '36px', padding: '0 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
-                background: isLoading || !name.trim() || !selectedWsId ? 'rgba(242,87,30,0.3)' : '#F2571E',
-                color: isLoading || !name.trim() || !selectedWsId ? 'rgba(255,255,255,0.3)' : '#24180A',
-                border: 'none', cursor: isLoading || !name.trim() || !selectedWsId ? 'not-allowed' : 'pointer',
-                fontFamily: SORA, transition: 'filter 0.12s',
-                display: 'flex', alignItems: 'center', gap: '7px',
-              }}
-              onMouseEnter={(e) => { if (!isLoading && name.trim() && selectedWsId) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ''; }}
-            >
-              {isLoading ? (
-                <>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: '2px solid rgba(36,24,10,0.3)', borderTopColor: '#24180A', animation: 'cpSpin 0.6s linear infinite' }} />
-                  {t.btn_creating}
-                </>
-              ) : (
-                <>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
-                  </svg>
-                  {t.projects_btn_create}
-                </>
               )}
-            </button>
-          </div>
 
-        </div>
+              {projectWorkspaces.length > 0 ? <ProjectProposalFields step={step} values={proposal} onChange={updateProposal} accent={PROJECT_COLOR} /> : (
+                <div style={{ padding: '16px', borderRadius: 11, border: '1px solid rgba(242,87,30,0.2)', background: 'rgba(242,87,30,0.06)' }}>
+                  <p style={{ margin: '0 0 12px', color: '#D8D1C5', fontSize: 13, lineHeight: 1.55 }}>En una organización institucional, las propuestas pasan por la bandeja de iniciativas antes de convertirse en proyectos.</p>
+                  {hasInstitutionalWorkspace && <Link href="/dashboard/initiatives/new" onClick={handleClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: PROJECT_COLOR, fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>Crear iniciativa institucional <ArrowRight size={14} /></Link>}
+                </div>
+              )}
+
+              {error && <p role="alert" style={{ margin: '16px 0 0', padding: '10px 12px', borderRadius: 9, color: '#F2A19A', background: 'rgba(184,92,92,0.1)', border: '1px solid rgba(184,92,92,0.24)', fontSize: 12.5, lineHeight: 1.45, fontFamily: MANROPE }}>{error}</p>}
+            </div>
+
+            <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.015)' }}>
+              <span style={{ color: '#777365', fontSize: 11.5, lineHeight: 1.4, fontFamily: MANROPE }}>Paso {step + 1} de 3</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
+                {step > 0 && <button type="button" onClick={() => setStep((current) => (current - 1) as ProposalStep)} disabled={isLoading} style={{ height: 40, padding: '0 14px', borderRadius: 9, color: '#C8BFAE', background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}><ArrowLeft size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Anterior</button>}
+                {step === 0 && <button type="button" onClick={handleClose} disabled={isLoading} style={{ height: 40, padding: '0 15px', borderRadius: 9, color: '#C8BFAE', background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}>{t.btn_cancel}</button>}
+                <button type="submit" disabled={!projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit)} className="create-project-action" style={{ height: 40, minWidth: 130, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 15px', borderRadius: 9, color: '#20150E', background: PROJECT_COLOR, border: 0, cursor: !projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit) ? 'not-allowed' : 'pointer', opacity: !projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit) ? 0.4 : 1, fontSize: 12.5, fontWeight: 700, fontFamily: SORA }}>
+                  {isLoading ? <><span style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(32,21,14,0.3)', borderTopColor: '#20150E', animation: 'createProjectSpin 650ms linear infinite' }} />{t.btn_creating}</> : step === 2 ? <><Plus size={15} strokeWidth={2.2} />Crear proyecto</> : <>Continuar<ArrowRight size={14} /></>}
+                </button>
+              </div>
+            </footer>
+          </form>
+        </section>
       </div>
     </>
   );

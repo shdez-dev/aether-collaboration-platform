@@ -539,7 +539,7 @@ export default function DependencyMapPage() {
         <LegendDot color={C.green} bg={`${C.green}15`} border={`${C.green}50`} label="Completada" />
         <LegendDot color={C.text4} bg={C.surface} border={C.border2} label="Pendiente" />
 
-        <span style={{ color: C.border2, flexShrink: 0 }}>·</span>
+        <span style={{ color: C.border2, flexShrink: 0 }}>-</span>
         <span style={{ flexShrink: 0 }}>Flujo: izquierda → derecha</span>
       </div>
 
@@ -593,9 +593,9 @@ export default function DependencyMapPage() {
               fontSize: '11.5px', color: C.text4,
             }}>
               <span>Arrastra nodos para reorganizar</span>
-              <span style={{ color: C.border2 }}>·</span>
+              <span style={{ color: C.border2 }}>-</span>
               <span>Rueda del ratón para zoom</span>
-              <span style={{ color: C.border2 }}>·</span>
+              <span style={{ color: C.border2 }}>-</span>
               <span>Clic y arrastra el fondo para navegar</span>
             </div>
           </Panel>

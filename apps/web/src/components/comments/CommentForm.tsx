@@ -5,7 +5,7 @@ import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceMembers } from '@/hooks/useWorkspaceMembers';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { C } from '@/lib/colors';
 
 interface CommentFormProps {
@@ -34,7 +34,7 @@ export function CommentForm({
   onSubmit, submitText, placeholder, initialValue = '',
   isEditing = false, onCancel, isLoading = false, autoFocus = false, workspaceId,
 }: CommentFormProps) {
-  const t = useT();
+  const t = es;
   const resolvedSubmitText = submitText ?? t.comments_default_submit;
   const resolvedPlaceholder = placeholder ?? t.comments_default_placeholder;
 
@@ -207,13 +207,13 @@ export function CommentForm({
           <p style={{ marginTop: '4px', fontSize: '10.5px', color: C.text4, lineHeight: 1.5 }}>
             <kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>@</kbd>{' '}
             {t.comments_hint_mention}
-            {' · '}
+            {' | '}
             <kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Ctrl</kbd>
             {'+'}
             <kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Enter</kbd>{' '}
             {t.comments_hint_send}
             {isEditing && (
-              <>{' · '}<kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Esc</kbd>{' '}{t.comments_hint_cancel}</>
+              <>{' | '}<kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Esc</kbd>{' '}{t.comments_hint_cancel}</>
             )}
           </p>
         </div>

@@ -277,7 +277,7 @@ export default function TodayPage() {
             <TaskItem
               key={`ov-${c.id}`}
               title={c.title}
-              project={`${c.boardName} · ${c.workspaceName}`}
+              project={`${c.boardName} - ${c.workspaceName}`}
               dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? '#E05252'}
               done={c.completed}
               time="Vencida"
@@ -290,7 +290,7 @@ export default function TodayPage() {
             <TaskItem
               key={`td-${c.id}`}
               title={c.title}
-              project={`${c.boardName} · ${c.workspaceName}`}
+              project={`${c.boardName} - ${c.workspaceName}`}
               dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? hashColor(c.boardId)}
               done={c.completed}
               time="Hoy"
@@ -339,7 +339,7 @@ export default function TodayPage() {
                 <TaskItem
                   key={`up-${c.id}`}
                   title={c.title}
-                  project={`${c.boardName} · ${c.workspaceName}`}
+                  project={`${c.boardName} - ${c.workspaceName}`}
                   dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? hashColor(c.boardId)}
                   done={c.completed}
                   time={c.dueDate ? getDayLabel(c.dueDate) : undefined}

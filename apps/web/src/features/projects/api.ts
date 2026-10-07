@@ -38,6 +38,7 @@ export type ProjectBacklogCard = {
   id: string;
   title: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+  completed: boolean;
   dueDate: string | null;
   boardId: string;
   boardName: string;

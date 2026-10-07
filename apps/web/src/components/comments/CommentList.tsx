@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
 import { useComments } from '@/hooks/useComment';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { MessageSquare, RefreshCw } from 'lucide-react';
 import { C } from '@/lib/colors';
 
@@ -29,7 +29,7 @@ export function CommentList({
   workspaceId,
 }: CommentListProps) {
   const { comments, count, isLoading, isCreating, createComment, updateComment, deleteComment, refreshComments } = useComments(cardId);
-  const t = useT();
+  const t = es;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

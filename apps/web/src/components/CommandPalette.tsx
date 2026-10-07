@@ -230,7 +230,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }));
     results.cards.forEach((c) => flat.push({
       type: 'card', id: c.id, label: c.title,
-      sub: `${c.boardName} · ${c.listName}`,
+      sub: `${c.boardName} - ${c.listName}`,
       accent: c.priority ? PRIORITY_COLOR[c.priority] : undefined,
       action: () => { router.push(`/dashboard/boards/${c.boardId}?card=${c.id}`); onClose(); },
     }));
@@ -400,7 +400,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   key={`card-${c.id}`}
                   icon={<IconCard />}
                   label={c.title}
-                  sub={`${c.boardName} · ${c.listName}`}
+                  sub={`${c.boardName} - ${c.listName}`}
                   accent={c.priority ? PRIORITY_COLOR[c.priority] : undefined}
                   isSelected={selectedIdx === cardStart + i}
                   onClick={flat[cardStart + i].action}

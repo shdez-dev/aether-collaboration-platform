@@ -263,7 +263,7 @@ export default function PortfolioDetailPage() {
       <header style={header}>
         <div>
           <p style={eyebrow}>
-            CARTERA ·{' '}
+            CARTERA -{' '}
             {permissions.level === 'ADMIN'
               ? 'ADMINISTRACIÓN'
               : permissions.level === 'MANAGE'
@@ -381,7 +381,7 @@ export default function PortfolioDetailPage() {
                   </option>
                   {linkableCandidates.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
-                      {candidate.name} · {candidate.workspace.name}
+                      {candidate.name} - {candidate.workspace.name}
                     </option>
                   ))}
                 </select>
@@ -499,7 +499,7 @@ export default function PortfolioDetailPage() {
                   <option value="">Selecciona una persona</option>
                   {organizationMembers.map((member) => (
                     <option value={member.userId} key={member.userId}>
-                      {member.name} · {member.email}
+                      {member.name} - {member.email}
                     </option>
                   ))}
                 </select>
@@ -642,7 +642,7 @@ export default function PortfolioDetailPage() {
                       <div>
                         <strong>{team.name}</strong>
                         <p style={rowText}>
-                          {team.memberCount} integrantes · {team.projectCount} proyectos
+                          {team.memberCount} integrantes - {team.projectCount} proyectos
                         </p>
                       </div>
                       <LoadBadge percent={team.loadPercent} over={team.overallocated} />
@@ -676,7 +676,7 @@ export default function PortfolioDetailPage() {
                 <option value="">Persona de la organización</option>
                 {organizationMembers.map((member) => (
                   <option key={member.userId} value={member.userId}>
-                    {member.name} · {member.email}
+                    {member.name} - {member.email}
                     {portfolioMemberIds.has(member.userId) ? ' (ya tiene rol)' : ''}
                   </option>
                 ))}
@@ -768,7 +768,7 @@ function CapacityPeople({
             <div>
               <strong>{person.name}</strong>
               <p style={rowText}>
-                {hours(person.allocatedMinutes)} asignadas · {hours(person.availableMinutes)}{' '}
+                {hours(person.allocatedMinutes)} asignadas - {hours(person.availableMinutes)}{' '}
                 disponibles
               </p>
             </div>
@@ -953,7 +953,7 @@ function ProjectTable({
           <div style={{ minWidth: 170, flex: 1.35 }}>
             <strong>{project.name}</strong>
             <p style={rowText}>
-              {project.workspace.name} · {project.owner?.name ?? 'Sin responsable'}
+              {project.workspace.name} - {project.owner?.name ?? 'Sin responsable'}
             </p>
           </div>
           <div style={tableCell}>

@@ -118,7 +118,7 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
           <p className="text-xs leading-relaxed">
             {u(user.name)} {s('actualizó el workspace')} {a(wsName)}
             {delta?.after?.name && delta?.before?.name && (
-              <>{s(' · de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
+              <>{s(' - de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
             )}
           </p>
         );
@@ -173,7 +173,7 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
           <p className="text-xs leading-relaxed">
             {u(user.name)} {s('actualizó el board')} {a(brdName)}
             {delta?.after?.name && delta?.before?.name && (
-              <>{s(' · de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
+              <>{s(' - de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
             )}
           </p>
         );
@@ -199,7 +199,7 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
           <p className="text-xs leading-relaxed">
             {u(user.name)} {s('creó la lista')} {a(listName)}
             {brdName && <>{s(' en')} {a(brdName)}</>}
-            {projName && <>{s(' · proyecto')} {a(projName)}</>}
+            {projName && <>{s(' - proyecto')} {a(projName)}</>}
           </p>
         );
       }
@@ -209,7 +209,7 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
           <p className="text-xs leading-relaxed">
             {u(user.name)} {s('actualizó la lista')} {a(listName)}
             {delta?.after?.name && delta?.before?.name && (
-              <>{s(' · de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
+              <>{s(' - de')} {em(delta.before.name)} {s('→')} {a(delta.after.name)}</>
             )}
           </p>
         );
@@ -237,7 +237,7 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
           <p className="text-xs leading-relaxed">
             {u(user.name)} {s('creó la tarjeta')} {a(cardName)}
             {listName && <>{s(' en')} {a(listName)}</>}
-            {brdName  && <>{s(' ·')} {m(brdName)}</>}
+            {brdName  && <>{s(' -')} {m(brdName)}</>}
           </p>
         );
       }
@@ -314,7 +314,7 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
           <p className="text-xs leading-relaxed">
             {u(user.name)} {s('cambió la prioridad de')} {a(cardName)}
             {prev && next
-              ? <>{s(' · ')}{em(prev)}{s(' → ')}{em(next)}</>
+              ? <>{s(' - ')}{em(prev)}{s(' → ')}{em(next)}</>
               : next && <>{s(' a ')}{em(next)}</>
             }
           </p>
@@ -438,7 +438,7 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
           <p className="text-xs leading-relaxed">
             {u(user.name)} {s('editó el documento')} {a(docName)}
             {delta?.after?.title && delta?.before?.title && (
-              <>{s(' · de')} {em(delta.before.title)} {s('→')} {a(delta.after.title)}</>
+              <>{s(' - de')} {em(delta.before.title)} {s('→')} {a(delta.after.title)}</>
             )}
           </p>
         );

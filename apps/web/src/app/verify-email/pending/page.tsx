@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/stores/authStore';
 
 const SORA    = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
-const POLL_INTERVAL_MS = 4000;
 
 function AetherLogo() {
   return (
@@ -35,36 +33,10 @@ function AetherLogo() {
 
 function VerifyEmailPendingContent() {
   const searchParams = useSearchParams();
-  const router       = useRouter();
-  const { setAuth }  = useAuthStore();
   const email        = searchParams.get('email') || '';
+  const initialDeliveryFailed = searchParams.get('delivery') === 'failed';
 
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
-  const [verified, setVerified]         = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (!email) return;
-    const poll = async () => {
-      try {
-        const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/check-verification`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        });
-        const data = await res.json();
-        if (data.data?.verified && data.data?.accessToken) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          setAuth(data.data.user, { accessToken: data.data.accessToken, refreshToken: data.data.refreshToken });
-          setVerified(true);
-          setTimeout(() => router.push('/dashboard'), 1500);
-        }
-      } catch { /* silencioso */ }
-    };
-    poll();
-    intervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [email, setAuth, router]);
 
   const handleResend = async () => {
     if (resendStatus === 'sending' || resendStatus === 'sent') return;
@@ -99,32 +71,6 @@ function VerifyEmailPendingContent() {
     </div>
   );
 
-  /* ── Verificado ─────────────────────────────────────────────────── */
-  if (verified) {
-    return baseLayout(
-      <div style={{
-        background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 16, padding: '48px 28px', textAlign: 'center',
-      }}>
-        <div style={{
-          width: 52, height: 52, borderRadius: '50%', margin: '0 auto 24px',
-          background: 'rgba(110,183,110,0.08)', border: '1px solid rgba(110,183,110,0.3)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            <path d="M4 11l5 5 9-9" stroke="#6EB76E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-        <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em', color: '#F4EEE2', margin: '0 0 10px' }}>
-          ¡Email verificado!
-        </h1>
-        <p style={{ fontFamily: MANROPE, fontSize: 14, color: '#9C9486', margin: 0 }}>
-          Ingresando al dashboard...
-        </p>
-      </div>
-    );
-  }
-
   /* ── Pendiente ──────────────────────────────────────────────────── */
   return baseLayout(
     <>
@@ -147,7 +93,9 @@ function VerifyEmailPendingContent() {
           Revisa tu correo
         </h1>
         <p style={{ fontFamily: MANROPE, fontSize: 14, color: '#9C9486', margin: 0, lineHeight: 1.6 }}>
-          Te enviamos un enlace de verificación. Esta página avanzará sola cuando lo abras.
+          {initialDeliveryFailed
+            ? 'Tu cuenta se creó, pero no pudimos confirmar el envío inicial. Prueba con el botón de reenviar.'
+            : 'Te enviamos un enlace de verificación. Ábrelo para activar tu cuenta e iniciar sesión.'}
         </p>
       </div>
 
@@ -163,7 +111,7 @@ function VerifyEmailPendingContent() {
           borderRadius: 10, padding: '12px 14px', marginBottom: 22,
         }}>
           <p style={{ fontFamily: MANROPE, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#615846', margin: '0 0 4px' }}>
-            Enviado a
+            {initialDeliveryFailed ? 'Cuenta creada para' : 'Enviado a'}
           </p>
           <p style={{ fontFamily: MANROPE, fontSize: 14, fontWeight: 600, color: '#C8BFAE', margin: 0, wordBreak: 'break-all' }}>
             {email || '—'}
@@ -175,7 +123,7 @@ function VerifyEmailPendingContent() {
           {[
             'Abre el correo de Aether en tu bandeja',
             'Haz clic en el botón "Verificar correo"',
-            'Esta página avanzará automáticamente',
+            'En la página del enlace entrarás a tu cuenta',
           ].map((step, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <span style={{
@@ -193,20 +141,9 @@ function VerifyEmailPendingContent() {
           ))}
         </div>
 
-        {/* Indicador de espera */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          paddingBottom: 20, marginBottom: 20,
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-        }}>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ animation: 'spin 0.9s linear infinite', flexShrink: 0 }}>
-            <circle cx="6" cy="6" r="4.5" stroke="rgba(242,87,30,0.15)" strokeWidth="1.5"/>
-            <path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5" stroke="#F2571E" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <span style={{ fontFamily: MANROPE, fontSize: 12, color: '#615846' }}>
-            Esperando verificación...
-          </span>
-        </div>
+        <p style={{ paddingBottom: 20, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)', fontFamily: MANROPE, fontSize: 12, color: '#9C9486' }}>
+          ¿Ya verificaste desde otra pestaña? <Link href="/login" style={{ color: '#F2571E' }}>Inicia sesión aquí</Link>.
+        </p>
 
         {/* Reenviar */}
         {resendStatus === 'sent' ? (

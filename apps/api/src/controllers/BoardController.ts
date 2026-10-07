@@ -80,34 +80,25 @@ class BoardController {
           success: false,
           error: {
             code: 'INSUFFICIENT_PERMISSIONS',
-            message: 'Se requiere administración del espacio o del proyecto para crear boards',
+            message: 'Se requiere administrar el espacio o el proyecto para crear tableros',
           },
         });
       }
 
       // Crear board
-      const board = await boardService.createBoard(workspaceId, userId, boardData);
-
-      // Si se pasó projectId, asociar el board al proyecto
-      if (projectId) {
-        await pool.query(
-          `INSERT INTO project_boards (id, project_id, board_id)
-           VALUES (gen_random_uuid(), $1, $2)
-           ON CONFLICT DO NOTHING`,
-          [projectId, board.id]
-        );
-      }
+      const board = await boardService.createBoard(workspaceId, userId, { ...boardData, projectId });
 
       return res.status(201).json({
         success: true,
         data: { board },
       });
     } catch (error) {
+      console.error('[BoardController.create]', error);
       return res.status(500).json({
         success: false,
         error: {
           code: 'INTERNAL_ERROR',
-          message: 'Error al crear board',
+          message: 'Error al crear el tablero',
         },
       });
     }

@@ -8,7 +8,7 @@ import { apiService } from '@/services/apiService';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, memo, useRef, useEffect } from 'react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { C } from '@/lib/colors';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -29,7 +29,7 @@ const PRIORITY_COLORS = {
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 export function Card({ card, boardId }: CardProps) {
-  const t = useT();
+  const t = es;
   const updateCard     = useCardStore((s) => s.updateCard);
   const setSelectedCard = useCardStore((s) => s.setSelectedCard);
   const userRole       = useWorkspaceStore((s) => s.currentWorkspace?.userRole);

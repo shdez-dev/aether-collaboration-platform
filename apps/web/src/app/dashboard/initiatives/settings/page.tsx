@@ -8,7 +8,8 @@ import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useTeamStore } from '@/stores/teamStore';
 import { type WorkspaceProjectStandard, useWorkspaceStore } from '@/stores/workspaceStore';
 
-type RequiredField = 'title' | 'description' | 'problemStatement' | 'proposedNextStep' | 'evidence' | 'attachments';
+type RequiredField = 'title' | 'description' | 'problemStatement' | 'impactedPeople' | 'problemImpact' | 'impactedCount' | 'expectedOutcome' | 'proposedSolution' | 'differentiation' | 'proposedNextStep' | 'evidence' | 'attachments';
+const CORE_REQUIRED_FIELDS: RequiredField[] = ['title', 'description', 'problemStatement', 'impactedPeople', 'problemImpact', 'impactedCount', 'expectedOutcome', 'proposedSolution', 'differentiation'];
 
 type InitiativeSettings = {
   workspace_id: string;
@@ -21,10 +22,16 @@ type InitiativeSettings = {
 };
 
 const REQUIRED_FIELDS: Array<{ value: RequiredField; label: string; help: string }> = [
-  { value: 'title', label: 'Título', help: 'Identifica claramente la propuesta.' },
-  { value: 'problemStatement', label: 'Problema u oportunidad', help: 'Explica por qué vale la pena evaluar la iniciativa.' },
-  { value: 'proposedNextStep', label: 'Siguiente paso', help: 'Evita que una propuesta quede sin seguimiento.' },
-  { value: 'description', label: 'Evidencia inicial', help: 'Contexto, datos o antecedentes disponibles.' },
+  { value: 'title', label: 'Nombre del proyecto', help: 'Un nombre breve y fácil de reconocer.' },
+  { value: 'description', label: 'Resumen del proyecto', help: 'La oportunidad que se está explorando.' },
+  { value: 'problemStatement', label: 'Problemática identificada', help: 'La necesidad y su situación actual.' },
+  { value: 'impactedPeople', label: 'Personas impactadas', help: 'Los grupos o perfiles afectados.' },
+  { value: 'problemImpact', label: 'Impacto de la problemática', help: 'Consecuencias para las personas u organización.' },
+  { value: 'impactedCount', label: 'Cantidad aproximada', help: 'Estimación de personas afectadas.' },
+  { value: 'expectedOutcome', label: 'Propuesta de valor', help: 'Cambio esperado y forma de medirlo.' },
+  { value: 'proposedSolution', label: 'Solución', help: 'En qué consiste la propuesta.' },
+  { value: 'differentiation', label: 'Diferenciación', help: 'Qué aporta frente a las alternativas.' },
+  { value: 'proposedNextStep', label: 'Siguiente paso', help: 'Puedes exigirlo como dato operativo adicional.' },
   { value: 'evidence', label: 'Evidencia estructurada', help: 'Registros de evidencia dentro de la iniciativa.' },
   { value: 'attachments', label: 'Adjuntos', help: 'Documentos o enlaces de respaldo.' },
 ];
@@ -36,7 +43,7 @@ const FALLBACK_SETTINGS: InitiativeSettings = {
   intake_enabled: true,
   triage_criteria: [],
   review_cadence_days: 7,
-  required_initiative_fields: ['title', 'problemStatement', 'proposedNextStep'],
+  required_initiative_fields: CORE_REQUIRED_FIELDS,
 };
 
 function normalizeSettings(settings: InitiativeSettings): InitiativeSettings {
@@ -44,9 +51,10 @@ function normalizeSettings(settings: InitiativeSettings): InitiativeSettings {
     ...FALLBACK_SETTINGS,
     ...settings,
     triage_criteria: Array.isArray(settings.triage_criteria) ? settings.triage_criteria : [],
-    required_initiative_fields: Array.isArray(settings.required_initiative_fields)
-      ? settings.required_initiative_fields
-      : FALLBACK_SETTINGS.required_initiative_fields,
+    required_initiative_fields: Array.from(new Set([
+      ...CORE_REQUIRED_FIELDS,
+      ...(Array.isArray(settings.required_initiative_fields) ? settings.required_initiative_fields : FALLBACK_SETTINGS.required_initiative_fields),
+    ])),
   };
 }
 
@@ -66,7 +74,7 @@ export default function InitiativeSettingsPage() {
     () => workspaces.find((item) => item.id === activeWorkspaceId) ?? null,
     [activeWorkspaceId, workspaces]
   );
-  const isInstitutional = workspace?.mode === 'INSTITUTIONAL';
+  const isInstitutional = workspace?.organization?.type === 'INSTITUTION';
   const workspaceTeams = useMemo(
     () => teams.filter((team) => team.workspaceId === activeWorkspaceId),
     [activeWorkspaceId, teams]
@@ -123,6 +131,7 @@ export default function InitiativeSettingsPage() {
 
   function toggleRequiredField(field: RequiredField) {
     if (!settings) return;
+    if (CORE_REQUIRED_FIELDS.includes(field)) return;
     const selected = settings.required_initiative_fields.includes(field);
     if (selected && settings.required_initiative_fields.length === 1) {
       setError('La iniciativa debe exigir al menos un campo.');
@@ -181,7 +190,7 @@ export default function InitiativeSettingsPage() {
   }
 
   if (!isInstitutional) {
-    return <main style={page}><section style={stateCard}><ShieldAlert size={30} color="#f7b267" /><div><h1 style={stateTitle}>Este workspace no es institucional</h1><p style={stateCopy}>La recepción y el gobierno de iniciativas se habilitan únicamente en espacios institucionales. Cambia a un workspace institucional para configurar este flujo.</p></div><Link href="/dashboard/initiatives" style={secondaryButton}><ArrowLeft size={16} /> Volver a iniciativas</Link></section></main>;
+    return <main style={page}><section style={stateCard}><ShieldAlert size={30} color="#f7b267" /><div><h1 style={stateTitle}>Esta organización no es institucional</h1><p style={stateCopy}>La recepción y el gobierno de iniciativas se habilitan únicamente en organizaciones institucionales. Cambia a uno de sus espacios de trabajo para configurar este flujo.</p></div><Link href="/dashboard/initiatives" style={secondaryButton}><ArrowLeft size={16} /> Volver a iniciativas</Link></section></main>;
   }
 
   if (error && !settings) {
@@ -225,8 +234,8 @@ export default function InitiativeSettingsPage() {
       </section>
 
       <section style={{ ...panel, gridColumn: '1 / -1' }}>
-        <div style={panelTitle}><CheckCircle2 size={18} color="#74c69d" /><div><h2>Campos obligatorios</h2><p>Una propuesta debe contener esta información antes de entrar a triage.</p></div></div>
-        <div style={checkboxGrid}>{REQUIRED_FIELDS.map((fieldItem) => <label key={fieldItem.value} style={checkCard}><input type="checkbox" checked={settings.required_initiative_fields.includes(fieldItem.value)} onChange={() => toggleRequiredField(fieldItem.value)} style={{ accentColor: '#f2571e', width: 16, height: 16, marginTop: 2 }} /><span><strong>{fieldItem.label}</strong><small>{fieldItem.help}</small></span></label>)}</div>
+        <div style={panelTitle}><CheckCircle2 size={18} color="#74c69d" /><div><h2>Información para formalizar</h2><p>Los nueve datos de la propuesta se solicitan al enviarla. Estos requisitos adicionales se completan durante la evaluación, antes de convertirla en proyecto.</p></div></div>
+        <div style={checkboxGrid}>{REQUIRED_FIELDS.map((fieldItem) => { const core = CORE_REQUIRED_FIELDS.includes(fieldItem.value); return <label key={fieldItem.value} style={checkCard}><input type="checkbox" checked={core || settings.required_initiative_fields.includes(fieldItem.value)} disabled={core} onChange={() => toggleRequiredField(fieldItem.value)} style={{ accentColor: '#f2571e', width: 16, height: 16, marginTop: 2 }} /><span><strong>{fieldItem.label}{core ? ' - siempre requerido' : ''}</strong><small>{fieldItem.help}</small></span></label>; })}</div>
       </section>
 
       <section style={{ ...panel, gridColumn: '1 / -1' }}>

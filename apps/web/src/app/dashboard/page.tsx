@@ -385,7 +385,7 @@ export default function DashboardPage() {
               <TaskItem
                 key={c.id}
                 title={c.title}
-                project={`${c.boardName} · ${c.workspaceName}`}
+                project={`${c.boardName} - ${c.workspaceName}`}
                 dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? '#E05252'}
                 done={c.completed}
                 time={c.dueDate ? formatDueShort(c.dueDate) : undefined}
@@ -400,7 +400,7 @@ export default function DashboardPage() {
               <TaskItem
                 key={c.id}
                 title={c.title}
-                project={`${c.boardName} · ${c.workspaceName}`}
+                project={`${c.boardName} - ${c.workspaceName}`}
                 dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? hashColor(c.boardId)}
                 done={c.completed}
                 time={c.dueDate ? formatDueShort(c.dueDate) : undefined}
@@ -547,7 +547,7 @@ export default function DashboardPage() {
                         <span style={{ fontSize: '11px', color: '#827A6D' }}>{statusLabel}</span>
                         {pct > 0 && (
                           <>
-                            <span style={{ fontSize: '11px', color: '#5C5447' }}>·</span>
+                            <span style={{ fontSize: '11px', color: '#5C5447' }}>-</span>
                             <span style={{ fontSize: '11px', color }}>{ pct}%</span>
                           </>
                         )}

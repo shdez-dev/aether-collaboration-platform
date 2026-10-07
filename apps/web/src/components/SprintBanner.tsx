@@ -81,12 +81,13 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
   if (loading) return null;
 
   return (
-    <div style={{ borderBottom: `1px solid ${C.border}`, background: C.bg2, flexShrink: 0 }}>
+    <div style={{ background: C.bg2, flexShrink: 0 }}>
       {/* ── Main row ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '12px',
-        padding: '7px 20px', minHeight: '42px',
+        padding: '12px 16px', minHeight: '56px', flexWrap: 'wrap',
       }}>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: C.text3, marginRight: '4px' }}>Sprints</span>
         {/* Sprint icon */}
         <svg viewBox="0 0 16 16" fill="none" stroke={current ? statusColor(current) : C.text4} strokeWidth="1.5"
           width="14" height="14" style={{ flexShrink: 0 }}>
@@ -166,7 +167,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
         )}
 
         {/* All sprints toggle */}
-        {sprints.length > 1 && (
+        {sprints.length > 0 && (
           <button
             onClick={() => setShowAll(v => !v)}
             style={{
@@ -182,7 +183,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
             <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
               <path d={showAll ? 'M2 8l4-4 4 4' : 'M2 4l4 4 4-4'} strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            {sprints.length} sprints
+            {showAll ? 'Ocultar sprints' : `Ver sprints (${sprints.length})`}
           </button>
         )}
 
@@ -191,7 +192,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
           <button
             onClick={() => { setForm(defaultForm(sprints)); setShowCreate(v => !v); }}
             style={{
-              marginLeft: (current || sprints.length > 1) ? '4px' : 'auto',
+              marginLeft: (current || sprints.length > 0) ? '4px' : 'auto',
               padding: '3px 10px', borderRadius: '5px', fontSize: '11.5px',
               background: 'transparent', border: `1px solid ${C.border}`,
               color: C.text3, cursor: 'pointer', transition: 'border-color 0.13s, color 0.13s', flexShrink: 0,
@@ -199,14 +200,15 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
             onMouseEnter={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = C.border;  e.currentTarget.style.color = C.text3; }}
           >
-            + Sprint
+            + Nuevo sprint
           </button>
         )}
       </div>
 
       {/* ── All sprints list ── */}
-      {showAll && sprints.length > 1 && (
-        <div style={{ borderTop: `1px solid ${C.border}`, padding: '6px 20px 8px' }}>
+      {showAll && sprints.length > 0 && (
+        <div style={{ borderTop: `1px solid ${C.border}`, padding: '10px 16px 12px' }}>
+          <p style={{ margin: '0 0 8px', color: C.text4, fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Sprints del tablero</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
             {sprints.map((s) => (
               <div key={s.id} style={{
@@ -265,7 +267,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
       {/* ── Create sprint form ── */}
       {showCreate && (
         <div style={{
-          borderTop: `1px solid ${C.border}`, padding: '12px 20px',
+          borderTop: `1px solid ${C.border}`, padding: '16px',
           background: C.surface, display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap',
         }}>
           <form onSubmit={handleCreate} style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap', flex: 1 }}>

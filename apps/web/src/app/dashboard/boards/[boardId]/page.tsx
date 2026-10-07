@@ -418,7 +418,7 @@ export default function BoardPage() {
               Volver
             </button>
 
-            <span style={{ color: C.border2, flexShrink: 0 }}>·</span>
+            <span style={{ color: C.border2, flexShrink: 0 }}>-</span>
 
             {/* Board name */}
             <div style={{ minWidth: 0 }}>

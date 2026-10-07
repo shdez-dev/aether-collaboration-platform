@@ -5,6 +5,7 @@
 // de modo que una fuga de lectura de la BD no permite reusar los tokens.
 
 import crypto from 'crypto';
+import type { PoolClient } from 'pg';
 import { pool } from '../lib/db';
 
 function hashToken(token: string): string {
@@ -25,8 +26,8 @@ function expiryFromJwt(token: string): Date {
 
 export class RefreshTokenService {
   /** Registra un refresh token recién emitido (en login). */
-  static async issue(userId: string, token: string): Promise<void> {
-    await pool.query(
+  static async issue(userId: string, token: string, client?: Pick<PoolClient, 'query'>): Promise<void> {
+    await (client ?? pool).query(
       `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, $3)
        ON CONFLICT (token_hash) DO NOTHING`,

@@ -13,7 +13,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card } from './Card';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, Trash2, Pencil, GripVertical } from 'lucide-react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { C } from '@/lib/colors';
 
 
@@ -48,7 +48,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
   const [cardTitle, setCardTitle]           = useState('');
   const [isCreatingCard, setIsCreatingCard] = useState(false);
 
-  const t = useT();
+  const t = es;
 
   const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
   const canDrag = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';

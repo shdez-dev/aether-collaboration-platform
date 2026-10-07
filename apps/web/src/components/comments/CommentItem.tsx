@@ -7,7 +7,7 @@ import { CommentForm } from './CommentForm';
 import { useCommentEdit } from '@/hooks/useComment';
 import { useAuthStore } from '@/stores/authStore';
 import type { CommentWithUser } from '@aether/types';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { formatRelative } from '@/lib/utils/date';
 import { C } from '@/lib/colors';
 
@@ -29,7 +29,7 @@ function initials(name: string) {
 }
 
 export function CommentItem({ comment, onUpdate, onDelete, showActions = true }: CommentItemProps) {
-  const t = useT();
+  const t = es;
   const { user: currentUser } = useAuthStore();
   const { isEditing, isUpdating, startEdit, cancelEdit } = useCommentEdit(comment.id);
   const [isDeleting, setIsDeleting] = useState(false);

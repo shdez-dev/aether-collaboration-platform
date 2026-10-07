@@ -123,7 +123,7 @@ function workspaceModeForTemplate(templateId?: WorkspaceTemplateId): 'PERSONAL' 
 async function ensurePersonalOrganization(client: PoolClient, userId: string): Promise<string> {
   const organization = await client.query(
     `INSERT INTO organizations (id, name, type, owner_user_id, created_at, updated_at)
-     SELECT uuid_generate_v4(), COALESCE(NULLIF(TRIM(name), ''), 'Cuenta personal') || ' · Aether',
+     SELECT uuid_generate_v4(), COALESCE(NULLIF(TRIM(name), ''), 'Cuenta personal') || ' - Aether',
             'PERSONAL'::"OrganizationType", id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
      FROM users WHERE id = $1
      ON CONFLICT (owner_user_id) WHERE type = 'PERSONAL'::"OrganizationType"

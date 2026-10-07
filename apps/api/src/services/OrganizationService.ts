@@ -258,7 +258,7 @@ class OrganizationService {
     }
   }
 
-  async acceptInvitation(token: string, userId: string): Promise<void> {
+  async acceptInvitation(token: string, userId: string): Promise<string> {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const client = await pool.connect();
     try {
@@ -299,6 +299,7 @@ class OrganizationService {
         [row.id, userId]
       );
       await client.query('COMMIT');
+      return row.organization_id;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

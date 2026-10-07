@@ -45,7 +45,7 @@ function TeamCard({ team, onOpen }: { team: Team; onOpen: () => void }) {
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ color: '#E8E1D2', fontFamily: SORA, fontSize: '15px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</div>
-          <div style={{ marginTop: '2px', color: '#827A6D', fontSize: '12px' }}>{team.memberCount ?? 0} {(team.memberCount ?? 0) === 1 ? 'miembro' : 'miembros'} · {team.projectCount ?? 0} proyectos</div>
+          <div style={{ marginTop: '2px', color: '#827A6D', fontSize: '12px' }}>{team.memberCount ?? 0} {(team.memberCount ?? 0) === 1 ? 'miembro' : 'miembros'} - {team.projectCount ?? 0} proyectos</div>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: '#827A6D', marginTop: '2px', flexShrink: 0 }}><path d="m9 18 6-6-6-6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </div>

@@ -32,7 +32,7 @@ function FieldError({ message }: { message: string }) {
 export default function RegisterPage() {
   const t = useT();
   const router = useRouter();
-  const { register, isLoading, error, isAuthenticated, isHydrated, clearError, pendingEmailVerification, clearPendingVerification } = useAuthStore();
+  const { register, isLoading, error, isAuthenticated, isHydrated, clearError, pendingEmailVerification, pendingEmailDeliveryFailed, clearPendingVerification } = useAuthStore();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -49,9 +49,9 @@ export default function RegisterPage() {
   useEffect(() => {
     if (pendingEmailVerification) {
       clearPendingVerification();
-      router.push(`/verify-email/pending?email=${encodeURIComponent(pendingEmailVerification)}`);
+      router.push(`/verify-email/pending?email=${encodeURIComponent(pendingEmailVerification)}${pendingEmailDeliveryFailed ? '&delivery=failed' : ''}`);
     }
-  }, [pendingEmailVerification, clearPendingVerification, router]);
+  }, [pendingEmailVerification, pendingEmailDeliveryFailed, clearPendingVerification, router]);
 
   useEffect(() => { return () => clearError(); }, [clearError]);
 

@@ -89,7 +89,7 @@ export function getEventDescription(event: ActivityLogEntry, t: Record<string, a
       const proj = payload?.projectName;
       const base = t.dashboard_activity_list_created(listName);
       const board = event.boardName || payload?.boardName || '';
-      const parts = [board, proj].filter(Boolean).join(' · proyecto ');
+      const parts = [board, proj].filter(Boolean).join(' - proyecto ');
       return parts ? `${base} en ${parts}` : base;
     }
     case 'list.updated':

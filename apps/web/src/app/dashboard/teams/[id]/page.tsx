@@ -430,7 +430,7 @@ function MemberCard({
         >
           {isAdmin && <Crown size={10} />}
           {roleLabel(member.role, t)}
-          {isCreator && <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '2px' }}>·</span>}
+          {isCreator && <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '2px' }}>-</span>}
         </div>
 
         {/* Dropdown para cambiar rol — solo si canManage y no es el creador */}
@@ -928,7 +928,7 @@ export default function TeamDetailPage() {
             <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Líder del equipo</label>
             <select value={leadId} onChange={(e) => handleLeadChange(e.target.value)} disabled={!isOwnerOrAdmin} className="rounded-[6px] px-3 text-[13px] outline-none" style={{ height: '36px', background: C.bg, border: `1px solid ${C.border2}`, color: C.text, opacity: isOwnerOrAdmin ? 1 : 0.65 }}>
               <option value="">Sin líder asignado</option>
-              {members.map((member) => <option key={member.id} value={member.id}>{member.name} · {member.role}</option>)}
+              {members.map((member) => <option key={member.id} value={member.id}>{member.name} - {member.role}</option>)}
             </select>
           </div>
         </div>
@@ -1180,7 +1180,7 @@ export default function TeamDetailPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-medium truncate" style={{ color: C.text }}>{ws.name}</div>
                       <div className="text-[11px]" style={{ color: C.text4 }}>
-                        {t.teams_ws_projects(ws.projectCount)} · {t.teams_ws_cards(ws.activeCards)}
+                        {t.teams_ws_projects(ws.projectCount)} - {t.teams_ws_cards(ws.activeCards)}
                       </div>
                     </div>
                   </Link>

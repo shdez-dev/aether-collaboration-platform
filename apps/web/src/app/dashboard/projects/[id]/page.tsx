@@ -100,70 +100,6 @@ function daysLeft(endDate: string | null | undefined, t: ReturnType<typeof useT>
 
 const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
 
-type GuidanceBannerData = {
-  id: string;
-  title: string;
-  body: string;
-  tone: 'success' | 'warning' | 'info';
-  actionLabel?: string;
-  onAction?: () => void;
-};
-
-function GuidanceBanner({ banner }: { banner: GuidanceBannerData }) {
-  const tone = banner.tone === 'success'
-    ? { color: '#76A878', bg: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.24)' }
-    : banner.tone === 'warning'
-      ? { color: '#C4A86E', bg: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.24)' }
-      : { color: '#7B8FA8', bg: 'rgba(123,143,168,0.14)', border: 'rgba(123,143,168,0.24)' };
-
-  return (
-    <div style={{
-      padding: '14px 16px',
-      borderRadius: '10px',
-      border: `1px solid ${tone.border}`,
-      background: tone.bg,
-      display: 'flex',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: '14px',
-      flexWrap: 'wrap',
-    }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: tone.color, flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '13px', fontWeight: 700, color: tone.color }}>
-            {banner.title}
-          </span>
-        </div>
-        <p style={{ margin: '7px 0 0', fontSize: '12.5px', lineHeight: 1.5, color: '#C8BFAE' }}>
-          {banner.body}
-        </p>
-      </div>
-
-      {banner.actionLabel && banner.onAction && (
-        <button
-          type="button"
-          onClick={banner.onAction}
-          style={{
-            height: '32px',
-            padding: '0 12px',
-            borderRadius: '8px',
-            border: `1px solid ${tone.border}`,
-            background: 'rgba(0,0,0,0.14)',
-            color: tone.color,
-            cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          {banner.actionLabel}
-        </button>
-      )}
-    </div>
-  );
-}
-
 // ── Documentos / Actividad helpers ──────────────────────────────────────────────
 type ActCategory = 'milestone' | 'board' | 'team' | 'project';
 
@@ -508,6 +444,7 @@ interface BacklogCard {
   id: string;
   title: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+  completed: boolean;
   dueDate: string | null;
   boardId: string;
   boardName: string;
@@ -1055,7 +992,7 @@ function ProjectGantt({
                         }}
                         onMouseEnter={(e) => showTip(e, {
                           title: s.name,
-                          subtitle: `${sLabel} · ${s.boardName}`,
+                          subtitle: `${sLabel} - ${s.boardName}`,
                           color: sColor,
                           range: `${fmtS(s.startDate)} → ${fmtS(s.endDate)}`,
                           x: e.clientX, y: e.clientY,
@@ -1495,7 +1432,6 @@ function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#F25
 
 // ── ConfigModal ───────────────────────────────────────────────────────────────
 function ConfigModal({ project, onClose }: { project: Project; onClose: () => void }) {
-  const t = useT();
   const { updateProject, deleteProject } = useProjectStore();
   const { removeSidebarProject } = useActiveWorkspaceStore();
   const router = useRouter();
@@ -1503,12 +1439,19 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   const [name,    setName]    = useState(project.name);
   const [desc,    setDesc]    = useState(project.description ?? '');
   const [problem, setProblem] = useState(project.problemStatement ?? '');
+  const [impactedPeople, setImpactedPeople] = useState(project.impactedPeople ?? '');
+  const [problemImpact, setProblemImpact] = useState(project.problemImpact ?? '');
+  const [impactedCount, setImpactedCount] = useState(project.impactedCount?.toString() ?? '');
+  const [expectedOutcome, setExpectedOutcome] = useState(project.expectedOutcome ?? '');
+  const [proposedSolution, setProposedSolution] = useState(project.proposedSolution ?? '');
+  const [differentiation, setDifferentiation] = useState(project.differentiation ?? '');
   const [nextStep, setNextStep] = useState(project.nextStep ?? '');
   const [status,  setStatus]  = useState(project.status);
   const [maturityStage, setMaturityStage] = useState<ProjectMaturityStage>(project.maturityStage ?? 'IDEA');
   const [start,   setStart]   = useState(project.startDate?.slice(0, 10) ?? '');
   const [end,     setEnd]     = useState(project.endDate?.slice(0, 10) ?? '');
   const [saving,  setSaving]  = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
 
   // animation
@@ -1529,12 +1472,24 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   };
 
   const save = async () => {
+    const parsedImpactedCount = impactedCount.trim() ? Number(impactedCount) : null;
+    if (parsedImpactedCount !== null && (!Number.isInteger(parsedImpactedCount) || parsedImpactedCount < 1 || parsedImpactedCount > 1_000_000_000)) {
+      setSaveError('La cantidad de personas debe ser un número entero mayor que cero.');
+      return;
+    }
     setSaving(true);
+    setSaveError('');
     try {
       await updateProject(project.id, {
         name: name.trim(),
         description: desc.trim() || null,
         problemStatement: problem.trim() || null,
+        impactedPeople: impactedPeople.trim() || null,
+        problemImpact: problemImpact.trim() || null,
+        impactedCount: parsedImpactedCount,
+        expectedOutcome: expectedOutcome.trim() || null,
+        proposedSolution: proposedSolution.trim() || null,
+        differentiation: differentiation.trim() || null,
         nextStep: nextStep.trim() || null,
         status: status as any,
         maturityStage,
@@ -1542,6 +1497,8 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
         endDate: end || null,
       });
       handleClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo guardar el proyecto. Inténtalo de nuevo.');
     } finally { setSaving(false); }
   };
 
@@ -1556,6 +1513,13 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   const LBL = ({ children }: { children: React.ReactNode }) => (
     <label style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, textTransform: 'uppercase' as const, display: 'block', marginBottom: '5px', fontFamily: "'Sora', system-ui, sans-serif" }}>{children}</label>
   );
+  const fieldStyle: React.CSSProperties = { width: '100%', padding: '9px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" };
+  const textAreaStyle: React.CSSProperties = { ...fieldStyle, resize: 'vertical', lineHeight: 1.55 };
+  const sectionStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.018)' };
+  const sectionHeadingStyle: React.CSSProperties = { margin: 0, color: C.text, fontSize: 12.5, fontWeight: 700, fontFamily: "'Sora', system-ui, sans-serif" };
+  const sectionDescriptionStyle: React.CSSProperties = { margin: '3px 0 0', color: C.text4, fontSize: 11, lineHeight: 1.45 };
+  const twoColumnStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 230px), 1fr))', gap: 12 };
+  const statusLabelsEs: Record<string, string> = { PLANNING: 'Planificación', ACTIVE: 'En ejecución', ON_HOLD: 'En pausa', COMPLETED: 'Completado', ARCHIVED: 'Archivado' };
 
   return (
     <>
@@ -1572,12 +1536,15 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
         onClick={handleClose}
       >
         <div
-          style={{ width: '100%', maxWidth: '440px', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.65)', animation: closing ? 'cfgPanOut 0.18s ease forwards' : 'cfgPanIn 0.28s cubic-bezier(0.16,1,0.3,1) both' }}
+          style={{ width: '100%', maxWidth: '680px', maxHeight: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.65)', animation: closing ? 'cfgPanOut 0.18s ease forwards' : 'cfgPanIn 0.28s cubic-bezier(0.16,1,0.3,1) both' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ fontSize: '13.5px', fontWeight: 600, color: C.text, fontFamily: "'Sora', system-ui, sans-serif" }}>{t.projects_config_title}</span>
+            <div>
+              <span style={{ fontSize: '13.5px', fontWeight: 600, color: C.text, fontFamily: "'Sora', system-ui, sans-serif" }}>Editar proyecto</span>
+              <p style={{ margin: '3px 0 0', color: C.text4, fontSize: 11 }}>Actualiza el contexto, impacto y propuesta que aparecen en el resumen.</p>
+            </div>
             <button onClick={handleClose} style={{ width: '26px', height: '26px', borderRadius: '6px', color: C.text3, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.12s, color 0.12s' }}
               onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; }}
@@ -1585,11 +1552,11 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
           </div>
 
           {/* Body */}
-          <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', minHeight: 0, flex: '1 1 auto' }}>
 
             {/* Nombre */}
             <div>
-              <LBL>{t.projects_config_name}</LBL>
+              <LBL>Nombre</LBL>
               <input value={name} onChange={(e) => setName(e.target.value)}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', boxSizing: 'border-box' as const, transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" }}
                 onFocus={e => (e.currentTarget.style.borderColor = accent)}
@@ -1597,25 +1564,95 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
               />
             </div>
 
-            {/* Descripción */}
             <div>
-              <LBL>{t.projects_config_desc}</LBL>
-              <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const, transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" }}
+              <LBL>Resumen del proyecto</LBL>
+              <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3}
+                placeholder="Resume la oportunidad que se está explorando."
+                style={textAreaStyle}
                 onFocus={e => (e.currentTarget.style.borderColor = accent)}
                 onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
               />
             </div>
 
-            <div>
-              <LBL>Problema u oportunidad</LBL>
-              <textarea value={problem} onChange={(e) => setProblem(e.target.value)} rows={4}
-                placeholder="Qué se quiere resolver, por qué importa y para quién"
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', resize: 'vertical', boxSizing: 'border-box' as const, transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" }}
-                onFocus={e => (e.currentTarget.style.borderColor = accent)}
-                onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
-              />
-            </div>
+            <section style={sectionStyle}>
+              <div><h3 style={sectionHeadingStyle}>Contexto</h3><p style={sectionDescriptionStyle}>La necesidad que da origen al proyecto.</p></div>
+              <div>
+                <LBL>Problemática identificada</LBL>
+                <textarea value={problem} onChange={(e) => setProblem(e.target.value)} rows={3}
+                  placeholder="Describe la necesidad y la situación actual, sin adelantar la solución."
+                  style={textAreaStyle}
+                  onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                  onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+                />
+              </div>
+            </section>
+
+            <section style={sectionStyle}>
+              <div><h3 style={sectionHeadingStyle}>Impacto</h3><p style={sectionDescriptionStyle}>A quién afecta y qué consecuencias tiene.</p></div>
+              <div style={twoColumnStyle}>
+                <div>
+                  <LBL>Personas impactadas</LBL>
+                  <textarea value={impactedPeople} onChange={(e) => setImpactedPeople(e.target.value)} rows={2}
+                    placeholder="Grupos o perfiles afectados."
+                    style={textAreaStyle}
+                    onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                    onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+                  />
+                </div>
+                <div>
+                  <LBL>Impacto de la problemática</LBL>
+                  <textarea value={problemImpact} onChange={(e) => setProblemImpact(e.target.value)} rows={2}
+                    placeholder="Consecuencias para las personas o la organización."
+                    style={textAreaStyle}
+                    onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                    onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+                  />
+                </div>
+              </div>
+              <div style={{ maxWidth: 250 }}>
+                <LBL>Cantidad aproximada de personas</LBL>
+                <input type="number" min={1} max={1_000_000_000} step={1} value={impactedCount} onChange={(e) => setImpactedCount(e.target.value)} placeholder="Ejemplo: 120"
+                  style={fieldStyle}
+                  onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                  onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+                />
+              </div>
+            </section>
+
+            <section style={sectionStyle}>
+              <div><h3 style={sectionHeadingStyle}>Propuesta</h3><p style={sectionDescriptionStyle}>El cambio que se busca y cómo alcanzarlo.</p></div>
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div>
+                  <LBL>Propuesta de valor</LBL>
+                  <textarea value={expectedOutcome} onChange={(e) => setExpectedOutcome(e.target.value)} rows={2}
+                    placeholder="Qué cambio se espera lograr y cómo podría medirse."
+                    style={textAreaStyle}
+                    onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                    onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+                  />
+                </div>
+                <div style={twoColumnStyle}>
+                  <div>
+                    <LBL>Solución</LBL>
+                    <textarea value={proposedSolution} onChange={(e) => setProposedSolution(e.target.value)} rows={2}
+                      placeholder="En qué consiste la solución propuesta."
+                      style={textAreaStyle}
+                      onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                      onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+                    />
+                  </div>
+                  <div>
+                    <LBL>Diferenciación</LBL>
+                    <textarea value={differentiation} onChange={(e) => setDifferentiation(e.target.value)} rows={2}
+                      placeholder="Qué la hace distinta o mejor que las alternativas."
+                      style={textAreaStyle}
+                      onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                      onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
 
             <div>
               <LBL>Siguiente paso explícito</LBL>
@@ -1627,15 +1664,17 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
               />
             </div>
 
+            {saveError && <p role="alert" style={{ margin: 0, padding: '9px 11px', borderRadius: 7, border: `1px solid ${C.red}55`, background: `${C.red}12`, color: C.red, fontSize: 11.5 }}>{saveError}</p>}
+
             {/* Estado */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-              <LBL>{t.projects_config_status}</LBL>
+              <LBL>Estado</LBL>
               <select value={status} onChange={(e) => setStatus(e.target.value as any)}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark', cursor: 'pointer' }}
               >
                 {(['PLANNING','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map((s) => (
-                  <option key={s} value={s}>{getStatusCfg(s, t).label}</option>
+                  <option key={s} value={s}>{statusLabelsEs[s]}</option>
                 ))}
               </select>
               </div>
@@ -1654,11 +1693,11 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
             {/* Fechas */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <LBL>{t.projects_config_start}</LBL>
+                <LBL>Fecha de inicio</LBL>
                 <DatePicker value={start} onChange={setStart} placeholder="Inicio" accent={accent} />
               </div>
               <div>
-                <LBL>{t.projects_config_end}</LBL>
+                <LBL>Fecha de término</LBL>
                 <DatePicker value={end} onChange={setEnd} placeholder="Fin" accent={accent} />
               </div>
             </div>
@@ -1672,7 +1711,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
                 onMouseEnter={e => { if (!confirmDel) { e.currentTarget.style.color = C.red; e.currentTarget.style.background = `${C.red}0f`; } }}
                 onMouseLeave={e => { if (!confirmDel) { e.currentTarget.style.color = C.text4; e.currentTarget.style.background = 'transparent'; } }}
               >
-                {confirmDel ? '¿Confirmar eliminación?' : t.projects_config_delete}
+                {confirmDel ? '¿Confirmar eliminación?' : 'Eliminar proyecto'}
               </button>
               {confirmDel && (
                 <button onClick={() => setConfirmDel(false)}
@@ -1687,13 +1726,13 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
                 style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer', transition: 'background 0.1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-              >{t.btn_cancel}</button>
+              >Cancelar</button>
               <button onClick={save} disabled={saving}
                 style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: accent, color: '#24180A', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: saving ? 0.75 : 1, transition: 'filter 0.1s' }}
                 onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = ''; }}
               >
-                {saving ? t.projects_config_saving : t.projects_config_save}
+                {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>
@@ -1706,7 +1745,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
 // ── Add Board Modal ───────────────────────────────────────────────────────────
 function AddBoardModal({ project, onClose }: { project: Project; onClose: () => void }) {
   const t = useT();
-  const { addBoard } = useProjectStore();
+  const { recordCreatedBoard } = useProjectStore();
   const { createBoard } = useBoardStore();
   const color = project.color || C.accent;
 
@@ -1727,8 +1766,8 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
     setCreating(true);
     setError('');
     try {
-      const board = await createBoard(project.workspaceId, { name: name.trim(), description: desc.trim() || undefined });
-      await addBoard(project.id, board.id);
+      const board = await createBoard(project.workspaceId, { name: name.trim(), description: desc.trim() || undefined, projectId: project.id });
+      recordCreatedBoard(project.id, board);
       handleClose();
     } catch (e: any) {
       setError(e.message || t.create_board_error);
@@ -1991,6 +2030,9 @@ export default function ProjectDetailPage() {
   const [actUser,          setActUser]          = useState<string>('all');
   const [backlogCards,     setBacklogCards]     = useState<BacklogCard[]>([]);
   const [backlogLoading,   setBacklogLoading]   = useState(false);
+  const [backlogPriority,  setBacklogPriority]  = useState('all');
+  const [backlogDate,      setBacklogDate]      = useState('all');
+  const [backlogStatus,    setBacklogStatus]    = useState('pending');
   const [adoptingStandard, setAdoptingStandard] = useState(false);
 
   const linkedBoardIdsRef = useRef<Set<string>>(new Set());
@@ -2246,82 +2288,6 @@ export default function ProjectDetailPage() {
   const workspaceStandard = currentProjectStandard?.workspaceId === project.workspaceId ? currentProjectStandard : null;
   const milestones = (project.milestones ?? []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const boards     = project.boards ?? [];
-  const missingChecklistItems = (project.formalization?.checklist ?? []).filter((item) => !item.done);
-  const missingCoverageFields = (project.coverage?.fields ?? []).filter((field) => field.state === 'APPLIES_EMPTY');
-  const guidanceBanners: GuidanceBannerData[] = [];
-
-  if (workspaceStandard && (project.appliedStandardVersion ?? 1) < workspaceStandard.version) {
-    guidanceBanners.push({
-      id: 'new-standard-available',
-      title: `Hay un estándar más nuevo disponible para este proyecto (v${workspaceStandard.version})`,
-      body: `Este proyecto sigue corriendo con v${project.appliedStandardVersion ?? 1}. Puedes mantenerlo como cohorte previa o adoptar la versión actual para alinearlo con las reglas nuevas del workspace.`,
-      tone: 'info',
-      actionLabel: canEdit ? (adoptingStandard ? 'Adoptando...' : 'Adoptar estándar actual') : undefined,
-      onAction: canEdit ? async () => {
-        if (adoptingStandard) return;
-        setAdoptingStandard(true);
-        try {
-          await adoptCurrentStandard(project.id);
-        } finally {
-          setAdoptingStandard(false);
-        }
-      } : undefined,
-    });
-  }
-
-  const primaryGap = missingChecklistItems[0]?.key;
-  const primaryGapAction = primaryGap === 'team'
-    ? { label: 'Ir a miembros', onClick: () => setActiveTab('members') }
-    : primaryGap === 'board'
-      ? { label: 'Ir a tableros', onClick: () => setActiveTab('boards') }
-      : primaryGap === 'milestone'
-        ? { label: 'Ir a cronograma', onClick: () => setActiveTab('schedule') }
-        : { label: 'Abrir configuracion', onClick: () => setShowConfig(true) };
-  const currentOperationalLabel = workspaceStandard?.definition.targetLabels.formalized || 'Formalizado';
-  const currentExecutionLabel = workspaceStandard?.definition.targetLabels.execution || 'Operacion';
-  const currentIntakeLabel = workspaceStandard?.definition.targetLabels.intake || 'Intake';
-
-  if (project.formalization?.readyToFormalize) {
-    guidanceBanners.push({
-      id: 'ready-to-formalize',
-      title: 'Este proyecto ya cumple el minimo para formalizarse',
-      body: project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED' || project.maturityStage === 'ACTIVE'
-        ? 'La base ya esta completa. Lo siguiente es reforzar plan, hitos y ritmo operativo.'
-        : 'Ya paso de idea a compromiso explicito. Ahora conviene actualizar su madurez y ordenar el plan operativo.',
-      tone: 'success',
-      actionLabel: 'Abrir configuracion',
-      onAction: () => setShowConfig(true),
-    });
-  } else if (missingChecklistItems.length > 0) {
-    guidanceBanners.push({
-      id: 'formalization-gap',
-      title: `Falta destrabar ${missingChecklistItems[0].label.toLowerCase()}`,
-      body: `Para formalizar este proyecto todavia faltan ${missingChecklistItems.length} chequeos. Prioriza ${missingChecklistItems[0].label.toLowerCase()} y luego sigue con ${missingChecklistItems.slice(1, 3).map((item) => item.label.toLowerCase()).join(', ') || 'los demas compromisos base'}.`,
-      tone: 'warning',
-      actionLabel: primaryGapAction.label,
-      onAction: primaryGapAction.onClick,
-    });
-  }
-
-  if ((project.coverage?.coveragePercent ?? 100) < 70 && missingCoverageFields.length > 0) {
-    guidanceBanners.push({
-      id: 'coverage-gap',
-      title: 'La lectura del proyecto sigue incompleta',
-      body: `La cobertura va en ${project.coverage?.coveragePercent ?? 0}%. Aun faltan ${missingCoverageFields.slice(0, 3).map((field) => field.label.toLowerCase()).join(', ')}${missingCoverageFields.length > 3 ? ' y otros campos clave' : ''}.`,
-      tone: 'info',
-      actionLabel: missingCoverageFields.some((field) => field.key === 'team' || field.key === 'boards' || field.key === 'milestones')
-        ? (missingCoverageFields.some((field) => field.key === 'team') ? 'Ir a miembros' : missingCoverageFields.some((field) => field.key === 'boards') ? 'Ir a tableros' : 'Ir a cronograma')
-        : 'Abrir configuracion',
-      onAction: missingCoverageFields.some((field) => field.key === 'team')
-        ? () => setActiveTab('members')
-        : missingCoverageFields.some((field) => field.key === 'boards')
-          ? () => setActiveTab('boards')
-          : missingCoverageFields.some((field) => field.key === 'milestones')
-            ? () => setActiveTab('schedule')
-            : () => setShowConfig(true),
-    });
-  }
-
   // ── Actividad del proyecto — desde el event store ─────────────────────────────
   const actUsers    = [...new Set(activityEntries.map((e) => e.userName))].sort();
   const filteredAct = activityEntries
@@ -2519,392 +2485,92 @@ export default function ProjectDetailPage() {
 
         {/* ── RESUMEN ──────────────────────────────────────────────────────── */}
         {activeTab === 'overview' && (() => {
-          const reached    = milestones.filter(m => m.status === 'REACHED').length;
-          const upcoming   = milestones.filter(m => m.status === 'PENDING' && new Date(m.date) > new Date());
-          const overdueMil = milestones.filter(m => m.status === 'PENDING' && new Date(m.date) < new Date());
-          const highCount  = backlogCards.filter(c => c.priority === 'HIGH').length;
-
-          const STAT: React.CSSProperties = {
-            padding: '20px', borderRadius: '10px',
-            border: '1px solid rgba(255,255,255,0.08)',
-            background: 'rgba(255,255,255,0.02)',
-            display: 'flex', flexDirection: 'column', gap: '8px',
-          };
-          const LABEL: React.CSSProperties = {
-            fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em',
-            textTransform: 'uppercase', color: '#615846',
-          };
-          const VAL: React.CSSProperties = {
-            fontFamily: "'Sora', system-ui, sans-serif",
-            fontSize: '2rem', fontWeight: 700, lineHeight: 1,
-          };
+          const proposalGroups: Array<{ number: string; title: string; description: string; fields: Array<[string, string]> }> = [
+            {
+              number: '01',
+              title: 'Contexto',
+              description: 'La necesidad que da origen al proyecto.',
+              fields: [
+                ['Resumen del proyecto', project.description?.trim() ?? ''],
+                ['Problemática identificada', project.problemStatement ?? ''],
+              ],
+            },
+            {
+              number: '02',
+              title: 'Impacto',
+              description: 'A quién afecta y qué consecuencias tiene.',
+              fields: [
+                ['Personas impactadas', project.impactedPeople ?? ''],
+                ['Impacto de la problemática', project.problemImpact ?? ''],
+                ['Cantidad aproximada', project.impactedCount != null ? `${project.impactedCount.toLocaleString('es-CL')} personas` : ''],
+              ],
+            },
+            {
+              number: '03',
+              title: 'Propuesta',
+              description: 'El cambio que se busca y cómo alcanzarlo.',
+              fields: [
+                ['Propuesta de valor', project.expectedOutcome ?? ''],
+                ['Solución', project.proposedSolution ?? ''],
+                ['Diferenciación', project.differentiation ?? ''],
+              ],
+            },
+          ];
+          const visibleGroups = proposalGroups
+            .map((group) => ({ ...group, fields: group.fields.filter(([, value]) => value.trim().length > 0) }))
+            .filter((group) => group.fields.length > 0);
+          const hasProposalDetails = visibleGroups.length > 0;
 
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-
-              <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(280px, 0.85fr)', gap: '18px' }}>
-                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                        Marco operativo
-                      </h3>
-                      <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
-                        Este proyecto se evalúa con el estándar que define cómo pasa de {currentIntakeLabel.toLowerCase()} a {currentOperationalLabel.toLowerCase()} y luego a {currentExecutionLabel.toLowerCase()}.
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#C7D7EC', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 9px' }}>
-                        v{project.appliedStandardVersion ?? workspaceStandard?.version ?? 1}
-                      </span>
-                      {workspaceStandard && (project.appliedStandardVersion ?? 1) < workspaceStandard.version && (
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#C4A86E', background: 'rgba(196,168,110,0.12)', border: '1px solid rgba(196,168,110,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
-                          Hay versión nueva
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px', marginTop: '16px' }}>
-                    {[
-                      {
-                        label: 'Planifica desde',
-                        value: workspaceStandard ? getMaturityCfg(workspaceStandard.definition.minimumMaturityForPlanning).label : maturityCfg.label,
-                        hint: 'Punto mínimo para pasar a planificación.',
-                        tone: '#76A878',
-                      },
-                      {
-                        label: 'Checklist base',
-                        value: String(project.formalization?.required ?? 0),
-                        hint: 'Compromisos mínimos de formalización.',
-                        tone: '#C4A86E',
-                      },
-                      {
-                        label: 'Cobertura actual',
-                        value: `${project.coverage?.coveragePercent ?? 0}%`,
-                        hint: 'Lectura estructural del proyecto.',
-                        tone: color,
-                      },
-                    ].map((item) => (
-                      <div key={item.label} style={{ padding: '12px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.025)' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>{item.label}</div>
-                        <div style={{ marginTop: '7px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '20px', fontWeight: 700, color: item.tone }}>{item.value}</div>
-                        <div style={{ marginTop: '5px', fontSize: '11px', color: '#827A6D', lineHeight: 1.4 }}>{item.hint}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {workspaceStandard && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '16px' }}>
-                      <div>
-                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
-                          Carriles del flujo
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                          {[currentIntakeLabel, currentOperationalLabel, currentExecutionLabel].map((label) => (
-                            <span key={label} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
-                              {label}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
-                          Intakes visibles del estándar
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                          {workspaceStandard.definition.intakeStages.map((stage) => (
-                            <span key={stage} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
-                              {getMaturityCfg(stage).label}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                    <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                      Siguiente movimiento
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
-                      {project.formalization?.readyToFormalize ? (
-                        <>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.5 }}>
-                            <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: 'rgba(118,168,120,0.18)', color: '#76A878', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>1</span>
-                            <span>El mínimo de formalización ya está cumplido. Conviene ordenar plan, responsables y ritmo operativo.</span>
-                          </div>
-                          <button onClick={() => setShowConfig(true)} style={{ height: '34px', alignSelf: 'flex-start', padding: '0 12px', borderRadius: '8px', border: 'none', background: 'rgba(118,168,120,0.16)', color: '#76A878', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}>
-                            Abrir configuración del proyecto
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.5 }}>
-                            <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: 'rgba(196,168,110,0.16)', color: '#C4A86E', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>1</span>
-                            <span>Prioriza <strong style={{ color: '#E8E1D2' }}>{missingChecklistItems[0]?.label?.toLowerCase() ?? 'la base del proyecto'}</strong> para convertir la idea en compromiso explícito.</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.5 }}>
-                            <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)', color: '#827A6D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>2</span>
-                            <span>{project.nextStep?.trim() ? `Siguiente paso declarado: ${project.nextStep}` : 'Todavía no hay siguiente paso declarado; vale la pena dejar uno verificable.'}</span>
-                          </div>
-                          <button onClick={primaryGapAction.onClick} style={{ height: '34px', alignSelf: 'flex-start', padding: '0 12px', borderRadius: '8px', border: 'none', background: 'rgba(242,87,30,0.14)', color: '#F4905A', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}>
-                            {primaryGapAction.label}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                    <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                      Lectura rápida
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '12px' }}>
-                      {[
-                        { label: 'Sin equipos base', value: assignedTeams.length === 0 ? 'Sí' : 'No', tone: assignedTeams.length === 0 ? '#DB8A66' : '#76A878' },
-                        { label: 'Sin tableros vinculados', value: boards.length === 0 ? 'Sí' : 'No', tone: boards.length === 0 ? '#C4A86E' : '#76A878' },
-                        { label: 'Sin hitos declarados', value: milestones.length === 0 ? 'Sí' : 'No', tone: milestones.length === 0 ? '#7B8FA8' : '#76A878' },
-                      ].map((item) => (
-                        <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                          <span style={{ fontSize: '12px', color: '#C8BFAE' }}>{item.label}</span>
-                          <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '15px', fontWeight: 700, color: item.tone }}>{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* ── Stat cards ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '14px' }}>
-
-                {/* Progreso */}
-                <div style={STAT}>
-                  <span style={LABEL}>Progreso</span>
-                  <span style={{ ...VAL, color }}>{progress}%</span>
-                  <div style={{ height: '4px', borderRadius: '4px', background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${progress}%`, background: color, borderRadius: '4px', transition: 'width 0.4s' }} />
-                  </div>
-                  {stats && <span style={{ fontSize: '12px', color: '#827A6D' }}>{stats.completedCards}/{stats.totalCards} tareas</span>}
-                </div>
-
-                {/* Hitos */}
-                <div style={STAT}>
-                  <span style={LABEL}>Hitos</span>
-                  <span style={{ ...VAL, color: '#76A878' }}>
-                    {reached}
-                    <span style={{ fontSize: '1rem', fontWeight: 500, color: '#827A6D' }}>/{milestones.length}</span>
-                  </span>
-                  <span style={{ fontSize: '12px', color: overdueMil.length > 0 ? '#E05252' : '#827A6D' }}>
-                    {overdueMil.length > 0
-                      ? `${overdueMil.length} vencido(s)`
-                      : upcoming.length > 0
-                        ? `Próximo en ${Math.ceil((new Date(upcoming[0].date).getTime() - Date.now()) / 86400000)}d`
-                        : 'Todos alcanzados'}
-                  </span>
-                </div>
-
-                {/* Backlog */}
-                <div
-                  style={{ ...STAT, cursor: 'pointer' }}
-                  onClick={() => setActiveTab('backlog')}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                >
-                  <span style={LABEL}>Backlog</span>
-                  <span style={{ ...VAL, color: '#DB8A66' }}>{backlogLoading ? '…' : backlogCards.length}</span>
-                  <span style={{ fontSize: '12px', color: highCount > 0 ? '#E05252' : '#827A6D' }}>
-                    {highCount > 0 ? `${highCount} alta prioridad` : 'tareas pendientes'}
-                  </span>
-                </div>
-
-                {/* Equipo */}
-                <div style={STAT}>
-                  <span style={LABEL}>Equipo</span>
-                  <span style={{ ...VAL, color: '#8C7C9E' }}>{directMembers.length + members.length}</span>
-                  <span style={{ fontSize: '12px', color: '#827A6D' }}>
-                    {assignedTeams.length > 0 ? `${assignedTeams.length} equipo(s)` : 'Sin equipos asignados'}
-                  </span>
-                </div>
-              </div>
-
-              {guidanceBanners.length > 0 && (
-                <section style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {guidanceBanners.map((banner) => (
-                    <GuidanceBanner key={banner.id} banner={banner} />
-                  ))}
-                </section>
-              )}
-
-              {(project.formalization || project.coverage) && (
-                <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 0.9fr)', gap: '18px' }}>
-                  {project.formalization && (
-                    <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+              {hasProposalDetails ? (
+                <section style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
+                  <header style={{ padding: '19px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    <h2 style={{ margin: 0, color: '#F4EEE2', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 16 }}>Información general del proyecto</h2>
+                  </header>
+                  {visibleGroups.map((group) => (
+                    <div key={group.number} style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0, padding: '22px 24px', borderBottom: group.number === visibleGroups[visibleGroups.length - 1].number ? 'none' : '1px solid rgba(255,255,255,0.07)' }}>
+                      <header style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
+                        <span style={{ width: 29, height: 29, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, border: '1px solid rgba(242,87,30,0.2)', background: 'rgba(242,87,30,0.09)', color: '#F4905A', fontSize: 10, fontWeight: 800 }}>{group.number}</span>
                         <div>
-                          <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                            Formalización
-                          </h3>
-                          <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D' }}>
-                            El proyecto pasa de intención a compromiso explícito cuando completa este mínimo.
-                          </p>
+                          <h2 style={{ margin: 0, color: '#F4EEE2', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 15, lineHeight: 1.35, fontWeight: 650 }}>{group.title}</h2>
+                          <p style={{ margin: '4px 0 0', color: '#8F887B', fontSize: 11.5, lineHeight: 1.45 }}>{group.description}</p>
                         </div>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: project.formalization.readyToFormalize ? '#76A878' : '#C4A86E', background: project.formalization.readyToFormalize ? 'rgba(118,168,120,0.12)' : 'rgba(196,168,110,0.12)', border: `1px solid ${project.formalization.readyToFormalize ? 'rgba(118,168,120,0.25)' : 'rgba(196,168,110,0.25)'}`, borderRadius: '999px', padding: '6px 10px' }}>
-                          {project.formalization.readyToFormalize ? 'Listo para formalizar' : `${project.formalization.completed}/${project.formalization.required} completos`}
-                        </span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
-                        {project.formalization.checklist.map((item) => (
-                          <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: item.done ? 'rgba(118,168,120,0.07)' : 'rgba(255,255,255,0.02)' }}>
-                            <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: item.done ? 'rgba(118,168,120,0.18)' : 'rgba(255,255,255,0.06)', border: `1px solid ${item.done ? 'rgba(118,168,120,0.35)' : 'rgba(255,255,255,0.12)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              {item.done ? <Check style={{ width: '11px', height: '11px', color: '#76A878' }} /> : <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#615846' }} />}
-                            </span>
-                            <span style={{ fontSize: '12.5px', color: item.done ? '#E8E1D2' : '#9C9486' }}>{item.label}</span>
+                      </header>
+                      <div style={{ display: 'grid', gap: 17, paddingLeft: 40 }}>
+                        {group.fields.map(([label, value]) => (
+                          <div key={label} style={{ minWidth: 0 }}>
+                            <span style={{ color: '#A59B89', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{label}</span>
+                            <p style={{ margin: '5px 0 0', color: '#D7D0C3', fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</p>
                           </div>
                         ))}
                       </div>
                     </div>
-                  )}
-
-                  {project.coverage && (
-                    <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                        <div>
-                          <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                            Cobertura
-                          </h3>
-                          <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D' }}>
-                            Qué tan completo está el proyecto para leerlo y gobernarlo bien.
-                          </p>
-                        </div>
-                        <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: color }}>
-                          {project.coverage.coveragePercent}%
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {project.coverage.fields.map((field) => {
-                          const filled = field.state === 'APPLIES_FILLED';
-                          return (
-                            <div key={field.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                              <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>{field.label}</span>
-                              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', color: filled ? '#76A878' : '#DB8A66' }}>
-                                {filled ? 'LLENO' : 'VACIO'}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  ))}
+                </section>
+              ) : (
+                <section style={{ padding: '17px 19px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, background: 'rgba(255,255,255,0.02)' }}>
+                  <p style={{ margin: 0, color: '#A59B89', fontSize: 12.5, lineHeight: 1.55 }}>Este proyecto todavía no tiene información de contexto, impacto o propuesta. Puedes agregarla desde Editar proyecto.</p>
                 </section>
               )}
 
-              {/* ── Dos columnas: hitos + alta prioridad ── */}
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-
-                {/* Próximos hitos */}
-                <section style={{ flex: '1 1 300px', minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                      Próximos hitos
-                    </h3>
-                    <button onClick={() => setActiveTab('schedule')} style={{ fontSize: '12px', color: '#827A6D', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                      Ver todos →
-                    </button>
-                  </div>
-                  {upcoming.length === 0 && overdueMil.length === 0 ? (
-                    <p style={{ fontSize: '13px', color: '#615846', margin: 0 }}>Sin hitos pendientes</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {[...overdueMil, ...upcoming].slice(0, 5).map(m => {
-                        const d = Math.ceil((new Date(m.date).getTime() - Date.now()) / 86400000);
-                        const ov = d < 0;
-                        return (
-                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                            <span style={{ width: '9px', height: '9px', background: ov ? '#E05252' : d <= 7 ? '#DB8A66' : '#4B607F', transform: 'rotate(45deg)', flexShrink: 0 }} />
-                            <span style={{ flex: 1, fontSize: '13.5px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
-                            <span style={{ fontSize: '12px', color: ov ? '#E05252' : d <= 7 ? '#DB8A66' : '#827A6D', flexShrink: 0 }}>
-                              {ov ? `Hace ${Math.abs(d)}d` : d === 0 ? 'Hoy' : `${d}d`}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-
-                {/* Alta prioridad del backlog */}
-                <section style={{ flex: '1 1 300px', minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                      Alta prioridad
-                    </h3>
-                    <button onClick={() => setActiveTab('backlog')} style={{ fontSize: '12px', color: '#827A6D', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                      Ver backlog →
-                    </button>
-                  </div>
-                  {backlogLoading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 0' }}>
-                      <div style={{ width: '14px', height: '14px', border: `2px solid rgba(255,255,255,0.1)`, borderTopColor: color, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                      <span style={{ fontSize: '12.5px', color: '#827A6D' }}>Cargando…</span>
-                    </div>
-                  ) : highCount === 0 ? (
-                    <p style={{ fontSize: '13px', color: '#615846', margin: 0 }}>Sin tareas de alta prioridad — ¡bien!</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {backlogCards.filter(c => c.priority === 'HIGH').slice(0, 5).map(c => (
-                        <div key={c.id}
-                          onClick={() => setSelectedCard({ id: c.id, title: c.title, listId: c.listId, position: 0, completed: false, priority: c.priority as any, createdBy: '', createdAt: '', updatedAt: '', dueDate: c.dueDate ?? undefined })}
-                          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.045)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.16)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}
-                        >
-                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
-                          <span style={{ flex: 1, fontSize: '13px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
-                          <span style={{ fontSize: '11.5px', color: '#615846', flexShrink: 0 }}>{c.boardName}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </div>
-
-              {/* ── Distribución visual ── */}
-              {(stats?.totalCards ?? 0) > 0 && (
-                <section>
-                  <h3 style={{ margin: '0 0 14px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                    Distribución del trabajo
-                  </h3>
-                  <div style={{ padding: '20px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                    {/* Stacked bar */}
-                    <div style={{ height: '12px', borderRadius: '8px', overflow: 'hidden', display: 'flex', marginBottom: '16px' }}>
-                      <div style={{ width: `${progress}%`, background: color, transition: 'width 0.4s', borderRadius: progress === 100 ? '8px' : '8px 0 0 8px', flexShrink: 0 }} />
-                      <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: progress === 0 ? '8px' : '0 8px 8px 0' }} />
-                    </div>
-                    {/* Leyenda */}
-                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: color, flexShrink: 0 }} />
-                        <span style={{ fontSize: '12.5px', color: '#9C9486' }}>Completadas ({stats?.completedCards ?? 0})</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(255,255,255,0.14)', flexShrink: 0 }} />
-                        <span style={{ fontSize: '12.5px', color: '#9C9486' }}>Pendientes ({(stats?.totalCards ?? 0) - (stats?.completedCards ?? 0)})</span>
-                      </div>
-                      {highCount > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ef4444', flexShrink: 0 }} />
-                          <span style={{ fontSize: '12.5px', color: '#9C9486' }}>Alta prioridad ({highCount})</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </section>
+              {project.sourceInitiativeId && (
+                <Link href={`/dashboard/initiatives/${project.sourceInitiativeId}`} style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 7, minHeight: 36, padding: '0 12px', border: '1px solid rgba(242,87,30,0.2)', borderRadius: 9, background: 'rgba(242,87,30,0.06)', color: '#F4905A', fontSize: 11.5, fontWeight: 700, textDecoration: 'none' }}>
+                  Ver iniciativa de origen <span aria-hidden="true">→</span>
+                </Link>
               )}
-
+              {workspaceStandard && (project.appliedStandardVersion ?? 1) < workspaceStandard.version && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '13px 16px', borderRadius: '10px', border: '1px solid rgba(196,168,110,0.2)', background: 'rgba(196,168,110,0.07)' }}>
+                  <span style={{ color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.45 }}>Hay una actualización disponible para el marco de trabajo de este proyecto.</span>
+                  {canEdit && <button type="button" disabled={adoptingStandard} onClick={async () => {
+                    if (adoptingStandard) return;
+                    setAdoptingStandard(true);
+                    try { await adoptCurrentStandard(project.id); } finally { setAdoptingStandard(false); }
+                  }} style={{ minHeight: '32px', padding: '0 11px', borderRadius: '8px', border: '1px solid rgba(196,168,110,0.24)', background: 'rgba(196,168,110,0.1)', color: '#C4A86E', cursor: adoptingStandard ? 'wait' : 'pointer', fontSize: '11.5px', fontWeight: 700, flexShrink: 0 }}>
+                    {adoptingStandard ? 'Actualizando…' : 'Actualizar'}
+                  </button>}
+                </div>
+              )}
             </div>
           );
         })()}
@@ -2918,46 +2584,6 @@ export default function ProjectDetailPage() {
             />
           ) : boards.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px' }}>
-                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                    Espacio de coordinación
-                  </h3>
-                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
-                    Los tableros son donde este proyecto deja de ser solo una definición y empieza a coordinar trabajo real.
-                  </p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
-                    {[
-                      assignedTeams.length > 0 ? `${assignedTeams.length} equipo(s) vinculados` : 'Sin equipos vinculados',
-                      milestones.length > 0 ? `${milestones.length} hito(s) declarados` : 'Sin hitos todavía',
-                      project.nextStep?.trim() ? `Siguiente paso: ${project.nextStep}` : 'Falta siguiente paso operativo',
-                    ].map((item) => (
-                      <span key={item} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                    Siguiente movimiento
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.5 }}>
-                      <span style={{ width: '18px', height: '18px', borderRadius: '999px', background: 'rgba(242,87,30,0.14)', color: '#F4905A', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>1</span>
-                      <span>Crea un tablero base para ordenar primeras tareas, responsables y ritmo de ejecución.</span>
-                    </div>
-                    {canEdit && (
-                      <button onClick={() => setShowAddBoard(true)}
-                        style={{ height: '34px', alignSelf: 'flex-start', padding: '0 12px', borderRadius: '8px', border: 'none', background: 'rgba(242,87,30,0.14)', color: '#F4905A', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}
-                      >
-                        {t.projects_boards_add}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '60px 0' }}>
                 <span style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <LayoutDashboard style={{ ...ic(24), color: '#615846' }} />
@@ -3004,6 +2630,24 @@ export default function ProjectDetailPage() {
 
         {/* ── BACKLOG ──────────────────────────────────────────────────────── */}
         {activeTab === 'backlog' && (() => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const nextWeek = new Date(today);
+          nextWeek.setDate(nextWeek.getDate() + 7);
+          const filteredCards = backlogCards.filter((card) => {
+            if (backlogPriority !== 'all' && (card.priority ?? 'none') !== backlogPriority) return false;
+            if (backlogStatus === 'pending' && card.completed) return false;
+            if (backlogStatus === 'completed' && !card.completed) return false;
+            if (backlogDate === 'none') return !card.dueDate;
+            if (backlogDate === 'dated') return !!card.dueDate;
+            if (backlogDate === 'all') return true;
+            if (!card.dueDate) return false;
+            const due = new Date(card.dueDate);
+            if (backlogDate === 'overdue') return due < today;
+            if (backlogDate === 'today') return due >= today && due < new Date(today.getTime() + 86400000);
+            if (backlogDate === 'week') return due >= today && due < nextWeek;
+            return true;
+          });
           const PMAP = {
             HIGH:   { label: 'ALTA',          color: '#ef4444', bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.25)'  },
             MEDIUM: { label: 'MEDIA',          color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.25)' },
@@ -3013,30 +2657,19 @@ export default function ProjectDetailPage() {
 
           return (
             <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px', marginBottom: '22px' }}>
-                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                    Priorización transversal
-                  </h3>
-                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
-                    Aquí se juntan las tareas pendientes de todos los tableros para decidir qué mover primero y dónde se está acumulando el trabajo.
-                  </p>
-                  <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: '#615846' }}>
-                    Haz clic en cualquier tarea para ver su detalle y editarla.
-                  </p>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
-                  {[
-                    { label: 'Pendientes', value: backlogLoading ? '…' : String(backlogCards.length), tone: '#E8E1D2' },
-                    { label: 'Alta prioridad', value: backlogLoading ? '…' : String(backlogCards.filter((c) => c.priority === 'HIGH').length), tone: '#DB8A66' },
-                    { label: 'Con fecha', value: backlogLoading ? '…' : String(backlogCards.filter((c) => c.dueDate).length), tone: '#7B8FA8' },
-                  ].map((item) => (
-                    <div key={item.label} style={{ padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{item.label}</div>
-                      <div style={{ marginTop: '8px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: item.tone }}>{item.value}</div>
-                    </div>
-                  ))}
-                </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 22 }}>
+                {[
+                  { label: 'Prioridad', value: backlogPriority, onChange: setBacklogPriority, options: [['all', 'Todas'], ['HIGH', 'Alta'], ['MEDIUM', 'Media'], ['LOW', 'Baja'], ['none', 'Sin prioridad']] },
+                  { label: 'Fecha', value: backlogDate, onChange: setBacklogDate, options: [['all', 'Todas'], ['overdue', 'Vencidas'], ['today', 'Hoy'], ['week', 'Próximos 7 días'], ['dated', 'Con fecha'], ['none', 'Sin fecha']] },
+                  { label: 'Estado', value: backlogStatus, onChange: setBacklogStatus, options: [['pending', 'Pendientes'], ['completed', 'Completadas'], ['all', 'Todas']] },
+                ].map((filter) => (
+                  <label key={filter.label} style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 180px', color: '#A59B89', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                    {filter.label}
+                    <select aria-label={`Filtrar por ${filter.label.toLowerCase()}`} value={filter.value} onChange={(event) => filter.onChange(event.target.value)} style={{ width: '100%', minHeight: 38, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: '#20263A', color: '#E8E1D2', fontSize: 12, cursor: 'pointer' }}>
+                      {filter.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </label>
+                ))}
               </div>
 
               {/* Spinner */}
@@ -3048,7 +2681,7 @@ export default function ProjectDetailPage() {
               )}
 
               {/* Empty state */}
-              {!backlogLoading && backlogCards.length === 0 && (
+              {!backlogLoading && filteredCards.length === 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '64px 0', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.1)' }}>
                   <span style={{ width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -3058,12 +2691,12 @@ export default function ProjectDetailPage() {
                     </svg>
                   </span>
                   <p style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14.5px', fontWeight: 500, color: '#9C9486' }}>
-                    {boards.length === 0 ? 'Sin tableros vinculados' : '¡Todo completado!'}
+                    {boards.length === 0 ? 'Sin tableros vinculados' : backlogCards.length === 0 ? 'Sin tareas todavía' : 'Sin tareas con estos filtros'}
                   </p>
                   <p style={{ margin: 0, fontSize: '12.5px', color: '#615846', textAlign: 'center', maxWidth: '320px' }}>
                     {boards.length === 0
                       ? 'Vincula un tablero al proyecto para ver las tareas aquí'
-                      : 'No quedan tareas pendientes en los tableros de este proyecto'}
+                      : backlogCards.length === 0 ? 'Las tareas de los tableros aparecerán aquí' : 'Prueba otra prioridad, fecha o estado'}
                   </p>
                 </div>
               )}
@@ -3071,7 +2704,7 @@ export default function ProjectDetailPage() {
               {/* Groups by priority */}
               {!backlogLoading && (['HIGH', 'MEDIUM', 'LOW', null] as const).map(priority => {
                 const pKey  = priority ?? 'none';
-                const group = backlogCards.filter(c => c.priority === priority);
+                const group = filteredCards.filter(c => c.priority === priority);
                 if (group.length === 0) return null;
                 const pc = PMAP[pKey as keyof typeof PMAP];
 
@@ -3095,7 +2728,7 @@ export default function ProjectDetailPage() {
                             key={card.id}
                             onClick={() => setSelectedCard({
                               id: card.id, title: card.title, listId: card.listId,
-                              position: 0, completed: false,
+                              position: 0, completed: card.completed,
                               priority: card.priority as any,
                               createdBy: '', createdAt: '', updatedAt: '',
                               dueDate: card.dueDate ?? undefined,
@@ -3118,14 +2751,14 @@ export default function ProjectDetailPage() {
                               {card.title}
                             </span>
 
-                            {/* Board · Lista */}
+                            {/* Board - Lista */}
                             <span style={{ fontSize: '12px', color: '#615846', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
                                 <rect x="3" y="4" width="7" height="16" rx="1.6" stroke="#615846" strokeWidth="1.8"/>
                                 <rect x="14" y="4" width="7" height="10" rx="1.6" stroke="#615846" strokeWidth="1.8"/>
                               </svg>
                               {card.boardName}
-                              <span style={{ color: '#3A3530' }}>·</span>
+                              <span style={{ color: '#3A3530' }}>-</span>
                               {card.listName}
                             </span>
 
@@ -3159,29 +2792,6 @@ export default function ProjectDetailPage() {
         {/* ── CRONOGRAMA ───────────────────────────────────────────────────── */}
         {activeTab === 'schedule' && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px', marginBottom: '18px' }}>
-              <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
-                  Compromisos en el tiempo
-                </h3>
-                <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
-                  El cronograma deja visible cuándo deberían ocurrir hitos y tareas para que el proyecto no pierda ritmo ni trazabilidad.
-                </p>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
-                {[
-                  { label: 'Hitos', value: String(milestones.length), tone: '#4B607F' },
-                  { label: 'Alcanzados', value: String(milestones.filter((m) => m.status === 'REACHED').length), tone: '#76A878' },
-                  { label: 'Vencidos', value: String(milestones.filter((m) => m.status === 'PENDING' && new Date(m.date) < new Date()).length), tone: '#DB8A66' },
-                ].map((item) => (
-                  <div key={item.label} style={{ padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{item.label}</div>
-                    <div style={{ marginTop: '8px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: item.tone }}>{item.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Toolbar: leyenda + nuevo hito */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
@@ -3501,7 +3111,7 @@ export default function ProjectDetailPage() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '9px', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '14.5px', fontWeight: 600, color: '#E8E1D2' }}>{m.name}</span>
                                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#9C9486', background: 'rgba(255,255,255,0.06)', padding: '2px 9px', borderRadius: '8px' }}>{roleLbl}</span>
-                                <span style={{ fontSize: '11px', color: '#615846' }}>· {m.teamName}</span>
+                                <span style={{ fontSize: '11px', color: '#615846' }}>- {m.teamName}</span>
                               </div>
                               <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '3px' }}>{m.email}</div>
                             </div>
@@ -3608,7 +3218,7 @@ export default function ProjectDetailPage() {
                                       {desc.target && <strong style={{ color: desc.accent, fontWeight: 600 }}>{desc.target}</strong>}
                                       {' '}en <span style={{ color: C.text3 }}>{project.name}</span>
                                     </div>
-                                    <div style={{ fontSize: '11.5px', color: C.text4, marginTop: '4px' }}>{hour} · {timeAgo(ev.createdAt, t)}</div>
+                                    <div style={{ fontSize: '11.5px', color: C.text4, marginTop: '4px' }}>{hour} - {timeAgo(ev.createdAt, t)}</div>
                                   </div>
                                 </div>
                               );

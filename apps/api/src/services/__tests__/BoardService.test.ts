@@ -113,6 +113,41 @@ describe('BoardService', () => {
       expect(result.position).toBe(6);
     });
 
+    it('links a project board before committing the board transaction', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ max_position: 0 }] })
+        .mockResolvedValueOnce({ rows: [{ id: 'board-new', workspace_id: 'ws-123', name: 'Project board', position: 1 }] })
+        .mockResolvedValueOnce({}) // Backlog list
+        .mockResolvedValueOnce({}) // Project link
+        .mockResolvedValueOnce({}); // COMMIT
+
+      const board = await boardService.createBoard('ws-123', 'user-123', { name: 'Project board', projectId: 'project-123' });
+
+      expect(board.id).toBe('board-new');
+      expect(mockClient.query).toHaveBeenNthCalledWith(5, expect.stringContaining('INSERT INTO project_boards'), ['project-123', 'board-new']);
+      expect(mockClient.query).toHaveBeenNthCalledWith(6, 'COMMIT');
+    });
+
+    it('returns a committed board when the activity event cannot be recorded', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ max_position: 0 }] })
+        .mockResolvedValueOnce({ rows: [{ id: 'board-new', workspace_id: 'ws-123', name: 'Board', position: 1 }] })
+        .mockResolvedValueOnce({}) // Backlog list
+        .mockResolvedValueOnce({}); // COMMIT
+      (eventStore.emit as jest.Mock).mockRejectedValueOnce(new Error('Event store unavailable'));
+      const logSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      try {
+        const board = await boardService.createBoard('ws-123', 'user-123', { name: 'Board' });
+        expect(board.id).toBe('board-new');
+        expect(mockClient.query).not.toHaveBeenCalledWith('ROLLBACK');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
     it('should rollback transaction on error', async () => {
       mockClient.query
         .mockResolvedValueOnce({}) // BEGIN

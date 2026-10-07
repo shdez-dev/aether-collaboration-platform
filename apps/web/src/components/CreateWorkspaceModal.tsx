@@ -3,26 +3,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import type { Workspace } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
-import { WorkspaceIcon, WORKSPACE_ICON_KEYS } from '@/components/WorkspaceIcon';
-import { useT } from '@/lib/i18n';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import { C } from '@/lib/colors';
+import { getDisplayOrganizationName } from '@/lib/organizationName';
 
 const SORA    = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
-const COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // teal
-  '#f97316', // orange
-  '#ef4444', // red
-  '#a855f7', // purple
-  '#6b7280', // gray
-  '#f59e0b', // amber
-  '#ec4899', // pink
-];
-
-type WorkspaceTemplateId = 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
+type WorkspaceTemplateId = 'personal' | 'team' | 'institutional';
 type OrganizationOption = { id: string; name: string; type: string; role: 'OWNER' | 'ADMIN' | 'BILLING_ADMIN' | 'MEMBER' };
 
 const WORKSPACE_TEMPLATES: Array<{
@@ -32,73 +22,60 @@ const WORKSPACE_TEMPLATES: Array<{
   badge: string;
   icon: string;
   color: string;
-  checks: string[];
 }> = [
   {
     id: 'team',
-    name: 'Equipo de trabajo',
-    description: 'Para coordinar iniciativas con responsables, tablero y siguiente paso claro.',
-    badge: 'Balanceado',
+    name: 'Espacio de equipo',
+    description: 'Configurado para coordinar proyectos, iniciativas y tareas con otras personas.',
+    badge: 'Colaborativo',
     icon: 'Users',
     color: '#10b981',
-    checks: ['Problema', 'Tablero', 'Siguiente paso'],
   },
   {
     id: 'personal',
-    name: 'Uso personal',
-    description: 'Menos friccion para ordenar ideas, decisiones y tareas propias.',
-    badge: 'Ligero',
+    name: 'Espacio personal',
+    description: 'Configurado para organizar tus proyectos y tareas en privado.',
+    badge: 'Personal',
     icon: 'Target',
     color: '#3b82f6',
-    checks: ['Responsable', 'Siguiente paso'],
   },
   {
     id: 'institutional',
-    name: 'Institucion / programa',
-    description: 'Mayor trazabilidad para formalizar postulaciones, equipos, hitos y cobertura.',
-    badge: 'Rigor alto',
+    name: 'Espacio institucional',
+    description: 'Configurado para dar seguimiento a programas, equipos e hitos.',
+    badge: 'Institucional',
     icon: 'Building2',
     color: '#f97316',
-    checks: ['Equipo', 'Fechas', 'Hito'],
-  },
-  {
-    id: 'marketing',
-    name: 'Marketing y contenidos',
-    description: 'Pensado para briefs, campañas, aprobaciones y produccion coordinada.',
-    badge: 'Creativo',
-    icon: 'Megaphone',
-    color: '#f59e0b',
-    checks: ['Brief', 'Fechas', 'Produccion'],
-  },
-  {
-    id: 'construction',
-    name: 'Construccion / operaciones',
-    description: 'Mas estructura para dependencias, planificacion, equipos y ruta critica.',
-    badge: 'Operativo',
-    icon: 'Building2',
-    color: '#6b7280',
-    checks: ['Equipo', 'Plan', 'Hito'],
   },
 ];
+
+function suggestedTemplateForOrganization(organization?: OrganizationOption): WorkspaceTemplateId {
+  if (organization?.type === 'PERSONAL') return 'personal';
+  if (organization?.type === 'INSTITUTION') return 'institutional';
+  return 'team';
+}
 
 interface CreateWorkspaceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialOrganizationId?: string;
+  onCreated?: (workspace: Workspace) => void;
 }
 
-export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspaceModalProps) {
-  const t = useT();
+export default function CreateWorkspaceModal({ isOpen, onClose, initialOrganizationId, onCreated }: CreateWorkspaceModalProps) {
   const { createWorkspace, isLoading, currentWorkspace } = useWorkspaceStore();
 
   const [name, setName]               = useState('');
   const [description, setDescription] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState(WORKSPACE_ICON_KEYS[0]);
-  const [selectedColor, setSelectedColor] = useState(COLORS[0]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<WorkspaceTemplateId>('team');
   const [organizations, setOrganizations] = useState<OrganizationOption[]>([]);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState('');
+  const [organizationsLoading, setOrganizationsLoading] = useState(false);
+  const [organizationLoadError, setOrganizationLoadError] = useState('');
+  const [organizationLoadAttempt, setOrganizationLoadAttempt] = useState(0);
   const [error, setError]             = useState('');
   const [nameTouched, setNameTouched] = useState(false);
+  const selectedOrganization = organizations.find((organization) => organization.id === selectedOrganizationId);
+  const selectedTemplateId = suggestedTemplateForOrganization(selectedOrganization);
   const selectedTemplate = WORKSPACE_TEMPLATES.find((template) => template.id === selectedTemplateId) ?? WORKSPACE_TEMPLATES[0];
 
   // ── Animation state ────────────────────────────────────────────────────────
@@ -118,34 +95,56 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
   useEffect(() => {
     if (!isOpen) return;
     let active = true;
+    setOrganizationsLoading(true);
+    setOrganizationLoadError('');
     apiService.get<{ organizations: OrganizationOption[] }>('/api/organizations', true)
       .then((response) => {
-        if (!active || !response.success || !response.data) return;
+        if (!active) return;
+        if (!response.success || !response.data || !Array.isArray(response.data.organizations)) {
+          setOrganizations([]);
+          setOrganizationLoadError(response.error?.message ?? 'No se pudieron cargar tus organizaciones. Inténtalo de nuevo.');
+          return;
+        }
         const manageable = response.data.organizations.filter((organization) => organization.role === 'OWNER' || organization.role === 'ADMIN');
         setOrganizations(manageable);
-        const currentOrganizationId = currentWorkspace?.organizationId;
-        setSelectedOrganizationId(manageable.some((organization) => organization.id === currentOrganizationId) ? currentOrganizationId! : (manageable[0]?.id ?? ''));
+        const preferredOrganizationId = initialOrganizationId ?? currentWorkspace?.organizationId;
+        const matchingOrganization = manageable.find((organization) => organization.id === preferredOrganizationId);
+        const selectedOrganization = matchingOrganization ?? manageable[0];
+        setSelectedOrganizationId(selectedOrganization?.id ?? '');
+        if (initialOrganizationId && !matchingOrganization) {
+          setOrganizationLoadError('No tienes permisos para crear espacios en esta organización.');
+        }
       })
-      .catch(() => { if (active) setOrganizations([]); });
+      .catch(() => {
+        if (active) {
+          setOrganizations([]);
+          setOrganizationLoadError('No se pudieron cargar tus organizaciones. Comprueba tu conexión e inténtalo de nuevo.');
+        }
+      })
+      .finally(() => { if (active) setOrganizationsLoading(false); });
     return () => { active = false; };
-  }, [isOpen, currentWorkspace?.organizationId]);
+  }, [isOpen, currentWorkspace?.organizationId, initialOrganizationId, organizationLoadAttempt]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!name.trim()) { setNameTouched(true); return; }
+    if (organizationsLoading) return;
+    if (organizationLoadError) { setError(organizationLoadError); return; }
+    if (!selectedOrganizationId) { setError('Selecciona una organización para continuar.'); return; }
     try {
-      await createWorkspace({
+      const workspace = await createWorkspace({
         name: name.trim(),
         description: description.trim() || undefined,
-        icon: selectedIcon,
-        color: selectedColor,
-        organizationId: selectedOrganizationId || undefined,
+        icon: selectedTemplate.icon,
+        color: selectedTemplate.color,
+        organizationId: selectedOrganizationId,
         workspaceTemplateId: selectedTemplateId,
       });
+      onCreated?.(workspace);
       handleClose();
     } catch (err: any) {
-      setError(err.message || t.create_ws_error);
+      setError(err.message || 'No se pudo crear el espacio de trabajo. Inténtalo de nuevo.');
     }
   };
 
@@ -153,8 +152,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
     if (isLoading) return;
     setAnimIn(false);
     closeTimerRef.current = setTimeout(() => {
-      setName(''); setDescription(''); setSelectedIcon(WORKSPACE_ICON_KEYS[0]);
-      setSelectedColor(COLORS[0]); setSelectedTemplateId('team'); setError(''); setNameTouched(false);
+      setName(''); setDescription(''); setError(''); setNameTouched(false);
       onClose();
     }, 160);
   };
@@ -166,7 +164,8 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
+      role="presentation"
       style={{
         background: `rgba(0,0,0,${animIn ? 0.65 : 0})`,
         backdropFilter: 'blur(4px)',
@@ -175,13 +174,17 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
       <div
-        className="w-full flex flex-col rounded-[12px] overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-workspace-title"
+        aria-describedby="create-workspace-description"
+        className="w-full flex flex-col rounded-[16px] overflow-hidden"
         style={{
-          maxWidth: '720px',
-          maxHeight: '92vh',
+          maxWidth: '760px',
+          maxHeight: 'min(88dvh, 760px)',
           background: C.bg2,
           border: `1px solid ${C.border}`,
-          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          boxShadow: '0 28px 80px rgba(0,0,0,0.52)',
           opacity: animIn ? 1 : 0,
           transform: animIn ? 'scale(1) translateY(0)' : 'scale(0.97) translateY(6px)',
           transition: 'opacity 0.16s ease, transform 0.16s ease',
@@ -190,187 +193,167 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
       >
         {/* ── Header ──────────────────────────────────────────────────── */}
         <div
-          className="flex items-center justify-between flex-shrink-0"
-          style={{ padding: '18px 20px 16px', borderBottom: `1px solid ${C.border}` }}
+          className="flex items-start justify-between gap-4 flex-shrink-0"
+          style={{ padding: '20px 24px', borderBottom: `1px solid ${C.border}` }}
         >
-          <span style={{ fontSize: '15px', fontWeight: 600, color: C.text, fontFamily: SORA }}>{t.create_ws_title}</span>
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[13px]"
+              style={{ color: C.accent, background: C.hover, border: `1px solid ${C.border}` }}
+              aria-hidden="true"
+            >
+              <WorkspaceIcon icon={selectedTemplate.icon} className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <strong id="create-workspace-title" style={{ display: 'block', fontSize: '16px', fontWeight: 650, color: C.text, fontFamily: SORA, lineHeight: 1.35 }}>
+                Crear espacio de trabajo
+              </strong>
+              <small id="create-workspace-description" style={{ display: 'block', marginTop: 4, color: C.text3, fontSize: '12px', lineHeight: 1.45 }}>
+                Elige dónde organizar tus proyectos e iniciativas.
+              </small>
+            </span>
+          </div>
           <button
             onClick={handleClose}
             disabled={isLoading}
-            className="flex items-center justify-center rounded-[6px] transition-colors"
-            style={{ width: '26px', height: '26px', color: C.text3 }}
+            aria-label="Cerrar"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[9px] transition-colors"
+            style={{ color: C.text3, background: 'transparent' }}
             onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text2); }}
             onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
           >
-            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" width="12" height="12">
-              <path d="M1 1l10 10M11 1L1 11" />
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" width="15" height="15">
+              <path d="m3 3 10 10M13 3 3 13" />
             </svg>
           </button>
         </div>
 
         {/* ── Scrollable body ──────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: '20px' }}>
+        <div className="flex-1 overflow-y-auto" style={{ padding: '22px 24px 24px' }}>
           <form id="ws-form" onSubmit={handleSubmit}>
-
-            {/* ── Live preview ─────────────────────────────────────────── */}
-            <div
-              className="flex items-center gap-3 rounded-[8px] mb-5"
-              style={{
-                padding: '14px 16px',
-                background: C.surface,
-                border: `1px solid ${C.border}`,
-              }}
-            >
-              <div
-                className="flex-shrink-0 flex items-center justify-center rounded-[8px]"
-                style={{
-                  width: '44px', height: '44px',
-                  background: `linear-gradient(135deg, ${selectedColor}cc, ${selectedColor}77)`,
-                }}
-              >
-                <WorkspaceIcon icon={selectedIcon} className="w-5 h-5" style={{ color: '#fff' } as any} />
-              </div>
-              <div className="min-w-0">
-                <div style={{ fontSize: '14px', fontWeight: 600, fontFamily: SORA, color: name ? C.text : C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {name || 'Nombre del workspace'}
-                </div>
-                <div style={{ fontSize: '12px', fontFamily: MANROPE, color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {selectedTemplate.name} · {description || 'Descripcion opcional'}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Plantilla ────────────────────────────────────────────── */}
-            {organizations.length > 0 && (
-              <div className="mb-5">
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="workspace-organization" style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
                   Organización
                 </label>
-                <select
-                  value={selectedOrganizationId}
-                  onChange={(event) => setSelectedOrganizationId(event.target.value)}
-                  disabled={isLoading}
-                  style={{ width: '100%', height: '42px', borderRadius: '8px', padding: '0 12px', background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MANROPE, fontSize: '13px' }}
-                >
-                  {organizations.map((organization) => (
-                    <option key={organization.id} value={organization.id}>
-                      {organization.name} · {organization.type === 'INSTITUTION' ? 'Institución' : organization.type === 'PERSONAL' ? 'Personal' : 'Organización'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="mb-5">
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
-                Tipo de workspace
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(205px, 1fr))', gap: '10px' }}>
-                {WORKSPACE_TEMPLATES.map((template) => {
-                  const active = selectedTemplateId === template.id;
-                  return (
-                    <button
-                      key={template.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedTemplateId(template.id);
-                        setSelectedIcon(template.icon);
-                        setSelectedColor(template.color);
-                      }}
-                      disabled={isLoading}
-                      style={{
-                        minHeight: '126px',
-                        borderRadius: '9px',
-                        border: `1px solid ${active ? template.color : C.border}`,
-                        background: active ? `${template.color}14` : C.surface,
-                        padding: '12px',
-                        cursor: isLoading ? 'not-allowed' : 'pointer',
-                        textAlign: 'left',
-                        transition: 'border-color 0.12s, background 0.12s, transform 0.12s',
-                      }}
-                      onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = C.border2; }}
-                      onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = C.border; }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
-                          <span style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${template.color}22`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <WorkspaceIcon icon={template.icon} className="w-[14px] h-[14px]" style={{ color: template.color } as any} />
-                          </span>
-                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: C.text, fontFamily: SORA, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {template.name}
-                          </span>
-                        </div>
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: active ? template.color : C.text4, border: `1px solid ${active ? `${template.color}55` : C.border}`, borderRadius: '999px', padding: '3px 7px', flexShrink: 0 }}>
-                          {template.badge}
-                        </span>
-                      </div>
-                      <p style={{ margin: '10px 0 0', fontSize: '11.5px', color: C.text4, lineHeight: 1.45 }}>
-                        {template.description}
-                      </p>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
-                        {template.checks.map((check) => (
-                          <span key={check} style={{ fontSize: '10.5px', color: active ? C.text2 : C.text4, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: '999px', padding: '4px 7px' }}>
-                            {check}
-                          </span>
-                        ))}
-                      </div>
+                {organizationsLoading ? (
+                  <div role="status" style={{ minHeight: 46, display: 'flex', alignItems: 'center', padding: '0 13px', borderRadius: 9, border: `1px solid ${C.border}`, color: C.text3, background: C.surface, fontSize: 12.5 }}>
+                    Cargando organizaciones…
+                  </div>
+                ) : organizationLoadError ? (
+                  <div role="alert" style={{ minHeight: 46, display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 9, border: `1px solid ${C.red}55`, color: C.red, background: `${C.red}12`, fontSize: 12 }}>
+                    <span>{organizationLoadError}</span>
+                    <button type="button" onClick={() => setOrganizationLoadAttempt((attempt) => attempt + 1)} style={{ marginLeft: 8, color: C.text, textDecoration: 'underline' }}>
+                      Reintentar
                     </button>
-                  );
-                })}
+                  </div>
+                ) : organizations.length > 0 ? (
+                  <select
+                    id="workspace-organization"
+                    value={selectedOrganizationId}
+                    onChange={(event) => {
+                      setSelectedOrganizationId(event.target.value);
+                      setOrganizationLoadError('');
+                    }}
+                    disabled={isLoading}
+                    style={{ boxSizing: 'border-box', width: '100%', height: '46px', borderRadius: '9px', padding: '0 13px', background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MANROPE, fontSize: '13px' }}
+                  >
+                    {organizations.map((organization) => (
+                      <option key={organization.id} value={organization.id}>
+                        {getDisplayOrganizationName(organization.name)} - {organization.type === 'INSTITUTION' ? 'Institución' : organization.type === 'PERSONAL' ? 'Personal' : 'Organización'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{ minHeight: 46, display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 9, border: `1px solid ${C.border}`, color: C.text3, background: C.surface, fontSize: 12.5 }}>
+                    No tienes organizaciones disponibles. Crea una organización para continuar.
+                  </div>
+                )}
+              </div>
+
+              {(() => {
+                const nameError = nameTouched && !name.trim();
+                return (
+                  <div>
+                    <label htmlFor="workspace-name" style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
+                      Nombre del espacio de trabajo <span style={{ color: C.red }}>*</span>
+                    </label>
+                    <input
+                      id="workspace-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => { setName(e.target.value); if (e.target.value.trim()) setNameTouched(false); }}
+                      placeholder="Por ejemplo, Mis proyectos"
+                      disabled={isLoading || organizationsLoading}
+                      maxLength={255}
+                      className="w-full rounded-[9px] outline-none transition-colors"
+                      style={{
+                        boxSizing: 'border-box',
+                        height: '46px',
+                        padding: '0 13px',
+                        background: C.surface,
+                        border: `1px solid ${nameError ? C.red : C.border}`,
+                        color: C.text,
+                        fontSize: '13px',
+                        fontFamily: MANROPE,
+                      }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = nameError ? C.red : C.accent)}
+                      onBlur={(e) => { setNameTouched(true); e.currentTarget.style.borderColor = !e.currentTarget.value.trim() ? C.red : C.border; }}
+                    />
+                    {nameError && (
+                      <p className="text-[11.5px] mt-1.5" style={{ color: C.red }}>
+                        El nombre es obligatorio.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+              <p style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, margin: '0 0 8px' }}>
+                Estructura del espacio
+              </p>
+              <div
+                aria-live="polite"
+                className="flex items-center gap-3 rounded-[11px]"
+                style={{ minHeight: 76, padding: '14px 16px', background: `${selectedTemplate.color}0b`, border: `1px solid ${selectedTemplate.color}40` }}
+              >
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[11px]" style={{ color: selectedTemplate.color, background: `${selectedTemplate.color}1b` }} aria-hidden="true">
+                  <WorkspaceIcon icon={selectedTemplate.icon} className="h-[18px] w-[18px]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <strong style={{ display: 'block', color: C.text, fontFamily: SORA, fontSize: 13, lineHeight: 1.4 }}>
+                    {selectedTemplate.name}
+                  </strong>
+                  <small style={{ display: 'block', marginTop: 3, color: C.text3, fontSize: 12, lineHeight: 1.5 }}>
+                    {selectedOrganization ? selectedTemplate.description : 'El tipo se define automáticamente según la organización seleccionada.'}
+                  </small>
+                </span>
+                <span className="hidden rounded-full px-2.5 py-1 sm:inline-flex" style={{ flexShrink: 0, color: selectedTemplate.color, background: `${selectedTemplate.color}14`, fontSize: 10.5, fontWeight: 750 }}>
+                  {selectedTemplate.badge}
+                </span>
               </div>
             </div>
 
-            {/* ── Nombre ───────────────────────────────────────────────── */}
-            {(() => {
-              const nameError = nameTouched && !name.trim();
-              return (
-                <div className="mb-4">
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '7px' }}>
-                    {t.create_ws_label_name} <span style={{ color: C.red }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => { setName(e.target.value); if (e.target.value.trim()) setNameTouched(false); }}
-                    placeholder={t.create_ws_placeholder_name}
-                    disabled={isLoading}
-                    maxLength={255}
-                    className="w-full rounded-[7px] outline-none transition-colors"
-                    style={{
-                      padding: '9px 12px',
-                      background: C.surface,
-                      border: `1px solid ${nameError ? C.red : C.border}`,
-                      color: C.text,
-                      fontSize: '13px',
-                      fontFamily: MANROPE,
-                    }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = nameError ? C.red : C.accent)}
-                    onBlur={(e) => { setNameTouched(true); e.currentTarget.style.borderColor = !e.currentTarget.value.trim() ? C.red : C.border; }}
-                  />
-                  {nameError && (
-                    <p className="text-[11.5px] mt-1.5" style={{ color: C.red }}>
-                      {t.create_ws_validation_name}
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
-
             {/* ── Descripción ──────────────────────────────────────────── */}
-            <div className="mb-4">
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '7px' }}>
-                {t.create_ws_label_description}
+            <div style={{ marginTop: 20 }}>
+              <label htmlFor="workspace-description" style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
+                Descripción (opcional)
               </label>
               <textarea
+                id="workspace-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={t.create_ws_placeholder_description}
-                disabled={isLoading}
+                placeholder="¿Qué quieres organizar en este espacio?"
+                disabled={isLoading || organizationsLoading}
                 maxLength={1000}
-                rows={2}
-                className="w-full rounded-[7px] outline-none transition-colors resize-none"
+                rows={3}
+                className="w-full rounded-[9px] outline-none transition-colors resize-y"
                 style={{
-                  padding: '9px 12px',
+                  boxSizing: 'border-box',
+                  minHeight: '86px',
+                  padding: '11px 13px',
                   background: C.surface,
                   border: `1px solid ${C.border}`,
                   color: C.text,
@@ -380,80 +363,9 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                 onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
                 onBlur={(e)  => (e.currentTarget.style.borderColor = C.border)}
               />
-            </div>
-
-            {/* ── Color del icono ──────────────────────────────────────── */}
-            <div className="mb-4">
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
-                {t.create_ws_label_color}
-              </label>
-              <div className="flex gap-2 flex-wrap">
-                {COLORS.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setSelectedColor(color)}
-                    disabled={isLoading}
-                    className="flex-shrink-0 rounded-[8px] transition-all"
-                    style={{
-                      width: '36px', height: '36px',
-                      background: color,
-                      outline: selectedColor === color ? `2px solid ${C.text}` : '2px solid transparent',
-                      outlineOffset: '2px',
-                      transform: selectedColor === color ? 'scale(1.08)' : 'scale(1)',
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* ── Icono ────────────────────────────────────────────────── */}
-            <div className="mb-4">
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: SORA, color: C.text2, marginBottom: '8px' }}>
-                {t.create_ws_label_icon}
-              </label>
-              <div
-                className="rounded-[7px] overflow-y-auto"
-                style={{
-                  maxHeight: '76px',
-                  background: C.surface,
-                  border: `1px solid ${C.border}`,
-                  padding: '4px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(32px, 1fr))',
-                  gap: '2px',
-                }}
-              >
-                {WORKSPACE_ICON_KEYS.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSelectedIcon(key)}
-                    disabled={isLoading}
-                    title={key}
-                    className="flex items-center justify-center rounded-[5px] transition-colors"
-                    style={{
-                      height: '32px',
-                      color: selectedIcon === key ? '#fff' : C.text3,
-                      background: selectedIcon === key ? selectedColor : 'transparent',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (selectedIcon !== key) {
-                        (e.currentTarget.style.background = C.hover);
-                        (e.currentTarget.style.color = C.text2);
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selectedIcon !== key) {
-                        (e.currentTarget.style.background = 'transparent');
-                        (e.currentTarget.style.color = C.text3);
-                      }
-                    }}
-                  >
-                    <WorkspaceIcon icon={key} className="w-[15px] h-[15px]" />
-                  </button>
-                ))}
-              </div>
+              <p style={{ margin: '6px 0 0', color: C.text4, fontSize: 11, lineHeight: 1.4 }}>
+                Opcional - máximo 1000 caracteres
+              </p>
             </div>
 
             {/* ── Error ────────────────────────────────────────────────── */}
@@ -471,18 +383,21 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <div
           className="flex-shrink-0"
-          style={{ padding: '12px 20px 14px', borderTop: `1px solid ${C.border}`, background: C.bg }}
+          style={{ padding: '14px 24px 18px', borderTop: `1px solid ${C.border}`, background: C.bg }}
         >
-          <p style={{ fontSize: '11.5px', marginBottom: '12px', color: C.text4, fontFamily: MANROPE }}>
-            Podrás invitar a miembros una vez creado.
+          <p style={{ fontSize: '12px', margin: '0 0 12px', color: C.text3, fontFamily: MANROPE }}>
+            {selectedOrganization?.type === 'PERSONAL'
+              ? 'Este espacio quedará dentro de tu organización personal.'
+              : 'Podrás invitar a miembros una vez creado.'}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={handleClose}
               disabled={isLoading}
+              className="w-full sm:w-auto"
               style={{
-                flex: 1, padding: '8px 0', borderRadius: '7px',
+                minWidth: '112px', padding: '10px 16px', borderRadius: '8px',
                 fontSize: '13px', fontWeight: 500, fontFamily: MANROPE,
                 background: C.hover, border: `1px solid ${C.border2}`, color: C.text2,
                 cursor: 'pointer', transition: 'all 0.12s',
@@ -490,17 +405,18 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
               onMouseEnter={(e) => { (e.currentTarget.style.borderColor = C.text4); (e.currentTarget.style.color = C.text); }}
               onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border2); (e.currentTarget.style.color = C.text2); }}
             >
-              {t.create_ws_btn_cancel}
+              Cancelar
             </button>
             <button
               type="submit"
               form="ws-form"
-              disabled={isLoading}
+              disabled={isLoading || organizationsLoading || Boolean(organizationLoadError) || organizations.length === 0}
+              className="w-full sm:w-auto"
               style={{
-                flex: 1, padding: '8px 0', borderRadius: '7px',
+                minWidth: '230px', padding: '10px 18px', borderRadius: '8px',
                 fontSize: '13px', fontWeight: 600, fontFamily: SORA,
                 background: C.accent, border: 'none', color: '#fff',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
+                cursor: isLoading || organizationsLoading || Boolean(organizationLoadError) || organizations.length === 0 ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 transition: 'background 0.12s',
               }}
@@ -512,10 +428,10 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
                   <svg className="animate-spin" viewBox="0 0 16 16" fill="none" width="13" height="13">
                     <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="28" strokeDashoffset="10" />
                   </svg>
-                  {t.create_ws_btn_creating}
+                  Creando espacio…
                 </>
               ) : (
-                <>{t.create_ws_btn_create}</>
+                <>Crear espacio de trabajo</>
               )}
             </button>
           </div>

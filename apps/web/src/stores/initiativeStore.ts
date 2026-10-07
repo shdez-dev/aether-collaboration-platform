@@ -14,6 +14,8 @@ export interface TriageAssessment {
 export interface Initiative {
   id: string; workspaceId: string; title: string; description?: string | null;
   problemStatement?: string | null; proposedNextStep?: string | null;
+  impactedPeople?: string | null; problemImpact?: string | null; impactedCount?: number | null;
+  expectedOutcome?: string | null; proposedSolution?: string | null; differentiation?: string | null;
   priority: InitiativePriority; stage: InitiativeStage; decision?: string | null; decisionReason?: string | null;
   evidence: Array<{ title: string; url?: string; note?: string }>;
   attachments: Array<{ name: string; url: string; type?: string }>;
@@ -69,17 +71,30 @@ export interface InitiativeDetail {
   assignmentHistory: InitiativeAssignmentEntry[];
 }
 
+export interface InitiativeSubmission {
+  workspaceId: string;
+  title: string;
+  description: string;
+  problemStatement: string;
+  impactedPeople: string;
+  problemImpact: string;
+  impactedCount: number;
+  expectedOutcome: string;
+  proposedSolution: string;
+  differentiation: string;
+}
+
 type InitiativeState = {
   initiatives: Initiative[]; initiativeDetail: InitiativeDetail | null; loading: boolean; detailLoading: boolean; error: string | null; actionError: string | null;
   fetchInitiatives: (workspaceId: string, stage?: InitiativeStage) => Promise<void>;
   fetchInitiativeDetail: (id: string) => Promise<InitiativeDetail | null>;
   transitionDetail: (id: string, input: { stage: InitiativeStage; decision?: string; reason?: string; nextReviewAt?: string | null; triageAssessment?: TriageAssessment[] }) => Promise<boolean>;
-  updateDetail: (id: string, input: Partial<Pick<Initiative, 'description' | 'problemStatement' | 'proposedNextStep' | 'priority' | 'nextReviewAt' | 'evidence' | 'attachments'>>) => Promise<boolean>;
+  updateDetail: (id: string, input: Partial<Pick<Initiative, 'description' | 'problemStatement' | 'impactedPeople' | 'problemImpact' | 'impactedCount' | 'expectedOutcome' | 'proposedSolution' | 'differentiation' | 'proposedNextStep' | 'priority' | 'nextReviewAt' | 'evidence' | 'attachments'>>) => Promise<boolean>;
   assignParticipant: (id: string, input: { userId: string; role: InitiativeParticipant['role'] }) => Promise<boolean>;
   removeParticipant: (id: string, userId: string) => Promise<boolean>;
   convertDetail: (id: string) => Promise<boolean>;
   clearActionError: () => void;
-  createInitiative: (input: Partial<Initiative> & { workspaceId: string; title: string }) => Promise<Initiative | null>;
+  createInitiative: (input: InitiativeSubmission) => Promise<Initiative | null>;
   transition: (id: string, input: { stage: InitiativeStage; decision?: string; reason?: string; nextReviewAt?: string | null; triageAssessment?: TriageAssessment[] }) => Promise<Initiative | null>;
   convert: (id: string) => Promise<{ projectId: string; boardId?: string } | null>;
 };

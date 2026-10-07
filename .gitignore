@@ -26,6 +26,7 @@ build
 
 # Environment variables — NEVER commit these
 .env
+.env.brevo
 .env.local
 .env.development
 .env.staging
@@ -68,7 +69,6 @@ Thumbs.db
 # Database
 *.db
 *.db-journal
-prisma/migrations/*/migration.sql
 
 # Temporary files
 tmp/

@@ -40,6 +40,7 @@ interface AuthState {
   uiLanguage: null | 'es' | 'en'; // Language preference — null means fallback to user.language
   /** Email del usuario cuyo registro quedó pendiente de verificación */
   pendingEmailVerification: string | null;
+  pendingEmailDeliveryFailed: boolean;
   /** Email del usuario que intentó login pero aún no verificó su correo */
   emailNotVerified: string | null;
 
@@ -146,6 +147,7 @@ export const useAuthStore = create<AuthState>()(
       isHydrated: false,
       uiLanguage: null,
       pendingEmailVerification: null,
+      pendingEmailDeliveryFailed: false,
       emailNotVerified: null,
 
       // ==================== REGISTER ====================
@@ -153,7 +155,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
 
         try {
-          const response = await apiService.post<{ user: User }>(
+          const response = await apiService.post<{ user: User; verificationEmailSent: boolean }>(
             '/api/auth/register',
             { name, email, password },
             false
@@ -168,7 +170,11 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Registro exitoso — pendiente de verificación de correo
-          set({ isLoading: false, pendingEmailVerification: email });
+          set({
+            isLoading: false,
+            pendingEmailVerification: email,
+            pendingEmailDeliveryFailed: response.data.verificationEmailSent === false,
+          });
         } catch (error: any) {
           set({
             isLoading: false,
@@ -355,7 +361,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       clearPendingVerification: () => {
-        set({ pendingEmailVerification: null });
+        set({ pendingEmailVerification: null, pendingEmailDeliveryFailed: false });
       },
 
       setHydrated: (hydrated: boolean) => {

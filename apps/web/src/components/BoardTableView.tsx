@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import type { Card, List } from '@aether/types';
 import { useCardStore } from '@/stores/cardStore';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import {
   ChevronUp, ChevronDown, ChevronsUpDown,
   CheckCircle2, Clock, AlertTriangle, Circle, Search,
@@ -48,7 +48,7 @@ const PRIORITY_CFG = {
 };
 
 export function BoardTableView({ lists, filteredCards, onCardClick }: Props) {
-  const t = useT();
+  const t = es;
   const cards = useCardStore((s) => s.cards);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'list', dir: 'asc' });
   const [search, setSearch] = useState('');

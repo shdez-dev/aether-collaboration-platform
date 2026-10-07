@@ -1,0 +1,342 @@
+'use client';
+
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  Check,
+  ChevronDown,
+  Layers3,
+  Plus,
+  RefreshCw,
+  Settings2,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { Workspace } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
+import { getDisplayOrganizationName } from '@/lib/organizationName';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import styles from './WorkspaceContextSwitcher.module.css';
+
+type SwitcherStep = 'workspaces' | 'organizations';
+
+type OrganizationGroup = {
+  id: string;
+  name: string;
+  type: string;
+  workspaces: Workspace[];
+  workspaceCount?: number;
+};
+
+type OrganizationSummary = { id: string; name: string; type: string; workspaceCount?: number };
+
+type WorkspaceContextSwitcherProps = {
+  workspaces: Workspace[];
+  activeWorkspaceId: string | null;
+  onSelect: (workspaceId: string) => void;
+  onCreateNew: (organizationId?: string) => void;
+  onNewOrganization: () => void;
+  onEdit: (workspace: Workspace) => void;
+  onRefresh: () => Promise<void>;
+};
+
+function workspaceModeLabel(mode?: string) {
+  if (mode === 'PERSONAL') return 'Personal';
+  if (mode === 'INSTITUTIONAL') return 'Institucional';
+  return 'Equipo';
+}
+
+export default function WorkspaceContextSwitcher({
+  workspaces,
+  activeWorkspaceId,
+  onSelect,
+  onCreateNew,
+  onNewOrganization,
+  onEdit,
+  onRefresh,
+}: WorkspaceContextSwitcherProps) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<SwitcherStep>('workspaces');
+  const [refreshing, setRefreshing] = useState(false);
+  const [organizationRecords, setOrganizationRecords] = useState<OrganizationGroup[]>([]);
+  const [organizationsLoading, setOrganizationsLoading] = useState(false);
+  const [organizationsError, setOrganizationsError] = useState('');
+  const [organizationLoadAttempt, setOrganizationLoadAttempt] = useState(0);
+
+  const activeWorkspaces = useMemo(
+    () => workspaces.filter((workspace) => !workspace.archived),
+    [workspaces],
+  );
+  const organizations = useMemo(() => {
+    const groups = new Map<string, OrganizationGroup>();
+    organizationRecords.forEach((organization) => groups.set(organization.id, { ...organization, workspaces: [...organization.workspaces] }));
+    activeWorkspaces.forEach((workspace) => {
+      const id = workspace.organization?.id ?? workspace.organizationId;
+      const group = groups.get(id);
+      if (group) {
+        group.workspaces.push(workspace);
+        group.workspaceCount = Math.max(group.workspaceCount ?? 0, group.workspaces.length);
+        return;
+      }
+      groups.set(id, {
+        id,
+        name: getDisplayOrganizationName(workspace.organization?.name ?? 'Organización'),
+        type: workspace.organization?.type ?? 'COMPANY',
+        workspaces: [workspace],
+        workspaceCount: 1,
+      });
+    });
+    return [...groups.values()];
+  }, [activeWorkspaces, organizationRecords]);
+
+  useEffect(() => {
+    if (!open || step !== 'organizations') return;
+    let active = true;
+    setOrganizationsLoading(true);
+    setOrganizationsError('');
+    apiService.get<{ organizations: OrganizationSummary[] }>('/api/organizations', true)
+      .then((response) => {
+        if (!active) return;
+        if (!response.success || !response.data || !Array.isArray(response.data.organizations)) {
+          setOrganizationsError(response.error?.message ?? 'No se pudieron actualizar las organizaciones.');
+          return;
+        }
+        setOrganizationRecords(response.data.organizations.map((organization) => ({
+          id: organization.id,
+          name: getDisplayOrganizationName(organization.name),
+          type: organization.type,
+          workspaceCount: organization.workspaceCount ?? 0,
+          workspaces: [],
+        })));
+      })
+      .catch(() => {
+        if (active) setOrganizationsError('No se pudieron cargar las organizaciones. Comprueba tu conexión e inténtalo de nuevo.');
+      })
+      .finally(() => { if (active) setOrganizationsLoading(false); });
+    return () => { active = false; };
+  }, [open, step, organizationLoadAttempt]);
+
+  const activeWorkspace =
+    activeWorkspaces.find((workspace) => workspace.id === activeWorkspaceId) ??
+    activeWorkspaces[0] ??
+    null;
+  const activeOrganizationId =
+    activeWorkspace?.organization?.id ?? activeWorkspace?.organizationId;
+  const activeOrganization = organizations.find(
+    (organization) => organization.id === activeOrganizationId,
+  );
+  const organizationWorkspaces = activeOrganization?.workspaces ?? activeWorkspaces;
+  const organizationName = getDisplayOrganizationName(activeOrganization?.name ?? 'Tu organización');
+
+  async function refreshWorkspaces() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  function selectOrganization(organization: OrganizationGroup) {
+    const firstWorkspace =
+      organization.workspaces.find((workspace) => workspace.id === activeWorkspaceId) ??
+      organization.workspaces[0];
+    if (!firstWorkspace) {
+      setOpen(false);
+      onCreateNew(organization.id);
+      return;
+    }
+    if (firstWorkspace && firstWorkspace.id !== activeWorkspaceId) {
+      onSelect(firstWorkspace.id);
+    }
+    setStep('workspaces');
+  }
+
+  const color = activeWorkspace?.color ?? '#F2571E';
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) setStep('workspaces');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={styles.trigger}
+          aria-label={`Cambiar espacio de trabajo: ${organizationName}, ${activeWorkspace?.name ?? 'Tu espacio'}`}
+        >
+          <span className={styles.triggerIcon} style={{ '--workspace-color': color } as React.CSSProperties} aria-hidden="true">
+            <WorkspaceIcon icon={activeWorkspace?.icon ?? 'briefcase'} size={17} />
+          </span>
+          <span className={styles.triggerCopy}>
+            <strong title={activeWorkspace?.name}>{activeWorkspace?.name ?? 'Tu espacio'}</strong>
+            <small title={organizationName}>{organizationName}</small>
+          </span>
+          {activeWorkspace ? <span className={styles.modePill}>{workspaceModeLabel(activeWorkspace.mode)}</span> : null}
+          <ChevronDown className={styles.chevron} data-open={open} size={16} aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        align="start"
+        side="right"
+        sideOffset={10}
+        collisionPadding={12}
+        className={styles.panel}
+        aria-label="Cambiar organización y espacio de trabajo"
+      >
+            <header className={styles.panelHeader}>
+              <span className={styles.eyebrow}>CAMBIAR DE LUGAR</span>
+              <h2>Tu espacio de trabajo</h2>
+            </header>
+
+            <AnimatePresence mode="wait" initial={false}>
+              {step === 'workspaces' ? (
+                <motion.section
+                  key="workspaces"
+                  className={styles.step}
+                  aria-label="Espacios de trabajo"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                >
+                  <div className={styles.stepHeader}>
+                    <div className={styles.organizationHeading}>
+                      <span className={styles.eyebrow}>ORGANIZACIÓN</span>
+                      <h3>{organizationName}</h3>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.textAction}
+                      onClick={() => setStep('organizations')}
+                    >
+                      Cambiar <ArrowRight size={15} aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div className={styles.options} data-scrollable={organizationWorkspaces.length > 4}>
+                    {organizationWorkspaces.length ? organizationWorkspaces.map((workspace) => {
+                      const selected = workspace.id === activeWorkspaceId;
+                      const workspaceColor = workspace.color ?? '#F2571E';
+                      return (
+                        <button
+                          key={workspace.id}
+                          type="button"
+                          className={styles.option}
+                          data-selected={selected}
+                          aria-pressed={selected}
+                          onClick={() => {
+                            onSelect(workspace.id);
+                            setOpen(false);
+                          }}
+                        >
+                          <span className={styles.optionIcon} style={{ '--workspace-color': workspaceColor } as React.CSSProperties} aria-hidden="true">
+                            <WorkspaceIcon icon={workspace.icon ?? 'briefcase'} size={17} />
+                          </span>
+                          <span className={styles.optionCopy}>
+                            <strong>{workspace.name}</strong>
+                            {selected ? <small>Espacio actual</small> : null}
+                          </span>
+                          {selected ? <Check size={17} aria-hidden="true" /> : <ArrowRight size={16} aria-hidden="true" />}
+                        </button>
+                      );
+                    }) : (
+                      <p className={styles.emptyState}>Esta organización todavía no tiene espacios.</p>
+                    )}
+                  </div>
+
+                  <div className={styles.spaceActions}>
+                    <button type="button" className={styles.createAction} onClick={() => { setOpen(false); onCreateNew(activeOrganizationId); }}>
+                      <Plus size={16} aria-hidden="true" />
+                      Nuevo espacio
+                    </button>
+                  </div>
+                </motion.section>
+              ) : (
+                <motion.section
+                  key="organizations"
+                  className={styles.step}
+                  aria-label="Organizaciones"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                >
+                  <div className={styles.stepHeader}>
+                    <button type="button" className={styles.backAction} onClick={() => setStep('workspaces')}>
+                      <ArrowLeft size={15} aria-hidden="true" /> Volver
+                    </button>
+                    <h3>Organizaciones</h3>
+                  </div>
+                  {organizationsLoading && organizations.length === 0 ? (
+                    <p className={styles.emptyState} role="status">Cargando organizaciones…</p>
+                  ) : null}
+                  {organizationsError ? (
+                    <p className={styles.emptyState} role="status">
+                      {organizationsError}{' '}
+                      <button type="button" className={styles.textAction} onClick={() => setOrganizationLoadAttempt((attempt) => attempt + 1)}>
+                        Reintentar
+                      </button>
+                    </p>
+                  ) : null}
+                  <div className={styles.options} data-scrollable={organizations.length > 4}>
+                    {organizations.map((organization) => {
+                      const selected = organization.id === activeOrganizationId;
+                      return (
+                        <button
+                          key={organization.id}
+                          type="button"
+                          className={styles.option}
+                          data-selected={selected}
+                          aria-pressed={selected}
+                          onClick={() => selectOrganization(organization)}
+                        >
+                          <span className={styles.organizationIcon} aria-hidden="true"><Building2 size={17} /></span>
+                          <span className={styles.optionCopy}>
+                            <strong>{organization.name}</strong>
+                            <small>{selected ? 'Organización actual' : `${organization.workspaceCount ?? organization.workspaces.length} ${(organization.workspaceCount ?? organization.workspaces.length) === 1 ? 'espacio' : 'espacios'}`}</small>
+                          </span>
+                          {selected ? <Check size={17} aria-hidden="true" /> : <ArrowRight size={16} aria-hidden="true" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className={styles.spaceActions}>
+                    <button type="button" className={styles.createAction} onClick={() => { setOpen(false); onNewOrganization(); }}>
+                      <Plus size={16} aria-hidden="true" />
+                      Nueva organización
+                    </button>
+                  </div>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            <footer className={styles.panelFooter}>
+              <button
+                type="button"
+                className={styles.footerAction}
+                disabled={!activeWorkspace}
+                onClick={() => {
+                  if (!activeWorkspace) return;
+                  setOpen(false);
+                  onEdit(activeWorkspace);
+                }}
+              >
+                <Settings2 size={15} aria-hidden="true" /> Configuración
+              </button>
+              <button type="button" className={styles.footerAction} onClick={() => void refreshWorkspaces()} disabled={refreshing}>
+                <RefreshCw size={15} className={refreshing ? styles.spinning : undefined} aria-hidden="true" />
+                {refreshing ? 'Actualizando' : 'Actualizar'}
+              </button>
+            </footer>
+      </PopoverContent>
+    </Popover>
+  );
+}

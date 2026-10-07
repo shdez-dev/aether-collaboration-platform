@@ -971,7 +971,7 @@ export const en = {
 
   // ── Home page ─────────────────────────────────────────────────────────────
   home_hero_tagline: 'Real-time project management for teams.',
-  home_hero_version: 'v0.4.2 · All systems operational',
+  home_hero_version: 'v0.4.2 - All systems operational',
   home_hero_title_main: 'Real-time project management',
   home_hero_title_dim: 'for teams that write code.',
   home_hero_description:

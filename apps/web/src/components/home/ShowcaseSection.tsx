@@ -73,7 +73,7 @@ function ActivitySection() {
                 color: 'var(--home-text-3)',
               }}
             >
-              <span>ACTIVIDAD · platform-team</span>
+              <span>ACTIVIDAD - platform-team</span>
               <span style={{ color: '#22c55e' }}>EN VIVO ●</span>
             </div>
             {FEED_ROWS.map((row, i) => (

@@ -16,6 +16,7 @@ export class BoardService {
       name: string;
       description?: string;
       color?: string;
+      projectId?: string;
     }
   ): Promise<Board> {
     const client = await pool.connect();
@@ -47,18 +48,29 @@ export class BoardService {
         [board.id, 'Backlog', 1, userId]
       );
 
+      if (data.projectId) {
+        await client.query(
+          `INSERT INTO project_boards (id, project_id, board_id)
+           VALUES (gen_random_uuid(), $1, $2)`,
+          [data.projectId, board.id]
+        );
+      }
+
       await client.query('COMMIT');
 
-      const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
-      const actorName = actorResult.rows[0]?.name ?? '';
-
-      await eventStore.emit({
-        type: 'board.created',
-        actor: { id: userId, name: actorName },
-        subject: { type: 'board', id: board.id, name: board.name },
-        context: { workspaceId },
-        payload: { description: board.description, position: board.position },
-      });
+      try {
+        const actorResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+        const actorName = actorResult.rows[0]?.name ?? '';
+        await eventStore.emit({
+          type: 'board.created',
+          actor: { id: userId, name: actorName },
+          subject: { type: 'board', id: board.id, name: board.name },
+          context: { workspaceId },
+          payload: { description: board.description, position: board.position, ...(data.projectId && { projectId: data.projectId }) },
+        });
+      } catch (error) {
+        console.error('[BoardService.createBoard] No se pudo registrar el evento del tablero creado', error);
+      }
 
       return this.formatBoard(board);
     } catch (error) {
@@ -87,7 +99,7 @@ export class BoardService {
       [workspaceId]
     );
 
-    return result.rows.map((row) => ({
+    return result.rows.map((row: Record<string, any>) => ({
       ...this.formatBoard(row),
       listCount: parseInt(row.list_count) || 0,
       cardCount: parseInt(row.card_count) || 0,
@@ -137,7 +149,7 @@ export class BoardService {
       );
 
       const cardsByList: Record<string, any[]> = {};
-      cardsResult.rows.forEach((card) => {
+      cardsResult.rows.forEach((card: Record<string, any>) => {
         if (!cardsByList[card.list_id]) {
           cardsByList[card.list_id] = [];
         }
@@ -156,7 +168,7 @@ export class BoardService {
         });
       });
 
-      const lists = listsResult.rows.map((list) => ({
+      const lists = listsResult.rows.map((list: Record<string, any>) => ({
         id: list.id,
         boardId: list.board_id,
         name: list.name,

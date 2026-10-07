@@ -69,7 +69,7 @@ export class AuthController {
       const email = rawEmail.trim().toLowerCase();
       // organizations.name es VARCHAR(255); reservar los 9 caracteres del
       // sufijo evita que un nombre de usuario válido rompa el registro.
-      const personalOrganizationName = `${name.trim().slice(0, 246) || 'Cuenta personal'} · Aether`;
+      const personalOrganizationName = `${name.trim().slice(0, 246) || 'Cuenta personal'} - Aether`;
 
       // 2. Obtener conexión del pool
       client = await pool.connect();
@@ -96,9 +96,9 @@ export class AuthController {
       const verificationToken = crypto.randomBytes(32).toString('hex');
       const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
-      // 6. Crear la cuenta y su contexto personal como una sola unidad. El
-      // workspace deja de ser el disparador de la organización: toda cuenta
-      // nueva tiene desde el inicio una organización PERSONAL y su OWNER.
+      // 6. Crear la cuenta y su organización personal vacía como una sola
+      // unidad. No crear ningún workspace aquí: la persona elige su nombre y
+      // lo crea explícitamente durante el onboarding.
       await client.query('BEGIN');
       let user;
       try {
@@ -135,17 +135,19 @@ export class AuthController {
       client.release();
       client = undefined;
 
-      // 7. Enviar email de verificación en background (no bloquea la respuesta)
-      setImmediate(async () => {
-        try {
-          await emailService.sendVerificationEmail(user.email, {
-            userName: user.name,
-            verificationLink,
-          });
-        } catch (emailError) {
-          console.error('[register] Error sending verification email:', emailError);
-        }
-      });
+      // Confirmar la aceptación del correo antes de afirmar que se envió.
+      // La cuenta ya existe aunque el proveedor falle: el usuario puede reenviar
+      // sin intentar registrarse otra vez.
+      let verificationEmailSent = false;
+      try {
+        await emailService.sendVerificationEmail(user.email, {
+          userName: user.name,
+          verificationLink,
+        });
+        verificationEmailSent = true;
+      } catch (emailError) {
+        console.error('[register] Error sending verification email:', emailError);
+      }
 
       // 8. Retornar usuario creado — el cliente debe verificar su email antes de iniciar sesión
       return res.status(201).json({
@@ -159,6 +161,7 @@ export class AuthController {
             createdAt: user.created_at,
           },
           requiresEmailVerification: true,
+          verificationEmailSent,
         },
         meta: {
           timestamp: Date.now(),
@@ -606,51 +609,6 @@ export class AuthController {
   }
 
   /**
-   * POST /api/auth/check-verification
-   * Consulta si el email ya fue verificado. Devuelve tokens si lo está,
-   * para que la página de espera pueda hacer auto-login sin recargar.
-   */
-  async checkVerification(req: Request, res: Response) {
-    let client;
-    try {
-      const { email } = req.body;
-      if (!email || typeof email !== 'string') {
-        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Email requerido' } });
-      }
-
-      client = await pool.connect();
-      const result = await client.query(
-        'SELECT id, email, name, avatar, email_verified FROM users WHERE email = $1',
-        [email.toLowerCase().trim()]
-      );
-
-      if (result.rows.length === 0 || !result.rows[0].email_verified) {
-        return res.status(200).json({ success: true, data: { verified: false } });
-      }
-
-      const user = result.rows[0];
-      const tokenPayload = { userId: user.id as UserId, email: user.email };
-      const accessToken = generateAccessToken(tokenPayload);
-      const refreshToken = generateRefreshToken(tokenPayload);
-      await RefreshTokenService.issue(user.id, refreshToken);
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          verified: true,
-          accessToken,
-          refreshToken,
-          user: { id: user.id, email: user.email, name: user.name, avatar: user.avatar },
-        },
-      });
-    } catch {
-      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Error al verificar estado' } });
-    } finally {
-      if (client) client.release();
-    }
-  }
-
-  /**
    * POST /api/auth/resend-verification
    * Reenvía el email de verificación sin requerir autenticación.
    * Acepta { email } en el body. Por seguridad, siempre retorna 200
@@ -718,6 +676,7 @@ export class AuthController {
    */
   async verifyEmail(req: Request, res: Response) {
     let client;
+    let transactionOpen = false;
     try {
       client = await pool.connect();
       const validatedData = verifyEmailSchema.parse(req.body);
@@ -754,7 +713,14 @@ export class AuthController {
         });
       }
 
-      // Mark email as verified and clear token
+      // La sesión y la verificación se confirman juntas: un fallo al guardar
+      // el refresh token no debe consumir un enlace válido.
+      const tokenPayload = { userId: user.id as UserId, email: user.email };
+      const accessToken = generateAccessToken(tokenPayload);
+      const refreshToken = generateRefreshToken(tokenPayload);
+      await client.query('BEGIN');
+      transactionOpen = true;
+      await RefreshTokenService.issue(user.id, refreshToken, client);
       await client.query(
         `UPDATE users 
          SET email_verified = TRUE, 
@@ -764,15 +730,11 @@ export class AuthController {
         [user.id]
       );
 
-      // Generar tokens para auto-login inmediato tras verificación
-      const tokenPayload = { userId: user.id as UserId, email: user.email };
-      const accessToken = generateAccessToken(tokenPayload);
-      const refreshToken = generateRefreshToken(tokenPayload);
-      await RefreshTokenService.issue(user.id, refreshToken);
-
       // Obtener avatar del usuario
       const profileResult = await client.query('SELECT avatar FROM users WHERE id = $1', [user.id]);
       const avatar = profileResult.rows[0]?.avatar || null;
+      await client.query('COMMIT');
+      transactionOpen = false;
 
       return res.status(200).json({
         success: true,
@@ -789,6 +751,9 @@ export class AuthController {
         },
       });
     } catch (error) {
+      if (transactionOpen && client) {
+        try { await client.query('ROLLBACK'); } catch { /* original error wins */ }
+      }
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -800,6 +765,7 @@ export class AuthController {
         });
       }
 
+      console.error('[verify-email] failed:', error instanceof Error ? error.message : 'unknown');
       return res.status(500).json({
         success: false,
         error: {

@@ -689,7 +689,7 @@ function ContactRow({ user, isSelected, onSelect, onToggleFav }: {
           {user.position && (
             <>
               {user.sharedWorkspacesCount && user.sharedWorkspacesCount > 0 && (
-                <span style={{ fontSize: '10px', color: C.text4 }}>·</span>
+                <span style={{ fontSize: '10px', color: C.text4 }}>-</span>
               )}
               <span style={{
                 fontSize: '11px', color: C.text4,

@@ -653,11 +653,12 @@ export const useBoardStore = create<BoardState>()(
           );
 
           if (!response.success || !response.data) {
+            const message = response.error?.message || 'No se pudo crear el tablero';
             set({
-              error: response.error?.message || 'Failed to create board',
+              error: message,
               isLoading: false,
             });
-            throw new Error(response.error?.message);
+            throw new Error(message);
           }
 
           set((state) => {

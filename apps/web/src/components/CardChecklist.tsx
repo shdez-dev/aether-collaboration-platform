@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckSquare, Square, Plus, Trash2, Pencil, X, Check } from 'lucide-react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useCardStore } from '@/stores/cardStore';
 import { apiService } from '@/services/apiService';
@@ -16,7 +16,7 @@ interface CardChecklistProps {
 }
 
 export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) {
-  const t = useT();
+  const t = es;
   const { currentWorkspace } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
   const updateCard = useCardStore((state) => state.updateCard);

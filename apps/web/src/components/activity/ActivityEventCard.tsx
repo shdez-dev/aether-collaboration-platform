@@ -1592,14 +1592,14 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
 
                 {event.boardName && (
                   <>
-                    <span>·</span>
+                    <span>-</span>
                     <span>Board: {event.boardName}</span>
                   </>
                 )}
 
                 {event.workspaceName && (
                   <>
-                    <span>·</span>
+                    <span>-</span>
                     <span>Workspace: {event.workspaceName}</span>
                   </>
                 )}

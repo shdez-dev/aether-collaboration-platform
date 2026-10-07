@@ -168,7 +168,7 @@ function UpcomingSection({ cards, onCardClick, listColorMap, today }: UpcomingSe
     <div className="flex-shrink-0" style={{ borderBottom: '1px solid var(--c-border)' }}>
       <div className="px-3 pt-2.5 pb-1">
         <span className="text-[9px] font-mono tracking-[0.15em] uppercase" style={{ color: 'var(--c-text3)' }}>
-          PRÓXIMOS · 7 DÍAS
+          PRÓXIMOS - 7 DÍAS
         </span>
       </div>
       <div className="pb-2">
@@ -424,7 +424,7 @@ export function BoardCalendarView({ lists, filteredCards, onCardClick }: Props) 
             className="hidden sm:block text-[9px] font-mono tracking-[0.18em] uppercase flex-shrink-0"
             style={{ color: 'var(--c-text3)' }}
           >
-            CALENDARIO · MES
+            CALENDARIO - MES
           </span>
 
           <div className="overflow-hidden">

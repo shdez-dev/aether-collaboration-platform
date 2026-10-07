@@ -13,15 +13,15 @@ export class ProjectPlanningController {
       if (boardIds.length === 0) return res.json({ success: true, data: { cards: [] } });
 
       const result = await pool.query(
-        `SELECT c.id, c.title, c.priority, c.due_date,
+        `SELECT c.id, c.title, c.priority, c.due_date, c.completed,
                 b.id AS board_id, b.name AS board_name,
                 l.id AS list_id, l.name AS list_name
          FROM project_boards pb
          JOIN boards b ON b.id = pb.board_id AND b.archived = false
          JOIN lists l ON l.board_id = b.id
-         JOIN cards c ON c.list_id = l.id AND c.completed = false
+         JOIN cards c ON c.list_id = l.id
          WHERE pb.project_id = $1 AND b.id = ANY($2::uuid[])
-         ORDER BY CASE c.priority WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 WHEN 'LOW' THEN 2 ELSE 3 END,
+         ORDER BY c.completed ASC, CASE c.priority WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 WHEN 'LOW' THEN 2 ELSE 3 END,
                   c.due_date NULLS LAST, c.created_at DESC`,
         [projectId, boardIds]
       );
@@ -33,6 +33,7 @@ export class ProjectPlanningController {
             id: row.id,
             title: row.title,
             priority: row.priority,
+            completed: row.completed,
             dueDate: row.due_date ? new Date(row.due_date).toISOString() : null,
             boardId: row.board_id,
             boardName: row.board_name,

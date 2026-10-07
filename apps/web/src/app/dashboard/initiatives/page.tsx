@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, ClipboardCheck, FolderKanban, Plus, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { Initiative, InitiativeStage, useInitiativeStore } from '@/stores/initiativeStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 const stages: Array<{ value: InitiativeStage; label: string; color: string }> = [
   { value: 'SUBMITTED', label: 'Recibidas', color: '#94a3b8' }, { value: 'TRIAGE', label: 'Triage', color: '#60a5fa' },
@@ -21,30 +22,29 @@ function date(value?: string | null) { return value ? new Intl.DateTimeFormat('e
 export default function InitiativesPage() {
   const router = useRouter();
   const activeWorkspaceId = useActiveWorkspaceStore((state) => state.activeWorkspaceId);
-  const { initiatives, loading, error, fetchInitiatives, createInitiative, transition, convert } = useInitiativeStore();
+  const workspaces = useWorkspaceStore((state) => state.workspaces);
+  const fetchWorkspaces = useWorkspaceStore((state) => state.fetchWorkspaces);
+  const { initiatives, loading, error, fetchInitiatives, transition, convert } = useInitiativeStore();
   const [filter, setFilter] = useState<InitiativeStage | 'ALL'>('ALL');
-  const [creating, setCreating] = useState(false); const [selected, setSelected] = useState<Initiative | null>(null);
+  const [selected, setSelected] = useState<Initiative | null>(null);
   const [transitionStage, setTransitionStage] = useState<InitiativeStage>('TRIAGE'); const [reason, setReason] = useState('');
 
-  useEffect(() => { if (activeWorkspaceId) fetchInitiatives(activeWorkspaceId); }, [activeWorkspaceId, fetchInitiatives]);
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
+  const isInstitutional = activeWorkspace?.organization?.type === 'INSTITUTION';
+
+  useEffect(() => { if (!workspaces.length) void fetchWorkspaces(); }, [fetchWorkspaces, workspaces.length]);
+  useEffect(() => { if (activeWorkspaceId && isInstitutional) fetchInitiatives(activeWorkspaceId); }, [activeWorkspaceId, fetchInitiatives, isInstitutional]);
   useEffect(() => { if (selected) { setTransitionStage(selected.stage); setReason(selected.decisionReason ?? ''); } }, [selected]);
   const visible = useMemo(() => filter === 'ALL' ? initiatives : initiatives.filter((item) => item.stage === filter), [filter, initiatives]);
   const counts = useMemo(() => Object.fromEntries(stages.map(({ value }) => [value, initiatives.filter((item) => item.stage === value).length])), [initiatives]);
 
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); if (!activeWorkspaceId) return;
-    const form = new FormData(e.currentTarget);
-    const evidenceTitle = String(form.get('evidenceTitle') || '').trim(); const evidenceUrl = String(form.get('evidenceUrl') || '').trim();
-    const attachmentName = String(form.get('attachmentName') || '').trim(); const attachmentUrl = String(form.get('attachmentUrl') || '').trim();
-    const created = await createInitiative({ workspaceId: activeWorkspaceId, title: String(form.get('title')), description: String(form.get('description') || '') || null, problemStatement: String(form.get('problem') || '') || null, proposedNextStep: String(form.get('nextStep') || '') || null, priority: String(form.get('priority')) as Initiative['priority'], evidence: evidenceTitle ? [{ title: evidenceTitle, ...(evidenceUrl ? { url: evidenceUrl } : {}) }] : [], attachments: attachmentName && attachmentUrl ? [{ name: attachmentName, url: attachmentUrl }] : [], nextReviewAt: form.get('review') ? new Date(String(form.get('review'))).toISOString() : null });
-    if (created) setCreating(false);
-  }
   async function submitTransition(e: FormEvent) { e.preventDefault(); if (!selected) return; const next = await transition(selected.id, { stage: transitionStage, reason: reason || undefined, decision: transitionStage === 'APPROVED' ? 'APPROVED' : undefined }); if (next) setSelected({ ...selected, ...next }); }
   async function formalize() { if (!selected) return; const result = await convert(selected.id); if (result) setSelected({ ...selected, formalizedProjectId: result.projectId }); }
 
-  if (!activeWorkspaceId) return <main style={page}><section style={empty}><FolderKanban size={32} /><h1>Selecciona un espacio de trabajo</h1><p>Las iniciativas pertenecen a un espacio institucional concreto.</p></section></main>;
+  if (!activeWorkspaceId || !activeWorkspace) return <main style={page}><section style={empty}><RefreshCw size={25} className="animate-spin" /><h1>{activeWorkspaceId ? 'Cargando espacio de trabajo' : 'Selecciona un espacio institucional'}</h1><p>Las iniciativas pertenecen a un espacio institucional concreto.</p></section></main>;
+  if (!isInstitutional) return <main style={page}><section style={empty}><FolderKanban size={32} /><h1>Las iniciativas son para organizaciones institucionales</h1><p>En organizaciones personales o de equipos, registra esta información directamente al crear el proyecto.</p><Link href="/dashboard/projects" style={secondaryButton}><FolderKanban size={15} /> Ir a proyectos</Link></section></main>;
   return <main style={page}>
-    <header style={header}><div><p style={eyebrow}>ENTORNO INSTITUCIONAL</p><h1 style={title}>Iniciativas</h1><p style={subtitle}>Propuestas en evaluación. Los proyectos comienzan solo después de una aprobación trazable.</p></div><div style={{ display: 'flex', gap: 10 }}><Link href="/dashboard/projects" style={secondaryButton}><FolderKanban size={16} /> Ver proyectos</Link><Link href="/dashboard/initiatives/reports" style={secondaryButton}>Reportes</Link><Link href="/dashboard/initiatives/settings" style={secondaryButton}>Configurar intake</Link><button onClick={() => setCreating(true)} style={primaryButton}><Plus size={17} /> Nueva iniciativa</button></div></header>
+    <header style={header}><div><p style={eyebrow}>ENTORNO INSTITUCIONAL</p><h1 style={title}>Iniciativas</h1><p style={subtitle}>Propuestas en evaluación. Los proyectos comienzan solo después de una aprobación trazable.</p></div><div style={{ display: 'flex', gap: 10 }}><Link href="/dashboard/projects" style={secondaryButton}><FolderKanban size={16} /> Ver proyectos</Link><Link href="/dashboard/initiatives/reports" style={secondaryButton}>Reportes</Link><Link href="/dashboard/initiatives/settings" style={secondaryButton}>Configurar intake</Link><button onClick={() => router.push('/dashboard/initiatives/new')} style={primaryButton}><Plus size={17} /> Nueva iniciativa</button></div></header>
     <section style={guidance}><ShieldCheck size={18} color="#60a5fa" /><span><strong>Bandeja de triage.</strong> Prioriza, asigna responsables y registra una decisión antes de llevar una iniciativa a ejecución.</span></section>
     <nav style={tabs}><button onClick={() => setFilter('ALL')} style={filter === 'ALL' ? tabActive : tab}>Todas <b>{initiatives.length}</b></button>{stages.map((item) => <button key={item.value} onClick={() => setFilter(item.value)} style={filter === item.value ? tabActive : tab}>{item.label} <b>{counts[item.value]}</b></button>)}</nav>
     {error && <p style={{ color: '#fca5a5' }}>{error}</p>}
@@ -54,7 +54,6 @@ export default function InitiativesPage() {
       <div style={cardMeta}><span>Responsable: {initiative.triageOwner?.name ?? 'Por asignar'}</span><span>Revisión: {date(initiative.nextReviewAt)}</span></div>
       <div style={nextStep}><ArrowRight size={14} /> {initiative.proposedNextStep || 'Definir siguiente paso'}</div>
     </button>)}</section>
-    {creating && <div style={overlay}><form onSubmit={submit} style={modal}><div style={modalHeader}><div><p style={eyebrow}>SOLICITUD</p><h2 style={{ margin: 0 }}>Nueva iniciativa</h2></div><button type="button" onClick={() => setCreating(false)} style={close}>×</button></div><label style={label}>Título<input name="title" required minLength={3} style={input} placeholder="¿Qué propuesta necesita evaluación?" /></label><label style={label}>Problema u oportunidad<textarea name="problem" style={textarea} placeholder="Qué ocurre, a quién afecta y por qué importa." /></label><label style={label}>Contexto inicial<textarea name="description" style={textarea} placeholder="Datos, contexto o antecedentes disponibles." /></label><div style={{ display: 'flex', gap: 12 }}><label style={{ ...label, flex: 1 }}>Evidencia<input name="evidenceTitle" style={input} placeholder="Nombre de la evidencia" /></label><label style={{ ...label, flex: 1 }}>Enlace de evidencia<input name="evidenceUrl" type="url" style={input} placeholder="https://…" /></label></div><div style={{ display: 'flex', gap: 12 }}><label style={{ ...label, flex: 1 }}>Adjunto<input name="attachmentName" style={input} placeholder="Nombre del archivo" /></label><label style={{ ...label, flex: 1 }}>Enlace del adjunto<input name="attachmentUrl" type="url" style={input} placeholder="https://…" /></label></div><label style={label}>Siguiente paso propuesto<input name="nextStep" style={input} placeholder="Ej.: entrevista con usuarios" /></label><div style={{ display: 'flex', gap: 12 }}><label style={{ ...label, flex: 1 }}>Prioridad<select name="priority" defaultValue="MEDIUM" style={input}>{Object.keys(priorities).map((item) => <option key={item}>{item}</option>)}</select></label><label style={{ ...label, flex: 1 }}>Revisión<input name="review" type="date" style={input} /></label></div><div style={actions}><button type="button" onClick={() => setCreating(false)} style={secondaryButton}>Cancelar</button><button style={primaryButton}>Enviar a triage</button></div></form></div>}
     {selected && <div style={overlay}><aside style={drawer}><div style={modalHeader}><div><p style={eyebrow}>{stageMeta(selected.stage).label}</p><h2 style={{ margin: 0 }}>{selected.title}</h2></div><button onClick={() => setSelected(null)} style={close}>×</button></div><section style={detail}><h3>Problema</h3><p>{selected.problemStatement || 'Aún no declarado.'}</p><h3>Evidencia</h3><p>{selected.description || selected.evidence?.map((item) => item.title).join(', ') || 'Aún no adjunta.'}</p><h3>Siguiente paso</h3><p>{selected.proposedNextStep || 'Pendiente de definición.'}</p><div style={detailGrid}><span>Solicitante<strong>{selected.requester?.name ?? 'Interno'}</strong></span><span>Responsable<strong>{selected.triageOwner?.name ?? 'Por asignar'}</strong></span><span>Mentor<strong>{selected.mentor?.name ?? 'Sin mentor'}</strong></span><span>Revisión<strong>{date(selected.nextReviewAt)}</strong></span></div></section>
       <form onSubmit={submitTransition} style={transitionBox}><strong>Decisión y etapa</strong><select value={transitionStage} onChange={(e) => setTransitionStage(e.target.value as InitiativeStage)} style={input}>{stages.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><textarea value={reason} onChange={(e) => setReason(e.target.value)} style={textarea} placeholder="Motivo de la decisión o próximo paso" /><button style={primaryButton}>Registrar cambio</button></form>
       {selected.stage === 'APPROVED' && !selected.formalizedProjectId && <button onClick={formalize} style={{ ...primaryButton, width: '100%', justifyContent: 'center', background: '#22c55e' }}>Convertir en proyecto</button>}

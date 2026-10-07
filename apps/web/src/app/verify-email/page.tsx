@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
@@ -77,12 +77,15 @@ export default function VerifyEmailPage() {
   const { setAuth }  = useAuthStore();
   const [status, setStatus]           = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
+  const startedToken = useRef<string | null>(null);
+  const token = searchParams.get('token');
 
   useEffect(() => {
-    const token = searchParams.get('token');
     if (!token) { setStatus('error'); setErrorMessage('Token de verificación no encontrado'); return; }
-    verifyEmail(token);
-  }, [searchParams]);
+    if (startedToken.current === token) return;
+    startedToken.current = token;
+    void verifyEmail(token);
+  }, [token]);
 
   const verifyEmail = async (token: string) => {
     try {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, BriefcaseBusiness, Building2, FolderKanban, Plus, RefreshCw, ShieldAlert, Users } from 'lucide-react';
 import { PortfolioOrganization, usePortfolioStore } from '@/stores/portfolioStore';
+import { getDisplayOrganizationName } from '@/lib/organizationName';
 
 const MANAGE_ROLES = new Set<PortfolioOrganization['role']>(['OWNER', 'ADMIN']);
 const date = (value?: string | null) => value ? new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) : 'Sin actividad';
@@ -48,7 +49,7 @@ export default function PortfoliosPage() {
       <div style={headerActions}>
         <label style={selectLabel}><Building2 size={15} /> Organización
           <select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} style={select} aria-label="Seleccionar organización">
-            {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
+            {organizations.map((organization) => <option key={organization.id} value={organization.id}>{getDisplayOrganizationName(organization.name)}</option>)}
           </select>
         </label>
         {canCreate && <button onClick={() => setCreating(true)} style={primaryButton}><Plus size={17} /> Nueva cartera</button>}

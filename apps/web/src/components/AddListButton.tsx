@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useBoardStore } from '@/stores/boardStore';
 import { Plus } from 'lucide-react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { C } from '@/lib/colors';
 
 
@@ -14,7 +14,7 @@ interface AddListButtonProps {
 
 export default function AddListButton({ boardId }: AddListButtonProps) {
   const { createList, isLoading } = useBoardStore();
-  const t = useT();
+  const t = es;
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState('');
 

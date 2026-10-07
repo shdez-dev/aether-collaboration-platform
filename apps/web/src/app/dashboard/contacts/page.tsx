@@ -146,7 +146,7 @@ function ContactRow({ contact, isSelected, index, onSelect, onToggleFav, togglin
           {contact.name}
         </div>
         <div style={{ fontSize: '12px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
-          {contact.position ? `${contact.position} · ` : ''}{contact.email}
+          {contact.position ? `${contact.position} - ` : ''}{contact.email}
         </div>
       </div>
 

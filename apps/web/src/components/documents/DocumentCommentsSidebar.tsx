@@ -256,7 +256,7 @@ function CommentForm({ onSubmit, onCancel, placeholder, submitLabel = 'Comentar'
         placeholder={placeholder} autoFocus={autoFocus} members={members}
       />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-        <span style={{ fontSize: '11px', color: C.text4 }}>⌘↵ enviar · @mencionar</span>
+        <span style={{ fontSize: '11px', color: C.text4 }}>⌘↵ enviar | @mencionar</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {onCancel && (
             <button type="button" onClick={onCancel} style={{

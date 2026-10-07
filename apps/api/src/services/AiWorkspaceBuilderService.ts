@@ -17,7 +17,7 @@ class AiWorkspaceBuilderService {
 
       const organizationResult = await client.query(
         `INSERT INTO organizations (id, name, type, owner_user_id, created_at, updated_at)
-         SELECT gen_random_uuid(), COALESCE(NULLIF(TRIM(name), ''), 'Cuenta personal') || ' · Aether',
+         SELECT gen_random_uuid(), COALESCE(NULLIF(TRIM(name), ''), 'Cuenta personal') || ' - Aether',
                 'PERSONAL'::"OrganizationType", id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
          FROM users WHERE id = $1
          ON CONFLICT (owner_user_id) WHERE type = 'PERSONAL'::"OrganizationType"

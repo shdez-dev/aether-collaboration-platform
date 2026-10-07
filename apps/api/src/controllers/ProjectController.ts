@@ -13,12 +13,18 @@ import type { ProjectRequest } from '../middleware/project';
 
 const createProjectSchema = z.object({
   name: z.string().min(1).max(255),
-  description: z.string().max(1000).optional(),
+  description: z.string().trim().min(1).max(8000),
   icon: z.string().max(100).optional(),
   color: z.string().max(50).optional(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
   maturityStage: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
-  problemStatement: z.string().max(4000).optional(),
+  problemStatement: z.string().trim().min(1).max(8000),
+  impactedPeople: z.string().trim().min(1).max(8000),
+  problemImpact: z.string().trim().min(1).max(8000),
+  impactedCount: z.number().int().min(1).max(1_000_000_000),
+  expectedOutcome: z.string().trim().min(1).max(8000),
+  proposedSolution: z.string().trim().min(1).max(8000),
+  differentiation: z.string().trim().min(1).max(8000),
   nextStep: z.string().max(1000).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -27,12 +33,18 @@ const createProjectSchema = z.object({
 
 const updateProjectSchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  description: z.string().max(1000).optional().nullable(),
+  description: z.string().max(8000).optional().nullable(),
   icon: z.string().max(100).optional().nullable(),
   color: z.string().max(50).optional().nullable(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
   maturityStage: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
-  problemStatement: z.string().max(4000).optional().nullable(),
+  problemStatement: z.string().max(8000).optional().nullable(),
+  impactedPeople: z.string().max(8000).optional().nullable(),
+  problemImpact: z.string().max(8000).optional().nullable(),
+  impactedCount: z.number().int().min(1).max(1_000_000_000).optional().nullable(),
+  expectedOutcome: z.string().max(8000).optional().nullable(),
+  proposedSolution: z.string().max(8000).optional().nullable(),
+  differentiation: z.string().max(8000).optional().nullable(),
   nextStep: z.string().max(1000).optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
@@ -93,6 +105,7 @@ function fmtProject(row: any) {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
+    sourceInitiativeId: row.source_initiative_id ?? null,
     name: row.name,
     description: row.description,
     icon: row.icon,
@@ -100,6 +113,12 @@ function fmtProject(row: any) {
     status: row.status,
     maturityStage: row.maturity_stage ?? 'IDEA',
     problemStatement: row.problem_statement,
+    impactedPeople: row.impacted_people,
+    problemImpact: row.problem_impact,
+    impactedCount: row.impacted_count,
+    expectedOutcome: row.expected_outcome,
+    proposedSolution: row.proposed_solution,
+    differentiation: row.differentiation,
     nextStep: row.next_step,
     startDate: row.start_date ? new Date(row.start_date).toISOString() : null,
     endDate: row.end_date ? new Date(row.end_date).toISOString() : null,
@@ -603,6 +622,19 @@ class ProjectController {
     try {
       const { wsId } = req.params;
       const userId = (req as any).user.id;
+      const workspaceContext = await pool.query(
+        `SELECT o.type AS organization_type
+         FROM workspaces w
+         JOIN organizations o ON o.id = w.organization_id
+         WHERE w.id = $1`,
+        [wsId]
+      );
+      if (!workspaceContext.rows.length) {
+        return res.status(404).json({ success: false, error: { code: 'WORKSPACE_NOT_FOUND', message: 'Espacio de trabajo no encontrado' } });
+      }
+      if (workspaceContext.rows[0].organization_type === 'INSTITUTION') {
+        return res.status(409).json({ success: false, error: { code: 'INSTITUTIONAL_INTAKE_REQUIRED', message: 'En organizaciones institucionales los proyectos se crean desde una iniciativa aprobada' } });
+      }
       const body = createProjectSchema.safeParse(req.body);
       if (!body.success) {
         return res.status(400).json({ success: false, error: { message: 'Datos inválidos', details: body.error.flatten() } });
@@ -648,14 +680,18 @@ class ProjectController {
         const result = await client.query(
           `INSERT INTO projects (
              id, workspace_id, name, description, icon, color, status, maturity_stage,
-             problem_statement, next_step, start_date, end_date, owner_id,
+             problem_statement, impacted_people, problem_impact, impacted_count,
+             expected_outcome, proposed_solution, differentiation,
+             next_step, start_date, end_date, owner_id,
              applied_standard_id, applied_standard_version, standard_applied_at, updated_at
            )
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            RETURNING *`,
           [wsId, data.name, data.description ?? null, data.icon ?? null, data.color ?? null,
            data.status ?? 'PLANNING', data.maturityStage ?? 'IDEA', data.problemStatement ?? null,
-           data.nextStep ?? null, data.startDate ?? null, data.endDate ?? null, userId,
+           data.impactedPeople, data.problemImpact, data.impactedCount, data.expectedOutcome,
+           data.proposedSolution, data.differentiation, data.nextStep ?? null,
+           data.startDate ?? null, data.endDate ?? null, userId,
            workspaceStandard.id, workspaceStandard.version]
         );
         const project = result.rows[0];
@@ -750,6 +786,12 @@ class ProjectController {
       if (data.status      !== undefined) { fields.push(`status = $${idx++}`);      values.push(data.status); }
       if (data.maturityStage !== undefined) { fields.push(`maturity_stage = $${idx++}`); values.push(data.maturityStage); }
       if (data.problemStatement !== undefined) { fields.push(`problem_statement = $${idx++}`); values.push(data.problemStatement); }
+      if (data.impactedPeople !== undefined) { fields.push(`impacted_people = $${idx++}`); values.push(data.impactedPeople); }
+      if (data.problemImpact !== undefined) { fields.push(`problem_impact = $${idx++}`); values.push(data.problemImpact); }
+      if (data.impactedCount !== undefined) { fields.push(`impacted_count = $${idx++}`); values.push(data.impactedCount); }
+      if (data.expectedOutcome !== undefined) { fields.push(`expected_outcome = $${idx++}`); values.push(data.expectedOutcome); }
+      if (data.proposedSolution !== undefined) { fields.push(`proposed_solution = $${idx++}`); values.push(data.proposedSolution); }
+      if (data.differentiation !== undefined) { fields.push(`differentiation = $${idx++}`); values.push(data.differentiation); }
       if (data.nextStep !== undefined) { fields.push(`next_step = $${idx++}`); values.push(data.nextStep); }
       if (data.startDate   !== undefined) { fields.push(`start_date = $${idx++}`);  values.push(data.startDate); }
       if (data.endDate     !== undefined) { fields.push(`end_date = $${idx++}`);    values.push(data.endDate); }
@@ -768,6 +810,12 @@ class ProjectController {
         status: data.status !== undefined ? data.status : currentProject.status,
         maturity_stage: data.maturityStage !== undefined ? data.maturityStage : currentProject.maturity_stage,
         problem_statement: data.problemStatement !== undefined ? data.problemStatement : currentProject.problem_statement,
+        impacted_people: data.impactedPeople !== undefined ? data.impactedPeople : currentProject.impacted_people,
+        problem_impact: data.problemImpact !== undefined ? data.problemImpact : currentProject.problem_impact,
+        impacted_count: data.impactedCount !== undefined ? data.impactedCount : currentProject.impacted_count,
+        expected_outcome: data.expectedOutcome !== undefined ? data.expectedOutcome : currentProject.expected_outcome,
+        proposed_solution: data.proposedSolution !== undefined ? data.proposedSolution : currentProject.proposed_solution,
+        differentiation: data.differentiation !== undefined ? data.differentiation : currentProject.differentiation,
         next_step: data.nextStep !== undefined ? data.nextStep : currentProject.next_step,
         start_date: data.startDate !== undefined ? data.startDate : currentProject.start_date,
         end_date: data.endDate !== undefined ? data.endDate : currentProject.end_date,

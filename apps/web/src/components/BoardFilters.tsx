@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Search, X, ChevronDown, SlidersHorizontal } from 'lucide-react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import type { User, Label } from '@aether/types';
 import { getAvatarUrl } from '@/lib/utils/avatar';
 import { C } from '@/lib/colors';
@@ -178,7 +178,7 @@ export default function BoardFilters({
   totalCards: number;
   filteredCards: number;
 }) {
-  const t = useT();
+  const t = es;
   const active = hasActiveFilters(filters);
   const set = (partial: Partial<BoardFilterState>) => onChange({ ...filters, ...partial });
 

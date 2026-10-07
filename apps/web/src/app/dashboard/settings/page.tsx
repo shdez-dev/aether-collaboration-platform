@@ -742,10 +742,10 @@ export default function SettingsPage() {
                       >
                         <div>
                           <div style={{ fontSize: '13px', fontWeight: 600, color: entry.isActive ? C.accent : C.text }}>
-                            {entry.name} · v{entry.version}
+                            {entry.name} - v{entry.version}
                           </div>
                           <div style={{ marginTop: '4px', fontSize: '11.5px', color: C.text3, lineHeight: 1.45 }}>
-                            {entry.definition.requiredChecklist.length} checks · {entry.definition.requiredProjectFields.length} campos · intake {entry.definition.intakeStages.join(' / ')}
+                            {entry.definition.requiredChecklist.length} checks - {entry.definition.requiredProjectFields.length} campos - intake {entry.definition.intakeStages.join(' / ')}
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>

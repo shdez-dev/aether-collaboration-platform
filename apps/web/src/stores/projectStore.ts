@@ -88,6 +88,7 @@ export interface ProjectWorkflowHistoryItem {
 export interface Project {
   id: string;
   workspaceId: string;
+  sourceInitiativeId?: string | null;
   name: string;
   description?: string;
   icon?: string;
@@ -95,6 +96,12 @@ export interface Project {
   status: ProjectStatus;
   maturityStage: ProjectMaturityStage;
   problemStatement?: string | null;
+  impactedPeople?: string | null;
+  problemImpact?: string | null;
+  impactedCount?: number | null;
+  expectedOutcome?: string | null;
+  proposedSolution?: string | null;
+  differentiation?: string | null;
   nextStep?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -143,12 +150,18 @@ interface ProjectWorkflowTransitionData {
 interface CreateProjectData {
   workspaceId: string;
   name: string;
-  description?: string;
+  description: string;
   icon?: string;
   color?: string;
   status?: ProjectStatus;
   maturityStage?: ProjectMaturityStage;
-  problemStatement?: string;
+  problemStatement: string;
+  impactedPeople: string;
+  problemImpact: string;
+  impactedCount: number;
+  expectedOutcome: string;
+  proposedSolution: string;
+  differentiation: string;
   nextStep?: string;
   startDate?: string;
   endDate?: string;
@@ -163,6 +176,12 @@ interface UpdateProjectData {
   status?: ProjectStatus;
   maturityStage?: ProjectMaturityStage;
   problemStatement?: string | null;
+  impactedPeople?: string | null;
+  problemImpact?: string | null;
+  impactedCount?: number | null;
+  expectedOutcome?: string | null;
+  proposedSolution?: string | null;
+  differentiation?: string | null;
   nextStep?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -201,6 +220,7 @@ interface ProjectState {
   deleteProject: (id: string) => Promise<void>;
 
   addBoard: (projectId: string, boardId: string) => Promise<void>;
+  recordCreatedBoard: (projectId: string, board: ProjectBoard) => void;
   removeBoard: (projectId: string, boardId: string) => Promise<void>;
 
   createMilestone: (projectId: string, data: CreateMilestoneData) => Promise<ProjectMilestone>;
@@ -360,6 +380,17 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       // ── Boards ──────────────────────────────────────────────────────────────
+
+      recordCreatedBoard: (projectId: string, board: ProjectBoard) => {
+        set((state) => ({
+          currentProject: state.currentProject?.id === projectId
+            ? {
+                ...state.currentProject,
+                boards: [...(state.currentProject.boards ?? []).filter((existing) => existing.id !== board.id), board],
+              }
+            : state.currentProject,
+        }));
+      },
 
       addBoard: async (projectId: string, boardId: string) => {
         const response = await apiService.post<{ board: ProjectBoard }>(

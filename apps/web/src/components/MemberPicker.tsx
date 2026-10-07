@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, memo, useCallback, useMemo } from 'react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
 import { Check, X } from 'lucide-react';
 import { C } from '@/lib/colors';
@@ -29,7 +29,7 @@ function hashColor(str: string) {
 }
 
 export function MemberPicker({ workspaceId, cardId, assignedMembers, onMemberAssigned, onMemberRemoved }: MemberPickerProps) {
-  const t = useT();
+  const t = es;
   const [workspaceMembers, setWorkspaceMembers] = useState<Member[]>([]);
   const [isLoading,   setIsLoading]   = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,7 +125,7 @@ export function MemberPicker({ workspaceId, cardId, assignedMembers, onMemberAss
             <span style={{ fontSize: '11px', color: C.text4 }}>Cargando...</span>
           </div>
         ) : workspaceMembers.length === 0 ? (
-          <div style={{ padding: '14px 0', textAlign: 'center', fontSize: '12px', color: C.text4 }}>Sin miembros en el workspace</div>
+          <div style={{ padding: '14px 0', textAlign: 'center', fontSize: '12px', color: C.text4 }}>Sin miembros en el espacio de trabajo</div>
         ) : unassigned.length === 0 && assignedFiltered.length === 0 ? (
           <div style={{ padding: '14px 0', textAlign: 'center', fontSize: '12px', color: C.text4 }}>{t.comments_mention_no_results}</div>
         ) : (

@@ -32,6 +32,12 @@ type AttachmentDraft = { name: string; url: string; type: string };
 type InitiativeEditForm = {
   description: string;
   problemStatement: string;
+  impactedPeople: string;
+  problemImpact: string;
+  impactedCount: string;
+  expectedOutcome: string;
+  proposedSolution: string;
+  differentiation: string;
   proposedNextStep: string;
   priority: InitiativePriority;
   nextReviewAt: string;
@@ -84,7 +90,7 @@ export default function InitiativeDetailPage() {
   const [participantRole, setParticipantRole] = useState<(typeof assignableRoles)[number]>('MENTOR');
   const [triageAssessment, setTriageAssessment] = useState<Record<string, { status: TriageAssessmentStatus | ''; note: string }>>({});
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState<InitiativeEditForm>({ description: '', problemStatement: '', proposedNextStep: '', priority: 'MEDIUM', nextReviewAt: '', evidence: [], attachments: [] });
+  const [editForm, setEditForm] = useState<InitiativeEditForm>({ description: '', problemStatement: '', impactedPeople: '', problemImpact: '', impactedCount: '', expectedOutcome: '', proposedSolution: '', differentiation: '', proposedNextStep: '', priority: 'MEDIUM', nextReviewAt: '', evidence: [], attachments: [] });
   const [formError, setFormError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
 
@@ -111,6 +117,12 @@ export default function InitiativeDetailPage() {
     setEditForm({
       description: initiativeDetail.initiative.description ?? '',
       problemStatement: initiativeDetail.initiative.problemStatement ?? '',
+      impactedPeople: initiativeDetail.initiative.impactedPeople ?? '',
+      problemImpact: initiativeDetail.initiative.problemImpact ?? '',
+      impactedCount: initiativeDetail.initiative.impactedCount?.toString() ?? '',
+      expectedOutcome: initiativeDetail.initiative.expectedOutcome ?? '',
+      proposedSolution: initiativeDetail.initiative.proposedSolution ?? '',
+      differentiation: initiativeDetail.initiative.differentiation ?? '',
       proposedNextStep: initiativeDetail.initiative.proposedNextStep ?? '',
       priority: initiativeDetail.initiative.priority,
       nextReviewAt: toDateTimeLocal(initiativeDetail.initiative.nextReviewAt),
@@ -138,6 +150,12 @@ export default function InitiativeDetailPage() {
     setEditForm({
       description: initiative.description ?? '',
       problemStatement: initiative.problemStatement ?? '',
+      impactedPeople: initiative.impactedPeople ?? '',
+      problemImpact: initiative.problemImpact ?? '',
+      impactedCount: initiative.impactedCount?.toString() ?? '',
+      expectedOutcome: initiative.expectedOutcome ?? '',
+      proposedSolution: initiative.proposedSolution ?? '',
+      differentiation: initiative.differentiation ?? '',
       proposedNextStep: initiative.proposedNextStep ?? '',
       priority: initiative.priority,
       nextReviewAt: toDateTimeLocal(initiative.nextReviewAt),
@@ -193,6 +211,11 @@ export default function InitiativeDetailPage() {
 
   async function submitEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const requiredProposalValues = [editForm.description, editForm.problemStatement, editForm.impactedPeople, editForm.problemImpact, editForm.expectedOutcome, editForm.proposedSolution, editForm.differentiation];
+    if (requiredProposalValues.some((value) => !value.trim()) || !Number.isInteger(Number(editForm.impactedCount)) || Number(editForm.impactedCount) < 1) {
+      setFormError('Completa los nueve datos de contexto, impacto y propuesta antes de guardar.');
+      return;
+    }
     const evidence = editForm.evidence.filter((entry) => entry.title.trim() || entry.url.trim() || entry.note.trim());
     const attachments = editForm.attachments.filter((entry) => entry.name.trim() || entry.url.trim() || entry.type.trim());
     const invalidEvidence = evidence.find((entry) => !entry.title.trim() || (entry.url.trim() && !isHttpUrl(entry.url.trim())));
@@ -204,6 +227,12 @@ export default function InitiativeDetailPage() {
     const completed = await updateDetail(initiative.id, {
       description: editForm.description.trim() || null,
       problemStatement: editForm.problemStatement.trim() || null,
+      impactedPeople: editForm.impactedPeople.trim(),
+      problemImpact: editForm.problemImpact.trim(),
+      impactedCount: Number(editForm.impactedCount),
+      expectedOutcome: editForm.expectedOutcome.trim(),
+      proposedSolution: editForm.proposedSolution.trim(),
+      differentiation: editForm.differentiation.trim(),
       proposedNextStep: editForm.proposedNextStep.trim() || null,
       priority: editForm.priority,
       nextReviewAt: editForm.nextReviewAt ? new Date(editForm.nextReviewAt).toISOString() : null,
@@ -232,9 +261,18 @@ export default function InitiativeDetailPage() {
     <div style={layout}>
       <div style={mainColumn}>
         <section style={panel}>
-          <h2 style={sectionTitle}>Diagnóstico y siguiente paso</h2>
-          <div style={contentBlock}><span style={label}>Problema u oportunidad</span><p>{initiative.problemStatement || 'Aún no se ha declarado un problema u oportunidad.'}</p></div>
-          <div style={contentBlock}><span style={label}>Siguiente paso</span><p>{initiative.proposedNextStep || 'Pendiente de definir por la coordinación.'}</p></div>
+          <h2 style={sectionTitle}>Propuesta de origen</h2>
+          <div style={twoColumns}>
+            <div style={contentBlock}><span style={label}>Resumen del proyecto</span><p>{initiative.description || 'Pendiente de completar.'}</p></div>
+            <div style={contentBlock}><span style={label}>Problemática identificada</span><p>{initiative.problemStatement || 'Pendiente de completar.'}</p></div>
+            <div style={contentBlock}><span style={label}>Personas impactadas</span><p>{initiative.impactedPeople || 'Pendiente de completar.'}</p></div>
+            <div style={contentBlock}><span style={label}>Impacto de la problemática</span><p>{initiative.problemImpact || 'Pendiente de completar.'}</p></div>
+            <div style={contentBlock}><span style={label}>Cantidad aproximada de personas</span><p>{initiative.impactedCount?.toLocaleString('es-CL') ?? 'Pendiente de completar.'}</p></div>
+            <div style={contentBlock}><span style={label}>Propuesta de valor</span><p>{initiative.expectedOutcome || 'Pendiente de completar.'}</p></div>
+            <div style={contentBlock}><span style={label}>Solución</span><p>{initiative.proposedSolution || 'Pendiente de completar.'}</p></div>
+            <div style={contentBlock}><span style={label}>Diferenciación</span><p>{initiative.differentiation || 'Pendiente de completar.'}</p></div>
+          </div>
+          <div style={contentBlock}><span style={label}>Siguiente paso operativo</span><p>{initiative.proposedNextStep || 'Pendiente de definir por la coordinación.'}</p></div>
           {(initiative.decision || initiative.decisionReason) && <div style={decisionStyle}><CheckCircle2 size={18} /><div><strong>{initiative.decision || 'Decisión registrada'}</strong><p>{initiative.decisionReason || 'Sin motivo adicional.'}</p></div></div>}
         </section>
 
@@ -267,11 +305,29 @@ export default function InitiativeDetailPage() {
           {(actionError || formError) && <p style={actionErrorStyle}>{formError || actionError}</p>}
           {!editing ? <button type="button" onClick={() => { resetEditForm(); setFormError(null); clearActionError(); setEditing(true); }} style={secondaryButton} disabled={actionBusy}>Editar información</button> : <form onSubmit={submitEdit} style={editFormStyle}>
             <h3 style={subsectionTitle}>Información de la iniciativa</h3>
-            <label style={formLabel}>Descripción
-              <textarea value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="Contexto y antecedentes de la propuesta" />
+            <label style={formLabel}>Resumen del proyecto
+              <textarea required value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="En pocas líneas, explica qué oportunidad estás explorando." />
             </label>
             <label style={formLabel}>Problema u oportunidad
-              <textarea value={editForm.problemStatement} onChange={(event) => setEditForm((current) => ({ ...current, problemStatement: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="Qué problema se busca resolver" />
+              <textarea required value={editForm.problemStatement} onChange={(event) => setEditForm((current) => ({ ...current, problemStatement: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="Describe la necesidad y la situación actual, no la solución." />
+            </label>
+            <label style={formLabel}>Personas impactadas
+              <textarea required value={editForm.impactedPeople} onChange={(event) => setEditForm((current) => ({ ...current, impactedPeople: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="¿Qué grupos o perfiles se ven afectados?" />
+            </label>
+            <label style={formLabel}>Impacto de la problemática
+              <textarea required value={editForm.problemImpact} onChange={(event) => setEditForm((current) => ({ ...current, problemImpact: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="¿Qué consecuencias tiene para las personas o la organización?" />
+            </label>
+            <label style={formLabel}>Cantidad aproximada de personas
+              <input required type="number" min={1} max={1_000_000_000} step={1} value={editForm.impactedCount} onChange={(event) => setEditForm((current) => ({ ...current, impactedCount: event.target.value }))} style={input} disabled={actionBusy} placeholder="Usa una estimación si no tienes una cifra exacta" />
+            </label>
+            <label style={formLabel}>Propuesta de valor
+              <textarea required value={editForm.expectedOutcome} onChange={(event) => setEditForm((current) => ({ ...current, expectedOutcome: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="¿Qué cambio esperas lograr y cómo podrías medirlo?" />
+            </label>
+            <label style={formLabel}>Solución
+              <textarea required value={editForm.proposedSolution} onChange={(event) => setEditForm((current) => ({ ...current, proposedSolution: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="¿En qué consiste la solución propuesta?" />
+            </label>
+            <label style={formLabel}>Diferenciación
+              <textarea required value={editForm.differentiation} onChange={(event) => setEditForm((current) => ({ ...current, differentiation: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="¿Qué la hace distinta o mejor que las alternativas?" />
             </label>
             <label style={formLabel}>Próximo paso
               <textarea value={editForm.proposedNextStep} onChange={(event) => setEditForm((current) => ({ ...current, proposedNextStep: event.target.value }))} style={textarea} disabled={actionBusy} placeholder="Acción concreta para avanzar" />
@@ -321,12 +377,12 @@ export default function InitiativeDetailPage() {
 
         {!access.isExternal && <section style={panel}>
           <h2 style={sectionTitle}><History size={18} /> Historial de decisiones y etapas</h2>
-          {history.length === 0 ? <p style={emptyText}>Todavía no se han registrado cambios de etapa.</p> : <ol style={timeline}>{history.map((entry) => <li key={entry.id} style={timelineItem}><span style={timelineDot} /><div><strong>{stageLabel(entry.fromStage)} <ArrowRight size={13} /> {stageLabel(entry.toStage)}</strong>{entry.decision && <span style={decisionLabel}>{entry.decision}</span>}<p>{entry.reason || 'Sin motivo registrado.'}</p><small>{entry.actorName || 'Sistema'} · {formatDate(entry.createdAt, true)}</small></div></li>)}</ol>}
+          {history.length === 0 ? <p style={emptyText}>Todavía no se han registrado cambios de etapa.</p> : <ol style={timeline}>{history.map((entry) => <li key={entry.id} style={timelineItem}><span style={timelineDot} /><div><strong>{stageLabel(entry.fromStage)} <ArrowRight size={13} /> {stageLabel(entry.toStage)}</strong>{entry.decision && <span style={decisionLabel}>{entry.decision}</span>}<p>{entry.reason || 'Sin motivo registrado.'}</p><small>{entry.actorName || 'Sistema'} - {formatDate(entry.createdAt, true)}</small></div></li>)}</ol>}
         </section>}
 
         {!access.isExternal && <section style={panel}>
           <h2 style={sectionTitle}><History size={18} /> Trazabilidad de asignaciones</h2>
-          {assignmentHistory.length === 0 ? <p style={emptyText}>No hay cambios de responsables registrados.</p> : <ol style={timeline}>{assignmentHistory.map((entry) => <li key={entry.id} style={timelineItem}><span style={timelineDot} /><div><strong>{entry.action === 'ASSIGNED' ? 'Asignación' : entry.action === 'REVOKED' ? 'Revocación' : 'Remoción'} · {roleLabels[entry.role] || entry.role}</strong><p>{entry.subjectName || 'Participante'}{entry.reason ? ` · ${entry.reason}` : ''}</p><small>{entry.actorName || 'Sistema'} · {formatDate(entry.createdAt, true)}</small></div></li>)}</ol>}
+          {assignmentHistory.length === 0 ? <p style={emptyText}>No hay cambios de responsables registrados.</p> : <ol style={timeline}>{assignmentHistory.map((entry) => <li key={entry.id} style={timelineItem}><span style={timelineDot} /><div><strong>{entry.action === 'ASSIGNED' ? 'Asignación' : entry.action === 'REVOKED' ? 'Revocación' : 'Remoción'} - {roleLabels[entry.role] || entry.role}</strong><p>{entry.subjectName || 'Participante'}{entry.reason ? ` - ${entry.reason}` : ''}</p><small>{entry.actorName || 'Sistema'} - {formatDate(entry.createdAt, true)}</small></div></li>)}</ol>}
         </section>}
       </div>
 

@@ -278,7 +278,7 @@ export default function DocumentEditorPage() {
                   </span>
                 </div>
                 <span style={{ fontSize: '10.5px', color: C.text4, fontFamily: MANROPE }}>
-                  · {currentDocument.creator?.name}
+                  - {currentDocument.creator?.name}
                 </span>
               </div>
             </div>

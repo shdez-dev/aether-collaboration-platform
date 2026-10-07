@@ -113,6 +113,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: true,
           data: expect.objectContaining({
+            verificationEmailSent: true,
             user: expect.objectContaining({
               email: userData.email,
               name: userData.name,
@@ -127,12 +128,13 @@ describe('AuthController', () => {
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO organizations'),
-        ['Test User · Aether', 'user-123']
+        ['Test User - Aether', 'user-123']
       );
       expect(mockClient.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO organization_members'),
         ['organization-123', 'user-123']
       );
+      expect(mockClient.query.mock.calls.some((call: any[]) => String(call[0]).includes('INSERT INTO workspaces'))).toBe(false);
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
 
       // Note: AuthController does not emit events directly
@@ -526,14 +528,20 @@ describe('AuthController', () => {
             },
           ],
         })
+        // BEGIN: refresh token + account state are committed together
+        .mockResolvedValueOnce({ rows: [] })
         // Update user (SET email_verified = TRUE)
         .mockResolvedValueOnce({ rows: [] })
         // SELECT avatar para incluir en la respuesta de auto-login
-        .mockResolvedValueOnce({ rows: [{ avatar: null }] });
+        .mockResolvedValueOnce({ rows: [{ avatar: null }] })
+        // COMMIT
+        .mockResolvedValueOnce({ rows: [] });
 
       await authController.verifyEmail(mockRequest as Request, mockResponse as Response);
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
+      expect(RefreshTokenService.issue).toHaveBeenCalledWith('user-123', expect.any(String), mockClient);
+      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
       expect(mockResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -541,6 +549,24 @@ describe('AuthController', () => {
       );
 
       // Note: AuthController does not emit events directly
+    });
+
+    it('does not consume the verification token when session storage fails', async () => {
+      mockRequest.body = { token: 'valid_verification_token' };
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [{
+          id: 'user-123', email: 'test@example.com', name: 'Test User',
+          email_verification_expires: new Date(Date.now() + 60_000),
+        }] })
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+      (RefreshTokenService.issue as jest.Mock).mockRejectedValueOnce(new Error('session storage unavailable'));
+
+      await authController.verifyEmail(mockRequest as Request, mockResponse as Response);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(500);
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+      expect(mockClient.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE users'), expect.anything());
     });
 
     it('should return error for invalid token', async () => {

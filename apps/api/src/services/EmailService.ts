@@ -1,4 +1,6 @@
 import { BrevoClient } from '@getbrevo/brevo';
+import nodemailer, { type Transporter } from 'nodemailer';
+import { renderVerificationEmail } from './verificationEmailTemplate';
 
 interface EmailOptions {
   to: string;
@@ -18,24 +20,34 @@ interface PasswordResetData {
 }
 
 export class EmailService {
-  private brevoClient: BrevoClient;
+  private brevoClient?: BrevoClient;
+  private smtpTransporter?: Transporter;
   private fromEmail: string;
   private fromName: string;
   private frontendUrl: string;
 
   constructor() {
     const apiKey = process.env.BREVO_API_KEY;
+    const smtpLogin = process.env.BREVO_SMTP_LOGIN;
+    const smtpKey = process.env.BREVO_SMTP_KEY;
 
-    if (!apiKey) {
-      throw new Error('BREVO_API_KEY is not configured in environment variables');
+    if (smtpLogin && smtpKey) {
+      this.smtpTransporter = nodemailer.createTransport({
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false,
+        requireTLS: true,
+        auth: { user: smtpLogin, pass: smtpKey },
+      });
+    } else if (apiKey && apiKey !== 'xkeysib-placeholder-not-configured') {
+      this.brevoClient = new BrevoClient({ apiKey });
+    } else {
+      throw new Error('Configure BREVO_SMTP_LOGIN and BREVO_SMTP_KEY or BREVO_API_KEY');
     }
 
-    // Initialize Brevo client
-    this.brevoClient = new BrevoClient({
-      apiKey: apiKey,
-    });
-
-    this.fromEmail = process.env.EMAIL_FROM || 'sebastian@shernandez.dev';
+    this.fromEmail = (this.smtpTransporter && process.env.AETHER_SMTP_FROM)
+      || process.env.EMAIL_FROM
+      || 'aether.notifications@gmail.com';
     this.fromName = process.env.EMAIL_FROM_NAME || 'Aether Platform';
     this.frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
   }
@@ -45,6 +57,18 @@ export class EmailService {
    */
   async sendEmail(options: EmailOptions): Promise<void> {
     try {
+      if (this.smtpTransporter) {
+        await this.smtpTransporter.sendMail({
+          from: { address: this.fromEmail, name: this.fromName },
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+          text: options.text,
+        });
+        return;
+      }
+
+      if (!this.brevoClient) throw new Error('Email transport is not configured');
       await this.brevoClient.transactionalEmails.sendTransacEmail({
         sender: {
           email: this.fromEmail,
@@ -71,12 +95,12 @@ export class EmailService {
   async sendVerificationEmail(to: string, data: EmailVerificationData): Promise<void> {
     const { userName, verificationLink } = data;
 
-    const html = this.getVerificationEmailTemplate(userName, verificationLink);
-    const text = `Hola ${userName},\n\nVerifica tu dirección de correo haciendo clic en el siguiente enlace:\n\n${verificationLink}\n\nEste enlace expira en 24 horas.\n\nSi no creaste una cuenta en Aether, puedes ignorar este mensaje.\n\nEl equipo de Aether`;
+    const html = renderVerificationEmail(userName, verificationLink);
+    const text = `AETHER - Verificación de cuenta\n\nTu espacio comienza aquí.\n\nHola, ${userName}. Confirma que esta dirección de correo te pertenece para activar tu cuenta y continuar en AETHER:\n${verificationLink}\n\nEste enlace estará disponible durante 24 horas.\n\n¿No creaste una cuenta en AETHER? Puedes ignorar este mensaje; no se activará ninguna cuenta sin tu confirmación.\n\nAETHER - Todo conectado`;
 
     await this.sendEmail({
       to,
-      subject: 'Verifica tu correo — Aether',
+      subject: 'Confirma tu correo | AETHER',
       html,
       text,
     });
@@ -205,7 +229,7 @@ export class EmailService {
           <tr>
             <td style="padding-top:24px;text-align:center;">
               <p style="margin:0;font-size:11px;color:#3D3830;">
-                © ${new Date().getFullYear()} Aether &nbsp;·&nbsp;
+                © ${new Date().getFullYear()} Aether &nbsp;-&nbsp;
                 <a href="${this.frontendUrl}" style="color:#3D3830;text-decoration:none;">${this.frontendUrl}</a>
               </p>
             </td>
@@ -326,7 +350,7 @@ export class EmailService {
           <tr>
             <td style="padding-top:24px;text-align:center;">
               <p style="margin:0;font-size:11px;color:#3D3830;">
-                © ${new Date().getFullYear()} Aether &nbsp;·&nbsp;
+                © ${new Date().getFullYear()} Aether &nbsp;-&nbsp;
                 <a href="${this.frontendUrl}" style="color:#3D3830;text-decoration:none;">${this.frontendUrl}</a>
               </p>
             </td>

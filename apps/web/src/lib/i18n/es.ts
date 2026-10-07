@@ -3,7 +3,7 @@
 export const es = {
   // ── Home page ─────────────────────────────────────────────────────────────
   home_hero_tagline: 'Gestión de proyectos en tiempo real para equipos.',
-  home_hero_version: 'v0.4.2 · Todos los sistemas operativos',
+  home_hero_version: 'v0.4.2 - Todos los sistemas operativos',
   home_hero_title_main: 'Gestión de proyectos en tiempo real',
   home_hero_title_dim: 'para equipos que escriben código.',
   home_hero_description:

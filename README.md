@@ -211,7 +211,7 @@ R2_PUBLIC_URL=
 ```
 aether-collaboration-platform/
 ├── apps/
-│   ├── api/                      # Express · Socket.io · Y-WebSocket
+│   ├── api/                      # Express - Socket.io - Y-WebSocket
 │   │   ├── src/
 │   │   │   ├── controllers/      # Request handlers (one per resource)
 │   │   │   ├── services/         # Business logic
@@ -241,7 +241,7 @@ aether-collaboration-platform/
 ├── tests/                        # Playwright E2E tests
 ├── scripts/                      # Standalone SQL migration scripts
 ├── .github/
-│   └── workflows/ci.yml          # Lint · Typecheck · Test · Security scan · Build
+│   └── workflows/ci.yml          # Lint - Typecheck - Test - Security scan - Build
 ├── docker-compose.yml            # Development: PostgreSQL 15 + Redis 7
 └── docker-compose.production.yml # Production: PostgreSQL 16 + Redis 7
 ```
@@ -258,12 +258,12 @@ aether-collaboration-platform/
 | Language | TypeScript 5 |
 | Styling | Tailwind CSS + inline design tokens (`lib/colors.ts`) |
 | State management | Zustand 4 with `persist` middleware |
-| Real-time | Socket.io-client · Yjs · y-websocket |
+| Real-time | Socket.io-client - Yjs - y-websocket |
 | Rich text editor | Tiptap 2 (ProseMirror) with custom extensions |
 | UI primitives | Radix UI |
 | Drag & drop | dnd-kit |
 | Graph visualization | @xyflow/react (dependency graph) |
-| Animations | GSAP · Framer Motion · Lenis |
+| Animations | GSAP - Framer Motion - Lenis |
 | PWA | next-pwa |
 | i18n | Custom `useT()` hook — English and Spanish |
 
@@ -274,8 +274,8 @@ aether-collaboration-platform/
 | Runtime | Node.js 20 |
 | Framework | Express 4 |
 | ORM | Prisma 5 (domain entities) |
-| Real-time | Socket.io · Y-WebSocket |
-| Auth | JWT (access + refresh tokens) · bcrypt |
+| Real-time | Socket.io - Y-WebSocket |
+| Auth | JWT (access + refresh tokens) - bcrypt |
 | Email | Brevo (transactional) |
 | File storage | Cloudflare R2 (via AWS S3-compatible SDK) |
 | Document export | Puppeteer (PDF) |
@@ -285,10 +285,10 @@ aether-collaboration-platform/
 
 | | |
 |---|---|
-| Primary database | PostgreSQL 15 (dev) · PostgreSQL 16 (production) |
+| Primary database | PostgreSQL 15 (dev) - PostgreSQL 16 (production) |
 | Cache / Pub-Sub | Redis 7 |
 | Containerization | Docker (multi-stage builds, non-root users) |
-| Monorepo tooling | Turborepo 2 · pnpm 8 workspaces |
+| Monorepo tooling | Turborepo 2 - pnpm 8 workspaces |
 | CI/CD | GitHub Actions (lint, typecheck, tests, Trivy security scan, build) |
 | Deployment | Railway |
 
@@ -305,21 +305,21 @@ All endpoints are mounted under `/api` and return a consistent response envelope
 
 | Resource | Base path | Notes |
 |---|---|---|
-| Auth | `/api/auth` | Register · Login · Refresh token · Forgot/reset password · Email verification |
-| Users | `/api/users` | Profile · Preferences · Activity · Standup · Teammates |
-| Workspaces | `/api/workspaces` | CRUD · Members · Roles · Invite tokens · Archive · GitHub integration |
-| Boards | `/api/boards` | CRUD · Sprints · Milestones |
-| Cards | `/api/cards` | CRUD · Move · Assignments · Labels · Checklists · Dependencies · Attachments |
+| Auth | `/api/auth` | Register - Login - Refresh token - Forgot/reset password - Email verification |
+| Users | `/api/users` | Profile - Preferences - Activity - Standup - Teammates |
+| Workspaces | `/api/workspaces` | CRUD - Members - Roles - Invite tokens - Archive - GitHub integration |
+| Boards | `/api/boards` | CRUD - Sprints - Milestones |
+| Cards | `/api/cards` | CRUD - Move - Assignments - Labels - Checklists - Dependencies - Attachments |
 | Comments | `/api/comments` | Card comment threads |
-| Documents | `/api/documents` | Collaborative CRUD · Versions · Permissions · Templates · PDF export |
-| Projects | `/api/projects` | CRUD · Milestones · Board and team assignments |
-| Teams | `/api/teams` | CRUD · Members · Invitations |
+| Documents | `/api/documents` | Collaborative CRUD - Versions - Permissions - Templates - PDF export |
+| Projects | `/api/projects` | CRUD - Milestones - Board and team assignments |
+| Teams | `/api/teams` | CRUD - Members - Invitations |
 | Labels | `/api/labels` | Workspace-scoped label management |
-| Notifications | `/api/notifications` | List · Mark read · Mark all read |
+| Notifications | `/api/notifications` | List - Mark read - Mark all read |
 | Search | `/api/search` | Global full-text search |
 | Presence | `/api/presence` | Online status (also via WebSocket) |
 | Activity | `/api/activity` | Workspace-level activity feed |
-| GitHub webhooks | `/api/webhooks/github` | Push · PR · Issue events → board automation |
+| GitHub webhooks | `/api/webhooks/github` | Push - PR - Issue events → board automation |
 
 ### WebSocket
 
@@ -340,6 +340,6 @@ See [`apps/api/railway.toml`](./apps/api/railway.toml) and [`apps/web/railway.to
 
 <div align="center">
 
-**Sebastián Hernández** · [LinkedIn](https://www.linkedin.com/in/shdez-dev/) · [Portfolio](https://www.shernandez.dev)
+**Sebastián Hernández** - [LinkedIn](https://www.linkedin.com/in/shdez-dev/) - [Portfolio](https://www.shernandez.dev)
 
 </div>

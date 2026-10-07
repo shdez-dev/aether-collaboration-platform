@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, memo, useCallback } from 'react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { useLabelStore, Label } from '@/stores/labelStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
@@ -30,7 +30,7 @@ function getTextColor(hex: string): string {
 }
 
 export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssigned, onLabelRemoved }: LabelPickerProps) {
-  const t = useT();
+  const t = es;
   const { getWorkspaceLabels, fetchLabels, createLabel, deleteLabel } = useLabelStore();
   const userRole = useWorkspaceStore((s) => s.currentWorkspace?.userRole);
   const canManage = userRole === 'ADMIN' || userRole === 'OWNER';

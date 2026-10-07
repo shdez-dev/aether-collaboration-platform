@@ -8,6 +8,8 @@ const participantRoles = ['REQUESTER', 'TRIAGE_COORDINATOR', 'MENTOR', 'EVALUATO
 const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 const decisionStages = new Set<InitiativeStage>(['APPROVED', 'DECLINED', 'PAUSED', 'ARCHIVED']);
 const triageAssessmentStatuses = ['PASS', 'FAIL', 'NOT_APPLICABLE'] as const;
+const coreProposalFields = ['title', 'description', 'problemStatement', 'impactedPeople', 'problemImpact', 'impactedCount', 'expectedOutcome', 'proposedSolution', 'differentiation'] as const;
+const configurableInitiativeFields = [...coreProposalFields, 'proposedNextStep', 'evidence', 'attachments'] as const;
 const allowedTransitions: Record<string, InitiativeStage[]> = {
   SUBMITTED: ['TRIAGE', 'PAUSED', 'ARCHIVED'],
   TRIAGE: ['DIAGNOSIS', 'DECLINED', 'PAUSED', 'ARCHIVED'],
@@ -21,9 +23,15 @@ const allowedTransitions: Record<string, InitiativeStage[]> = {
 
 const initiativeInput = z.object({
   workspaceId: z.string().uuid(),
-  title: z.string().trim().min(3).max(500),
-  description: z.string().max(8000).optional().nullable(),
-  problemStatement: z.string().max(8000).optional().nullable(),
+  title: z.string().trim().min(3).max(255),
+  description: z.string().trim().min(1).max(8000),
+  problemStatement: z.string().trim().min(1).max(8000),
+  impactedPeople: z.string().trim().min(1).max(8000),
+  problemImpact: z.string().trim().min(1).max(8000),
+  impactedCount: z.number().int().min(1).max(1_000_000_000),
+  expectedOutcome: z.string().trim().min(1).max(8000),
+  proposedSolution: z.string().trim().min(1).max(8000),
+  differentiation: z.string().trim().min(1).max(8000),
   proposedNextStep: z.string().max(2000).optional().nullable(),
   priority: z.enum(priorities).optional(),
   evidence: z.array(z.object({ title: z.string().max(255), url: z.string().url().optional(), note: z.string().max(2000).optional() })).max(30).optional(),
@@ -34,15 +42,14 @@ const updateInput = initiativeInput.omit({ workspaceId: true }).partial();
 const triageAssessmentInput = z.array(z.object({ criterion: z.string().trim().min(1).max(300), status: z.enum(triageAssessmentStatuses), note: z.string().trim().max(2000).optional().nullable() })).max(30);
 const transitionInput = z.object({ stage: z.enum(stages), decision: z.string().trim().max(30).optional().nullable(), reason: z.string().trim().max(4000).optional().nullable(), nextReviewAt: z.string().datetime().optional().nullable(), triageAssessment: triageAssessmentInput.optional() });
 const participantInput = z.object({ userId: z.string().uuid(), role: z.enum(participantRoles) });
-const settingsInput = z.object({ initiativeTeamId: z.string().uuid().nullable().optional(), activeStandardId: z.string().uuid().nullable().optional(), intakeEnabled: z.boolean().optional(), triageCriteria: z.array(z.string().trim().min(1).max(300)).max(30).optional(), reviewCadenceDays: z.number().int().min(1).max(365).optional(), requiredInitiativeFields: z.array(z.enum(['title', 'description', 'problemStatement', 'proposedNextStep', 'evidence', 'attachments'])).min(1).optional() });
+const settingsInput = z.object({ initiativeTeamId: z.string().uuid().nullable().optional(), activeStandardId: z.string().uuid().nullable().optional(), intakeEnabled: z.boolean().optional(), triageCriteria: z.array(z.string().trim().min(1).max(300)).max(30).optional(), reviewCadenceDays: z.number().int().min(1).max(365).optional(), requiredInitiativeFields: z.array(z.enum(configurableInitiativeFields)).min(1).optional() });
 
 type InitiativeInput = z.infer<typeof initiativeInput>;
 
-function missingRequiredFields(data: Pick<InitiativeInput, 'title' | 'description' | 'problemStatement' | 'proposedNextStep' | 'evidence' | 'attachments'>, requiredFields: unknown): string[] {
-  const required = Array.isArray(requiredFields) ? requiredFields : ['title', 'problemStatement', 'proposedNextStep'];
-  return required.filter((field): field is 'title' | 'description' | 'problemStatement' | 'proposedNextStep' | 'evidence' | 'attachments' =>
-    ['title', 'description', 'problemStatement', 'proposedNextStep', 'evidence', 'attachments'].includes(field)
-  ).filter((field) => {
+function missingRequiredFields(data: Record<string, any>, requiredFields: unknown): string[] {
+  const configured = Array.isArray(requiredFields) ? requiredFields.filter((field): field is (typeof configurableInitiativeFields)[number] => configurableInitiativeFields.includes(field as any)) : [];
+  const required = [...new Set<string>([...coreProposalFields, ...configured])];
+  return required.filter((field) => {
     const value = data[field];
     return Array.isArray(value) ? value.length === 0 : typeof value === 'string' ? value.trim().length === 0 : !value;
   });
@@ -89,7 +96,10 @@ function format(row: any) {
   return {
     id: row.id, workspaceId: row.workspace_id, networkProgramId: row.network_program_id,
     submittedById: row.submitted_by, title: row.title, description: row.description,
-    problemStatement: row.problem_statement, proposedNextStep: row.proposed_next_step,
+    problemStatement: row.problem_statement, impactedPeople: row.impacted_people,
+    problemImpact: row.problem_impact, impactedCount: row.impacted_count,
+    expectedOutcome: row.expected_outcome, proposedSolution: row.proposed_solution,
+    differentiation: row.differentiation, proposedNextStep: row.proposed_next_step,
     priority: row.priority, evidence: row.evidence ?? [], attachments: row.attachments ?? [],
     triageCriteria: row.triage_criteria_snapshot ?? [], triageAssessment: row.triage_assessment ?? [],
     stage: row.stage, decision: row.decision, decisionReason: row.decision_reason,
@@ -112,33 +122,34 @@ const initiativeSelect = `SELECT i.*, p.id AS formalized_project_id,
   LEFT JOIN users mu ON mu.id = i.mentor_id`;
 
 async function membership(workspaceId: string, userId: string) {
-  const { rows } = await pool.query(`SELECT wm.role, w.owner_id FROM workspace_members wm JOIN workspaces w ON w.id = wm.workspace_id WHERE wm.workspace_id = $1 AND wm.user_id = $2`, [workspaceId, userId]);
+  const { rows } = await pool.query(`SELECT wm.role, w.owner_id, o.type AS organization_type FROM workspace_members wm JOIN workspaces w ON w.id = wm.workspace_id JOIN organizations o ON o.id = w.organization_id WHERE wm.workspace_id = $1 AND wm.user_id = $2`, [workspaceId, userId]);
   return rows[0] ?? null;
 }
 
 async function institutionalAccess(workspaceId: string, userId: string) {
   const { rows } = await pool.query(
-    `SELECT wm.role, w.operating_mode,
+    `SELECT wm.role, o.type AS organization_type,
       EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = wm.workspace_id AND tm.user_id = wm.user_id AND tm.role = 'ADMIN') AS coordinator
-     FROM workspace_members wm JOIN workspaces w ON w.id = wm.workspace_id WHERE wm.workspace_id = $1 AND wm.user_id = $2`,
+     FROM workspace_members wm JOIN workspaces w ON w.id = wm.workspace_id JOIN organizations o ON o.id = w.organization_id WHERE wm.workspace_id = $1 AND wm.user_id = $2`,
     [workspaceId, userId]
   );
   if (!rows[0]) return null;
-  return { isInstitutional: rows[0].operating_mode === 'INSTITUTIONAL', isAdmin: ['OWNER', 'ADMIN'].includes(rows[0].role), isCoordinator: Boolean(rows[0].coordinator) };
+  return { isInstitutional: rows[0].organization_type === 'INSTITUTION', isAdmin: ['OWNER', 'ADMIN'].includes(rows[0].role), isCoordinator: Boolean(rows[0].coordinator) };
 }
 
 async function access(initiativeId: string, userId: string) {
   const { rows } = await pool.query(
-    `SELECT i.workspace_id, i.submitted_by, i.stage, wm.role AS workspace_role, wm.user_id IS NOT NULL AS internal_member,
+    `SELECT i.workspace_id, i.submitted_by, i.stage, o.type AS organization_type, wm.role AS workspace_role, wm.user_id IS NOT NULL AS internal_member,
       EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2) AS participant,
       EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role = 'TRIAGE_COORDINATOR') AS explicit_coordinator,
       EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = i.workspace_id AND tm.user_id = $2 AND tm.role = 'ADMIN') AS team_coordinator,
       EXISTS(SELECT 1 FROM network_access_grants nag WHERE nag.user_id = $2 AND nag.resource_type = 'INITIATIVE' AND nag.resource_id = i.id AND nag.revoked_at IS NULL AND (nag.expires_at IS NULL OR nag.expires_at > CURRENT_TIMESTAMP)) AS external_access
-     FROM initiatives i LEFT JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2 WHERE i.id = $1`,
+     FROM initiatives i JOIN workspaces w ON w.id = i.workspace_id JOIN organizations o ON o.id = w.organization_id LEFT JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2 WHERE i.id = $1`,
     [initiativeId, userId]
   );
   if (!rows[0]) return null;
   const row = rows[0];
+  if (row.organization_type !== 'INSTITUTION') return null;
   return {
     ...row,
     isRequester: Boolean(row.internal_member) && row.submitted_by === userId,
@@ -163,6 +174,7 @@ export class InitiativeController {
     if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
     if (!workspaceId || !z.string().uuid().safeParse(workspaceId).success) return error(res, 400, 'VALIDATION_ERROR', 'workspaceId is required');
     const member = await membership(workspaceId, actorId); if (!member) return error(res, 403, 'FORBIDDEN', 'Workspace access required');
+    if (member.organization_type !== 'INSTITUTION') return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Initiatives are available only in institutional organizations');
     const params: unknown[] = [workspaceId, actorId]; let where = `i.workspace_id = $1 AND EXISTS (SELECT 1 FROM workspace_members current_member WHERE current_member.workspace_id = i.workspace_id AND current_member.user_id = $2) AND (i.submitted_by = $2 OR EXISTS (SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2) OR EXISTS (SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = i.workspace_id AND tm.user_id = $2 AND tm.role = 'ADMIN') OR $3::boolean)`;
     params.push(['OWNER', 'ADMIN'].includes(member.role));
     if (stage && stages.includes(stage as any)) { params.push(stage); where += ` AND i.stage = $${params.length}`; }
@@ -201,7 +213,10 @@ export class InitiativeController {
     const formatted = format(initiative.rows[0]);
     const safeInitiative = externalOnly ? {
       id: formatted.id, title: formatted.title, description: formatted.description,
-      problemStatement: formatted.problemStatement, proposedNextStep: formatted.proposedNextStep,
+      problemStatement: formatted.problemStatement, impactedPeople: formatted.impactedPeople,
+      problemImpact: formatted.problemImpact, impactedCount: formatted.impactedCount,
+      expectedOutcome: formatted.expectedOutcome, proposedSolution: formatted.proposedSolution,
+      differentiation: formatted.differentiation, proposedNextStep: formatted.proposedNextStep,
       priority: formatted.priority, evidence: formatted.evidence, attachments: formatted.attachments,
       stage: formatted.stage, receivedAt: formatted.receivedAt, nextReviewAt: formatted.nextReviewAt,
       createdAt: formatted.createdAt, updatedAt: formatted.updatedAt,
@@ -230,11 +245,12 @@ export class InitiativeController {
       const activeMembership = await client.query(`SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 FOR KEY SHARE`, [data.workspaceId, actorId]);
       if (!activeMembership.rows[0]) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'Workspace access required'); }
       const settings = await client.query(
-        `SELECT w.operating_mode AS mode, wm.user_id IS NOT NULL AS member, COALESCE(s.intake_enabled, true) AS intake_enabled,
+        `SELECT o.type AS organization_type, wm.user_id IS NOT NULL AS member, COALESCE(s.intake_enabled, true) AS intake_enabled,
           COALESCE(s.review_cadence_days, 7) AS review_cadence_days,
-          COALESCE(s.required_initiative_fields, '["title", "problemStatement", "proposedNextStep"]'::jsonb) AS required_initiative_fields,
+          COALESCE(s.required_initiative_fields, '["title", "description", "problemStatement", "impactedPeople", "problemImpact", "impactedCount", "expectedOutcome", "proposedSolution", "differentiation"]'::jsonb) AS required_initiative_fields,
           COALESCE(s.triage_criteria, '[]'::jsonb) AS triage_criteria
          FROM workspaces w
+         JOIN organizations o ON o.id = w.organization_id
          LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $2
          LEFT JOIN workspace_institutional_settings s ON s.workspace_id = w.id
          WHERE w.id = $1 FOR SHARE OF w`,
@@ -242,11 +258,14 @@ export class InitiativeController {
       );
       const setting = settings.rows[0];
       if (!setting?.member) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'Workspace access required'); }
-      if (setting.mode !== 'INSTITUTIONAL') { await client.query('ROLLBACK'); return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Initiatives are available only in institutional workspaces'); }
+      if (setting.organization_type !== 'INSTITUTION') { await client.query('ROLLBACK'); return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Initiatives are available only in institutional organizations'); }
       if (!setting.intake_enabled) { await client.query('ROLLBACK'); return error(res, 409, 'INTAKE_DISABLED', 'Initiative intake is currently disabled for this workspace'); }
-      const missing = missingRequiredFields(data, setting.required_initiative_fields);
+      // The nine proposal fields are required at submission. Workspace-specific
+      // operational requirements (evidence, attachments, next step) are checked
+      // later, before formalization, so requesters can submit an initial proposal.
+      const missing = missingRequiredFields(data, []);
       if (missing.length) { await client.query('ROLLBACK'); return error(res, 400, 'REQUIRED_INITIATIVE_FIELDS', `Complete the required fields: ${missing.join(', ')}`); }
-      const result = await client.query(`INSERT INTO initiatives (id, workspace_id, submitted_by, title, description, problem_statement, proposed_next_step, priority, evidence, attachments, next_review_at, triage_criteria_snapshot) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, COALESCE($10, CURRENT_TIMESTAMP + ($11 * INTERVAL '1 day')), $12::jsonb) RETURNING *`, [data.workspaceId, actorId, data.title, data.description ?? null, data.problemStatement ?? null, data.proposedNextStep ?? null, data.priority ?? 'MEDIUM', JSON.stringify(data.evidence ?? []), JSON.stringify(data.attachments ?? []), data.nextReviewAt ?? null, setting.review_cadence_days, JSON.stringify(setting.triage_criteria)]);
+      const result = await client.query(`INSERT INTO initiatives (id, workspace_id, submitted_by, title, description, problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome, proposed_solution, differentiation, proposed_next_step, priority, evidence, attachments, next_review_at, triage_criteria_snapshot) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15::jsonb, COALESCE($16, CURRENT_TIMESTAMP + ($17 * INTERVAL '1 day')), $18::jsonb) RETURNING *`, [data.workspaceId, actorId, data.title, data.description, data.problemStatement, data.impactedPeople, data.problemImpact, data.impactedCount, data.expectedOutcome, data.proposedSolution, data.differentiation, data.proposedNextStep ?? null, data.priority ?? 'MEDIUM', JSON.stringify(data.evidence ?? []), JSON.stringify(data.attachments ?? []), data.nextReviewAt ?? null, setting.review_cadence_days, JSON.stringify(setting.triage_criteria)]);
       const initiative = result.rows[0];
       await client.query(`INSERT INTO initiative_participants (id, initiative_id, user_id, role, assigned_by) VALUES (gen_random_uuid(), $1, $2, 'REQUESTER', $2) ON CONFLICT DO NOTHING`, [initiative.id, actorId]);
       await client.query(`INSERT INTO initiative_assignment_history (id, initiative_id, subject_user_id, role, action, actor_id, reason) VALUES (gen_random_uuid(), $1, $2, 'REQUESTER', 'ASSIGNED', $2, 'Initiative submitted')`, [initiative.id, actorId]);
@@ -262,7 +281,7 @@ export class InitiativeController {
     const gate = await access(req.params.id, actorId); if (!gate) return error(res, 404, 'NOT_FOUND', 'Initiative not found');
     if (!gate.isCoordinator && !(gate.isRequester && ['SUBMITTED', 'TRIAGE'].includes(gate.stage))) return error(res, 403, 'FORBIDDEN', 'Only the requester before evaluation or a triage coordinator can edit this initiative');
     const data = parsed.data; const fields: string[] = []; const values: any[] = [];
-    const dbFields: Record<string, string> = { title: 'title', description: 'description', problemStatement: 'problem_statement', proposedNextStep: 'proposed_next_step', priority: 'priority', evidence: 'evidence', attachments: 'attachments', nextReviewAt: 'next_review_at' };
+    const dbFields: Record<string, string> = { title: 'title', description: 'description', problemStatement: 'problem_statement', impactedPeople: 'impacted_people', problemImpact: 'problem_impact', impactedCount: 'impacted_count', expectedOutcome: 'expected_outcome', proposedSolution: 'proposed_solution', differentiation: 'differentiation', proposedNextStep: 'proposed_next_step', priority: 'priority', evidence: 'evidence', attachments: 'attachments', nextReviewAt: 'next_review_at' };
     for (const [key, column] of Object.entries(dbFields)) if (key in data) { values.push(['evidence', 'attachments'].includes(key) ? JSON.stringify((data as any)[key] ?? []) : (data as any)[key]); fields.push(`${column} = $${values.length}${['evidence', 'attachments'].includes(key) ? '::jsonb' : ''}`); }
     if (!fields.length) return this.getById(req, res);
     const client = await getClient();
@@ -412,7 +431,7 @@ export class InitiativeController {
         `SELECT i.*, wm.user_id IS NOT NULL AS internal_member,
           EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role = 'TRIAGE_COORDINATOR') AS explicit_coordinator,
           EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = i.workspace_id AND tm.user_id = $2 AND tm.role = 'ADMIN') AS team_coordinator,
-          COALESCE(s.required_initiative_fields, '["title", "problemStatement", "proposedNextStep"]'::jsonb) AS required_initiative_fields,
+          COALESCE(s.required_initiative_fields, '["title", "description", "problemStatement", "impactedPeople", "problemImpact", "impactedCount", "expectedOutcome", "proposedSolution", "differentiation"]'::jsonb) AS required_initiative_fields,
           s.active_standard_id
          FROM initiatives i
          JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2
@@ -424,7 +443,7 @@ export class InitiativeController {
       if (!i) { await client.query('ROLLBACK'); return error(res, 404, 'NOT_FOUND', 'Initiative not found'); }
       if (!isCoordinator(i)) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'A triage coordinator is required'); }
       if (i.stage !== 'APPROVED') { await client.query('ROLLBACK'); return error(res, 409, 'INVALID_TRANSITION', 'Only approved initiatives can become projects'); }
-      const missing = missingRequiredFields({ title: i.title, description: i.description, problemStatement: i.problem_statement, proposedNextStep: i.proposed_next_step, evidence: i.evidence, attachments: i.attachments }, i.required_initiative_fields);
+      const missing = missingRequiredFields({ title: i.title, description: i.description, problemStatement: i.problem_statement, impactedPeople: i.impacted_people, problemImpact: i.problem_impact, impactedCount: i.impacted_count, expectedOutcome: i.expected_outcome, proposedSolution: i.proposed_solution, differentiation: i.differentiation, proposedNextStep: i.proposed_next_step, evidence: i.evidence, attachments: i.attachments }, i.required_initiative_fields);
       if (missing.length) { await client.query('ROLLBACK'); return error(res, 409, 'FORMALIZATION_FIELDS_REQUIRED', `Complete the required fields before formalizing: ${missing.join(', ')}`); }
       const assessmentError = validateTriageAssessment(i.triage_criteria_snapshot, i.triage_assessment);
       if (assessmentError) { await client.query('ROLLBACK'); return error(res, 409, 'TRIAGE_CRITERIA_INCOMPLETE', assessmentError); }
@@ -434,9 +453,9 @@ export class InitiativeController {
       const ownerId = lead.rows[0]?.user_id ?? validTriageOwner.rows[0]?.user_id ?? actorId;
       const standard = await client.query(`SELECT id, version FROM workspace_project_standards WHERE workspace_id = $2 AND is_active = true AND ($1::uuid IS NULL OR id = $1) ORDER BY version DESC, updated_at DESC LIMIT 1`, [i.active_standard_id, i.workspace_id]);
       if (!standard.rows[0]) { await client.query('ROLLBACK'); return error(res, 409, 'FORMALIZATION_STANDARD_REQUIRED', 'Select an active institutional standard before formalizing an initiative'); }
-      const project = await client.query(`INSERT INTO projects (id, workspace_id, source_initiative_id, name, description, status, maturity_stage, problem_statement, next_step, owner_id, formalized_at, applied_standard_id, applied_standard_version, standard_applied_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, 'PLANNING', 'FORMALIZED', $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`, [i.workspace_id, i.id, i.title, i.description, i.problem_statement, i.proposed_next_step, ownerId, standard.rows[0].id, standard.rows[0].version]);
+      const project = await client.query(`INSERT INTO projects (id, workspace_id, source_initiative_id, name, description, status, maturity_stage, problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome, proposed_solution, differentiation, next_step, owner_id, formalized_at, applied_standard_id, applied_standard_version, standard_applied_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, 'PLANNING', 'FORMALIZED', $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, $14, $15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`, [i.workspace_id, i.id, i.title, i.description, i.problem_statement, i.impacted_people, i.problem_impact, i.impacted_count, i.expected_outcome, i.proposed_solution, i.differentiation, i.proposed_next_step, ownerId, standard.rows[0].id, standard.rows[0].version]);
       const projectId = project.rows[0].id;
-      const board = await client.query(`INSERT INTO boards (id, workspace_id, name, description, position, created_by, color) VALUES (gen_random_uuid(), $1, $2, $3, COALESCE((SELECT MAX(position) + 1 FROM boards WHERE workspace_id = $1), 0), $4, '#F2571E') RETURNING id`, [i.workspace_id, `Ejecución · ${i.title}`, 'Tablero inicial creado desde una iniciativa aprobada.', actorId]);
+    const board = await client.query(`INSERT INTO boards (id, workspace_id, name, description, position, created_by, color) VALUES (gen_random_uuid(), $1, $2, $3, COALESCE((SELECT MAX(position) + 1 FROM boards WHERE workspace_id = $1), 0), $4, '#F2571E') RETURNING id`, [i.workspace_id, `Ejecución - ${i.title}`, 'Tablero inicial creado desde una iniciativa aprobada.', actorId]);
       await client.query(`INSERT INTO project_boards (id, project_id, board_id) VALUES (gen_random_uuid(), $1, $2)`, [projectId, board.rows[0].id]);
       await client.query(`INSERT INTO project_milestones (id, project_id, name, description, date, color) VALUES (gen_random_uuid(), $1, 'Definir plan inicial', 'Primer hito generado al formalizar la iniciativa.', CURRENT_DATE + INTERVAL '7 days', '#F59E0B')`, [projectId]);
       await client.query(`INSERT INTO project_teams (id, project_id, team_id, assigned_by) SELECT gen_random_uuid(), $1, s.initiative_team_id, $2 FROM workspace_institutional_settings s JOIN teams t ON t.id = s.initiative_team_id AND t.workspace_id = s.workspace_id WHERE s.workspace_id = $3 AND s.initiative_team_id IS NOT NULL ON CONFLICT DO NOTHING`, [projectId, actorId, i.workspace_id]);
@@ -448,22 +467,25 @@ export class InitiativeController {
   }
 
   async getSettings(req: Request, res: Response) {
-    const actorId = userId(req); const workspaceId = req.params.workspaceId; if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required'); const gate = await institutionalAccess(workspaceId, actorId); if (!gate || (!gate.isAdmin && !gate.isCoordinator)) return error(res, 403, 'FORBIDDEN', 'Institutional administration or triage access is required'); if (!gate.isInstitutional) return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Institutional settings are available only in institutional workspaces');
-    const result = await pool.query(`SELECT w.id AS workspace_id, s.initiative_team_id, s.active_standard_id, COALESCE(s.intake_enabled, true) AS intake_enabled, COALESCE(s.triage_criteria, '[]'::jsonb) AS triage_criteria, COALESCE(s.review_cadence_days, 7) AS review_cadence_days, COALESCE(s.required_initiative_fields, '["title", "problemStatement", "proposedNextStep"]'::jsonb) AS required_initiative_fields FROM workspaces w LEFT JOIN workspace_institutional_settings s ON s.workspace_id = w.id WHERE w.id = $1`, [workspaceId]);
-    return res.json({ success: true, data: { settings: result.rows[0] ?? { workspace_id: workspaceId, intake_enabled: true, triage_criteria: [], review_cadence_days: 7, required_initiative_fields: ['title', 'problemStatement', 'proposedNextStep'] } } });
+    const actorId = userId(req); const workspaceId = req.params.workspaceId; if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required'); const gate = await institutionalAccess(workspaceId, actorId); if (!gate || (!gate.isAdmin && !gate.isCoordinator)) return error(res, 403, 'FORBIDDEN', 'Institutional administration or triage access is required'); if (!gate.isInstitutional) return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Institutional settings are available only in institutional organizations');
+    const requiredDefaults = ['title', 'description', 'problemStatement', 'impactedPeople', 'problemImpact', 'impactedCount', 'expectedOutcome', 'proposedSolution', 'differentiation'];
+    const result = await pool.query(`SELECT w.id AS workspace_id, s.initiative_team_id, s.active_standard_id, COALESCE(s.intake_enabled, true) AS intake_enabled, COALESCE(s.triage_criteria, '[]'::jsonb) AS triage_criteria, COALESCE(s.review_cadence_days, 7) AS review_cadence_days, COALESCE(s.required_initiative_fields, '["title", "description", "problemStatement", "impactedPeople", "problemImpact", "impactedCount", "expectedOutcome", "proposedSolution", "differentiation"]'::jsonb) AS required_initiative_fields FROM workspaces w LEFT JOIN workspace_institutional_settings s ON s.workspace_id = w.id WHERE w.id = $1`, [workspaceId]);
+    return res.json({ success: true, data: { settings: result.rows[0] ?? { workspace_id: workspaceId, intake_enabled: true, triage_criteria: [], review_cadence_days: 7, required_initiative_fields: requiredDefaults } } });
   }
 
   async updateSettings(req: Request, res: Response) {
-    const actorId = userId(req); const workspaceId = req.params.workspaceId; if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required'); const gate = await institutionalAccess(workspaceId, actorId); if (!gate || !gate.isAdmin) return error(res, 403, 'FORBIDDEN', 'Workspace administration is required'); if (!gate.isInstitutional) return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Institutional settings are available only in institutional workspaces');
+    const actorId = userId(req); const workspaceId = req.params.workspaceId; if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required'); const gate = await institutionalAccess(workspaceId, actorId); if (!gate || !gate.isAdmin) return error(res, 403, 'FORBIDDEN', 'Workspace administration is required'); if (!gate.isInstitutional) return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Institutional settings are available only in institutional organizations');
     const parsed = settingsInput.safeParse(req.body); if (!parsed.success) return error(res, 400, 'VALIDATION_ERROR', 'Invalid institutional settings'); const d = parsed.data;
     if (d.initiativeTeamId) { const valid = await pool.query(`SELECT 1 FROM teams WHERE id = $1 AND workspace_id = $2`, [d.initiativeTeamId, workspaceId]); if (!valid.rows[0]) return error(res, 400, 'VALIDATION_ERROR', 'Initiative team must belong to the workspace'); }
     if (d.activeStandardId) { const valid = await pool.query(`SELECT 1 FROM workspace_project_standards WHERE id = $1 AND workspace_id = $2 AND is_active = true`, [d.activeStandardId, workspaceId]); if (!valid.rows[0]) return error(res, 400, 'VALIDATION_ERROR', 'Standard must be active and belong to the workspace'); }
-    const result = await pool.query(`INSERT INTO workspace_institutional_settings (workspace_id, initiative_team_id, active_standard_id, intake_enabled, triage_criteria, review_cadence_days, required_initiative_fields) VALUES ($1, $2, $3, COALESCE($4, true), COALESCE($5::jsonb, '[]'::jsonb), COALESCE($6, 7), COALESCE($7::jsonb, '["title", "problemStatement", "proposedNextStep"]'::jsonb)) ON CONFLICT (workspace_id) DO UPDATE SET initiative_team_id = CASE WHEN $8 THEN $2 ELSE workspace_institutional_settings.initiative_team_id END, active_standard_id = CASE WHEN $9 THEN $3 ELSE workspace_institutional_settings.active_standard_id END, intake_enabled = COALESCE($4, workspace_institutional_settings.intake_enabled), triage_criteria = COALESCE($5::jsonb, workspace_institutional_settings.triage_criteria), review_cadence_days = COALESCE($6, workspace_institutional_settings.review_cadence_days), required_initiative_fields = COALESCE($7::jsonb, workspace_institutional_settings.required_initiative_fields), updated_at = CURRENT_TIMESTAMP RETURNING *`, [workspaceId, d.initiativeTeamId ?? null, d.activeStandardId ?? null, d.intakeEnabled, d.triageCriteria ? JSON.stringify(d.triageCriteria) : null, d.reviewCadenceDays, d.requiredInitiativeFields ? JSON.stringify(d.requiredInitiativeFields) : null, d.initiativeTeamId !== undefined, d.activeStandardId !== undefined]);
+    const requiredDefaults = ['title', 'description', 'problemStatement', 'impactedPeople', 'problemImpact', 'impactedCount', 'expectedOutcome', 'proposedSolution', 'differentiation'];
+    const configuredFields = d.requiredInitiativeFields ? [...new Set([...requiredDefaults, ...d.requiredInitiativeFields])] : null;
+    const result = await pool.query(`INSERT INTO workspace_institutional_settings (workspace_id, initiative_team_id, active_standard_id, intake_enabled, triage_criteria, review_cadence_days, required_initiative_fields) VALUES ($1, $2, $3, COALESCE($4, true), COALESCE($5::jsonb, '[]'::jsonb), COALESCE($6, 7), COALESCE($7::jsonb, '["title", "description", "problemStatement", "impactedPeople", "problemImpact", "impactedCount", "expectedOutcome", "proposedSolution", "differentiation"]'::jsonb)) ON CONFLICT (workspace_id) DO UPDATE SET initiative_team_id = CASE WHEN $8 THEN $2 ELSE workspace_institutional_settings.initiative_team_id END, active_standard_id = CASE WHEN $9 THEN $3 ELSE workspace_institutional_settings.active_standard_id END, intake_enabled = COALESCE($4, workspace_institutional_settings.intake_enabled), triage_criteria = COALESCE($5::jsonb, workspace_institutional_settings.triage_criteria), review_cadence_days = COALESCE($6, workspace_institutional_settings.review_cadence_days), required_initiative_fields = COALESCE($7::jsonb, workspace_institutional_settings.required_initiative_fields), updated_at = CURRENT_TIMESTAMP RETURNING *`, [workspaceId, d.initiativeTeamId ?? null, d.activeStandardId ?? null, d.intakeEnabled, d.triageCriteria ? JSON.stringify(d.triageCriteria) : null, d.reviewCadenceDays, configuredFields ? JSON.stringify(configuredFields) : null, d.initiativeTeamId !== undefined, d.activeStandardId !== undefined]);
     return res.json({ success: true, data: { settings: result.rows[0] } });
   }
 
   async reports(req: Request, res: Response) {
-    const actorId = userId(req); const workspaceId = req.query.workspaceId as string; if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required'); if (!workspaceId) return error(res, 400, 'VALIDATION_ERROR', 'workspaceId is required'); const gate = await institutionalAccess(workspaceId, actorId); if (!gate || (!gate.isAdmin && !gate.isCoordinator)) return error(res, 403, 'FORBIDDEN', 'Institutional administration or triage access is required'); if (!gate.isInstitutional) return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Institutional reports are available only in institutional workspaces');
+    const actorId = userId(req); const workspaceId = req.query.workspaceId as string; if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required'); if (!workspaceId) return error(res, 400, 'VALIDATION_ERROR', 'workspaceId is required'); const gate = await institutionalAccess(workspaceId, actorId); if (!gate || (!gate.isAdmin && !gate.isCoordinator)) return error(res, 403, 'FORBIDDEN', 'Institutional administration or triage access is required'); if (!gate.isInstitutional) return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Institutional reports are available only in institutional organizations');
     const totals = await pool.query(`SELECT COUNT(*) FILTER (WHERE true)::int AS received, COUNT(*) FILTER (WHERE stage = 'APPROVED')::int AS approved, COUNT(*) FILTER (WHERE stage = 'PAUSED')::int AS paused, COUNT(*) FILTER (WHERE next_review_at IS NULL AND stage NOT IN ('APPROVED', 'DECLINED', 'ARCHIVED'))::int AS without_followup, COUNT(p.id)::int AS formalized FROM initiatives i LEFT JOIN projects p ON p.source_initiative_id = i.id WHERE i.workspace_id = $1`, [workspaceId]);
     const byStage = await pool.query(`SELECT stage, COUNT(*)::int AS count FROM initiatives WHERE workspace_id = $1 GROUP BY stage ORDER BY stage`, [workspaceId]);
     const timeByStage = await pool.query(`SELECT stage, ROUND(AVG(days_in_stage)::numeric, 1) AS average_days FROM (SELECT h.to_stage AS stage, EXTRACT(EPOCH FROM (LEAD(h.created_at) OVER (PARTITION BY h.initiative_id ORDER BY h.created_at) - h.created_at)) / 86400 AS days_in_stage FROM initiative_workflow_history h JOIN initiatives i ON i.id = h.initiative_id WHERE i.workspace_id = $1) durations WHERE days_in_stage IS NOT NULL GROUP BY stage`, [workspaceId]);

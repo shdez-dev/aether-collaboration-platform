@@ -13,7 +13,7 @@ import {
   AlertTriangle,
   ArrowRight,
 } from 'lucide-react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
 import { useTimelineStore } from '@/stores/timelineStore';
@@ -44,7 +44,7 @@ function DepItem({
   onRemove: (depId: string) => void;
   canEdit: boolean;
 }) {
-  const t = useT();
+  const t = es;
   const card = dep.relatedCard;
   const [hovered, setHovered] = useState(false);
 
@@ -119,7 +119,7 @@ function DepItem({
 
 // ── Componente principal ─────────────────────────────────────────────────────
 export function CardDependencies({ cardId, onDepsChange }: CardDependenciesProps) {
-  const t = useT();
+  const t = es;
   const { currentWorkspace } = useWorkspaceStore();
   const invalidateTimeline = useTimelineStore((s) => s.invalidate);
   const updateCard = useCardStore((s) => s.updateCard);

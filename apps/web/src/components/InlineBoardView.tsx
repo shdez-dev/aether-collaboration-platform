@@ -22,7 +22,7 @@ import {
   SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import type { BoardView } from '@aether/types';
 import { BoardTableView } from '@/components/BoardTableView';
 import { C } from '@/lib/colors';
@@ -39,7 +39,7 @@ interface InlineBoardViewProps {
 }
 
 export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
-  const t = useT();
+  const t = es;
 
   const {
     board: currentBoard, lists, isLoading,
@@ -72,7 +72,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
   const kanbanCallbackRef       = useCallback((el: HTMLDivElement | null) => setKanbanEl(el), []);
   const { cursors: remoteCursors } = useBoardCursors(boardId, kanbanEl);
 
-  const handleViewChange = async (view: BoardView) => {
+  const handleViewChange = async (view: 'kanban' | 'table') => {
     setCurrentView(view);
     try { await updatePreferences({ defaultBoardView: view }); } catch {}
   };
@@ -461,8 +461,6 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
               icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="5" height="16" rx="1.4" stroke="currentColor" strokeWidth="1.8"/><rect x="10" y="4" width="5" height="11" rx="1.4" stroke="currentColor" strokeWidth="1.8"/><rect x="17" y="4" width="5" height="13" rx="1.4" stroke="currentColor" strokeWidth="1.8"/></svg> },
             { view: 'table'    as const, label: 'Tabla',
               icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><path d="M3 9h18M9 9v12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg> },
-          { view: 'timeline' as const, label: 'Gantt',
-              icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 7h8M3 12h14M3 17h5"/></svg> },
           ]).map(({ view, label, icon }) => (
             <button
               key={view}
@@ -500,7 +498,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
       )}
 
       {/* ── Sprint banner ────────────────────────────────────────────────── */}
-      <div style={{ margin: '0 -20px 16px', overflow: 'hidden' }}>
+      <div style={{ marginBottom: '18px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
         <SprintBanner boardId={boardId} canEdit={canEditBoard} />
       </div>
 
@@ -516,8 +514,6 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
             onCardClick={(card) => useCardStore.getState().setSelectedCard(card)}
           />
         </div>
-      ) : currentView === 'timeline' ? (
-        <BoardGantt boardId={boardId} lists={lists} cards={cards} />
       ) : (
         /* ── Kanban ──────────────────────────────────────────────────────── */
         <div ref={kanbanCallbackRef} className="ibv-scroll" style={{ overflowX: 'auto', overflowY: 'visible', position: 'relative', paddingBottom: '16px' }}>

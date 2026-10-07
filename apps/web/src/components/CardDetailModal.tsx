@@ -15,7 +15,7 @@ import { MemberPicker } from './MemberPicker';
 import { LabelPicker } from './LabelPicker';
 import { CommentList } from './comments/CommentList';
 import { X, Calendar, Zap, ChevronLeft, ChevronRight, Trash2, Flag } from 'lucide-react';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
 import { CardChecklist } from './CardChecklist';
 import { CardDependencies } from './CardDependencies';
@@ -28,7 +28,7 @@ import { C } from '@/lib/colors';
 function CustomCalendar({ value, onChange, onClose }: {
   value: string; onChange: (date: string) => void; onClose: () => void;
 }) {
-  const t = useT();
+  const t = es;
 
   const parseLocalDate = (iso: string) => {
     const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
@@ -147,7 +147,7 @@ function SectionLabel({ icon, label }: { icon?: React.ReactNode; label: string }
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 export function CardDetailModal() {
-  const t = useT();
+  const t = es;
   const { selectedCard, setSelectedCard, updateCard, removeCard, currentWorkspaceId } = useCardStore();
   const { user } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
@@ -436,7 +436,7 @@ export function CardDetailModal() {
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width:'100%', maxWidth:'1080px', height:'min(88vh, 860px)',
+            width:'100%', maxWidth:'1000px', height:'min(88vh, 860px)',
             background:'#161B2E', border:'1px solid rgba(255,255,255,0.09)',
             borderRadius:'16px', overflow:'hidden', display:'flex', flexDirection:'column',
             boxShadow:'0 48px 120px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04) inset',
@@ -458,10 +458,6 @@ export function CardDetailModal() {
               <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.1)' }}>›</span>
               <span style={{ fontSize:'12px', color:'#827A6D', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:MANROPE }}>Tarjeta</span>
             </div>
-            <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.18)', flexShrink:0, fontFamily:MANROPE }}>
-              {t.card_created(fmt(selectedCard.createdAt))}
-              {selectedCard.updatedAt !== selectedCard.createdAt && ` · ${t.card_updated(fmt(selectedCard.updatedAt))}`}
-            </span>
             <button
               onClick={handleClose}
               style={{ width:'26px', height:'26px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', cursor:'pointer', color:'#615846', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.12s, color 0.12s', flexShrink:0 }}
@@ -476,7 +472,7 @@ export function CardDetailModal() {
           <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
             {/* ══ LEFT — main content ══════════════════════════════════════ */}
-            <div className="cdm-l" style={{ flex:1, overflowY:'auto', padding:'30px 36px', display:'flex', flexDirection:'column', gap:'26px', animation:'cdmColIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.04s both' }}>
+            <div className="cdm-l" style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:'22px', animation:'cdmColIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.04s both' }}>
 
               {/* Title */}
               <div>
@@ -538,24 +534,23 @@ export function CardDetailModal() {
               </div>
 
               {/* Checklist */}
-              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'24px' }}>
+              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'20px' }}>
                 <CardChecklist cardId={selectedCard.id} onProgressChange={handleChecklistProgressChange} />
               </div>
 
               {/* Dependencies */}
-              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'24px' }}>
+              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'20px' }}>
                 <CardDependencies cardId={selectedCard.id} />
               </div>
 
               {/* Comments */}
-              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'24px' }}>
-                <SectionLabel label={t.comments_section_title} />
-                <CommentList cardId={selectedCard.id} maxHeight="440px" minHeight="180px" showForm={true} showCount={true} onCountChange={handleCommentCountChange} workspaceId={currentWorkspaceId || undefined} />
+              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'20px' }}>
+                <CommentList cardId={selectedCard.id} maxHeight="440px" minHeight="100px" showForm={true} showCount={true} onCountChange={handleCommentCountChange} workspaceId={currentWorkspaceId || undefined} />
               </div>
             </div>
 
             {/* ══ RIGHT — sidebar ══════════════════════════════════════════ */}
-            <div className="cdm-l" style={{ width:'268px', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,0.07)', overflowY:'auto', padding:'24px 18px', display:'flex', flexDirection:'column', gap:'0', background:'rgba(255,255,255,0.008)', animation:'cdmSbIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.07s both' }}>
+            <div className="cdm-l" style={{ width:'286px', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,0.07)', overflowY:'auto', padding:'24px 20px', display:'flex', flexDirection:'column', gap:'0', background:'rgba(255,255,255,0.008)', animation:'cdmSbIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.07s both' }}>
 
               {/* Priority */}
               <div style={{ paddingBottom:'18px', borderBottom:'1px solid rgba(255,255,255,0.06)', marginBottom:'4px' }}>
@@ -668,7 +663,7 @@ export function CardDetailModal() {
                   {bufferSaving && <div style={{ width:'13px', height:'13px', borderRadius:'50%', border:`2px solid ${C.accent}`, borderTopColor:'transparent', animation:'cdmSpin 0.6s linear infinite', flexShrink:0 }} />}
                 </div>
                 <p style={{ margin:'5px 0 0', fontSize:'10px', color:'#3E3830', fontFamily:MANROPE, lineHeight:1.4 }}>
-                  {bufferDays != null ? `${bufferDays} días manuales` : 'Automático según prioridad (HIGH 50 % · MED 30 % · LOW 15 %)'}
+                  {bufferDays != null ? `${bufferDays} días manuales` : 'Automático según prioridad: alta 50 %, media 30 %, baja 15 %'}
                 </p>
               </div>
 
@@ -737,7 +732,7 @@ export function CardDetailModal() {
                     const isPast = d < new Date() && m.status === 'PENDING';
                     return (
                       <p style={{ margin:'6px 0 0', fontSize:'11px', color: isPast ? C.red : '#615846', fontFamily:MANROPE }}>
-                        {isPast ? '⚠ ' : ''}{label} · {m.status === 'REACHED' ? 'Alcanzado' : m.status === 'MISSED' ? 'Perdido' : 'Pendiente'}
+                        {isPast ? '⚠ ' : ''}{label} - {m.status === 'REACHED' ? 'Alcanzado' : m.status === 'MISSED' ? 'Perdido' : 'Pendiente'}
                       </p>
                     );
                   })()}

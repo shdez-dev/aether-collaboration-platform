@@ -172,7 +172,7 @@ export default function CreateBoardModal({
                 }} />
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '10px', color: C.text4, fontWeight: 500 }}>
-                    Board · <span style={{ color: '#10b981' }}>activo</span>
+                    Board - <span style={{ color: '#10b981' }}>activo</span>
                   </span>
                   <span style={{
                     fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.06em',

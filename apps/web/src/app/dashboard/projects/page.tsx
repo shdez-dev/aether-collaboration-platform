@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, CircleDashed, ClipboardList, Columns3, LayoutList, Search, Target, UserRound } from 'lucide-react';
+import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, CircleDashed, ClipboardList, Search, Target } from 'lucide-react';
 import { useProjectStore, type Project, type ProjectMaturityStage, type ProjectWorkflowStage } from '@/stores/projectStore';
 import { useBoardStore } from '@/stores/boardStore';
 import { useTeamStore } from '@/stores/teamStore';
@@ -130,6 +130,8 @@ type FocusMode =
   | 'no-board'
   | 'no-milestone'
   | 'low-coverage';
+
+type ProjectListFilter = 'all' | 'active' | 'paused' | 'completed';
 
 type ViewMode = 'portfolio' | 'pipeline' | 'intake';
 type WorkspaceExperience = 'personal' | 'team' | 'institutional' | 'marketing' | 'construction';
@@ -334,73 +336,120 @@ function ProjectCard({ project, onClick, onAdvance }: { project: Project; onClic
   );
 }
 
-function PortfolioList({ projects, onProjectClick }: { projects: Project[]; onProjectClick: (project: Project) => void }) {
+function PortfolioList({
+  projects,
+  hasProjects,
+  onProjectClick,
+  onCreateProject,
+}: {
+  projects: Project[];
+  hasProjects: boolean;
+  onProjectClick: (project: Project) => void;
+  onCreateProject: () => void;
+}) {
   if (projects.length === 0) {
     return (
-      <div style={{ borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.12)', padding: '40px 24px', textAlign: 'center', color: '#827A6D', background: 'rgba(255,255,255,0.015)' }}>
-        No hay proyectos con los filtros actuales.
+      <div style={{ display: 'grid', justifyItems: 'center', gap: '12px', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.14)', padding: '52px 24px', textAlign: 'center', background: 'rgba(255,255,255,0.018)' }}>
+        <span style={{ width: '48px', height: '48px', display: 'grid', placeItems: 'center', borderRadius: '14px', color: '#F4905A', background: 'rgba(242,87,30,0.12)', border: '1px solid rgba(242,87,30,0.22)' }}>
+          <ClipboardList size={22} aria-hidden="true" />
+        </span>
+        <div>
+          <h3 style={{ margin: 0, color: '#E8E1D2', fontFamily: SORA, fontSize: '16px', fontWeight: 700 }}>
+            {hasProjects ? 'No encontramos proyectos' : 'Tu próximo proyecto empieza aquí'}
+          </h3>
+          <p style={{ margin: '6px 0 0', color: '#827A6D', fontSize: '12.5px', lineHeight: 1.55 }}>
+            {hasProjects
+              ? 'Prueba con otro filtro o búsqueda.'
+              : 'Reúne una idea, un objetivo y sus próximos pasos en un mismo lugar.'}
+          </p>
+        </div>
+        {!hasProjects && (
+          <button
+            type="button"
+            onClick={onCreateProject}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '4px', padding: '10px 14px', border: 0, borderRadius: '9px', background: '#F2571E', color: '#24180A', fontFamily: SORA, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            <CircleDashed size={15} aria-hidden="true" />
+            Crear primer proyecto
+          </button>
+        )}
       </div>
     );
   }
 
   return (
-    <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-      <div style={{ minWidth: '880px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 1.8fr) minmax(120px, .8fr) minmax(120px, .8fr) minmax(160px, 1fr) minmax(180px, 1.2fr)', gap: '16px', padding: '11px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: '#615846', fontFamily: SORA, fontSize: '10px', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-          <span>Proyecto</span>
-          <span>Responsable</span>
-          <span>Salud</span>
-          <span>Próximo hito</span>
-          <span>Siguiente movimiento</span>
-        </div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 310px), 1fr))', gap: '14px' }}>
+      {projects.map((project) => {
+        const maturity = getMaturityMeta(project.maturityStage ?? 'IDEA');
+        const health = getPortfolioHealth(project);
+        const milestone = getNextMilestone(project);
+        const summary = project.problemStatement?.trim() || project.description?.trim();
+        const needsAttention = ['Bloqueado', 'En pausa', 'En riesgo'].includes(health.label);
 
-        {projects.map((project) => {
-          const maturity = getMaturityMeta(project.maturityStage ?? 'IDEA');
-          const health = getPortfolioHealth(project);
-          const milestone = getNextMilestone(project);
-          const responsibleName = project.triageOwnerName ?? project.ownerName;
-
-          return (
-            <button
-              key={project.id}
-              onClick={() => onProjectClick(project)}
-              style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(230px, 1.8fr) minmax(120px, .8fr) minmax(120px, .8fr) minmax(160px, 1fr) minmax(180px, 1.2fr)', gap: '16px', alignItems: 'center', padding: '14px 16px', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.055)', background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
-              onMouseEnter={(event) => { event.currentTarget.style.background = 'rgba(255,255,255,0.035)'; }}
-              onMouseLeave={(event) => { event.currentTarget.style.background = 'transparent'; }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                <div style={{ width: '32px', height: '32px', flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: '8px', background: project.color ? `${project.color}1E` : maturity.soft, border: `1px solid ${project.color ? `${project.color}44` : maturity.border}` }}>
-                  <WorkspaceIcon icon={project.icon} size={15} color={project.color ?? maturity.tone} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E8E1D2', fontFamily: SORA, fontSize: '13px', fontWeight: 700 }}>{project.name}</div>
-                  <div style={{ marginTop: '4px' }}><span style={{ color: maturity.tone, background: maturity.soft, borderRadius: '999px', padding: '3px 7px', fontSize: '10.5px', fontWeight: 700 }}>{maturity.label}</span></div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, color: responsibleName ? '#C8BFAE' : '#DB8A66', fontSize: '12px' }}>
-                <UserRound style={{ width: '13px', height: '13px', flexShrink: 0 }} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{responsibleName || 'Sin responsable'}</span>
-              </div>
-
-              <span style={{ width: 'fit-content', color: health.tone, background: health.soft, borderRadius: '999px', padding: '5px 8px', fontSize: '11px', fontWeight: 700 }}>{health.label}</span>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0, color: milestone.tone }}>
-                <CalendarDays style={{ width: '14px', height: '14px', flexShrink: 0 }} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', fontWeight: 600 }}>{milestone.label}</div>
-                  <div style={{ marginTop: '2px', color: '#827A6D', fontSize: '10.5px' }}>{milestone.hint}{milestone.date ? ` · ${formatPortfolioDate(milestone.date)}` : ''}</div>
+        return (
+          <button
+            key={project.id}
+            type="button"
+            onClick={() => onProjectClick(project)}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.borderColor = 'rgba(242,87,30,0.42)';
+              event.currentTarget.style.background = 'rgba(255,255,255,0.045)';
+              event.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)';
+              event.currentTarget.style.background = 'rgba(255,255,255,0.025)';
+              event.currentTarget.style.transform = 'translateY(0)';
+            }}
+            style={{ display: 'flex', minHeight: '154px', flexDirection: 'column', alignItems: 'stretch', gap: '11px', padding: '16px', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '14px', background: 'rgba(255,255,255,0.025)', color: 'inherit', textAlign: 'left', cursor: 'pointer', transition: 'transform 180ms ease, border-color 180ms ease, background 180ms ease' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h3 style={{ display: '-webkit-box', margin: 0, overflow: 'hidden', color: '#F1EBDD', fontFamily: SORA, fontSize: '15px', fontWeight: 700, lineHeight: 1.4, WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
+                  {project.name}
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ borderRadius: '999px', padding: '3px 8px', color: maturity.tone, background: maturity.soft, fontSize: '10px', fontWeight: 700 }}>
+                    {maturity.label}
+                  </span>
+                  {needsAttention && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: health.tone, fontSize: '10.5px', fontWeight: 700 }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: health.tone }} aria-hidden="true" />
+                      {health.label}
+                    </span>
+                  )}
                 </div>
               </div>
+              <span style={{ width: '32px', height: '32px', display: 'grid', flexShrink: 0, placeItems: 'center', borderRadius: '9px', color: project.color ?? maturity.tone, background: project.color ? `${project.color}14` : maturity.soft }} aria-hidden="true">
+                <WorkspaceIcon icon={project.icon} size={16} color={project.color ?? maturity.tone} />
+              </span>
+            </div>
 
-              <div style={{ minWidth: 0, color: '#C8BFAE', fontSize: '12px', lineHeight: 1.4 }}>
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getProjectPortfolioReason(project)}</div>
-                {project.nextStep && <div style={{ marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#827A6D', fontSize: '11px' }}>{project.nextStep}</div>}
+            {summary ? (
+              <p style={{ display: '-webkit-box', margin: 0, overflow: 'hidden', color: '#A69B88', fontSize: '12px', lineHeight: 1.5, WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
+                {summary}
+              </p>
+            ) : null}
+
+            {(project.nextStep?.trim() || milestone.date) ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: 'auto', paddingTop: '9px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                {project.nextStep?.trim() ? (
+                  <span style={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: '6px', color: '#C8BFAE', fontSize: '11px', lineHeight: 1.4 }}>
+                    <ChevronRight size={13} style={{ flexShrink: 0, color: '#F4905A' }} aria-hidden="true" />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.nextStep}</span>
+                  </span>
+                ) : <span />}
+                {milestone.date ? (
+                  <span style={{ display: 'inline-flex', flexShrink: 0, alignItems: 'center', gap: '5px', color: milestone.tone, fontSize: '10.5px' }}>
+                    <CalendarDays size={12} aria-hidden="true" />
+                    {formatPortfolioDate(milestone.date)}
+                  </span>
+                ) : null}
               </div>
-            </button>
-          );
-        })}
-      </div>
+            ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -441,7 +490,7 @@ function MethodologyColumn({
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const { fetchProjectsByWorkspace, updateProject, transitionWorkflow, addBoard, createMilestone } = useProjectStore();
+  const { fetchProjectsByWorkspace, updateProject, transitionWorkflow, createMilestone } = useProjectStore();
   const { createBoard } = useBoardStore();
   const { teams, fetchTeams } = useTeamStore();
   const { activeWorkspaceId } = useActiveWorkspaceStore();
@@ -450,9 +499,10 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [projectListFilter, setProjectListFilter] = useState<ProjectListFilter>('all');
   const [showOnlyNeedsFormalization, setShowOnlyNeedsFormalization] = useState(false);
   const [focusMode, setFocusMode] = useState<FocusMode>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('portfolio');
+  const [viewMode] = useState<ViewMode>('portfolio');
   const [showCreate, setShowCreate] = useState(false);
   const [busyActionByProject, setBusyActionByProject] = useState<Record<string, string | null>>({});
   const [teamPickerProjectId, setTeamPickerProjectId] = useState<string | null>(null);
@@ -501,6 +551,9 @@ export default function ProjectsPage() {
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLowerCase();
     return projects.filter((project) => {
+      if (projectListFilter === 'active' && !isActiveProject(project)) return false;
+      if (projectListFilter === 'paused' && project.status !== 'ON_HOLD' && project.maturityStage !== 'ON_HOLD') return false;
+      if (projectListFilter === 'completed' && !isDoneProject(project)) return false;
       if (showOnlyNeedsFormalization && project.formalization?.readyToFormalize) return false;
       if (focusMode === 'mentor-needed') {
         const needsMentor = (project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT')
@@ -521,7 +574,7 @@ export default function ProjectsPage() {
         project.nextStep,
       ].some((value) => value?.toLowerCase().includes(query));
     });
-  }, [projects, search, showOnlyNeedsFormalization, focusMode]);
+  }, [projects, search, projectListFilter, showOnlyNeedsFormalization, focusMode]);
 
   const operatingPipeline = useMemo(() => {
     const grouped = new Map<string, Project[]>();
@@ -901,11 +954,11 @@ export default function ProjectsPage() {
 
   async function handleCreateBaseBoard(project: Project) {
     await runProjectAction(project.id, 'board', async () => {
-      const board = await createBoard(project.workspaceId, {
+      await createBoard(project.workspaceId, {
         name: `${project.name} Board`,
         description: project.problemStatement?.trim() || project.description?.trim() || 'Execution board',
+        projectId: project.id,
       });
-      await addBoard(project.id, board.id);
       if (!project.nextStep?.trim()) {
         await updateProject(project.id, { nextStep: 'Ordenar primeras tareas en el tablero base' });
       }
@@ -944,48 +997,17 @@ export default function ProjectsPage() {
       <div style={{ maxWidth: '1360px', margin: '0 auto', padding: '28px clamp(18px,3vw,36px) 48px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', marginBottom: '22px' }}>
           <div>
-            <h1 style={{ margin: 0, fontFamily: SORA, fontSize: '26px', fontWeight: 700, color: '#E8E1D2' }}>
-              {viewMode === 'portfolio'
-                ? 'Cartera de proyectos'
-                : isInstitutionalExperience
-                ? EXPERIENCE_META.institutional.title
-                : experienceMeta.title}
+            <h1 style={{ margin: 0, fontFamily: SORA, fontSize: '28px', fontWeight: 700, color: '#F1EBDD', letterSpacing: '-0.04em' }}>
+              {workspaceExperience === 'personal' ? 'Mis proyectos' : 'Proyectos del espacio'}
             </h1>
             <p style={{ margin: '7px 0 0', fontSize: '13px', color: '#827A6D', maxWidth: '760px', lineHeight: 1.55 }}>
-              {viewMode === 'portfolio'
-                ? 'Prioriza decisiones, bloqueos e hitos sin perder el contexto de cada proyecto.'
-                : isInstitutionalExperience
-                ? (workspace?.name ? `${workspace.name} puede usar este espacio para coordinar proyectos, hitos y bloqueos de ejecución.` : EXPERIENCE_META.institutional.description)
-                : experienceMeta.description}
+              {workspaceExperience === 'personal'
+                ? 'Tus ideas, objetivos y próximos pasos, organizados en un solo lugar.'
+                : 'Consulta los proyectos creados en este espacio y continúa donde los dejaste.'}
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'inline-flex', padding: '4px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              {([
-                { key: 'portfolio', label: 'Cartera', icon: LayoutList },
-                { key: 'pipeline', label: 'Pipeline', icon: Columns3 },
-              ] as const).map((option) => {
-                  const active = viewMode === option.key;
-                  const Icon = option.icon;
-                  return (
-                    <button
-                      key={option.key}
-                      onClick={() => setViewMode(option.key)}
-                      style={{
-                        height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px',
-                        background: active ? 'rgba(242,87,30,0.14)' : 'transparent',
-                        color: active ? '#F4905A' : '#C8BFAE', cursor: 'pointer',
-                        fontSize: '12px', fontWeight: 700, fontFamily: SORA,
-                      }}
-                    >
-                      {Icon && <Icon style={{ width: '13px', height: '13px' }} />}
-                      {option.label}
-                    </button>
-                  );
-              })}
-            </div>
-
             {isInstitutionalExperience && (
               <button
                 type="button"
@@ -1015,44 +1037,6 @@ export default function ProjectsPage() {
               Nuevo proyecto
             </button>
           </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: KPI_GRID, gap: '12px', marginBottom: '18px' }}>
-          {(viewMode === 'portfolio'
-            ? [
-                { label: 'En ejecución', value: portfolioMetrics.active, tone: '#F4905A', icon: Target },
-                { label: 'Bloqueados o en pausa', value: portfolioMetrics.blocked, tone: '#DB8A66', icon: AlertCircle },
-                { label: 'En riesgo', value: portfolioMetrics.atRisk, tone: '#C4A86E', icon: AlertCircle },
-                { label: 'Hitos en 7 días', value: portfolioMetrics.upcomingOrOverdue, tone: '#7B8FA8', icon: CalendarDays },
-              ]
-            : isInstitutionalExperience
-            ? (viewMode === 'pipeline'
-            ? [
-                { label: 'Proyectos', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
-                { label: 'Listos para formalizar', value: metrics.ready, tone: '#76A878', icon: CheckCircle2 },
-                { label: 'Cobertura media', value: `${metrics.averageCoverage}%`, tone: '#C4A86E', icon: Target },
-                { label: 'Baja cobertura', value: metrics.blocked, tone: '#DB8A66', icon: AlertCircle },
-              ]
-            : [
-                { label: 'Recibidas', value: intakeMetrics.total, tone: '#E8E1D2', icon: ClipboardList },
-                { label: 'Con próxima revisión', value: intakeMetrics.withReview, tone: '#7B8FA8', icon: CalendarDays },
-                { label: 'Listas para diagnóstico', value: intakeMetrics.ready, tone: '#C4A86E', icon: Target },
-                { label: 'Sin problema claro', value: intakeMetrics.missingProblem, tone: '#DB8A66', icon: AlertCircle },
-              ])
-            : adaptiveMetrics).map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.label} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                  <div>
-                    <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: '#615846', textTransform: 'uppercase' }}>{item.label}</div>
-                    <div style={{ marginTop: '8px', fontFamily: SORA, fontSize: '24px', fontWeight: 700, color: item.tone }}>{item.value}</div>
-                  </div>
-                  <Icon style={{ width: '17px', height: '17px', color: item.tone }} />
-                </div>
-              </div>
-            );
-          })}
         </div>
 
         {isInstitutionalExperience && viewMode === 'pipeline' && (
@@ -1277,60 +1261,40 @@ export default function ProjectsPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
-          <label style={{ position: 'relative', minWidth: '260px', flex: '1 1 280px' }}>
-            <Search style={{ width: '14px', height: '14px', color: '#615846', position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '4px 0 24px' }}>
+          <label style={{ position: 'relative', minWidth: '240px', flex: '1 1 340px' }}>
+            <Search size={15} aria-hidden="true" style={{ color: '#827A6D', position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, problema o siguiente paso"
-              style={{
-                width: '100%', height: '38px', padding: '0 12px 0 35px',
-                borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)',
-                background: 'rgba(255,255,255,0.03)', color: '#E8E1D2', outline: 'none',
-              }}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar tus proyectos"
+              aria-label="Buscar tus proyectos"
+              style={{ width: '100%', height: '42px', padding: '0 14px 0 38px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.035)', color: '#E8E1D2', outline: 'none', fontSize: '12.5px' }}
             />
           </label>
 
-          {viewMode !== 'intake' && (
-            <>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '38px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', flex: '0 1 260px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#615846', textTransform: 'uppercase', fontFamily: SORA }}>
-                  Foco
-                </span>
-                <select
-                  value={focusMode}
-                  onChange={(e) => setFocusMode(e.target.value as FocusMode)}
-                  style={{ height: '30px', minWidth: 0, flex: 1, border: 'none', outline: 'none', background: 'transparent', color: '#C8BFAE', fontSize: '12.5px', fontWeight: 700, fontFamily: SORA, cursor: 'pointer', colorScheme: 'dark' }}
+          <div role="group" aria-label="Filtrar proyectos por estado" style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', padding: '4px', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '11px', background: 'rgba(255,255,255,0.025)' }}>
+            {[
+              { key: 'all' as const, label: 'Todos', count: projects.length },
+              { key: 'active' as const, label: 'En marcha', count: projects.filter(isActiveProject).length },
+              { key: 'paused' as const, label: 'En pausa', count: projects.filter((project) => project.status === 'ON_HOLD' || project.maturityStage === 'ON_HOLD').length },
+              { key: 'completed' as const, label: 'Cerrados', count: projects.filter(isDoneProject).length },
+            ].map((filter) => {
+              const active = projectListFilter === filter.key;
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setProjectListFilter(filter.key)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', minHeight: '32px', padding: '0 10px', border: '1px solid transparent', borderRadius: '8px', background: active ? 'rgba(242,87,30,0.14)' : 'transparent', color: active ? '#F4905A' : '#A69B88', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
                 >
-                  {[
-                    { key: 'all', label: `Todos (${metrics.total})` },
-                    { key: 'mentor-needed', label: `Necesitan mentor (${metrics.mentorNeeded})` },
-                    { key: 'ready', label: `Listos (${metrics.ready})` },
-                    { key: 'no-team', label: `Sin equipo (${metrics.withoutTeam})` },
-                    { key: 'no-board', label: `Sin tablero (${metrics.withoutBoard})` },
-                    { key: 'no-milestone', label: `Sin hito (${metrics.withoutMilestone})` },
-                    { key: 'low-coverage', label: `Cobertura baja (${metrics.blocked})` },
-                  ].map((option) => (
-                    <option key={option.key} value={option.key}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-
-              <button
-                onClick={() => setShowOnlyNeedsFormalization((prev) => !prev)}
-                style={{
-                  height: '38px', padding: '0 14px', borderRadius: '8px',
-                  border: `1px solid ${showOnlyNeedsFormalization ? 'rgba(219,138,102,0.35)' : 'rgba(255,255,255,0.08)'}`,
-                  background: showOnlyNeedsFormalization ? 'rgba(219,138,102,0.1)' : 'rgba(255,255,255,0.03)',
-                  color: showOnlyNeedsFormalization ? '#DB8A66' : '#C8BFAE', cursor: 'pointer',
-                  fontSize: '12.5px', fontWeight: 600, flex: '0 1 auto',
-                }}
-              >
-                Solo con brechas de formalización
-              </button>
-            </>
-          )}
+                  {filter.label}
+                  <span style={{ color: active ? '#F1B18D' : '#746B5D', fontSize: '10px' }}>{filter.count}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
 
@@ -1341,55 +1305,21 @@ export default function ProjectsPage() {
           </div>
         ) : viewMode === 'portfolio' ? (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
-              <section style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Atención prioritaria</div>
-                    <div style={{ marginTop: '4px', color: '#827A6D', fontSize: '12px' }}>Los proyectos que más probablemente necesitan una decisión o desbloqueo.</div>
-                  </div>
-                  <span style={{ color: '#C8BFAE', fontSize: '11px', fontWeight: 700 }}>{portfolioAttention.length} por revisar</span>
+            <section aria-labelledby="project-list-title">
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <div>
+                  <h2 id="project-list-title" style={{ margin: 0, color: '#E8E1D2', fontFamily: SORA, fontSize: '17px', fontWeight: 700 }}>Tus proyectos</h2>
+                  <p style={{ margin: '5px 0 0', color: '#827A6D', fontSize: '12px' }}>Abre un proyecto para continuar trabajando en él.</p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-                  {portfolioAttention.length === 0 ? (
-                    <div style={{ color: '#76A878', fontSize: '12px' }}>No hay bloqueos estructurales visibles.</div>
-                  ) : portfolioAttention.map((project) => {
-                    const health = getPortfolioHealth(project);
-                    return (
-                      <button key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '8px 0', background: 'transparent', border: 'none', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ color: '#E8E1D2', fontSize: '12.5px', fontWeight: 700 }}>{project.name}</div>
-                          <div style={{ marginTop: '3px', color: '#827A6D', fontSize: '11.5px' }}>{getProjectPortfolioReason(project)}</div>
-                        </div>
-                        <span style={{ color: health.tone, background: health.soft, borderRadius: '999px', padding: '4px 8px', fontSize: '10.5px', fontWeight: 700, flexShrink: 0 }}>{health.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Acciones rápidas</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-                  {[
-                    { label: 'Asignar equipo', hint: `${metrics.withoutTeam} proyecto(s) sin equipo`, focus: 'no-team' as const, tone: '#DB8A66' },
-                    { label: 'Crear tableros', hint: `${metrics.withoutBoard} proyecto(s) sin tablero`, focus: 'no-board' as const, tone: '#C4A86E' },
-                    { label: 'Definir hitos', hint: `${metrics.withoutMilestone} proyecto(s) sin hito`, focus: 'no-milestone' as const, tone: '#7B8FA8' },
-                  ].map((action) => (
-                    <button
-                      key={action.focus}
-                      onClick={() => { setFocusMode(action.focus); setShowOnlyNeedsFormalization(false); }}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '9px 10px', borderRadius: '8px', border: `1px solid ${action.tone}33`, background: `${action.tone}0F`, color: action.tone, cursor: 'pointer', textAlign: 'left' }}
-                    >
-                      <span style={{ fontSize: '12px', fontWeight: 700 }}>{action.label}</span>
-                      <span style={{ color: '#C8BFAE', fontSize: '11px' }}>{action.hint}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            </div>
-
-            <PortfolioList projects={portfolioProjects} onProjectClick={(project) => router.push(`/dashboard/projects/${project.id}`)} />
+                <span style={{ color: '#A69B88', fontSize: '11.5px', fontWeight: 600 }}>{filteredProjects.length} de {projects.length}</span>
+              </div>
+              <PortfolioList
+                projects={portfolioProjects}
+                hasProjects={projects.length > 0}
+                onProjectClick={(project) => router.push(`/dashboard/projects/${project.id}`)}
+                onCreateProject={() => setShowCreate(true)}
+              />
+            </section>
           </>
         // La bandeja institucional vive en /dashboard/initiatives. Este bloque
         // sólo se conserva temporalmente para datos históricos que pudieran
@@ -1466,7 +1396,7 @@ export default function ProjectsPage() {
                       return (
                         <div key={row.version} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: '10px', alignItems: 'center', borderRadius: '8px', border: `1px solid ${isCurrent ? 'rgba(118,168,120,0.22)' : 'rgba(255,255,255,0.06)'}`, background: isCurrent ? 'rgba(118,168,120,0.06)' : 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? '#76A878' : '#E8E1D2', fontFamily: SORA }}>v{row.version}</div>
-                          <div style={{ fontSize: '11.5px', color: '#827A6D' }}>{row.count} proyecto(s) · {row.readyCount} listos</div>
+                          <div style={{ fontSize: '11.5px', color: '#827A6D' }}>{row.count} proyecto(s) - {row.readyCount} listos</div>
                           <div style={{ fontFamily: SORA, fontSize: '15px', fontWeight: 700, color: getCoverageTone(row.avgCoverage) }}>{row.avgCoverage}%</div>
                         </div>
                       );

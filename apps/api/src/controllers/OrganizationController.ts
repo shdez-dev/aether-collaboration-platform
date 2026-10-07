@@ -133,8 +133,8 @@ class OrganizationController {
     if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     if (!/^[a-f0-9]{64}$/i.test(req.params.token)) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid invitation token' } });
     try {
-      await organizationService.acceptInvitation(req.params.token, userId);
-      return res.json({ success: true, data: { message: 'Invitation accepted' } });
+      const organizationId = await organizationService.acceptInvitation(req.params.token, userId);
+      return res.json({ success: true, data: { message: 'Invitation accepted', organizationId } });
     } catch (error) {
       return serviceError(res, error, 'Failed to accept organization invitation');
     }

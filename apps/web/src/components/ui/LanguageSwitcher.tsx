@@ -34,7 +34,7 @@ export function LanguageSwitcher({ variant = 'topbar' }: LanguageSwitcherProps) 
       >
         <Globe className="w-3.5 h-3.5" />
         <span>{currentLang.toUpperCase()}</span>
-        <span className="hidden sm:inline" style={{ color: 'var(--home-text-4)' }}>·</span>
+        <span className="hidden sm:inline" style={{ color: 'var(--home-text-4)' }}>-</span>
         <span className="hidden sm:inline" style={{ color: 'var(--home-text-3)' }}>{nextLang.toUpperCase()}</span>
       </button>
     );
