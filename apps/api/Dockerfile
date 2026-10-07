@@ -61,7 +61,12 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 
 # Prisma CLI is needed at startup to apply the committed schema migrations.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN pnpm install --frozen-lockfile --prod=false
+
+# Reuse Chromium downloaded in the dependency stage and make it available to
+# the non-root runtime user used by the API container.
+COPY --from=deps --chown=aether:nodejs /root/.cache/puppeteer /home/aether/.cache/puppeteer
 
 # Copy built application
 COPY --from=builder --chown=aether:nodejs /app/apps/api/dist ./apps/api/dist
