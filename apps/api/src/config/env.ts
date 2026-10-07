@@ -73,12 +73,16 @@ const envSchema = z.object({
     .optional()
     .default('http://localhost:3001'),
 
-  // Cloudflare R2
-  R2_ACCOUNT_ID: z.string().min(1, 'R2_ACCOUNT_ID is required'),
-  R2_ACCESS_KEY_ID: z.string().min(1, 'R2_ACCESS_KEY_ID is required'),
-  R2_SECRET_ACCESS_KEY: z.string().min(1, 'R2_SECRET_ACCESS_KEY is required'),
-  R2_BUCKET_NAME: z.string().min(1, 'R2_BUCKET_NAME is required'),
-  R2_PUBLIC_URL: z.string().url('R2_PUBLIC_URL must be a valid URL'),
+  // Storage: local volumes are useful for self-hosted installations, while the
+  // default R2 driver preserves the existing cloud deployment behavior.
+  STORAGE_DRIVER: z.enum(['r2', 'local']).default('r2'),
+  LOCAL_STORAGE_DIR: z.string().min(1).default('apps/api/public/uploads'),
+  LOCAL_STORAGE_PUBLIC_URL: z.string().url().optional(),
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_NAME: z.string().optional(),
+  R2_PUBLIC_URL: z.string().url().optional(),
 
   // Groq AI
   GROQ_API_KEY: z.string().optional().default(''),
@@ -96,7 +100,28 @@ const envSchema = z.object({
     .string()
     .email('EMAIL_FROM must be a valid email address')
     .default('aether.notifications@gmail.com'),
+  AETHER_SMTP_FROM: z.string().email().optional(),
   EMAIL_FROM_NAME: z.string().min(1, 'EMAIL_FROM_NAME is required').default('Aether Platform'),
+}).superRefine((env, context) => {
+  if (env.STORAGE_DRIVER !== 'r2') return;
+
+  for (const key of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME'] as const) {
+    if (!env[key]) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key} is required when STORAGE_DRIVER=r2`,
+      });
+    }
+  }
+
+  if (!env.R2_PUBLIC_URL) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['R2_PUBLIC_URL'],
+      message: 'R2_PUBLIC_URL is required when STORAGE_DRIVER=r2',
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;
