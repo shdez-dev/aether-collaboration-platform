@@ -8,5 +8,5 @@ Type=oneshot
 User=athe
 Group=athe
 WorkingDirectory=/home/athe/aether-collaboration-platform
-ExecStart=/home/athe/aether-collaboration-platform/infra/raspberry-pi/deploy.sh --update
+ExecStart=/usr/bin/bash /home/athe/aether-collaboration-platform/infra/raspberry-pi/deploy.sh --update
 Nice=10
