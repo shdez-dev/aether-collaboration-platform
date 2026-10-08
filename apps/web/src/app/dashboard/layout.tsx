@@ -27,6 +27,7 @@ import CreateBoardModal from '@/components/CreateBoardModal';
 import CreateProjectModal from '@/components/CreateProjectModal';
 import FirstWorkspaceOnboarding from '@/components/FirstWorkspaceOnboarding';
 import { socketService } from '@/services/socketService';
+import { apiService } from '@/services/apiService';
 
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
@@ -94,6 +95,15 @@ function Sidebar({
   const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
   const notifCount  = useNotificationStore(s => s.unreadCount);
   const showBell    = usePreferencesStore(s => s.preferences?.inAppNotifications ?? true);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void apiService.get<{ platformAdmin: boolean }>('/api/admin/access', true).then((response) => {
+      if (active) setIsPlatformAdmin(response.success && response.data?.platformAdmin === true);
+    });
+    return () => { active = false; };
+  }, [user?.id]);
 
   const mainNav = [
     {
@@ -276,6 +286,15 @@ function Sidebar({
           label="Iniciativas"
           active={!!pathname?.startsWith('/dashboard/initiatives')}
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><path d="M7 3.5h10A2.5 2.5 0 0 1 19.5 6v12A2.5 2.5 0 0 1 17 20.5H7A2.5 2.5 0 0 1 4.5 18V6A2.5 2.5 0 0 1 7 3.5Z"/><path d="M8 8h8M8 12h8M8 16h4" strokeLinecap="round"/></svg>}
+        />
+      </div>}
+
+      {isPlatformAdmin && <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--c-border)' }}>
+        <NavItem
+          href="/dashboard/admin"
+          label="Administración"
+          active={!!pathname?.startsWith('/dashboard/admin')}
+          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 16v-4m5 4V8m5 8v-6" strokeLinecap="round"/></svg>}
         />
       </div>}
 

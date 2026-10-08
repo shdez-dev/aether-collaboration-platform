@@ -191,6 +191,10 @@ REFRESH_TOKEN_SECRET=
 FRONTEND_URL=http://localhost:3002
 CORS_ORIGIN=http://localhost:3002
 
+# Optional: the single user UUID allowed to view /dashboard/admin
+# Leave empty to disable global administration.
+PLATFORM_ADMIN_USER_ID=
+
 # Email (Brevo)
 BREVO_API_KEY=
 EMAIL_FROM=

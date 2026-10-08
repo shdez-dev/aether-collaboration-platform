@@ -172,11 +172,12 @@ class CalendarEventService {
 
     if (from) {
       params.push(from);
-      query += ` AND ce.start_time >= $${params.length}`;
+      // Include events that started before the visible range but still overlap it.
+      query += ` AND ce.end_time > $${params.length}`;
     }
     if (to) {
       params.push(to);
-      query += ` AND ce.end_time <= $${params.length}`;
+      query += ` AND ce.start_time < $${params.length}`;
     }
 
     query += ` ORDER BY ce.start_time ASC`;

@@ -30,6 +30,7 @@ import billingRoutes from './routes/billing';
 import searchRoutes from './routes/search';
 import aiRoutes from './routes/ai';
 import eventRoutes from './routes/events';
+import adminRoutes from './routes/admin';
 import { documentCommentController } from './controllers/DocumentCommentController';
 
 // Import middleware
@@ -201,6 +202,7 @@ app.use('/api/auth/reset-password', passwordResetLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/organizations', organizationRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', boardRoutes);
 app.use('/api', cardRoutes);

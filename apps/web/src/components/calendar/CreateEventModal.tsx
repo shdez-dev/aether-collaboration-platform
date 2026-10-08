@@ -12,7 +12,7 @@ const SORA   = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
 const COLORS = [
-  { label: 'Naranja',   value: '#7452A6' },
+  { label: 'Lavanda',   value: '#7452A6' },
   { label: 'Azul',      value: '#8076A7' },
   { label: 'Verde',     value: '#548B73' },
   { label: 'Ámbar',     value: '#A97556' },
@@ -29,6 +29,8 @@ interface Props {
   onClose:       () => void;
   initialDate?:  string;          // YYYY-MM-DD
   initialHour?:  number;          // 0-23
+  initialMinute?: number;         // 0 o 30
+  initialAllDay?: boolean;
   eventToEdit?:  CalendarEvent | null;
 }
 
@@ -60,7 +62,8 @@ const inputBase: React.CSSProperties = {
   width: '100%', fontFamily: MANROPE, fontSize: '14.5px', color: 'var(--c-text)',
   background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.09)',
   borderRadius: '8px', padding: '11px 14px', outline: 'none',
-  colorScheme: 'light',
+  colorScheme: 'inherit',
+  transition: 'border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease',
 };
 
 function AInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
@@ -124,25 +127,31 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
-export default function CreateEventModal({ open, onClose, initialDate, initialHour, eventToEdit }: Props) {
+export default function CreateEventModal({ open, onClose, initialDate, initialHour, initialMinute, initialAllDay, eventToEdit }: Props) {
   const createEvent = useCalendarEventStore(s => s.createEvent);
   const updateEvent = useCalendarEventStore(s => s.updateEvent);
   const deleteEvent = useCalendarEventStore(s => s.deleteEvent);
   const workspaces  = useWorkspaceStore(s => s.workspaces);
   const teams       = useTeamStore(s => s.teams);
+  const fetchTeams  = useTeamStore(s => s.fetchTeams);
 
   const isEdit = !!eventToEdit;
 
   const today       = new Date();
   const defaultDate = initialDate ?? `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
   const defaultHour = initialHour ?? today.getHours();
+  const defaultMinute = initialMinute ?? 0;
+  const defaultEnd = new Date(`${defaultDate}T${pad(defaultHour)}:${pad(defaultMinute)}:00`);
+  defaultEnd.setHours(defaultEnd.getHours() + 1);
+  const defaultEndDate = `${defaultEnd.getFullYear()}-${pad(defaultEnd.getMonth()+1)}-${pad(defaultEnd.getDate())}`;
 
   const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
   const [date,        setDate]        = useState(defaultDate);
-  const [startTime,   setStartTime]   = useState(`${pad(defaultHour)}:00`);
-  const [endTime,     setEndTime]     = useState(`${pad(Math.min(defaultHour + 1, 23))}:00`);
-  const [allDay,      setAllDay]      = useState(false);
+  const [endDate,     setEndDate]     = useState(defaultEndDate);
+  const [startTime,   setStartTime]   = useState(`${pad(defaultHour)}:${pad(defaultMinute)}`);
+  const [endTime,     setEndTime]     = useState(`${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`);
+  const [allDay,      setAllDay]      = useState(initialAllDay ?? false);
   const [color,       setColor]       = useState(COLORS[0].value);
   const [type,        setType]        = useState<'personal' | 'workspace' | 'team'>('personal');
   const [workspaceId, setWorkspaceId] = useState('');
@@ -151,21 +160,34 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
   const [deleting,    setDeleting]    = useState(false);
   const [error,       setError]       = useState('');
   const [visible,     setVisible]     = useState(false);
+  const [rendered,    setRendered]    = useState(open);
 
   // Animation state
   useEffect(() => {
-    if (open) { setTimeout(() => setVisible(true), 10); }
-    else      { setVisible(false); }
+    if (open) {
+      setRendered(true);
+      const timer = window.setTimeout(() => setVisible(true), 10);
+      return () => window.clearTimeout(timer);
+    }
+    setVisible(false);
+    const timer = window.setTimeout(() => setRendered(false), 210);
+    return () => window.clearTimeout(timer);
   }, [open]);
+
+  useEffect(() => {
+    if (open) void fetchTeams();
+  }, [open, fetchTeams]);
 
   // Prefill on edit
   useEffect(() => {
+    if (!open) return;
     if (eventToEdit) {
       const start = new Date(eventToEdit.startTime);
       const end   = new Date(eventToEdit.endTime);
       setTitle(eventToEdit.title);
       setDescription(eventToEdit.description ?? '');
       setDate(`${start.getFullYear()}-${pad(start.getMonth()+1)}-${pad(start.getDate())}`);
+      setEndDate(`${end.getFullYear()}-${pad(end.getMonth()+1)}-${pad(end.getDate())}`);
       setStartTime(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
       setEndTime(`${pad(end.getHours())}:${pad(end.getMinutes())}`);
       setAllDay(eventToEdit.allDay);
@@ -176,9 +198,10 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
     } else {
       setTitle(''); setDescription('');
       setDate(defaultDate);
-      setStartTime(`${pad(defaultHour)}:00`);
-      setEndTime(`${pad(Math.min(defaultHour + 1, 23))}:00`);
-      setAllDay(false); setColor(COLORS[0].value);
+      setEndDate(initialAllDay ? defaultDate : defaultEndDate);
+      setStartTime(`${pad(defaultHour)}:${pad(defaultMinute)}`);
+      setEndTime(`${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`);
+      setAllDay(initialAllDay ?? false); setColor(COLORS[0].value);
       setType('personal'); setWorkspaceId(''); setTeamId('');
     }
     setError('');
@@ -195,8 +218,9 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
 
   function validate(): string {
     if (!title.trim())                        return 'El título es requerido';
-    if (!allDay && startTime >= endTime)      return 'La hora de fin debe ser posterior al inicio';
-    if (type === 'workspace' && !workspaceId) return 'Selecciona un workspace';
+    if (!date || !endDate)                     return 'Selecciona las fechas de inicio y fin';
+    if (new Date(`${endDate}T${allDay ? '23:59:59' : endTime + ':00'}`).getTime() <= new Date(`${date}T${allDay ? '00:00:00' : startTime + ':00'}`).getTime()) return 'El fin debe ser posterior al inicio';
+    if (type === 'workspace' && !workspaceId) return 'Selecciona un espacio';
     if (type === 'team'      && !teamId)      return 'Selecciona un equipo';
     return '';
   }
@@ -211,8 +235,8 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
       ? new Date(`${date}T00:00:00`).toISOString()
       : buildISO(date, startTime);
     const endISO = allDay
-      ? new Date(`${date}T23:59:59`).toISOString()
-      : buildISO(date, endTime);
+      ? new Date(`${endDate}T23:59:59`).toISOString()
+      : buildISO(endDate, endTime);
 
     const input: CreateEventInput = {
       title:       title.trim(),
@@ -238,12 +262,13 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
   async function handleDelete() {
     if (!eventToEdit) return;
     setDeleting(true);
-    await deleteEvent(eventToEdit.id);
+    const deleted = await deleteEvent(eventToEdit.id);
     setDeleting(false);
-    onClose();
+    if (deleted) onClose();
+    else setError('No se pudo eliminar el evento');
   }
 
-  if (!open) return null;
+  if (!rendered) return null;
 
   return (
     <>
@@ -252,8 +277,9 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
         onClick={onClose}
         style={{
           position: 'fixed', inset: 0, zIndex: 100,
-          background: 'rgba(0,0,0,0.6)',
+          background: 'rgba(18,12,25,0.28)',
           opacity: visible ? 1 : 0,
+          pointerEvents: open ? 'auto' : 'none',
           transition: 'opacity 0.18s ease',
         }}
       />
@@ -262,21 +288,22 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
       <div
         style={{
           position: 'fixed', inset: 0, zIndex: 101,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '16px', pointerEvents: 'none',
+          display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end',
+          padding: 0, pointerEvents: 'none',
         }}
       >
         <div
           onClick={e => e.stopPropagation()}
           style={{
-            width: '100%', maxWidth: '460px', pointerEvents: 'all',
+            width: 'min(430px, 100vw)', height: '100dvh', pointerEvents: open ? 'all' : 'none',
+            display: 'flex', flexDirection: 'column',
             background: 'var(--c-surface)',
             border: '1px solid rgba(97,71,130,0.1)',
-            borderRadius: '14px',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+            borderRadius: 0,
+            boxShadow: '-16px 0 48px rgba(18,12,25,0.16)',
             overflow: 'hidden',
             opacity: visible ? 1 : 0,
-            transform: visible ? 'translateY(0) scale(1)' : 'translateY(12px) scale(0.97)',
+            transform: visible ? 'translateX(0)' : 'translateX(24px)',
             transition: 'opacity 0.2s ease, transform 0.2s ease',
           }}
         >
@@ -310,6 +337,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 background: 'none', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'var(--c-text3)',
+                transition: 'background-color 160ms ease, color 160ms ease, transform 160ms ease',
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.06)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text3)'; }}
@@ -321,8 +349,8 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit}>
-            <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '18px', maxHeight: '70vh', overflowY: 'auto' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
 
               {/* Título */}
               <Field label="Título">
@@ -345,11 +373,16 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 />
               </Field>
 
-              {/* Fecha + Todo el día */}
+              {/* Fechas + Todo el día */}
               <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '140px' }}>
-                  <Field label="Fecha">
+                  <Field label="Fecha de inicio">
                     <AInput type="date" value={date} onChange={e => setDate(e.target.value)} />
+                  </Field>
+                </div>
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <Field label="Fecha de fin">
+                    <AInput type="date" min={date} value={endDate} onChange={e => setEndDate(e.target.value)} />
                   </Field>
                 </div>
                 <div style={{ paddingBottom: '2px' }}>
@@ -366,10 +399,6 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                       value={startTime}
                       onChange={e => {
                         setStartTime(e.target.value);
-                        if (e.target.value >= endTime) {
-                          const [h] = e.target.value.split(':').map(Number);
-                          setEndTime(`${pad(Math.min(h + 1, 23))}:00`);
-                        }
                       }}
                       style={{ flex: 1 }}
                     />
@@ -407,7 +436,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {(['personal', 'workspace', 'team'] as const).map(t => {
                     const isActive = type === t;
-                    const labels = { personal: 'Personal', workspace: 'Workspace', team: 'Equipo' };
+                    const labels = { personal: 'Personal', workspace: 'Espacio', team: 'Equipo' };
                     const icons = {
                       personal: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.7"/><path d="M4 20a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>,
                       workspace: <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.7"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" stroke="currentColor" strokeWidth="1.7"/></svg>,
@@ -417,6 +446,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                       <button
                         key={t}
                         type="button"
+                        disabled={isEdit}
                         onClick={() => setType(t)}
                         style={{
                           flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
@@ -425,7 +455,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                           background: isActive ? `${color}18` : 'rgba(97,71,130,0.02)',
                           color: isActive ? color : 'var(--c-text2)',
                           fontFamily: MANROPE, fontSize: '13px', fontWeight: isActive ? 600 : 400,
-                          transition: 'all 0.15s',
+                          transition: 'all 0.15s', opacity: isEdit && !isActive ? 0.5 : 1,
                         }}
                       >
                         {icons[t]}
@@ -436,11 +466,11 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 </div>
               </Field>
 
-              {/* Workspace selector */}
+              {/* Selector de espacio */}
               {type === 'workspace' && (
-                <Field label="Workspace">
+                <Field label="Espacio">
                   <ASelect value={workspaceId} onChange={e => setWorkspaceId(e.target.value)}>
-                    <option value="">Selecciona un workspace…</option>
+                    <option value="">Selecciona un espacio…</option>
                     {workspaces.map(ws => (
                       <option key={ws.id} value={ws.id}>{ws.name}</option>
                     ))}
@@ -502,6 +532,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                   padding: '9px 18px', borderRadius: '8px', cursor: 'pointer',
                   background: 'transparent', border: '1px solid rgba(97,71,130,0.1)',
                   color: 'var(--c-text2)', fontFamily: MANROPE, fontWeight: 600, fontSize: '13.5px',
+                  transition: 'background-color 160ms ease, color 160ms ease, transform 160ms ease',
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; }}
@@ -518,6 +549,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                   background: '#7452A6', border: 'none',
                   color: '#FFFFFF', fontFamily: SORA, fontWeight: 700, fontSize: '13.5px',
                   opacity: saving ? 0.65 : 1,
+                  transition: 'filter 160ms ease, transform 160ms ease, opacity 160ms ease',
                 }}
                 onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; }}

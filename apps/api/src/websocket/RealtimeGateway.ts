@@ -459,6 +459,15 @@ export class RealtimeGateway {
   public getIO(): SocketIOServer {
     return this.io;
   }
+
+  /** Usuarios con al menos una conexión autenticada activa en esta instancia. */
+  public getOnlineUserIds(): Set<string> {
+    return new Set(
+      Array.from(this.io.sockets.sockets.values())
+        .map((socket) => (socket as AuthenticatedSocket).userId)
+        .filter(Boolean)
+    );
+  }
 }
 
 // Export singleton
