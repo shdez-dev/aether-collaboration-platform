@@ -252,6 +252,15 @@ function Sidebar({
         />
       </div>
 
+      <div style={{ marginTop: '3px' }}>
+        <NavItem
+          href="/dashboard/organizations"
+          label="Organización"
+          active={!!pathname?.startsWith('/dashboard/organizations')}
+          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><path d="M4 21V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v15M2 21h20M8 8h2m4 0h2M8 12h2m4 0h2M10 21v-4h4v4" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 4V2h6v2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        />
+      </div>
+
       {hasPortfolioCapability && <div style={{ marginTop: '3px' }}>
         <NavItem
           href="/dashboard/portfolios"

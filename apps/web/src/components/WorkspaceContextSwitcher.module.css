@@ -286,6 +286,28 @@
   background: rgba(242, 87, 30, 0.14);
 }
 
+.manageAction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  background: transparent;
+  color: #d7cabb;
+  font: 600 11px/1.2 'Manrope', system-ui, sans-serif;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.manageAction:hover {
+  border-color: rgba(242, 87, 30, 0.38);
+  background: rgba(242, 87, 30, 0.08);
+  color: #ff956e;
+}
+
 .panelFooter {
   display: flex;
   align-items: center;
@@ -335,6 +357,7 @@
   .backAction,
   .option,
   .createAction,
+  .manageAction,
   .footerAction {
     transition-duration: 0.01ms;
   }

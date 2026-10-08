@@ -7,12 +7,13 @@ import {
   Building2,
   Check,
   ChevronDown,
-  Layers3,
   Plus,
   RefreshCw,
   Settings2,
+  UserPlus,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Workspace } from '@/stores/workspaceStore';
 import { apiService } from '@/services/apiService';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
@@ -57,6 +58,7 @@ export default function WorkspaceContextSwitcher({
   onEdit,
   onRefresh,
 }: WorkspaceContextSwitcherProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<SwitcherStep>('workspaces');
   const [refreshing, setRefreshing] = useState(false);
@@ -257,6 +259,19 @@ export default function WorkspaceContextSwitcher({
                       <Plus size={16} aria-hidden="true" />
                       Nuevo espacio
                     </button>
+                    {activeOrganizationId && activeOrganization?.type !== 'PERSONAL' ? (
+                      <button
+                        type="button"
+                        className={styles.manageAction}
+                        onClick={() => {
+                          setOpen(false);
+                          router.push(`/dashboard/organizations?organizationId=${encodeURIComponent(activeOrganizationId)}`);
+                        }}
+                      >
+                        <UserPlus size={15} aria-hidden="true" />
+                        Miembros de la organización
+                      </button>
+                    ) : null}
                   </div>
                 </motion.section>
               ) : (
