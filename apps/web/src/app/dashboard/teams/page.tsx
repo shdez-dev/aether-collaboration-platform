@@ -32,12 +32,12 @@ function TeamCard({ team, onOpen }: { team: Team; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      style={{ width: '100%', minWidth: 0, padding: '16px', textAlign: 'left', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', color: 'inherit', fontFamily: MANROPE, transition: 'border-color .15s, background .15s, transform .15s' }}
-      onMouseEnter={(event) => { event.currentTarget.style.borderColor = `${color}88`; event.currentTarget.style.background = 'rgba(255,255,255,0.05)'; event.currentTarget.style.transform = 'translateY(-2px)'; }}
-      onMouseLeave={(event) => { event.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; event.currentTarget.style.background = 'rgba(255,255,255,0.025)'; event.currentTarget.style.transform = 'none'; }}
+      style={{ width: '100%', minWidth: 0, padding: '18px', textAlign: 'left', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.08)', borderTop: `2px solid ${color}`, borderRadius: '13px', background: 'linear-gradient(145deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012))', color: 'inherit', fontFamily: MANROPE, transition: 'border-color .15s, background .15s, transform .15s, box-shadow .15s' }}
+      onMouseEnter={(event) => { event.currentTarget.style.borderColor = `${color}88`; event.currentTarget.style.background = 'rgba(255,255,255,0.05)'; event.currentTarget.style.transform = 'translateY(-2px)'; event.currentTarget.style.boxShadow = `0 12px 30px ${color}12`; }}
+      onMouseLeave={(event) => { event.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; event.currentTarget.style.borderTopColor = color; event.currentTarget.style.background = 'linear-gradient(145deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012))'; event.currentTarget.style.transform = 'none'; event.currentTarget.style.boxShadow = 'none'; }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        <span style={{ width: '40px', height: '40px', borderRadius: '50%', background: tint, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        <span style={{ width: '42px', height: '42px', borderRadius: '13px', background: tint, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
             <circle cx="9" cy="8" r="3" stroke={color} strokeWidth="1.8" />
             <path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6a3 3 0 0 1 0 6M18.5 19a5.5 5.5 0 0 0-3-4.9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
@@ -45,16 +45,16 @@ function TeamCard({ team, onOpen }: { team: Team; onOpen: () => void }) {
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ color: '#E8E1D2', fontFamily: SORA, fontSize: '15px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</div>
-          <div style={{ marginTop: '2px', color: '#827A6D', fontSize: '12px' }}>{team.memberCount ?? 0} {(team.memberCount ?? 0) === 1 ? 'miembro' : 'miembros'} - {team.projectCount ?? 0} proyectos</div>
+          <div style={{ marginTop: '4px', color: '#827A6D', fontSize: '12px' }}>{team.memberCount ?? 0} {(team.memberCount ?? 0) === 1 ? 'persona' : 'personas'} <span aria-hidden="true" style={{ padding: '0 5px', color: '#615846' }}>|</span> {team.projectCount ?? 0} {(team.projectCount ?? 0) === 1 ? 'proyecto' : 'proyectos'}</div>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: '#827A6D', marginTop: '2px', flexShrink: 0 }}><path d="m9 18 6-6-6-6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </div>
 
       <p style={{ minHeight: '36px', margin: '12px 0 14px', color: '#9C9486', fontSize: '12.5px', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{team.description || 'Sin descripción'}</p>
 
-      <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', color: '#9C9486', fontSize: '11.5px', marginBottom: '12px' }}>
-        <span><strong style={{ color: '#E8E1D2' }}>Líder:</strong> {team.leadName || 'Sin asignar'}</span>
-        <span><strong style={{ color: '#E8E1D2' }}>Carga:</strong> {team.activeCards ?? 0} tarjetas activas</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '12px', alignItems: 'center', color: '#9C9486', fontSize: '11.5px', marginBottom: '14px' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><strong style={{ color: '#E8E1D2' }}>Responsable</strong><br />{team.leadName || 'Sin asignar'}</span>
+        <span style={{ textAlign: 'right' }}><strong style={{ color: '#E8E1D2' }}>Trabajo activo</strong><br />{team.activeCards ?? 0} tarjetas</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
@@ -153,6 +153,7 @@ export default function TeamsPage() {
   const filteredWorkspaces = activeWorkspaces.filter((workspace) => workspaceFilter === 'ALL' || workspace.id === workspaceFilter);
   const visibleWorkspaces = filteredWorkspaces.filter((workspace) => workspaceFilter !== 'ALL' || teams.some((team) => team.workspaceId === workspace.id));
   const legacyTeams = teams.filter((team) => !team.workspaceId || !knownWorkspaceIds.has(team.workspaceId));
+  const activeCardCount = teams.reduce((total, team) => total + (team.activeCards ?? 0), 0);
 
   useEffect(() => {
     if (!workspaces.length) fetchWorkspaces();
@@ -181,19 +182,32 @@ export default function TeamsPage() {
 
   return (
     <div style={{ minHeight: '100%', padding: '0 clamp(20px, 4vw, 48px) 48px', background: C.bg }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto', animation: 'fadeUp .4s ease both' }}>
+      <div style={{ maxWidth: '1080px', margin: '0 auto', animation: 'fadeUp .4s ease both' }}>
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}`}</style>
-        <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', paddingTop: '36px' }}>
+        <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '18px', paddingTop: '42px' }}>
           <div>
             <h1 style={{ margin: 0, color: '#F4EEE2', fontFamily: SORA, fontSize: 'clamp(1.7rem, 3vw, 2.2rem)', fontWeight: 700, letterSpacing: '-.02em' }}>Equipos</h1>
-            <p style={{ margin: '7px 0 0', color: '#9C9486', fontFamily: MANROPE, fontSize: '1.02rem' }}>Encuentra y gestiona los equipos de tus espacios de trabajo.</p>
+            <p style={{ margin: '7px 0 0', color: '#9C9486', fontFamily: MANROPE, fontSize: '14px' }}>Personas, proyectos y trabajo activo en un solo lugar.</p>
           </div>
           <button type="button" onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 16px', borderRadius: '8px', border: 0, background: '#F2571E', color: '#24180A', cursor: 'pointer', fontFamily: SORA, fontSize: '14px', fontWeight: 650 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>Nuevo equipo</button>
         </header>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '28px 0 18px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '9px', color: '#9C9486', fontFamily: MANROPE, fontSize: '13px' }}>
-            <span>Mostrar</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginTop: '24px' }}>
+          {[
+            { label: 'Equipos', value: teams.length, color: '#F2571E' },
+            { label: 'Espacios de trabajo', value: activeWorkspaces.length, color: '#76A878' },
+            { label: 'Tarjetas activas', value: activeCardCount, color: '#7B8FA8' },
+          ].map((metric) => (
+            <div key={metric.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', border: '1px solid rgba(255,255,255,.08)', borderRadius: '11px', background: 'rgba(255,255,255,.025)' }}>
+              <span style={{ color: '#9C9486', fontFamily: MANROPE, fontSize: '12px' }}>{metric.label}</span>
+              <strong style={{ color: metric.color, fontFamily: SORA, fontSize: '20px' }}>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '24px 0 14px', padding: '12px 14px', border: '1px solid rgba(255,255,255,.07)', borderRadius: '11px', background: 'rgba(255,255,255,.018)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#9C9486', fontFamily: MANROPE, fontSize: '12px' }}>
+            <span>Espacio de trabajo</span>
             <select value={workspaceFilter} onChange={(event) => selectFilter(event.target.value)} style={{ minWidth: '240px', padding: '9px 34px 9px 11px', borderRadius: '8px', border: '1px solid rgba(255,255,255,.13)', background: '#202740', color: '#E8E1D2', fontFamily: MANROPE, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
               <option value="ALL">Todos los espacios ({teams.length} equipos)</option>
               {activeWorkspaces.map((workspace) => {
@@ -225,7 +239,7 @@ export default function TeamsPage() {
               );
             })}
             {workspaceFilter === 'ALL' && legacyTeams.length > 0 && <section style={{ padding: '14px', border: '1px dashed rgba(255,255,255,.13)', borderRadius: '11px' }}><div style={{ marginBottom: '10px', color: '#9C9486', fontFamily: SORA, fontSize: '13px' }}>Equipos sin espacio asignado</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>{legacyTeams.map((team) => <TeamCard key={team.id} team={team} onOpen={() => router.push(`/dashboard/teams/${team.id}`)} />)}</div></section>}
-            {visibleWorkspaces.length === 0 && legacyTeams.length === 0 && <div style={{ padding: '50px 0', textAlign: 'center', color: '#827A6D', fontFamily: MANROPE }}>No hay equipos para mostrar.</div>}
+            {visibleWorkspaces.length === 0 && legacyTeams.length === 0 && <div style={{ display: 'grid', justifyItems: 'center', gap: '10px', padding: '48px 20px', textAlign: 'center', border: '1px dashed rgba(255,255,255,.12)', borderRadius: '14px', color: '#9C9486', fontFamily: MANROPE }}><div style={{ color: '#E8E1D2', fontFamily: SORA, fontSize: '15px', fontWeight: 600 }}>{workspaceFilter === 'ALL' ? 'Todavía no hay equipos' : 'No hay equipos en este espacio'}</div><span style={{ maxWidth: '360px', fontSize: '13px', lineHeight: 1.6 }}>{workspaceFilter === 'ALL' ? 'Crea un equipo para reunir personas y organizar el trabajo de tus proyectos.' : 'Puedes crear un equipo directamente en este espacio de trabajo.'}</span><button type="button" onClick={() => setShowCreate(true)} style={{ marginTop: '4px', padding: '9px 14px', border: 0, borderRadius: '8px', background: '#F2571E', color: '#24180A', fontFamily: SORA, fontSize: '12px', fontWeight: 650, cursor: 'pointer' }}>Crear equipo</button></div>}
           </div>
         )}
       </div>

@@ -400,7 +400,7 @@ class TeamController {
       if (!workspaceAccess.rows.length) {
         return res.status(403).json({
           success: false,
-          error: { code: 'WORKSPACE_MEMBER_REQUIRED', message: 'El usuario debe pertenecer primero al workspace del equipo' },
+          error: { code: 'WORKSPACE_MEMBER_REQUIRED', message: 'La persona debe tener acceso primero al espacio de trabajo del equipo' },
         });
       }
 

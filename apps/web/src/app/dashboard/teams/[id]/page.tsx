@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTeamStore, type Team, type TeamMember, type TeamActivity, type TeamInvitation } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useT } from '@/lib/i18n';
+import { es } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
 import {
   ArrowLeft, Users, MoreHorizontal, Plus, Trash2, Crown,
@@ -40,7 +40,7 @@ function getActivityAction(eventType: string | undefined, fallback: string, t: R
 }
 
 function timeAgo(date: string | null | undefined, t: ReturnType<typeof import('@/lib/i18n').useT>): string {
-  if (!date) return '—';
+  if (!date) return 'Sin registro';
   const diff = Date.now() - new Date(date).getTime();
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
@@ -97,7 +97,7 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const t = useT();
+  const t = es;
   const { addMember } = useTeamStore();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'ADMIN' | 'MEMBER' | 'VIEWER'>('MEMBER');
@@ -127,58 +127,70 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="rounded-[10px]"
-        style={{ background: C.surface, border: `1px solid ${C.border2}`, width: '400px', maxWidth: '90vw' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-team-member-title"
+        className="overflow-hidden rounded-[16px] shadow-2xl"
+        style={{ background: C.surface, border: `1px solid ${C.border2}`, width: '440px', maxWidth: 'calc(100vw - 32px)' }}
       >
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${C.border}` }}>
-          <span className="text-[14px] font-semibold" style={{ color: C.text }}>{t.teams_add_member_title}</span>
-          <button onClick={onClose} style={{ color: C.text3, fontSize: '18px' }}>×</button>
+        <div className="flex items-start justify-between gap-4 px-6 py-5" style={{ borderBottom: `1px solid ${C.border}` }}>
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[12px]" style={{ background: `${C.accent}18`, color: C.accent }}><Users size={18} /></span>
+            <div>
+              <h2 id="add-team-member-title" className="m-0 text-[15px] font-semibold" style={{ color: C.text }}>{t.teams_add_member_title}</h2>
+              <p className="mb-0 mt-1 text-[12px] leading-5" style={{ color: C.text3 }}>Da acceso a esta persona al trabajo del equipo.</p>
+            </div>
+          </div>
+          <button type="button" aria-label="Cerrar" onClick={onClose} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px]" style={{ color: C.text3, border: `1px solid ${C.border}` }}>×</button>
         </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Email del usuario</label>
+            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Correo electrónico</label>
             <input
               autoFocus
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t.teams_add_member_placeholder}
-              className="rounded-[6px] px-3 text-[13px] outline-none"
-              style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '36px' }}
+              className="rounded-[8px] px-3 text-[13px] outline-none"
+              style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '42px' }}
               onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
               onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Rol en el equipo</label>
+            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Rol dentro del equipo</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as 'ADMIN' | 'MEMBER' | 'VIEWER')}
-              className="rounded-[6px] px-3 text-[13px] outline-none"
-              style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '36px' }}
+              className="rounded-[8px] px-3 text-[13px] outline-none"
+              style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '42px' }}
             >
               {allowedRoles.map((option) => <option key={option} value={option}>{roleLabel(option, t)}</option>)}
             </select>
+          </div>
+          <div className="rounded-[9px] px-3 py-2.5 text-[11.5px] leading-5" style={{ background: C.bg2, border: `1px solid ${C.border}`, color: C.text3 }}>
+            Para agregarla, la persona debe tener acceso primero al mismo espacio de trabajo.
           </div>
           {error && (
             <div className="text-[12px] px-3 py-2 rounded-[6px]" style={{ background: 'rgba(239,68,68,0.1)', color: C.red }}>
               {error}
             </div>
           )}
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-2 border-t pt-4" style={{ borderColor: C.border }}>
             <button
               type="button" onClick={onClose}
-              className="px-3 rounded-[6px] text-[13px]"
-              style={{ height: '34px', color: C.text2, border: `1px solid ${C.border2}` }}
+              className="px-4 rounded-[8px] text-[13px]"
+              style={{ height: '38px', color: C.text2, border: `1px solid ${C.border2}` }}
             >
               {t.teams_create_btn_cancel}
             </button>
             <button
               type="submit"
               disabled={!email.trim() || loading}
-              className="px-4 rounded-[6px] text-[13px] font-medium"
+              className="px-4 rounded-[8px] text-[13px] font-medium"
               style={{
-                height: '34px',
+                height: '38px',
                 background: !email.trim() || loading ? C.border2 : C.accent,
                 color: !email.trim() || loading ? C.text4 : '#fff',
                 cursor: !email.trim() || loading ? 'not-allowed' : 'pointer',
@@ -204,7 +216,7 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
   onUpdated: () => void;
   onDeleted: () => void;
 }) {
-  const t = useT();
+  const t = es;
   const { updateTeam, deleteTeam } = useTeamStore();
   const [name, setName] = useState(team.name);
   const [description, setDescription] = useState(team.description ?? '');
@@ -377,7 +389,7 @@ function MemberCard({
   onRemove: (userId: string) => void;
   onChangeRole: (userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') => void;
 }) {
-  const t = useT();
+  const t = es;
   const [hov, setHov] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
   const isAdmin = member.role === 'ADMIN';
@@ -515,7 +527,7 @@ function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigne
   onClose: () => void;
   onAssigned: () => void;
 }) {
-  const t = useT();
+  const t = es;
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -651,7 +663,7 @@ function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigne
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TeamDetailPage() {
-  const t = useT();
+  const t = es;
   const params = useParams();
   const router = useRouter();
   const teamId = params.id as string;
@@ -864,19 +876,19 @@ export default function TeamDetailPage() {
         </div>
 
         {/* Title row */}
-        <div className="flex items-start justify-between px-7 pt-2 pb-3 gap-4">
-          <div className="flex items-start gap-4 min-w-0">
+        <div className="flex flex-wrap items-center justify-between px-7 py-5 gap-5">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
             {/* Team avatar */}
             <div
-              className="flex-shrink-0 flex items-center justify-center rounded-[10px] text-[22px] font-bold text-white"
-              style={{ width: '44px', height: '44px', background: teamColor }}
+              className="flex-shrink-0 flex items-center justify-center rounded-[15px] text-[23px] font-bold text-white shadow-lg"
+              style={{ width: '52px', height: '52px', background: `linear-gradient(145deg, ${teamColor}, ${teamColor}B8)`, boxShadow: `0 8px 24px ${teamColor}30` }}
             >
               {getInitial(currentTeam.name)}
             </div>
 
             <div className="flex flex-col gap-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-[18px] font-semibold" style={{ color: C.text }}>{currentTeam.name}</h1>
+                <h1 className="text-[23px] font-semibold tracking-tight" style={{ color: C.text }}>{currentTeam.name}</h1>
                 <div
                   className="flex items-center gap-1.5 px-2 py-[2px] rounded-full text-[11px]"
                   style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text3 }}
@@ -900,13 +912,19 @@ export default function TeamDetailPage() {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-end justify-end gap-2 flex-shrink-0">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.text4 }}>Responsable del equipo</label>
+              <select value={leadId} onChange={(e) => handleLeadChange(e.target.value)} disabled={!isOwnerOrAdmin} className="rounded-[8px] px-3 text-[12px] outline-none" style={{ height: '36px', minWidth: '205px', background: C.surface, border: `1px solid ${C.border2}`, color: C.text, opacity: isOwnerOrAdmin ? 1 : 0.65 }}>
+                <option value="">Sin responsable asignado</option>
+                {members.map((member) => <option key={member.id} value={member.id}>{member.name} | {roleLabel(member.role, es)}</option>)}
+              </select>
+            </div>
             {isOwnerOrAdmin && <>
               <button
                 onClick={() => setShowAssignProject(true)}
-                className="flex items-center gap-1.5 rounded-[6px] text-[12.5px] font-medium transition-all"
-                style={{ height: '32px', padding: '0 12px', color: C.text2, border: `1px solid ${C.border2}`, background: C.surface }}
+                className="flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-medium transition-all"
+                style={{ height: '36px', padding: '0 12px', color: C.text2, border: `1px solid ${C.border2}`, background: C.surface }}
                 onMouseEnter={(e) => { (e.currentTarget.style.borderColor = teamColor); (e.currentTarget.style.color = teamColor); (e.currentTarget.style.background = `${teamColor}10`); }}
                 onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border2); (e.currentTarget.style.color = C.text2); (e.currentTarget.style.background = C.surface); }}
               >
@@ -914,22 +932,14 @@ export default function TeamDetailPage() {
               </button>
               <button
                 onClick={() => setShowSettings(true)}
-                className="flex-shrink-0 flex items-center justify-center rounded-[6px] transition-colors"
-                style={{ width: '32px', height: '32px', color: C.text3, border: `1px solid ${C.border}` }}
+                className="flex-shrink-0 flex items-center justify-center rounded-[8px] transition-colors"
+                style={{ width: '36px', height: '36px', color: C.text3, border: `1px solid ${C.border}` }}
                 onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
                 onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
               >
                 <MoreHorizontal size={15} />
               </button>
             </>}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Líder del equipo</label>
-            <select value={leadId} onChange={(e) => handleLeadChange(e.target.value)} disabled={!isOwnerOrAdmin} className="rounded-[6px] px-3 text-[13px] outline-none" style={{ height: '36px', background: C.bg, border: `1px solid ${C.border2}`, color: C.text, opacity: isOwnerOrAdmin ? 1 : 0.65 }}>
-              <option value="">Sin líder asignado</option>
-              {members.map((member) => <option key={member.id} value={member.id}>{member.name} - {member.role}</option>)}
-            </select>
           </div>
         </div>
 
@@ -1062,7 +1072,7 @@ export default function TeamDetailPage() {
                           ) : standup ? (
                             <span className="text-[12px]" style={{ color: C.text4 }}>Sin tareas listadas para hoy</span>
                           ) : (
-                            <span className="text-[12px]" style={{ color: C.text4 }}>No ha publicado su standup de hoy</span>
+                            <span className="text-[12px]" style={{ color: C.text4 }}>Aún no comparte su avance de hoy</span>
                           )}
 
                           {standup && standup.blockers.length > 0 && (
@@ -1180,7 +1190,7 @@ export default function TeamDetailPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-medium truncate" style={{ color: C.text }}>{ws.name}</div>
                       <div className="text-[11px]" style={{ color: C.text4 }}>
-                        {t.teams_ws_projects(ws.projectCount)} - {t.teams_ws_cards(ws.activeCards)}
+                        {t.teams_ws_projects(ws.projectCount)} | {t.teams_ws_cards(ws.activeCards)}
                       </div>
                     </div>
                   </Link>

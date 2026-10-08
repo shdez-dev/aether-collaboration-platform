@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#13182A" />
         <meta
           name="description"
-          content="Aether - Event-driven collaboration platform for teams. Manage workspaces, boards, and documents in real-time."
+          content="Aether | Plataforma de colaboración para equipos. Gestiona espacios, tableros y documentos en tiempo real."
         />
         <meta name="application-name" content="Aether" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -77,7 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 
-        <title>Aether — Organiza sin esfuerzo</title>
+        <title>Aether | Colaboración</title>
       </head>
       <body>
         <ErrorBoundary>
