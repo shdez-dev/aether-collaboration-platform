@@ -237,6 +237,7 @@ export class ActivityLogService {
          (e.subject_id::text = $1 AND e.subject_type = 'project')
          OR e.payload->>'projectId' = $1
          OR e.board_id IN (SELECT board_id FROM project_boards WHERE project_id = $1::uuid)
+         OR e.document_id IN (SELECT id FROM documents WHERE project_id = $1::uuid)
        )
          AND e.type != ALL($2::text[])`,
       [projectId, excluded]
@@ -248,12 +249,15 @@ export class ActivityLogService {
               e.actor_id AS user_id, e.actor_name AS user_name,
               e.timestamp, e.created_at,
               e.workspace_id, e.board_id, e.card_id,
-              e.subject_type, e.subject_id, e.subject_name
+              e.subject_type, e.subject_id,
+              COALESCE(NULLIF(e.subject_name, ''), d.title, '') AS subject_name
        FROM events e
+       LEFT JOIN documents d ON d.id = e.document_id
        WHERE (
          (e.subject_id::text = $1 AND e.subject_type = 'project')
          OR e.payload->>'projectId' = $1
          OR e.board_id IN (SELECT board_id FROM project_boards WHERE project_id = $1::uuid)
+         OR e.document_id IN (SELECT id FROM documents WHERE project_id = $1::uuid)
        )
          AND e.type != ALL($2::text[])
        ORDER BY e.created_at DESC

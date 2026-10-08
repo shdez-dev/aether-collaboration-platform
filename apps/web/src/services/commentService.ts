@@ -1,19 +1,11 @@
 // apps/web/src/services/commentService.ts
 
-import type { Comment, CommentWithUser } from '@aether/types';
+import type { CommentWithUser, CommentDocumentReference } from '@aether/types';
+import { apiService } from './apiService';
 
 /**
  * Response types para las API calls
  */
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: any;
-  };
-}
 
 /**
  * DTOs para crear/actualizar comentarios
@@ -21,6 +13,7 @@ interface ApiResponse<T> {
 interface CreateCommentDto {
   content: string;
   mentions?: string[];
+  documentReference?: Pick<CommentDocumentReference, 'documentId' | 'from' | 'to' | 'quote'>;
 }
 
 interface UpdateCommentDto {
@@ -31,23 +24,6 @@ interface UpdateCommentDto {
 /**
  * Helper para obtener el token del localStorage
  */
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const authStorage = localStorage.getItem('aether-auth-storage');
-    if (!authStorage) {
-      return null;
-    }
-
-    const parsed = JSON.parse(authStorage);
-    const token = parsed.state?.accessToken || null;
-
-    return token;
-  } catch (error) {
-    return null;
-  }
-}
 
 /**
  * CommentService
@@ -55,40 +31,12 @@ function getAuthToken(): string | null {
  * Singleton para mantener configuración centralizada
  */
 class CommentService {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-  }
-
-  /**
-   * Obtener headers con autenticación
-   * Obtiene el token dinámicamente en cada request
-   */
-  private getHeaders(): HeadersInit {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const response = await apiService.request<T>(endpoint, options, true);
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'No se pudo completar la operación con el comentario');
     }
-
-    return headers;
-  }
-
-  /**
-   * Manejar respuesta de la API
-   */
-  private async handleResponse<T>(response: Response): Promise<T> {
-    const data: ApiResponse<T> = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error?.message || 'Request failed');
-    }
-
-    return data.data!;
+    return response.data;
   }
 
   // ============================================================================
@@ -100,17 +48,8 @@ class CommentService {
    * Obtener todos los comentarios de una card
    */
   async getCommentsByCard(cardId: string): Promise<CommentWithUser[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/cards/${cardId}/comments`, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
-
-      const result = await this.handleResponse<{ comments: CommentWithUser[] }>(response);
-      return result.comments;
-    } catch (error) {
-      throw error;
-    }
+    const result = await this.request<{ comments: CommentWithUser[] }>(`/api/cards/${cardId}/comments`);
+    return result.comments;
   }
 
   /**
@@ -118,18 +57,8 @@ class CommentService {
    * Crear un nuevo comentario
    */
   async createComment(cardId: string, data: CreateCommentDto): Promise<CommentWithUser> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/cards/${cardId}/comments`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(data),
-      });
-
-      const result = await this.handleResponse<{ comment: CommentWithUser }>(response);
-      return result.comment;
-    } catch (error) {
-      throw error;
-    }
+    const result = await this.request<{ comment: CommentWithUser }>(`/api/cards/${cardId}/comments`, { method: 'POST', body: JSON.stringify(data) });
+    return result.comment;
   }
 
   /**
@@ -137,17 +66,8 @@ class CommentService {
    * Obtener un comentario específico
    */
   async getCommentById(commentId: string): Promise<CommentWithUser> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/comments/${commentId}`, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
-
-      const result = await this.handleResponse<{ comment: CommentWithUser }>(response);
-      return result.comment;
-    } catch (error) {
-      throw error;
-    }
+    const result = await this.request<{ comment: CommentWithUser }>(`/api/comments/${commentId}`);
+    return result.comment;
   }
 
   /**
@@ -155,18 +75,8 @@ class CommentService {
    * Actualizar un comentario (solo autor)
    */
   async updateComment(commentId: string, data: UpdateCommentDto): Promise<CommentWithUser> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/comments/${commentId}`, {
-        method: 'PATCH',
-        headers: this.getHeaders(),
-        body: JSON.stringify(data),
-      });
-
-      const result = await this.handleResponse<{ comment: CommentWithUser }>(response);
-      return result.comment;
-    } catch (error) {
-      throw error;
-    }
+    const result = await this.request<{ comment: CommentWithUser }>(`/api/comments/${commentId}`, { method: 'PATCH', body: JSON.stringify(data) });
+    return result.comment;
   }
 
   /**
@@ -174,16 +84,7 @@ class CommentService {
    * Eliminar un comentario (solo autor)
    */
   async deleteComment(commentId: string): Promise<void> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: this.getHeaders(),
-      });
-
-      await this.handleResponse<{ message: string }>(response);
-    } catch (error) {
-      throw error;
-    }
+    await this.request<{ message: string }>(`/api/comments/${commentId}`, { method: 'DELETE' });
   }
 
   /**
@@ -191,17 +92,8 @@ class CommentService {
    * Obtener el contador de comentarios de una card
    */
   async getCommentCount(cardId: string): Promise<number> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/cards/${cardId}/comments/count`, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
-
-      const result = await this.handleResponse<{ count: number }>(response);
-      return result.count;
-    } catch (error) {
-      throw error;
-    }
+    const result = await this.request<{ count: number }>(`/api/cards/${cardId}/comments/count`);
+    return result.count;
   }
 
   /**
@@ -209,20 +101,8 @@ class CommentService {
    * Obtener comentarios recientes de un board
    */
   async getRecentComments(boardId: string, limit: number = 10): Promise<CommentWithUser[]> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/api/boards/${boardId}/comments/recent?limit=${limit}`,
-        {
-          method: 'GET',
-          headers: this.getHeaders(),
-        }
-      );
-
-      const result = await this.handleResponse<{ comments: CommentWithUser[] }>(response);
-      return result.comments;
-    } catch (error) {
-      throw error;
-    }
+    const result = await this.request<{ comments: CommentWithUser[] }>(`/api/boards/${boardId}/comments/recent?limit=${limit}`);
+    return result.comments;
   }
 
   // ============================================================================

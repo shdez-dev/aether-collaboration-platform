@@ -15,10 +15,10 @@ const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
 const BRAND_AVATARS = [
-  { bg: '#4B607F', t: 'M' },
-  { bg: '#76A878', t: 'D' },
-  { bg: '#DB8A66', t: 'S' },
-  { bg: '#8C7C9E', t: 'A' },
+  { bg: '#8076A7', t: 'M' },
+  { bg: '#548B73', t: 'D' },
+  { bg: '#A97556', t: 'S' },
+  { bg: '#8262B2', t: 'A' },
 ];
 
 function FieldError({ message }: { message: string }) {
@@ -116,19 +116,19 @@ export default function LoginPage() {
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
           <span style={{
             width: '34px', height: '34px', borderRadius: '10px',
-            background: '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            boxShadow: '0 4px 14px -4px rgba(242,87,30,0.6)',
+            background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            boxShadow: '0 4px 14px -4px rgba(116,82,166,0.6)',
           }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4.5 L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 4.5 L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
-              <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
-              <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+              <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 4.5 L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
+              <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
+              <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
             </svg>
           </span>
-          <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: '#ECE5D6', letterSpacing: '-0.015em' }}>Aether</span>
+          <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
         </Link>
 
         <div style={{ marginTop: 'auto', marginBottom: 'auto', paddingTop: '60px' }}>
@@ -136,14 +136,14 @@ export default function LoginPage() {
             fontFamily: SORA, fontWeight: 700,
             fontSize: 'clamp(1.9rem, 2.6vw, 2.5rem)',
             letterSpacing: '-0.03em', lineHeight: 1.1,
-            color: '#F4EEE2', margin: '0 0 18px',
+            color: 'var(--c-text)', margin: '0 0 18px',
           }}>
             Tu equipo te espera{' '}
-            <span style={{ background: '#F2571E', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span style={{ background: '#7452A6', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               justo donde lo dejaste.
             </span>
           </h2>
-          <p style={{ fontFamily: MANROPE, fontSize: '15px', lineHeight: 1.65, color: '#9C9486', margin: '0', maxWidth: '320px' }}>
+          <p style={{ fontFamily: MANROPE, fontSize: '15px', lineHeight: 1.65, color: 'var(--c-text2)', margin: '0', maxWidth: '320px' }}>
             Tareas, notas, documentos y conversaciones. Todo en el mismo sitio, siempre sincronizado.
           </p>
 
@@ -151,8 +151,8 @@ export default function LoginPage() {
             {['Tableros', 'Documentos', 'Equipo'].map(tag => (
               <span key={tag} style={{
                 fontFamily: MANROPE, fontSize: '13px', fontWeight: 500,
-                color: '#CFC6B5', background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'var(--c-text2)', background: 'rgba(97,71,130,0.04)',
+                border: '1px solid rgba(97,71,130,0.08)',
                 padding: '7px 14px', borderRadius: '8px',
               }}>
                 {tag}
@@ -174,7 +174,7 @@ export default function LoginPage() {
               }}>{av.t}</span>
             ))}
           </div>
-          <span style={{ fontFamily: MANROPE, fontSize: '12px', color: '#615846', lineHeight: 1.4 }}>
+          <span style={{ fontFamily: MANROPE, fontSize: '12px', color: 'var(--c-text4)', lineHeight: 1.4 }}>
             Miles de equipos ya organizan su trabajo con Aether
           </span>
         </div>
@@ -187,11 +187,11 @@ export default function LoginPage() {
           {/* Back link */}
           <Link href="/" style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
-            fontFamily: MANROPE, fontSize: '13px', color: '#615846',
+            fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text4)',
             textDecoration: 'none', marginBottom: '36px',
           }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text2)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text4)')}
           >
             ← Volver al inicio
           </Link>
@@ -199,11 +199,11 @@ export default function LoginPage() {
           {/* Header */}
           <h1 style={{
             fontFamily: SORA, fontWeight: 700, fontSize: '28px',
-            letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 8px',
+            letterSpacing: '-0.025em', color: 'var(--c-text)', margin: '0 0 8px',
           }}>
             {t.login_title}
           </h1>
-          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: '#9C9486', margin: '0 0 32px' }}>
+          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: 'var(--c-text2)', margin: '0 0 32px' }}>
             {t.login_welcome_subtitle}
           </p>
 
@@ -214,7 +214,7 @@ export default function LoginPage() {
             <div style={{ marginBottom: '18px' }}>
               <label htmlFor="email" style={{
                 display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--c-text2)', marginBottom: '8px',
               }}>
                 {t.login_label_email}
               </label>
@@ -236,15 +236,15 @@ export default function LoginPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <label htmlFor="password" style={{
                   fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
-                  textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486',
+                  textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--c-text2)',
                 }}>
                   {t.login_label_password}
                 </label>
                 <Link href="/forgot-password" style={{
-                  fontFamily: MANROPE, fontSize: '12px', color: '#615846', textDecoration: 'none',
+                  fontFamily: MANROPE, fontSize: '12px', color: 'var(--c-text4)', textDecoration: 'none',
                 }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text2)')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text4)')}
                 >
                   {t.login_forgot_password}
                 </Link>
@@ -265,15 +265,15 @@ export default function LoginPage() {
             {/* Email no verificado */}
             {emailNotVerified && (
               <div style={{
-                background: 'rgba(242,87,30,0.07)', border: '1px solid rgba(242,87,30,0.2)',
+                background: 'rgba(116,82,166,0.07)', border: '1px solid rgba(116,82,166,0.2)',
                 borderRadius: '8px', padding: '12px 14px', marginBottom: '20px',
               }}>
-                <p style={{ fontFamily: MANROPE, fontSize: '13px', color: '#CFC6B5', margin: '0 0 8px' }}>
+                <p style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text2)', margin: '0 0 8px' }}>
                   Debes verificar tu correo electrónico antes de iniciar sesión.
                 </p>
                 <Link
                   href={`/verify-email/pending?email=${encodeURIComponent(emailNotVerified)}`}
-                  style={{ fontFamily: MANROPE, fontSize: '12px', color: '#F2571E', textDecoration: 'none' }}
+                  style={{ fontFamily: MANROPE, fontSize: '12px', color: 'var(--c-accent-text)', textDecoration: 'none' }}
                 >
                   Reenviar correo de verificación →
                 </Link>
@@ -298,7 +298,7 @@ export default function LoginPage() {
               disabled={isLoading}
               style={{
                 width: '100%', padding: '13px', borderRadius: '8px',
-                background: '#F2571E', color: '#24180A', border: 'none',
+                background: '#7452A6', color: '#FFFFFF', border: 'none',
                 cursor: isLoading ? 'not-allowed' : 'pointer',
                 fontFamily: SORA, fontWeight: 600, fontSize: '15px',
                 opacity: isLoading ? 0.6 : 1,
@@ -311,13 +311,13 @@ export default function LoginPage() {
           {/* Register link */}
           <div style={{
             marginTop: '24px', paddingTop: '20px',
-            borderTop: '1px solid rgba(255,255,255,0.06)',
+            borderTop: '1px solid rgba(97,71,130,0.06)',
             textAlign: 'center',
           }}>
-            <span style={{ fontFamily: MANROPE, fontSize: '13px', color: '#615846' }}>
+            <span style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text4)' }}>
               {t.login_no_account}{' '}
             </span>
-            <Link href="/register" style={{ fontFamily: MANROPE, fontSize: '13px', color: '#F2571E', textDecoration: 'none' }}
+            <Link href="/register" style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-accent-text)', textDecoration: 'none' }}
               onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
             >

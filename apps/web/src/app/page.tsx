@@ -13,8 +13,8 @@ export default function Home() {
         style={{
           position: 'relative',
           minHeight: '100vh',
-          background: '#13182A',
-          color: '#ECE5D6',
+          background: 'var(--c-bg)',
+          color: 'var(--c-text)',
           fontFamily: "'Manrope', system-ui, sans-serif",
           WebkitFontSmoothing: 'antialiased',
           overflowX: 'hidden',
@@ -23,7 +23,7 @@ export default function Home() {
         {/* Subtle grid */}
         <div style={{
           position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(rgba(97,71,130,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(97,71,130,0.025) 1px, transparent 1px)',
           backgroundSize: '64px 64px',
           maskImage: 'radial-gradient(circle at 50% 20%, #000, transparent 78%)',
           WebkitMaskImage: 'radial-gradient(circle at 50% 20%, #000, transparent 78%)',

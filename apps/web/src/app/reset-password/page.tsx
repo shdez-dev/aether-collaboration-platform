@@ -31,7 +31,7 @@ function PasswordField({
     <div style={{ marginBottom: '18px' }}>
       <label htmlFor={id} style={{
         display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
-        textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+        textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--c-text2)', marginBottom: '8px',
       }}>
         {label}
       </label>
@@ -54,10 +54,10 @@ function PasswordField({
           style={{
             position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
             background: 'none', border: 'none', cursor: 'pointer',
-            color: '#615846', padding: '2px', display: 'flex', alignItems: 'center',
+            color: 'var(--c-text4)', padding: '2px', display: 'flex', alignItems: 'center',
           }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text2)')}
+          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text4)')}
           aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}
         >
           <EyeIcon open={showPw} />
@@ -145,17 +145,17 @@ export default function ResetPasswordPage() {
                 <path d="M18 6L6 18M6 6l12 12" stroke="rgba(255,100,100,0.9)" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
-            <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '24px', letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 10px' }}>
+            <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '24px', letterSpacing: '-0.025em', color: 'var(--c-text)', margin: '0 0 10px' }}>
               Enlace inválido
             </h1>
-            <p style={{ fontFamily: MANROPE, fontSize: '14px', lineHeight: 1.65, color: '#9C9486', margin: '0 0 32px' }}>
+            <p style={{ fontFamily: MANROPE, fontSize: '14px', lineHeight: 1.65, color: 'var(--c-text2)', margin: '0 0 32px' }}>
               El enlace de recuperación no es válido o ya expiró. Solicita uno nuevo desde la página de inicio de sesión.
             </p>
             <button
               onClick={() => router.push('/forgot-password')}
               style={{
                 width: '100%', padding: '13px', borderRadius: '9px', border: 'none',
-                background: '#F2571E', color: '#1A0B03',
+                background: '#7452A6', color: '#1A0B03',
                 fontFamily: SORA, fontWeight: 700, fontSize: '14px', cursor: 'pointer',
               }}
             >
@@ -180,23 +180,23 @@ export default function ResetPasswordPage() {
               margin: '0 auto 24px',
             }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12l4 4 10-9" stroke="#76A878" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M5 12l4 4 10-9" stroke="#548B73" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '24px', letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 10px' }}>
+            <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '24px', letterSpacing: '-0.025em', color: 'var(--c-text)', margin: '0 0 10px' }}>
               ¡Contraseña actualizada!
             </h1>
-            <p style={{ fontFamily: MANROPE, fontSize: '14px', lineHeight: 1.65, color: '#9C9486', margin: '0 0 24px' }}>
+            <p style={{ fontFamily: MANROPE, fontSize: '14px', lineHeight: 1.65, color: 'var(--c-text2)', margin: '0 0 24px' }}>
               Tu contraseña se actualizó correctamente. Ahora puedes iniciar sesión con tu nueva contraseña.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               <div style={{
                 width: '14px', height: '14px', borderRadius: '50%',
                 border: '2px solid rgba(155,148,134,0.5)',
-                borderTopColor: '#9C9486',
+                borderTopColor: 'var(--c-text2)',
                 animation: 'spin 1s linear infinite',
               }} />
-              <span style={{ fontFamily: MANROPE, fontSize: '13px', color: '#9C9486' }}>
+              <span style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text2)' }}>
                 Redirigiendo a inicio de sesión…
               </span>
             </div>
@@ -215,11 +215,11 @@ export default function ResetPasswordPage() {
           {/* Back */}
           <Link href="/login" style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
-            fontFamily: MANROPE, fontSize: '13px', color: '#615846',
+            fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text4)',
             textDecoration: 'none', marginBottom: '36px',
           }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text2)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text4)')}
           >
             ← Volver al inicio de sesión
           </Link>
@@ -228,26 +228,26 @@ export default function ResetPasswordPage() {
           <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '28px' }}>
             <span style={{
               width: '34px', height: '34px', borderRadius: '10px',
-              background: '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 14px -4px rgba(242,87,30,0.6)',
+              background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 14px -4px rgba(116,82,166,0.6)',
             }}>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-                <path d="M12 4.5L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M12 4.5L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
-                <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
-                <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+                <path d="M12 4.5L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 4.5L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
+                <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
+                <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
               </svg>
             </span>
-            <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: '#ECE5D6', letterSpacing: '-0.015em' }}>Aether</span>
+            <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
           </Link>
 
           {/* Header */}
-          <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '28px', letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 8px' }}>
+          <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '28px', letterSpacing: '-0.025em', color: 'var(--c-text)', margin: '0 0 8px' }}>
             Nueva contraseña
           </h1>
-          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: '#9C9486', margin: '0 0 32px' }}>
+          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: 'var(--c-text2)', margin: '0 0 32px' }}>
             Elige una contraseña segura de al menos 8 caracteres.
           </p>
 
@@ -291,7 +291,7 @@ export default function ResetPasswordPage() {
               disabled={isLoading}
               style={{
                 width: '100%', padding: '13px', borderRadius: '9px', border: 'none',
-                background: isLoading ? 'rgba(242,87,30,0.6)' : '#F2571E',
+                background: isLoading ? 'rgba(116,82,166,0.6)' : '#7452A6',
                 color: '#1A0B03', fontFamily: SORA, fontWeight: 700, fontSize: '14px',
                 cursor: isLoading ? 'not-allowed' : 'pointer', transition: 'filter 0.15s',
               }}

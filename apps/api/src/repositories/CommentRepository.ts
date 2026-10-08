@@ -1,7 +1,7 @@
 // apps/api/src/repositories/CommentRepository.ts
 
 import { query } from '../lib/db';
-import type { Comment, CommentWithUser } from '@aether/types';
+import type { Comment, CommentWithUser, CommentDocumentReference } from '@aether/types';
 
 /**
  * CommentRepository
@@ -16,20 +16,22 @@ export class CommentRepository {
     userId: string;
     content: string;
     mentions: string[];
+    documentReference?: CommentDocumentReference | null;
   }): Promise<Comment> {
     const result = await query<Comment>(
-      `INSERT INTO comments (card_id, user_id, content, mentions)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO comments (card_id, user_id, content, mentions, document_reference)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING 
          id, 
          card_id as "cardId", 
          user_id as "userId", 
          content, 
          mentions, 
+         document_reference as "documentReference",
          edited, 
          created_at as "createdAt", 
          updated_at as "updatedAt"`,
-      [data.cardId, data.userId, data.content, data.mentions]
+      [data.cardId, data.userId, data.content, data.mentions, data.documentReference ? JSON.stringify(data.documentReference) : null]
     );
 
     return result.rows[0];
@@ -46,6 +48,7 @@ export class CommentRepository {
          c.user_id as "userId",
          c.content,
          c.mentions,
+         c.document_reference as "documentReference",
          c.edited,
          c.created_at as "createdAt",
          c.updated_at as "updatedAt",
@@ -78,6 +81,7 @@ export class CommentRepository {
          c.user_id as "userId",
          c.content,
          c.mentions,
+         c.document_reference as "documentReference",
          c.edited,
          c.created_at as "createdAt",
          c.updated_at as "updatedAt",
@@ -106,6 +110,7 @@ export class CommentRepository {
     data: {
       content?: string;
       mentions?: string[];
+      documentReference?: CommentDocumentReference | null;
     }
   ): Promise<Comment | null> {
     const updates: string[] = [];
@@ -124,6 +129,11 @@ export class CommentRepository {
       values.push(data.mentions);
     }
 
+    if (data.documentReference !== undefined) {
+      updates.push(`document_reference = $${paramIndex++}`);
+      values.push(data.documentReference ? JSON.stringify(data.documentReference) : null);
+    }
+
     if (updates.length === 0) {
       return null;
     }
@@ -140,6 +150,7 @@ export class CommentRepository {
          user_id as "userId", 
          content, 
          mentions, 
+         document_reference as "documentReference",
          edited, 
          created_at as "createdAt", 
          updated_at as "updatedAt"`,

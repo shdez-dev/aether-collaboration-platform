@@ -220,7 +220,7 @@ export default function InitiativeSettingsPage() {
       <section style={panel}>
         <div style={panelTitle}><Building2 size={18} color="#f7b267" /><div><h2>Recepción y responsables</h2><p>Controla cuándo se aceptan propuestas y quién opera la bandeja.</p></div></div>
         <label style={switchRow}>
-          <input type="checkbox" checked={settings.intake_enabled} onChange={(event) => updateSettings({ intake_enabled: event.target.checked })} style={{ accentColor: '#f2571e', width: 17, height: 17 }} />
+          <input type="checkbox" checked={settings.intake_enabled} onChange={(event) => updateSettings({ intake_enabled: event.target.checked })} style={{ accentColor: 'var(--c-accent-text)', width: 17, height: 17 }} />
           <span><strong>Recepción de iniciativas habilitada</strong><small>Al desactivarla, no se pueden crear nuevas iniciativas en este workspace.</small></span>
         </label>
         <label style={field}><span>Equipo de iniciativas</span><select value={settings.initiative_team_id ?? ''} onChange={(event) => updateSettings({ initiative_team_id: event.target.value || null })} style={input}><option value="">Sin equipo coordinador</option>{workspaceTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><small>Los administradores de este equipo pueden coordinar el triage.</small></label>
@@ -235,7 +235,7 @@ export default function InitiativeSettingsPage() {
 
       <section style={{ ...panel, gridColumn: '1 / -1' }}>
         <div style={panelTitle}><CheckCircle2 size={18} color="#74c69d" /><div><h2>Información para formalizar</h2><p>Los nueve datos de la propuesta se solicitan al enviarla. Estos requisitos adicionales se completan durante la evaluación, antes de convertirla en proyecto.</p></div></div>
-        <div style={checkboxGrid}>{REQUIRED_FIELDS.map((fieldItem) => { const core = CORE_REQUIRED_FIELDS.includes(fieldItem.value); return <label key={fieldItem.value} style={checkCard}><input type="checkbox" checked={core || settings.required_initiative_fields.includes(fieldItem.value)} disabled={core} onChange={() => toggleRequiredField(fieldItem.value)} style={{ accentColor: '#f2571e', width: 16, height: 16, marginTop: 2 }} /><span><strong>{fieldItem.label}{core ? ' - siempre requerido' : ''}</strong><small>{fieldItem.help}</small></span></label>; })}</div>
+        <div style={checkboxGrid}>{REQUIRED_FIELDS.map((fieldItem) => { const core = CORE_REQUIRED_FIELDS.includes(fieldItem.value); return <label key={fieldItem.value} style={checkCard}><input type="checkbox" checked={core || settings.required_initiative_fields.includes(fieldItem.value)} disabled={core} onChange={() => toggleRequiredField(fieldItem.value)} style={{ accentColor: 'var(--c-accent-text)', width: 16, height: 16, marginTop: 2 }} /><span><strong>{fieldItem.label}{core ? ' - siempre requerido' : ''}</strong><small>{fieldItem.help}</small></span></label>; })}</div>
       </section>
 
       <section style={{ ...panel, gridColumn: '1 / -1' }}>
@@ -247,28 +247,28 @@ export default function InitiativeSettingsPage() {
   </main>;
 }
 
-const page: CSSProperties = { minHeight: '100%', padding: '40px clamp(20px, 4vw, 64px)', background: '#12172a', color: '#f8fafc', fontFamily: "'Manrope', system-ui, sans-serif" };
+const page: CSSProperties = { minHeight: '100%', padding: '40px clamp(20px, 4vw, 64px)', background: 'var(--c-bg)', color: 'var(--c-text)', fontFamily: "'Manrope', system-ui, sans-serif" };
 const header: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap', marginBottom: 26 };
-const eyebrow: CSSProperties = { margin: '18px 0 5px', color: '#f2571e', fontSize: 11, letterSpacing: '.1em', fontWeight: 800 };
+const eyebrow: CSSProperties = { margin: '18px 0 5px', color: 'var(--c-accent-text)', fontSize: 11, letterSpacing: '.1em', fontWeight: 800 };
 const title: CSSProperties = { margin: 0, fontSize: 'clamp(30px, 4vw, 42px)', letterSpacing: '-.045em' };
-const subtitle: CSSProperties = { maxWidth: 680, margin: '8px 0 0', color: '#aeb8cb', lineHeight: 1.55 };
-const backLink: CSSProperties = { display: 'inline-flex', gap: 6, alignItems: 'center', color: '#b8c6de', fontSize: 13, textDecoration: 'none', fontWeight: 700 };
-const primaryButton: CSSProperties = { border: 0, borderRadius: 9, padding: '11px 15px', background: '#f2571e', color: '#1c1320', display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 800 };
-const secondaryButton: CSSProperties = { border: '1px solid #35415e', borderRadius: 9, padding: '10px 14px', background: '#1a2138', color: '#e5e7eb', display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 700, textDecoration: 'none', width: 'fit-content' };
+const subtitle: CSSProperties = { maxWidth: 680, margin: '8px 0 0', color: 'var(--c-text2)', lineHeight: 1.55 };
+const backLink: CSSProperties = { display: 'inline-flex', gap: 6, alignItems: 'center', color: 'var(--c-text2)', fontSize: 13, textDecoration: 'none', fontWeight: 700 };
+const primaryButton: CSSProperties = { border: 0, borderRadius: 9, padding: '11px 15px', background: '#7452A6', color: '#FFFFFF', display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 800 };
+const secondaryButton: CSSProperties = { border: '1px solid var(--c-border2)', borderRadius: 9, padding: '10px 14px', background: 'var(--c-surface2)', color: 'var(--c-text)', display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 700, textDecoration: 'none', width: 'fit-content' };
 const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, maxWidth: 1160 };
-const panel: CSSProperties = { padding: 20, border: '1px solid #303b59', borderRadius: 13, background: '#191f34', display: 'grid', alignContent: 'start', gap: 16 };
+const panel: CSSProperties = { padding: 20, border: '1px solid var(--c-border2)', borderRadius: 13, background: 'var(--c-surface)', display: 'grid', alignContent: 'start', gap: 16 };
 const panelTitle: CSSProperties = { display: 'flex', gap: 10, alignItems: 'flex-start' };
-const field: CSSProperties = { display: 'grid', gap: 7, color: '#d7ddeb', fontSize: 13, fontWeight: 750 };
-const input: CSSProperties = { boxSizing: 'border-box', width: '100%', border: '1px solid #394664', borderRadius: 8, padding: '10px 11px', background: '#101628', color: '#f8fafc', fontFamily: 'inherit', fontSize: 14 };
+const field: CSSProperties = { display: 'grid', gap: 7, color: 'var(--c-text2)', fontSize: 13, fontWeight: 750 };
+const input: CSSProperties = { boxSizing: 'border-box', width: '100%', border: '1px solid var(--c-border2)', borderRadius: 8, padding: '10px 11px', background: 'var(--c-surface2)', color: 'var(--c-text)', fontFamily: 'inherit', fontSize: 14 };
 const textarea: CSSProperties = { ...input, minHeight: 140, resize: 'vertical', lineHeight: 1.55 };
-const switchRow: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 10, padding: 13, border: '1px solid #35415e', borderRadius: 9, background: '#12182b', cursor: 'pointer' };
-const checkCard: CSSProperties = { display: 'flex', gap: 10, padding: 12, border: '1px solid #35415e', borderRadius: 9, background: '#12182b', cursor: 'pointer', minHeight: 65 };
+const switchRow: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 10, padding: 13, border: '1px solid var(--c-border2)', borderRadius: 9, background: 'var(--c-surface2)', cursor: 'pointer' };
+const checkCard: CSSProperties = { display: 'flex', gap: 10, padding: 12, border: '1px solid var(--c-border2)', borderRadius: 9, background: 'var(--c-surface2)', cursor: 'pointer', minHeight: 65 };
 const checkboxGrid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 };
-const inlineField: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, color: '#b5bfd1', fontWeight: 600 };
-const readOnlyField: CSSProperties = { ...input, display: 'grid', gap: 3, minHeight: 40, color: '#cdd8ec', background: '#151c31' };
-const hint: CSSProperties = { display: 'flex', gap: 7, alignItems: 'center', margin: 0, color: '#9cacC7', fontSize: 12, lineHeight: 1.45 };
-const errorBox: CSSProperties = { maxWidth: 1160, margin: '0 0 16px', padding: '11px 13px', border: '1px solid #7f1d1d', borderRadius: 9, background: '#3a1d26', color: '#fecaca' };
-const successBox: CSSProperties = { maxWidth: 1160, margin: '0 0 16px', padding: '11px 13px', border: '1px solid #275740', borderRadius: 9, background: '#17372b', color: '#bbf7d0', display: 'flex', gap: 8, alignItems: 'center' };
-const stateCard: CSSProperties = { maxWidth: 650, minHeight: 230, margin: '8vh auto', padding: 26, border: '1px solid #35415e', borderRadius: 13, background: '#191f34', display: 'grid', placeItems: 'center', alignContent: 'center', gap: 16, textAlign: 'center' };
+const inlineField: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, color: 'var(--c-text2)', fontWeight: 600 };
+const readOnlyField: CSSProperties = { ...input, display: 'grid', gap: 3, minHeight: 40, color: 'var(--c-text2)', background: 'var(--c-surface2)' };
+const hint: CSSProperties = { display: 'flex', gap: 7, alignItems: 'center', margin: 0, color: 'var(--c-text3)', fontSize: 12, lineHeight: 1.45 };
+const errorBox: CSSProperties = { maxWidth: 1160, margin: '0 0 16px', padding: '11px 13px', border: '1px solid #7f1d1d', borderRadius: 9, background: '#FBF0F2', color: '#9F455F' };
+const successBox: CSSProperties = { maxWidth: 1160, margin: '0 0 16px', padding: '11px 13px', border: '1px solid #275740', borderRadius: 9, background: '#EEF6F0', color: '#3D7159', display: 'flex', gap: 8, alignItems: 'center' };
+const stateCard: CSSProperties = { maxWidth: 650, minHeight: 230, margin: '8vh auto', padding: 26, border: '1px solid var(--c-border2)', borderRadius: 13, background: 'var(--c-surface)', display: 'grid', placeItems: 'center', alignContent: 'center', gap: 16, textAlign: 'center' };
 const stateTitle: CSSProperties = { margin: 0, fontSize: 22 };
-const stateCopy: CSSProperties = { color: '#abb6ca', lineHeight: 1.55, margin: '8px 0 0' };
+const stateCopy: CSSProperties = { color: 'var(--c-text2)', lineHeight: 1.55, margin: '8px 0 0' };

@@ -59,11 +59,11 @@ function stageLabel(stage?: InitiativeStage | null) {
 
 function assessmentPill(status?: TriageAssessmentStatus): CSSProperties {
   const tones: Record<TriageAssessmentStatus, Pick<CSSProperties, 'color' | 'background' | 'borderColor'>> = {
-    PASS: { color: '#bde7c8', background: '#173525', borderColor: '#3b704b' },
-    FAIL: { color: '#fecaca', background: '#3a202a', borderColor: '#7f3d4c' },
-    NOT_APPLICABLE: { color: '#d2d9e5', background: '#252c40', borderColor: '#46516a' },
+    PASS: { color: '#3D7159', background: '#EEF6F0', borderColor: '#3b704b' },
+    FAIL: { color: '#9F455F', background: '#3a202a', borderColor: '#7f3d4c' },
+    NOT_APPLICABLE: { color: '#d2d9e5', background: 'var(--c-bg2)', borderColor: '#46516a' },
   };
-  return { display: 'inline-flex', width: 'fit-content', border: '1px solid', borderRadius: 99, padding: '4px 8px', fontSize: 11, fontWeight: 800, ...(status ? tones[status] : { color: '#a6b0c1', background: '#22283a', borderColor: '#414b62' }) };
+  return { display: 'inline-flex', width: 'fit-content', border: '1px solid', borderRadius: 99, padding: '4px 8px', fontSize: 11, fontWeight: 800, ...(status ? tones[status] : { color: '#a6b0c1', background: 'var(--c-bg2)', borderColor: '#414b62' }) };
 }
 
 function toDateTimeLocal(value?: string | null) {
@@ -417,62 +417,62 @@ export default function InitiativeDetailPage() {
   </main>;
 }
 
-const page: CSSProperties = { minHeight: '100%', padding: '36px clamp(20px, 4vw, 64px)', color: '#f8fafc', background: '#12172a', fontFamily: "'Manrope', system-ui, sans-serif" };
-const backLink: CSSProperties = { display: 'inline-flex', gap: 7, alignItems: 'center', color: '#aeb8cb', fontWeight: 700, textDecoration: 'none', fontSize: 14, marginBottom: 24 };
+const page: CSSProperties = { minHeight: '100%', padding: '36px clamp(20px, 4vw, 64px)', color: 'var(--c-text)', background: 'var(--c-bg)', fontFamily: "'Manrope', system-ui, sans-serif" };
+const backLink: CSSProperties = { display: 'inline-flex', gap: 7, alignItems: 'center', color: 'var(--c-text2)', fontWeight: 700, textDecoration: 'none', fontSize: 14, marginBottom: 24 };
 const header: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24, marginBottom: 22, flexWrap: 'wrap' };
-const eyebrow: CSSProperties = { margin: 0, color: '#f97316', fontWeight: 800, letterSpacing: '.1em', fontSize: 11 };
+const eyebrow: CSSProperties = { margin: 0, color: 'var(--c-accent-text)', fontWeight: 800, letterSpacing: '.1em', fontSize: 11 };
 const titleRow: CSSProperties = { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' };
 const title: CSSProperties = { margin: '5px 0 8px', fontSize: 'clamp(29px, 4vw, 44px)', lineHeight: 1.05, letterSpacing: '-.045em' };
-const subtitle: CSSProperties = { margin: 0, lineHeight: 1.6, color: '#aeb8cb', maxWidth: 700 };
-const stagePill: CSSProperties = { display: 'inline-block', border: '1px solid #4c668d', borderRadius: 99, background: '#1b2942', color: '#bfdbfe', padding: '5px 10px', fontSize: 12, fontWeight: 800 };
-const reviewCard: CSSProperties = { display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px', border: '1px solid #313e5c', borderRadius: 10, background: '#192038', minWidth: 210, color: '#f6b18d' };
-const muted: CSSProperties = { display: 'block', color: '#9aa7bd', fontSize: 11, marginBottom: 3 };
-const permissionBanner: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #325765', background: '#142a31', color: '#bde7e0', borderRadius: 10, padding: '12px 14px', marginBottom: 20, lineHeight: 1.45 };
+const subtitle: CSSProperties = { margin: 0, lineHeight: 1.6, color: 'var(--c-text2)', maxWidth: 700 };
+const stagePill: CSSProperties = { display: 'inline-block', border: '1px solid var(--c-border2)', borderRadius: 99, background: '#EEE5F6', color: '#62438F', padding: '5px 10px', fontSize: 12, fontWeight: 800 };
+const reviewCard: CSSProperties = { display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px', border: '1px solid var(--c-border2)', borderRadius: 10, background: 'var(--c-bg2)', minWidth: 210, color: 'var(--c-accent-text)' };
+const muted: CSSProperties = { display: 'block', color: 'var(--c-text3)', fontSize: 11, marginBottom: 3 };
+const permissionBanner: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #325765', background: '#EEF6F3', color: '#3D7159', borderRadius: 10, padding: '12px 14px', marginBottom: 20, lineHeight: 1.45 };
 const layout: CSSProperties = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(270px, 340px)', gap: 18, alignItems: 'start' };
 const mainColumn: CSSProperties = { display: 'grid', gap: 18 };
 const sidebar: CSSProperties = { display: 'grid', gap: 18 };
-const panel: CSSProperties = { border: '1px solid #2d3853', borderRadius: 12, padding: 18, background: '#181e33' };
-const sectionTitle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, margin: '0 0 16px', fontSize: 16, color: '#f1f5f9' };
-const contentBlock: CSSProperties = { borderTop: '1px solid #29334b', padding: '13px 0 0', marginTop: 13, lineHeight: 1.58, color: '#c8d1df' };
-const label: CSSProperties = { display: 'block', color: '#8390a8', fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' };
-const decisionStyle: CSSProperties = { display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 18, padding: 13, borderRadius: 9, border: '1px solid #31563e', background: '#172b25', color: '#bde7c8' };
+const panel: CSSProperties = { border: '1px solid var(--c-border2)', borderRadius: 12, padding: 18, background: 'var(--c-bg2)' };
+const sectionTitle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, margin: '0 0 16px', fontSize: 16, color: 'var(--c-text)' };
+const contentBlock: CSSProperties = { borderTop: '1px solid var(--c-border2)', padding: '13px 0 0', marginTop: 13, lineHeight: 1.58, color: 'var(--c-text2)' };
+const label: CSSProperties = { display: 'block', color: 'var(--c-text3)', fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' };
+const decisionStyle: CSSProperties = { display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 18, padding: 13, borderRadius: 9, border: '1px solid #31563e', background: '#EEF6F0', color: '#3D7159' };
 const resourceList: CSSProperties = { display: 'grid', gap: 8 };
-const resource: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: 11, border: '1px solid #2c3851', borderRadius: 9, color: '#9db4d2' };
-const iconLink: CSSProperties = { color: '#f7ae86', marginLeft: 'auto', display: 'inline-flex' };
-const emptyText: CSSProperties = { margin: 0, color: '#91a0b7', lineHeight: 1.5, fontSize: 14 };
+const resource: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: 11, border: '1px solid var(--c-border2)', borderRadius: 9, color: '#9db4d2' };
+const iconLink: CSSProperties = { color: 'var(--c-accent-text)', marginLeft: 'auto', display: 'inline-flex' };
+const emptyText: CSSProperties = { margin: 0, color: 'var(--c-text3)', lineHeight: 1.5, fontSize: 14 };
 const timeline: CSSProperties = { display: 'grid', gap: 15, margin: 0, padding: 0, listStyle: 'none' };
-const timelineItem: CSSProperties = { position: 'relative', paddingLeft: 20, color: '#ccd4e2', lineHeight: 1.45 };
-const timelineDot: CSSProperties = { position: 'absolute', left: 0, top: 5, width: 9, height: 9, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 3px rgba(249,115,22,.15)' };
-const decisionLabel: CSSProperties = { display: 'inline-block', marginLeft: 8, color: '#bce3bf', border: '1px solid #386244', borderRadius: 99, padding: '1px 7px', fontSize: 10, fontWeight: 800 };
+const timelineItem: CSSProperties = { position: 'relative', paddingLeft: 20, color: 'var(--c-text2)', lineHeight: 1.45 };
+const timelineDot: CSSProperties = { position: 'absolute', left: 0, top: 5, width: 9, height: 9, borderRadius: '50%', background: '#7452A6', boxShadow: '0 0 0 3px rgba(249,115,22,.15)' };
+const decisionLabel: CSSProperties = { display: 'inline-block', marginLeft: 8, color: '#3D7159', border: '1px solid #386244', borderRadius: 99, padding: '1px 7px', fontSize: 10, fontWeight: 800 };
 const people: CSSProperties = { display: 'grid', gap: 11 };
-const person: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, color: '#d9e0eb' };
+const person: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, color: 'var(--c-text)' };
 const avatar: CSSProperties = { display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 30px', borderRadius: '50%', color: '#e9d5ff', background: '#55436c', fontWeight: 800, fontSize: 13 };
 const metadata: CSSProperties = { display: 'grid', gap: 12, margin: 0 };
-const successPanel: CSSProperties = { display: 'flex', gap: 11, background: '#172c25', borderColor: '#31583e', color: '#c8eed2' };
-const secondaryButton: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, width: 'fit-content', marginTop: 10, border: '1px solid #3b4a67', borderRadius: 8, background: '#202943', color: '#e5e7eb', padding: '9px 11px', fontWeight: 700, fontSize: 13, textDecoration: 'none' };
+const successPanel: CSSProperties = { display: 'flex', gap: 11, background: '#EEF6F0', borderColor: '#31583e', color: '#3D7159' };
+const secondaryButton: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, width: 'fit-content', marginTop: 10, border: '1px solid var(--c-border2)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)', padding: '9px 11px', fontWeight: 700, fontSize: 13, textDecoration: 'none' };
 const state: CSSProperties = { minHeight: '55vh', display: 'grid', placeItems: 'center', alignContent: 'center', gap: 10, textAlign: 'center', color: '#b6c1d3' };
 const manageForm: CSSProperties = { display: 'grid', gap: 12 };
-const assignmentForm: CSSProperties = { display: 'grid', gap: 10, marginTop: 16, paddingTop: 15, borderTop: '1px solid #2c3851' };
-const formLabel: CSSProperties = { display: 'grid', gap: 6, color: '#b9c4d7', fontSize: 12, fontWeight: 750 };
-const input: CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid #3b4865', borderRadius: 8, background: '#11172a', color: '#f8fafc', padding: '10px 11px', font: 'inherit' };
+const assignmentForm: CSSProperties = { display: 'grid', gap: 10, marginTop: 16, paddingTop: 15, borderTop: '1px solid var(--c-border2)' };
+const formLabel: CSSProperties = { display: 'grid', gap: 6, color: 'var(--c-text2)', fontSize: 12, fontWeight: 750 };
+const input: CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid var(--c-border2)', borderRadius: 8, background: 'var(--c-bg)', color: 'var(--c-text)', padding: '10px 11px', font: 'inherit' };
 const textarea: CSSProperties = { ...input, minHeight: 82, resize: 'vertical' };
-const primaryButton: CSSProperties = { display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 7, border: 0, borderRadius: 8, background: '#f2571e', color: '#1d1420', padding: '10px 13px', fontWeight: 850, cursor: 'pointer' };
+const primaryButton: CSSProperties = { display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 7, border: 0, borderRadius: 8, background: '#7452A6', color: '#FFFFFF', padding: '10px 13px', fontWeight: 850, cursor: 'pointer' };
 const successButton: CSSProperties = { ...primaryButton, background: '#54a66a', color: '#0d2113', whiteSpace: 'nowrap' };
-const formalizeBox: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, borderTop: '1px solid #2c3851', marginTop: 18, paddingTop: 16, color: '#cbd6df' };
-const actionErrorStyle: CSSProperties = { margin: '0 0 14px', padding: '9px 11px', border: '1px solid #7b3b45', borderRadius: 8, background: '#331e27', color: '#fecaca', lineHeight: 1.45, fontSize: 13 };
-const removeButton: CSSProperties = { display: 'inline-grid', placeItems: 'center', marginLeft: 'auto', border: '1px solid #603847', borderRadius: 7, background: '#2c1c27', color: '#fca5a5', padding: 6, cursor: 'pointer' };
+const formalizeBox: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, borderTop: '1px solid var(--c-border2)', marginTop: 18, paddingTop: 16, color: 'var(--c-text2)' };
+const actionErrorStyle: CSSProperties = { margin: '0 0 14px', padding: '9px 11px', border: '1px solid #7b3b45', borderRadius: 8, background: '#FBF0F2', color: '#9F455F', lineHeight: 1.45, fontSize: 13 };
+const removeButton: CSSProperties = { display: 'inline-grid', placeItems: 'center', marginLeft: 'auto', border: '1px solid #603847', borderRadius: 7, background: '#FBF0F2', color: '#9F455F', padding: 6, cursor: 'pointer' };
 const criteriaList: CSSProperties = { display: 'grid', gap: 10, marginTop: 15 };
-const criterionCard: CSSProperties = { display: 'grid', gap: 10, padding: 13, border: '1px solid #303b56', borderRadius: 9, background: '#151b2e', color: '#dce4ef', lineHeight: 1.4 };
+const criterionCard: CSSProperties = { display: 'grid', gap: 10, padding: 13, border: '1px solid var(--c-border2)', borderRadius: 9, background: 'var(--c-surface2)', color: 'var(--c-text)', lineHeight: 1.4 };
 const criteriaNote: CSSProperties = { ...textarea, minHeight: 58 };
-const criteriaReadOnly: CSSProperties = { display: 'grid', gap: 8, color: '#b9c4d6', fontSize: 13 };
-const editFormStyle: CSSProperties = { display: 'grid', gap: 13, margin: '16px 0', padding: 15, border: '1px solid #354766', borderRadius: 10, background: '#141b30' };
-const subsectionTitle: CSSProperties = { margin: 0, color: '#e6edf8', fontSize: 14 };
+const criteriaReadOnly: CSSProperties = { display: 'grid', gap: 8, color: 'var(--c-text2)', fontSize: 13 };
+const editFormStyle: CSSProperties = { display: 'grid', gap: 13, margin: '16px 0', padding: 15, border: '1px solid var(--c-border2)', borderRadius: 10, background: 'var(--c-surface2)' };
+const subsectionTitle: CSSProperties = { margin: 0, color: 'var(--c-text)', fontSize: 14 };
 const twoColumns: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 };
-const editResourceSection: CSSProperties = { display: 'grid', gap: 9, borderTop: '1px solid #2c3851', paddingTop: 13 };
+const editResourceSection: CSSProperties = { display: 'grid', gap: 9, borderTop: '1px solid var(--c-border2)', paddingTop: 13 };
 const editResourceHeader: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 };
-const resourceHeading: CSSProperties = { margin: 0, color: '#ccd6e6', fontSize: 13 };
+const resourceHeading: CSSProperties = { margin: 0, color: 'var(--c-text2)', fontSize: 13 };
 const resourceEditor: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, alignItems: 'start' };
 const compactTextarea: CSSProperties = { ...input, minHeight: 40, resize: 'vertical' };
 const textButton: CSSProperties = { border: 0, background: 'transparent', color: '#f8af85', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 750, cursor: 'pointer' };
-const removeTextButton: CSSProperties = { ...textButton, color: '#fca5a5', padding: '9px 4px' };
+const removeTextButton: CSSProperties = { ...textButton, color: '#9F455F', padding: '9px 4px' };
 const editActions: CSSProperties = { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 };

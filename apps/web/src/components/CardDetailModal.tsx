@@ -163,7 +163,7 @@ export function CardDetailModal() {
   const MANROPE = "'Manrope', system-ui, sans-serif";
 
   const priorityOptions = [
-    { value: null,     label: t.card_priority_none,   color: '#615846',  bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.08)', symbol: '' },
+    { value: null,     label: t.card_priority_none,   color: 'var(--c-text4)',  bg: 'rgba(97,71,130,0.03)', border: 'rgba(97,71,130,0.08)', symbol: '' },
     { value: 'LOW',    label: t.card_priority_low,    color: C.accent,   bg: `${C.accent}15`,          border: `${C.accent}40`,          symbol: '▼' },
     { value: 'MEDIUM', label: t.card_priority_medium, color: C.amber,    bg: `${C.amber}15`,           border: `${C.amber}40`,           symbol: '■' },
     { value: 'HIGH',   label: t.card_priority_high,   color: C.red,      bg: `${C.red}15`,             border: `${C.red}40`,             symbol: '▲' },
@@ -375,7 +375,7 @@ export function CardDetailModal() {
 
   // ── sidebar row helper ────────────────────────────────────────────────────
   const SbLabel = ({ children }: { children: React.ReactNode }) => (
-    <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: '#615846', textTransform: 'uppercase', fontFamily: SORA, display: 'block', marginBottom: '8px' }}>
+    <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--c-text4)', textTransform: 'uppercase', fontFamily: SORA, display: 'block', marginBottom: '8px' }}>
       {children}
     </span>
   );
@@ -408,12 +408,12 @@ export function CardDetailModal() {
           to   { opacity:1; transform:translateY(0); }
         }
         @keyframes cdmSpin { to { transform:rotate(360deg) } }
-        .cdm-l { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent; }
+        .cdm-l { scrollbar-width:thin; scrollbar-color:rgba(97,71,130,0.1) transparent; }
         .cdm-l::-webkit-scrollbar { width:4px; }
-        .cdm-l::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:2px; }
-        .cdm-title::placeholder { color:#615846; }
-        .cdm-desc::placeholder  { color:#403832; font-style:italic; }
-        .cdm-desc:focus { border-color:rgba(255,255,255,0.18) !important; }
+        .cdm-l::-webkit-scrollbar-thumb { background:rgba(97,71,130,0.12); border-radius:2px; }
+        .cdm-title::placeholder { color:var(--c-text4); }
+        .cdm-desc::placeholder  { color:var(--c-text2); font-style:italic; }
+        .cdm-desc:focus { border-color:rgba(97,71,130,0.18) !important; }
       `}</style>
 
       {/* ── Backdrop ──────────────────────────────────────────────────────── */}
@@ -437,9 +437,9 @@ export function CardDetailModal() {
           onClick={(e) => e.stopPropagation()}
           style={{
             width:'100%', maxWidth:'1000px', height:'min(88vh, 860px)',
-            background:'#161B2E', border:'1px solid rgba(255,255,255,0.09)',
+            background:'var(--c-bg)', border:'1px solid rgba(97,71,130,0.09)',
             borderRadius:'16px', overflow:'hidden', display:'flex', flexDirection:'column',
-            boxShadow:'0 48px 120px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04) inset',
+            boxShadow:'0 48px 120px rgba(0,0,0,0.85), 0 0 0 1px rgba(97,71,130,0.04) inset',
             animation: isVisible
               ? 'cdmIn 0.22s cubic-bezier(0.16,1,0.3,1) both'
               : 'cdmOut 0.18s cubic-bezier(0.4,0,1,1) forwards',
@@ -447,22 +447,22 @@ export function CardDetailModal() {
         >
 
           {/* ── Top bar ─────────────────────────────────────────────────── */}
-          <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'11px 20px', borderBottom:'1px solid rgba(255,255,255,0.07)', background:'rgba(255,255,255,0.015)', flexShrink:0, animation:'cdmTopIn 0.18s cubic-bezier(0.16,1,0.3,1) 0.02s both' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'11px 20px', borderBottom:'1px solid rgba(97,71,130,0.07)', background:'rgba(97,71,130,0.015)', flexShrink:0, animation:'cdmTopIn 0.18s cubic-bezier(0.16,1,0.3,1) 0.02s both' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'6px', flex:1, minWidth:0 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="4" width="5" height="16" rx="1.4" stroke="#403832" strokeWidth="1.8"/>
-                <rect x="10" y="4" width="5" height="11" rx="1.4" stroke="#403832" strokeWidth="1.8"/>
-                <rect x="17" y="4" width="5" height="13" rx="1.4" stroke="#403832" strokeWidth="1.8"/>
+                <rect x="3" y="4" width="5" height="16" rx="1.4" stroke="var(--c-text2)" strokeWidth="1.8"/>
+                <rect x="10" y="4" width="5" height="11" rx="1.4" stroke="var(--c-text2)" strokeWidth="1.8"/>
+                <rect x="17" y="4" width="5" height="13" rx="1.4" stroke="var(--c-text2)" strokeWidth="1.8"/>
               </svg>
-              <span style={{ fontSize:'12px', color:'#615846', fontFamily:MANROPE }}>{currentBoard?.name ?? '…'}</span>
-              <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.1)' }}>›</span>
-              <span style={{ fontSize:'12px', color:'#827A6D', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:MANROPE }}>Tarjeta</span>
+              <span style={{ fontSize:'12px', color:'var(--c-text4)', fontFamily:MANROPE }}>{currentBoard?.name ?? '…'}</span>
+              <span style={{ fontSize:'12px', color:'rgba(97,71,130,0.1)' }}>›</span>
+              <span style={{ fontSize:'12px', color:'var(--c-text3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:MANROPE }}>Tarjeta</span>
             </div>
             <button
               onClick={handleClose}
-              style={{ width:'26px', height:'26px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', cursor:'pointer', color:'#615846', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.12s, color 0.12s', flexShrink:0 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+              style={{ width:'26px', height:'26px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(97,71,130,0.08)', cursor:'pointer', color:'var(--c-text4)', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.12s, color 0.12s', flexShrink:0 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.06)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text4)'; }}
             >
               <X style={{ width:'13px', height:'13px' }} />
             </button>
@@ -484,16 +484,16 @@ export function CardDetailModal() {
                     onBlur={saveTitle}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveTitle(); } if (e.key === 'Escape') { setEditedTitle(selectedCard.title); setEditingTitle(false); } }}
                     autoFocus maxLength={255}
-                    style={{ width:'100%', background:'transparent', border:'none', borderBottom:'2px solid rgba(255,255,255,0.15)', outline:'none', fontSize:'1.6rem', fontWeight:700, color:'#F4EEE2', lineHeight:1.25, fontFamily:SORA, paddingBottom:'4px', boxSizing:'border-box' as const }}
+                    style={{ width:'100%', background:'transparent', border:'none', borderBottom:'2px solid rgba(97,71,130,0.15)', outline:'none', fontSize:'1.6rem', fontWeight:700, color:'var(--c-text)', lineHeight:1.25, fontFamily:SORA, paddingBottom:'4px', boxSizing:'border-box' as const }}
                   />
                 ) : (
                   <h2
                     onClick={() => canEdit && (setEditingTitle(true), setEditedTitle(selectedCard.title))}
                     title={canEdit ? 'Haz clic para editar' : undefined}
-                    style={{ margin:0, fontSize:'1.6rem', fontWeight:700, color:'#F4EEE2', lineHeight:1.25, wordBreak:'break-word', fontFamily:SORA, cursor:canEdit?'text':'default' }}
+                    style={{ margin:0, fontSize:'1.6rem', fontWeight:700, color:'var(--c-text)', lineHeight:1.25, wordBreak:'break-word', fontFamily:SORA, cursor:canEdit?'text':'default' }}
                   >
                     {selectedCard.title}
-                    {savingTitle && <span style={{ fontSize:'11px', color:'#615846', marginLeft:'10px', fontWeight:400, fontFamily:MANROPE }}>Guardando…</span>}
+                    {savingTitle && <span style={{ fontSize:'11px', color:'var(--c-text4)', marginLeft:'10px', fontWeight:400, fontFamily:MANROPE }}>Guardando…</span>}
                   </h2>
                 )}
               </div>
@@ -515,45 +515,45 @@ export function CardDetailModal() {
                     placeholder={t.card_placeholder_description}
                     rows={6}
                     autoFocus
-                    style={{ width:'100%', padding:'14px 16px', borderRadius:'10px', resize:'vertical', lineHeight:1.7, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.1)', color:'#C8BFAE', fontSize:'14px', outline:'none', boxSizing:'border-box' as const, fontFamily:MANROPE, transition:'border-color 0.15s' }}
+                    style={{ width:'100%', padding:'14px 16px', borderRadius:'10px', resize:'vertical', lineHeight:1.7, background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.1)', color:'var(--c-text2)', fontSize:'14px', outline:'none', boxSizing:'border-box' as const, fontFamily:MANROPE, transition:'border-color 0.15s' }}
                   />
                 ) : (
                   <div
                     onClick={() => canEdit && setEditingDesc(true)}
-                    style={{ minHeight:'88px', padding:'14px 16px', borderRadius:'10px', lineHeight:1.7, background:canEdit?'rgba(255,255,255,0.02)':'transparent', border:`1px solid ${canEdit?'rgba(255,255,255,0.06)':'transparent'}`, cursor:canEdit?'text':'default', fontSize:'14px', transition:'border-color 0.15s, background 0.15s' }}
-                    onMouseEnter={(e) => { if (canEdit) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.13)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = canEdit?'rgba(255,255,255,0.06)':'transparent'; (e.currentTarget as HTMLElement).style.background = canEdit?'rgba(255,255,255,0.02)':'transparent'; }}
+                    style={{ minHeight:'88px', padding:'14px 16px', borderRadius:'10px', lineHeight:1.7, background:canEdit?'rgba(97,71,130,0.02)':'transparent', border:`1px solid ${canEdit?'rgba(97,71,130,0.06)':'transparent'}`, cursor:canEdit?'text':'default', fontSize:'14px', transition:'border-color 0.15s, background 0.15s' }}
+                    onMouseEnter={(e) => { if (canEdit) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.13)'; (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.03)'; }}}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = canEdit?'rgba(97,71,130,0.06)':'transparent'; (e.currentTarget as HTMLElement).style.background = canEdit?'rgba(97,71,130,0.02)':'transparent'; }}
                   >
                     {selectedCard.description
-                      ? <span style={{ color:'#C8BFAE', whiteSpace:'pre-wrap' }}>{selectedCard.description}</span>
-                      : <span style={{ color:'#403832', fontStyle:'italic' }}>{canEdit ? t.card_click_add_description : t.card_no_description}</span>
+                      ? <span style={{ color:'var(--c-text2)', whiteSpace:'pre-wrap' }}>{selectedCard.description}</span>
+                      : <span style={{ color:'var(--c-text2)', fontStyle:'italic' }}>{canEdit ? t.card_click_add_description : t.card_no_description}</span>
                     }
-                    {savingDesc && <span style={{ fontSize:'11px', color:'#615846', marginLeft:'8px', fontFamily:MANROPE }}>Guardando…</span>}
+                    {savingDesc && <span style={{ fontSize:'11px', color:'var(--c-text4)', marginLeft:'8px', fontFamily:MANROPE }}>Guardando…</span>}
                   </div>
                 )}
               </div>
 
               {/* Checklist */}
-              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'20px' }}>
+              <div style={{ borderTop:'1px solid rgba(97,71,130,0.06)', paddingTop:'20px' }}>
                 <CardChecklist cardId={selectedCard.id} onProgressChange={handleChecklistProgressChange} />
               </div>
 
               {/* Dependencies */}
-              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'20px' }}>
+              <div style={{ borderTop:'1px solid rgba(97,71,130,0.06)', paddingTop:'20px' }}>
                 <CardDependencies cardId={selectedCard.id} />
               </div>
 
               {/* Comments */}
-              <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'20px' }}>
+              <div style={{ borderTop:'1px solid rgba(97,71,130,0.06)', paddingTop:'20px' }}>
                 <CommentList cardId={selectedCard.id} maxHeight="440px" minHeight="100px" showForm={true} showCount={true} onCountChange={handleCommentCountChange} workspaceId={currentWorkspaceId || undefined} />
               </div>
             </div>
 
             {/* ══ RIGHT — sidebar ══════════════════════════════════════════ */}
-            <div className="cdm-l" style={{ width:'286px', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,0.07)', overflowY:'auto', padding:'24px 20px', display:'flex', flexDirection:'column', gap:'0', background:'rgba(255,255,255,0.008)', animation:'cdmSbIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.07s both' }}>
+            <div className="cdm-l" style={{ width:'286px', flexShrink:0, borderLeft:'1px solid rgba(97,71,130,0.07)', overflowY:'auto', padding:'24px 20px', display:'flex', flexDirection:'column', gap:'0', background:'rgba(97,71,130,0.008)', animation:'cdmSbIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.07s both' }}>
 
               {/* Priority */}
-              <div style={{ paddingBottom:'18px', borderBottom:'1px solid rgba(255,255,255,0.06)', marginBottom:'4px' }}>
+              <div style={{ paddingBottom:'18px', borderBottom:'1px solid rgba(97,71,130,0.06)', marginBottom:'4px' }}>
                 <SbLabel>{t.card_section_priority}</SbLabel>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px' }}>
                   {priorityOptions.map((opt) => {
@@ -564,9 +564,9 @@ export function CardDetailModal() {
                         onClick={() => savePriority(opt.value as any)}
                         disabled={!canEdit}
                         title={opt.label}
-                        style={{ padding:'7px 4px', borderRadius:'7px', fontSize:'10.5px', fontWeight: active ? 700 : 400, background: active ? opt.bg : 'rgba(255,255,255,0.02)', border:`1px solid ${active ? opt.border : 'rgba(255,255,255,0.07)'}`, color: active ? opt.color : '#615846', cursor:canEdit?'pointer':'default', transition:'all 0.12s', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px' }}
-                        onMouseEnter={(e) => { if (canEdit && !active) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; }}}
-                        onMouseLeave={(e) => { if (!active) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}}
+                        style={{ padding:'7px 4px', borderRadius:'7px', fontSize:'10.5px', fontWeight: active ? 700 : 400, background: active ? opt.bg : 'rgba(97,71,130,0.02)', border:`1px solid ${active ? opt.border : 'rgba(97,71,130,0.07)'}`, color: active ? opt.color : 'var(--c-text4)', cursor:canEdit?'pointer':'default', transition:'all 0.12s', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px' }}
+                        onMouseEnter={(e) => { if (canEdit && !active) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.18)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; }}}
+                        onMouseLeave={(e) => { if (!active) { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.07)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text4)'; }}}
                       >
                         {opt.symbol && <span style={{ fontSize:'9px', lineHeight:1 }}>{opt.symbol}</span>}
                         <span>{opt.label}</span>
@@ -582,18 +582,18 @@ export function CardDetailModal() {
               </div>
 
               {/* Dates */}
-              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(97,71,130,0.06)' }}>
                 <SbLabel>Fechas</SbLabel>
                 <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                   {/* Start */}
                   <div>
-                    <span style={{ fontSize:'10.5px', color:'#615846', display:'block', marginBottom:'4px', fontFamily:MANROPE }}>{t.card_section_start_date}</span>
+                    <span style={{ fontSize:'10.5px', color:'var(--c-text4)', display:'block', marginBottom:'4px', fontFamily:MANROPE }}>{t.card_section_start_date}</span>
                     <div style={{ position:'relative' }} ref={startCalendarRef}>
                       <button type="button" disabled={!canEdit}
                         onClick={() => { if (!canEdit) return; setShowStartCalendar(!showStartCalendar); setShowCalendar(false); }}
-                        style={{ width:'100%', padding:'7px 10px', borderRadius:'7px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color:editedStartDate?'#C8BFAE':'#615846', fontSize:'12.5px', textAlign:'left', cursor:canEdit?'pointer':'default', display:'flex', alignItems:'center', gap:'7px', transition:'border-color 0.12s', fontFamily:MANROPE }}
-                        onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                        style={{ width:'100%', padding:'7px 10px', borderRadius:'7px', background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.08)', color:editedStartDate?'var(--c-text2)':'var(--c-text4)', fontSize:'12.5px', textAlign:'left', cursor:canEdit?'pointer':'default', display:'flex', alignItems:'center', gap:'7px', transition:'border-color 0.12s', fontFamily:MANROPE }}
+                        onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.2)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.08)'; }}
                       >
                         <Calendar style={{ width:'12px', height:'12px', flexShrink:0 }} />
                         <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{editedStartDate ? fmt(editedStartDate) : t.card_start_date_none}</span>
@@ -603,13 +603,13 @@ export function CardDetailModal() {
                   </div>
                   {/* Due */}
                   <div>
-                    <span style={{ fontSize:'10.5px', color:'#615846', display:'block', marginBottom:'4px', fontFamily:MANROPE }}>{t.card_section_due_date}</span>
+                    <span style={{ fontSize:'10.5px', color:'var(--c-text4)', display:'block', marginBottom:'4px', fontFamily:MANROPE }}>{t.card_section_due_date}</span>
                     <div style={{ position:'relative' }} ref={calendarRef}>
                       <button type="button" disabled={!canEdit}
                         onClick={() => { if (!canEdit) return; setShowCalendar(!showCalendar); setShowStartCalendar(false); }}
-                        style={{ width:'100%', padding:'7px 10px', borderRadius:'7px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color:editedDueDate?'#C8BFAE':'#615846', fontSize:'12.5px', textAlign:'left', cursor:canEdit?'pointer':'default', display:'flex', alignItems:'center', gap:'7px', transition:'border-color 0.12s', fontFamily:MANROPE }}
-                        onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                        style={{ width:'100%', padding:'7px 10px', borderRadius:'7px', background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.08)', color:editedDueDate?'var(--c-text2)':'var(--c-text4)', fontSize:'12.5px', textAlign:'left', cursor:canEdit?'pointer':'default', display:'flex', alignItems:'center', gap:'7px', transition:'border-color 0.12s', fontFamily:MANROPE }}
+                        onMouseEnter={(e) => { if (canEdit) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.2)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.08)'; }}
                       >
                         <Calendar style={{ width:'12px', height:'12px', flexShrink:0 }} />
                         <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{editedDueDate ? fmt(editedDueDate) : t.card_due_date_none}</span>
@@ -621,7 +621,7 @@ export function CardDetailModal() {
               </div>
 
               {/* Buffer days */}
-              <div style={{ padding:'14px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ padding:'14px 0', borderBottom:'1px solid rgba(97,71,130,0.06)' }}>
                 <SbLabel>
                   <svg style={{ width:'10px', height:'10px', display:'inline', marginRight:'5px', verticalAlign:'middle', flexShrink:0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
@@ -629,9 +629,9 @@ export function CardDetailModal() {
                   Colchón
                 </SbLabel>
                 <div style={{ display:'flex', alignItems:'center', gap:'7px' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'4px', flex:1, padding:'6px 10px', borderRadius:'7px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', transition:'border-color 0.12s' }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}
+                  <div style={{ display:'flex', alignItems:'center', gap:'4px', flex:1, padding:'6px 10px', borderRadius:'7px', background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.08)', transition:'border-color 0.12s' }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(97,71,130,0.18)'}
+                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(97,71,130,0.08)'}
                   >
                     <input
                       type="number" min="0" max="365" disabled={!canEdit || bufferSaving}
@@ -646,16 +646,16 @@ export function CardDetailModal() {
                         handleBufferChange(isNaN(v as any) ? null : v);
                       }}
                       onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                      style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:'12.5px', color:bufferDays != null ? '#C8BFAE' : '#615846', fontFamily:MANROPE, minWidth:0 }}
+                      style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:'12.5px', color:bufferDays != null ? 'var(--c-text2)' : 'var(--c-text4)', fontFamily:MANROPE, minWidth:0 }}
                     />
-                    <span style={{ fontSize:'11px', color:'#615846', flexShrink:0, fontFamily:MANROPE }}>días</span>
+                    <span style={{ fontSize:'11px', color:'var(--c-text4)', flexShrink:0, fontFamily:MANROPE }}>días</span>
                   </div>
                   {bufferDays != null && canEdit && (
                     <button onClick={() => handleBufferChange(null)} disabled={bufferSaving}
                       title="Volver a automático"
-                      style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#615846', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.25)'; (e.currentTarget as HTMLElement).style.color = '#C8BFAE'; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+                      style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(97,71,130,0.08)', color:'var(--c-text4)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.25)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text4)'; }}
                     >
                       <X style={{ width:'11px', height:'11px' }} />
                     </button>
@@ -669,20 +669,20 @@ export function CardDetailModal() {
 
               {/* Sprint */}
               {boardSprints.filter((s) => s.status !== 'COMPLETED').length > 0 && (
-                <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(97,71,130,0.06)' }}>
                   <SbLabel><Zap style={{ width:'10px', height:'10px', display:'inline', marginRight:'5px', verticalAlign:'middle' }} />{t.card_section_sprint}</SbLabel>
                   <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                     <select value={cardSprintId ?? ''} onChange={(e) => handleSprintChange(e.target.value || null)} disabled={!canEdit || sprintUpdating}
-                      style={{ flex:1, padding:'7px 10px', borderRadius:'7px', fontSize:'12.5px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color:cardSprintId?C.accent:'#827A6D', outline:'none', cursor:canEdit?'pointer':'default', colorScheme:'dark', fontFamily:MANROPE }}
+                      style={{ flex:1, padding:'7px 10px', borderRadius:'7px', fontSize:'12.5px', background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.08)', color:cardSprintId?C.accent:'var(--c-text3)', outline:'none', cursor:canEdit?'pointer':'default', colorScheme:'dark', fontFamily:MANROPE }}
                     >
                       <option value="">{t.card_sprint_none}</option>
                       {boardSprints.filter((s) => s.status !== 'COMPLETED').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                     {cardSprintId && canEdit && (
                       <button onClick={() => handleSprintChange(null)} disabled={sprintUpdating}
-                        style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#615846', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
+                        style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(97,71,130,0.08)', color:'var(--c-text4)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${C.red}50`; (e.currentTarget as HTMLElement).style.color = C.red; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text4)'; }}
                       >
                         <X style={{ width:'11px', height:'11px' }} />
                       </button>
@@ -694,7 +694,7 @@ export function CardDetailModal() {
 
               {/* Hito */}
               {projectMilestones.length > 0 && (
-                <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(97,71,130,0.06)' }}>
                   <SbLabel>
                     <Flag style={{ width:'10px', height:'10px', display:'inline', marginRight:'5px', verticalAlign:'middle' }} />
                     Hito
@@ -704,7 +704,7 @@ export function CardDetailModal() {
                       value={cardMilestoneId ?? ''}
                       onChange={(e) => handleMilestoneChange(e.target.value || null)}
                       disabled={!canEdit || milestoneUpdating}
-                      style={{ flex:1, padding:'7px 10px', borderRadius:'7px', fontSize:'12.5px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color: cardMilestoneId ? (projectMilestones.find((m) => m.id === cardMilestoneId)?.color ?? '#7B8FA8') : '#827A6D', outline:'none', cursor:canEdit?'pointer':'default', colorScheme:'dark', fontFamily:MANROPE }}
+                      style={{ flex:1, padding:'7px 10px', borderRadius:'7px', fontSize:'12.5px', background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.08)', color: cardMilestoneId ? (projectMilestones.find((m) => m.id === cardMilestoneId)?.color ?? '#8D84B0') : 'var(--c-text3)', outline:'none', cursor:canEdit?'pointer':'default', colorScheme:'dark', fontFamily:MANROPE }}
                     >
                       <option value="">Sin hito</option>
                       {projectMilestones.map((m) => (
@@ -715,14 +715,14 @@ export function CardDetailModal() {
                       <button
                         onClick={() => handleMilestoneChange(null)}
                         disabled={milestoneUpdating}
-                        style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#615846', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
+                        style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(97,71,130,0.08)', color:'var(--c-text4)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${C.red}50`; (e.currentTarget as HTMLElement).style.color = C.red; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text4)'; }}
                       >
                         <X style={{ width:'11px', height:'11px' }} />
                       </button>
                     )}
-                    {milestoneUpdating && <div style={{ width:'13px', height:'13px', borderRadius:'50%', border:'2px solid #7B8FA8', borderTopColor:'transparent', animation:'cdmSpin 0.6s linear infinite', flexShrink:0 }} />}
+                    {milestoneUpdating && <div style={{ width:'13px', height:'13px', borderRadius:'50%', border:'2px solid #8D84B0', borderTopColor:'transparent', animation:'cdmSpin 0.6s linear infinite', flexShrink:0 }} />}
                   </div>
                   {cardMilestoneId && (() => {
                     const m = projectMilestones.find((x) => x.id === cardMilestoneId);
@@ -731,7 +731,7 @@ export function CardDetailModal() {
                     const label = d.toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' });
                     const isPast = d < new Date() && m.status === 'PENDING';
                     return (
-                      <p style={{ margin:'6px 0 0', fontSize:'11px', color: isPast ? C.red : '#615846', fontFamily:MANROPE }}>
+                      <p style={{ margin:'6px 0 0', fontSize:'11px', color: isPast ? C.red : 'var(--c-text4)', fontFamily:MANROPE }}>
                         {isPast ? '⚠ ' : ''}{label} - {m.status === 'REACHED' ? 'Alcanzado' : m.status === 'MISSED' ? 'Perdido' : 'Pendiente'}
                       </p>
                     );
@@ -740,7 +740,7 @@ export function CardDetailModal() {
               )}
 
               {/* Labels */}
-              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(97,71,130,0.06)' }}>
                 <SbLabel>{t.card_section_labels}</SbLabel>
                 <div style={{ maxHeight:'160px', overflowY:'auto' }}>
                   {currentWorkspaceId
@@ -751,7 +751,7 @@ export function CardDetailModal() {
               </div>
 
               {/* Members */}
-              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(97,71,130,0.06)' }}>
                 <SbLabel>{t.card_section_members}</SbLabel>
                 <div style={{ maxHeight:'180px', overflowY:'auto' }}>
                   {currentWorkspaceId ? (
@@ -764,7 +764,7 @@ export function CardDetailModal() {
                               const name  = m.name  ?? m.user?.name  ?? '';
                               const email = m.email ?? m.user?.email ?? '';
                               return (
-                                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'5px 8px', borderRadius:'6px', background:'rgba(255,255,255,0.03)' }}>
+                                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'5px 8px', borderRadius:'6px', background:'rgba(97,71,130,0.03)' }}>
                                   <div style={{ width:'24px', height:'24px', borderRadius:'50%', background:`${C.accent}cc`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'10px', fontWeight:700, color:'#fff', flexShrink:0 }}>{name.charAt(0).toUpperCase()}</div>
                                   <div style={{ minWidth:0 }}>
                                     <p style={{ fontSize:'12px', fontWeight:500, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', margin:0 }}>{name}</p>
@@ -786,9 +786,9 @@ export function CardDetailModal() {
                 <div style={{ paddingTop:'18px', marginTop:'auto' }}>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
-                    style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px', padding:'9px', borderRadius:'8px', fontSize:'12.5px', fontWeight:500, background:'rgba(224,82,82,0.05)', border:'1px solid rgba(224,82,82,0.15)', color:'#615846', cursor:'pointer', transition:'all 0.15s', fontFamily:MANROPE }}
+                    style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px', padding:'9px', borderRadius:'8px', fontSize:'12.5px', fontWeight:500, background:'rgba(224,82,82,0.05)', border:'1px solid rgba(224,82,82,0.15)', color:'var(--c-text4)', cursor:'pointer', transition:'all 0.15s', fontFamily:MANROPE }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.4)'; (e.currentTarget as HTMLElement).style.color = C.red; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.05)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.15)'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.05)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.15)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text4)'; }}
                   >
                     <Trash2 style={{ width:'12px', height:'12px' }} />
                     {t.btn_delete}

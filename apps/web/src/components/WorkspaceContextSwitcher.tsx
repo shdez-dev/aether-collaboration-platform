@@ -157,7 +157,7 @@ export default function WorkspaceContextSwitcher({
     setStep('workspaces');
   }
 
-  const color = activeWorkspace?.color ?? '#F2571E';
+  const color = activeWorkspace?.color ?? '#7452A6';
 
   return (
     <Popover
@@ -226,7 +226,7 @@ export default function WorkspaceContextSwitcher({
                   <div className={styles.options} data-scrollable={organizationWorkspaces.length > 4}>
                     {organizationWorkspaces.length ? organizationWorkspaces.map((workspace) => {
                       const selected = workspace.id === activeWorkspaceId;
-                      const workspaceColor = workspace.color ?? '#F2571E';
+                      const workspaceColor = workspace.color ?? '#7452A6';
                       return (
                         <button
                           key={workspace.id}

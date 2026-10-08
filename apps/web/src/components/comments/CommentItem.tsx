@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Edit2, Trash2, MoreVertical, Check } from 'lucide-react';
-import { CommentForm } from './CommentForm';
+import { Edit2, Trash2, MoreVertical, Check, FileText, ArrowUpRight } from 'lucide-react';
+import { CommentForm, type MentionCandidate } from './CommentForm';
 import { useCommentEdit } from '@/hooks/useComment';
 import { useAuthStore } from '@/stores/authStore';
 import type { CommentWithUser } from '@aether/types';
@@ -16,6 +16,7 @@ interface CommentItemProps {
   onUpdate?: (commentId: string, content: string, mentions?: string[]) => Promise<void>;
   onDelete?: (commentId: string) => Promise<void>;
   showActions?: boolean;
+  mentionCandidates?: MentionCandidate[];
 }
 
 const AVATAR_PALETTE = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#fb923c','#84cc16'];
@@ -28,7 +29,7 @@ function initials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
-export function CommentItem({ comment, onUpdate, onDelete, showActions = true }: CommentItemProps) {
+export function CommentItem({ comment, onUpdate, onDelete, showActions = true, mentionCandidates = [] }: CommentItemProps) {
   const t = es;
   const { user: currentUser } = useAuthStore();
   const { isEditing, isUpdating, startEdit, cancelEdit } = useCommentEdit(comment.id);
@@ -88,6 +89,8 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
           isLoading={isUpdating}
           autoFocus={true}
           submitText={t.btn_save}
+          mentionCandidates={mentionCandidates}
+          initialMentions={comment.mentions ?? []}
         />
       </div>
     );
@@ -128,6 +131,14 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true }:
         <div style={{ fontSize: '12.5px', color: C.text2, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {renderContent(comment.content)}
         </div>
+        {comment.documentReference && (
+          <a href={`/dashboard/documents/${comment.documentReference.documentId}?fragment=${encodeURIComponent(comment.documentReference.quote)}`}
+            style={{ display: 'block', marginTop: 9, padding: '9px 11px', border: `1px solid ${C.border2}`, borderRadius: 8, background: C.surface2, color: C.text2, textDecoration: 'none' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.accent, fontSize: 11, fontWeight: 700 }}><FileText size={13} /> {comment.documentReference.title} <ArrowUpRight size={12} /></span>
+            <span style={{ display: 'block', marginTop: 5, fontSize: 11.5, lineHeight: 1.5, overflowWrap: 'anywhere' }}>“{comment.documentReference.quote}”</span>
+            {comment.documentReference.stale && <span style={{ display: 'block', marginTop: 5, fontSize: 10.5, color: C.amber }}>El fragmento original cambió o fue eliminado.</span>}
+          </a>
+        )}
       </div>
 
       {/* Action menu */}

@@ -41,8 +41,8 @@
 
 /* Main Modal Content */
 .modal-content {
-  background: #1a1d24;
-  border: 1px solid #2e3440;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   width: 100%;
   max-width: 42rem;
@@ -60,8 +60,8 @@
   width: 16rem;
   flex: 1;
   min-height: 0;
-  background: #15171d;
-  border: 1px solid #2e3440;
+  background: #F6F0F9;
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   padding: 1rem;
   overflow-y: auto;
@@ -69,7 +69,7 @@
   animation: sidebarSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   scrollbar-width: thin;
-  scrollbar-color: #3b4252 transparent;
+  scrollbar-color: var(--c-border2) transparent;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -91,12 +91,12 @@
 }
 
 .modal-sidebar::-webkit-scrollbar-thumb {
-  background: #3b4252;
+  background: var(--c-border2);
   border-radius: 3px;
 }
 
 .modal-sidebar::-webkit-scrollbar-thumb:hover {
-  background: #434c5e;
+  background: #C8B6D8;
 }
 
 .modal-sidebar-labels {
@@ -114,17 +114,17 @@
 .sidebar-section-title {
   font-size: 0.688rem;
   font-family: 'Courier New', monospace;
-  color: #81a1c1;
+  color: #8262B2;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #2e3440;
+  border-bottom: 1px solid var(--c-border);
 }
 
 .delete-modal {
-  background: #1a1d24;
-  border: 1px solid #2e3440;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   padding: 1.25rem;
   max-width: 24rem;
@@ -140,7 +140,7 @@
   align-items: flex-start;
   justify-content: space-between;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid #2e3440;
+  border-bottom: 1px solid var(--c-border);
 }
 
 .modal-title-section {
@@ -152,7 +152,7 @@
 .modal-title {
   font-size: 1rem;
   font-weight: 400;
-  color: #e5e9f0;
+  color: var(--c-text);
   font-family: 'Courier New', monospace;
 }
 
@@ -160,14 +160,14 @@
   margin-top: 0.25rem;
   font-size: 0.688rem;
   font-family: 'Courier New', monospace;
-  color: #81a1c1;
+  color: #8262B2;
 }
 
 .modal-close {
   flex-shrink: 0;
   font-size: 1.5rem;
   line-height: 1;
-  color: #81a1c1;
+  color: #8262B2;
   transition: color 0.1s ease;
   background: none;
   border: none;
@@ -176,7 +176,7 @@
 }
 
 .modal-close:hover {
-  color: #e5e9f0;
+  color: var(--c-text);
 }
 
 /* Body (Main Content) */
@@ -185,7 +185,7 @@
   overflow-y: auto;
   padding: 1rem 1.25rem;
   scrollbar-width: thin;
-  scrollbar-color: #3b4252 transparent;
+  scrollbar-color: var(--c-border2) transparent;
 }
 
 .modal-body::-webkit-scrollbar {
@@ -197,12 +197,12 @@
 }
 
 .modal-body::-webkit-scrollbar-thumb {
-  background: #3b4252;
+  background: var(--c-border2);
   border-radius: 3px;
 }
 
 .modal-body::-webkit-scrollbar-thumb:hover {
-  background: #434c5e;
+  background: #C8B6D8;
 }
 
 /* Main Content Sections */
@@ -217,7 +217,7 @@
 .modal-section-title {
   font-size: 0.688rem;
   font-family: 'Courier New', monospace;
-  color: #81a1c1;
+  color: #8262B2;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
@@ -226,22 +226,22 @@
 .description-box {
   min-height: 70px;
   padding: 0.75rem;
-  background: #242933;
-  border: 1px solid #2e3440;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .description-box:hover {
-  border-color: #3b4252;
-  background: #282e38;
+  border-color: var(--c-border2);
+  background: var(--c-surface2);
 }
 
 .description-text {
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   white-space: pre-wrap;
   line-height: 1.5;
 }
@@ -249,17 +249,17 @@
 .description-placeholder {
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #616e88;
+  color: var(--c-text3);
 }
 
 .info-button {
   padding: 0.5rem 0.75rem;
-  background: #242933;
-  border: 1px solid #2e3440;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   cursor: pointer;
   transition: all 0.1s ease;
   display: inline-flex;
@@ -268,20 +268,20 @@
 }
 
 .info-button:hover {
-  border-color: #3b4252;
-  background: #282e38;
+  border-color: var(--c-border2);
+  background: var(--c-surface2);
 }
 
 /* Date Input Button */
 .date-input-button {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  background: #242933;
-  border: 1px solid #2e3440;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   cursor: pointer;
   transition: all 0.1s ease;
   display: flex;
@@ -291,12 +291,12 @@
 }
 
 .date-input-button:hover {
-  border-color: #3b4252;
-  background: #282e38;
+  border-color: var(--c-border2);
+  background: var(--c-surface2);
 }
 
 .date-input-button svg {
-  color: #81a1c1;
+  color: #8262B2;
 }
 
 /* Custom Calendar */
@@ -305,8 +305,8 @@
   top: calc(100% + 0.5rem);
   left: 0;
   right: 0;
-  background: #1a1d24;
-  border: 1px solid #2e3440;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   padding: 0.75rem;
   z-index: 100;
@@ -320,13 +320,13 @@
   justify-content: space-between;
   margin-bottom: 0.75rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #2e3440;
+  border-bottom: 1px solid var(--c-border);
 }
 
 .calendar-month-year {
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #e5e9f0;
+  color: var(--c-text);
   font-weight: 500;
 }
 
@@ -342,16 +342,16 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid #2e3440;
+  border: 1px solid var(--c-border);
   border-radius: 3px;
-  color: #81a1c1;
+  color: #8262B2;
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .calendar-nav-btn:hover {
-  background: #242933;
-  border-color: #3b4252;
+  background: var(--c-surface2);
+  border-color: var(--c-border2);
 }
 
 .calendar-weekdays {
@@ -365,7 +365,7 @@
   text-align: center;
   font-size: 0.688rem;
   font-family: 'Courier New', monospace;
-  color: #616e88;
+  color: var(--c-text3);
   padding: 0.25rem;
   font-weight: 600;
 }
@@ -387,48 +387,48 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 3px;
-  color: #d8dee9;
+  color: var(--c-text2);
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .calendar-day:hover:not(:disabled) {
-  background: #242933;
-  border-color: #3b4252;
+  background: var(--c-surface2);
+  border-color: var(--c-border2);
 }
 
 .calendar-day:disabled {
-  color: #434c5e;
+  color: #C8B6D8;
   cursor: not-allowed;
 }
 
 .calendar-day-other {
-  color: #3b4252;
+  color: var(--c-border2);
 }
 
 .calendar-day-today {
-  border-color: #5e81ac;
-  color: #5e81ac;
+  border-color: #7452A6;
+  color: #7452A6;
   font-weight: 600;
 }
 
 .calendar-day-selected {
-  background: #5e81ac;
-  border-color: #5e81ac;
-  color: #eceff4;
+  background: #7452A6;
+  border-color: #7452A6;
+  color: var(--c-text);
   font-weight: 600;
 }
 
 .calendar-day-selected:hover {
-  background: #81a1c1;
-  border-color: #81a1c1;
+  background: #8262B2;
+  border-color: #8262B2;
 }
 
 .calendar-footer {
   display: flex;
   gap: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #2e3440;
+  border-top: 1px solid var(--c-border);
 }
 
 .calendar-btn-clear,
@@ -444,24 +444,24 @@
 
 .calendar-btn-clear {
   background: transparent;
-  border: 1px solid #3b4252;
-  color: #d8dee9;
+  border: 1px solid var(--c-border2);
+  color: var(--c-text2);
 }
 
 .calendar-btn-clear:hover {
-  background: #242933;
-  border-color: #434c5e;
+  background: var(--c-surface2);
+  border-color: #C8B6D8;
 }
 
 .calendar-btn-today {
-  background: #5e81ac;
-  border: 1px solid #5e81ac;
-  color: #eceff4;
+  background: #7452A6;
+  border: 1px solid #7452A6;
+  color: var(--c-text);
 }
 
 .calendar-btn-today:hover {
-  background: #81a1c1;
-  border-color: #81a1c1;
+  background: #8262B2;
+  border-color: #8262B2;
 }
 
 /* Footer */
@@ -471,7 +471,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.875rem 1.25rem;
-  border-top: 1px solid #2e3440;
+  border-top: 1px solid var(--c-border);
 }
 
 .btn-delete {
@@ -493,18 +493,18 @@
 .btn-cancel {
   padding: 0.5rem 0.875rem;
   background: transparent;
-  border: 1px solid #3b4252;
+  border: 1px solid var(--c-border2);
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .btn-cancel:hover:not(:disabled) {
-  background: #242933;
-  border-color: #434c5e;
+  background: var(--c-surface2);
+  border-color: #C8B6D8;
 }
 
 .btn-cancel:disabled {
@@ -515,20 +515,20 @@
 .btn-save,
 .btn-edit {
   padding: 0.5rem 0.875rem;
-  background: #5e81ac;
-  border: 1px solid #5e81ac;
+  background: #7452A6;
+  border: 1px solid #7452A6;
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #eceff4;
+  color: var(--c-text);
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .btn-save:hover:not(:disabled),
 .btn-edit:hover {
-  background: #81a1c1;
-  border-color: #81a1c1;
+  background: #8262B2;
+  border-color: #8262B2;
 }
 
 .btn-save:disabled {
@@ -543,7 +543,7 @@
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #eceff4;
+  color: var(--c-text);
   cursor: pointer;
   transition: all 0.1s ease;
 }
@@ -612,7 +612,7 @@
 .modal-section-title {
   font-size: 0.7rem;
   font-family: 'Courier New', monospace;
-  color: #81a1c1;
+  color: #8262B2;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.625rem;
@@ -621,22 +621,22 @@
 .description-box {
   min-height: 80px;
   padding: 0.75rem;
-  background: #242933;
-  border: 1px solid #2e3440;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .description-box:hover {
-  border-color: #3b4252;
-  background: #282e38;
+  border-color: var(--c-border2);
+  background: var(--c-surface2);
 }
 
 .description-text {
   font-size: 0.813rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   white-space: pre-wrap;
   line-height: 1.5;
 }
@@ -644,17 +644,17 @@
 .description-placeholder {
   font-size: 0.813rem;
   font-family: 'Courier New', monospace;
-  color: #616e88;
+  color: var(--c-text3);
 }
 
 .info-button {
   padding: 0.5rem 0.75rem;
-  background: #242933;
-  border: 1px solid #2e3440;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   cursor: pointer;
   transition: all 0.1s ease;
   display: inline-flex;
@@ -663,20 +663,20 @@
 }
 
 .info-button:hover {
-  border-color: #3b4252;
-  background: #282e38;
+  border-color: var(--c-border2);
+  background: var(--c-surface2);
 }
 
 /* Custom Date Input Button */
 .date-input-button {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  background: #242933;
-  border: 1px solid #2e3440;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   cursor: pointer;
   transition: all 0.1s ease;
   display: flex;
@@ -686,12 +686,12 @@
 }
 
 .date-input-button:hover {
-  border-color: #3b4252;
-  background: #282e38;
+  border-color: var(--c-border2);
+  background: var(--c-surface2);
 }
 
 .date-input-button svg {
-  color: #81a1c1;
+  color: #8262B2;
 }
 
 /* Custom Calendar */
@@ -700,8 +700,8 @@
   top: calc(100% + 0.5rem);
   left: 0;
   right: 0;
-  background: #1a1d24;
-  border: 1px solid #2e3440;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   padding: 0.75rem;
   z-index: 200;
@@ -716,13 +716,13 @@
   justify-content: space-between;
   margin-bottom: 0.75rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #2e3440;
+  border-bottom: 1px solid var(--c-border);
 }
 
 .calendar-month-year {
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #e5e9f0;
+  color: var(--c-text);
   font-weight: 500;
 }
 
@@ -738,16 +738,16 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid #2e3440;
+  border: 1px solid var(--c-border);
   border-radius: 3px;
-  color: #81a1c1;
+  color: #8262B2;
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .calendar-nav-btn:hover {
-  background: #242933;
-  border-color: #3b4252;
+  background: var(--c-surface2);
+  border-color: var(--c-border2);
 }
 
 .calendar-weekdays {
@@ -761,7 +761,7 @@
   text-align: center;
   font-size: 0.65rem;
   font-family: 'Courier New', monospace;
-  color: #616e88;
+  color: var(--c-text3);
   padding: 0.25rem;
   font-weight: 600;
 }
@@ -783,48 +783,48 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 3px;
-  color: #d8dee9;
+  color: var(--c-text2);
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .calendar-day:hover:not(:disabled) {
-  background: #242933;
-  border-color: #3b4252;
+  background: var(--c-surface2);
+  border-color: var(--c-border2);
 }
 
 .calendar-day:disabled {
-  color: #434c5e;
+  color: #C8B6D8;
   cursor: not-allowed;
 }
 
 .calendar-day-other {
-  color: #3b4252;
+  color: var(--c-border2);
 }
 
 .calendar-day-today {
-  border-color: #5e81ac;
-  color: #5e81ac;
+  border-color: #7452A6;
+  color: #7452A6;
   font-weight: 600;
 }
 
 .calendar-day-selected {
-  background: #5e81ac;
-  border-color: #5e81ac;
-  color: #eceff4;
+  background: #7452A6;
+  border-color: #7452A6;
+  color: var(--c-text);
   font-weight: 600;
 }
 
 .calendar-day-selected:hover {
-  background: #81a1c1;
-  border-color: #81a1c1;
+  background: #8262B2;
+  border-color: #8262B2;
 }
 
 .calendar-footer {
   display: flex;
   gap: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #2e3440;
+  border-top: 1px solid var(--c-border);
 }
 
 .calendar-btn-clear,
@@ -840,24 +840,24 @@
 
 .calendar-btn-clear {
   background: transparent;
-  border: 1px solid #3b4252;
-  color: #d8dee9;
+  border: 1px solid var(--c-border2);
+  color: var(--c-text2);
 }
 
 .calendar-btn-clear:hover {
-  background: #242933;
-  border-color: #434c5e;
+  background: var(--c-surface2);
+  border-color: #C8B6D8;
 }
 
 .calendar-btn-today {
-  background: #5e81ac;
-  border: 1px solid #5e81ac;
-  color: #eceff4;
+  background: #7452A6;
+  border: 1px solid #7452A6;
+  color: var(--c-text);
 }
 
 .calendar-btn-today:hover {
-  background: #81a1c1;
-  border-color: #81a1c1;
+  background: #8262B2;
+  border-color: #8262B2;
 }
 
 .modal-footer {
@@ -866,7 +866,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.875rem 1.25rem;
-  border-top: 1px solid #2e3440;
+  border-top: 1px solid var(--c-border);
 }
 
 .btn-delete {
@@ -888,18 +888,18 @@
 .btn-cancel {
   padding: 0.5rem 0.875rem;
   background: transparent;
-  border: 1px solid #3b4252;
+  border: 1px solid var(--c-border2);
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .btn-cancel:hover:not(:disabled) {
-  background: #242933;
-  border-color: #434c5e;
+  background: var(--c-surface2);
+  border-color: #C8B6D8;
 }
 
 .btn-cancel:disabled {
@@ -910,20 +910,20 @@
 .btn-save,
 .btn-edit {
   padding: 0.5rem 0.875rem;
-  background: #5e81ac;
-  border: 1px solid #5e81ac;
+  background: #7452A6;
+  border: 1px solid #7452A6;
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #eceff4;
+  color: var(--c-text);
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .btn-save:hover:not(:disabled),
 .btn-edit:hover {
-  background: #81a1c1;
-  border-color: #81a1c1;
+  background: #8262B2;
+  border-color: #8262B2;
 }
 
 .btn-save:disabled {
@@ -938,7 +938,7 @@
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #eceff4;
+  color: var(--c-text);
   cursor: pointer;
   transition: all 0.1s ease;
 }

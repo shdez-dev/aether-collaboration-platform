@@ -15,10 +15,10 @@ const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
 const BRAND_AVATARS = [
-  { bg: '#4B607F', t: 'M' },
-  { bg: '#76A878', t: 'D' },
-  { bg: '#DB8A66', t: 'S' },
-  { bg: '#8C7C9E', t: 'A' },
+  { bg: '#8076A7', t: 'M' },
+  { bg: '#548B73', t: 'D' },
+  { bg: '#A97556', t: 'S' },
+  { bg: '#8262B2', t: 'A' },
 ];
 
 function FieldError({ message }: { message: string }) {
@@ -152,19 +152,19 @@ export default function RegisterPage() {
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
           <span style={{
             width: '34px', height: '34px', borderRadius: '10px',
-            background: '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            boxShadow: '0 4px 14px -4px rgba(242,87,30,0.6)',
+            background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            boxShadow: '0 4px 14px -4px rgba(116,82,166,0.6)',
           }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4.5 L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 4.5 L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
-              <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
-              <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+              <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 4.5 L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
+              <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
+              <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
             </svg>
           </span>
-          <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: '#ECE5D6', letterSpacing: '-0.015em' }}>Aether</span>
+          <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
         </Link>
 
         <div style={{ marginTop: 'auto', marginBottom: 'auto', paddingTop: '60px' }}>
@@ -172,14 +172,14 @@ export default function RegisterPage() {
             fontFamily: SORA, fontWeight: 700,
             fontSize: 'clamp(1.9rem, 2.6vw, 2.5rem)',
             letterSpacing: '-0.03em', lineHeight: 1.1,
-            color: '#F4EEE2', margin: '0 0 18px',
+            color: 'var(--c-text)', margin: '0 0 18px',
           }}>
             Crea tu espacio{' '}
-            <span style={{ background: '#F2571E', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span style={{ background: '#7452A6', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               en segundos.
             </span>
           </h2>
-          <p style={{ fontFamily: MANROPE, fontSize: '15px', lineHeight: 1.65, color: '#9C9486', margin: 0, maxWidth: '320px' }}>
+          <p style={{ fontFamily: MANROPE, fontSize: '15px', lineHeight: 1.65, color: 'var(--c-text2)', margin: 0, maxWidth: '320px' }}>
             Sin configurar nada. Sin tutoriales. Abre, invita a tu equipo y empieza a trabajar.
           </p>
 
@@ -190,8 +190,8 @@ export default function RegisterPage() {
               { icon: '◉', label: 'Tu equipo siempre conectado' },
             ].map(item => (
               <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '14px', color: '#F2571E', flexShrink: 0 }}>{item.icon}</span>
-                <span style={{ fontFamily: MANROPE, fontSize: '14px', color: '#9C9486' }}>{item.label}</span>
+                <span style={{ fontSize: '14px', color: 'var(--c-accent-text)', flexShrink: 0 }}>{item.icon}</span>
+                <span style={{ fontFamily: MANROPE, fontSize: '14px', color: 'var(--c-text2)' }}>{item.label}</span>
               </div>
             ))}
           </div>
@@ -210,7 +210,7 @@ export default function RegisterPage() {
               }}>{av.t}</span>
             ))}
           </div>
-          <span style={{ fontFamily: MANROPE, fontSize: '12px', color: '#615846', lineHeight: 1.4 }}>
+          <span style={{ fontFamily: MANROPE, fontSize: '12px', color: 'var(--c-text4)', lineHeight: 1.4 }}>
             Únete a miles de equipos que ya trabajan con Aether
           </span>
         </div>
@@ -223,11 +223,11 @@ export default function RegisterPage() {
           {/* Back link */}
           <Link href="/" style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
-            fontFamily: MANROPE, fontSize: '13px', color: '#615846',
+            fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text4)',
             textDecoration: 'none', marginBottom: '36px',
           }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text2)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text4)')}
           >
             ← Volver
           </Link>
@@ -235,11 +235,11 @@ export default function RegisterPage() {
           {/* Header */}
           <h1 style={{
             fontFamily: SORA, fontWeight: 700, fontSize: '28px',
-            letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 8px',
+            letterSpacing: '-0.025em', color: 'var(--c-text)', margin: '0 0 8px',
           }}>
             Crear cuenta
           </h1>
-          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: '#9C9486', margin: '0 0 32px' }}>
+          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: 'var(--c-text2)', margin: '0 0 32px' }}>
             Empieza a colaborar con tu equipo hoy.
           </p>
 
@@ -250,7 +250,7 @@ export default function RegisterPage() {
             <div style={{ marginBottom: '16px' }}>
               <label htmlFor="name" style={{
                 display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--c-text2)', marginBottom: '8px',
               }}>
                 {t.register_label_name}
               </label>
@@ -271,7 +271,7 @@ export default function RegisterPage() {
             <div style={{ marginBottom: '16px' }}>
               <label htmlFor="email" style={{
                 display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--c-text2)', marginBottom: '8px',
               }}>
                 {t.register_label_email}
               </label>
@@ -292,7 +292,7 @@ export default function RegisterPage() {
             <div style={{ marginBottom: '16px' }}>
               <label htmlFor="password" style={{
                 display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--c-text2)', marginBottom: '8px',
               }}>
                 {t.register_label_password}
               </label>
@@ -308,7 +308,7 @@ export default function RegisterPage() {
               />
               {touched.password && errors.password
                 ? <FieldError message={errors.password} />
-                : <p style={{ fontFamily: MANROPE, fontSize: '11px', color: '#615846', marginTop: '6px', marginBottom: 0 }}>
+                : <p style={{ fontFamily: MANROPE, fontSize: '11px', color: 'var(--c-text4)', marginTop: '6px', marginBottom: 0 }}>
                     {t.register_password_hint}
                   </p>
               }
@@ -318,7 +318,7 @@ export default function RegisterPage() {
             <div style={{ marginBottom: '28px' }}>
               <label htmlFor="confirmPassword" style={{
                 display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--c-text2)', marginBottom: '8px',
               }}>
                 {t.register_label_confirm}
               </label>
@@ -353,7 +353,7 @@ export default function RegisterPage() {
               disabled={isLoading}
               style={{
                 width: '100%', padding: '13px', borderRadius: '8px',
-                background: '#F2571E', color: '#24180A', border: 'none',
+                background: '#7452A6', color: '#FFFFFF', border: 'none',
                 cursor: isLoading ? 'not-allowed' : 'pointer',
                 fontFamily: SORA, fontWeight: 600, fontSize: '15px',
                 opacity: isLoading ? 0.6 : 1,
@@ -366,13 +366,13 @@ export default function RegisterPage() {
           {/* Login link */}
           <div style={{
             marginTop: '24px', paddingTop: '20px',
-            borderTop: '1px solid rgba(255,255,255,0.06)',
+            borderTop: '1px solid rgba(97,71,130,0.06)',
             textAlign: 'center',
           }}>
-            <span style={{ fontFamily: MANROPE, fontSize: '13px', color: '#615846' }}>
+            <span style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text4)' }}>
               {t.register_has_account}{' '}
             </span>
-            <Link href="/login" style={{ fontFamily: MANROPE, fontSize: '13px', color: '#F2571E', textDecoration: 'none' }}
+            <Link href="/login" style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-accent-text)', textDecoration: 'none' }}
               onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
             >

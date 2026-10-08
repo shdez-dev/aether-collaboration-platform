@@ -43,6 +43,10 @@ class UserController {
       }
 
       const pattern = `%${q}%`;
+      const requestedLimit = Number(req.query.limit);
+      const limit = Number.isFinite(requestedLimit)
+        ? Math.min(50, Math.max(1, Math.trunc(requestedLimit)))
+        : 8;
 
       const result = await pool.query(
         `SELECT
@@ -67,8 +71,8 @@ class UserController {
                 ELSE 2
            END,
            name ASC
-         LIMIT 8`,
-        [userId, pattern, q]
+         LIMIT $4`,
+        [userId, pattern, q, limit]
       );
 
       return res.json({

@@ -66,7 +66,7 @@ const Toast = React.forwardRef<
         borderLeft:    `3px solid ${accent}`,
         borderRadius:  '10px',
         padding:       '12px 36px 12px 14px',
-        boxShadow:     '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03)',
+        boxShadow:     '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(97,71,130,0.03)',
         backdropFilter: 'blur(12px)',
         ...style,
       }}

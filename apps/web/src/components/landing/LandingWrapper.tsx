@@ -11,6 +11,7 @@ export function LandingWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let cancelled = false;
 
     // ── Reveals de entrada — se configuran de inmediato para evitar parpadeo ──
     let ctx: gsap.Context | undefined;
@@ -52,6 +53,7 @@ export function LandingWrapper({ children }: { children: React.ReactNode }) {
     // ── Scroll suave (Lenis) ──
     (async () => {
       const { default: Lenis } = await import('lenis');
+      if (cancelled) return;
       const lenis = new Lenis({
         duration: 1.15,
         easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -71,13 +73,13 @@ export function LandingWrapper({ children }: { children: React.ReactNode }) {
     })();
 
     return () => {
+      cancelled = true;
       if (ctx) ctx.revert();
       if (lenisRef.current) {
         const l = lenisRef.current as { destroy?: () => void; __ticker?: (t: number) => void };
         if (l.__ticker) gsap.ticker.remove(l.__ticker);
         if (l.destroy) l.destroy();
       }
-      ScrollTrigger.getAll().forEach((st) => st.kill());
     };
   }, []);
 

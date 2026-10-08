@@ -10,7 +10,7 @@ import { useProjectStore, type Project } from '@/stores/projectStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { markStepDone } from '@/lib/utils/onboardingGuide';
 
-const PROJECT_COLOR = '#F2571E';
+const PROJECT_COLOR = '#7452A6';
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
@@ -129,24 +129,24 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
           aria-labelledby="create-project-title"
           onClick={(event) => event.stopPropagation()}
           className="create-project-panel"
-          style={{ width: '100%', maxWidth: 560, maxHeight: 'min(92vh, 790px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, background: '#171E30', boxShadow: '0 32px 90px rgba(0,0,0,0.56)', animation: `${closing ? 'createProjectPanelOut' : 'createProjectPanelIn'} 220ms cubic-bezier(.2,.75,.25,1) both` }}
+          style={{ width: '100%', maxWidth: 560, maxHeight: 'min(92vh, 790px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid rgba(97,71,130,0.1)', borderRadius: 16, background: 'var(--c-surface)', boxShadow: '0 32px 90px rgba(0,0,0,0.56)', animation: `${closing ? 'createProjectPanelOut' : 'createProjectPanelIn'} 220ms cubic-bezier(.2,.75,.25,1) both` }}
         >
-          <header style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '22px 24px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <div style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 12, color: PROJECT_COLOR, background: 'rgba(242,87,30,0.1)', border: '1px solid rgba(242,87,30,0.2)' }}><FolderKanban size={19} strokeWidth={1.8} /></div>
+          <header style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '22px 24px 18px', borderBottom: '1px solid rgba(97,71,130,0.07)' }}>
+            <div style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 12, color: PROJECT_COLOR, background: 'rgba(116,82,166,0.1)', border: '1px solid rgba(116,82,166,0.2)' }}><FolderKanban size={19} strokeWidth={1.8} /></div>
             <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
-              <h2 id="create-project-title" style={{ margin: 0, color: '#F4EEE2', fontSize: 19, lineHeight: 1.3, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: SORA }}>Crear proyecto</h2>
-              <p style={{ margin: '5px 0 0', color: '#9C9486', fontSize: 13, lineHeight: 1.5, fontFamily: MANROPE }}>Contexto, impacto y propuesta en tres pasos.</p>
+              <h2 id="create-project-title" style={{ margin: 0, color: 'var(--c-text)', fontSize: 19, lineHeight: 1.3, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: SORA }}>Crear proyecto</h2>
+              <p style={{ margin: '5px 0 0', color: 'var(--c-text2)', fontSize: 13, lineHeight: 1.5, fontFamily: MANROPE }}>Contexto, impacto y propuesta en tres pasos.</p>
             </div>
-            <button type="button" onClick={handleClose} aria-label="Cerrar" disabled={isLoading} style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, color: '#9C9486', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', cursor: isLoading ? 'not-allowed' : 'pointer' }}><X size={16} /></button>
+            <button type="button" onClick={handleClose} aria-label="Cerrar" disabled={isLoading} style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, color: 'var(--c-text2)', background: 'transparent', border: '1px solid rgba(97,71,130,0.08)', cursor: isLoading ? 'not-allowed' : 'pointer' }}><X size={16} /></button>
           </header>
 
           <form onSubmit={handleSubmit} style={{ minHeight: 0, display: 'flex', flex: 1, flexDirection: 'column' }}>
             <div style={{ padding: '18px 24px 10px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }} aria-label="Pasos para crear proyecto">
                 {PROPOSAL_STEPS.map((item, index) => (
-                  <div key={item.title} aria-current={index === step ? 'step' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, padding: '8px 9px', borderRadius: 9, border: `1px solid ${index === step ? 'rgba(242,87,30,0.34)' : 'rgba(255,255,255,0.07)'}`, background: index === step ? 'rgba(242,87,30,0.09)' : 'transparent' }}>
-                    <span style={{ width: 22, height: 22, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 99, color: index <= step ? PROJECT_COLOR : '#777365', background: index <= step ? 'rgba(242,87,30,0.12)' : 'rgba(255,255,255,0.04)', fontSize: 10, fontWeight: 800 }}>{index < step ? <Check size={12} /> : `0${index + 1}`}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', color: index === step ? '#F4EEE2' : '#9C9486', fontSize: 11, fontWeight: 700 }}>{item.title}</span>
+                  <div key={item.title} aria-current={index === step ? 'step' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, padding: '8px 9px', borderRadius: 9, border: `1px solid ${index === step ? 'rgba(116,82,166,0.34)' : 'rgba(97,71,130,0.07)'}`, background: index === step ? 'rgba(116,82,166,0.09)' : 'transparent' }}>
+                    <span style={{ width: 22, height: 22, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 99, color: index <= step ? PROJECT_COLOR : '#777365', background: index <= step ? 'rgba(116,82,166,0.12)' : 'rgba(97,71,130,0.04)', fontSize: 10, fontWeight: 800 }}>{index < step ? <Check size={12} /> : `0${index + 1}`}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', color: index === step ? 'var(--c-text)' : 'var(--c-text2)', fontSize: 11, fontWeight: 700 }}>{item.title}</span>
                   </div>
                 ))}
               </div>
@@ -154,29 +154,29 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
             <div style={{ minHeight: 0, padding: '8px 24px 24px', overflowY: 'auto' }}>
               <div style={{ marginBottom: 18 }}>
-                <h3 style={{ margin: '4px 0 5px', color: '#F4EEE2', fontFamily: SORA, fontSize: 16, letterSpacing: '-0.02em' }}>{PROPOSAL_STEPS[step].title}</h3>
-                <p style={{ margin: 0, color: '#9C9486', fontSize: 12, lineHeight: 1.5 }}>{PROPOSAL_STEPS[step].description}</p>
+                <h3 style={{ margin: '4px 0 5px', color: 'var(--c-text)', fontFamily: SORA, fontSize: 16, letterSpacing: '-0.02em' }}>{PROPOSAL_STEPS[step].title}</h3>
+                <p style={{ margin: 0, color: 'var(--c-text2)', fontSize: 12, lineHeight: 1.5 }}>{PROPOSAL_STEPS[step].description}</p>
               </div>
 
               {step === 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <label htmlFor="create-project-workspace" style={{ display: 'block', marginBottom: 8, color: '#C8BFAE', fontSize: 12, fontWeight: 700, fontFamily: MANROPE }}>Espacio de trabajo <span style={{ color: PROJECT_COLOR }}>*</span></label>
+                  <label htmlFor="create-project-workspace" style={{ display: 'block', marginBottom: 8, color: 'var(--c-text2)', fontSize: 12, fontWeight: 700, fontFamily: MANROPE }}>Espacio de trabajo <span style={{ color: PROJECT_COLOR }}>*</span></label>
                   {projectWorkspaces.length > 1 ? (
                     <div style={{ position: 'relative' }}>
-                      <select id="create-project-workspace" required value={selectedWorkspaceId} onChange={(event) => { setSelectedWorkspaceId(event.target.value); if (error) setError(''); }} className="create-project-input" style={{ width: '100%', height: 46, boxSizing: 'border-box', appearance: 'none', padding: '0 42px 0 13px', borderRadius: 9, background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.1)', color: '#F4EEE2', colorScheme: 'dark', fontSize: 13, fontFamily: MANROPE }}>
+                      <select id="create-project-workspace" required value={selectedWorkspaceId} onChange={(event) => { setSelectedWorkspaceId(event.target.value); if (error) setError(''); }} className="create-project-input" style={{ width: '100%', height: 46, boxSizing: 'border-box', appearance: 'none', padding: '0 42px 0 13px', borderRadius: 9, background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.1)', color: 'var(--c-text)', colorScheme: 'light', fontSize: 13, fontFamily: MANROPE }}>
                         <option value="" disabled>Selecciona dónde guardar el proyecto</option>
                         {projectWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
                       </select>
-                      <ChevronDown size={16} aria-hidden="true" style={{ position: 'absolute', top: 15, right: 13, color: '#9C9486', pointerEvents: 'none' }} />
+                      <ChevronDown size={16} aria-hidden="true" style={{ position: 'absolute', top: 15, right: 13, color: 'var(--c-text2)', pointerEvents: 'none' }} />
                     </div>
                   ) : selectedWorkspace ? (
-                    <div style={{ minHeight: 46, display: 'flex', alignItems: 'center', gap: 11, padding: '0 13px', borderRadius: 9, background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ minHeight: 46, display: 'flex', alignItems: 'center', gap: 11, padding: '0 13px', borderRadius: 9, background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.08)' }}>
                       <span style={{ width: 27, height: 27, display: 'grid', placeItems: 'center', flexShrink: 0, borderRadius: 8, color: selectedWorkspace.color ?? PROJECT_COLOR, background: `${selectedWorkspace.color ?? PROJECT_COLOR}1A` }}><WorkspaceIcon icon={selectedWorkspace.icon ?? 'Folder'} style={{ width: 14, height: 14 }} /></span>
-                      <span style={{ minWidth: 0, flex: 1, color: '#E8E1D2', fontSize: 13, fontWeight: 600, fontFamily: MANROPE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedWorkspace.name}</span>
+                      <span style={{ minWidth: 0, flex: 1, color: 'var(--c-text)', fontSize: 13, fontWeight: 600, fontFamily: MANROPE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedWorkspace.name}</span>
                       <Check size={16} aria-label="Espacio seleccionado" style={{ color: PROJECT_COLOR, flexShrink: 0 }} />
                     </div>
                   ) : (
-                    <div style={{ minHeight: 46, display: 'flex', alignItems: 'center', padding: '10px 13px', borderRadius: 9, color: '#9C9486', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 12, lineHeight: 1.45, fontFamily: MANROPE }}>
+                    <div style={{ minHeight: 46, display: 'flex', alignItems: 'center', padding: '10px 13px', borderRadius: 9, color: 'var(--c-text2)', background: 'rgba(97,71,130,0.025)', border: '1px solid rgba(97,71,130,0.08)', fontSize: 12, lineHeight: 1.45, fontFamily: MANROPE }}>
                       No hay espacios personales o de equipo disponibles para crear proyectos.
                     </div>
                   )}
@@ -184,22 +184,22 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
               )}
 
               {projectWorkspaces.length > 0 ? <ProjectProposalFields step={step} values={proposal} onChange={updateProposal} accent={PROJECT_COLOR} /> : (
-                <div style={{ padding: '16px', borderRadius: 11, border: '1px solid rgba(242,87,30,0.2)', background: 'rgba(242,87,30,0.06)' }}>
+                <div style={{ padding: '16px', borderRadius: 11, border: '1px solid rgba(116,82,166,0.2)', background: 'rgba(116,82,166,0.06)' }}>
                   <p style={{ margin: '0 0 12px', color: '#D8D1C5', fontSize: 13, lineHeight: 1.55 }}>En una organización institucional, las propuestas pasan por la bandeja de iniciativas antes de convertirse en proyectos.</p>
                   {hasInstitutionalWorkspace && <Link href="/dashboard/initiatives/new" onClick={handleClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: PROJECT_COLOR, fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>Crear iniciativa institucional <ArrowRight size={14} /></Link>}
                 </div>
               )}
 
-              {error && <p role="alert" style={{ margin: '16px 0 0', padding: '10px 12px', borderRadius: 9, color: '#F2A19A', background: 'rgba(184,92,92,0.1)', border: '1px solid rgba(184,92,92,0.24)', fontSize: 12.5, lineHeight: 1.45, fontFamily: MANROPE }}>{error}</p>}
+              {error && <p role="alert" style={{ margin: '16px 0 0', padding: '10px 12px', borderRadius: 9, color: '#9F455F', background: 'rgba(184,92,92,0.1)', border: '1px solid rgba(184,92,92,0.24)', fontSize: 12.5, lineHeight: 1.45, fontFamily: MANROPE }}>{error}</p>}
             </div>
 
-            <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.015)' }}>
+            <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '14px 24px', borderTop: '1px solid rgba(97,71,130,0.07)', background: 'rgba(97,71,130,0.015)' }}>
               <span style={{ color: '#777365', fontSize: 11.5, lineHeight: 1.4, fontFamily: MANROPE }}>Paso {step + 1} de 3</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
-                {step > 0 && <button type="button" onClick={() => setStep((current) => (current - 1) as ProposalStep)} disabled={isLoading} style={{ height: 40, padding: '0 14px', borderRadius: 9, color: '#C8BFAE', background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}><ArrowLeft size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Anterior</button>}
-                {step === 0 && <button type="button" onClick={handleClose} disabled={isLoading} style={{ height: 40, padding: '0 15px', borderRadius: 9, color: '#C8BFAE', background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}>{t.btn_cancel}</button>}
-                <button type="submit" disabled={!projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit)} className="create-project-action" style={{ height: 40, minWidth: 130, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 15px', borderRadius: 9, color: '#20150E', background: PROJECT_COLOR, border: 0, cursor: !projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit) ? 'not-allowed' : 'pointer', opacity: !projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit) ? 0.4 : 1, fontSize: 12.5, fontWeight: 700, fontFamily: SORA }}>
-                  {isLoading ? <><span style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(32,21,14,0.3)', borderTopColor: '#20150E', animation: 'createProjectSpin 650ms linear infinite' }} />{t.btn_creating}</> : step === 2 ? <><Plus size={15} strokeWidth={2.2} />Crear proyecto</> : <>Continuar<ArrowRight size={14} /></>}
+                {step > 0 && <button type="button" onClick={() => setStep((current) => (current - 1) as ProposalStep)} disabled={isLoading} style={{ height: 40, padding: '0 14px', borderRadius: 9, color: 'var(--c-text2)', background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}><ArrowLeft size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Anterior</button>}
+                {step === 0 && <button type="button" onClick={handleClose} disabled={isLoading} style={{ height: 40, padding: '0 15px', borderRadius: 9, color: 'var(--c-text2)', background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}>{t.btn_cancel}</button>}
+                <button type="submit" disabled={!projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit)} className="create-project-action" style={{ height: 40, minWidth: 130, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 15px', borderRadius: 9, color: '#FFFFFF', background: PROJECT_COLOR, border: 0, cursor: !projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit) ? 'not-allowed' : 'pointer', opacity: !projectWorkspaces.length || (step === 0 && projectWorkspaces.length > 1 && !selectedWorkspaceId) || (step === 2 && !canSubmit) ? 0.4 : 1, fontSize: 12.5, fontWeight: 700, fontFamily: SORA }}>
+                  {isLoading ? <><span style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#FFFFFF', animation: 'createProjectSpin 650ms linear infinite' }} />{t.btn_creating}</> : step === 2 ? <><Plus size={15} strokeWidth={2.2} />Crear proyecto</> : <>Continuar<ArrowRight size={14} /></>}
                 </button>
               </div>
             </footer>

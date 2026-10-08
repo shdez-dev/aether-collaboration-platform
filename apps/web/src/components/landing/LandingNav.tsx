@@ -16,20 +16,20 @@ export function LandingNav() {
       <Link href="/" style={{
         display: 'flex', alignItems: 'center', gap: '11px',
         fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '20px',
-        letterSpacing: '-0.01em', color: '#ECE5D6', textDecoration: 'none',
+        letterSpacing: '-0.01em', color: 'var(--c-text)', textDecoration: 'none',
       }}>
         <span style={{
           width: '30px', height: '30px', borderRadius: '9px',
-          background: '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 6px 18px -6px rgba(242,87,30,0.8)', flexShrink: 0,
+          background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 6px 18px -6px rgba(116,82,166,0.8)', flexShrink: 0,
         }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-            <path d="M12 4.5 L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M12 4.5 L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
-            <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
-            <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+            <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M12 4.5 L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
+            <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
+            <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
           </svg>
         </span>
         Aether
@@ -39,7 +39,7 @@ export function LandingNav() {
         {isAuthenticated ? (
           <Link href="/dashboard" style={{
             padding: '11px 20px', borderRadius: '8px',
-            background: '#F2571E', color: '#24180A',
+            background: '#7452A6', color: '#FFFFFF',
             fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '15px',
             textDecoration: 'none',
           }}>
@@ -48,13 +48,13 @@ export function LandingNav() {
         ) : (
           <>
             <Link href="/login" className="landing-nav-login" style={{
-              fontSize: '15px', color: '#9C9486', fontWeight: 500, textDecoration: 'none',
+              fontSize: '15px', color: 'var(--c-text2)', fontWeight: 500, textDecoration: 'none',
             }}>
               Entrar
             </Link>
             <Link href="/register" style={{
               padding: '11px 20px', borderRadius: '8px',
-              background: '#F2571E', color: '#24180A',
+              background: '#7452A6', color: '#FFFFFF',
               fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '15px',
               textDecoration: 'none',
             }}>

@@ -80,8 +80,8 @@ function CreateDocModal({
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: '420px', margin: '0 20px',
-          background: '#1E2438', borderRadius: '14px',
-          border: '1px solid rgba(255,255,255,0.1)',
+          background: 'var(--c-surface)', borderRadius: '14px',
+          border: '1px solid rgba(97,71,130,0.1)',
           boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
           padding: '24px',
           animation: closing ? 'docModalOut 0.15s ease forwards' : 'docModalIn 0.3s cubic-bezier(0.16,1,0.3,1)',
@@ -90,19 +90,19 @@ function CreateDocModal({
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
           <div style={{
             width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
-            background: 'rgba(242,87,30,0.15)', border: '1px solid rgba(242,87,30,0.25)',
+            background: 'rgba(116,82,166,0.15)', border: '1px solid rgba(116,82,166,0.25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="#F2571E" strokeWidth="1.7" strokeLinejoin="round" width="15" height="15">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#7452A6" strokeWidth="1.7" strokeLinejoin="round" width="15" height="15">
               <path d="M6 3h8l4 4v14H6V3Z"/><path d="M13 3v5h5M9 13h6M9 16.5h6" strokeLinecap="round"/>
             </svg>
           </div>
-          <h2 style={{ fontFamily: SORA, fontSize: '15.5px', fontWeight: 700, color: '#E8E1D2', margin: 0 }}>
+          <h2 style={{ fontFamily: SORA, fontSize: '15.5px', fontWeight: 700, color: 'var(--c-text)', margin: 0 }}>
             Nuevo documento
           </h2>
         </div>
 
-        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#827A6D', marginBottom: '6px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--c-text3)', marginBottom: '6px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           Título
         </label>
         <input
@@ -113,12 +113,12 @@ function CreateDocModal({
           placeholder="Nombre del documento..."
           style={{
             width: '100%', padding: '10px 12px', borderRadius: '8px', boxSizing: 'border-box',
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            color: '#E8E1D2', fontSize: '14px', fontFamily: MANROPE, outline: 'none',
+            background: 'rgba(97,71,130,0.05)', border: '1px solid rgba(97,71,130,0.1)',
+            color: 'var(--c-text)', fontSize: '14px', fontFamily: MANROPE, outline: 'none',
             marginBottom: '20px',
           }}
-          onFocus={e => (e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)')}
-          onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+          onFocus={e => (e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)')}
+          onBlur={e => (e.currentTarget.style.borderColor = 'rgba(97,71,130,0.1)')}
         />
 
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -126,11 +126,11 @@ function CreateDocModal({
             onClick={handleClose}
             style={{
               flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer',
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              color: '#9C9486', fontSize: '13.5px', fontFamily: MANROPE, fontWeight: 500,
+              background: 'rgba(97,71,130,0.05)', border: '1px solid rgba(97,71,130,0.1)',
+              color: 'var(--c-text2)', fontSize: '13.5px', fontFamily: MANROPE, fontWeight: 500,
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(97,71,130,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(97,71,130,0.05)')}
           >
             Cancelar
           </button>
@@ -139,12 +139,12 @@ function CreateDocModal({
             disabled={!title.trim() || loading}
             style={{
               flex: 1, padding: '10px', borderRadius: '8px', cursor: title.trim() && !loading ? 'pointer' : 'not-allowed',
-              background: title.trim() && !loading ? '#F2571E' : 'rgba(242,87,30,0.3)',
+              background: title.trim() && !loading ? '#7452A6' : 'rgba(116,82,166,0.3)',
               border: 'none', color: '#fff', fontSize: '13.5px', fontFamily: MANROPE, fontWeight: 600,
               transition: 'background 0.15s',
             }}
-            onMouseEnter={e => { if (title.trim() && !loading) (e.currentTarget.style.background = '#D94A17'); }}
-            onMouseLeave={e => { if (title.trim() && !loading) (e.currentTarget.style.background = '#F2571E'); }}
+            onMouseEnter={e => { if (title.trim() && !loading) (e.currentTarget.style.background = '#62438F'); }}
+            onMouseLeave={e => { if (title.trim() && !loading) (e.currentTarget.style.background = '#7452A6'); }}
           >
             {loading ? 'Creando…' : 'Crear'}
           </button>
@@ -166,8 +166,8 @@ function DocRow({ doc, wsName, idx, onClick }: { doc: Document; wsName: string; 
       style={{
         display: 'flex', alignItems: 'center', gap: '16px',
         padding: '14px 20px', cursor: 'pointer',
-        background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        background: hov ? 'rgba(97,71,130,0.03)' : 'transparent',
+        borderBottom: '1px solid rgba(97,71,130,0.05)',
         transition: 'background 0.12s',
         animation: `docRowIn 0.28s cubic-bezier(0.22,1,0.36,1) ${0.05 + idx * 0.04}s both`,
       }}
@@ -175,40 +175,40 @@ function DocRow({ doc, wsName, idx, onClick }: { doc: Document; wsName: string; 
       {/* File icon */}
       <div style={{
         width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0,
-        background: 'rgba(242,87,30,0.1)', border: '1px solid rgba(242,87,30,0.18)',
+        background: 'rgba(116,82,166,0.1)', border: '1px solid rgba(116,82,166,0.18)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="#F2571E" strokeWidth="1.7" strokeLinejoin="round" width="15" height="15">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#7452A6" strokeWidth="1.7" strokeLinejoin="round" width="15" height="15">
           <path d="M6 3h8l4 4v14H6V3Z"/><path d="M13 3v5h5M9 13h6M9 16.5h6" strokeLinecap="round"/>
         </svg>
       </div>
 
       {/* Title + snippet */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 600, color: '#E8E1D2', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <p style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 600, color: 'var(--c-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {doc.title || 'Sin título'}
         </p>
-        <p style={{ fontSize: '12.5px', color: '#615846', margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <p style={{ fontSize: '12.5px', color: 'var(--c-text4)', margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {docSnippet(doc.content)}
         </p>
       </div>
 
       {/* Workspace badge */}
       <span style={{
-        fontSize: '11.5px', color: '#827A6D', background: 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px',
+        fontSize: '11.5px', color: 'var(--c-text3)', background: 'rgba(97,71,130,0.05)',
+        border: '1px solid rgba(97,71,130,0.08)', borderRadius: '6px',
         padding: '3px 9px', whiteSpace: 'nowrap', flexShrink: 0,
       }}>
         {wsName}
       </span>
 
       {/* Word count */}
-      <span style={{ fontSize: '12px', color: '#615846', whiteSpace: 'nowrap', flexShrink: 0, minWidth: '56px', textAlign: 'right' }}>
+      <span style={{ fontSize: '12px', color: 'var(--c-text4)', whiteSpace: 'nowrap', flexShrink: 0, minWidth: '56px', textAlign: 'right' }}>
         {words > 0 ? `${words} palabras` : '—'}
       </span>
 
       {/* Updated at */}
-      <span style={{ fontSize: '12px', color: '#827A6D', whiteSpace: 'nowrap', flexShrink: 0, minWidth: '110px', textAlign: 'right' }}>
+      <span style={{ fontSize: '12px', color: 'var(--c-text3)', whiteSpace: 'nowrap', flexShrink: 0, minWidth: '110px', textAlign: 'right' }}>
         {timeAgo(doc.updatedAt)}
       </span>
     </div>
@@ -257,7 +257,7 @@ export default function DocumentsPage() {
   const activeWsName = workspaces.find(w => w.id === activeWsId)?.name ?? 'Mi espacio';
 
   return (
-    <div style={{ minHeight: '100vh', background: '#161B2E' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--c-bg)' }}>
       <style>{`
         @keyframes docListIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes docRowIn  { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
@@ -271,10 +271,10 @@ export default function DocumentsPage() {
           animation: 'docListIn 0.3s cubic-bezier(0.22,1,0.36,1) both',
         }}>
           <div>
-            <h1 style={{ fontFamily: SORA, fontSize: 'clamp(1.4rem,2.5vw,1.9rem)', fontWeight: 700, color: '#E8E1D2', margin: 0 }}>
+            <h1 style={{ fontFamily: SORA, fontSize: 'clamp(1.4rem,2.5vw,1.9rem)', fontWeight: 700, color: 'var(--c-text)', margin: 0 }}>
               Documentos
             </h1>
-            <p style={{ fontSize: '13.5px', color: '#827A6D', margin: '4px 0 0', fontFamily: MANROPE }}>
+            <p style={{ fontSize: '13.5px', color: 'var(--c-text3)', margin: '4px 0 0', fontFamily: MANROPE }}>
               {loadingAll ? 'Cargando…' : `${allDocs.length} documento${allDocs.length !== 1 ? 's' : ''} en todos los espacios`}
             </p>
           </div>
@@ -283,12 +283,12 @@ export default function DocumentsPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: '7px',
               padding: '10px 18px', borderRadius: '9px',
-              background: '#F2571E', border: 'none', cursor: 'pointer',
+              background: '#7452A6', border: 'none', cursor: 'pointer',
               color: '#fff', fontFamily: SORA, fontSize: '13.5px', fontWeight: 600,
               transition: 'background 0.15s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#D94A17')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#F2571E')}
+            onMouseEnter={e => (e.currentTarget.style.background = '#62438F')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#7452A6')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
             Nuevo documento
@@ -298,8 +298,8 @@ export default function DocumentsPage() {
         {/* Search */}
         <div style={{ position: 'relative', marginBottom: '20px', maxWidth: '360px' }}>
           <svg style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} viewBox="0 0 24 24" fill="none" width="15" height="15">
-            <circle cx="11" cy="11" r="7" stroke="#615846" strokeWidth="1.8"/>
-            <path d="m20 20-3-3" stroke="#615846" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="11" cy="11" r="7" stroke="var(--c-text4)" strokeWidth="1.8"/>
+            <path d="m20 20-3-3" stroke="var(--c-text4)" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <input
             value={search}
@@ -308,18 +308,18 @@ export default function DocumentsPage() {
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '9px 12px 9px 34px', borderRadius: '8px',
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)',
-              color: '#E8E1D2', fontSize: '13.5px', fontFamily: MANROPE, outline: 'none',
+              background: 'rgba(97,71,130,0.05)', border: '1px solid rgba(97,71,130,0.09)',
+              color: 'var(--c-text)', fontSize: '13.5px', fontFamily: MANROPE, outline: 'none',
             }}
-            onFocus={e => (e.currentTarget.style.borderColor = 'rgba(242,87,30,0.4)')}
-            onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)')}
+            onFocus={e => (e.currentTarget.style.borderColor = 'rgba(116,82,166,0.4)')}
+            onBlur={e => (e.currentTarget.style.borderColor = 'rgba(97,71,130,0.09)')}
           />
         </div>
 
         {/* List */}
         <div style={{
-          background: '#1A1F35', borderRadius: '12px',
-          border: '1px solid rgba(255,255,255,0.07)',
+          background: 'var(--c-surface2)', borderRadius: '12px',
+          border: '1px solid rgba(97,71,130,0.07)',
           overflow: 'hidden',
           animation: 'docListIn 0.38s cubic-bezier(0.22,1,0.36,1) 0.05s both',
         }}>
@@ -327,37 +327,37 @@ export default function DocumentsPage() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: '16px',
             padding: '10px 20px',
-            borderBottom: '1px solid rgba(255,255,255,0.07)',
-            background: 'rgba(255,255,255,0.02)',
+            borderBottom: '1px solid rgba(97,71,130,0.07)',
+            background: 'rgba(97,71,130,0.02)',
           }}>
             <div style={{ width: '36px', flexShrink: 0 }} />
-            <span style={{ flex: 1, fontSize: '11px', fontWeight: 600, color: '#615846', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Título</span>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#615846', textTransform: 'uppercase', letterSpacing: '0.08em', minWidth: '80px' }}>Espacio</span>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#615846', textTransform: 'uppercase', letterSpacing: '0.08em', minWidth: '56px', textAlign: 'right' }}>Palabras</span>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#615846', textTransform: 'uppercase', letterSpacing: '0.08em', minWidth: '110px', textAlign: 'right' }}>Modificado</span>
+            <span style={{ flex: 1, fontSize: '11px', fontWeight: 600, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Título</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '0.08em', minWidth: '80px' }}>Espacio</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '0.08em', minWidth: '56px', textAlign: 'right' }}>Palabras</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '0.08em', minWidth: '110px', textAlign: 'right' }}>Modificado</span>
           </div>
 
           {loadingAll ? (
             <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-              <div style={{ width: '28px', height: '28px', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: '28px', height: '28px', border: '2px solid rgba(97,71,130,0.1)', borderTopColor: 'var(--c-accent-text)', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-              <p style={{ fontSize: '13px', color: '#827A6D' }}>Cargando documentos…</p>
+              <p style={{ fontSize: '13px', color: 'var(--c-text3)' }}>Cargando documentos…</p>
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: '56px 20px', textAlign: 'center' }}>
               <div style={{
                 width: '48px', height: '48px', borderRadius: '12px', margin: '0 auto 14px',
-                background: 'rgba(242,87,30,0.08)', border: '1px solid rgba(242,87,30,0.15)',
+                background: 'rgba(116,82,166,0.08)', border: '1px solid rgba(116,82,166,0.15)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="#F2571E" strokeWidth="1.5" strokeLinejoin="round" width="22" height="22">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#7452A6" strokeWidth="1.5" strokeLinejoin="round" width="22" height="22">
                   <path d="M6 3h8l4 4v14H6V3Z"/><path d="M13 3v5h5M9 13h6M9 16.5h6" strokeLinecap="round"/>
                 </svg>
               </div>
-              <p style={{ fontFamily: SORA, fontSize: '14.5px', fontWeight: 600, color: '#E8E1D2', margin: '0 0 6px' }}>
+              <p style={{ fontFamily: SORA, fontSize: '14.5px', fontWeight: 600, color: 'var(--c-text)', margin: '0 0 6px' }}>
                 {search ? 'Sin resultados' : 'No hay documentos aún'}
               </p>
-              <p style={{ fontSize: '13px', color: '#615846', margin: '0 0 20px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--c-text4)', margin: '0 0 20px' }}>
                 {search ? 'Prueba con otro término de búsqueda' : 'Crea tu primer documento para empezar'}
               </p>
               {!search && (
@@ -365,11 +365,11 @@ export default function DocumentsPage() {
                   onClick={() => setShowCreate(true)}
                   style={{
                     padding: '9px 20px', borderRadius: '8px', cursor: 'pointer',
-                    background: '#F2571E', border: 'none', color: '#fff',
+                    background: '#7452A6', border: 'none', color: '#fff',
                     fontFamily: SORA, fontSize: '13px', fontWeight: 600,
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#D94A17')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#F2571E')}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#62438F')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#7452A6')}
                 >
                   Crear documento
                 </button>

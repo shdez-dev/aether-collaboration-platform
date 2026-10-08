@@ -35,7 +35,7 @@ export default function AddListButton({ boardId }: AddListButtonProps) {
           className="flex items-center gap-2 w-full transition-colors"
           style={{
             padding: '10px 14px', borderRadius: '10px', fontSize: '13px',
-            color: C.text4, background: 'rgba(255,255,255,0.03)',
+            color: C.text4, background: 'rgba(97,71,130,0.03)',
             border: `1px dashed ${C.border}`,
           }}
           onMouseEnter={(e) => {
@@ -46,7 +46,7 @@ export default function AddListButton({ boardId }: AddListButtonProps) {
           onMouseLeave={(e) => {
             (e.currentTarget.style.borderColor = C.border);
             (e.currentTarget.style.color = C.text4);
-            (e.currentTarget.style.background = 'rgba(255,255,255,0.03)');
+            (e.currentTarget.style.background = 'rgba(97,71,130,0.03)');
           }}
         >
           <Plus size={14} /> {t.addlist_btn}

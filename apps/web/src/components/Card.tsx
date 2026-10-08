@@ -361,10 +361,10 @@ export function Card({ card, boardId }: CardProps) {
             title={currentSprint ? `Sprint: ${currentSprint.name}` : 'En sprint'}
             style={{
               display: 'flex', alignItems: 'center', gap: '3px',
-              fontSize: '10px', color: '#76A878', flexShrink: 0,
+              fontSize: '10px', color: '#548B73', flexShrink: 0,
             }}
           >
-            <svg viewBox="0 0 12 12" fill="none" stroke="#76A878" strokeWidth="1.5" strokeLinecap="round" width="10" height="10">
+            <svg viewBox="0 0 12 12" fill="none" stroke="#548B73" strokeWidth="1.5" strokeLinecap="round" width="10" height="10">
               <path d="M2 9a4 4 0 1 1 8 0M2 9l1.5-2M10 9l-1.5-2"/>
             </svg>
           </span>
@@ -379,12 +379,12 @@ export function Card({ card, boardId }: CardProps) {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: '18px', height: '18px', borderRadius: '4px',
-              background: cardSprintId ? 'rgba(118,168,120,0.15)' : 'rgba(255,255,255,0.06)',
-              border: `1px solid ${cardSprintId ? 'rgba(118,168,120,0.35)' : 'rgba(255,255,255,0.12)'}`,
+              background: cardSprintId ? 'rgba(118,168,120,0.15)' : 'rgba(97,71,130,0.06)',
+              border: `1px solid ${cardSprintId ? 'rgba(118,168,120,0.35)' : 'rgba(97,71,130,0.12)'}`,
               cursor: 'pointer', flexShrink: 0,
             }}
           >
-            <svg viewBox="0 0 12 12" fill="none" stroke={cardSprintId ? '#76A878' : C.text3} strokeWidth="1.5" strokeLinecap="round" width="9" height="9">
+            <svg viewBox="0 0 12 12" fill="none" stroke={cardSprintId ? '#548B73' : C.text3} strokeWidth="1.5" strokeLinecap="round" width="9" height="9">
               <path d="M2 9a4 4 0 1 1 8 0M2 9l1.5-2M10 9l-1.5-2"/>
             </svg>
           </button>
@@ -407,13 +407,13 @@ export function Card({ card, boardId }: CardProps) {
                 left: menuPos.left,
                 width: '180px',
                 borderRadius: '8px', overflow: 'hidden',
-                background: '#1E2438', border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--c-surface)', border: '1px solid rgba(97,71,130,0.1)',
                 boxShadow: '0 8px 28px rgba(0,0,0,0.55)',
                 zIndex: 999,
               }}
             >
               {/* Header */}
-              <div style={{ padding: '7px 11px 5px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', color: C.text4, textTransform: 'uppercase' as const, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ padding: '7px 11px 5px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', color: C.text4, textTransform: 'uppercase' as const, borderBottom: '1px solid rgba(97,71,130,0.07)' }}>
                 Sprint
               </div>
 
@@ -424,12 +424,12 @@ export function Card({ card, boardId }: CardProps) {
                   disabled={sprintAssigning}
                   style={{
                     width: '100%', textAlign: 'left', padding: '6px 9px', borderRadius: '5px',
-                    background: !cardSprintId ? 'rgba(255,255,255,0.06)' : 'none',
+                    background: !cardSprintId ? 'rgba(97,71,130,0.06)' : 'none',
                     border: 'none', cursor: 'pointer', fontSize: '12px',
                     color: !cardSprintId ? C.text : C.text3,
                     display: 'flex', alignItems: 'center', gap: '7px',
                   }}
-                  onMouseEnter={e => { if (cardSprintId) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                  onMouseEnter={e => { if (cardSprintId) e.currentTarget.style.background = 'rgba(97,71,130,0.05)'; }}
                   onMouseLeave={e => { if (cardSprintId) e.currentTarget.style.background = 'none'; }}
                 >
                   <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
@@ -449,21 +449,21 @@ export function Card({ card, boardId }: CardProps) {
                       width: '100%', textAlign: 'left', padding: '6px 9px', borderRadius: '5px',
                       background: cardSprintId === s.id ? 'rgba(118,168,120,0.12)' : 'none',
                       border: 'none', cursor: 'pointer', fontSize: '12px',
-                      color: cardSprintId === s.id ? '#76A878' : C.text2,
+                      color: cardSprintId === s.id ? '#548B73' : C.text2,
                       display: 'flex', alignItems: 'center', gap: '7px',
                     }}
-                    onMouseEnter={e => { if (cardSprintId !== s.id) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                    onMouseEnter={e => { if (cardSprintId !== s.id) e.currentTarget.style.background = 'rgba(97,71,130,0.05)'; }}
                     onMouseLeave={e => { if (cardSprintId !== s.id) e.currentTarget.style.background = 'none'; }}
                   >
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: s.status === 'ACTIVE' ? '#76A878' : '#9C9486' }} />
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: s.status === 'ACTIVE' ? '#548B73' : 'var(--c-text2)' }} />
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
-                    {s.status === 'ACTIVE' && <span style={{ fontSize: '9px', color: '#76A878', flexShrink: 0 }}>activo</span>}
+                    {s.status === 'ACTIVE' && <span style={{ fontSize: '9px', color: '#548B73', flexShrink: 0 }}>activo</span>}
                   </button>
                 ))}
               </div>
 
               {sprintAssigning && (
-                <div style={{ padding: '6px 11px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ padding: '6px 11px', borderTop: '1px solid rgba(97,71,130,0.07)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <style>{`@keyframes cardSpinSprint { to { transform: rotate(360deg); } }`}</style>
                   <div style={{ width: '10px', height: '10px', borderRadius: '50%', border: `1.5px solid ${C.accent}`, borderTopColor: 'transparent', animation: 'cardSpinSprint 0.6s linear infinite' }} />
                   <span style={{ fontSize: '11px', color: C.text4 }}>Guardando…</span>

@@ -15,6 +15,12 @@ const createCommentSchema = z.object({
     .min(1, 'Content cannot be empty')
     .max(5000, 'Content cannot exceed 5000 characters'),
   mentions: z.array(z.string().uuid('Invalid user ID format')).optional().default([]),
+  documentReference: z.object({
+    documentId: z.string().uuid(),
+    from: z.number().int().min(0),
+    to: z.number().int().positive(),
+    quote: z.string().min(1).max(500),
+  }).refine((value) => value.to > value.from && value.to - value.from <= 500).optional(),
 });
 
 /**
@@ -28,8 +34,14 @@ const updateCommentSchema = z
       .max(5000, 'Content cannot exceed 5000 characters')
       .optional(),
     mentions: z.array(z.string().uuid('Invalid user ID format')).optional(),
+    documentReference: z.object({
+      documentId: z.string().uuid(),
+      from: z.number().int().min(0),
+      to: z.number().int().positive(),
+      quote: z.string().min(1).max(500),
+    }).refine((value) => value.to > value.from && value.to - value.from <= 500).nullable().optional(),
   })
-  .refine((data) => data.content !== undefined || data.mentions !== undefined, {
+  .refine((data) => data.content !== undefined || data.mentions !== undefined || data.documentReference !== undefined, {
     message: 'At least one field (content or mentions) is required',
   });
 
@@ -56,6 +68,26 @@ const recentCommentsQuerySchema = z.object({
  * Maneja las peticiones HTTP relacionadas con comentarios
  */
 export class CommentController {
+  static async getDocumentCandidates(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Autenticación requerida' } });
+      const documents = await commentService.getDocumentCandidates(req.params.cardId, userId);
+      return res.json({ success: true, data: { documents } });
+    } catch {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'No se pudieron cargar los documentos' } });
+    }
+  }
+  static async getMentionCandidates(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Autenticación requerida' } });
+      const users = await commentService.getMentionCandidates(req.params.cardId, userId);
+      return res.json({ success: true, data: { users } });
+    } catch {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'No se pudieron cargar las personas mencionables' } });
+    }
+  }
   /**
    * GET /api/cards/:cardId/comments
    * Obtener todos los comentarios de una card
@@ -63,8 +95,7 @@ export class CommentController {
   static async getCommentsByCard(req: Request, res: Response) {
     try {
       const { cardId } = req.params;
-
-      const comments = await commentService.getCommentsByCardId(cardId);
+      const comments = await commentService.getCommentsByCardId(cardId, req.user?.id);
 
       return res.status(200).json({
         success: true,
@@ -116,13 +147,14 @@ export class CommentController {
         });
       }
 
-      const { content, mentions } = validationResult.data;
+      const { content, mentions, documentReference } = validationResult.data;
 
       const comment = await commentService.createComment({
         cardId,
         userId,
         content,
         mentions,
+        documentReference,
       });
 
       return res.status(201).json({
@@ -130,6 +162,12 @@ export class CommentController {
         data: { comment },
       });
     } catch (error: any) {
+      if (error.message === 'No tienes acceso a este documento del proyecto' || error.message === 'Selecciona un fragmento de hasta 500 caracteres' || error.message === 'El documento cambió. Vuelve a seleccionar el fragmento') {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_DOCUMENT_REFERENCE', message: error.message } });
+      }
+      if (error.message === 'Solo puedes mencionar a personas con acceso a este proyecto') {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_MENTION', message: error.message } });
+      }
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -145,7 +183,7 @@ export class CommentController {
     try {
       const { commentId } = req.params;
 
-      const comment = await commentService.getCommentById(commentId);
+      const comment = await commentService.getCommentById(commentId, req.user?.id);
 
       if (!comment) {
         return res.status(404).json({
@@ -211,6 +249,12 @@ export class CommentController {
         data: { comment },
       });
     } catch (error: any) {
+      if (error.message === 'No tienes acceso a este documento del proyecto' || error.message === 'Selecciona un fragmento de hasta 500 caracteres' || error.message === 'El documento cambió. Vuelve a seleccionar el fragmento') {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_DOCUMENT_REFERENCE', message: error.message } });
+      }
+      if (error.message === 'Solo puedes mencionar a personas con acceso a este proyecto') {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_MENTION', message: error.message } });
+      }
       if (error.message === 'Only the author can edit this comment') {
         return res.status(403).json({
           success: false,

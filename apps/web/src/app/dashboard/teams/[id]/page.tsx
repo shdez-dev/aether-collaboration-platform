@@ -170,7 +170,7 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
             </select>
           </div>
           <div className="rounded-[9px] px-3 py-2.5 text-[11.5px] leading-5" style={{ background: C.bg2, border: `1px solid ${C.border}`, color: C.text3 }}>
-            Para agregarla, la persona debe tener acceso primero al mismo espacio de trabajo.
+            La persona debe pertenecer a la organización. Al aceptar la invitación, obtendrá acceso al espacio de trabajo y al equipo.
           </div>
           {error && (
             <div className="text-[12px] px-3 py-2 rounded-[6px]" style={{ background: 'rgba(239,68,68,0.1)', color: C.red }}>
@@ -1024,7 +1024,7 @@ export default function TeamDetailPage() {
                 <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.text4 }}>
                   Hoy en el equipo
                 </div>
-                <span className="text-[10px] px-2 py-[1px] rounded-full" style={{ background: 'rgba(118,168,120,0.15)', color: '#76A878', border: '1px solid rgba(118,168,120,0.3)' }}>
+                <span className="text-[10px] px-2 py-[1px] rounded-full" style={{ background: 'rgba(118,168,120,0.15)', color: '#548B73', border: '1px solid rgba(118,168,120,0.3)' }}>
                   {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
                 </span>
               </div>
@@ -1050,11 +1050,11 @@ export default function TeamDetailPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-[13px] font-medium" style={{ color: C.text }}>{m.name}</span>
                             {standup ? (
-                              <span className="text-[10px] px-1.5 py-[1px] rounded" style={{ background: 'rgba(118,168,120,0.14)', color: '#76A878', border: '1px solid rgba(118,168,120,0.28)' }}>
+                              <span className="text-[10px] px-1.5 py-[1px] rounded" style={{ background: 'rgba(118,168,120,0.14)', color: '#548B73', border: '1px solid rgba(118,168,120,0.28)' }}>
                                 publicó hoy
                               </span>
                             ) : (
-                              <span className="text-[10px] px-1.5 py-[1px] rounded" style={{ background: 'rgba(255,255,255,0.05)', color: C.text4, border: `1px solid ${C.border}` }}>
+                              <span className="text-[10px] px-1.5 py-[1px] rounded" style={{ background: 'rgba(97,71,130,0.05)', color: C.text4, border: `1px solid ${C.border}` }}>
                                 sin actualización
                               </span>
                             )}
@@ -1077,9 +1077,9 @@ export default function TeamDetailPage() {
 
                           {standup && standup.blockers.length > 0 && (
                             <div className="flex flex-col gap-0.5 mt-1">
-                              <span className="text-[10.5px] font-semibold" style={{ color: '#E05252' }}>Bloqueantes:</span>
+                              <span className="text-[10.5px] font-semibold" style={{ color: '#B45C72' }}>Bloqueantes:</span>
                               {standup.blockers.map((b) => (
-                                <span key={b.id} className="text-[11.5px]" style={{ color: '#E05252', opacity: 0.85 }}>
+                                <span key={b.id} className="text-[11.5px]" style={{ color: '#B45C72', opacity: 0.85 }}>
                                   ⚠ {b.text}
                                 </span>
                               ))}
@@ -1346,8 +1346,8 @@ export default function TeamDetailPage() {
                           {ev.projectName && (
                             <span style={{
                               fontSize: '10.5px', fontWeight: 500, padding: '1px 7px',
-                              borderRadius: '4px', background: 'rgba(242,87,30,0.1)',
-                              border: '1px solid rgba(242,87,30,0.2)', color: '#F4905A',
+                              borderRadius: '4px', background: 'rgba(116,82,166,0.1)',
+                              border: '1px solid rgba(116,82,166,0.2)', color: '#9271BD',
                             }}>
                               {ev.projectName}
                             </span>

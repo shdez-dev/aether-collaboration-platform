@@ -22,6 +22,8 @@ const router = Router();
  */
 // Obtener contador de comentarios de una card
 router.get('/cards/:cardId/comments/count', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), CommentController.getCommentCount);
+router.get('/cards/:cardId/mentions', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), CommentController.getMentionCandidates);
+router.get('/cards/:cardId/document-candidates', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), CommentController.getDocumentCandidates);
 
 // Obtener todos los comentarios de una card
 router.get('/cards/:cardId/comments', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), CommentController.getCommentsByCard);

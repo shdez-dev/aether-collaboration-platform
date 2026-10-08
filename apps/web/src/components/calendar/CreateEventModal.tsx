@@ -12,13 +12,13 @@ const SORA   = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
 const COLORS = [
-  { label: 'Naranja',   value: '#F2571E' },
-  { label: 'Azul',      value: '#4B607F' },
-  { label: 'Verde',     value: '#76A878' },
-  { label: 'Ámbar',     value: '#DB8A66' },
-  { label: 'Violeta',   value: '#8C7C9E' },
-  { label: 'Celeste',   value: '#5B8FA8' },
-  { label: 'Rojo',      value: '#E05252' },
+  { label: 'Naranja',   value: '#7452A6' },
+  { label: 'Azul',      value: '#8076A7' },
+  { label: 'Verde',     value: '#548B73' },
+  { label: 'Ámbar',     value: '#A97556' },
+  { label: 'Violeta',   value: '#8262B2' },
+  { label: 'Celeste',   value: '#7D91B1' },
+  { label: 'Rojo',      value: '#B45C72' },
   { label: 'Terracota', value: '#A87876' },
 ];
 
@@ -47,7 +47,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
       <label style={{
         fontFamily: SORA, fontSize: '11px', fontWeight: 600,
-        letterSpacing: '0.09em', textTransform: 'uppercase', color: '#615846',
+        letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--c-text4)',
       }}>
         {label}
       </label>
@@ -57,10 +57,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputBase: React.CSSProperties = {
-  width: '100%', fontFamily: MANROPE, fontSize: '14.5px', color: '#E8E1D2',
-  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)',
+  width: '100%', fontFamily: MANROPE, fontSize: '14.5px', color: 'var(--c-text)',
+  background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.09)',
   borderRadius: '8px', padding: '11px 14px', outline: 'none',
-  colorScheme: 'dark',
+  colorScheme: 'light',
 };
 
 function AInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
@@ -70,8 +70,8 @@ function AInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
       ref={ref}
       {...props}
       style={{ ...inputBase, ...props.style }}
-      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; props.onFocus?.(e); }}
-      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; props.onBlur?.(e); }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)'; props.onFocus?.(e); }}
+      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(97,71,130,0.09)'; props.onBlur?.(e); }}
     />
   );
 }
@@ -81,8 +81,8 @@ function ATextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
     <textarea
       {...props}
       style={{ ...inputBase, resize: 'none', lineHeight: 1.55, ...props.style }}
-      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; }}
-      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)'; }}
+      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(97,71,130,0.09)'; }}
     />
   );
 }
@@ -92,8 +92,8 @@ function ASelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     <select
       {...props}
       style={{ ...inputBase, cursor: 'pointer', ...props.style }}
-      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; }}
-      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)'; }}
+      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(97,71,130,0.09)'; }}
     />
   );
 }
@@ -107,7 +107,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
         onClick={onChange}
         style={{
           width: '34px', height: '20px', borderRadius: '10px',
-          background: checked ? '#F2571E' : 'rgba(255,255,255,0.1)',
+          background: checked ? '#7452A6' : 'rgba(97,71,130,0.1)',
           position: 'relative', transition: 'background 0.2s', flexShrink: 0,
         }}
       >
@@ -117,7 +117,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
           transition: 'left 0.2s',
         }} />
       </div>
-      <span style={{ fontFamily: MANROPE, fontSize: '13.5px', color: '#9C9486' }}>{label}</span>
+      <span style={{ fontFamily: MANROPE, fontSize: '13.5px', color: 'var(--c-text2)' }}>{label}</span>
     </label>
   );
 }
@@ -270,8 +270,8 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
           onClick={e => e.stopPropagation()}
           style={{
             width: '100%', maxWidth: '460px', pointerEvents: 'all',
-            background: '#1E2438',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--c-surface)',
+            border: '1px solid rgba(97,71,130,0.1)',
             borderRadius: '14px',
             boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
             overflow: 'hidden',
@@ -284,7 +284,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '18px 22px',
-            borderBottom: '1px solid rgba(255,255,255,0.07)',
+            borderBottom: '1px solid rgba(97,71,130,0.07)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{
@@ -292,13 +292,13 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 background: color, display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="#24180A" strokeWidth="1.8"/>
-                  <path d="M3.5 9h17M8 3.5v3M16 3.5v3" stroke="#24180A" strokeWidth="1.8" strokeLinecap="round"/>
+                  <rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="#FFFFFF" strokeWidth="1.8"/>
+                  <path d="M3.5 9h17M8 3.5v3M16 3.5v3" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round"/>
                 </svg>
               </span>
               <h2 style={{
                 fontFamily: SORA, fontWeight: 700, fontSize: '16px',
-                color: '#F4EEE2', margin: 0,
+                color: 'var(--c-text)', margin: 0,
               }}>
                 {isEdit ? 'Editar evento' : 'Nuevo evento'}
               </h2>
@@ -309,10 +309,10 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 width: '30px', height: '30px', borderRadius: '7px',
                 background: 'none', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#827A6D',
+                color: 'var(--c-text3)',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = '#827A6D'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.06)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text3)'; }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -421,9 +421,9 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                         style={{
                           flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                           padding: '9px 0', borderRadius: '8px', cursor: 'pointer',
-                          border: `1px solid ${isActive ? color : 'rgba(255,255,255,0.09)'}`,
-                          background: isActive ? `${color}18` : 'rgba(255,255,255,0.02)',
-                          color: isActive ? color : '#9C9486',
+                          border: `1px solid ${isActive ? color : 'rgba(97,71,130,0.09)'}`,
+                          background: isActive ? `${color}18` : 'rgba(97,71,130,0.02)',
+                          color: isActive ? color : 'var(--c-text2)',
                           fontFamily: MANROPE, fontSize: '13px', fontWeight: isActive ? 600 : 400,
                           transition: 'all 0.15s',
                         }}
@@ -466,7 +466,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                   background: 'rgba(224,82,82,0.08)', border: '1px solid rgba(224,82,82,0.25)',
                   borderRadius: '8px', padding: '10px 14px',
                 }}>
-                  <span style={{ fontFamily: MANROPE, fontSize: '13px', color: '#E05252' }}>{error}</span>
+                  <span style={{ fontFamily: MANROPE, fontSize: '13px', color: '#B45C72' }}>{error}</span>
                 </div>
               )}
             </div>
@@ -475,7 +475,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
             <div style={{
               display: 'flex', alignItems: 'center', gap: '10px',
               padding: '16px 22px',
-              borderTop: '1px solid rgba(255,255,255,0.07)',
+              borderTop: '1px solid rgba(97,71,130,0.07)',
             }}>
               {isEdit && (
                 <button
@@ -485,7 +485,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                   style={{
                     padding: '9px 16px', borderRadius: '8px', cursor: deleting ? 'not-allowed' : 'pointer',
                     background: 'rgba(224,82,82,0.08)', border: '1px solid rgba(224,82,82,0.25)',
-                    color: '#E05252', fontFamily: MANROPE, fontWeight: 600, fontSize: '13.5px',
+                    color: '#B45C72', fontFamily: MANROPE, fontWeight: 600, fontSize: '13.5px',
                     opacity: deleting ? 0.5 : 1,
                   }}
                 >
@@ -500,11 +500,11 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 onClick={onClose}
                 style={{
                   padding: '9px 18px', borderRadius: '8px', cursor: 'pointer',
-                  background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#9C9486', fontFamily: MANROPE, fontWeight: 600, fontSize: '13.5px',
+                  background: 'transparent', border: '1px solid rgba(97,71,130,0.1)',
+                  color: 'var(--c-text2)', fontFamily: MANROPE, fontWeight: 600, fontSize: '13.5px',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; }}
               >
                 Cancelar
               </button>
@@ -515,8 +515,8 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 style={{
                   padding: '9px 22px', borderRadius: '8px',
                   cursor: saving ? 'not-allowed' : 'pointer',
-                  background: '#F2571E', border: 'none',
-                  color: '#24180A', fontFamily: SORA, fontWeight: 700, fontSize: '13.5px',
+                  background: '#7452A6', border: 'none',
+                  color: '#FFFFFF', fontFamily: SORA, fontWeight: 700, fontSize: '13.5px',
                   opacity: saving ? 0.65 : 1,
                 }}
                 onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}

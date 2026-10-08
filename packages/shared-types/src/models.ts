@@ -345,9 +345,19 @@ export interface Comment {
   userId: string;
   content: string;
   mentions: string[]; // Array de user IDs mencionados
+  documentReference?: CommentDocumentReference | null;
   edited: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CommentDocumentReference {
+  documentId: string;
+  title: string;
+  quote: string;
+  from: number;
+  to: number;
+  stale?: boolean;
 }
 
 /**

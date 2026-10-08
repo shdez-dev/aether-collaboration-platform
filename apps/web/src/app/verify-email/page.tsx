@@ -12,20 +12,20 @@ function AetherLogo() {
   return (
     <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 40 }}>
       <span style={{
-        width: 32, height: 32, borderRadius: 9, background: '#F2571E',
+        width: 32, height: 32, borderRadius: 9, background: '#7452A6',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        boxShadow: '0 4px 14px -4px rgba(242,87,30,0.5)',
+        boxShadow: '0 4px 14px -4px rgba(116,82,166,0.5)',
       }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-          <path d="M12 4.5L5.5 19.5"  stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M12 4.5L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-          <circle cx="12"  cy="4.5"  r="2.2" fill="#F8F1E3"/>
-          <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
-          <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+          <path d="M12 4.5L5.5 19.5"  stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M12 4.5L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+          <circle cx="12"  cy="4.5"  r="2.2" fill="#FFFFFF"/>
+          <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
+          <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
         </svg>
       </span>
-      <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: 17, color: '#ECE5D6', letterSpacing: '-0.015em' }}>
+      <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: 17, color: 'var(--c-text)', letterSpacing: '-0.015em' }}>
         Aether
       </span>
     </Link>
@@ -36,12 +36,12 @@ function StatusCircle({ type }: { type: 'loading' | 'success' | 'error' }) {
   if (type === 'loading') return (
     <div style={{
       width: 52, height: 52, borderRadius: '50%', margin: '0 auto 24px',
-      background: 'rgba(242,87,30,0.08)', border: '1px solid rgba(242,87,30,0.25)',
+      background: 'rgba(116,82,166,0.08)', border: '1px solid rgba(116,82,166,0.25)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ animation: 'spin 0.9s linear infinite' }}>
-        <circle cx="11" cy="11" r="8" stroke="rgba(242,87,30,0.15)" strokeWidth="2"/>
-        <path d="M11 3a8 8 0 0 1 8 8" stroke="#F2571E" strokeWidth="2" strokeLinecap="round"/>
+        <circle cx="11" cy="11" r="8" stroke="rgba(116,82,166,0.15)" strokeWidth="2"/>
+        <path d="M11 3a8 8 0 0 1 8 8" stroke="#7452A6" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     </div>
   );
@@ -129,7 +129,7 @@ export default function VerifyEmailPage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0D0F12',
+      minHeight: '100vh', background: 'var(--c-bg)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '2rem', position: 'relative', overflow: 'hidden',
     }}>
@@ -137,7 +137,7 @@ export default function VerifyEmailPage() {
       <div style={{
         position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)',
         width: 560, height: 420,
-        background: 'radial-gradient(ellipse, rgba(242,87,30,0.05) 0%, transparent 65%)',
+        background: 'radial-gradient(ellipse, rgba(116,82,166,0.05) 0%, transparent 65%)',
         pointerEvents: 'none',
       }}/>
 
@@ -145,19 +145,19 @@ export default function VerifyEmailPage() {
         <AetherLogo />
 
         <div style={{
-          background: 'rgba(255,255,255,0.025)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(97,71,130,0.025)',
+          border: '1px solid rgba(97,71,130,0.08)',
           borderRadius: 16, padding: '36px 28px', textAlign: 'center',
         }}>
           <StatusCircle type={status} />
 
           <h1 style={{
             fontFamily: SORA, fontWeight: 700, fontSize: 22,
-            letterSpacing: '-0.02em', color: '#F4EEE2', margin: '0 0 10px',
+            letterSpacing: '-0.02em', color: 'var(--c-text)', margin: '0 0 10px',
           }}>
             {titles[status]}
           </h1>
-          <p style={{ fontFamily: MANROPE, fontSize: 14, color: '#9C9486', margin: '0 0 24px', lineHeight: 1.6 }}>
+          <p style={{ fontFamily: MANROPE, fontSize: 14, color: 'var(--c-text2)', margin: '0 0 24px', lineHeight: 1.6 }}>
             {subtitles[status]}
           </p>
 
@@ -183,11 +183,11 @@ export default function VerifyEmailPage() {
                 onClick={() => router.push('/login')}
                 style={{
                   width: '100%', padding: '11px', border: 'none', borderRadius: 10, cursor: 'pointer',
-                  background: '#F2571E', fontFamily: MANROPE, fontWeight: 600, fontSize: 14, color: '#FEF3EE',
+                  background: '#7452A6', fontFamily: MANROPE, fontWeight: 600, fontSize: 14, color: '#FEF3EE',
                   letterSpacing: '-0.01em',
                 }}
                 onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#D94919')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#F2571E')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#7452A6')}
               >
                 Ir a iniciar sesión
               </button>
@@ -195,16 +195,16 @@ export default function VerifyEmailPage() {
                 onClick={() => router.push('/verify-email/pending')}
                 style={{
                   width: '100%', padding: '10px', borderRadius: 10, cursor: 'pointer',
-                  background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
-                  fontFamily: MANROPE, fontSize: 14, color: '#9C9486',
+                  background: 'transparent', border: '1px solid rgba(97,71,130,0.1)',
+                  fontFamily: MANROPE, fontSize: 14, color: 'var(--c-text2)',
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)';
-                  (e.currentTarget as HTMLElement).style.color = '#C8BFAE';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.2)';
+                  (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)';
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)';
-                  (e.currentTarget as HTMLElement).style.color = '#9C9486';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.1)';
+                  (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)';
                 }}
               >
                 Reenviar correo de verificación

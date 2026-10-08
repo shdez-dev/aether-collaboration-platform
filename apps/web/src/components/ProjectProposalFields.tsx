@@ -59,7 +59,7 @@ export function ProjectProposalFields({
   step,
   values,
   onChange,
-  accent = '#F2571E',
+  accent = '#7452A6',
 }: {
   step: ProposalStep;
   values: ProjectProposalAnswers;
@@ -125,8 +125,8 @@ export function ProjectProposalFields({
 function inputStyle(accent: string): CSSProperties {
   return {
     width: '100%', minHeight: 44, boxSizing: 'border-box', padding: '10px 12px',
-    borderRadius: 9, border: '1px solid rgba(255,255,255,0.11)',
-    background: '#141A2A', color: '#F4EEE2', fontSize: 13,
+    borderRadius: 9, border: '1px solid rgba(97,71,130,0.11)',
+    background: 'var(--c-surface)', color: 'var(--c-text)', fontSize: 13,
     fontFamily: "'Manrope', system-ui, sans-serif", outlineColor: accent,
   };
 }

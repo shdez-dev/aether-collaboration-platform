@@ -76,7 +76,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
 
   const fmtDate     = (d: string) => new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   const statusLabel = (s: Sprint) => s.status === 'ACTIVE' ? 'Activo' : s.status === 'PLANNED' ? 'Planificado' : 'Completado';
-  const statusColor = (s: Sprint) => s.status === 'ACTIVE' ? '#76A878' : s.status === 'PLANNED' ? '#9C9486' : '#5B8FA8';
+  const statusColor = (s: Sprint) => s.status === 'ACTIVE' ? '#548B73' : s.status === 'PLANNED' ? 'var(--c-text2)' : '#7D91B1';
 
   if (loading) return null;
 
@@ -117,10 +117,10 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
             {/* Progress */}
             {cardTotal > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '240px' }}>
-                <div style={{ flex: 1, height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.07)' }}>
+                <div style={{ flex: 1, height: '4px', borderRadius: '2px', background: 'rgba(97,71,130,0.07)' }}>
                   <div style={{
                     height: '100%', borderRadius: '2px', width: `${progressPct}%`,
-                    background: progressPct === 100 ? '#76A878' : '#F4905A',
+                    background: progressPct === 100 ? '#548B73' : '#9271BD',
                     transition: 'width 0.4s ease',
                   }} />
                 </div>
@@ -138,7 +138,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
                   disabled={acting}
                   style={{
                     padding: '3px 11px', borderRadius: '5px', fontSize: '11.5px', fontWeight: 600,
-                    background: '#76A87820', border: '1px solid #76A87840', color: '#76A878',
+                    background: '#548B7320', border: '1px solid #548B7340', color: '#548B73',
                     cursor: acting ? 'not-allowed' : 'pointer', transition: 'opacity 0.14s',
                     opacity: acting ? 0.5 : 1,
                   }}
@@ -152,7 +152,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
                   disabled={acting}
                   style={{
                     padding: '3px 11px', borderRadius: '5px', fontSize: '11.5px', fontWeight: 600,
-                    background: '#5B8FA820', border: '1px solid #5B8FA840', color: '#5B8FA8',
+                    background: '#7D91B120', border: '1px solid #7D91B140', color: '#7D91B1',
                     cursor: acting ? 'not-allowed' : 'pointer', transition: 'opacity 0.14s',
                     opacity: acting ? 0.5 : 1,
                   }}
@@ -236,7 +236,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
                     disabled={acting || !!active}
                     style={{
                       padding: '2px 8px', borderRadius: '4px', fontSize: '10.5px', fontWeight: 600,
-                      background: '#76A87818', border: '1px solid #76A87835', color: '#76A878',
+                      background: '#548B7318', border: '1px solid #548B7335', color: '#548B73',
                       cursor: (acting || !!active) ? 'not-allowed' : 'pointer',
                       opacity: (acting || !!active) ? 0.4 : 1, flexShrink: 0,
                     }}
@@ -250,7 +250,7 @@ export function SprintBanner({ boardId, canEdit }: { boardId: string; canEdit: b
                     disabled={acting}
                     style={{
                       padding: '2px 8px', borderRadius: '4px', fontSize: '10.5px', fontWeight: 600,
-                      background: '#5B8FA818', border: '1px solid #5B8FA835', color: '#5B8FA8',
+                      background: '#7D91B118', border: '1px solid #7D91B135', color: '#7D91B1',
                       cursor: acting ? 'not-allowed' : 'pointer',
                       opacity: acting ? 0.4 : 1, flexShrink: 0,
                     }}

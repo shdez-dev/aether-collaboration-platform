@@ -175,7 +175,7 @@ function CtaBox() {
                 className="inline-flex items-center font-medium text-white text-[15px] px-5 py-3 rounded-[10px] transition-all hover:-translate-y-px"
                 style={{
                   background: '#3b82f6',
-                  boxShadow: '0 1px 0 rgba(255,255,255,0.2) inset, 0 10px 28px -6px rgba(59,130,246,0.7)',
+                  boxShadow: '0 1px 0 rgba(97,71,130,0.2) inset, 0 10px 28px -6px rgba(59,130,246,0.7)',
                 }}
               >
                 {t.home_hero_cta_dashboard}
@@ -187,7 +187,7 @@ function CtaBox() {
                   className="inline-flex items-center font-medium text-white text-[15px] px-5 py-3 rounded-[10px] transition-all hover:-translate-y-px"
                   style={{
                     background: '#3b82f6',
-                    boxShadow: '0 1px 0 rgba(255,255,255,0.2) inset, 0 10px 28px -6px rgba(59,130,246,0.7)',
+                    boxShadow: '0 1px 0 rgba(97,71,130,0.2) inset, 0 10px 28px -6px rgba(59,130,246,0.7)',
                   }}
                 >
                   {t.home_cta_primary}

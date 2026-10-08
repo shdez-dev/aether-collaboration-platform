@@ -598,6 +598,8 @@ model Comment {
   userId    String   @map("user_id") @db.Uuid
   content   String
   mentions  String[] @db.Uuid
+  documentReference Json? @map("document_reference")
+  edited    Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

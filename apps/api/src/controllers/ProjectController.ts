@@ -839,6 +839,17 @@ class ProjectController {
         const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
         const actorName = actorInfo.rows[0]?.name ?? '';
         const statusChanged = oldStatus && data.status && oldStatus !== data.status;
+        const projectFieldColumns: Record<string, string> = {
+          name: 'name', description: 'description', icon: 'icon', color: 'color',
+          maturityStage: 'maturity_stage', problemStatement: 'problem_statement',
+          impactedPeople: 'impacted_people', problemImpact: 'problem_impact',
+          impactedCount: 'impacted_count', expectedOutcome: 'expected_outcome',
+          proposedSolution: 'proposed_solution', differentiation: 'differentiation',
+          nextStep: 'next_step', startDate: 'start_date', endDate: 'end_date',
+        };
+        const changedFields = Object.entries(projectFieldColumns)
+          .filter(([field, column]) => field in data && String(currentProject[column] ?? '') !== String(updated[column] ?? ''))
+          .map(([field]) => field);
         if (statusChanged) {
           await eventStore.emit({
             type: 'project.status.changed',
@@ -864,13 +875,14 @@ class ProjectController {
               }).catch(() => {})
             ));
           }
-        } else {
+        }
+        if (changedFields.length) {
           await eventStore.emit({
             type: 'project.updated',
             actor: { id: actorId, name: actorName },
             subject: { type: 'project', id, name: updated.name },
             context: { workspaceId: wsId },
-            payload: { name: updated.name, projectName: updated.name },
+            payload: { name: updated.name, projectName: updated.name, changedFields },
           } as any);
         }
       } catch {}
@@ -1329,6 +1341,48 @@ class ProjectController {
     } catch (error) {
       console.error('[ProjectController.getTeams]', error);
       res.status(500).json({ success: false, error: { message: 'Error al obtener equipos del proyecto' } });
+    }
+  }
+
+  /** GET /api/projects/:id/team-members — personas de los equipos asignados */
+  async getTeamMembers(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await pool.query(
+        `SELECT tm.team_id, t.name AS team_name, t.color AS team_color,
+                u.id, u.name, u.email, u.avatar, tm.role
+           FROM project_teams pt
+           JOIN teams t ON t.id = pt.team_id
+           JOIN team_members tm ON tm.team_id = t.id
+           JOIN users u ON u.id = tm.user_id
+           JOIN workspace_members wm ON wm.workspace_id = t.workspace_id AND wm.user_id = u.id
+           JOIN workspaces w ON w.id = t.workspace_id
+          WHERE pt.project_id = $1
+            AND NOT EXISTS (
+              SELECT 1 FROM organization_access_revocations r
+               WHERE r.organization_id = w.organization_id AND r.user_id = u.id
+            )
+          ORDER BY pt.assigned_at, t.name, u.name`,
+        [id]
+      );
+      res.json({
+        success: true,
+        data: {
+          members: result.rows.map((r) => ({
+            id: r.id,
+            name: r.name,
+            email: r.email,
+            avatar: r.avatar ?? null,
+            role: r.role,
+            teamId: r.team_id,
+            teamName: r.team_name,
+            teamColor: r.team_color ?? null,
+          })),
+        },
+      });
+    } catch (error) {
+      console.error('[ProjectController.getTeamMembers]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al obtener miembros de los equipos del proyecto' } });
     }
   }
 

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/hooks/use-toast';
 import { formatPhoneDisplay, cleanPhoneValue, validatePhone } from '@/lib/utils/phone';
 import { useT } from '@/lib/i18n';
+import { Camera, Clock3, Mail, MapPin, Phone } from 'lucide-react';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -26,15 +27,15 @@ const flag = (code: string) =>
 
 const labelStyle: React.CSSProperties = {
   display: 'block', fontFamily: SORA, fontSize: '11.5px', fontWeight: 600,
-  letterSpacing: '0.1em', textTransform: 'uppercase', color: '#827A6D', marginBottom: '8px',
+  letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-text3)', marginBottom: '8px',
 };
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
   padding: '13px 15px', borderRadius: '8px',
-  border: '1px solid rgba(255,255,255,0.13)',
-  background: 'rgba(255,255,255,0.04)',
-  color: '#E8E1D2', fontFamily: MANROPE, fontSize: '14.5px', outline: 'none',
+  border: '1px solid rgba(97,71,130,0.13)',
+  background: 'rgba(97,71,130,0.04)',
+  color: 'var(--c-text)', fontFamily: MANROPE, fontSize: '14.5px', outline: 'none',
 };
 
 function AInput({ value, onChange, type = 'text', placeholder, disabled, readOnly }: {
@@ -46,8 +47,8 @@ function AInput({ value, onChange, type = 'text', placeholder, disabled, readOnl
       type={type} value={value} onChange={onChange}
       placeholder={placeholder} disabled={disabled} readOnly={readOnly}
       style={{ ...inputStyle, opacity: disabled || readOnly ? 0.55 : 1, cursor: disabled || readOnly ? 'default' : 'text' }}
-      onFocus={e  => { if (!disabled && !readOnly) e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; }}
-      onBlur={e   => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)'; }}
+      onFocus={e  => { if (!disabled && !readOnly) e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)'; }}
+      onBlur={e   => { e.currentTarget.style.borderColor = 'rgba(97,71,130,0.13)'; }}
     />
   );
 }
@@ -60,8 +61,8 @@ function ATextarea({ value, onChange, placeholder, rows = 3 }: {
     <textarea
       value={value} onChange={onChange} placeholder={placeholder} rows={rows}
       style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.55 }}
-      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)'; }}
-      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)'; }}
+      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)'; }}
+      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(97,71,130,0.13)'; }}
     />
   );
 }
@@ -75,8 +76,8 @@ function SectionCard({ children, icon, iconBg, title, desc }: {
 }) {
   return (
     <section style={{
-      border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
-      background: 'rgba(255,255,255,0.02)', padding: 'clamp(20px,3vw,28px)',
+      border: '1px solid rgba(97,71,130,0.08)', borderRadius: '8px',
+      background: 'rgba(97,71,130,0.02)', padding: 'clamp(20px,3vw,28px)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '13px', marginBottom: '22px' }}>
         <span style={{
@@ -87,10 +88,10 @@ function SectionCard({ children, icon, iconBg, title, desc }: {
           {icon}
         </span>
         <div>
-          <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.1rem', color: '#F4EEE2', margin: 0 }}>
+          <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.1rem', color: 'var(--c-text)', margin: 0 }}>
             {title}
           </h2>
-          <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#827A6D' }}>{desc}</p>
+          <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'var(--c-text3)' }}>{desc}</p>
         </div>
       </div>
       {children}
@@ -121,15 +122,15 @@ function PositionPicker({ value, onChange }: { value: string; onChange: (v: stri
         style={{
           ...inputStyle, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          color: value ? '#E8E1D2' : '#5C5447',
-          borderColor: open ? 'rgba(242,87,30,0.5)' : 'rgba(255,255,255,0.13)',
+          color: value ? 'var(--c-text)' : 'var(--c-text4)',
+          borderColor: open ? 'rgba(116,82,166,0.5)' : 'rgba(97,71,130,0.13)',
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {value || 'Sin especificar'}
         </span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-          <path d="M6 9l6 6 6-6" stroke="#827A6D" strokeWidth="1.7" strokeLinecap="round"/>
+          <path d="M6 9l6 6 6-6" stroke="var(--c-text3)" strokeWidth="1.7" strokeLinecap="round"/>
         </svg>
       </button>
 
@@ -138,13 +139,13 @@ function PositionPicker({ value, onChange }: { value: string; onChange: (v: stri
           <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
           <div style={{
             position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
-            background: '#1E2438', border: '1px solid rgba(255,255,255,0.12)',
+            background: 'var(--c-surface)', border: '1px solid rgba(97,71,130,0.12)',
             borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
             maxHeight: '300px', overflowY: 'auto',
           }}>
             {POSITION_GROUPS.map(g => (
               <div key={g.label}>
-                <div style={{ padding: '8px 12px 4px', fontFamily: SORA, fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#615846' }}>
+                <div style={{ padding: '8px 12px 4px', fontFamily: SORA, fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-text4)' }}>
                   {g.label}
                 </div>
                 {g.options.map(opt => {
@@ -153,12 +154,12 @@ function PositionPicker({ value, onChange }: { value: string; onChange: (v: stri
                     <button key={opt} type="button" onClick={() => { onChange(opt); setCustom(''); setOpen(false); }}
                       style={{
                         width: '100%', textAlign: 'left', padding: '8px 12px',
-                        background: sel ? 'rgba(242,87,30,0.1)' : 'transparent',
-                        border: 'none', borderLeft: `2px solid ${sel ? '#F2571E' : 'transparent'}`,
-                        color: sel ? '#F2571E' : '#C8BFAE', fontSize: '13px',
+                        background: sel ? 'rgba(116,82,166,0.1)' : 'transparent',
+                        border: 'none', borderLeft: `2px solid ${sel ? '#7452A6' : 'transparent'}`,
+                        color: sel ? '#7452A6' : 'var(--c-text2)', fontSize: '13px',
                         fontWeight: sel ? 600 : 400, cursor: 'pointer',
                       }}
-                      onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                      onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; }}
                       onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
                       {opt}
@@ -167,8 +168,8 @@ function PositionPicker({ value, onChange }: { value: string; onChange: (v: stri
                 })}
               </div>
             ))}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '10px 12px 12px' }}>
-              <div style={{ fontSize: '12px', color: !isPreset && value ? '#F2571E' : '#827A6D', marginBottom: '6px', fontWeight: 600 }}>
+            <div style={{ borderTop: '1px solid rgba(97,71,130,0.07)', padding: '10px 12px 12px' }}>
+              <div style={{ fontSize: '12px', color: !isPreset && value ? '#7452A6' : 'var(--c-text3)', marginBottom: '6px', fontWeight: 600 }}>
                 Otro (personalizado)
               </div>
               <input
@@ -206,11 +207,32 @@ const COUNTRIES: { code: string; name: string }[] = [
 function CountryPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open,  setOpen]  = useState(false);
   const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const selected = COUNTRIES.find(c => c.name === value) ?? null;
   const filtered = query ? COUNTRIES.filter(c => c.name.toLowerCase().includes(query.toLowerCase())) : COUNTRIES;
 
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    return () => document.removeEventListener('pointerdown', closeOnOutsideClick);
+  }, [open]);
+
+  function selectCountry(country: string) {
+    onChange(country);
+    setOpen(false);
+    setQuery('');
+    setActiveIndex(0);
+  }
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={pickerRef} style={{ position: 'relative' }}>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         {selected && !open && (
           <span style={{ position: 'absolute', left: '12px', fontSize: '16px', lineHeight: 1, pointerEvents: 'none' }}>
@@ -218,42 +240,53 @@ function CountryPicker({ value, onChange }: { value: string; onChange: (v: strin
           </span>
         )}
         <input
+          id="profile-location"
           type="text" placeholder={open ? 'Buscar país…' : 'Selecciona un país'}
           value={open ? query : (value || '')}
-          onFocus={() => { setOpen(true); setQuery(''); }}
-          onChange={e => setQuery(e.target.value)}
-          onBlur={() => setTimeout(() => { setOpen(false); setQuery(''); }, 150)}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="profile-country-options"
+          aria-autocomplete="list"
+          onFocus={() => { setOpen(true); setQuery(''); setActiveIndex(0); }}
+          onClick={() => setOpen(true)}
+          onChange={e => { setQuery(e.target.value); setActiveIndex(0); setOpen(true); }}
+          onKeyDown={e => {
+            if (e.key === 'Escape') { setOpen(false); setQuery(''); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex(i => Math.min(i + 1, filtered.length - 1)); }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex(i => Math.max(i - 1, 0)); }
+            if (e.key === 'Enter' && open && filtered[activeIndex]) { e.preventDefault(); selectCountry(filtered[activeIndex].name); }
+          }}
           style={{
             ...inputStyle,
             paddingLeft: selected && !open ? '38px' : '15px', paddingRight: '32px',
-            borderColor: open ? 'rgba(242,87,30,0.5)' : 'rgba(255,255,255,0.13)',
+            borderColor: open ? 'rgba(116,82,166,0.5)' : 'rgba(97,71,130,0.13)',
           }}
         />
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', right: '12px', pointerEvents: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-          <path d="M6 9l6 6 6-6" stroke="#827A6D" strokeWidth="1.7" strokeLinecap="round"/>
+          <path d="M6 9l6 6 6-6" stroke="var(--c-text3)" strokeWidth="1.7" strokeLinecap="round"/>
         </svg>
       </div>
       {open && (
-        <div style={{
+        <div id="profile-country-options" role="listbox" style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
-          background: '#1E2438', border: '1px solid rgba(255,255,255,0.12)',
+          background: 'var(--c-surface)', border: '1px solid rgba(97,71,130,0.12)',
           borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
           maxHeight: '240px', overflowY: 'auto',
         }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: '14px', fontSize: '13px', color: '#827A6D' }}>Sin resultados para "{query}"</div>
-          ) : filtered.map(c => {
+            <div style={{ padding: '14px', fontSize: '13px', color: 'var(--c-text3)' }}>Sin resultados para "{query}"</div>
+          ) : filtered.map((c, index) => {
             const sel = c.name === value;
             return (
-              <button key={c.code} type="button" onMouseDown={e => { e.preventDefault(); onChange(c.name); setOpen(false); }}
+              <button key={c.code} type="button" role="option" aria-selected={sel} onClick={() => selectCountry(c.name)}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '8px 12px', background: sel ? 'rgba(242,87,30,0.1)' : 'transparent',
-                  border: 'none', borderLeft: `2px solid ${sel ? '#F2571E' : 'transparent'}`,
-                  cursor: 'pointer', color: sel ? '#F2571E' : '#C8BFAE', fontSize: '13px', fontWeight: sel ? 600 : 400,
+                  padding: '8px 12px', background: sel || index === activeIndex ? 'rgba(116,82,166,0.1)' : 'transparent',
+                  border: 'none', borderLeft: `2px solid ${sel ? '#7452A6' : 'transparent'}`,
+                  cursor: 'pointer', color: sel ? '#7452A6' : 'var(--c-text2)', fontSize: '13px', fontWeight: sel ? 600 : 400,
                 }}
-                onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
-                onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = sel ? 'rgba(242,87,30,0.1)' : 'transparent'; }}
+                onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; }}
+                onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = sel ? 'rgba(116,82,166,0.1)' : 'transparent'; }}
               >
                 <span style={{ fontSize: '17px', lineHeight: 1, flexShrink: 0 }}>{flag(c.code)}</span>
                 {c.name}
@@ -276,7 +309,7 @@ function SaveBtn({ loading, disabled, label, icon }: { loading: boolean; disable
       style={{
         display: 'flex', alignItems: 'center', gap: '8px',
         padding: '12px 22px', borderRadius: '8px', border: 'none',
-        background: '#F2571E', color: '#24180A',
+        background: '#7452A6', color: '#FFFFFF',
         fontFamily: SORA, fontWeight: 600, fontSize: '14.5px',
         cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.55 : 1,
       }}
@@ -284,7 +317,7 @@ function SaveBtn({ loading, disabled, label, icon }: { loading: boolean; disable
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; }}
     >
       {loading ? (
-        <div style={{ width: '15px', height: '15px', borderRadius: '50%', border: '2px solid rgba(36,24,10,0.3)', borderTopColor: '#24180A', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: '15px', height: '15px', borderRadius: '50%', border: '2px solid rgba(36,24,10,0.3)', borderTopColor: '#FFFFFF', animation: 'spin 0.8s linear infinite' }} />
       ) : icon}
       {label}
     </button>
@@ -356,10 +389,12 @@ export default function ProfilePage() {
     setIsSaving(true); setSaved(false);
     try {
       await updateProfile(form);
+      const saveError = useAuthStore.getState().error;
+      if (saveError) throw new Error(saveError);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
-      toast({ title: t.error_title, description: t.profile_toast_error_desc, variant: 'destructive' });
+    } catch (error) {
+      toast({ title: t.error_title, description: error instanceof Error ? error.message : t.profile_toast_error_desc, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -406,22 +441,20 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid rgba(97,71,130,0.1)', borderTopColor: 'var(--c-accent-text)', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     );
   }
 
-  const pfInitials = initials(user.name);
-
   return (
     <div style={{ fontFamily: MANROPE, animation: 'fadeUp .4s ease both', padding: 'clamp(24px,3.5vw,44px) clamp(20px,4vw,48px) 80px' }}>
 
       {/* Page header */}
-      <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: 'clamp(1.7rem,3vw,2.2rem)', letterSpacing: '-0.02em', color: '#F4EEE2', margin: 0 }}>
+      <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: 'clamp(1.7rem,3vw,2.2rem)', letterSpacing: '-0.02em', color: 'var(--c-text)', margin: 0 }}>
         Mi perfil
       </h1>
-      <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: '#9C9486' }}>
+      <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: 'var(--c-text2)' }}>
         Administra tu información personal y la configuración de tu cuenta.
       </p>
 
@@ -431,100 +464,75 @@ export default function ProfilePage() {
         {/* ── Left column ── */}
         <aside style={{ flex: '1 1 280px', maxWidth: '320px', minWidth: '260px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
 
-          {/* Identity card */}
-          <div style={{
-            border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
-            background: 'rgba(255,255,255,0.02)', textAlign: 'center',
-            position: 'relative', overflow: 'hidden',
+          <div style={{ fontFamily: SORA, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-text4)', paddingLeft: 2 }}>
+            Vista previa de tu perfil
+          </div>
+
+          {/* Vista previa inspirada en las tarjetas de perfil de Discord. */}
+          <section aria-label="Vista previa del perfil" style={{
+            border: '1px solid var(--c-border)', borderRadius: 16,
+            background: 'var(--c-surface)', overflow: 'hidden',
+            boxShadow: '0 14px 32px rgba(36, 24, 55, 0.09)',
           }}>
-            {/* Orange header tint */}
-            <div style={{ height: '78px', background: 'rgba(242,87,30,0.18)' }} />
+            <div style={{
+              height: 104, position: 'relative',
+              background: 'radial-gradient(circle at 82% 15%, rgba(226,207,243,0.5), transparent 35%), linear-gradient(135deg, #4B365F 0%, #7452A6 58%, #A47AC8 100%)',
+            }}>
+              <span style={{ position: 'absolute', top: 15, right: 17, color: 'rgba(255,255,255,0.86)', fontSize: 10, fontWeight: 800, letterSpacing: '0.11em', textTransform: 'uppercase' }}>Mi perfil</span>
+            </div>
 
-            {/* Avatar */}
-            <div style={{ position: 'relative', width: '96px', height: '96px', margin: '-48px auto 0' }}>
-              {user.avatar ? (
-                <img
-                  src={user.avatar} alt={user.name}
-                  style={{ width: '96px', height: '96px', borderRadius: '50%', border: '3px solid #161B2E', objectFit: 'cover' }}
-                />
-              ) : (
-                <div style={{
-                  width: '96px', height: '96px', borderRadius: '50%',
-                  background: '#F2571E', border: '3px solid #161B2E',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: SORA, fontSize: '30px', fontWeight: 700, color: '#24180A',
-                }}>
-                  {pfInitials}
+            <div style={{ padding: '0 20px 22px', marginTop: -39, position: 'relative' }}>
+              <div style={{ position: 'relative', width: 82, height: 82 }}>
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name} style={{ width: 82, height: 82, borderRadius: '50%', border: '4px solid var(--c-surface)', objectFit: 'cover', boxSizing: 'border-box' }} />
+                ) : (
+                  <div style={{ width: 82, height: 82, borderRadius: '50%', border: '4px solid var(--c-surface)', boxSizing: 'border-box', background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SORA, fontSize: 26, fontWeight: 700, color: '#FFFFFF' }}>
+                    {initials(form.name || user.name)}
+                  </div>
+                )}
+                <button type="button" onClick={() => fileRef.current?.click()} aria-label="Cambiar foto" title="Cambiar foto"
+                  style={{ position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: '50%', border: '3px solid var(--c-surface)', background: 'var(--c-surface2)', color: 'var(--c-text2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <Camera size={13} />
+                </button>
+                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile} />
+              </div>
+
+              <h2 style={{ fontFamily: SORA, fontSize: 18, lineHeight: 1.25, fontWeight: 700, color: 'var(--c-text)', margin: '15px 0 3px', overflowWrap: 'anywhere' }}>
+                {form.name || user.name}
+              </h2>
+              <p style={{ fontSize: 12.5, color: 'var(--c-text3)', margin: 0 }}>{form.position || 'Sin cargo especificado'}</p>
+
+              <div style={{ borderTop: '1px solid var(--c-border)', marginTop: 18, paddingTop: 16 }}>
+                <div style={{ fontFamily: SORA, fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-text4)', marginBottom: 7 }}>Sobre mí</div>
+                <p style={{ fontSize: 12.5, color: 'var(--c-text2)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                  {form.bio || 'Añade una biografía para presentarte a otras personas.'}
+                </p>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--c-border)', marginTop: 17, paddingTop: 16 }}>
+                <div style={{ fontFamily: SORA, fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-text4)', marginBottom: 11 }}>Información</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                  {[
+                    { icon: <Mail size={14} />, text: user.email },
+                    form.phone && { icon: <Phone size={14} />, text: form.phone },
+                    form.location && { icon: <MapPin size={14} />, text: form.location },
+                    { icon: <Clock3 size={14} />, text: tz },
+                  ].filter(Boolean).map((row: any, index) => (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, color: 'var(--c-text3)' }}>
+                      <span style={{ flexShrink: 0, display: 'flex' }}>{row.icon}</span>
+                      <span style={{ fontSize: 12, color: 'var(--c-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.text}>{row.text}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
-              {/* Camera button */}
-              <button
-                onClick={() => fileRef.current?.click()}
-                title="Cambiar foto"
-                style={{
-                  position: 'absolute', right: '2px', bottom: '2px',
-                  width: '30px', height: '30px', borderRadius: '50%',
-                  background: '#222A40', border: '2px solid #161B2E',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1e2838')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#222A40')}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z" stroke="#9C9486" strokeWidth="1.6" strokeLinejoin="round"/>
-                  <circle cx="12" cy="13" r="3.2" stroke="#9C9486" strokeWidth="1.6"/>
-                </svg>
-              </button>
-              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile} />
-            </div>
+              </div>
 
-            <div style={{ padding: '14px 20px 22px' }}>
-              <div style={{ fontFamily: SORA, fontSize: '17px', fontWeight: 600, color: '#F4EEE2', marginTop: '14px' }}>
-                {user.name}
-              </div>
-              <div style={{ fontSize: '13px', color: '#827A6D', marginTop: '3px' }}>
-                {form.position || 'Sin cargo especificado'}
-              </div>
-              <button
-                onClick={() => fileRef.current?.click()}
-                style={{
-                  marginTop: '16px', width: '100%', padding: '10px',
-                  borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)',
-                  background: 'rgba(255,255,255,0.03)', color: '#D8D0C1',
-                  fontFamily: SORA, fontWeight: 600, fontSize: '13px', cursor: 'pointer',
-                }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)')}
-              >
-                Cambiar foto
+              <button type="button" onClick={() => fileRef.current?.click()}
+                style={{ marginTop: 20, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--c-border2)', background: 'var(--c-surface2)', color: 'var(--c-text2)', fontFamily: SORA, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                <Camera size={14} /> Cambiar foto
               </button>
-              <div style={{ fontSize: '11.5px', color: '#5C5447', marginTop: '10px' }}>
-                JPG, PNG o GIF, máximo 10 MB
-              </div>
+              <p style={{ margin: '8px 0 0', color: 'var(--c-text4)', fontSize: 10.5, textAlign: 'center' }}>JPG, PNG o GIF, máximo 10 MB</p>
             </div>
-          </div>
-
-          {/* Summary card */}
-          <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', padding: '18px' }}>
-            <div style={{ fontFamily: SORA, fontSize: '12px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846', marginBottom: '14px' }}>
-              Resumen
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
-              {[
-                { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="#615846" strokeWidth="1.6" strokeLinejoin="round" strokeDasharray="0"/><circle cx="12" cy="12" r="3" stroke="#615846" strokeWidth="1.6"/></svg>, text: user.email },
-                form.phone    && { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="11" height="20" rx="2" stroke="#615846" strokeWidth="1.6"/><path d="M10 18h1" stroke="#615846" strokeWidth="1.6" strokeLinecap="round"/></svg>, text: form.phone },
-                form.location && { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke="#615846" strokeWidth="1.6" strokeLinejoin="round"/><circle cx="12" cy="10" r="2.4" stroke="#615846" strokeWidth="1.6"/></svg>, text: form.location },
-                { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#615846" strokeWidth="1.6"/><path d="M12 7v5l3 2" stroke="#615846" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>, text: tz },
-              ].filter(Boolean).map((row: any, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
-                  <span style={{ flexShrink: 0 }}>{row.icon}</span>
-                  <span style={{ fontSize: '13.5px', color: '#C8BFAE', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {row.text}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          </section>
           {/* Logout button */}
           <button
             onClick={handleLogout}
@@ -533,14 +541,14 @@ export default function ProfilePage() {
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
               padding: '12px', borderRadius: '8px', cursor: isLoggingOut ? 'not-allowed' : 'pointer',
               background: 'rgba(224,82,82,0.07)', border: '1px solid rgba(224,82,82,0.22)',
-              color: '#E05252', fontFamily: SORA, fontWeight: 600, fontSize: '13.5px',
+              color: '#B45C72', fontFamily: SORA, fontWeight: 600, fontSize: '13.5px',
               opacity: isLoggingOut ? 0.6 : 1, transition: 'all 0.15s',
             }}
             onMouseEnter={e => { if (!isLoggingOut) { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.14)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.4)'; } }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.07)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.22)'; }}
           >
             {isLoggingOut ? (
-              <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(224,82,82,0.3)', borderTopColor: '#E05252', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(224,82,82,0.3)', borderTopColor: '#B45C72', animation: 'spin 0.8s linear infinite' }} />
             ) : (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -556,8 +564,8 @@ export default function ProfilePage() {
 
           {/* Información personal */}
           <SectionCard
-            iconBg="rgba(242,87,30,0.12)"
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.6" stroke="#F2571E" strokeWidth="1.7"/><path d="M5 20a7 7 0 0 1 14 0" stroke="#F2571E" strokeWidth="1.7" strokeLinecap="round"/></svg>}
+            iconBg="rgba(116,82,166,0.12)"
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.6" stroke="#7452A6" strokeWidth="1.7"/><path d="M5 20a7 7 0 0 1 14 0" stroke="#7452A6" strokeWidth="1.7" strokeLinecap="round"/></svg>}
             title="Información personal"
             desc="Actualiza tu perfil y tus datos de contacto."
           >
@@ -582,11 +590,11 @@ export default function ProfilePage() {
                 <div>
                   <label style={labelStyle}>Teléfono</label>
                   <AInput type="tel" value={phoneDisp} onChange={handlePhoneChange} placeholder="+56 9 1234 5678" />
-                  {phoneErr && <p style={{ fontSize: '11.5px', color: '#E05252', marginTop: '5px' }}>{phoneErr}</p>}
+                  {phoneErr && <p style={{ fontSize: '11.5px', color: '#B45C72', marginTop: '5px' }}>{phoneErr}</p>}
                 </div>
 
                 <div>
-                  <label style={labelStyle}>Ubicación</label>
+                  <label htmlFor="profile-location" style={labelStyle}>Ubicación</label>
                   <CountryPicker value={form.location} onChange={v => setForm(f => ({ ...f, location: v }))} />
                 </div>
 
@@ -595,11 +603,11 @@ export default function ProfilePage() {
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: '9px',
                     padding: '13px 15px', borderRadius: '8px',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(97,71,130,0.08)',
+                    background: 'rgba(97,71,130,0.02)',
                   }}>
-                    <span style={{ fontSize: '14.5px', color: '#9C9486', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tz}</span>
-                    <span style={{ fontSize: '11px', color: '#5C5447', flexShrink: 0 }}>Automática</span>
+                    <span style={{ fontSize: '14.5px', color: 'var(--c-text2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tz}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--c-text4)', flexShrink: 0 }}>Automática</span>
                   </div>
                 </div>
 
@@ -608,9 +616,9 @@ export default function ProfilePage() {
                   <select
                     value={form.language}
                     onChange={e => setForm(f => ({ ...f, language: e.target.value }))}
-                    style={{ ...inputStyle, cursor: 'pointer', colorScheme: 'dark' }}
-                    onFocus={e  => (e.currentTarget.style.borderColor = 'rgba(242,87,30,0.5)')}
-                    onBlur={e   => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)')}
+                    style={{ ...inputStyle, cursor: 'pointer', colorScheme: 'light' }}
+                    onFocus={e  => (e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)')}
+                    onBlur={e   => (e.currentTarget.style.borderColor = 'rgba(97,71,130,0.13)')}
                   >
                     <option value="es">Español</option>
                     <option value="en">English</option>
@@ -630,16 +638,16 @@ export default function ProfilePage() {
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '14px', marginTop: '22px' }}>
                 {saved && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#76A878' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#548B73' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                      <path d="M5 13l4 4L19 7" stroke="#76A878" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M5 13l4 4L19 7" stroke="#548B73" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     Cambios guardados
                   </span>
                 )}
                 <SaveBtn
                   loading={isSaving} disabled={!!phoneErr} label="Guardar cambios"
-                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13H5V4Z" stroke="#24180A" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 4v5h7M9 14h6" stroke="#24180A" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13H5V4Z" stroke="#FFFFFF" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 4v5h7M9 14h6" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round"/></svg>}
                 />
               </div>
             </form>
@@ -670,7 +678,7 @@ export default function ProfilePage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '22px' }}>
                 <SaveBtn
                   loading={isChgPw} label="Actualizar contraseña"
-                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="11" rx="2.5" stroke="#24180A" strokeWidth="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#24180A" strokeWidth="1.8"/></svg>}
+                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="11" rx="2.5" stroke="#FFFFFF" strokeWidth="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#FFFFFF" strokeWidth="1.8"/></svg>}
                 />
               </div>
             </form>

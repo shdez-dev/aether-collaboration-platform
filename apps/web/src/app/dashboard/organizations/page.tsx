@@ -226,7 +226,7 @@ export default function OrganizationsPage() {
             <span style={orgIcon}><Building2 size={20} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2 style={orgName}>{getDisplayOrganizationName(selectedOrganization.name)}</h2>
-              <p style={orgMeta}>{selectedOrganization.type === 'INSTITUTION' ? 'Institución' : selectedOrganization.type === 'NETWORK_OPERATOR' ? 'Red de colaboración' : isPersonal ? 'Personal' : 'Equipo o empresa'} - {selectedOrganization.workspaceCount} {selectedOrganization.workspaceCount === 1 ? 'espacio de trabajo' : 'espacios de trabajo'}</p>
+              <p style={orgMeta}>{selectedOrganization.type === 'INSTITUTION' ? 'Institución' : selectedOrganization.type === 'NETWORK_OPERATOR' ? 'Red de colaboración' : isPersonal ? 'Personal' : 'Equipo o empresa'} · {selectedOrganization.workspaceCount} {selectedOrganization.workspaceCount === 1 ? 'espacio de trabajo' : 'espacios de trabajo'}</p>
             </div>
             <span style={countPill}><Users size={14} /> {members.length} {members.length === 1 ? 'miembro' : 'miembros'}</span>
           </section>
@@ -239,7 +239,7 @@ export default function OrganizationsPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span>La persona recibirá un correo y deberá aceptar la invitación con esa misma dirección. Después, asígnale un espacio de trabajo para que pueda colaborar. La invitación a la organización no concede acceso automático a sus espacios.</span>
                 <div style={{ marginTop: 10 }}>
-                  <Link href="/dashboard/users" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#ff956e', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                  <Link href="/dashboard/users" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--c-accent-text)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
                     Asignar acceso a un espacio de trabajo <ArrowRight size={14} />
                   </Link>
                 </div>
@@ -254,7 +254,7 @@ export default function OrganizationsPage() {
                 {members.map((member) => (
                   <article key={member.userId} style={personRow}>
                     <span style={avatar}>{initials(member.name)}</span>
-                    <span style={personCopy}><strong>{member.name}</strong><small>{member.email}</small></span>
+                    <span style={personCopy}><strong style={{ fontSize: 13, fontWeight: 700 }}>{member.name}</strong><small style={{ color: 'var(--c-text3)', fontSize: 11.5 }}>{member.email}</small></span>
                     <span style={rolePill}>{roleLabel[member.role]}</span>
                   </article>
                 ))}
@@ -269,7 +269,7 @@ export default function OrganizationsPage() {
                 {invitations.map((invitation) => (
                   <article key={invitation.id} style={personRow}>
                     <span style={inviteIcon}><Mail size={16} /></span>
-                    <span style={personCopy}><strong>{invitation.email}</strong><small>Invitó {invitation.invitedBy.name}. Vence el {formatDate(invitation.expiresAt)}.</small></span>
+                    <span style={personCopy}><strong style={{ fontSize: 13, fontWeight: 700 }}>{invitation.email}</strong><small style={{ color: 'var(--c-text3)', fontSize: 11.5 }}>Invitó {invitation.invitedBy.name}. Vence el {formatDate(invitation.expiresAt)}.</small></span>
                     <span style={rolePill}>{roleLabel[invitation.role]}</span>
                     <button type="button" aria-label={`Revocar invitación para ${invitation.email}`} title="Revocar invitación" onClick={() => void revokeInvitation(invitation)} disabled={revokingId === invitation.id} style={iconButton}>
                       {revokingId === invitation.id ? <RefreshCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
@@ -302,41 +302,41 @@ export default function OrganizationsPage() {
   );
 }
 
-const page: CSSProperties = { width: '100%', maxWidth: 1120, minHeight: '100%', margin: '0 auto', padding: '40px clamp(20px, 4vw, 56px)', boxSizing: 'border-box', color: '#f4eddf', fontFamily: "'Manrope', system-ui, sans-serif" };
-const header: CSSProperties = { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 };
-const headerActions: CSSProperties = { display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' };
-const eyebrow: CSSProperties = { margin: 0, color: '#f4774b', fontSize: 10, fontWeight: 800, letterSpacing: '.12em' };
-const title: CSSProperties = { margin: '5px 0 7px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 'clamp(30px, 4vw, 40px)', letterSpacing: '-.045em' };
-const subtitle: CSSProperties = { margin: 0, color: '#a69f91', lineHeight: 1.55, fontSize: 14 };
-const field: CSSProperties = { display: 'grid', gap: 6, color: '#a69f91', fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' };
-const select: CSSProperties = { minWidth: 220, border: '1px solid #39415a', borderRadius: 9, background: '#1b2135', color: '#eee8dc', padding: '10px 12px', font: '500 13px Manrope, system-ui, sans-serif', textTransform: 'none', letterSpacing: 0 };
-const input: CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid #39415a', borderRadius: 9, background: '#171d30', color: '#f4eddf', padding: '11px 12px', font: '500 13px Manrope, system-ui, sans-serif', textTransform: 'none', letterSpacing: 0 };
-const primaryButton: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid #f2571e', borderRadius: 9, background: '#f2571e', color: '#21150f', padding: '11px 15px', font: "700 13px 'Manrope', system-ui, sans-serif", cursor: 'pointer', whiteSpace: 'nowrap' };
-const secondaryButton: CSSProperties = { border: '1px solid #3b435b', borderRadius: 9, background: 'transparent', color: '#d5ccbd', padding: '10px 14px', font: "600 13px 'Manrope', system-ui, sans-serif", cursor: 'pointer' };
-const orgCard: CSSProperties = { display: 'flex', alignItems: 'center', gap: 13, padding: 17, marginBottom: 14, border: '1px solid #303951', borderRadius: 12, background: '#1b2135' };
-const orgIcon: CSSProperties = { width: 42, height: 42, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 11, color: '#f4774b', background: 'rgba(242,87,30,.12)', border: '1px solid rgba(242,87,30,.22)' };
-const orgName: CSSProperties = { margin: 0, color: '#f4eddf', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 16 };
-const orgMeta: CSSProperties = { margin: '5px 0 0', color: '#938a7b', fontSize: 12 };
-const countPill: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, border: '1px solid #39415a', borderRadius: 999, padding: '6px 9px', color: '#c5bcac', background: '#20273c', fontSize: 11, fontWeight: 700 };
-const notice: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '13px 15px', marginBottom: 18, border: '1px solid rgba(242,87,30,.2)', borderRadius: 10, background: 'rgba(242,87,30,.06)', color: '#c5bcac', fontSize: 12.5, lineHeight: 1.55 };
-const section: CSSProperties = { padding: 18, marginTop: 14, border: '1px solid #303951', borderRadius: 12, background: '#1a2033' };
-const sectionHeader: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 };
-const sectionTitle: CSSProperties = { margin: 0, color: '#f4eddf', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 15 };
-const sectionCopy: CSSProperties = { margin: '4px 0 0', color: '#918979', fontSize: 12, lineHeight: 1.5 };
+const page: CSSProperties = { width: '100%', maxWidth: 1120, minHeight: '100%', margin: '0 auto', padding: 'clamp(24px, 4vw, 44px) clamp(18px, 4vw, 56px) 64px', boxSizing: 'border-box', color: 'var(--c-text)', fontFamily: "'Manrope', system-ui, sans-serif" };
+const header: CSSProperties = { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', marginBottom: 26 };
+const headerActions: CSSProperties = { display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' };
+const eyebrow: CSSProperties = { margin: 0, color: 'var(--c-accent-text)', fontSize: 10, fontWeight: 800, letterSpacing: '.12em' };
+const title: CSSProperties = { margin: '6px 0 7px', color: 'var(--c-text)', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 'clamp(29px, 4vw, 38px)', letterSpacing: '-.045em' };
+const subtitle: CSSProperties = { margin: 0, color: 'var(--c-text2)', lineHeight: 1.55, fontSize: 14 };
+const field: CSSProperties = { display: 'grid', gap: 6, color: 'var(--c-text3)', fontSize: 10, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase' };
+const select: CSSProperties = { minWidth: 'clamp(210px, 24vw, 280px)', border: '1px solid var(--c-border2)', borderRadius: 10, background: 'var(--c-surface)', color: 'var(--c-text)', padding: '11px 13px', font: '600 13px Manrope, system-ui, sans-serif', textTransform: 'none', letterSpacing: 0, outlineColor: 'var(--c-accent-text)' };
+const input: CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid var(--c-border2)', borderRadius: 9, background: 'var(--c-surface2)', color: 'var(--c-text)', padding: '11px 12px', font: '500 13px Manrope, system-ui, sans-serif', textTransform: 'none', letterSpacing: 0, outlineColor: 'var(--c-accent-text)' };
+const primaryButton: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid var(--c-accent)', borderRadius: 10, background: 'var(--c-accent)', color: '#fff', padding: '11px 15px', font: "700 13px 'Manrope', system-ui, sans-serif", cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 5px 14px color-mix(in srgb, var(--c-accent) 20%, transparent)' };
+const secondaryButton: CSSProperties = { border: '1px solid var(--c-border2)', borderRadius: 9, background: 'var(--c-surface2)', color: 'var(--c-text2)', padding: '10px 14px', font: "600 13px 'Manrope', system-ui, sans-serif", cursor: 'pointer' };
+const orgCard: CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', marginBottom: 14, border: '1px solid var(--c-border)', borderRadius: 14, background: 'linear-gradient(115deg, color-mix(in srgb, var(--c-accent-text) 7%, var(--c-surface)), var(--c-surface) 68%)', boxShadow: '0 10px 28px color-mix(in srgb, var(--c-text) 4%, transparent)' };
+const orgIcon: CSSProperties = { width: 46, height: 46, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 13, color: 'var(--c-accent-text)', background: 'color-mix(in srgb, var(--c-accent-text) 11%, var(--c-surface))', border: '1px solid color-mix(in srgb, var(--c-accent-text) 20%, transparent)' };
+const orgName: CSSProperties = { margin: 0, color: 'var(--c-text)', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 16 };
+const orgMeta: CSSProperties = { margin: '5px 0 0', color: 'var(--c-text3)', fontSize: 12 };
+const countPill: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, border: '1px solid var(--c-border)', borderRadius: 999, padding: '7px 10px', color: 'var(--c-text2)', background: 'var(--c-surface2)', fontSize: 11, fontWeight: 700 };
+const notice: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 11, padding: '14px 16px', marginBottom: 18, border: '1px solid color-mix(in srgb, var(--c-accent-text) 22%, transparent)', borderRadius: 11, background: 'color-mix(in srgb, var(--c-accent-text) 6%, var(--c-surface))', color: 'var(--c-text2)', fontSize: 12.5, lineHeight: 1.6 };
+const section: CSSProperties = { padding: '19px 20px', marginTop: 14, border: '1px solid var(--c-border)', borderRadius: 14, background: 'var(--c-surface)', boxShadow: '0 8px 24px color-mix(in srgb, var(--c-text) 3%, transparent)' };
+const sectionHeader: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 15 };
+const sectionTitle: CSSProperties = { margin: 0, color: 'var(--c-text)', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 15 };
+const sectionCopy: CSSProperties = { margin: '5px 0 0', color: 'var(--c-text3)', fontSize: 12, lineHeight: 1.5 };
 const list: CSSProperties = { display: 'grid', gap: 8 };
-const personRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, padding: '10px 11px', border: '1px solid rgba(255,255,255,.06)', borderRadius: 9, background: 'rgba(255,255,255,.018)' };
-const avatar: CSSProperties = { width: 34, height: 34, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: '50%', background: '#f2571e', color: '#24180a', fontSize: 11, fontWeight: 800 };
-const inviteIcon: CSSProperties = { ...avatar, background: 'rgba(242,87,30,.12)', color: '#f4774b', borderRadius: 9 };
-const personCopy: CSSProperties = { display: 'grid', flex: 1, minWidth: 0, gap: 3 };
-const rolePill: CSSProperties = { flexShrink: 0, border: '1px solid #3b455f', borderRadius: 999, padding: '5px 8px', color: '#b8c3d8', fontSize: 10, fontWeight: 700, textAlign: 'center' };
-const iconButton: CSSProperties = { display: 'inline-grid', placeItems: 'center', flexShrink: 0, width: 32, height: 32, border: '1px solid #3a435c', borderRadius: 8, background: 'transparent', color: '#a99f8e', cursor: 'pointer' };
-const listEmpty: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 76, border: '1px dashed #353e57', borderRadius: 9, color: '#8e877a', fontSize: 12 };
-const empty: CSSProperties = { minHeight: 220, display: 'grid', justifyItems: 'center', alignContent: 'center', gap: 10, border: '1px dashed #3a435b', borderRadius: 12, color: '#9da7bd', padding: 24, textAlign: 'center' };
-const errorBanner: CSSProperties = { padding: '10px 12px', marginBottom: 12, border: '1px solid rgba(248,113,113,.25)', borderRadius: 9, background: 'rgba(127,29,29,.18)', color: '#fca5a5', fontSize: 12.5 };
-const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 80, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(5,8,16,.72)', backdropFilter: 'blur(5px)' };
-const modal: CSSProperties = { width: 'min(460px, 100%)', display: 'grid', gap: 15, padding: 20, border: '1px solid #3a435c', borderRadius: 13, background: '#1b2135', boxShadow: '0 22px 70px rgba(0,0,0,.4)' };
+const personRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, padding: '11px 12px', border: '1px solid var(--c-border)', borderRadius: 10, background: 'var(--c-surface2)' };
+const avatar: CSSProperties = { width: 36, height: 36, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: '50%', background: 'var(--c-accent)', color: '#FFFFFF', fontSize: 11, fontWeight: 800 };
+const inviteIcon: CSSProperties = { ...avatar, background: 'color-mix(in srgb, var(--c-accent-text) 11%, var(--c-surface))', color: 'var(--c-accent-text)', borderRadius: 10 };
+const personCopy: CSSProperties = { display: 'grid', flex: 1, minWidth: 0, gap: 3, color: 'var(--c-text)' };
+const rolePill: CSSProperties = { flexShrink: 0, border: '1px solid var(--c-border2)', borderRadius: 999, padding: '5px 9px', color: 'var(--c-text2)', background: 'var(--c-surface)', fontSize: 10, fontWeight: 700, textAlign: 'center' };
+const iconButton: CSSProperties = { display: 'inline-grid', placeItems: 'center', flexShrink: 0, width: 34, height: 34, border: '1px solid var(--c-border2)', borderRadius: 9, background: 'var(--c-surface)', color: 'var(--c-text3)', cursor: 'pointer' };
+const listEmpty: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 82, border: '1px dashed var(--c-border2)', borderRadius: 10, color: 'var(--c-text3)', background: 'var(--c-surface2)', fontSize: 12 };
+const empty: CSSProperties = { minHeight: 220, display: 'grid', justifyItems: 'center', alignContent: 'center', gap: 10, border: '1px dashed var(--c-border2)', borderRadius: 14, color: 'var(--c-text3)', background: 'var(--c-surface)', padding: 24, textAlign: 'center' };
+const errorBanner: CSSProperties = { padding: '11px 13px', marginBottom: 12, border: '1px solid color-mix(in srgb, var(--c-red) 30%, transparent)', borderRadius: 10, background: 'color-mix(in srgb, var(--c-red) 9%, var(--c-surface))', color: 'var(--c-red)', fontSize: 12.5 };
+const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 80, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(18, 14, 24, .58)', backdropFilter: 'blur(6px)' };
+const modal: CSSProperties = { width: 'min(460px, 100%)', display: 'grid', gap: 15, padding: 22, border: '1px solid var(--c-border2)', borderRadius: 15, background: 'var(--c-surface)', color: 'var(--c-text)', boxShadow: '0 22px 70px rgba(25, 18, 34, .22)' };
 const modalHeader: CSSProperties = { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 };
-const modalTitle: CSSProperties = { margin: '5px 0 0', color: '#f4eddf', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 18 };
-const modalCopy: CSSProperties = { margin: 0, color: '#9f9789', fontSize: 12.5, lineHeight: 1.55 };
-const roleHint: CSSProperties = { margin: '-8px 0 0', color: '#958d7f', fontSize: 11, lineHeight: 1.5 };
+const modalTitle: CSSProperties = { margin: '5px 0 0', color: 'var(--c-text)', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 18 };
+const modalCopy: CSSProperties = { margin: 0, color: 'var(--c-text2)', fontSize: 12.5, lineHeight: 1.55 };
+const roleHint: CSSProperties = { margin: '-8px 0 0', color: 'var(--c-text3)', fontSize: 11, lineHeight: 1.5 };
 const actions: CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 9, marginTop: 3 };

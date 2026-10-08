@@ -166,7 +166,7 @@ export default function FirstWorkspaceOnboarding({
         name: workspaceName.trim(),
         description: workspaceDescription.trim() || undefined,
         icon: 'briefcase',
-        color: '#F2571E',
+        color: '#7452A6',
         organizationId: selectedOrganization.id,
         workspaceTemplateId: selectedOrganization.type === 'PERSONAL' ? 'personal' : 'team',
       });

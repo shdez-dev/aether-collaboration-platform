@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { CommentWithUser } from '@aether/types';
+import type { CommentWithUser, CommentDocumentReference } from '@aether/types';
 import { commentService } from '@/services/commentService';
 import { useAuthStore } from './authStore';
 
@@ -35,7 +35,8 @@ interface CommentActions {
   createComment: (
     cardId: string,
     content: string,
-    mentions?: string[]
+    mentions?: string[],
+    documentReference?: Pick<CommentDocumentReference, 'documentId' | 'from' | 'to' | 'quote'>
   ) => Promise<CommentWithUser | null>;
   updateComment: (commentId: string, content: string, mentions?: string[]) => Promise<void>;
   deleteComment: (commentId: string, cardId: string) => Promise<void>;
@@ -112,7 +113,7 @@ export const useCommentStore = create<CommentState & CommentActions>()(
       // ========================================================================
       // CREATE COMMENT
       // ========================================================================
-      createComment: async (cardId: string, content: string, mentions?: string[]) => {
+      createComment: async (cardId: string, content: string, mentions?: string[], documentReference?: Pick<CommentDocumentReference, 'documentId' | 'from' | 'to' | 'quote'>) => {
         // Obtener token y usuario del authStore
         const accessToken = useAuthStore.getState().accessToken;
         const currentUser = useAuthStore.getState().user;
@@ -137,6 +138,7 @@ export const useCommentStore = create<CommentState & CommentActions>()(
             userId: currentUser.id,
             content,
             mentions: mentions || [],
+            documentReference: null,
             edited: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -157,6 +159,7 @@ export const useCommentStore = create<CommentState & CommentActions>()(
           const newComment = await commentService.createComment(cardId, {
             content,
             mentions,
+            documentReference,
           });
 
           // Reemplazar comentario optimista con el real

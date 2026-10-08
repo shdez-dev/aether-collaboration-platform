@@ -6,11 +6,11 @@ import Link from 'next/link';
 import { useProjectStore, type Project, type ProjectMilestone, type ProjectBoard, type ProjectMaturityStage } from '@/stores/projectStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useBoardStore } from '@/stores/boardStore';
-import { useTeamStore, type TeamMember } from '@/stores/teamStore';
+import { useTeamStore } from '@/stores/teamStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import type { Document } from '@aether/types';
 import { apiService } from '@/services/apiService';
-import { projectApi, type ProjectActivityEntry as ActivityEntry, type ProjectDirectMember as DirectMember, type ProjectTeam as AssignedTeam } from '@/features/projects/api';
+import { projectApi, type ProjectActivityEntry as ActivityEntry, type ProjectDirectMember as DirectMember, type ProjectTeam as AssignedTeam, type ProjectTeamMember } from '@/features/projects/api';
 import { ProjectDocumentsTab } from '@/features/projects/components/ProjectDocumentsTab';
 import { ProjectTeamSelector } from '@/features/projects/components/ProjectTeamSelector';
 import { socketService } from '@/services/socketService';
@@ -35,33 +35,33 @@ import type { Card } from '@aether/types';
 
 function getStatusCfg(status: string, t: ReturnType<typeof useT>) {
   switch (status) {
-    case 'ACTIVE':    return { label: t.projects_status_active,    color: '#F4905A', bg: 'rgba(242,87,30,0.12)',   border: 'rgba(242,87,30,0.25)'   };
-    case 'PLANNING':  return { label: t.projects_status_planning,  color: '#9C9486', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)' };
-    case 'ON_HOLD':   return { label: t.projects_status_on_hold,   color: '#DB8A66', bg: 'rgba(219,138,102,0.12)', border: 'rgba(219,138,102,0.25)' };
-    case 'COMPLETED': return { label: t.projects_status_completed, color: '#76A878', bg: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.25)' };
-    case 'ARCHIVED':  return { label: t.projects_status_cancelled, color: '#827A6D', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.10)' };
-    default:          return { label: status,                       color: '#827A6D', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.10)' };
+    case 'ACTIVE':    return { label: t.projects_status_active,    color: '#9271BD', bg: 'rgba(116,82,166,0.12)',   border: 'rgba(116,82,166,0.25)'   };
+    case 'PLANNING':  return { label: t.projects_status_planning,  color: 'var(--c-text2)', bg: 'rgba(97,71,130,0.06)', border: 'rgba(97,71,130,0.12)' };
+    case 'ON_HOLD':   return { label: t.projects_status_on_hold,   color: '#A97556', bg: 'rgba(219,138,102,0.12)', border: 'rgba(219,138,102,0.25)' };
+    case 'COMPLETED': return { label: t.projects_status_completed, color: '#548B73', bg: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.25)' };
+    case 'ARCHIVED':  return { label: t.projects_status_cancelled, color: 'var(--c-text3)', bg: 'rgba(97,71,130,0.05)', border: 'rgba(97,71,130,0.10)' };
+    default:          return { label: status,                       color: 'var(--c-text3)', bg: 'rgba(97,71,130,0.05)', border: 'rgba(97,71,130,0.10)' };
   }
 }
 
 function getMaturityCfg(stage: ProjectMaturityStage) {
   switch (stage) {
-    case 'IDEA':       return { label: 'Idea', color: '#7B8FA8', bg: 'rgba(123,143,168,0.14)', border: 'rgba(123,143,168,0.28)' };
-    case 'DRAFT':      return { label: 'Borrador', color: '#C4A86E', bg: 'rgba(196,168,110,0.14)', border: 'rgba(196,168,110,0.26)' };
-    case 'FORMALIZED': return { label: 'Formalizado', color: '#76A878', bg: 'rgba(118,168,120,0.14)', border: 'rgba(118,168,120,0.26)' };
-    case 'PLANNED':    return { label: 'Planificado', color: '#4B607F', bg: 'rgba(75,96,127,0.14)', border: 'rgba(75,96,127,0.28)' };
-    case 'ACTIVE':     return { label: 'En ejecución', color: '#F4905A', bg: 'rgba(242,87,30,0.14)', border: 'rgba(242,87,30,0.28)' };
-    case 'ON_HOLD':    return { label: 'En pausa', color: '#DB8A66', bg: 'rgba(219,138,102,0.14)', border: 'rgba(219,138,102,0.28)' };
-    case 'COMPLETED':  return { label: 'Completado', color: '#76A878', bg: 'rgba(118,168,120,0.14)', border: 'rgba(118,168,120,0.26)' };
-    case 'ARCHIVED':   return { label: 'Archivado', color: '#827A6D', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)' };
-    default:           return { label: stage, color: '#827A6D', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)' };
+    case 'IDEA':       return { label: 'Idea', color: '#8D84B0', bg: 'rgba(123,143,168,0.14)', border: 'rgba(123,143,168,0.28)' };
+    case 'DRAFT':      return { label: 'Borrador', color: '#AA895E', bg: 'rgba(196,168,110,0.14)', border: 'rgba(196,168,110,0.26)' };
+    case 'FORMALIZED': return { label: 'Formalizado', color: '#548B73', bg: 'rgba(118,168,120,0.14)', border: 'rgba(118,168,120,0.26)' };
+    case 'PLANNED':    return { label: 'Planificado', color: '#8076A7', bg: 'rgba(75,96,127,0.14)', border: 'rgba(75,96,127,0.28)' };
+    case 'ACTIVE':     return { label: 'En ejecución', color: '#9271BD', bg: 'rgba(116,82,166,0.14)', border: 'rgba(116,82,166,0.28)' };
+    case 'ON_HOLD':    return { label: 'En pausa', color: '#A97556', bg: 'rgba(219,138,102,0.14)', border: 'rgba(219,138,102,0.28)' };
+    case 'COMPLETED':  return { label: 'Completado', color: '#548B73', bg: 'rgba(118,168,120,0.14)', border: 'rgba(118,168,120,0.26)' };
+    case 'ARCHIVED':   return { label: 'Archivado', color: 'var(--c-text3)', bg: 'rgba(97,71,130,0.06)', border: 'rgba(97,71,130,0.12)' };
+    default:           return { label: stage, color: 'var(--c-text3)', bg: 'rgba(97,71,130,0.06)', border: 'rgba(97,71,130,0.12)' };
   }
 }
 
 function getHealthCfg(score: number, t: ReturnType<typeof useT>) {
-  if (score >= 70) return { label: t.projects_health_good,     color: '#76A878', bg: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.25)' };
-  if (score >= 40) return { label: t.projects_health_at_risk,  color: '#DB8A66', bg: 'rgba(219,138,102,0.12)', border: 'rgba(219,138,102,0.25)' };
-  return              { label: t.projects_health_critical,      color: '#E05252', bg: 'rgba(224,82,82,0.12)',   border: 'rgba(224,82,82,0.25)'   };
+  if (score >= 70) return { label: t.projects_health_good,     color: '#548B73', bg: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.25)' };
+  if (score >= 40) return { label: t.projects_health_at_risk,  color: '#A97556', bg: 'rgba(219,138,102,0.12)', border: 'rgba(219,138,102,0.25)' };
+  return              { label: t.projects_health_critical,      color: '#B45C72', bg: 'rgba(224,82,82,0.12)',   border: 'rgba(224,82,82,0.25)'   };
 }
 
 function getMilestoneCfg(status: string, t: ReturnType<typeof useT>) {
@@ -101,7 +101,7 @@ function daysLeft(endDate: string | null | undefined, t: ReturnType<typeof useT>
 const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
 
 // ── Documentos / Actividad helpers ──────────────────────────────────────────────
-type ActCategory = 'milestone' | 'board' | 'team' | 'project';
+type ActCategory = 'milestone' | 'board' | 'document' | 'team' | 'project';
 
 type ActGroup = { month: string; days: { day: string; events: ActivityEntry[] }[] };
 
@@ -122,11 +122,13 @@ function groupByMonth(entries: ActivityEntry[]): ActGroup[] {
 
 function eventCategory(type: string): ActCategory {
   if (type.includes('milestone')) return 'milestone';
+  if (type.startsWith('document.')) return 'document';
   if (type.startsWith('team.') || type.startsWith('project.member') || type.startsWith('workspace.member')) return 'team';
   if (
     type.startsWith('sprint')  || type.startsWith('board')  ||
     type.startsWith('list')    || type.startsWith('card')   ||
-    type.startsWith('comment') || type.startsWith('checklist')
+    type.startsWith('comment') || type.startsWith('checklist') ||
+    type.startsWith('project.board')
   ) return 'board';
   return 'project';
 }
@@ -152,7 +154,7 @@ function priorityLabel(p: string): string {
   }
 }
 
-function describeEvent(ev: ActivityEntry): { verb: string; target: string; accent: string } {
+function describeEvent(ev: ActivityEntry): { verb: string; target: string; accent: string; detail?: string } {
   const p  = ev.payload ?? {};
   const tn = ev.targetName ?? '';
 
@@ -167,157 +169,191 @@ function describeEvent(ev: ActivityEntry): { verb: string; target: string; accen
 
   switch (ev.eventType) {
     // ── Proyecto ────────────────────────────────────────────────────────────
-    case 'project.created':             return { verb: 'creó el proyecto',              target: tn,                          accent: '#4B607F' };
-    case 'project.updated':             return { verb: 'editó el proyecto',             target: tn,                          accent: '#4B607F' };
-    case 'project.status.changed':      return { verb: 'cambió el estado a',            target: statusLabel(p.newStatus),    accent: '#DB8A66' };
-    case 'project.deleted':             return { verb: 'eliminó el proyecto',           target: tn,                          accent: '#E5705A' };
-    case 'project.board.linked':        return { verb: 'vinculó el tablero',            target: p.boardName ?? tn,           accent: '#C2904B' };
-    case 'project.board.unlinked':      return { verb: 'desvinculó el tablero',         target: p.boardName ?? tn,           accent: '#615846' };
-    case 'project.milestone.created':   return { verb: 'creó el hito',                 target: tn,                          accent: '#4B607F' };
-    case 'project.milestone.completed': return { verb: 'completó el hito',             target: tn,                          accent: '#76A878' };
-    case 'project.milestone.missed':    return { verb: 'marcó como perdido el hito',   target: tn,                          accent: '#E5705A' };
-    case 'project.milestone.deleted':   return { verb: 'eliminó el hito',              target: tn,                          accent: '#615846' };
-    case 'project.milestone.updated':   return { verb: 'actualizó el hito',            target: tn,                          accent: '#4B607F' };
-    case 'project.team.assigned':       return { verb: 'asignó el equipo',             target: p.teamName ?? tn,            accent: '#8C7C9E' };
-    case 'project.team.removed':        return { verb: 'quitó el equipo',              target: p.teamName ?? tn,            accent: '#615846' };
-    case 'project.member.added':        return { verb: 'invitó a',                     target: p.memberName ?? tn,          accent: '#76A878' };
-    case 'project.member.removed':      return { verb: 'quitó a',                      target: p.memberName ?? tn,          accent: '#E5705A' };
+    case 'project.created':             return { verb: 'creó el proyecto',              target: tn,                          accent: '#8076A7' };
+    case 'project.updated': {
+      const labels: Record<string, string> = {
+        description: 'resumen', icon: 'icono', color: 'color', maturityStage: 'madurez',
+        problemStatement: 'problemática', impactedPeople: 'personas impactadas',
+        problemImpact: 'impacto', impactedCount: 'cantidad de personas impactadas',
+        expectedOutcome: 'propuesta de valor', proposedSolution: 'solución',
+        differentiation: 'diferenciación', nextStep: 'siguiente paso',
+        startDate: 'fecha de inicio', endDate: 'fecha de fin',
+      };
+      const fields = Array.isArray(p.changedFields) ? p.changedFields.filter((field: unknown): field is string => typeof field === 'string') : [];
+      if (fields.length === 1 && fields[0] === 'name')
+        return { verb: 'renombró el proyecto a', target: tn, accent: '#8076A7' };
+      const names = fields.filter((field: string) => field !== 'name').map((field: string) => labels[field]).filter(Boolean);
+      if (names.length === 1)
+        return { verb: `actualizó ${names[0]} del proyecto`, target: tn, accent: '#8076A7' };
+      if (names.length > 1)
+        return { verb: `actualizó ${names.slice(0, -1).join(', ')} y ${names[names.length - 1]} del proyecto`, target: tn, accent: '#8076A7' };
+      return { verb: 'editó el proyecto', target: tn, accent: '#8076A7' };
+    }
+    case 'project.workflow.changed': {
+      const stages: Record<string, string> = { INTAKE: 'Recepción', DIAGNOSIS: 'Diagnóstico', VALIDATION: 'Validación', PREPARATION: 'Preparación', EXECUTION: 'Ejecución', CLOSURE: 'Cierre', PAUSED: 'En pausa', DECLINED: 'Rechazada' };
+      const stage = String(p.toStage ?? '');
+      return { verb: `movió el proyecto «${tn}» a la etapa`, target: stages[stage] ?? stage, accent: '#8076A7' };
+    }
+    case 'project.status.changed':      return { verb: `cambió el estado de «${tn}» a`, target: statusLabel(p.newStatus),    accent: '#A97556' };
+    case 'project.deleted':             return { verb: 'eliminó el proyecto',           target: tn,                          accent: '#AE7C9B' };
+    case 'project.board.linked':        return { verb: 'vinculó el tablero',            target: p.boardName ?? tn,           accent: '#AA895E' };
+    case 'project.board.unlinked':      return { verb: 'desvinculó el tablero',         target: p.boardName ?? tn,           accent: 'var(--c-text4)' };
+    case 'project.milestone.created':   return { verb: 'creó el hito',                 target: tn,                          accent: '#8076A7' };
+    case 'project.milestone.completed': return { verb: 'completó el hito',             target: tn,                          accent: '#548B73' };
+    case 'project.milestone.missed':    return { verb: 'marcó como perdido el hito',   target: tn,                          accent: '#AE7C9B' };
+    case 'project.milestone.deleted':   return { verb: 'eliminó el hito',              target: tn,                          accent: 'var(--c-text4)' };
+    case 'project.milestone.updated':   return { verb: 'actualizó el hito',            target: tn,                          accent: '#8076A7' };
+    case 'project.team.assigned':       return { verb: `asignó al proyecto «${tn}» el equipo`, target: p.teamName ?? '', accent: '#8262B2' };
+    case 'project.team.removed':        return { verb: `quitó del proyecto «${tn}» el equipo`, target: p.teamName ?? '', accent: 'var(--c-text4)' };
+    case 'project.member.added':        return { verb: `añadió al proyecto «${tn}» a`, target: p.memberName ?? '', accent: '#548B73' };
+    case 'project.member.removed':      return { verb: `quitó del proyecto «${tn}» a`, target: p.memberName ?? '', accent: '#AE7C9B' };
 
     // ── Sprints ─────────────────────────────────────────────────────────────
-    case 'sprint.created':              return { verb: 'creó el sprint',               target: spr,                         accent: '#7B8FA8' };
-    case 'sprint.started':              return { verb: 'inició el sprint',             target: spr,                         accent: '#76A878' };
-    case 'sprint.completed':            return { verb: 'completó el sprint',           target: spr,                         accent: '#C2904B' };
-    case 'sprint.card.added':           return { verb: `añadió «${tn || card}» al sprint`, target: spr,                    accent: '#7B8FA8' };
-    case 'sprint.card.removed':         return { verb: `quitó «${tn || card}» del sprint`, target: spr,                    accent: '#615846' };
+    case 'sprint.created':              return { verb: 'creó el sprint',               target: spr,                         accent: '#8D84B0' };
+    case 'sprint.started':              return { verb: 'inició el sprint',             target: spr,                         accent: '#548B73' };
+    case 'sprint.completed':            return { verb: 'completó el sprint',           target: spr,                         accent: '#AA895E' };
+    case 'sprint.card.added':           return { verb: `añadió «${tn || card}» al sprint`, target: spr,                    accent: '#8D84B0' };
+    case 'sprint.card.removed':         return { verb: `quitó «${tn || card}» del sprint`, target: spr,                    accent: 'var(--c-text4)' };
 
     // ── Tablero ─────────────────────────────────────────────────────────────
-    case 'board.created':               return { verb: 'creó el tablero',              target: tn,                          accent: '#4B607F' };
-    case 'board.updated':               return { verb: 'editó el tablero',             target: tn,                          accent: '#4B607F' };
-    case 'board.deleted':               return { verb: 'eliminó el tablero',           target: tn,                          accent: '#E5705A' };
-    case 'board.archived':              return { verb: 'archivó el tablero',           target: tn,                          accent: '#615846' };
-    case 'board.restored':              return { verb: 'restauró el tablero',          target: tn,                          accent: '#76A878' };
+    case 'board.created':               return { verb: 'creó el tablero',              target: tn,                          accent: '#8076A7' };
+    case 'board.updated':               return { verb: 'editó el tablero',             target: tn,                          accent: '#8076A7' };
+    case 'board.deleted':               return { verb: 'eliminó el tablero',           target: tn,                          accent: '#AE7C9B' };
+    case 'board.archived':              return { verb: 'archivó el tablero',           target: tn,                          accent: 'var(--c-text4)' };
+    case 'board.restored':              return { verb: 'restauró el tablero',          target: tn,                          accent: '#548B73' };
 
     // ── Listas ──────────────────────────────────────────────────────────────
-    case 'list.created':                return { verb: 'creó la lista',                target: tn,                          accent: '#4B607F' };
-    case 'list.updated':                return { verb: 'renombró la lista a',          target: tn,                          accent: '#4B607F' };
-    case 'list.deleted':                return { verb: 'eliminó la lista',             target: tn,                          accent: '#E5705A' };
-    case 'list.archived':               return { verb: 'archivó la lista',             target: tn,                          accent: '#615846' };
-    case 'list.order-changed':          return { verb: 'reordenó las listas',          target: '',                          accent: '#615846' };
+    case 'list.created':                return { verb: 'creó la lista',                target: tn,                          accent: '#8076A7' };
+    case 'list.updated':                return { verb: 'renombró la lista a',          target: tn,                          accent: '#8076A7' };
+    case 'list.deleted':                return { verb: 'eliminó la lista',             target: tn,                          accent: '#AE7C9B' };
+    case 'list.archived':               return { verb: 'archivó la lista',             target: tn,                          accent: 'var(--c-text4)' };
+    case 'list.order-changed':          return { verb: 'reordenó las listas',          target: '',                          accent: 'var(--c-text4)' };
 
     // ── Tarjetas ─────────────────────────────────────────────────────────────
-    case 'card.created':                return { verb: 'creó la tarjeta',              target: tn,                          accent: '#76A878' };
+    case 'card.created':                return { verb: 'creó la tarjeta',              target: tn,                          accent: '#548B73' };
     case 'card.updated': {
       const d = ev.delta;
       if (d?.before?.title !== undefined)
-        return { verb: `renombró «${String(d.before.title)}» a`, target: String(d.after?.title ?? tn), accent: '#4B607F' };
+        return { verb: `renombró «${String(d.before.title)}» a`, target: String(d.after?.title ?? tn), accent: '#8076A7' };
       if ('description' in (d?.before ?? {}))
-        return { verb: 'actualizó la descripción de', target: tn, accent: '#4B607F' };
+        return { verb: 'actualizó la descripción de', target: tn, accent: '#8076A7' };
       if ('startDate' in (d?.before ?? {}) || 'startDate' in (d?.after ?? {}))
-        return { verb: 'cambió la fecha de inicio de', target: tn, accent: '#7B8FA8' };
+        return { verb: 'cambió la fecha de inicio de', target: tn, accent: '#8D84B0' };
       if ('milestoneId' in (d?.before ?? {}))
-        return { verb: 'cambió el hito de', target: tn, accent: '#C2904B' };
+        return { verb: 'cambió el hito de', target: tn, accent: '#AA895E' };
       if ('bufferDays' in (d?.before ?? {}))
-        return { verb: 'ajustó el buffer de tiempo de', target: tn, accent: '#7B8FA8' };
-      return { verb: 'editó la tarjeta', target: tn, accent: '#4B607F' };
+        return { verb: 'ajustó el buffer de tiempo de', target: tn, accent: '#8D84B0' };
+      return { verb: 'editó la tarjeta', target: tn, accent: '#8076A7' };
     }
-    case 'card.deleted':                return { verb: 'eliminó la tarjeta',           target: tn,                          accent: '#E5705A' };
-    case 'card.archived':               return { verb: 'archivó la tarjeta',           target: tn,                          accent: '#615846' };
-    case 'card.restored':               return { verb: 'restauró la tarjeta',          target: tn,                          accent: '#76A878' };
+    case 'card.deleted':                return { verb: 'eliminó la tarjeta',           target: tn,                          accent: '#AE7C9B' };
+    case 'card.archived':               return { verb: 'archivó la tarjeta',           target: tn,                          accent: 'var(--c-text4)' };
+    case 'card.restored':               return { verb: 'restauró la tarjeta',          target: tn,                          accent: '#548B73' };
     case 'card.moved': {
       const from = (ev.delta?.before as any)?.listName as string | undefined;
       const to   = (ev.delta?.after  as any)?.listName as string | undefined;
       return from && to
-        ? { verb: `movió «${tn}» de «${from}» a`, target: to, accent: '#C2904B' }
-        : { verb: 'movió la tarjeta', target: tn, accent: '#C2904B' };
+        ? { verb: `movió «${tn}» de «${from}» a`, target: to, accent: '#AA895E' }
+        : { verb: 'movió la tarjeta', target: tn, accent: '#AA895E' };
     }
     case 'card.status-changed': {
       const completed = (ev.delta?.after as any)?.completed;
       return completed
-        ? { verb: 'completó la tarjeta', target: tn, accent: '#76A878' }
-        : { verb: 'reabrió la tarjeta',  target: tn, accent: '#DB8A66' };
+        ? { verb: 'completó la tarjeta', target: tn, accent: '#548B73' }
+        : { verb: 'reabrió la tarjeta',  target: tn, accent: '#A97556' };
     }
     case 'card.priority.changed': {
       const after = (ev.delta?.after as any)?.priority as string | undefined;
       return after
-        ? { verb: `cambió la prioridad de «${tn}» a`, target: priorityLabel(after), accent: '#C2904B' }
-        : { verb: 'cambió la prioridad de',            target: tn,                  accent: '#C2904B' };
+        ? { verb: `cambió la prioridad de «${tn}» a`, target: priorityLabel(after), accent: '#AA895E' }
+        : { verb: 'cambió la prioridad de',            target: tn,                  accent: '#AA895E' };
     }
-    case 'card.due-date.set':           return { verb: 'puso fecha límite en',         target: tn,                          accent: '#DB8A66' };
-    case 'card.due-date.removed':       return { verb: 'quitó la fecha límite de',     target: tn,                          accent: '#615846' };
+    case 'card.due-date.set':           return { verb: 'puso fecha límite en',         target: tn,                          accent: '#A97556' };
+    case 'card.due-date.removed':       return { verb: 'quitó la fecha límite de',     target: tn,                          accent: 'var(--c-text4)' };
 
     // ── Miembros de tarjeta ──────────────────────────────────────────────────
     case 'card.member.assigned':
       return card
-        ? { verb: `asignó a «${mem}» en`, target: card, accent: '#8C7C9E' }
-        : { verb: 'asignó a',              target: mem,  accent: '#8C7C9E' };
+        ? { verb: `asignó a «${mem}» en`, target: card, accent: '#8262B2' }
+        : { verb: 'asignó a',              target: mem,  accent: '#8262B2' };
     case 'card.member.removed':
       return card
-        ? { verb: `quitó a «${mem}» de`, target: card, accent: '#615846' }
-        : { verb: 'quitó a',              target: mem,  accent: '#615846' };
+        ? { verb: `quitó a «${mem}» de`, target: card, accent: 'var(--c-text4)' }
+        : { verb: 'quitó a',              target: mem,  accent: 'var(--c-text4)' };
 
     // ── Etiquetas ────────────────────────────────────────────────────────────
     case 'card.label.added':
       return card
-        ? { verb: `añadió la etiqueta «${lbl}» en`, target: card, accent: '#C2904B' }
-        : { verb: 'añadió la etiqueta',               target: lbl,  accent: '#C2904B' };
+        ? { verb: `añadió la etiqueta «${lbl}» en`, target: card, accent: '#AA895E' }
+        : { verb: 'añadió la etiqueta',               target: lbl,  accent: '#AA895E' };
     case 'card.label.removed':
       return card
-        ? { verb: `quitó la etiqueta «${lbl}» de`, target: card, accent: '#615846' }
-        : { verb: 'quitó la etiqueta',               target: lbl,  accent: '#615846' };
+        ? { verb: `quitó la etiqueta «${lbl}» de`, target: card, accent: 'var(--c-text4)' }
+        : { verb: 'quitó la etiqueta',               target: lbl,  accent: 'var(--c-text4)' };
 
     // ── Dependencias ─────────────────────────────────────────────────────────
     case 'card.dependency.added':
       return bked
-        ? { verb: `bloqueó «${bked}» hasta completar`, target: bking, accent: '#8C7C9E' }
-        : { verb: 'añadió dependencia en',              target: bking, accent: '#8C7C9E' };
+        ? { verb: `bloqueó «${bked}» hasta completar`, target: bking, accent: '#8262B2' }
+        : { verb: 'añadió dependencia en',              target: bking, accent: '#8262B2' };
     case 'card.dependency.removed':
       return bked
-        ? { verb: `desbloqueó «${bked}» de`, target: bking, accent: '#76A878' }
-        : { verb: 'quitó dependencia de',     target: bking, accent: '#615846' };
+        ? { verb: `desbloqueó «${bked}» de`, target: bking, accent: '#548B73' }
+        : { verb: 'quitó dependencia de',     target: bking, accent: 'var(--c-text4)' };
 
     // ── Comentarios ──────────────────────────────────────────────────────────
     case 'comment.created':
       return card
-        ? { verb: `comentó en «${card}»:`,      target: tn || '…',  accent: '#7B8FA8' }
-        : { verb: 'comentó:',                    target: tn || '…',  accent: '#7B8FA8' };
+        ? { verb: 'comentó en la tarjeta', target: card, accent: '#8D84B0', detail: tn }
+        : { verb: 'publicó un comentario', target: '', accent: '#8D84B0', detail: tn };
     case 'comment.updated':
       return card
-        ? { verb: `editó un comentario en`,     target: card, accent: '#4B607F' }
-        : { verb: 'editó un comentario',         target: '',   accent: '#4B607F' };
+        ? { verb: `editó un comentario en`,     target: card, accent: '#8076A7' }
+        : { verb: 'editó un comentario',         target: '',   accent: '#8076A7' };
     case 'comment.deleted':
       return card
-        ? { verb: `eliminó un comentario en`,   target: card, accent: '#E5705A' }
-        : { verb: 'eliminó un comentario',       target: '',   accent: '#E5705A' };
+        ? { verb: `eliminó un comentario en`,   target: card, accent: '#AE7C9B' }
+        : { verb: 'eliminó un comentario',       target: '',   accent: '#AE7C9B' };
     case 'comment.mention-added':
-      return { verb: 'mencionó a alguien en',   target: card || tn, accent: '#8C7C9E' };
+      return { verb: `mencionó a ${String(p.mentionedUserName || 'una persona')} en un comentario`, target: card ? `de ${card}` : '', accent: '#8262B2' };
+
+    // ── Documentos del proyecto ────────────────────────────────────────────
+    case 'document.created':            return { verb: 'creó el documento', target: tn, accent: '#8076A7' };
+    case 'document.updated':            return { verb: 'editó el documento', target: tn, accent: '#8076A7' };
+    case 'document.deleted':            return { verb: 'eliminó el documento', target: tn, accent: '#AE7C9B' };
+    case 'document.version.saved':      return { verb: 'guardó una versión del documento', target: tn, accent: '#8076A7' };
+    case 'document.version.restored':   return { verb: 'restauró una versión del documento', target: tn, accent: '#548B73' };
+    case 'document.exported':           return { verb: 'exportó el documento', target: tn, accent: '#8076A7' };
+    case 'document.permission.changed': return { verb: 'cambió los permisos del documento', target: tn, accent: '#8262B2' };
+    case 'document.comment.added':      return { verb: 'comentó en el documento', target: tn, accent: '#8D84B0' };
+    case 'document.comment.resolved':   return { verb: 'resolvió un comentario del documento', target: tn, accent: '#548B73' };
 
     // ── Subtareas (checklist) ─────────────────────────────────────────────────
-    case 'checklist.created':            return { verb: 'creó checklist en',            target: tn,  accent: '#4B607F' };
-    case 'checklist.deleted':            return { verb: 'eliminó checklist en',         target: tn,  accent: '#E5705A' };
+    case 'checklist.created':            return { verb: 'creó checklist en',            target: tn,  accent: '#8076A7' };
+    case 'checklist.deleted':            return { verb: 'eliminó checklist en',         target: tn,  accent: '#AE7C9B' };
     case 'checklist.item.created':
       return card
-        ? { verb: `añadió la subtarea «${item}» en`, target: card, accent: '#76A878' }
-        : { verb: 'añadió subtarea',                  target: item, accent: '#76A878' };
+        ? { verb: `añadió la subtarea «${item}» en`, target: card, accent: '#548B73' }
+        : { verb: 'añadió subtarea',                  target: item, accent: '#548B73' };
     case 'checklist.item.updated':
       return card
-        ? { verb: `renombró la subtarea «${item}» en`, target: card, accent: '#4B607F' }
-        : { verb: 'actualizó subtarea',                 target: item, accent: '#4B607F' };
+        ? { verb: `renombró la subtarea «${item}» en`, target: card, accent: '#8076A7' }
+        : { verb: 'actualizó subtarea',                 target: item, accent: '#8076A7' };
     case 'checklist.item.deleted':
       return card
-        ? { verb: `eliminó la subtarea «${item}» de`, target: card, accent: '#E5705A' }
-        : { verb: 'eliminó subtarea',                  target: item, accent: '#E5705A' };
+        ? { verb: `eliminó la subtarea «${item}» de`, target: card, accent: '#AE7C9B' }
+        : { verb: 'eliminó subtarea',                  target: item, accent: '#AE7C9B' };
     case 'checklist.item.status-changed': {
       const checked = (ev.delta?.after as any)?.checked as boolean | undefined;
       return card
         ? (checked
-            ? { verb: `completó la subtarea «${item}» en`, target: card, accent: '#76A878' }
-            : { verb: `desmarcó la subtarea «${item}» en`, target: card, accent: '#DB8A66' })
+            ? { verb: `completó la subtarea «${item}» en`, target: card, accent: '#548B73' }
+            : { verb: `desmarcó la subtarea «${item}» en`, target: card, accent: '#A97556' })
         : (checked
-            ? { verb: 'completó la subtarea', target: item, accent: '#76A878' }
-            : { verb: 'desmarcó la subtarea', target: item, accent: '#DB8A66' });
+            ? { verb: 'completó la subtarea', target: item, accent: '#548B73' }
+            : { verb: 'desmarcó la subtarea', target: item, accent: '#A97556' });
     }
 
-    default: return { verb: 'realizó una acción',  target: tn || '', accent: '#5C5447' };
+    default: return { verb: `registró el evento «${ev.eventType}»`, target: tn || '', accent: 'var(--c-text4)' };
   }
 }
 
@@ -469,13 +505,13 @@ interface TooltipState {
 }
 
 function ProjectGantt({
-  projectId, milestones, color, refreshTick, boardIds,
+  projectId, milestones, color, refreshTick, projectBoards,
 }: {
   projectId: string;
   milestones: ProjectMilestone[];
   color: string;
   refreshTick?: number;
-  boardIds?: string[];
+  projectBoards?: ProjectBoard[];
 }) {
   const [cards,        setCards]        = useState<TimelineCard[]>([]);
   const [depEdges,     setDepEdges]     = useState<{ blockingCardId: string; blockedCardId: string }[]>([]);
@@ -491,9 +527,11 @@ function ProjectGantt({
   const lastLoadedProject = useRef<string | null>(null);
 
   // Suscripción en tiempo real a los boards del proyecto
-  const boardIdsKey = (boardIds ?? []).join(',');
+  const boardIdsKey = (projectBoards ?? []).map((board) => board.id).join(',');
+  const boardNamesRef = useRef<Map<string, string>>(new Map());
+  boardNamesRef.current = new Map((projectBoards ?? []).map((board) => [board.id, board.name]));
   useEffect(() => {
-    const ids = boardIds ?? [];
+    const ids = boardIdsKey ? boardIdsKey.split(',') : [];
     if (!ids.length) return;
 
     ids.forEach(bid => socketService.joinBoard(bid));
@@ -530,14 +568,14 @@ function ProjectGantt({
       .then(async (res) => {
         if (!res.success || !res.data) return;
         const fetched = res.data.cards;
-        const fetchedBoardIds = [...new Set(fetched.map((c) => c.boardId))];
+        const fetchedBoardIds = [...new Set([...boardIdsKey.split(',').filter(Boolean), ...fetched.map((c) => c.boardId)])];
         const cardIdSet = new Set(fetched.map((c) => c.id));
 
         // Fetch dependency edges + sprints in parallel per board
         const edges: { blockingCardId: string; blockedCardId: string }[] = [];
         const allSprints: SprintItem[] = [];
         await Promise.all(fetchedBoardIds.map(async (bid) => {
-          const boardName = fetched.find((c) => c.boardId === bid)?.boardName ?? '';
+          const boardName = boardNamesRef.current.get(bid) ?? fetched.find((c) => c.boardId === bid)?.boardName ?? '';
           await Promise.all([
             apiService.get<{ graph: { edges: { blockingCardId: string; blockedCardId: string }[] } }>(
               `/api/boards/${bid}/dependency-graph`, true
@@ -567,7 +605,7 @@ function ProjectGantt({
         lastLoadedProject.current = projectId;
       })
       .finally(() => { setLoading(false); setSyncing(false); });
-  }, [projectId, refreshTick, internalTick, timelineVersion]);
+  }, [projectId, refreshTick, internalTick, timelineVersion, boardIdsKey]);
 
   if (loading) {
     return (
@@ -581,6 +619,7 @@ function ProjectGantt({
   const allDates: number[] = [
     ...milestones.filter((m) => m.date).map((m) => new Date(m.date).getTime()),
     ...cards.flatMap((c) => [c.dueDate, c.startDate].filter(Boolean).map((d) => new Date(d!).getTime())),
+    ...boardSprints.flatMap((s) => [s.startDate, s.endDate].map((d) => new Date(d).getTime())),
   ];
 
   if (allDates.length === 0) {
@@ -589,7 +628,7 @@ function ProjectGantt({
         <Calendar style={{ width: '22px', height: '22px', color: C.text4 }} />
         <p style={{ margin: 0, fontSize: '12.5px', color: C.text3 }}>Sin fechas asignadas</p>
         <p style={{ margin: 0, fontSize: '11.5px', color: C.text4, textAlign: 'center', maxWidth: '280px' }}>
-          Asigna fechas límite a los hitos o cards para ver el timeline
+          Asigna fechas a un hito, sprint o tarjeta para ver la línea de tiempo.
         </p>
       </div>
     );
@@ -652,15 +691,15 @@ function ProjectGantt({
   const boards = Array.from(boardMap.values());
 
   const ROW_H     = 42;
-  const SECTION_H = 28;
-  const SIDEBAR_W = 200;
-  const MONTH_H   = 22;
-  const DAY_H     = 18;
+  const SECTION_H = 34;
+  const SIDEBAR_W = 238;
+  const MONTH_H   = 34;
+  const DAY_H     = DAY_W >= 20 ? 36 : 28;
   const HEADER_H  = MONTH_H + DAY_H;
   // Actual rendered row heights (used for dependency line geometry)
-  const GANTT_MONTH_H   = 30; // month band
-  const GANTT_WEEK_H    = 22; // week header
-  const GANTT_ROW_H_ACT = 34; // card/milestone row
+  const GANTT_MONTH_H   = MONTH_H;
+  const GANTT_WEEK_H    = DAY_H;
+  const GANTT_ROW_H_ACT = ROW_H;
 
   function showTip(e: React.MouseEvent, tip: TooltipState) {
     setTooltip({ ...tip, x: e.clientX, y: e.clientY });
@@ -672,7 +711,7 @@ function ProjectGantt({
     | { kind: 'milestone'; m: ProjectMilestone }
     | { kind: 'card'; card: TimelineCard; rowIdx: number };
 
-  const SPRINT_ROW_H = 30;
+  const SPRINT_ROW_H = 40;
 
   const rows: Row[] = [];
 
@@ -762,22 +801,22 @@ function ProjectGantt({
         <div style={{
           position: 'absolute', top: 6, right: 8, zIndex: 20,
           display: 'flex', alignItems: 'center', gap: 5,
-          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+          background: C.surface, border: `1px solid ${C.border2}`, boxShadow: '0 4px 16px rgba(48,32,74,0.12)',
           borderRadius: 6, padding: '3px 8px',
-          fontSize: '10.5px', color: 'rgba(255,255,255,0.5)',
+          fontSize: '10.5px', color: C.text3,
           pointerEvents: 'none',
         }}>
-          <div style={{ width: 9, height: 9, border: '1.5px solid rgba(255,255,255,0.2)', borderTopColor: color, borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+          <div style={{ width: 9, height: 9, border: '1.5px solid rgba(97,71,130,0.2)', borderTopColor: color, borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
           Actualizando
         </div>
       )}
       {/* Custom scrollbar para el Gantt */}
       <style>{`
-        .dshScroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+        .dshScroll { scrollbar-width: thin; scrollbar-color: rgba(97,71,130,0.18) transparent; }
         .dshScroll::-webkit-scrollbar { height: 10px; width: 10px; }
         .dshScroll::-webkit-scrollbar-track { background: transparent; margin: 0 8px; }
         .dshScroll::-webkit-scrollbar-thumb {
-          background: linear-gradient(90deg, rgba(255,255,255,0.14), rgba(255,255,255,0.2));
+          background: linear-gradient(90deg, rgba(97,71,130,0.14), rgba(97,71,130,0.2));
           border-radius: 999px;
           border: 2px solid transparent;
           background-clip: padding-box;
@@ -802,9 +841,9 @@ function ProjectGantt({
         <div style={{
           position: 'fixed', zIndex: 9999,
           left: tooltip.x + 14, top: tooltip.y - 10,
-          background: '#13161b', border: `1px solid ${C.border2}`,
+          background: 'var(--c-surface)', border: `1px solid ${C.border2}`,
           borderRadius: '8px', padding: '10px 13px',
-          boxShadow: '0 8px 28px rgba(0,0,0,0.55)',
+          boxShadow: '0 10px 30px rgba(48,32,74,0.16)',
           pointerEvents: 'none', maxWidth: '260px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: tooltip.date || tooltip.range ? '6px' : 0 }}>
@@ -818,34 +857,34 @@ function ProjectGantt({
         </div>
       )}
 
-      <div className="dshScroll" style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', background: 'rgba(255,255,255,0.015)' }}>
+      <div className="dshScroll" style={{ overflowX: 'auto', border: `1px solid ${C.border}`, borderRadius: '11px', background: C.surface }}>
         <div style={{ width: `${SIDEBAR_W + TRACK_W}px`, minWidth: '100%', position: 'relative' }}>
 
           {/* ── Header (month + days) ──────────────────────────────── */}
           {(() => {
             const DOW_ES = ['D','L','M','X','J','V','S'];
             const showDow = DAY_W >= 20;
-            const DAY_HDR_H = showDow ? 34 : 26;
+            const DAY_HDR_H = DAY_H;
             const step = DAY_W < 14 ? 7 : DAY_W < 20 ? 3 : 1;
             return (
               <>
                 {/* Month row */}
-                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.018)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: '#13172A', borderRight: '1px solid rgba(255,255,255,0.08)', height: '28px', display: 'flex', alignItems: 'center', padding: '0 14px' }}>
-                    <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846' }}>Tarea</span>
+                <div style={{ display: 'flex', background: C.bg2, borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: C.bg2, borderRight: `1px solid ${C.border}`, height: `${MONTH_H}px`, display: 'flex', alignItems: 'center', padding: '0 16px' }}>
+                    <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text3 }}>Elemento</span>
                   </div>
-                  <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: '28px' }}>
+                  <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: `${MONTH_H}px` }}>
                     {monthCols.map((mc2, i) => (
-                      <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: mc2.x, width: mc2.width, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.08)' : 'none', display: 'flex', alignItems: 'center', paddingLeft: '10px', overflow: 'hidden' }}>
-                        <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.04em', color: '#A8A09A', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{mc2.label}</span>
+                      <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: mc2.x, width: mc2.width, borderLeft: i > 0 ? `1px solid ${C.border}` : 'none', display: 'flex', alignItems: 'center', paddingLeft: '12px', overflow: 'hidden' }}>
+                        <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.04em', color: C.text2, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{mc2.label}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Day row */}
-                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.10)', background: '#13172A' }}>
-                  <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: '#13172A', borderRight: '1px solid rgba(255,255,255,0.08)', height: `${DAY_HDR_H}px` }} />
+                <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+                  <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: C.surface, borderRight: `1px solid ${C.border}`, height: `${DAY_HDR_H}px`, display: 'flex', alignItems: 'center', padding: '0 16px', color: C.text4, fontSize: '11px' }}>Vista diaria</div>
                   <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: `${DAY_HDR_H}px` }}>
                     {Array.from({ length: totalDays }).map((_, di) => {
                       const d          = new Date(rangeStart.getTime() + di * MS_PER_DAY);
@@ -861,30 +900,30 @@ function ProjectGantt({
                             position: 'absolute', top: 0, bottom: 0,
                             left: di * DAY_W, width: DAY_W,
                             borderLeft: isMonthStart
-                              ? '1px solid rgba(255,255,255,0.12)'
+                              ? '1px solid rgba(97,71,130,0.12)'
                               : isWeekend
-                                ? '1px solid rgba(255,255,255,0.05)'
-                                : '1px solid rgba(255,255,255,0.03)',
+                                ? '1px solid rgba(97,71,130,0.05)'
+                                : '1px solid rgba(97,71,130,0.03)',
                             background: isToday
-                              ? 'rgba(226,160,126,0.13)'
+                              ? 'rgba(209,131,96,0.16)'
                               : isWeekend
-                                ? 'rgba(255,255,255,0.02)'
+                                ? 'rgba(97,71,130,0.02)'
                                 : 'transparent',
                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1px',
                           }}
                         >
                           {showLabel && showDow && (
-                            <span style={{ fontSize: '7.5px', fontWeight: 500, color: isToday ? '#E2A07E99' : isWeekend ? '#615846' : '#3E3830', lineHeight: 1, userSelect: 'none' }}>
+                            <span style={{ fontSize: '8.5px', fontWeight: 600, color: isToday ? '#B66B4E' : isWeekend ? C.text4 : C.text3, lineHeight: 1, userSelect: 'none' }}>
                               {DOW_ES[dow]}
                             </span>
                           )}
                           {showLabel && (
                             isToday ? (
-                              <span style={{ width: DAY_W - 6, height: DAY_W - 6, maxWidth: '16px', maxHeight: '16px', minWidth: '11px', minHeight: '11px', borderRadius: '50%', background: '#E2A07E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <span style={{ fontSize: DAY_W < 14 ? '7px' : '8px', fontWeight: 700, color: '#1A1208', lineHeight: 1, userSelect: 'none' }}>{d.getDate()}</span>
+                              <span style={{ width: DAY_W - 6, height: DAY_W - 6, maxWidth: '20px', maxHeight: '20px', minWidth: '13px', minHeight: '13px', borderRadius: '50%', background: '#D18360', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ fontSize: DAY_W < 14 ? '8px' : '10px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1, userSelect: 'none' }}>{d.getDate()}</span>
                               </span>
                             ) : (
-                              <span style={{ fontSize: DAY_W < 14 ? '8px' : '9.5px', fontWeight: isWeekend ? 500 : 400, color: isWeekend ? '#615846' : '#4A4540', lineHeight: 1, userSelect: 'none' }}>
+                              <span style={{ fontSize: DAY_W < 14 ? '9px' : '10px', fontWeight: isWeekend ? 500 : 600, color: isWeekend ? C.text4 : C.text2, lineHeight: 1, userSelect: 'none' }}>
                                 {d.getDate()}
                               </span>
                             )
@@ -912,7 +951,7 @@ function ProjectGantt({
                   <div key={di} style={{
                     position: 'absolute', top: 0, bottom: 0,
                     left: di * DAY_W, width: DAY_W,
-                    background: isToday ? 'rgba(226,160,126,0.07)' : 'rgba(255,255,255,0.018)',
+                    background: isToday ? 'rgba(226,160,126,0.07)' : 'rgba(97,71,130,0.018)',
                   }} />
                 );
               })}
@@ -924,7 +963,7 @@ function ProjectGantt({
               const sx = dayX(new Date(s.startDate));
               const ex = dayX(new Date(s.endDate));
               const bw = Math.max(0, ex - sx);
-              const bc = s.status === 'ACTIVE' ? '#76A878' : '#9C9486';
+              const bc = s.status === 'ACTIVE' ? '#548B73' : 'var(--c-text2)';
               return (
                 <div key={'band-' + s.id} style={{
                   position: 'absolute', top: 0, bottom: 0,
@@ -941,21 +980,21 @@ function ProjectGantt({
               // ── Section header ──
               if (row.kind === 'section') {
                 const SprintIcon = () => (
-                  <svg viewBox="0 0 12 12" fill="none" stroke="#827A6D" strokeWidth="1.5" strokeLinecap="round" width="11" height="11" style={{ flexShrink: 0 }}>
+                  <svg viewBox="0 0 12 12" fill="none" stroke="var(--c-text3)" strokeWidth="1.5" strokeLinecap="round" width="11" height="11" style={{ flexShrink: 0 }}>
                     <path d="M2 8.5a4 4 0 1 1 8 0M2 8.5l1.3-2M10 8.5l-1.3-2"/>
                   </svg>
                 );
                 return (
-                  <div key={rIdx} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: '#161B2E', borderRight: '1px solid rgba(255,255,255,0.07)', height: `${SECTION_H}px`, display: 'flex', alignItems: 'center', gap: '7px', padding: '0 12px' }}>
+                  <div key={rIdx} style={{ display: 'flex', borderTop: `1px solid ${C.border}`, background: C.bg2 }}>
+                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: C.bg2, borderRight: `1px solid ${C.border}`, height: `${SECTION_H}px`, display: 'flex', alignItems: 'center', gap: '8px', padding: '0 16px' }}>
                       {row.icon === 'flag'
-                        ? <Flag style={{ width: '11px', height: '11px', color: '#827A6D', flexShrink: 0 }} />
+                        ? <Flag style={{ width: '11px', height: '11px', color: 'var(--c-text3)', flexShrink: 0 }} />
                         : row.icon === 'sprint'
                           ? <SprintIcon />
-                          : <LayoutDashboard style={{ width: '11px', height: '11px', color: '#827A6D', flexShrink: 0 }} />}
-                      <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.06em', color: '#827A6D', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</span>
+                          : <LayoutDashboard style={{ width: '11px', height: '11px', color: 'var(--c-text3)', flexShrink: 0 }} />}
+                      <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.06em', color: C.text2, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</span>
                     </div>
-                    <div style={{ flex: 'none', width: `${TRACK_W}px`, height: `${SECTION_H}px`, background: 'rgba(255,255,255,0.012)' }} />
+                    <div style={{ flex: 'none', width: `${TRACK_W}px`, height: `${SECTION_H}px` }} />
                   </div>
                 );
               }
@@ -963,20 +1002,20 @@ function ProjectGantt({
               // ── Sprint row ──
               if (row.kind === 'sprint') {
                 const { s } = row;
-                const sColor = s.status === 'ACTIVE' ? '#76A878' : '#9C9486';
+                const sColor = s.status === 'ACTIVE' ? '#548B73' : 'var(--c-text2)';
                 const sLabel = s.status === 'ACTIVE' ? 'Activo' : 'Planificado';
                 const sx = dayX(new Date(s.startDate));
                 const ex = dayX(new Date(s.endDate));
                 const barW = Math.max(DAY_W * 2, ex - sx);
                 const fmtS = (d: string) => new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
                 return (
-                  <div key={s.id} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div key={s.id} style={{ display: 'flex', borderTop: `1px solid ${C.border}` }}>
                     {/* Sidebar */}
-                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: '#161B2E', borderRight: '1px solid rgba(255,255,255,0.07)', height: `${SPRINT_ROW_H}px`, display: 'flex', alignItems: 'center', gap: '7px', padding: '0 10px' }}>
+                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: C.surface, borderRight: `1px solid ${C.border}`, height: `${SPRINT_ROW_H}px`, display: 'flex', alignItems: 'center', gap: '9px', padding: '0 14px' }}>
                       <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: sColor, flexShrink: 0 }} />
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: '#C8BFAE', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.25 }}>{s.name}</span>
-                        <span style={{ display: 'block', fontSize: '9px', color: '#5C5447', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{s.boardName}</span>
+                        <span style={{ display: 'block', fontSize: '12px', fontWeight: 650, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.25 }}>{s.name}</span>
+                        <span style={{ display: 'block', fontSize: '10px', color: C.text3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{s.boardName}</span>
                       </span>
                     </div>
                     {/* Track */}
@@ -984,7 +1023,7 @@ function ProjectGantt({
                       <div
                         style={{
                           position: 'absolute', left: sx, top: '50%', transform: 'translateY(-50%)',
-                          width: barW, height: '10px', borderRadius: '5px',
+                          width: barW, height: '14px', borderRadius: '7px',
                           background: s.status === 'ACTIVE' ? `${sColor}cc` : `${sColor}55`,
                           border: `1px solid ${sColor}60`,
                           display: 'flex', alignItems: 'center', overflow: 'hidden',
@@ -1002,7 +1041,7 @@ function ProjectGantt({
                       >
                         {/* Sprint name label inside bar (if bar is wide enough) */}
                         {barW > 70 && (
-                          <span style={{ fontSize: '9px', fontWeight: 600, color: s.status === 'ACTIVE' ? '#1a2e1a' : '#3a3530', paddingLeft: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
+                          <span style={{ fontSize: '9px', fontWeight: 700, color: s.status === 'ACTIVE' ? '#FFFFFF' : C.text, paddingLeft: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
                             {s.name}
                           </span>
                         )}
@@ -1020,25 +1059,25 @@ function ProjectGantt({
               if (row.kind === 'milestone') {
                 const { m } = row;
                 const isPast   = new Date(m.date) < new Date() && m.status === 'PENDING';
-                const dotColor = isPast ? C.red : m.status === 'REACHED' ? C.green : (m.color || '#4B607F');
+                const dotColor = isPast ? C.red : m.status === 'REACHED' ? C.green : (m.color || '#8076A7');
                 const mx       = dayX(new Date(m.date));
                 return (
-                  <div key={m.id} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: '#161B2E', borderRight: '1px solid rgba(255,255,255,0.07)', height: '34px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px' }}>
+                  <div key={m.id} style={{ display: 'flex', borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: C.surface, borderRight: `1px solid ${C.border}`, height: `${ROW_H}px`, display: 'flex', alignItems: 'center', gap: '10px', padding: '0 16px' }}>
                       <span style={{ width: '9px', height: '9px', background: dotColor, transform: 'rotate(45deg)', flexShrink: 0 }} />
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '12px', fontWeight: 600, color: m.status === 'MISSED' ? '#615846' : '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: m.status === 'MISSED' ? 'line-through' : 'none' }}>{m.name}</span>
-                        <span style={{ display: 'block', fontSize: '9.5px', color: '#615846' }}>{fmtShort(m.date)}</span>
+                        <span style={{ display: 'block', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '12px', fontWeight: 600, color: m.status === 'MISSED' ? 'var(--c-text4)' : 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: m.status === 'MISSED' ? 'line-through' : 'none' }}>{m.name}</span>
+                        <span style={{ display: 'block', fontSize: '10px', color: C.text3 }}>{fmtShort(m.date)}</span>
                       </span>
                     </div>
-                    <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: '34px' }}>
+                    <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: `${ROW_H}px` }}>
                       <div
                         style={{ position: 'absolute', left: mx, top: '50%', transform: 'translate(-50%, -50%)', cursor: 'pointer' }}
                         onMouseEnter={(e) => showTip(e, { title: m.name, subtitle: m.description ?? '', color: dotColor, date: `📅 ${fmtDate(m.date)}`, x: e.clientX, y: e.clientY })}
                         onMouseMove={(e) => setTooltip((tt) => tt ? { ...tt, x: e.clientX, y: e.clientY } : null)}
                         onMouseLeave={() => setTooltip(null)}
                       >
-                        <span style={{ display: 'block', width: '13px', height: '13px', background: dotColor, transform: 'rotate(45deg)', border: '2px solid #161B2E', boxShadow: `0 0 0 1px ${dotColor}88` }} />
+                        <span style={{ display: 'block', width: '14px', height: '14px', background: dotColor, transform: 'rotate(45deg)', border: `2px solid ${C.surface}`, borderRadius: '3px', boxShadow: `0 0 0 1px ${dotColor}88` }} />
                       </div>
                     </div>
                   </div>
@@ -1048,7 +1087,7 @@ function ProjectGantt({
               // ── Task row (card) ──
               const { card } = row;
               const hasRange  = !!(card.startDate && card.dueDate);
-              const barColor  = card.completed ? C.green : (PRIORITY_COLOR[card.priority ?? ''] ?? '#76A878');
+              const barColor  = card.completed ? C.green : (PRIORITY_COLOR[card.priority ?? ''] ?? '#548B73');
               const isOverdue = !card.completed && card.dueDate && new Date(card.dueDate) < new Date();
               const startX    = card.startDate ? dayX(new Date(card.startDate)) : null;
               const endX2     = card.dueDate   ? dayX(new Date(card.dueDate))   : null;
@@ -1067,26 +1106,26 @@ function ProjectGantt({
               const bufPx     = hasRange && endX2 !== null ? bufDays * DAY_W : 0;
 
               return (
-                <div key={card.id} className="ganttRow" style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={card.id} className="ganttRow" style={{ display: 'flex', borderTop: `1px solid ${C.border}` }}>
                   {/* Sidebar — clickable to open detail */}
                   <button
                     onClick={() => handleCardClick(card)}
-                    style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: '#161B2E', borderRight: '1px solid rgba(255,255,255,0.07)', height: '34px', display: 'flex', alignItems: 'center', gap: '7px', padding: '0 10px', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#161B2E'; }}
+                    style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: C.surface, borderRight: `1px solid ${C.border}`, height: `${ROW_H}px`, display: 'flex', alignItems: 'center', gap: '9px', padding: '0 14px', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = C.surface; }}
                   >
-                    <span style={{ width: '19px', height: '19px', borderRadius: '50%', background: barColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8.5px', fontWeight: 700, color: '#24180A', flexShrink: 0 }}>{who}</span>
+                    <span style={{ width: '19px', height: '19px', borderRadius: '50%', background: barColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8.5px', fontWeight: 700, color: '#FFFFFF', flexShrink: 0 }}>{who}</span>
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: '11px', color: card.completed ? '#615846' : '#C8BFAE', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: card.completed ? 'line-through' : 'none', lineHeight: 1.3 }}>{card.title}</span>
-                      <span style={{ display: 'block', fontSize: '9px', color: '#615846', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{card.boardName}</span>
+                      <span style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: card.completed ? C.text4 : C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: card.completed ? 'line-through' : 'none', lineHeight: 1.3 }}>{card.title}</span>
+                      <span style={{ display: 'block', fontSize: '10px', color: C.text3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{card.boardName}</span>
                     </span>
                   </button>
-                  <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: '34px' }}>
+                  <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: `${ROW_H}px` }}>
                     {hasRange && startX !== null ? (
                       <>
                         {/* Main bar */}
                         <div
-                          style={{ position: 'absolute', left: startX, top: '50%', transform: 'translateY(-50%)', width: barPx, height: '8px', borderRadius: bufPx > 0 ? '4px 0 0 4px' : '4px', background: card.completed ? `${barColor}55` : `${barColor}d9`, cursor: 'pointer', boxShadow: isOverdue ? `0 0 0 1.5px ${C.red}88` : 'none', transition: 'filter 0.12s', zIndex: 1 }}
+                          style={{ position: 'absolute', left: startX, top: '50%', transform: 'translateY(-50%)', width: barPx, height: '11px', borderRadius: bufPx > 0 ? '6px 0 0 6px' : '6px', background: card.completed ? `${barColor}77` : barColor, cursor: 'pointer', boxShadow: isOverdue ? `0 0 0 1.5px ${C.red}88` : 'none', transition: 'filter 0.12s', zIndex: 1 }}
                           onClick={() => handleCardClick(card)}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.18)'; showTip(e, { title: card.title, subtitle: card.boardName, color: barColor, range: `${fmtShort(card.startDate!)} → ${fmtShort(card.dueDate!)}`, listName: card.listName, x: e.clientX, y: e.clientY }); }}
                           onMouseMove={(e) => setTooltip((tt) => tt ? { ...tt, x: e.clientX, y: e.clientY } : null)}
@@ -1097,7 +1136,7 @@ function ProjectGantt({
                           <div
                             style={{
                               position: 'absolute', left: startX + barPx, top: '50%', transform: 'translateY(-50%)',
-                              width: bufPx, height: '8px', borderRadius: '0 4px 4px 0',
+                              width: bufPx, height: '11px', borderRadius: '0 6px 6px 0',
                               background: `${barColor}35`,
                               borderRight: `2px solid ${barColor}88`,
                               cursor: 'pointer',
@@ -1181,10 +1220,10 @@ function ProjectGantt({
 
 // ── Team types ────────────────────────────────────────────────────────────────
 
-type ProjectMember = TeamMember & { teamName: string; teamColor: string | null };
+type ProjectMember = ProjectTeamMember;
 type SearchUser    = { id: string; name: string; email: string; avatar?: string | null; };
 
-const MEMBER_PALETTE = ['#F2571E', '#76A878', '#4B607F', '#DB8A66', '#8C7C9E', '#C2904B'];
+const MEMBER_PALETTE = ['#7452A6', '#548B73', '#8076A7', '#A97556', '#8262B2', '#AA895E'];
 function memberColor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
@@ -1294,7 +1333,7 @@ function LegacyTeamSelector({ projectId, assigned, allTeams, onAssign, onRemove 
 const DP_DAYS   = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
 const DP_MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#F2571E' }: {
+function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#7452A6' }: {
   value: string; onChange: (v: string) => void; placeholder?: string; accent?: string;
 }) {
   const today = new Date();
@@ -1406,7 +1445,7 @@ function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#F25
               const tod    = isCurr && isToday(cell.d);
               return (
                 <button key={i} type="button" onClick={() => isCurr && select(cell.d)}
-                  style={{ width: '32px', height: '32px', borderRadius: '7px', border: 'none', background: sel ? accent : 'transparent', color: sel ? '#24180A' : isCurr ? C.text : C.text4, fontSize: '12.5px', fontWeight: sel || tod ? 700 : 400, cursor: isCurr ? 'pointer' : 'default', outline: !sel && tod ? `2px solid ${accent}` : 'none', outlineOffset: '-1px', opacity: !isCurr ? 0.28 : 1, transition: 'background 0.1s', boxSizing: 'border-box' as const }}
+                  style={{ width: '32px', height: '32px', borderRadius: '7px', border: 'none', background: sel ? accent : 'transparent', color: sel ? '#FFFFFF' : isCurr ? C.text : C.text4, fontSize: '12.5px', fontWeight: sel || tod ? 700 : 400, cursor: isCurr ? 'pointer' : 'default', outline: !sel && tod ? `2px solid ${accent}` : 'none', outlineOffset: '-1px', opacity: !isCurr ? 0.28 : 1, transition: 'background 0.1s', boxSizing: 'border-box' as const }}
                   onMouseEnter={e => { if (isCurr && !sel) e.currentTarget.style.background = C.hover; }}
                   onMouseLeave={e => { if (isCurr && !sel) e.currentTarget.style.background = 'transparent'; }}
                 >
@@ -1515,7 +1554,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   );
   const fieldStyle: React.CSSProperties = { width: '100%', padding: '9px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" };
   const textAreaStyle: React.CSSProperties = { ...fieldStyle, resize: 'vertical', lineHeight: 1.55 };
-  const sectionStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.018)' };
+  const sectionStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(97,71,130,0.018)' };
   const sectionHeadingStyle: React.CSSProperties = { margin: 0, color: C.text, fontSize: 12.5, fontWeight: 700, fontFamily: "'Sora', system-ui, sans-serif" };
   const sectionDescriptionStyle: React.CSSProperties = { margin: '3px 0 0', color: C.text4, fontSize: 11, lineHeight: 1.45 };
   const twoColumnStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 230px), 1fr))', gap: 12 };
@@ -1671,7 +1710,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
               <div>
               <LBL>Estado</LBL>
               <select value={status} onChange={(e) => setStatus(e.target.value as any)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'light', cursor: 'pointer' }}
               >
                 {(['PLANNING','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map((s) => (
                   <option key={s} value={s}>{statusLabelsEs[s]}</option>
@@ -1681,7 +1720,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
               <div>
                 <LBL>Madurez</LBL>
                 <select value={maturityStage} onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'dark', cursor: 'pointer' }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'light', cursor: 'pointer' }}
                 >
                   {(['IDEA','DRAFT','FORMALIZED','PLANNED','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map((stage) => (
                     <option key={stage} value={stage}>{getMaturityCfg(stage).label}</option>
@@ -1723,12 +1762,12 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={handleClose} disabled={saving}
-                style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer', transition: 'background 0.1s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(97,71,130,0.05)', border: '1px solid rgba(97,71,130,0.1)', color: 'var(--c-text2)', cursor: 'pointer', transition: 'background 0.1s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(97,71,130,0.09)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(97,71,130,0.05)')}
               >Cancelar</button>
               <button onClick={save} disabled={saving}
-                style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: accent, color: '#24180A', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: saving ? 0.75 : 1, transition: 'filter 0.1s' }}
+                style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: accent, color: '#FFFFFF', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: saving ? 0.75 : 1, transition: 'filter 0.1s' }}
                 onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = ''; }}
               >
@@ -1794,7 +1833,7 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
           <button
             onClick={handleClose}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '7px', background: 'none', border: 'none', cursor: 'pointer', color: C.text3, transition: 'background 0.12s, color 0.12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = C.text; }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(97,71,130,0.06)'; e.currentTarget.style.color = C.text; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; }}
           >
             <X style={ic(15)} />
@@ -1836,13 +1875,13 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '12px 18px', borderTop: `1px solid ${C.border}` }}>
           <button
             onClick={handleClose}
-            style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer' }}
+            style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(97,71,130,0.05)', border: '1px solid rgba(97,71,130,0.1)', color: 'var(--c-text2)', cursor: 'pointer' }}
           >
             {t.btn_cancel}
           </button>
           <button
             onClick={handleCreate} disabled={creating}
-            style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: color, color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: creating ? 0.75 : 1 }}
+            style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: color, color: '#FFFFFF', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: creating ? 0.75 : 1 }}
           >
             {creating ? t.btn_creating : 'Crear tablero'}
           </button>
@@ -1915,8 +1954,8 @@ function CreateMilestoneModal({ projectId, color, milestone, onClose }: { projec
           {error && <p style={{ fontSize: '11.5px', color: C.red }}>{error}</p>}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '12px 18px', borderTop: `1px solid ${C.border}` }}>
-          <button onClick={handleClose} style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer' }}>{t.btn_cancel}</button>
-          <button onClick={submit} disabled={loading} style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#F2571E', color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: loading ? 0.75 : 1 }}>
+          <button onClick={handleClose} style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(97,71,130,0.05)', border: '1px solid rgba(97,71,130,0.1)', color: 'var(--c-text2)', cursor: 'pointer' }}>{t.btn_cancel}</button>
+          <button onClick={submit} disabled={loading} style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#7452A6', color: '#FFFFFF', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: loading ? 0.75 : 1 }}>
             {loading ? (isEdit ? t.btn_saving : t.btn_creating) : (isEdit ? t.btn_save : t.projects_milestone_create)}
           </button>
         </div>
@@ -1980,8 +2019,8 @@ function CreateDocumentModal({ workspaceId, projectId, color, onClose, onCreated
           {error && <p style={{ margin: 0, fontSize: '11.5px', color: C.red }}>{error}</p>}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '12px 18px', borderTop: `1px solid ${C.border}` }}>
-          <button onClick={handleClose} style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer' }}>{t.btn_cancel}</button>
-          <button onClick={submit} disabled={loading} style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#F2571E', color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: loading ? 0.75 : 1 }}>
+          <button onClick={handleClose} style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(97,71,130,0.05)', border: '1px solid rgba(97,71,130,0.1)', color: 'var(--c-text2)', cursor: 'pointer' }}>{t.btn_cancel}</button>
+          <button onClick={submit} disabled={loading} style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#7452A6', color: '#FFFFFF', border: 'none', cursor: 'pointer', fontFamily: "'Sora', system-ui, sans-serif", opacity: loading ? 0.75 : 1 }}>
             {loading ? t.btn_creating : 'Crear documento'}
           </button>
         </div>
@@ -2026,7 +2065,7 @@ export default function ProjectDetailPage() {
   const [addingUserId,     setAddingUserId]     = useState<string | null>(null);
   const [activityEntries,  setActivityEntries]  = useState<ActivityEntry[]>([]);
   const [loadingActivity,  setLoadingActivity]  = useState(false);
-  const [actCats,          setActCats]          = useState<Set<ActCategory>>(new Set(['milestone', 'board', 'team', 'project']));
+  const [actCats,          setActCats]          = useState<Set<ActCategory>>(new Set(['milestone', 'board', 'document', 'team', 'project']));
   const [actUser,          setActUser]          = useState<string>('all');
   const [backlogCards,     setBacklogCards]     = useState<BacklogCard[]>([]);
   const [backlogLoading,   setBacklogLoading]   = useState(false);
@@ -2036,6 +2075,7 @@ export default function ProjectDetailPage() {
   const [adoptingStandard, setAdoptingStandard] = useState(false);
 
   const linkedBoardIdsRef = useRef<Set<string>>(new Set());
+  const linkedDocumentNamesRef = useRef<Map<string, string>>(new Map());
 
   const setSelectedCard = useCardStore((s) => s.setSelectedCard);
 
@@ -2075,24 +2115,15 @@ export default function ProjectDetailPage() {
     if (currentProject?.id) fetchProjectDocuments(currentProject.id);
   }, [currentProject?.id, fetchProjectDocuments]);
 
-  // Miembros — agregados desde los equipos asignados (únicos por usuario)
+  // Miembros de cada equipo asignado al proyecto.
   useEffect(() => {
     let cancelled = false;
     if (assignedTeams.length === 0) { setMembers([]); return; }
-    Promise.all(
-      assignedTeams.map((tm) =>
-        projectApi.getTeamMembers(tm.id)
-          .then((teamMembers) => teamMembers.map((mb) => ({ ...mb, teamName: tm.name, teamColor: tm.color })))
-          .catch(() => [] as ProjectMember[])
-      )
-    ).then((lists) => {
-      if (cancelled) return;
-      const byId = new Map<string, ProjectMember>();
-      for (const list of lists) for (const mb of list) if (!byId.has(mb.id)) byId.set(mb.id, mb);
-      setMembers(Array.from(byId.values()));
-    });
+    projectApi.getTeamMembers(projectId)
+      .then((teamMembers) => { if (!cancelled) setMembers(teamMembers); })
+      .catch(() => { if (!cancelled) setMembers([]); });
     return () => { cancelled = true; };
-  }, [assignedTeams]);
+  }, [assignedTeams, projectId]);
 
   // Miembros directos del proyecto
   useEffect(() => {
@@ -2143,6 +2174,10 @@ export default function ProjectDetailPage() {
     linkedBoardIdsRef.current = new Set((currentProject?.boards ?? []).map((b) => b.id));
   }, [currentProject?.boards]);
 
+  useEffect(() => {
+    linkedDocumentNamesRef.current = new Map(documents.map((document) => [document.id, document.title]));
+  }, [documents]);
+
   // Tiempo real — escucha eventos del workspace y actualiza estado local
   useEffect(() => {
     if (!currentProject?.workspaceId) return;
@@ -2155,7 +2190,8 @@ export default function ProjectDetailPage() {
       const isForProject =
         ev.subject?.id === projectId ||
         p.projectId    === projectId ||
-        (ev.context?.boardId && linkedBoardIdsRef.current.has(ev.context.boardId));
+        (ev.context?.boardId && linkedBoardIdsRef.current.has(ev.context.boardId)) ||
+        (ev.context?.documentId && linkedDocumentNamesRef.current.has(ev.context.documentId));
       if (!isForProject) return;
 
       // Añadir al feed de actividad (dedup por id)
@@ -2171,7 +2207,7 @@ export default function ProjectDetailPage() {
         createdAt: new Date(nowMs).toISOString(),
         targetType: ev.subject?.type,
         targetId:   ev.subject?.id,
-        targetName: ev.subject?.name,
+        targetName: ev.subject?.name || linkedDocumentNamesRef.current.get(ev.context?.documentId),
         cardId:   ev.context?.cardId,
       };
       setActivityEntries((prev) => {
@@ -2271,8 +2307,8 @@ export default function ProjectDetailPage() {
 
   if (!currentProject || currentProject.id !== projectId) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#161B2E' }}>
-        <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.08)', borderTopColor: '#F2571E', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--c-bg)' }}>
+        <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid rgba(97,71,130,0.08)', borderTopColor: 'var(--c-accent-text)', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     );
@@ -2296,7 +2332,7 @@ export default function ProjectDetailPage() {
   const actGroups   = groupByMonth(filteredAct);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#161B2E', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--c-bg)', overflow: 'hidden' }}>
 
       {/* ── HEADER (collapse wrapper) ──────────────────────────────────────── */}
       <div style={{
@@ -2307,8 +2343,8 @@ export default function ProjectDetailPage() {
       }}>
       <div style={{ overflow: 'hidden', minHeight: 0 }}>
       <header style={{
-        background: '#161B2E',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        background: 'var(--c-bg)',
+        borderBottom: '1px solid rgba(97,71,130,0.07)',
         transform: activeBoardId ? 'translateY(-14px)' : 'translateY(0)',
         opacity: activeBoardId ? 0 : 1,
         transition: 'transform 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease',
@@ -2322,7 +2358,7 @@ export default function ProjectDetailPage() {
             <span style={{
               width: '54px', height: '54px', borderRadius: '50%', flexShrink: 0,
               background: color + '1A',
-              border: '1px solid rgba(255,255,255,0.08)',
+              border: '1px solid rgba(97,71,130,0.08)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <WorkspaceIcon icon={project.icon} size={24} color={color} />
@@ -2331,7 +2367,7 @@ export default function ProjectDetailPage() {
             <div style={{ flex: '1 1 360px', minWidth: 0 }}>
               {/* Name + status badge */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <h1 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 700, fontSize: 'clamp(1.6rem,2.8vw,2.1rem)', letterSpacing: '-0.02em', color: '#F4EEE2' }}>
+                <h1 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 700, fontSize: 'clamp(1.6rem,2.8vw,2.1rem)', letterSpacing: '-0.02em', color: 'var(--c-text)' }}>
                   {project.name}
                 </h1>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: stCfg.color, background: stCfg.bg, padding: '5px 11px', borderRadius: '8px' }}>
@@ -2346,7 +2382,7 @@ export default function ProjectDetailPage() {
 
               {/* Description */}
               {project.description && (
-                <p style={{ margin: '8px 0 0', fontSize: '1rem', color: '#9C9486', maxWidth: '620px', lineHeight: 1.55, fontFamily: "'Manrope', system-ui, sans-serif" }}>
+                <p style={{ margin: '8px 0 0', fontSize: '1rem', color: 'var(--c-text2)', maxWidth: '620px', lineHeight: 1.55, fontFamily: "'Manrope', system-ui, sans-serif" }}>
                   {project.description}
                 </p>
               )}
@@ -2360,19 +2396,19 @@ export default function ProjectDetailPage() {
                   <span key={team.id} title={team.name} style={{
                     width: '32px', height: '32px', borderRadius: '50%',
                     background: team.color ?? color,
-                    border: '2px solid #161B2E',
+                    border: '2px solid var(--c-bg)',
                     marginLeft: i > 0 ? '-8px' : 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '11px', fontWeight: 700, color: '#24180A', flexShrink: 0,
+                    fontSize: '11px', fontWeight: 700, color: '#FFFFFF', flexShrink: 0,
                   }}>
                     {team.name.trim()[0]?.toUpperCase()}
                   </span>
                 ))}
                 <span onClick={() => setActiveTab('members')} title="Gestionar miembros" style={{
                   width: '32px', height: '32px', borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(255,255,255,0.2)',
+                  background: 'rgba(97,71,130,0.06)', border: '1.5px dashed rgba(97,71,130,0.2)',
                   marginLeft: assignedTeams.length > 0 ? '-8px' : 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#827A6D', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text3)', cursor: 'pointer',
                 }}>
                   {assignedTeams.length > 3 ? `+${assignedTeams.length - 3}` : '+'}
                 </span>
@@ -2380,20 +2416,20 @@ export default function ProjectDetailPage() {
 
               {canEdit && (
                 <button onClick={() => setShowAddBoard(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#7452A6', color: '#FFFFFF', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
                   onMouseLeave={e => (e.currentTarget.style.filter = '')}
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round"/></svg>
                   Nuevo tablero
                 </button>
               )}
 
               {canEdit && (
                 <button onClick={() => setShowConfig(true)} title="Configuración"
-                  style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9C9486', transition: 'background 0.1s, color 0.1s' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#E8E1D2'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#9C9486'; }}
+                  style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text2)', transition: 'background 0.1s, color 0.1s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(97,71,130,0.08)'; e.currentTarget.style.color = 'var(--c-text)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(97,71,130,0.04)'; e.currentTarget.style.color = 'var(--c-text2)'; }}
                 >
                   <MoreHorizontal style={ic(15)} />
                 </button>
@@ -2402,34 +2438,34 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* Progress + meta row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginTop: '22px', padding: '16px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginTop: '22px', padding: '16px 20px', borderRadius: '8px', border: '1px solid rgba(97,71,130,0.07)', background: 'rgba(97,71,130,0.02)', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 280px', minWidth: '200px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '9px' }}>
-                <span style={{ fontSize: '13px', color: '#9C9486' }}>Progreso</span>
-                <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '13px', fontWeight: 600, color: '#E8E1D2' }}>{progress}%</span>
+                <span style={{ fontSize: '13px', color: 'var(--c-text2)' }}>Progreso</span>
+                <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '13px', fontWeight: 600, color: 'var(--c-text)' }}>{progress}%</span>
               </div>
-              <div style={{ height: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+              <div style={{ height: '8px', borderRadius: '8px', background: 'rgba(97,71,130,0.07)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${progress}%`, borderRadius: '8px', background: color, transition: 'width 0.4s ease' }} />
               </div>
             </div>
 
             {stats && stats.totalCards > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: '#C8BFAE' }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" stroke="#76A878" strokeWidth="1.7"/><path d="M9 12l2 2 4-4" stroke="#76A878" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: 'var(--c-text2)' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" stroke="#548B73" strokeWidth="1.7"/><path d="M9 12l2 2 4-4" stroke="#548B73" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 <span style={{ fontSize: '13.5px' }}>{stats.completedCards}/{stats.totalCards} tareas</span>
               </div>
             )}
 
             {project.endDate && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: '#C8BFAE' }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="#9C9486" strokeWidth="1.7"/><path d="M3.5 9h17M8 3.5v3M16 3.5v3" stroke="#9C9486" strokeWidth="1.7" strokeLinecap="round"/></svg>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: 'var(--c-text2)' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="var(--c-text2)" strokeWidth="1.7"/><path d="M3.5 9h17M8 3.5v3M16 3.5v3" stroke="var(--c-text2)" strokeWidth="1.7" strokeLinecap="round"/></svg>
                 <span style={{ fontSize: '13.5px' }}>Entrega {fmtShort(project.endDate)}</span>
               </div>
             )}
 
             {project.formalization && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: '#C8BFAE' }}>
-                <Target style={{ width: '16px', height: '16px', color: project.formalization.readyToFormalize ? '#76A878' : '#C4A86E' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: 'var(--c-text2)' }}>
+                <Target style={{ width: '16px', height: '16px', color: project.formalization.readyToFormalize ? '#548B73' : '#AA895E' }} />
                 <span style={{ fontSize: '13.5px' }}>
                   Formalización {project.formalization.completed}/{project.formalization.required}
                 </span>
@@ -2438,7 +2474,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: '6px', margin: '24px 0 0', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '6px', margin: '24px 0 0', borderBottom: '1px solid rgba(97,71,130,0.07)', flexWrap: 'wrap' }}>
             {TABS.map((tab) => {
               const active = activeTab === tab.key;
               return (
@@ -2447,14 +2483,14 @@ export default function ProjectDetailPage() {
                   onClick={() => { setActiveTab(tab.key); if (tab.key !== 'boards') setActiveBoardId(null); }}
                   style={{
                     padding: '11px 4px', margin: '0 12px -1px 0', border: 'none', background: 'transparent',
-                    borderBottom: active ? '2px solid #F2571E' : '2px solid transparent',
+                    borderBottom: active ? '2px solid #7452A6' : '2px solid transparent',
                     fontFamily: "'Sora', system-ui, sans-serif",
                     fontWeight: 600, fontSize: '13.5px',
-                    color: active ? '#F4EEE2' : '#827A6D',
+                    color: active ? 'var(--c-text)' : 'var(--c-text3)',
                     cursor: 'pointer', transition: 'color 0.15s',
                   }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#C8BFAE'; }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#827A6D'; }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--c-text2)'; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--c-text3)'; }}
                 >
                   {tab.label}
                 </button>
@@ -2524,16 +2560,16 @@ export default function ProjectDetailPage() {
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
               {hasProposalDetails ? (
-                <section style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
-                  <header style={{ padding: '19px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    <h2 style={{ margin: 0, color: '#F4EEE2', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 16 }}>Información general del proyecto</h2>
+                <section style={{ border: '1px solid rgba(97,71,130,0.08)', borderRadius: 12, background: 'rgba(97,71,130,0.02)', overflow: 'hidden' }}>
+                  <header style={{ padding: '19px 24px', borderBottom: '1px solid rgba(97,71,130,0.07)' }}>
+                    <h2 style={{ margin: 0, color: 'var(--c-text)', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 16 }}>Información general del proyecto</h2>
                   </header>
                   {visibleGroups.map((group) => (
-                    <div key={group.number} style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0, padding: '22px 24px', borderBottom: group.number === visibleGroups[visibleGroups.length - 1].number ? 'none' : '1px solid rgba(255,255,255,0.07)' }}>
+                    <div key={group.number} style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0, padding: '22px 24px', borderBottom: group.number === visibleGroups[visibleGroups.length - 1].number ? 'none' : '1px solid rgba(97,71,130,0.07)' }}>
                       <header style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-                        <span style={{ width: 29, height: 29, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, border: '1px solid rgba(242,87,30,0.2)', background: 'rgba(242,87,30,0.09)', color: '#F4905A', fontSize: 10, fontWeight: 800 }}>{group.number}</span>
+                        <span style={{ width: 29, height: 29, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, border: '1px solid rgba(116,82,166,0.2)', background: 'rgba(116,82,166,0.09)', color: '#9271BD', fontSize: 10, fontWeight: 800 }}>{group.number}</span>
                         <div>
-                          <h2 style={{ margin: 0, color: '#F4EEE2', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 15, lineHeight: 1.35, fontWeight: 650 }}>{group.title}</h2>
+                          <h2 style={{ margin: 0, color: 'var(--c-text)', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 15, lineHeight: 1.35, fontWeight: 650 }}>{group.title}</h2>
                           <p style={{ margin: '4px 0 0', color: '#8F887B', fontSize: 11.5, lineHeight: 1.45 }}>{group.description}</p>
                         </div>
                       </header>
@@ -2549,24 +2585,24 @@ export default function ProjectDetailPage() {
                   ))}
                 </section>
               ) : (
-                <section style={{ padding: '17px 19px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, background: 'rgba(255,255,255,0.02)' }}>
+                <section style={{ padding: '17px 19px', border: '1px solid rgba(97,71,130,0.08)', borderRadius: 12, background: 'rgba(97,71,130,0.02)' }}>
                   <p style={{ margin: 0, color: '#A59B89', fontSize: 12.5, lineHeight: 1.55 }}>Este proyecto todavía no tiene información de contexto, impacto o propuesta. Puedes agregarla desde Editar proyecto.</p>
                 </section>
               )}
 
               {project.sourceInitiativeId && (
-                <Link href={`/dashboard/initiatives/${project.sourceInitiativeId}`} style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 7, minHeight: 36, padding: '0 12px', border: '1px solid rgba(242,87,30,0.2)', borderRadius: 9, background: 'rgba(242,87,30,0.06)', color: '#F4905A', fontSize: 11.5, fontWeight: 700, textDecoration: 'none' }}>
+                <Link href={`/dashboard/initiatives/${project.sourceInitiativeId}`} style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 7, minHeight: 36, padding: '0 12px', border: '1px solid rgba(116,82,166,0.2)', borderRadius: 9, background: 'rgba(116,82,166,0.06)', color: '#9271BD', fontSize: 11.5, fontWeight: 700, textDecoration: 'none' }}>
                   Ver iniciativa de origen <span aria-hidden="true">→</span>
                 </Link>
               )}
               {workspaceStandard && (project.appliedStandardVersion ?? 1) < workspaceStandard.version && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '13px 16px', borderRadius: '10px', border: '1px solid rgba(196,168,110,0.2)', background: 'rgba(196,168,110,0.07)' }}>
-                  <span style={{ color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.45 }}>Hay una actualización disponible para el marco de trabajo de este proyecto.</span>
+                  <span style={{ color: 'var(--c-text2)', fontSize: '12.5px', lineHeight: 1.45 }}>Hay una actualización disponible para el marco de trabajo de este proyecto.</span>
                   {canEdit && <button type="button" disabled={adoptingStandard} onClick={async () => {
                     if (adoptingStandard) return;
                     setAdoptingStandard(true);
                     try { await adoptCurrentStandard(project.id); } finally { setAdoptingStandard(false); }
-                  }} style={{ minHeight: '32px', padding: '0 11px', borderRadius: '8px', border: '1px solid rgba(196,168,110,0.24)', background: 'rgba(196,168,110,0.1)', color: '#C4A86E', cursor: adoptingStandard ? 'wait' : 'pointer', fontSize: '11.5px', fontWeight: 700, flexShrink: 0 }}>
+                  }} style={{ minHeight: '32px', padding: '0 11px', borderRadius: '8px', border: '1px solid rgba(196,168,110,0.24)', background: 'rgba(196,168,110,0.1)', color: '#AA895E', cursor: adoptingStandard ? 'wait' : 'pointer', fontSize: '11.5px', fontWeight: 700, flexShrink: 0 }}>
                     {adoptingStandard ? 'Actualizando…' : 'Actualizar'}
                   </button>}
                 </div>
@@ -2585,31 +2621,31 @@ export default function ProjectDetailPage() {
           ) : boards.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '60px 0' }}>
-                <span style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <LayoutDashboard style={{ ...ic(24), color: '#615846' }} />
+                <span style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <LayoutDashboard style={{ ...ic(24), color: 'var(--c-text4)' }} />
                 </span>
-                <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#9C9486', fontFamily: "'Sora', system-ui, sans-serif" }}>{t.projects_boards_empty}</p>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: 'var(--c-text2)', fontFamily: "'Sora', system-ui, sans-serif" }}>{t.projects_boards_empty}</p>
               </div>
             </div>
           ) : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px', marginBottom: '18px' }}>
-                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>
+                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)' }}>
+                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--c-text)' }}>
                     Coordinación operativa
                   </h3>
-                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5 }}>
+                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: 'var(--c-text3)', lineHeight: 1.5 }}>
                     {boards.length} {boards.length === 1 ? 'tablero sostiene' : 'tableros sostienen'} la ejecución de este proyecto. Entra al que necesite destrabe y ordena trabajo desde ahí.
                   </p>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
                   {[
-                    { label: 'Tableros', value: String(boards.length), tone: '#E8E1D2' },
-                    { label: 'Equipos', value: String(assignedTeams.length), tone: '#C4A86E' },
-                    { label: 'Hitos', value: String(milestones.length), tone: '#7B8FA8' },
+                    { label: 'Tableros', value: String(boards.length), tone: 'var(--c-text)' },
+                    { label: 'Equipos', value: String(assignedTeams.length), tone: '#AA895E' },
+                    { label: 'Hitos', value: String(milestones.length), tone: '#8D84B0' },
                   ].map((item) => (
-                    <div key={item.label} style={{ padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#615846', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{item.label}</div>
+                    <div key={item.label} style={{ padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--c-text4)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{item.label}</div>
                       <div style={{ marginTop: '8px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: item.tone }}>{item.value}</div>
                     </div>
                   ))}
@@ -2652,7 +2688,7 @@ export default function ProjectDetailPage() {
             HIGH:   { label: 'ALTA',          color: '#ef4444', bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.25)'  },
             MEDIUM: { label: 'MEDIA',          color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.25)' },
             LOW:    { label: 'BAJA',           color: '#10b981', bg: 'rgba(16,185,129,0.1)',   border: 'rgba(16,185,129,0.25)' },
-            none:   { label: 'SIN PRIORIDAD',  color: '#827A6D', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.1)' },
+            none:   { label: 'SIN PRIORIDAD',  color: 'var(--c-text3)', bg: 'rgba(97,71,130,0.04)', border: 'rgba(97,71,130,0.1)' },
           };
 
           return (
@@ -2665,7 +2701,7 @@ export default function ProjectDetailPage() {
                 ].map((filter) => (
                   <label key={filter.label} style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 180px', color: '#A59B89', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                     {filter.label}
-                    <select aria-label={`Filtrar por ${filter.label.toLowerCase()}`} value={filter.value} onChange={(event) => filter.onChange(event.target.value)} style={{ width: '100%', minHeight: 38, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: '#20263A', color: '#E8E1D2', fontSize: 12, cursor: 'pointer' }}>
+                    <select aria-label={`Filtrar por ${filter.label.toLowerCase()}`} value={filter.value} onChange={(event) => filter.onChange(event.target.value)} style={{ width: '100%', minHeight: 38, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(97,71,130,0.12)', background: 'var(--c-surface)', color: 'var(--c-text)', fontSize: 12, cursor: 'pointer' }}>
                       {filter.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
                   </label>
@@ -2675,25 +2711,25 @@ export default function ProjectDetailPage() {
               {/* Spinner */}
               {backlogLoading && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0', gap: '10px' }}>
-                  <div style={{ width: '20px', height: '20px', border: `2px solid rgba(255,255,255,0.1)`, borderTopColor: color, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                  <span style={{ fontSize: '13.5px', color: '#9C9486' }}>Cargando backlog…</span>
+                  <div style={{ width: '20px', height: '20px', border: `2px solid rgba(97,71,130,0.1)`, borderTopColor: color, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                  <span style={{ fontSize: '13.5px', color: 'var(--c-text2)' }}>Cargando backlog…</span>
                 </div>
               )}
 
               {/* Empty state */}
               {!backlogLoading && filteredCards.length === 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '64px 0', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                  <span style={{ width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '64px 0', borderRadius: '10px', border: '1px dashed rgba(97,71,130,0.1)' }}>
+                  <span style={{ width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="#615846" strokeWidth="1.7" strokeLinecap="round"/>
-                      <rect x="9" y="3" width="6" height="4" rx="1" stroke="#615846" strokeWidth="1.7"/>
-                      <path d="M9 12h6M9 16h4" stroke="#615846" strokeWidth="1.7" strokeLinecap="round"/>
+                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="var(--c-text4)" strokeWidth="1.7" strokeLinecap="round"/>
+                      <rect x="9" y="3" width="6" height="4" rx="1" stroke="var(--c-text4)" strokeWidth="1.7"/>
+                      <path d="M9 12h6M9 16h4" stroke="var(--c-text4)" strokeWidth="1.7" strokeLinecap="round"/>
                     </svg>
                   </span>
-                  <p style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14.5px', fontWeight: 500, color: '#9C9486' }}>
+                  <p style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14.5px', fontWeight: 500, color: 'var(--c-text2)' }}>
                     {boards.length === 0 ? 'Sin tableros vinculados' : backlogCards.length === 0 ? 'Sin tareas todavía' : 'Sin tareas con estos filtros'}
                   </p>
-                  <p style={{ margin: 0, fontSize: '12.5px', color: '#615846', textAlign: 'center', maxWidth: '320px' }}>
+                  <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--c-text4)', textAlign: 'center', maxWidth: '320px' }}>
                     {boards.length === 0
                       ? 'Vincula un tablero al proyecto para ver las tareas aquí'
                       : backlogCards.length === 0 ? 'Las tareas de los tableros aparecerán aquí' : 'Prueba otra prioridad, fecha o estado'}
@@ -2715,8 +2751,8 @@ export default function ProjectDetailPage() {
                       <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', color: pc.color, background: pc.bg, border: `1px solid ${pc.border}`, padding: '3px 11px', borderRadius: '6px' }}>
                         {pc.label}
                       </span>
-                      <span style={{ fontSize: '12px', color: '#615846' }}>{group.length} tarea{group.length !== 1 ? 's' : ''}</span>
-                      <span style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+                      <span style={{ fontSize: '12px', color: 'var(--c-text4)' }}>{group.length} tarea{group.length !== 1 ? 's' : ''}</span>
+                      <span style={{ flex: 1, height: '1px', background: 'rgba(97,71,130,0.06)' }} />
                     </div>
 
                     {/* Card rows */}
@@ -2736,26 +2772,26 @@ export default function ProjectDetailPage() {
                             style={{
                               display: 'flex', alignItems: 'center', gap: '12px',
                               padding: '12px 14px', borderRadius: '8px',
-                              border: '1px solid rgba(255,255,255,0.07)',
-                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px solid rgba(97,71,130,0.07)',
+                              background: 'rgba(97,71,130,0.02)',
                               cursor: 'pointer', transition: 'background 0.1s, border-color 0.1s',
                             }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.045)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.16)'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.045)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.16)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.02)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.07)'; }}
                           >
                             {/* Priority dot */}
                             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: pc.color, flexShrink: 0 }} />
 
                             {/* Title */}
-                            <span style={{ flex: '1 1 0', minWidth: 0, fontSize: '13.5px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ flex: '1 1 0', minWidth: 0, fontSize: '13.5px', color: 'var(--c-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {card.title}
                             </span>
 
                             {/* Board - Lista */}
-                            <span style={{ fontSize: '12px', color: '#615846', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--c-text4)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                                <rect x="3" y="4" width="7" height="16" rx="1.6" stroke="#615846" strokeWidth="1.8"/>
-                                <rect x="14" y="4" width="7" height="10" rx="1.6" stroke="#615846" strokeWidth="1.8"/>
+                                <rect x="3" y="4" width="7" height="16" rx="1.6" stroke="var(--c-text4)" strokeWidth="1.8"/>
+                                <rect x="14" y="4" width="7" height="10" rx="1.6" stroke="var(--c-text4)" strokeWidth="1.8"/>
                               </svg>
                               {card.boardName}
                               <span style={{ color: '#3A3530' }}>-</span>
@@ -2766,8 +2802,8 @@ export default function ProjectDetailPage() {
                             {card.dueDate && (
                               <span style={{
                                 fontSize: '12px', flexShrink: 0,
-                                color: isOverdue ? '#E05252' : '#9C9486',
-                                background: isOverdue ? 'rgba(224,82,82,0.1)' : 'rgba(255,255,255,0.04)',
+                                color: isOverdue ? '#B45C72' : 'var(--c-text2)',
+                                background: isOverdue ? 'rgba(224,82,82,0.1)' : 'rgba(97,71,130,0.04)',
                                 padding: '2px 8px', borderRadius: '6px',
                               }}>
                                 {fmtShort(card.dueDate)}
@@ -2791,69 +2827,76 @@ export default function ProjectDetailPage() {
 
         {/* ── CRONOGRAMA ───────────────────────────────────────────────────── */}
         {activeTab === 'schedule' && (
-          <div>
-            {/* Toolbar: leyenda + nuevo hito */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-                <p style={{ margin: 0, fontSize: '0.98rem', color: '#9C9486', fontFamily: "'Manrope', system-ui, sans-serif" }}>Hitos y tareas ordenados por fecha.</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#827A6D' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '11px', height: '11px', background: '#4B607F', transform: 'rotate(45deg)', display: 'inline-block' }} />Hito</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '16px', height: '8px', background: '#76A878', opacity: 0.85, borderRadius: '3px', display: 'inline-block' }} />Tarea</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '2px', height: '13px', background: '#E2A07E', display: 'inline-block' }} />Hoy</span>
+          <div style={{ display: 'grid', gap: '18px' }}>
+            <section style={{ border: `1px solid ${C.border}`, borderRadius: '16px', background: C.surface, overflow: 'hidden', boxShadow: '0 12px 32px rgba(48,32,74,0.035)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', padding: '22px 24px 18px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                  <span style={{ width: '38px', height: '38px', borderRadius: '11px', background: 'color-mix(in srgb, var(--c-accent) 12%, transparent)', color: C.accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}><Calendar style={ic(18)} /></span>
+                  <div>
+                    <h2 style={{ margin: 0, color: C.text, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '17px', fontWeight: 650 }}>Panorama temporal</h2>
+                    <p style={{ margin: '5px 0 0', color: C.text3, fontSize: '12.5px', lineHeight: 1.5 }}>Fechas, sprints y compromisos del proyecto en una sola línea de tiempo.</p>
+                  </div>
                 </div>
+                {canEdit && (
+                  <button type="button" onClick={() => setShowAddMs(true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', minHeight: '38px', padding: '0 15px', borderRadius: '9px', border: 'none', background: C.accent, color: '#FFFFFF', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
+                    onMouseLeave={e => (e.currentTarget.style.filter = '')}
+                  ><Plus style={ic(15)} />Nuevo hito</button>
+                )}
               </div>
-              {canEdit && (
-                <button onClick={() => setShowAddMs(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
-                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
-                  onMouseLeave={e => (e.currentTarget.style.filter = '')}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 4 4 12l8 8 8-8-8-8Z" stroke="#24180A" strokeWidth="1.8" strokeLinejoin="round"/></svg>
-                  Nuevo hito
-                </button>
-              )}
-            </div>
-
-<ProjectGantt
-  projectId={projectId}
-  milestones={milestones}
-  color={color}
-  refreshTick={ganttRefreshTick}
-  boardIds={currentProject?.boards?.map(b => b.id) ?? []}
-/>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '12px 24px', borderTop: `1px solid ${C.border}`, background: C.bg2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', color: C.text2, fontSize: '11.5px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}><span style={{ width: '9px', height: '9px', background: '#8076A7', transform: 'rotate(45deg)', borderRadius: '2px' }} />Hito</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}><span style={{ width: '17px', height: '7px', background: '#548B73', borderRadius: '5px' }} />Tarea</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}><span style={{ width: '17px', height: '7px', background: '#8076A7', borderRadius: '5px', opacity: 0.6 }} />Sprint</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}><span style={{ width: '2px', height: '13px', background: '#D18360', borderRadius: '2px' }} />Hoy</span>
+                </div>
+                <span style={{ color: C.text3, fontSize: '11px' }}>Desliza horizontalmente para explorar fechas →</span>
+              </div>
+              <div style={{ padding: '14px' }}>
+                <ProjectGantt
+                  projectId={projectId}
+                  milestones={milestones}
+                  color={color}
+                  refreshTick={ganttRefreshTick}
+                  projectBoards={currentProject?.boards ?? []}
+                />
+              </div>
+            </section>
 
             {milestones.length === 0 && (
-              <div style={{ marginTop: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '54px 20px', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                <span style={{ width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Calendar style={{ ...ic(22), color: '#615846' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '18px 20px', borderRadius: '12px', border: `1px dashed ${C.border2}`, background: C.surface }}>
+                <span style={{ width: '38px', height: '38px', borderRadius: '10px', background: C.bg2, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <Flag style={{ ...ic(17), color: C.text3 }} />
                 </span>
-                <p style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14.5px', fontWeight: 500, color: '#9C9486' }}>
-                  Todavía no hay hitos declarados
-                </p>
-                <p style={{ margin: 0, fontSize: '12.5px', color: '#615846', textAlign: 'center', maxWidth: '360px' }}>
-                  Un primer hito ayuda a convertir intención en fecha comprometida y le da ritmo visible al proyecto.
-                </p>
+                <div>
+                  <p style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '13px', fontWeight: 600, color: C.text }}>Aún no hay hitos</p>
+                  <p style={{ margin: '3px 0 0', fontSize: '12px', color: C.text3 }}>Añade una fecha clave para que aparezca en el cronograma.</p>
+                </div>
               </div>
             )}
 
             {/* Gestión de hitos */}
             {milestones.length > 0 && (
-              <div style={{ marginTop: '26px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '0 0 16px' }}>
-                  <span style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' }} />
-                  <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '13px', fontWeight: 600, color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '5px 14px', borderRadius: '8px' }}>Hitos</span>
-                  <span style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' }} />
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: '14px', background: C.surface, padding: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '0 2px 15px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 650, color: C.text }}>Hitos del proyecto</h3>
+                    <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: C.text3 }}>Fechas clave y su estado actual</p>
+                  </div>
+                  <span style={{ padding: '5px 10px', borderRadius: '8px', background: C.bg2, color: C.text2, fontSize: '11px', fontWeight: 700 }}>{milestones.length}</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {milestones.map((m) => {
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                  {[...milestones].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((m) => {
                     const mc     = getMilestoneCfg(m.status, t);
                     const isPast = new Date(m.date) < new Date() && m.status === 'PENDING';
                     const msDay  = Math.ceil((new Date(m.date).getTime() - Date.now()) / 86400000);
                     return (
                       <div key={m.id}
-                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 16px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', transition: 'border-color 0.1s' }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.16)')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border}`, transition: 'border-color 0.1s', flexWrap: 'wrap' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = C.border2)}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}
                       >
                         <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: mc.bg, border: `1.5px solid ${mc.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           {m.status === 'REACHED' && <Check style={{ ...ic(12), color: mc.color }} />}
@@ -2861,13 +2904,13 @@ export default function ProjectDetailPage() {
                           {m.status === 'PENDING' && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: isPast ? C.red : mc.color }} />}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 500, color: m.status === 'MISSED' ? '#827A6D' : '#E8E1D2', textDecoration: m.status === 'MISSED' ? 'line-through' : 'none' }}>{m.name}</p>
-                          {m.description && <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#827A6D' }}>{m.description}</p>}
+                          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 500, color: m.status === 'MISSED' ? 'var(--c-text3)' : 'var(--c-text)', textDecoration: m.status === 'MISSED' ? 'line-through' : 'none' }}>{m.name}</p>
+                          {m.description && <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--c-text3)' }}>{m.description}</p>}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, gap: '2px' }}>
-                          <span style={{ fontSize: '12px', color: isPast ? C.red : '#9C9486' }}>{fmtDate(m.date)}</span>
+                          <span style={{ fontSize: '12px', color: isPast ? C.red : 'var(--c-text2)' }}>{fmtDate(m.date)}</span>
                           {m.status === 'PENDING' && msDay > 0 && msDay <= 30 && (
-                            <span style={{ fontSize: '11px', color: msDay <= 7 ? C.amber : '#615846' }}>{t.projects_time_ago_days_left(msDay)}</span>
+                            <span style={{ fontSize: '11px', color: msDay <= 7 ? C.amber : 'var(--c-text4)' }}>{t.projects_time_ago_days_left(msDay)}</span>
                           )}
                           {isPast && <span style={{ fontSize: '11px', color: C.red }}>Vencido</span>}
                         </div>
@@ -2875,9 +2918,9 @@ export default function ProjectDetailPage() {
                         {canEdit && (
                           <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
                             <button onClick={() => setEditMs(m)} title="Editar hito"
-                              style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#827A6D' }}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#E8E1D2'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#827A6D'; }}
+                              style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text3)' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(97,71,130,0.06)'; e.currentTarget.style.color = 'var(--c-text)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--c-text3)'; }}
                             ><Pencil style={ic(11)} /></button>
                             {m.status !== 'REACHED' && (
                               <button onClick={() => updateMilestone(project.id, m.id, { status: 'REACHED' })} title="Marcar alcanzado"
@@ -2894,8 +2937,8 @@ export default function ProjectDetailPage() {
                               ><X style={ic(11)} /></button>
                             )}
                             <button onClick={() => deleteMilestone(project.id, m.id)} title="Eliminar"
-                              style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#827A6D' }}
-                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                              style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text3)' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(97,71,130,0.06)')}
                               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             ><Trash2 style={ic(11)} /></button>
                           </div>
@@ -2924,6 +2967,10 @@ export default function ProjectDetailPage() {
         {/* ── MIEMBROS ─────────────────────────────────────────────────────── */}
         {activeTab === 'members' && (() => {
           const allMemberIds     = new Set([...directMembers.map((m) => m.id), ...members.map((m) => m.id)]);
+          const teamMemberIds    = new Set(members.map((m) => m.id));
+          const directOnlyMembers = directMembers.filter((m) => !teamMemberIds.has(m.id));
+          const firstTeamByUser = new Map<string, string>();
+          members.forEach((m) => { if (!firstTeamByUser.has(m.id)) firstTeamByUser.set(m.id, m.teamId); });
           const filteredResults  = inviteResults.filter((u) => !allMemberIds.has(u.id));
           const isEmpty          = directMembers.length === 0 && members.length === 0 && assignedTeams.length === 0;
 
@@ -2931,7 +2978,7 @@ export default function ProjectDetailPage() {
             <div>
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                <p style={{ margin: 0, fontSize: '0.98rem', color: '#9C9486', fontFamily: "'Manrope', system-ui, sans-serif" }}>Personas con acceso a este proyecto.</p>
+                <p style={{ margin: 0, fontSize: '0.98rem', color: 'var(--c-text2)', fontFamily: "'Manrope', system-ui, sans-serif" }}>Personas con acceso a este proyecto.</p>
                 {canEdit && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <button
@@ -2964,7 +3011,7 @@ export default function ProjectDetailPage() {
                       onChange={(e) => setInviteSearch(e.target.value)}
                       placeholder="Email del usuario…"
                       autoFocus
-                      style={{ flex: 1, padding: '7px 12px', borderRadius: '6px', border: `1px solid ${C.border2}`, background: '#1B2237', color: C.text, fontSize: '13px', fontFamily: "'Manrope', system-ui, sans-serif", outline: 'none', minWidth: 0 }}
+                      style={{ flex: 1, padding: '7px 12px', borderRadius: '6px', border: `1px solid ${C.border2}`, background: 'var(--c-bg2)', color: C.text, fontSize: '13px', fontFamily: "'Manrope', system-ui, sans-serif", outline: 'none', minWidth: 0 }}
                     />
                     <button
                       onClick={() => { setShowInvitePanel(false); setInviteSearch(''); setInviteResults([]); }}
@@ -2980,10 +3027,10 @@ export default function ProjectDetailPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px' }}>
                       {filteredResults.map((u) => (
                         <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 10px', borderRadius: '7px', transition: 'background 0.1s' }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(97,71,130,0.04)')}
                           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: memberColor(u.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#24180A', flexShrink: 0 }}>
+                          <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: memberColor(u.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#FFFFFF', flexShrink: 0 }}>
                             {u.name.trim()[0]?.toUpperCase()}
                           </span>
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -2993,7 +3040,7 @@ export default function ProjectDetailPage() {
                           <button
                             onClick={() => handleAddDirectMember(u.id)}
                             disabled={addingUserId === u.id}
-                            style={{ padding: '5px 14px', borderRadius: '6px', border: 'none', background: C.accent, color: '#24180A', fontSize: '12px', fontWeight: 600, cursor: addingUserId === u.id ? 'default' : 'pointer', fontFamily: "'Manrope', system-ui, sans-serif", opacity: addingUserId === u.id ? 0.6 : 1, whiteSpace: 'nowrap', transition: 'opacity 0.13s' }}
+                            style={{ padding: '5px 14px', borderRadius: '6px', border: 'none', background: C.accent, color: '#FFFFFF', fontSize: '12px', fontWeight: 600, cursor: addingUserId === u.id ? 'default' : 'pointer', fontFamily: "'Manrope', system-ui, sans-serif", opacity: addingUserId === u.id ? 0.6 : 1, whiteSpace: 'nowrap', transition: 'opacity 0.13s' }}
                           >
                             {addingUserId === u.id ? '…' : 'Agregar'}
                           </button>
@@ -3006,29 +3053,29 @@ export default function ProjectDetailPage() {
 
               {/* Empty state */}
               {isEmpty && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '60px 0', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                  <span style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Users style={{ ...ic(22), color: '#615846' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '60px 0', borderRadius: '8px', border: '1px dashed rgba(97,71,130,0.1)' }}>
+                  <span style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Users style={{ ...ic(22), color: 'var(--c-text4)' }} />
                   </span>
-                  <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#9C9486', fontFamily: "'Sora', system-ui, sans-serif" }}>Sin miembros todavía</p>
-                  <p style={{ margin: 0, fontSize: '12.5px', color: '#615846' }}>Invita personas o asigna un equipo para dar acceso al proyecto</p>
+                  <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: 'var(--c-text2)', fontFamily: "'Sora', system-ui, sans-serif" }}>Sin miembros todavía</p>
+                  <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--c-text4)' }}>Invita personas o asigna un equipo para dar acceso al proyecto</p>
                 </div>
               )}
 
               {/* Direct members */}
-              {directMembers.length > 0 && (
+              {directOnlyMembers.length > 0 && (
                 <div style={{ marginBottom: members.length > 0 ? '20px' : 0 }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#615846', marginBottom: '8px', padding: '0 2px' }}>Invitados directamente</div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--c-text4)', marginBottom: '8px', padding: '0 2px' }}>Acceso individual</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    {directMembers.map((m) => {
+                    {directOnlyMembers.map((m) => {
                       const roleLbl = m.role === 'ADMIN' ? 'Admin' : m.role === 'VIEWER' ? 'Lector' : 'Miembro';
                       return (
                         <div key={m.id}
                           style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '11px 14px', borderRadius: '8px', transition: 'background 0.1s' }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(97,71,130,0.03)')}
                           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: m.avatar ? 'transparent' : memberColor(m.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#24180A', flexShrink: 0, overflow: 'hidden' }}>
+                          <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: m.avatar ? 'transparent' : memberColor(m.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', flexShrink: 0, overflow: 'hidden' }}>
                             {m.avatar
                               ? <img src={m.avatar} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                               : m.name.trim()[0]?.toUpperCase()
@@ -3036,10 +3083,9 @@ export default function ProjectDetailPage() {
                           </span>
                           <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: '14px', fontWeight: 600, color: '#E8E1D2' }}>{m.name}</span>
-                              <span style={{ fontSize: '11px', color: '#DB8A66', background: 'rgba(219,138,102,0.1)', padding: '2px 8px', borderRadius: '8px' }}>Directo</span>
+                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--c-text)' }}>{m.name}</span>
                             </div>
-                            <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '2px' }}>{m.email}</div>
+                            <div style={{ fontSize: '12.5px', color: 'var(--c-text3)', marginTop: '2px' }}>{m.email}</div>
                           </div>
                           {/* Role selector — editable by OWNER, read-only badge otherwise */}
                           {isOwner ? (
@@ -3047,8 +3093,8 @@ export default function ProjectDetailPage() {
                               value={m.role}
                               onChange={(e) => handleChangeDirectMemberRole(m.id, e.target.value)}
                               style={{
-                                fontSize: '11px', fontWeight: 600, color: '#9C9486',
-                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                                fontSize: '11px', fontWeight: 600, color: 'var(--c-text2)',
+                                background: 'rgba(97,71,130,0.06)', border: '1px solid rgba(97,71,130,0.1)',
                                 padding: '3px 8px', borderRadius: '8px', cursor: 'pointer',
                                 outline: 'none', flexShrink: 0,
                               }}
@@ -3058,14 +3104,14 @@ export default function ProjectDetailPage() {
                               <option value="VIEWER">Lector</option>
                             </select>
                           ) : (
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#9C9486', background: 'rgba(255,255,255,0.06)', padding: '2px 9px', borderRadius: '8px', flexShrink: 0 }}>{roleLbl}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--c-text2)', background: 'rgba(97,71,130,0.06)', padding: '2px 9px', borderRadius: '8px', flexShrink: 0 }}>{roleLbl}</span>
                           )}
                           {canEdit && (
                             <button
                               onClick={() => handleRemoveDirectMember(m.id)}
                               title="Quitar del proyecto"
                               style={{ padding: '5px', borderRadius: '6px', border: 'none', background: 'transparent', color: '#4A4540', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.12s' }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = '#E5705A')}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = '#AE7C9B')}
                               onMouseLeave={(e) => (e.currentTarget.style.color = '#4A4540')}
                             >
                               <X style={{ width: '15px', height: '15px' }} />
@@ -3078,52 +3124,50 @@ export default function ProjectDetailPage() {
                 </div>
               )}
 
-              {/* Team members */}
-              {(members.length > 0 || (assignedTeams.length > 0 && !isEmpty)) && (
-                <div>
-                  {directMembers.length > 0 && (
-                    <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#615846', marginBottom: '8px', padding: '0 2px' }}>Por equipo</div>
-                  )}
-                  {members.length === 0 ? (
-                    <p style={{ margin: 0, fontSize: '13px', color: '#615846', padding: '12px 2px' }}>{assignedTeams.length === 0 ? 'Aún no hay equipos asignados' : 'Sin miembros en los equipos'}</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      {members.map((m) => {
-                        const online   = !!m.workload?.lastActivity && (Date.now() - new Date(m.workload.lastActivity).getTime()) < 5 * 60000;
-                        const roleLbl  = m.role === 'ADMIN' ? 'Admin' : m.role === 'VIEWER' ? 'Lector' : 'Miembro';
-                        const statusTx = online ? 'En línea' : m.workload?.lastActivity ? `Activo ${timeAgo(m.workload.lastActivity, t)}` : 'Sin actividad';
-                        return (
-                          <div key={m.id}
-                            style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '13px 14px', borderRadius: '8px', transition: 'background 0.1s' }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                          >
-                            <span style={{ position: 'relative', flexShrink: 0 }}>
-                              <span style={{ width: '38px', height: '38px', borderRadius: '50%', background: m.avatar ? 'transparent' : memberColor(m.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#24180A', overflow: 'hidden' }}>
-                                {m.avatar
-                                  ? <img src={m.avatar} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                                  : m.name.trim()[0]?.toUpperCase()
-                                }
+              {/* Personas agrupadas por el equipo que les da acceso. */}
+              {assignedTeams.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--c-text4)', padding: '0 2px' }}>Equipos asignados</div>
+                  {assignedTeams.map((team) => {
+                    const teamMembers = members.filter((member) => member.teamId === team.id);
+                    return (
+                      <section key={team.id} style={{ border: `1px solid ${C.border}`, borderRadius: '12px', background: C.surface, overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '13px 16px', background: C.bg2, borderBottom: teamMembers.length ? `1px solid ${C.border}` : 'none' }}>
+                          <span style={{ width: 30, height: 30, borderRadius: 9, background: team.color || C.accent, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12 }}>{team.name.trim()[0]?.toUpperCase()}</span>
+                          <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: C.text }}>{team.name}</span>
+                          <span style={{ fontSize: 12, color: C.text3 }}>{teamMembers.length} {teamMembers.length === 1 ? 'persona' : 'personas'}</span>
+                        </div>
+                        {teamMembers.length === 0 ? (
+                          <p style={{ margin: 0, padding: '16px', fontSize: 12.5, color: C.text4 }}>Este equipo aún no tiene miembros con acceso al espacio de trabajo.</p>
+                        ) : teamMembers.map((m) => {
+                          const direct = directMembers.find((person) => person.id === m.id);
+                          const showDirectControls = direct && firstTeamByUser.get(m.id) === team.id;
+                          const roleLbl = m.role === 'ADMIN' ? 'Admin' : m.role === 'VIEWER' ? 'Lector' : 'Miembro';
+                          return (
+                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+                              <span style={{ width: 36, height: 36, borderRadius: '50%', background: m.avatar ? 'transparent' : memberColor(m.id), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontWeight: 700, fontSize: 12, flexShrink: 0, overflow: 'hidden' }}>
+                                {m.avatar ? <img src={m.avatar} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : m.name.trim()[0]?.toUpperCase()}
                               </span>
-                              {online && <span style={{ position: 'absolute', right: '-1px', bottom: '-1px', width: '11px', height: '11px', borderRadius: '50%', background: '#76A878', border: '2px solid #161B2E' }} />}
-                            </span>
-                            <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: '14.5px', fontWeight: 600, color: '#E8E1D2' }}>{m.name}</span>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#9C9486', background: 'rgba(255,255,255,0.06)', padding: '2px 9px', borderRadius: '8px' }}>{roleLbl}</span>
-                                <span style={{ fontSize: '11px', color: '#615846' }}>- {m.teamName}</span>
+                              <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 13.5, fontWeight: 600, color: C.text }}>{m.name}</span>
+                                  <span style={{ fontSize: 11, color: team.color || C.accent, background: C.bg2, borderRadius: 8, padding: '2px 8px' }}>{roleLbl} del equipo</span>
+                                  {showDirectControls && <span style={{ fontSize: 11, color: C.text3 }}>También acceso individual</span>}
+                                </div>
+                                <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>{m.email}</div>
                               </div>
-                              <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '3px' }}>{m.email}</div>
+                              {showDirectControls && (isOwner ? (
+                                <select aria-label={`Rol individual de ${m.name}`} value={direct.role} onChange={(e) => handleChangeDirectMemberRole(m.id, e.target.value)} style={{ fontSize: 11, color: C.text2, background: C.bg2, border: `1px solid ${C.border}`, padding: '4px 8px', borderRadius: 8 }}>
+                                  <option value="MEMBER">Miembro</option><option value="ADMIN">Admin</option><option value="VIEWER">Lector</option>
+                                </select>
+                              ) : <span style={{ fontSize: 11, color: C.text3 }}>Acceso individual: {direct.role === 'ADMIN' ? 'Admin' : direct.role === 'VIEWER' ? 'Lector' : 'Miembro'}</span>)}
+                              {showDirectControls && canEdit && <button type="button" onClick={() => handleRemoveDirectMember(m.id)} title="Quitar acceso individual al proyecto" aria-label={`Quitar acceso individual de ${m.name}`} style={{ padding: 5, border: 'none', background: 'transparent', color: C.text3, cursor: 'pointer' }}><X style={{ width: 15, height: 15 }} /></button>}
                             </div>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12.5px', color: '#8B8275', flexShrink: 0 }}>
-                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: online ? '#76A878' : '#5C5447' }} />
-                              {statusTx}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          );
+                        })}
+                      </section>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -3141,17 +3185,17 @@ export default function ProjectDetailPage() {
               </div>
               <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text4, marginBottom: '9px' }}>Categoría</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '18px' }}>
-                {([['milestone', 'Hitos'], ['board', 'Tableros'], ['team', 'Equipos y miembros'], ['project', 'Proyecto']] as [ActCategory, string][]).map(([key, label]) => {
+                {([['milestone', 'Hitos'], ['board', 'Tableros y tarjetas'], ['document', 'Documentos'], ['team', 'Equipos y miembros'], ['project', 'Proyecto']] as [ActCategory, string][]).map(([key, label]) => {
                   const on = actCats.has(key);
                   return (
                     <div key={key}
                       onClick={() => setActCats((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; })}
-                      style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 10px', borderRadius: '7px', cursor: 'pointer', userSelect: 'none', background: on ? 'rgba(242,87,30,0.08)' : 'transparent', transition: 'background 0.12s' }}
-                      onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 10px', borderRadius: '7px', cursor: 'pointer', userSelect: 'none', background: on ? 'rgba(116,82,166,0.08)' : 'transparent', transition: 'background 0.12s' }}
+                      onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = 'rgba(97,71,130,0.04)'; }}
                       onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent'; }}
                     >
                       <span style={{ width: '14px', height: '14px', borderRadius: '4px', border: `2px solid ${on ? C.accent : C.border2}`, background: on ? C.accent : 'transparent', flexShrink: 0, transition: 'all 0.12s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {on && <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 2.5" stroke="#24180A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                        {on && <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 2.5" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                       </span>
                       <span style={{ fontSize: '12.5px', fontWeight: 500, color: on ? C.text : C.text3 }}>{label}</span>
                     </div>
@@ -3160,7 +3204,7 @@ export default function ProjectDetailPage() {
               </div>
               <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text4, marginBottom: '9px' }}>Persona</div>
               <select value={actUser} onChange={(e) => setActUser(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', border: `1px solid ${C.border2}`, background: '#1B2237', color: C.text2, fontFamily: "'Manrope', system-ui, sans-serif", fontSize: '12.5px', outline: 'none' }}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', border: `1px solid ${C.border2}`, background: 'var(--c-bg2)', color: C.text2, fontFamily: "'Manrope', system-ui, sans-serif", fontSize: '12.5px', outline: 'none' }}
               >
                 <option value="all">Todos</option>
                 {actUsers.map((name) => <option key={name} value={name}>{name}</option>)}
@@ -3176,7 +3220,7 @@ export default function ProjectDetailPage() {
                 </div>
               ) : actGroups.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 0' }}>
-                  <span style={{ display: 'inline-flex', width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border2}`, alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
+                  <span style={{ display: 'inline-flex', width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(97,71,130,0.04)', border: `1px solid ${C.border2}`, alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke={C.text4} strokeWidth="1.6"/><path d="M12 7v5l3 2" stroke={C.text4} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </span>
                   <p style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", color: C.text3 }}>Sin actividad registrada aún</p>
@@ -3204,11 +3248,11 @@ export default function ProjectDetailPage() {
                               const hour = new Date(ev.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
                               return (
                                 <div key={ev.id}
-                                  style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 14px', borderRadius: '8px', border: `1px solid ${C.border2}`, borderLeft: `3px solid ${desc.accent}`, background: 'rgba(255,255,255,0.018)', transition: 'background 0.1s' }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.035)')}
-                                  onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.018)')}
+                                  style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 14px', borderRadius: '8px', border: `1px solid ${C.border2}`, borderLeft: `3px solid ${desc.accent}`, background: 'rgba(97,71,130,0.018)', transition: 'background 0.1s' }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(97,71,130,0.035)')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(97,71,130,0.018)')}
                                 >
-                                  <span style={{ flexShrink: 0, width: '32px', height: '32px', borderRadius: '50%', background: memberColor(ev.userId), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11.5px', fontWeight: 700, color: '#24180A' }}>
+                                  <span style={{ flexShrink: 0, width: '32px', height: '32px', borderRadius: '50%', background: memberColor(ev.userId), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11.5px', fontWeight: 700, color: '#FFFFFF' }}>
                                     {ev.userName.trim()[0]?.toUpperCase()}
                                   </span>
                                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -3216,8 +3260,8 @@ export default function ProjectDetailPage() {
                                       <strong style={{ color: C.text, fontWeight: 600 }}>{ev.userName}</strong>
                                       {' '}{desc.verb}{' '}
                                       {desc.target && <strong style={{ color: desc.accent, fontWeight: 600 }}>{desc.target}</strong>}
-                                      {' '}en <span style={{ color: C.text3 }}>{project.name}</span>
                                     </div>
+                                    {desc.detail && <div style={{ fontSize: '12px', color: C.text3, marginTop: '3px', overflowWrap: 'anywhere' }}>“{desc.detail}”</div>}
                                     <div style={{ fontSize: '11.5px', color: C.text4, marginTop: '4px' }}>{hour} - {timeAgo(ev.createdAt, t)}</div>
                                   </div>
                                 </div>
@@ -3289,7 +3333,7 @@ export default function ProjectDetailPage() {
                 onMouseLeave={(e) => { if (!removingBoard) e.currentTarget.style.background = C.red; }}
               >
                 {removingBoard ? (
-                  <><div style={{ width: '12px', height: '12px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> {t.btn_deleting}</>
+                  <><div style={{ width: '12px', height: '12px', border: '2px solid rgba(97,71,130,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> {t.btn_deleting}</>
                 ) : t.projects_boards_confirm_remove}
               </button>
             </div>
@@ -3322,8 +3366,8 @@ function BoardCard({ board, color, workspaceId, onNavigate, onRemove }: {
         width: '100%', height: '100%', minHeight: '168px',
         display: 'flex', flexDirection: 'column',
         borderRadius: '10px',
-        border: `1px solid ${hov ? color + '55' : 'rgba(255,255,255,0.08)'}`,
-        background: hov ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)',
+        border: `1px solid ${hov ? color + '55' : 'rgba(97,71,130,0.08)'}`,
+        background: hov ? 'rgba(97,71,130,0.045)' : 'rgba(97,71,130,0.02)',
         overflow: 'hidden', position: 'relative', cursor: 'pointer',
         transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.15s',
         boxShadow: hov ? '0 8px 24px rgba(0,0,0,0.28)' : 'none',
@@ -3345,21 +3389,21 @@ function BoardCard({ board, color, workspaceId, onNavigate, onRemove }: {
             </svg>
           </span>
           <div style={{ minWidth: 0, paddingRight: hov ? '28px' : 0, transition: 'padding 0.15s' }}>
-            <div style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '15.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '15.5px', fontWeight: 600, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {board.name}
             </div>
           </div>
         </div>
 
         {/* Description */}
-        <p style={{ margin: '13px 0 0', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '37px' }}>
+        <p style={{ margin: '13px 0 0', fontSize: '12.5px', color: 'var(--c-text3)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '37px' }}>
           {board.description || 'Sin descripción'}
         </p>
 
         {/* Footer: editado + abrir */}
-        <div style={{ marginTop: 'auto', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#5C5447' }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#5C5447" strokeWidth="1.7"/><path d="M12 7.5v5l3 2" stroke="#5C5447" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <div style={{ marginTop: 'auto', paddingTop: '14px', borderTop: '1px solid rgba(97,71,130,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--c-text4)' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="var(--c-text4)" strokeWidth="1.7"/><path d="M12 7.5v5l3 2" stroke="var(--c-text4)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {timeAgo(board.updatedAt, t)}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600, fontFamily: "'Sora', system-ui, sans-serif", color, opacity: hov ? 1 : 0, transform: hov ? 'translateX(0)' : 'translateX(-4px)', transition: 'opacity 0.15s, transform 0.15s' }}>
@@ -3372,7 +3416,7 @@ function BoardCard({ board, color, workspaceId, onNavigate, onRemove }: {
       {/* Remove on hover */}
       {hov && onRemove && (
         <button onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          style={{ position: 'absolute', top: '16px', right: '14px', width: '24px', height: '24px', borderRadius: '6px', background: 'rgba(224,82,82,0.12)', border: '1px solid rgba(224,82,82,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E05252', zIndex: 2 }}
+          style={{ position: 'absolute', top: '16px', right: '14px', width: '24px', height: '24px', borderRadius: '6px', background: 'rgba(224,82,82,0.12)', border: '1px solid rgba(224,82,82,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B45C72', zIndex: 2 }}
           title="Quitar del proyecto"
         >
           <X style={ic(11)} />
@@ -3394,16 +3438,16 @@ function NewBoardCard({ onClick }: { onClick: () => void }) {
       style={{
         width: '100%', height: '100%', minHeight: '168px',
         borderRadius: '10px',
-        border: `1.5px dashed ${hov ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.14)'}`,
-        background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
+        border: `1.5px dashed ${hov ? 'rgba(97,71,130,0.3)' : 'rgba(97,71,130,0.14)'}`,
+        background: hov ? 'rgba(97,71,130,0.03)' : 'transparent',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px',
         cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s',
       }}
     >
-      <span style={{ width: '42px', height: '42px', borderRadius: '50%', background: hov ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke={hov ? '#E8E1D2' : '#615846'} strokeWidth="2" strokeLinecap="round"/></svg>
+      <span style={{ width: '42px', height: '42px', borderRadius: '50%', background: hov ? 'rgba(97,71,130,0.1)' : 'rgba(97,71,130,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke={hov ? 'var(--c-text)' : 'var(--c-text4)'} strokeWidth="2" strokeLinecap="round"/></svg>
       </span>
-      <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: hov ? '#C8BFAE' : '#615846', transition: 'color 0.15s' }}>
+      <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: hov ? 'var(--c-text2)' : 'var(--c-text4)', transition: 'color 0.15s' }}>
         Nuevo tablero
       </span>
     </div>

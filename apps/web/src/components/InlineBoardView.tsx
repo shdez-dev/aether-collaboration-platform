@@ -292,19 +292,19 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
     <div style={{ animation: 'boardRise .45s cubic-bezier(.4,0,.2,1) backwards' }}>
       <style>{`
         @keyframes boardRise { 0% { opacity:0; transform:translateY(14px); } 100% { opacity:1; transform:translateY(0); } }
-        .ibv-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+        .ibv-scroll { scrollbar-width: thin; scrollbar-color: rgba(97,71,130,0.15) transparent; }
         .ibv-scroll::-webkit-scrollbar { height: 8px; }
         .ibv-scroll::-webkit-scrollbar-track { background: transparent; margin: 0 6px; }
-        .ibv-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
-        .ibv-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); border: 2px solid transparent; background-clip: padding-box; }
-        .ibv-search::placeholder { color: #827A6D; }
+        .ibv-scroll::-webkit-scrollbar-thumb { background: rgba(97,71,130,0.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        .ibv-scroll::-webkit-scrollbar-thumb:hover { background: rgba(97,71,130,0.28); border: 2px solid transparent; background-clip: padding-box; }
+        .ibv-search::placeholder { color: var(--c-text3); }
       `}</style>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
         marginBottom: '20px', paddingBottom: '16px',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        borderBottom: '1px solid rgba(97,71,130,0.07)',
       }}>
 
         {/* Back breadcrumb */}
@@ -312,12 +312,12 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
           onClick={onBack}
           style={{
             display: 'flex', alignItems: 'center', gap: '6px',
-            fontSize: '13.5px', color: '#9C9486', cursor: 'pointer',
+            fontSize: '13.5px', color: 'var(--c-text2)', cursor: 'pointer',
             background: 'none', border: 'none', padding: 0,
             transition: 'color 0.12s', fontFamily: MANROPE, flexShrink: 0,
           }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#E8E1D2')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#9C9486')}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--c-text)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--c-text2)')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -325,10 +325,10 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
           Tableros
         </button>
 
-        <span style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+        <span style={{ width: '1px', height: '20px', background: 'rgba(97,71,130,0.1)', flexShrink: 0 }} />
 
         {/* Board name + edit */}
-        <span style={{ fontFamily: SORA, fontSize: '1.05rem', fontWeight: 600, color: '#F4EEE2', flexShrink: 0 }}>
+        <span style={{ fontFamily: SORA, fontSize: '1.05rem', fontWeight: 600, color: 'var(--c-text)', flexShrink: 0 }}>
           {currentBoard.name}
         </span>
 
@@ -340,11 +340,11 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: '26px', height: '26px', borderRadius: '7px',
               background: 'none', border: 'none', cursor: 'pointer',
-              color: '#615846', flexShrink: 0,
+              color: 'var(--c-text4)', flexShrink: 0,
               transition: 'color 0.12s, background 0.12s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#E8E1D2'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#615846'; e.currentTarget.style.background = 'none'; }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--c-text)'; e.currentTarget.style.background = 'rgba(97,71,130,0.06)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--c-text4)'; e.currentTarget.style.background = 'none'; }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -364,7 +364,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
                   title={u.name}
                   style={{
                     width: '26px', height: '26px', borderRadius: '50%',
-                    border: '2px solid #161B2E',
+                    border: '2px solid var(--c-bg)',
                     marginLeft: i === 0 ? 0 : '-6px',
                     position: 'relative', zIndex: 10 - i,
                     flexShrink: 0, overflow: 'hidden',
@@ -381,7 +381,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
                   <span style={{
                     position: 'absolute', right: '-1px', bottom: '-1px',
                     width: '8px', height: '8px', borderRadius: '50%',
-                    background: '#76A878', border: '1.5px solid #161B2E',
+                    background: '#548B73', border: '1.5px solid var(--c-bg)',
                   }} />
                 </span>
               ))}
@@ -392,7 +392,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
               fontSize: '12px', color: '#9FC59A',
               background: 'rgba(118,168,120,0.1)', padding: '3px 9px', borderRadius: '7px',
             }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#76A878', flexShrink: 0 }} />
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#548B73', flexShrink: 0 }} />
               {activeUsers.length === 1 ? 'En línea' : `${activeUsers.length} en línea`}
             </span>
           </div>
@@ -404,12 +404,12 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
         <div style={{
           display: 'flex', alignItems: 'center', gap: '9px',
           padding: '8px 14px', borderRadius: '8px',
-          border: '1px solid rgba(255,255,255,0.09)',
-          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(97,71,130,0.09)',
+          background: 'rgba(97,71,130,0.03)',
         }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="7" stroke="#827A6D" strokeWidth="1.8"/>
-            <path d="m20 20-3-3" stroke="#827A6D" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="11" cy="11" r="7" stroke="var(--c-text3)" strokeWidth="1.8"/>
+            <path d="m20 20-3-3" stroke="var(--c-text3)" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <input
             className="ibv-search"
@@ -418,7 +418,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
             placeholder="Buscar tarjetas"
             style={{
               background: 'transparent', border: 'none', outline: 'none',
-              fontSize: '13px', color: '#E8E1D2', minWidth: '120px',
+              fontSize: '13px', color: 'var(--c-text)', minWidth: '120px',
               fontFamily: MANROPE,
             }}
           />
@@ -429,14 +429,14 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
           onClick={() => setShowFilters(v => !v)}
           style={{
             display: 'flex', alignItems: 'center', gap: '5px',
-            padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.09)',
-            background: showFilters || hasActiveFilters(filters) ? 'rgba(242,87,30,0.1)' : 'rgba(255,255,255,0.03)',
-            color: showFilters || hasActiveFilters(filters) ? '#F2571E' : '#9C9486',
+            padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(97,71,130,0.09)',
+            background: showFilters || hasActiveFilters(filters) ? 'rgba(116,82,166,0.1)' : 'rgba(97,71,130,0.03)',
+            color: showFilters || hasActiveFilters(filters) ? '#7452A6' : 'var(--c-text2)',
             fontSize: '12.5px', fontFamily: MANROPE, cursor: 'pointer',
             transition: 'all 0.12s',
           }}
-          onMouseEnter={e => { if (!showFilters && !hasActiveFilters(filters)) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#C8BFAE'; } }}
-          onMouseLeave={e => { if (!showFilters && !hasActiveFilters(filters)) { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#9C9486'; } }}
+          onMouseEnter={e => { if (!showFilters && !hasActiveFilters(filters)) { e.currentTarget.style.background = 'rgba(97,71,130,0.06)'; e.currentTarget.style.color = 'var(--c-text2)'; } }}
+          onMouseLeave={e => { if (!showFilters && !hasActiveFilters(filters)) { e.currentTarget.style.background = 'rgba(97,71,130,0.03)'; e.currentTarget.style.color = 'var(--c-text2)'; } }}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
             <path d="M4 6h16M7 12h10M10 18h4"/>
@@ -444,7 +444,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
           Filtros
           {hasActiveFilters(filters) && (
             <span style={{
-              width: '16px', height: '16px', borderRadius: '50%', background: '#F2571E',
+              width: '16px', height: '16px', borderRadius: '50%', background: '#7452A6',
               color: '#fff', fontSize: '10px', fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>!</span>
@@ -454,7 +454,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
         {/* View toggle */}
         <div style={{
           display: 'flex', gap: '2px', padding: '3px',
-          borderRadius: '8px', background: 'rgba(255,255,255,0.05)',
+          borderRadius: '8px', background: 'rgba(97,71,130,0.05)',
         }}>
           {([
             { view: 'kanban' as const, label: 'Kanban',
@@ -468,14 +468,14 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
               style={{
                 display: 'flex', alignItems: 'center', gap: '5px',
                 padding: '5px 11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                background: currentView === view ? 'rgba(255,255,255,0.12)' : 'transparent',
-                color: currentView === view ? '#E8E1D2' : '#827A6D',
+                background: currentView === view ? 'rgba(97,71,130,0.12)' : 'transparent',
+                color: currentView === view ? 'var(--c-text)' : 'var(--c-text3)',
                 fontSize: '12.5px', fontFamily: MANROPE,
                 fontWeight: currentView === view ? 600 : 400,
                 transition: 'all 0.12s',
               }}
-              onMouseEnter={e => { if (currentView !== view) (e.currentTarget.style.color = '#C8BFAE'); }}
-              onMouseLeave={e => { if (currentView !== view) (e.currentTarget.style.color = '#827A6D'); }}
+              onMouseEnter={e => { if (currentView !== view) (e.currentTarget.style.color = 'var(--c-text2)'); }}
+              onMouseLeave={e => { if (currentView !== view) (e.currentTarget.style.color = 'var(--c-text3)'); }}
             >
               {icon} {label}
             </button>
@@ -498,14 +498,14 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
       )}
 
       {/* ── Sprint banner ────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: '18px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
+      <div style={{ marginBottom: '18px', overflow: 'hidden', border: '1px solid rgba(97,71,130,0.08)', borderRadius: '10px' }}>
         <SprintBanner boardId={boardId} canEdit={canEditBoard} />
       </div>
 
       {/* ── Board content ───────────────────────────────────────────────── */}
       {currentView === 'table' ? (
         <div style={{
-          border: '1px solid rgba(255,255,255,0.07)',
+          border: '1px solid rgba(97,71,130,0.07)',
           borderRadius: '8px', overflow: 'hidden',
         }}>
           <BoardTableView
@@ -611,7 +611,7 @@ function BoardGantt({ boardId, lists, cards }: {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
         <style>{`@keyframes bg-spin{to{transform:rotate(360deg)}}`}</style>
-        <div style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.08)', borderTopColor: C.accent, borderRadius: '50%', animation: 'bg-spin 0.7s linear infinite' }} />
+        <div style={{ width: '16px', height: '16px', border: '2px solid rgba(97,71,130,0.08)', borderTopColor: C.accent, borderRadius: '50%', animation: 'bg-spin 0.7s linear infinite' }} />
       </div>
     );
   }
@@ -719,16 +719,16 @@ function BoardGantt({ boardId, lists, cards }: {
   return (
     <div style={{ position: 'relative' }} onMouseLeave={() => setTooltip(null)}>
       <style>{`
-        .bg-gantt { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+        .bg-gantt { scrollbar-width: thin; scrollbar-color: rgba(97,71,130,0.18) transparent; }
         .bg-gantt::-webkit-scrollbar { height: 10px; }
         .bg-gantt::-webkit-scrollbar-track { background: transparent; margin: 0 8px; }
-        .bg-gantt::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
-        .bg-gantt::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        .bg-gantt::-webkit-scrollbar-thumb { background: rgba(97,71,130,0.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        .bg-gantt::-webkit-scrollbar-thumb:hover { background: rgba(97,71,130,0.28); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
       `}</style>
 
       {/* Tooltip */}
       {tooltip && (
-        <div style={{ position: 'fixed', zIndex: 9999, left: tooltip.x + 14, top: tooltip.y - 10, background: '#13161b', border: `1px solid ${C.border2}`, borderRadius: '8px', padding: '10px 13px', boxShadow: '0 8px 28px rgba(0,0,0,0.55)', pointerEvents: 'none', maxWidth: '260px' }}>
+        <div style={{ position: 'fixed', zIndex: 9999, left: tooltip.x + 14, top: tooltip.y - 10, background: 'var(--c-surface)', border: `1px solid ${C.border2}`, borderRadius: '8px', padding: '10px 13px', boxShadow: '0 8px 28px rgba(79,55,105,0.16)', pointerEvents: 'none', maxWidth: '260px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: (tooltip.date || tooltip.range) ? '6px' : 0 }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: tooltip.color, flexShrink: 0 }} />
             <span style={{ fontSize: '12.5px', fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{tooltip.title}</span>
@@ -739,17 +739,17 @@ function BoardGantt({ boardId, lists, cards }: {
         </div>
       )}
 
-      <div className="bg-gantt" style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', background: 'rgba(255,255,255,0.015)' }}>
+      <div className="bg-gantt" style={{ overflowX: 'auto', border: '1px solid rgba(97,71,130,0.07)', borderRadius: '8px', background: 'rgba(97,71,130,0.015)' }}>
         <div style={{ width: `${SIDEBAR_W + TRACK_W}px`, minWidth: '100%', position: 'relative' }}>
 
           {/* Month row */}
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.018)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: '#13172A', borderRight: '1px solid rgba(255,255,255,0.08)', height: '28px', display: 'flex', alignItems: 'center', padding: '0 14px' }}>
-              <span style={{ fontFamily: "'Sora', system-ui", fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#615846' }}>Tarea</span>
+          <div style={{ display: 'flex', background: 'rgba(97,71,130,0.018)', borderBottom: '1px solid rgba(97,71,130,0.07)' }}>
+            <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: 'var(--c-bg)', borderRight: '1px solid rgba(97,71,130,0.08)', height: '28px', display: 'flex', alignItems: 'center', padding: '0 14px' }}>
+              <span style={{ fontFamily: "'Sora', system-ui", fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c-text4)' }}>Tarea</span>
             </div>
             <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: '28px' }}>
               {monthCols.map((col, i) => (
-                <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: col.x, width: col.width, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.08)' : 'none', display: 'flex', alignItems: 'center', paddingLeft: '10px', overflow: 'hidden' }}>
+                <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: col.x, width: col.width, borderLeft: i > 0 ? '1px solid rgba(97,71,130,0.08)' : 'none', display: 'flex', alignItems: 'center', paddingLeft: '10px', overflow: 'hidden' }}>
                   <span style={{ fontFamily: "'Sora', system-ui", fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.04em', color: '#A8A09A', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{col.label}</span>
                 </div>
               ))}
@@ -757,8 +757,8 @@ function BoardGantt({ boardId, lists, cards }: {
           </div>
 
           {/* Day row */}
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.10)', background: '#13172A' }}>
-            <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: '#13172A', borderRight: '1px solid rgba(255,255,255,0.08)', height: `${DAY_HDR_H}px` }} />
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(97,71,130,0.10)', background: 'var(--c-bg)' }}>
+            <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 11, background: 'var(--c-bg)', borderRight: '1px solid rgba(97,71,130,0.08)', height: `${DAY_HDR_H}px` }} />
             <div style={{ position: 'relative', flex: 'none', width: `${TRACK_W}px`, height: `${DAY_HDR_H}px` }}>
               {Array.from({ length: totalDays }).map((_, di) => {
                 const d          = new Date(rangeStart.getTime() + di * MS_PER_DAY);
@@ -768,14 +768,14 @@ function BoardGantt({ boardId, lists, cards }: {
                 const showLabel  = di % dayStep === 0;
                 const isMonStart = d.getDate() === 1;
                 return (
-                  <div key={di} style={{ position: 'absolute', top: 0, bottom: 0, left: di * DAY_W, width: DAY_W, borderLeft: isMonStart ? '1px solid rgba(255,255,255,0.12)' : isWeekend ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.03)', background: isToday ? 'rgba(226,160,126,0.13)' : isWeekend ? 'rgba(255,255,255,0.02)' : 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1px' }}>
-                    {showLabel && showDow && <span style={{ fontSize: '7.5px', fontWeight: 500, color: isToday ? '#E2A07E99' : isWeekend ? '#615846' : '#3E3830', lineHeight: 1, userSelect: 'none' as const }}>{DOW_ES[dow]}</span>}
+                  <div key={di} style={{ position: 'absolute', top: 0, bottom: 0, left: di * DAY_W, width: DAY_W, borderLeft: isMonStart ? '1px solid rgba(97,71,130,0.12)' : isWeekend ? '1px solid rgba(97,71,130,0.05)' : '1px solid rgba(97,71,130,0.03)', background: isToday ? 'rgba(226,160,126,0.13)' : isWeekend ? 'rgba(97,71,130,0.02)' : 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1px' }}>
+                    {showLabel && showDow && <span style={{ fontSize: '7.5px', fontWeight: 500, color: isToday ? '#E2A07E99' : isWeekend ? 'var(--c-text4)' : '#3E3830', lineHeight: 1, userSelect: 'none' as const }}>{DOW_ES[dow]}</span>}
                     {showLabel && (isToday ? (
                       <span style={{ width: DAY_W - 6, height: DAY_W - 6, maxWidth: '16px', maxHeight: '16px', minWidth: '11px', minHeight: '11px', borderRadius: '50%', background: '#E2A07E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <span style={{ fontSize: DAY_W < 14 ? '7px' : '8px', fontWeight: 700, color: '#1A1208', lineHeight: 1, userSelect: 'none' as const }}>{d.getDate()}</span>
                       </span>
                     ) : (
-                      <span style={{ fontSize: DAY_W < 14 ? '8px' : '9.5px', fontWeight: isWeekend ? 500 : 400, color: isWeekend ? '#615846' : '#4A4540', lineHeight: 1, userSelect: 'none' as const }}>{d.getDate()}</span>
+                      <span style={{ fontSize: DAY_W < 14 ? '8px' : '9.5px', fontWeight: isWeekend ? 500 : 400, color: isWeekend ? 'var(--c-text4)' : '#4A4540', lineHeight: 1, userSelect: 'none' as const }}>{d.getDate()}</span>
                     ))}
                   </div>
                 );
@@ -793,30 +793,30 @@ function BoardGantt({ boardId, lists, cards }: {
                 const isWeekend = dow === 0 || dow === 6;
                 const isToday   = di * DAY_W === todayX;
                 if (!isWeekend && !isToday) return null;
-                return <div key={di} style={{ position: 'absolute', top: 0, bottom: 0, left: di * DAY_W, width: DAY_W, background: isToday ? 'rgba(226,160,126,0.07)' : 'rgba(255,255,255,0.018)' }} />;
+                return <div key={di} style={{ position: 'absolute', top: 0, bottom: 0, left: di * DAY_W, width: DAY_W, background: isToday ? 'rgba(226,160,126,0.07)' : 'rgba(97,71,130,0.018)' }} />;
               })}
             </div>
 
             {rows.map((row, rIdx) => {
               if (row.kind === 'section') {
                 return (
-                  <div key={'s-' + row.listId} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: '#161B2E', borderRight: '1px solid rgba(255,255,255,0.07)', height: `${SECTION_H}px`, display: 'flex', alignItems: 'center', gap: '7px', padding: '0 12px' }}>
+                  <div key={'s-' + row.listId} style={{ display: 'flex', borderTop: '1px solid rgba(97,71,130,0.04)' }}>
+                    <div style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: 'var(--c-bg)', borderRight: '1px solid rgba(97,71,130,0.07)', height: `${SECTION_H}px`, display: 'flex', alignItems: 'center', gap: '7px', padding: '0 12px' }}>
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                        <rect x="3" y="4" width="5" height="16" rx="1" stroke="#827A6D" strokeWidth="1.8"/>
-                        <rect x="10" y="4" width="5" height="11" rx="1" stroke="#827A6D" strokeWidth="1.8"/>
-                        <rect x="17" y="4" width="5" height="13" rx="1" stroke="#827A6D" strokeWidth="1.8"/>
+                        <rect x="3" y="4" width="5" height="16" rx="1" stroke="var(--c-text3)" strokeWidth="1.8"/>
+                        <rect x="10" y="4" width="5" height="11" rx="1" stroke="var(--c-text3)" strokeWidth="1.8"/>
+                        <rect x="17" y="4" width="5" height="13" rx="1" stroke="var(--c-text3)" strokeWidth="1.8"/>
                       </svg>
-                      <span style={{ fontFamily: "'Sora', system-ui", fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.06em', color: '#827A6D', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
+                      <span style={{ fontFamily: "'Sora', system-ui", fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.06em', color: 'var(--c-text3)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
                     </div>
-                    <div style={{ flex: 'none', width: `${TRACK_W}px`, height: `${SECTION_H}px`, background: 'rgba(255,255,255,0.012)' }} />
+                    <div style={{ flex: 'none', width: `${TRACK_W}px`, height: `${SECTION_H}px`, background: 'rgba(97,71,130,0.012)' }} />
                   </div>
                 );
               }
 
               const { card }  = row;
               const hasRange  = !!(card.startDate && card.dueDate);
-              const barColor  = card.completed ? '#76A878' : (PCOLOR[card.priority ?? ''] ?? C.accent);
+              const barColor  = card.completed ? '#548B73' : (PCOLOR[card.priority ?? ''] ?? C.accent);
               const isOverdue = !card.completed && card.dueDate && new Date(card.dueDate) < new Date();
               const startX    = card.startDate ? dayX(new Date(card.startDate)) : null;
               const endX2     = card.dueDate   ? dayX(new Date(card.dueDate))   : null;
@@ -829,16 +829,16 @@ function BoardGantt({ boardId, lists, cards }: {
               const who       = (card.title.trim()[0] ?? '?').toUpperCase();
 
               return (
-                <div key={card.id} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={card.id} style={{ display: 'flex', borderTop: '1px solid rgba(97,71,130,0.04)' }}>
                   {/* Sidebar — opens card detail */}
                   <button
                     onClick={() => setSelectedCard(card as any)}
-                    style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: '#161B2E', borderRight: '1px solid rgba(255,255,255,0.07)', height: `${ROW_H}px`, display: 'flex', alignItems: 'center', gap: '7px', padding: '0 10px', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)')}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#161B2E')}
+                    style={{ flex: 'none', width: `${SIDEBAR_W}px`, position: 'sticky', left: 0, zIndex: 10, background: 'var(--c-bg)', borderRight: '1px solid rgba(97,71,130,0.07)', height: `${ROW_H}px`, display: 'flex', alignItems: 'center', gap: '7px', padding: '0 10px', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.03)')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--c-bg)')}
                   >
-                    <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: barColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: '#24180A', flexShrink: 0 }}>{who}</span>
-                    <span style={{ fontSize: '11px', color: card.completed ? '#615846' : '#C8BFAE', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: card.completed ? 'line-through' : 'none' }}>{card.title}</span>
+                    <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: barColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: '#FFFFFF', flexShrink: 0 }}>{who}</span>
+                    <span style={{ fontSize: '11px', color: card.completed ? 'var(--c-text4)' : 'var(--c-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: card.completed ? 'line-through' : 'none' }}>{card.title}</span>
                   </button>
 
                   {/* Track */}
@@ -966,7 +966,7 @@ function EditBoardModal({ name: initialName, description: initialDesc, onSave, o
         @keyframes ebOvOut  { from { opacity:1 } to { opacity:0 } }
         @keyframes ebPnIn   { from { opacity:0; transform:translateY(14px) scale(0.96) } to { opacity:1; transform:translateY(0) scale(1) } }
         @keyframes ebPnOut  { from { opacity:1; transform:translateY(0) scale(1) } to { opacity:0; transform:translateY(8px) scale(0.98) } }
-        .eb-input:focus { border-color: #9C9486 !important; }
+        .eb-input:focus { border-color: var(--c-text2) !important; }
       `}</style>
 
       <div
@@ -991,7 +991,7 @@ function EditBoardModal({ name: initialName, description: initialDesc, onSave, o
           <button
             onClick={handleClose}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '7px', background: 'none', border: 'none', cursor: 'pointer', color: C.text3, transition: 'background 0.12s, color 0.12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = C.text; }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(97,71,130,0.06)'; e.currentTarget.style.color = C.text; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -1015,21 +1015,21 @@ function EditBoardModal({ name: initialName, description: initialDesc, onSave, o
               {node}
             </div>
           ))}
-          {error && <p style={{ margin: 0, fontSize: '11.5px', color: '#E05252' }}>{error}</p>}
+          {error && <p style={{ margin: 0, fontSize: '11.5px', color: '#B45C72' }}>{error}</p>}
         </div>
 
         {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '12px 18px', borderTop: `1px solid ${C.border}` }}>
           <button
             onClick={handleClose}
-            style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#D8D0C1', cursor: 'pointer' }}
+            style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '13px', background: 'rgba(97,71,130,0.05)', border: '1px solid rgba(97,71,130,0.1)', color: 'var(--c-text2)', cursor: 'pointer' }}
           >
             Cancelar
           </button>
           <button
             onClick={submit}
             disabled={saving}
-            style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#F2571E', color: '#24180A', border: 'none', cursor: 'pointer', fontFamily: SORA, opacity: saving ? 0.75 : 1 }}
+            style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, background: '#7452A6', color: '#FFFFFF', border: 'none', cursor: 'pointer', fontFamily: SORA, opacity: saving ? 0.75 : 1 }}
           >
             {saving ? 'Guardando…' : 'Guardar cambios'}
           </button>

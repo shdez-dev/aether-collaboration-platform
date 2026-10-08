@@ -22,21 +22,21 @@ const COMPACT_GRID = 'repeat(auto-fit, minmax(210px, 1fr))';
 const PIPELINE_GRID = 'repeat(auto-fit, minmax(260px, 1fr))';
 
 const PIPELINE: { key: ProjectMaturityStage; label: string; tone: string; soft: string; border: string; hint: string }[] = [
-  { key: 'IDEA', label: 'Idea', tone: '#7B8FA8', soft: 'rgba(123,143,168,0.12)', border: 'rgba(123,143,168,0.26)', hint: 'Intenciones iniciales que aún no amarran compromiso.' },
-  { key: 'DRAFT', label: 'Borrador', tone: '#C4A86E', soft: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.26)', hint: 'Ya existe una propuesta, pero todavía le falta estructura.' },
-  { key: 'FORMALIZED', label: 'Formalizado', tone: '#76A878', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'El proyecto ya declaró responsable, problema y siguiente paso.' },
-  { key: 'PLANNED', label: 'Planificado', tone: '#4B607F', soft: 'rgba(75,96,127,0.14)', border: 'rgba(75,96,127,0.26)', hint: 'Tiene estructura suficiente para coordinar ejecución.' },
-  { key: 'ACTIVE', label: 'En ejecución', tone: '#F4905A', soft: 'rgba(242,87,30,0.12)', border: 'rgba(242,87,30,0.26)', hint: 'Trabajo corriendo con tableros, hitos y seguimiento.' },
-  { key: 'ON_HOLD', label: 'En pausa', tone: '#DB8A66', soft: 'rgba(219,138,102,0.12)', border: 'rgba(219,138,102,0.26)', hint: 'Iniciativas detenidas que requieren destrabe o redefinición.' },
-  { key: 'COMPLETED', label: 'Completado', tone: '#76A878', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Trabajo cerrado y entregado.' },
+  { key: 'IDEA', label: 'Idea', tone: '#8D84B0', soft: 'rgba(123,143,168,0.12)', border: 'rgba(123,143,168,0.26)', hint: 'Intenciones iniciales que aún no amarran compromiso.' },
+  { key: 'DRAFT', label: 'Borrador', tone: '#AA895E', soft: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.26)', hint: 'Ya existe una propuesta, pero todavía le falta estructura.' },
+  { key: 'FORMALIZED', label: 'Formalizado', tone: '#548B73', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'El proyecto ya declaró responsable, problema y siguiente paso.' },
+  { key: 'PLANNED', label: 'Planificado', tone: '#8076A7', soft: 'rgba(75,96,127,0.14)', border: 'rgba(75,96,127,0.26)', hint: 'Tiene estructura suficiente para coordinar ejecución.' },
+  { key: 'ACTIVE', label: 'En ejecución', tone: '#9271BD', soft: 'rgba(116,82,166,0.12)', border: 'rgba(116,82,166,0.26)', hint: 'Trabajo corriendo con tableros, hitos y seguimiento.' },
+  { key: 'ON_HOLD', label: 'En pausa', tone: '#A97556', soft: 'rgba(219,138,102,0.12)', border: 'rgba(219,138,102,0.26)', hint: 'Iniciativas detenidas que requieren destrabe o redefinición.' },
+  { key: 'COMPLETED', label: 'Completado', tone: '#548B73', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Trabajo cerrado y entregado.' },
 ];
 
 const OPERATING_PIPELINE: { key: string; label: string; tone: string; soft: string; border: string; hint: string; stages: ProjectWorkflowStage[] }[] = [
-  { key: 'diagnosis', label: 'Diagnóstico', tone: '#7B8FA8', soft: 'rgba(123,143,168,0.12)', border: 'rgba(123,143,168,0.26)', hint: 'Aclarar problema, beneficiarios y contexto.', stages: ['DIAGNOSIS'] },
-  { key: 'validation', label: 'Validación', tone: '#C4A86E', soft: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.26)', hint: 'Comprobar viabilidad, valor e interés.', stages: ['VALIDATION'] },
-  { key: 'preparation', label: 'Preparación', tone: '#4B607F', soft: 'rgba(75,96,127,0.14)', border: 'rgba(75,96,127,0.26)', hint: 'Ordenar equipo, plan e hitos antes de ejecutar.', stages: ['PREPARATION'] },
-  { key: 'execution', label: 'Ejecución', tone: '#F4905A', soft: 'rgba(242,87,30,0.12)', border: 'rgba(242,87,30,0.26)', hint: 'Trabajo activo que necesita seguimiento y desbloqueos.', stages: ['EXECUTION'] },
-  { key: 'closure', label: 'Cierre', tone: '#76A878', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Entregas terminadas y aprendizaje registrado.', stages: ['CLOSURE'] },
+  { key: 'diagnosis', label: 'Diagnóstico', tone: '#8D84B0', soft: 'rgba(123,143,168,0.12)', border: 'rgba(123,143,168,0.26)', hint: 'Aclarar problema, beneficiarios y contexto.', stages: ['DIAGNOSIS'] },
+  { key: 'validation', label: 'Validación', tone: '#AA895E', soft: 'rgba(196,168,110,0.12)', border: 'rgba(196,168,110,0.26)', hint: 'Comprobar viabilidad, valor e interés.', stages: ['VALIDATION'] },
+  { key: 'preparation', label: 'Preparación', tone: '#8076A7', soft: 'rgba(75,96,127,0.14)', border: 'rgba(75,96,127,0.26)', hint: 'Ordenar equipo, plan e hitos antes de ejecutar.', stages: ['PREPARATION'] },
+  { key: 'execution', label: 'Ejecución', tone: '#9271BD', soft: 'rgba(116,82,166,0.12)', border: 'rgba(116,82,166,0.26)', hint: 'Trabajo activo que necesita seguimiento y desbloqueos.', stages: ['EXECUTION'] },
+  { key: 'closure', label: 'Cierre', tone: '#548B73', soft: 'rgba(118,168,120,0.12)', border: 'rgba(118,168,120,0.26)', hint: 'Entregas terminadas y aprendizaje registrado.', stages: ['CLOSURE'] },
 ];
 
 function getMaturityMeta(stage: ProjectMaturityStage) {
@@ -44,9 +44,9 @@ function getMaturityMeta(stage: ProjectMaturityStage) {
 }
 
 function getCoverageTone(coverage = 0) {
-  if (coverage >= 80) return '#76A878';
-  if (coverage >= 50) return '#C4A86E';
-  return '#DB8A66';
+  if (coverage >= 80) return '#548B73';
+  if (coverage >= 50) return '#AA895E';
+  return '#A97556';
 }
 
 function hasChecklistGap(project: Project, key: 'team' | 'board' | 'milestone') {
@@ -64,7 +64,7 @@ function getNextMilestone(project: Project) {
     return {
       label: milestone.name,
       date: new Date(milestone.date),
-      tone: isOverdue ? '#DB8A66' : '#C8BFAE',
+      tone: isOverdue ? '#A97556' : 'var(--c-text2)',
       hint: isOverdue ? 'Vencido' : 'Próximo hito',
     };
   }
@@ -74,28 +74,28 @@ function getNextMilestone(project: Project) {
     return {
       label: 'Fecha de cierre',
       date: new Date(project.endDate),
-      tone: isOverdue ? '#DB8A66' : '#C8BFAE',
+      tone: isOverdue ? '#A97556' : 'var(--c-text2)',
       hint: isOverdue ? 'Vencida' : 'Fecha objetivo',
     };
   }
 
-  return { label: 'Sin hito definido', date: null, tone: '#DB8A66', hint: 'Requiere atención' };
+  return { label: 'Sin hito definido', date: null, tone: '#A97556', hint: 'Requiere atención' };
 }
 
 function getPortfolioHealth(project: Project) {
   if (project.status === 'ON_HOLD' || project.maturityStage === 'ON_HOLD') {
-    return { label: 'En pausa', tone: '#DB8A66', soft: 'rgba(219,138,102,0.12)' };
+    return { label: 'En pausa', tone: '#A97556', soft: 'rgba(219,138,102,0.12)' };
   }
   if (hasChecklistGap(project, 'team')) {
-    return { label: 'Bloqueado', tone: '#DB8A66', soft: 'rgba(219,138,102,0.12)' };
+    return { label: 'Bloqueado', tone: '#A97556', soft: 'rgba(219,138,102,0.12)' };
   }
   if (hasChecklistGap(project, 'board') || hasChecklistGap(project, 'milestone')) {
-    return { label: 'En riesgo', tone: '#C4A86E', soft: 'rgba(196,168,110,0.12)' };
+    return { label: 'En riesgo', tone: '#AA895E', soft: 'rgba(196,168,110,0.12)' };
   }
   if (isActiveProject(project)) {
-    return { label: 'En marcha', tone: '#F4905A', soft: 'rgba(242,87,30,0.12)' };
+    return { label: 'En marcha', tone: '#9271BD', soft: 'rgba(116,82,166,0.12)' };
   }
-  return { label: 'En seguimiento', tone: '#76A878', soft: 'rgba(118,168,120,0.12)' };
+  return { label: 'En seguimiento', tone: '#548B73', soft: 'rgba(118,168,120,0.12)' };
 }
 
 function formatPortfolioDate(date: Date | null) {
@@ -141,31 +141,31 @@ const EXPERIENCE_META: Record<WorkspaceExperience, { title: string; description:
     title: 'Pipeline de proyectos',
     description: 'Coordina proyectos en ejecución, detecta bloqueos y mantiene visibles los próximos hitos.',
     method: 'Portfolio formalizado',
-    accent: '#F2571E',
+    accent: '#7452A6',
   },
   personal: {
     title: 'Foco personal',
     description: 'Ordena tus proyectos por siguiente acción, decisiones pendientes y cierre real.',
     method: 'GTD ligero',
-    accent: '#7B8FA8',
+    accent: '#8D84B0',
   },
   team: {
     title: 'Flujo de equipo',
     description: 'Convierte ideas en trabajo coordinado con backlog, preparación, ejecución y cierre.',
     method: 'Kanban operativo',
-    accent: '#76A878',
+    accent: '#548B73',
   },
   marketing: {
     title: 'Producción marketing',
     description: 'Gestiona briefs, aprobaciones, producción y revisión sin saturar al equipo creativo.',
     method: 'Campaña por etapas',
-    accent: '#C4A86E',
+    accent: '#AA895E',
   },
   construction: {
     title: 'Ruta operativa',
     description: 'Prioriza planificación, equipos, hitos y ejecución con una lectura de ruta crítica.',
     method: 'Ruta crítica',
-    accent: '#7B8FA8',
+    accent: '#8D84B0',
   },
 };
 
@@ -193,7 +193,7 @@ function getMethodologyColumns(experience: WorkspaceExperience, projects: Projec
         key: 'today',
         label: 'Acción siguiente',
         hint: 'Proyectos ya decididos con una próxima acción visible.',
-        tone: '#7B8FA8',
+        tone: '#8D84B0',
         projects: projects.filter((project) =>
           !isDoneProject(project)
           && Boolean(project.nextStep?.trim())
@@ -205,14 +205,14 @@ function getMethodologyColumns(experience: WorkspaceExperience, projects: Projec
         key: 'clarify',
         label: 'A clarificar',
         hint: 'Ideas o borradores que aún necesitan decidirse.',
-        tone: '#C4A86E',
+        tone: '#AA895E',
         projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT'),
       },
       {
         key: 'active',
         label: 'En marcha',
         hint: 'Trabajo decidido que todavía necesita una próxima acción.',
-        tone: '#F4905A',
+        tone: '#9271BD',
         projects: projects.filter((project) =>
           !isDoneProject(project)
           && !project.nextStep?.trim()
@@ -223,7 +223,7 @@ function getMethodologyColumns(experience: WorkspaceExperience, projects: Projec
         key: 'done',
         label: 'Cerrado',
         hint: 'Proyectos completados o archivados.',
-        tone: '#76A878',
+        tone: '#548B73',
         projects: projects.filter((project) => isDoneProject(project) || project.maturityStage === 'ARCHIVED'),
       },
     ];
@@ -231,27 +231,27 @@ function getMethodologyColumns(experience: WorkspaceExperience, projects: Projec
 
   if (experience === 'marketing') {
     return [
-      { key: 'brief', label: 'Brief', hint: 'Ideas que necesitan objetivo, audiencia o pieza.', tone: '#7B8FA8', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT') },
-      { key: 'approved', label: 'Aprobado', hint: 'Campañas listas para ordenar producción.', tone: '#C4A86E', projects: projects.filter((project) => !isActiveProject(project) && (project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED')) },
-      { key: 'production', label: 'Producción', hint: 'Trabajo creativo o de publicación en curso.', tone: '#F4905A', projects: projects.filter((project) => isActiveProject(project)) },
-      { key: 'review', label: 'Medición', hint: 'Entregas cerradas, pausadas o listas para lectura.', tone: '#76A878', projects: projects.filter((project) => project.maturityStage === 'COMPLETED' || project.maturityStage === 'ON_HOLD' || project.status === 'COMPLETED') },
+      { key: 'brief', label: 'Brief', hint: 'Ideas que necesitan objetivo, audiencia o pieza.', tone: '#8D84B0', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT') },
+      { key: 'approved', label: 'Aprobado', hint: 'Campañas listas para ordenar producción.', tone: '#AA895E', projects: projects.filter((project) => !isActiveProject(project) && (project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED')) },
+      { key: 'production', label: 'Producción', hint: 'Trabajo creativo o de publicación en curso.', tone: '#9271BD', projects: projects.filter((project) => isActiveProject(project)) },
+      { key: 'review', label: 'Medición', hint: 'Entregas cerradas, pausadas o listas para lectura.', tone: '#548B73', projects: projects.filter((project) => project.maturityStage === 'COMPLETED' || project.maturityStage === 'ON_HOLD' || project.status === 'COMPLETED') },
     ];
   }
 
   if (experience === 'construction') {
     return [
-      { key: 'prework', label: 'Anteproyecto', hint: 'Alcance inicial antes de comprometer obra.', tone: '#7B8FA8', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT' || project.maturityStage === 'FORMALIZED') },
-      { key: 'planning', label: 'Planificación', hint: 'Fechas, equipo, tablero e hitos antes de ejecutar.', tone: '#C4A86E', projects: projects.filter((project) => !isActiveProject(project) && project.maturityStage === 'PLANNED') },
-      { key: 'site', label: 'Ejecución', hint: 'Trabajo activo que requiere seguimiento de compromisos.', tone: '#F4905A', projects: projects.filter((project) => isActiveProject(project)) },
-      { key: 'risk', label: 'Riesgo / cierre', hint: 'Pausas, bloqueos y cierres de entrega.', tone: '#DB8A66', projects: projects.filter((project) => project.maturityStage === 'ON_HOLD' || isDoneProject(project)) },
+      { key: 'prework', label: 'Anteproyecto', hint: 'Alcance inicial antes de comprometer obra.', tone: '#8D84B0', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT' || project.maturityStage === 'FORMALIZED') },
+      { key: 'planning', label: 'Planificación', hint: 'Fechas, equipo, tablero e hitos antes de ejecutar.', tone: '#AA895E', projects: projects.filter((project) => !isActiveProject(project) && project.maturityStage === 'PLANNED') },
+      { key: 'site', label: 'Ejecución', hint: 'Trabajo activo que requiere seguimiento de compromisos.', tone: '#9271BD', projects: projects.filter((project) => isActiveProject(project)) },
+      { key: 'risk', label: 'Riesgo / cierre', hint: 'Pausas, bloqueos y cierres de entrega.', tone: '#A97556', projects: projects.filter((project) => project.maturityStage === 'ON_HOLD' || isDoneProject(project)) },
     ];
   }
 
   return [
-    { key: 'backlog', label: 'Backlog', hint: 'Ideas y solicitudes todavía sin preparación suficiente.', tone: '#7B8FA8', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT') },
-    { key: 'ready', label: 'Listo para coordinar', hint: 'Trabajo definido para entrar al tablero del equipo.', tone: '#76A878', projects: projects.filter((project) => !isActiveProject(project) && (project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED')) },
-    { key: 'doing', label: 'En curso', hint: 'Proyectos activos que requieren sincronización.', tone: '#F4905A', projects: projects.filter((project) => isActiveProject(project)) },
-    { key: 'closed', label: 'Cierre', hint: 'Completados, pausados o fuera del flujo activo.', tone: '#C4A86E', projects: projects.filter((project) => project.maturityStage === 'ON_HOLD' || isDoneProject(project) || project.maturityStage === 'ARCHIVED') },
+    { key: 'backlog', label: 'Backlog', hint: 'Ideas y solicitudes todavía sin preparación suficiente.', tone: '#8D84B0', projects: projects.filter((project) => project.maturityStage === 'IDEA' || project.maturityStage === 'DRAFT') },
+    { key: 'ready', label: 'Listo para coordinar', hint: 'Trabajo definido para entrar al tablero del equipo.', tone: '#548B73', projects: projects.filter((project) => !isActiveProject(project) && (project.maturityStage === 'FORMALIZED' || project.maturityStage === 'PLANNED')) },
+    { key: 'doing', label: 'En curso', hint: 'Proyectos activos que requieren sincronización.', tone: '#9271BD', projects: projects.filter((project) => isActiveProject(project)) },
+    { key: 'closed', label: 'Cierre', hint: 'Completados, pausados o fuera del flujo activo.', tone: '#AA895E', projects: projects.filter((project) => project.maturityStage === 'ON_HOLD' || isDoneProject(project) || project.maturityStage === 'ARCHIVED') },
   ];
 }
 
@@ -271,7 +271,7 @@ function ProjectCard({ project, onClick, onAdvance }: { project: Project; onClic
         width: '100%',
         borderRadius: '10px',
         border: `1px solid ${maturity.border}`,
-        background: 'rgba(255,255,255,0.02)',
+        background: 'rgba(97,71,130,0.02)',
         padding: '12px',
         display: 'flex',
         flexDirection: 'column',
@@ -282,11 +282,11 @@ function ProjectCard({ project, onClick, onAdvance }: { project: Project; onClic
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.background = 'rgba(255,255,255,0.035)';
+        e.currentTarget.style.background = 'rgba(97,71,130,0.035)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'none';
-        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+        e.currentTarget.style.background = 'rgba(97,71,130,0.02)';
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
@@ -299,10 +299,10 @@ function ProjectCard({ project, onClick, onAdvance }: { project: Project; onClic
           <WorkspaceIcon icon={project.icon} size={16} color={project.color ?? maturity.tone} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: SORA, fontSize: '13.5px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontFamily: SORA, fontSize: '13.5px', fontWeight: 600, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {project.name}
           </div>
-          <div style={{ marginTop: '3px', fontSize: '11px', color: responsibleName ? '#827A6D' : '#DB8A66', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ marginTop: '3px', fontSize: '11px', color: responsibleName ? 'var(--c-text3)' : '#A97556', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {responsibleName ? `Responsable: ${responsibleName}` : 'Sin responsable visible'}
           </div>
         </div>
@@ -320,15 +320,15 @@ function ProjectCard({ project, onClick, onAdvance }: { project: Project; onClic
       <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: milestone.tone, fontSize: '11px', minWidth: 0 }}>
         <CalendarDays style={{ width: '13px', height: '13px', flexShrink: 0 }} />
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{milestone.label}</span>
-        {milestone.date && <span style={{ color: '#827A6D', flexShrink: 0 }}>{formatPortfolioDate(milestone.date)}</span>}
+        {milestone.date && <span style={{ color: 'var(--c-text3)', flexShrink: 0 }}>{formatPortfolioDate(milestone.date)}</span>}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', color: '#827A6D', fontSize: '11px', lineHeight: 1.4 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', color: 'var(--c-text3)', fontSize: '11px', lineHeight: 1.4 }}>
         <ChevronRight style={{ width: '12px', height: '12px', marginTop: '1px', flexShrink: 0 }} />
         <span>{getProjectPortfolioReason(project)}</span>
       </div>
       {onAdvance && (
-        <button onClick={(event) => { event.stopPropagation(); onAdvance(); }} style={{ width: '100%', height: '28px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.04)', color: '#C8BFAE', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>
+        <button onClick={(event) => { event.stopPropagation(); onAdvance(); }} style={{ width: '100%', height: '28px', borderRadius: '7px', border: '1px solid rgba(97,71,130,0.09)', background: 'rgba(97,71,130,0.04)', color: 'var(--c-text2)', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>
           Avanzar etapa
         </button>
       )}
@@ -349,15 +349,15 @@ function PortfolioList({
 }) {
   if (projects.length === 0) {
     return (
-      <div style={{ display: 'grid', justifyItems: 'center', gap: '12px', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.14)', padding: '52px 24px', textAlign: 'center', background: 'rgba(255,255,255,0.018)' }}>
-        <span style={{ width: '48px', height: '48px', display: 'grid', placeItems: 'center', borderRadius: '14px', color: '#F4905A', background: 'rgba(242,87,30,0.12)', border: '1px solid rgba(242,87,30,0.22)' }}>
+      <div style={{ display: 'grid', justifyItems: 'center', gap: '12px', borderRadius: '16px', border: '1px dashed rgba(97,71,130,0.14)', padding: '52px 24px', textAlign: 'center', background: 'rgba(97,71,130,0.018)' }}>
+        <span style={{ width: '48px', height: '48px', display: 'grid', placeItems: 'center', borderRadius: '14px', color: '#9271BD', background: 'rgba(116,82,166,0.12)', border: '1px solid rgba(116,82,166,0.22)' }}>
           <ClipboardList size={22} aria-hidden="true" />
         </span>
         <div>
-          <h3 style={{ margin: 0, color: '#E8E1D2', fontFamily: SORA, fontSize: '16px', fontWeight: 700 }}>
+          <h3 style={{ margin: 0, color: 'var(--c-text)', fontFamily: SORA, fontSize: '16px', fontWeight: 700 }}>
             {hasProjects ? 'No encontramos proyectos' : 'Tu próximo proyecto empieza aquí'}
           </h3>
-          <p style={{ margin: '6px 0 0', color: '#827A6D', fontSize: '12.5px', lineHeight: 1.55 }}>
+          <p style={{ margin: '6px 0 0', color: 'var(--c-text3)', fontSize: '12.5px', lineHeight: 1.55 }}>
             {hasProjects
               ? 'Prueba con otro filtro o búsqueda.'
               : 'Reúne una idea, un objetivo y sus próximos pasos en un mismo lugar.'}
@@ -367,7 +367,7 @@ function PortfolioList({
           <button
             type="button"
             onClick={onCreateProject}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '4px', padding: '10px 14px', border: 0, borderRadius: '9px', background: '#F2571E', color: '#24180A', fontFamily: SORA, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '4px', padding: '10px 14px', border: 0, borderRadius: '9px', background: '#7452A6', color: '#FFFFFF', fontFamily: SORA, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
           >
             <CircleDashed size={15} aria-hidden="true" />
             Crear primer proyecto
@@ -392,16 +392,16 @@ function PortfolioList({
             type="button"
             onClick={() => onProjectClick(project)}
             onMouseEnter={(event) => {
-              event.currentTarget.style.borderColor = 'rgba(242,87,30,0.42)';
-              event.currentTarget.style.background = 'rgba(255,255,255,0.045)';
+              event.currentTarget.style.borderColor = 'rgba(116,82,166,0.42)';
+              event.currentTarget.style.background = 'rgba(97,71,130,0.045)';
               event.currentTarget.style.transform = 'translateY(-2px)';
             }}
             onMouseLeave={(event) => {
-              event.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)';
-              event.currentTarget.style.background = 'rgba(255,255,255,0.025)';
+              event.currentTarget.style.borderColor = 'rgba(97,71,130,0.09)';
+              event.currentTarget.style.background = 'rgba(97,71,130,0.025)';
               event.currentTarget.style.transform = 'translateY(0)';
             }}
-            style={{ display: 'flex', minHeight: '154px', flexDirection: 'column', alignItems: 'stretch', gap: '11px', padding: '16px', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '14px', background: 'rgba(255,255,255,0.025)', color: 'inherit', textAlign: 'left', cursor: 'pointer', transition: 'transform 180ms ease, border-color 180ms ease, background 180ms ease' }}
+            style={{ display: 'flex', minHeight: '154px', flexDirection: 'column', alignItems: 'stretch', gap: '11px', padding: '16px', border: '1px solid rgba(97,71,130,0.09)', borderRadius: '14px', background: 'rgba(97,71,130,0.025)', color: 'inherit', textAlign: 'left', cursor: 'pointer', transition: 'transform 180ms ease, border-color 180ms ease, background 180ms ease' }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -432,10 +432,10 @@ function PortfolioList({
             ) : null}
 
             {(project.nextStep?.trim() || milestone.date) ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: 'auto', paddingTop: '9px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: 'auto', paddingTop: '9px', borderTop: '1px solid rgba(97,71,130,0.07)' }}>
                 {project.nextStep?.trim() ? (
-                  <span style={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: '6px', color: '#C8BFAE', fontSize: '11px', lineHeight: 1.4 }}>
-                    <ChevronRight size={13} style={{ flexShrink: 0, color: '#F4905A' }} aria-hidden="true" />
+                  <span style={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: '6px', color: 'var(--c-text2)', fontSize: '11px', lineHeight: 1.4 }}>
+                    <ChevronRight size={13} style={{ flexShrink: 0, color: '#9271BD' }} aria-hidden="true" />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.nextStep}</span>
                   </span>
                 ) : <span />}
@@ -466,16 +466,16 @@ function MethodologyColumn({
       <div style={{ marginBottom: '10px', padding: '12px 12px 10px', borderRadius: '10px', border: `1px solid ${column.tone}42`, background: `${column.tone}16` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
           <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: column.tone }}>{column.label}</div>
-          <div style={{ minWidth: '24px', height: '24px', borderRadius: '999px', background: 'rgba(0,0,0,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#E8E1D2' }}>
+          <div style={{ minWidth: '24px', height: '24px', borderRadius: '999px', background: 'rgba(0,0,0,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--c-text)' }}>
             {column.projects.length}
           </div>
         </div>
-        <p style={{ margin: '6px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: '#C8BFAE' }}>{column.hint}</p>
+        <p style={{ margin: '6px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: 'var(--c-text2)' }}>{column.hint}</p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {column.projects.length === 0 ? (
-          <div style={{ borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.12)', padding: '18px 14px', color: '#615846', fontSize: '12px', textAlign: 'center', background: 'rgba(255,255,255,0.015)' }}>
+          <div style={{ borderRadius: '10px', border: '1px dashed rgba(97,71,130,0.12)', padding: '18px 14px', color: 'var(--c-text4)', fontSize: '12px', textAlign: 'center', background: 'rgba(97,71,130,0.015)' }}>
             Sin proyectos en esta etapa
           </div>
         ) : (
@@ -674,25 +674,25 @@ export default function ProjectsPage() {
         key: 'problem',
         label: 'Sin problema claro',
         count: projects.filter((project) => !project.problemStatement?.trim()).length,
-        tone: '#DB8A66',
+        tone: '#A97556',
       },
       {
         key: 'team',
         label: 'Sin equipo base',
         count: projects.filter((project) => hasChecklistGap(project, 'team')).length,
-        tone: '#C4A86E',
+        tone: '#AA895E',
       },
       {
         key: 'board',
         label: 'Sin tablero',
         count: projects.filter((project) => hasChecklistGap(project, 'board')).length,
-        tone: '#7B8FA8',
+        tone: '#8D84B0',
       },
       {
         key: 'milestone',
         label: 'Sin hito inicial',
         count: projects.filter((project) => hasChecklistGap(project, 'milestone')).length,
-        tone: '#F4905A',
+        tone: '#9271BD',
       },
     ].sort((a, b) => b.count - a.count);
 
@@ -808,36 +808,36 @@ export default function ProjectsPage() {
 
     if (workspaceExperience === 'personal') {
       return [
-        { label: 'Proyectos', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
-        { label: 'Con siguiente acción', value: withNextStep, tone: '#7B8FA8', icon: ChevronRight },
-        { label: 'En marcha', value: active, tone: '#F4905A', icon: Target },
-        { label: 'Cerrados', value: completed, tone: '#76A878', icon: CheckCircle2 },
+        { label: 'Proyectos', value: metrics.total, tone: 'var(--c-text)', icon: ClipboardList },
+        { label: 'Con siguiente acción', value: withNextStep, tone: '#8D84B0', icon: ChevronRight },
+        { label: 'En marcha', value: active, tone: '#9271BD', icon: Target },
+        { label: 'Cerrados', value: completed, tone: '#548B73', icon: CheckCircle2 },
       ];
     }
 
     if (workspaceExperience === 'marketing') {
       return [
-        { label: 'Campañas', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
-        { label: 'Briefs abiertos', value: intakeMetrics.total, tone: '#7B8FA8', icon: CircleDashed },
-        { label: 'En producción', value: active, tone: '#F4905A', icon: Target },
-        { label: 'Sin fechas', value: missingDates, tone: '#C4A86E', icon: AlertCircle },
+        { label: 'Campañas', value: metrics.total, tone: 'var(--c-text)', icon: ClipboardList },
+        { label: 'Briefs abiertos', value: intakeMetrics.total, tone: '#8D84B0', icon: CircleDashed },
+        { label: 'En producción', value: active, tone: '#9271BD', icon: Target },
+        { label: 'Sin fechas', value: missingDates, tone: '#AA895E', icon: AlertCircle },
       ];
     }
 
     if (workspaceExperience === 'construction') {
       return [
-        { label: 'Obras / frentes', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
-        { label: 'Planificados', value: projects.filter((project) => project.maturityStage === 'PLANNED').length, tone: '#C4A86E', icon: Target },
-        { label: 'En ejecución', value: active, tone: '#F4905A', icon: CheckCircle2 },
-        { label: 'Sin hito', value: metrics.withoutMilestone, tone: '#DB8A66', icon: AlertCircle },
+        { label: 'Obras / frentes', value: metrics.total, tone: 'var(--c-text)', icon: ClipboardList },
+        { label: 'Planificados', value: projects.filter((project) => project.maturityStage === 'PLANNED').length, tone: '#AA895E', icon: Target },
+        { label: 'En ejecución', value: active, tone: '#9271BD', icon: CheckCircle2 },
+        { label: 'Sin hito', value: metrics.withoutMilestone, tone: '#A97556', icon: AlertCircle },
       ];
     }
 
     return [
-      { label: 'Proyectos', value: metrics.total, tone: '#E8E1D2', icon: ClipboardList },
-      { label: 'Listos para coordinar', value: metrics.ready, tone: '#76A878', icon: CheckCircle2 },
-      { label: 'Sin tablero', value: metrics.withoutBoard, tone: '#C4A86E', icon: Target },
-      { label: 'Sin problema claro', value: missingProblem, tone: '#DB8A66', icon: AlertCircle },
+      { label: 'Proyectos', value: metrics.total, tone: 'var(--c-text)', icon: ClipboardList },
+      { label: 'Listos para coordinar', value: metrics.ready, tone: '#548B73', icon: CheckCircle2 },
+      { label: 'Sin tablero', value: metrics.withoutBoard, tone: '#AA895E', icon: Target },
+      { label: 'Sin problema claro', value: missingProblem, tone: '#A97556', icon: AlertCircle },
     ];
   }, [intakeMetrics.total, metrics, projects, workspaceExperience]);
 
@@ -973,7 +973,7 @@ export default function ProjectsPage() {
         name: 'Primer hito',
         description: project.nextStep?.trim() || 'Primer compromiso visible del proyecto',
         date: nextWeek.toISOString(),
-        color: project.color ?? '#F2571E',
+        color: project.color ?? '#7452A6',
       });
       if (!project.nextStep?.trim()) {
         await updateProject(project.id, { nextStep: 'Validar y completar el primer hito del proyecto' });
@@ -1000,7 +1000,7 @@ export default function ProjectsPage() {
             <h1 style={{ margin: 0, fontFamily: SORA, fontSize: '28px', fontWeight: 700, color: '#F1EBDD', letterSpacing: '-0.04em' }}>
               {workspaceExperience === 'personal' ? 'Mis proyectos' : 'Proyectos del espacio'}
             </h1>
-            <p style={{ margin: '7px 0 0', fontSize: '13px', color: '#827A6D', maxWidth: '760px', lineHeight: 1.55 }}>
+            <p style={{ margin: '7px 0 0', fontSize: '13px', color: 'var(--c-text3)', maxWidth: '760px', lineHeight: 1.55 }}>
               {workspaceExperience === 'personal'
                 ? 'Tus ideas, objetivos y próximos pasos, organizados en un solo lugar.'
                 : 'Consulta los proyectos creados en este espacio y continúa donde los dejaste.'}
@@ -1014,8 +1014,8 @@ export default function ProjectsPage() {
                 onClick={() => router.push('/dashboard/initiatives')}
                 style={{
                   height: '32px', padding: '0 12px', borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.03)',
-                  display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#C8BFAE', cursor: 'pointer',
+                  border: '1px solid rgba(97,71,130,0.10)', background: 'rgba(97,71,130,0.03)',
+                  display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--c-text2)', cursor: 'pointer',
                   fontSize: '12px', fontWeight: 700, fontFamily: SORA,
                 }}
               >
@@ -1029,7 +1029,7 @@ export default function ProjectsPage() {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '8px',
                 padding: '10px 16px', borderRadius: '8px', border: 'none',
-                background: '#F2571E', color: '#24180A', cursor: 'pointer',
+                background: '#7452A6', color: '#FFFFFF', cursor: 'pointer',
                 fontFamily: SORA, fontSize: '13px', fontWeight: 700,
               }}
             >
@@ -1040,16 +1040,16 @@ export default function ProjectsPage() {
         </div>
 
         {isInstitutionalExperience && viewMode === 'pipeline' && (
-          <details style={{ marginBottom: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '0 16px' }}>
-            <summary style={{ cursor: 'pointer', padding: '12px 0', color: '#827A6D', fontFamily: SORA, fontSize: '12px', fontWeight: 700 }}>Reglas del estándar</summary>
+          <details style={{ marginBottom: '18px', borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '0 16px' }}>
+            <summary style={{ cursor: 'pointer', padding: '12px 0', color: 'var(--c-text3)', fontFamily: SORA, fontSize: '12px', fontWeight: 700 }}>Reglas del estándar</summary>
             <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', padding: '0 0 16px', alignItems: 'start' }}>
-            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
+            <div style={{ borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color: '#E8E1D2' }}>
+                  <div style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color: 'var(--c-text)' }}>
                     {currentProjectStandard ? `Marco operativo: ${currentProjectStandard.name}` : 'Marco operativo del workspace'}
                   </div>
-                  <div style={{ marginTop: '5px', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5, maxWidth: '780px' }}>
+                  <div style={{ marginTop: '5px', fontSize: '12.5px', color: 'var(--c-text3)', lineHeight: 1.5, maxWidth: '780px' }}>
                     {currentProjectStandard
                       ? `La cartera hoy corre con v${currentProjectStandard.version}. Este estándar define desde qué madurez se planifica, qué campos deben existir y qué checks vuelven formalizable a un proyecto.`
                       : 'Todavía no hay un estándar cargado para este workspace.'}
@@ -1058,13 +1058,13 @@ export default function ProjectsPage() {
 
                 {currentProjectStandard && (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#C7D7EC', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 9px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#C7D7EC', background: 'rgba(97,71,130,0.06)', border: '1px solid rgba(97,71,130,0.08)', borderRadius: '999px', padding: '5px 9px' }}>
                       v{currentProjectStandard.version}
                     </span>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#C4A86E', background: 'rgba(196,168,110,0.12)', border: '1px solid rgba(196,168,110,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#AA895E', background: 'rgba(196,168,110,0.12)', border: '1px solid rgba(196,168,110,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
                       Intake: {currentProjectStandard.definition.intakeStages.join(' / ')}
                     </span>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#76A878', background: 'rgba(118,168,120,0.12)', border: '1px solid rgba(118,168,120,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#548B73', background: 'rgba(118,168,120,0.12)', border: '1px solid rgba(118,168,120,0.22)', borderRadius: '999px', padding: '5px 9px' }}>
                       {currentProjectStandard.definition.requiredChecklist.length} checks
                     </span>
                   </div>
@@ -1074,13 +1074,13 @@ export default function ProjectsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '10px', marginTop: '16px' }}>
                 {[
                   { label: 'Cohorte activa', value: `v${currentProjectStandard?.version ?? 1}`, hint: `${projects.filter((project) => (project.appliedStandardVersion ?? 1) === (currentProjectStandard?.version ?? 1)).length} proyecto(s)`, tone: '#C7D7EC' },
-                  { label: 'Cohorte previa', value: standardTransition?.previous ? `v${standardTransition.previous.version}` : 'Sin previa', hint: `${standardTransition?.legacyProjects ?? 0} proyecto(s) heredados`, tone: '#C4A86E' },
-                  { label: 'Mínimo para planificar', value: currentProjectStandard ? getMaturityMeta(currentProjectStandard.definition.minimumMaturityForPlanning).label : 'Base', hint: 'Punto de corte institucional', tone: '#76A878' },
+                  { label: 'Cohorte previa', value: standardTransition?.previous ? `v${standardTransition.previous.version}` : 'Sin previa', hint: `${standardTransition?.legacyProjects ?? 0} proyecto(s) heredados`, tone: '#AA895E' },
+                  { label: 'Mínimo para planificar', value: currentProjectStandard ? getMaturityMeta(currentProjectStandard.definition.minimumMaturityForPlanning).label : 'Base', hint: 'Punto de corte institucional', tone: '#548B73' },
                 ].map((item) => (
-                  <div key={item.label} style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.025)', padding: '12px 12px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>{item.label}</div>
+                  <div key={item.label} style={{ borderRadius: '9px', border: '1px solid rgba(97,71,130,0.06)', background: 'rgba(97,71,130,0.025)', padding: '12px 12px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--c-text4)', textTransform: 'uppercase' }}>{item.label}</div>
                     <div style={{ marginTop: '7px', fontFamily: SORA, fontSize: '20px', fontWeight: 700, color: item.tone }}>{item.value}</div>
-                    <div style={{ marginTop: '5px', fontSize: '11px', color: '#827A6D' }}>{item.hint}</div>
+                    <div style={{ marginTop: '5px', fontSize: '11px', color: 'var(--c-text3)' }}>{item.hint}</div>
                   </div>
                 ))}
               </div>
@@ -1088,12 +1088,12 @@ export default function ProjectsPage() {
               {currentProjectStandard && (
                 <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '14px', marginTop: '16px' }}>
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--c-text4)', textTransform: 'uppercase', marginBottom: '8px' }}>
                       Campos requeridos
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                       {currentProjectStandard.definition.requiredProjectFields.map((field) => (
-                        <span key={field} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
+                        <span key={field} style={{ fontSize: '11px', color: 'var(--c-text2)', background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
                           {field}
                         </span>
                       ))}
@@ -1101,12 +1101,12 @@ export default function ProjectsPage() {
                   </div>
 
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--c-text4)', textTransform: 'uppercase', marginBottom: '8px' }}>
                       Estructura obligatoria
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                       {currentProjectStandard.definition.requiredChecklist.map((item) => (
-                        <span key={item} style={{ fontSize: '11px', color: '#C8BFAE', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
+                        <span key={item} style={{ fontSize: '11px', color: 'var(--c-text2)', background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.08)', borderRadius: '999px', padding: '5px 8px' }}>
                           {item}
                         </span>
                       ))}
@@ -1117,26 +1117,26 @@ export default function ProjectsPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px' }}>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Atención operativa</div>
-                <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45 }}>
+              <div style={{ borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '16px' }}>
+                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Atención operativa</div>
+                <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--c-text3)', lineHeight: 1.45 }}>
                   Una lectura corta de qué conviene mover antes de entrar al detalle del pipeline.
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
                   {[
-                    { title: 'Listos para formalizar', tone: '#76A878', items: portfolioQueues.readyToday },
-                    { title: 'Trabados por equipo', tone: '#C4A86E', items: portfolioQueues.blockedByTeam },
-                    { title: 'Cobertura engañosa', tone: '#7B8FA8', items: portfolioQueues.misleadingCoverage },
+                    { title: 'Listos para formalizar', tone: '#548B73', items: portfolioQueues.readyToday },
+                    { title: 'Trabados por equipo', tone: '#AA895E', items: portfolioQueues.blockedByTeam },
+                    { title: 'Cobertura engañosa', tone: '#8D84B0', items: portfolioQueues.misleadingCoverage },
                   ].map((section) => (
-                    <div key={section.title} style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
+                    <div key={section.title} style={{ borderRadius: '9px', border: '1px solid rgba(97,71,130,0.06)', background: 'rgba(97,71,130,0.02)', padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: section.tone, fontFamily: SORA }}>{section.title}</span>
-                        <span style={{ fontSize: '11px', color: '#827A6D' }}>{section.items.length}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--c-text3)' }}>{section.items.length}</span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginTop: '9px' }}>
                         {section.items.length === 0 ? (
-                          <div style={{ fontSize: '11.5px', color: '#615846' }}>Sin proyectos visibles.</div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--c-text4)' }}>Sin proyectos visibles.</div>
                         ) : section.items.slice(0, 3).map((project) => (
                           <button
                             key={project.id}
@@ -1144,8 +1144,8 @@ export default function ProjectsPage() {
                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
                           >
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: '12px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
-                              <div style={{ marginTop: '3px', fontSize: '11px', color: '#827A6D' }}>{getProjectPortfolioReason(project)}</div>
+                              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
+                              <div style={{ marginTop: '3px', fontSize: '11px', color: 'var(--c-text3)' }}>{getProjectPortfolioReason(project)}</div>
                             </div>
                             <span style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color: getCoverageTone(project.coverage?.coveragePercent ?? 0), flexShrink: 0 }}>
                               {project.coverage?.coveragePercent ?? 0}%
@@ -1158,16 +1158,16 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px' }}>
-                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Lectura rápida</div>
+              <div style={{ borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '16px' }}>
+                <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Lectura rápida</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '14px' }}>
                   {[
-                    { label: 'Proyectos que aún no tienen equipo base', value: metrics.withoutTeam, tone: '#DB8A66' },
-                    { label: 'Proyectos sin tablero de ejecución', value: metrics.withoutBoard, tone: '#C4A86E' },
-                    { label: 'Proyectos sin próximo hito declarado', value: metrics.withoutMilestone, tone: '#7B8FA8' },
+                    { label: 'Proyectos que aún no tienen equipo base', value: metrics.withoutTeam, tone: '#A97556' },
+                    { label: 'Proyectos sin tablero de ejecución', value: metrics.withoutBoard, tone: '#AA895E' },
+                    { label: 'Proyectos sin próximo hito declarado', value: metrics.withoutMilestone, tone: '#8D84B0' },
                   ].map((item) => (
                     <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                      <span style={{ fontSize: '12px', color: '#C8BFAE', lineHeight: 1.45 }}>{item.label}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--c-text2)', lineHeight: 1.45 }}>{item.label}</span>
                       <span style={{ fontFamily: SORA, fontSize: '16px', fontWeight: 700, color: item.tone, flexShrink: 0 }}>{item.value}</span>
                     </div>
                   ))}
@@ -1180,11 +1180,11 @@ export default function ProjectsPage() {
 
         {!isInstitutionalExperience && viewMode === 'pipeline' && (
           <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px', alignItems: 'start' }}>
-            <div style={{ borderRadius: '10px', border: `1px solid ${experienceMeta.accent}33`, background: 'rgba(255,255,255,0.02)', padding: '16px 18px' }}>
+            <div style={{ borderRadius: '10px', border: `1px solid ${experienceMeta.accent}33`, background: 'rgba(97,71,130,0.02)', padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color: '#E8E1D2' }}>{experienceMeta.method}</div>
-                  <div style={{ marginTop: '5px', fontSize: '12.5px', color: '#827A6D', lineHeight: 1.5, maxWidth: '760px' }}>
+                  <div style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 700, color: 'var(--c-text)' }}>{experienceMeta.method}</div>
+                  <div style={{ marginTop: '5px', fontSize: '12.5px', color: 'var(--c-text3)', lineHeight: 1.5, maxWidth: '760px' }}>
                     {currentProjectStandard
                       ? `${currentProjectStandard.name} v${currentProjectStandard.version} adapta la gestión a este tipo de workspace.`
                       : 'Este workspace usa una vista adaptada a su forma natural de trabajo.'}
@@ -1197,20 +1197,20 @@ export default function ProjectsPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '10px', marginTop: '16px' }}>
                 {methodologyColumns.map((column) => (
-                  <div key={column.key} style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.025)', padding: '12px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>{column.label}</div>
+                  <div key={column.key} style={{ borderRadius: '9px', border: '1px solid rgba(97,71,130,0.06)', background: 'rgba(97,71,130,0.025)', padding: '12px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--c-text4)', textTransform: 'uppercase' }}>{column.label}</div>
                     <div style={{ marginTop: '7px', fontFamily: SORA, fontSize: '20px', fontWeight: 700, color: column.tone }}>{column.projects.length}</div>
-                    <div style={{ marginTop: '5px', fontSize: '11px', color: '#827A6D' }}>{column.hint}</div>
+                    <div style={{ marginTop: '5px', fontSize: '11px', color: 'var(--c-text3)' }}>{column.hint}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px' }}>
-              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Cómo usar esta vista</div>
+            <div style={{ borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '16px' }}>
+              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Cómo usar esta vista</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
                 {methodGuidance.map((text) => (
-                  <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.55 }}>
+                  <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--c-text2)', fontSize: '12.5px', lineHeight: 1.55 }}>
                     <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: `${experienceMeta.accent}18`, color: experienceMeta.accent, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>•</span>
                     <span>{text}</span>
                   </div>
@@ -1222,39 +1222,39 @@ export default function ProjectsPage() {
 
         {viewMode === 'intake' && (
           <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', marginBottom: '18px' }}>
-            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Criterio de admisión</div>
-              <p style={{ margin: '6px 0 12px', fontSize: '12px', color: '#827A6D', lineHeight: 1.55 }}>
+            <div style={{ borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '14px 16px' }}>
+              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Criterio de admisión</div>
+              <p style={{ margin: '6px 0 12px', fontSize: '12px', color: 'var(--c-text3)', lineHeight: 1.55 }}>
                 Esta bandeja deja ver qué iniciativas todavía están en intención, cuáles ya son un borrador útil y cuáles están listas para empujarse a formalización.
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '10px' }}>
                 {[
-                  { label: 'Problema claro', value: intakeMetrics.total - intakeMetrics.missingProblem, tone: '#76A878' },
-                  { label: 'Listos para formalizar', value: intakeMetrics.ready, tone: '#C4A86E' },
-                  { label: 'Aún verdes', value: Math.max(intakeMetrics.total - intakeMetrics.ready, 0), tone: '#DB8A66' },
+                  { label: 'Problema claro', value: intakeMetrics.total - intakeMetrics.missingProblem, tone: '#548B73' },
+                  { label: 'Listos para formalizar', value: intakeMetrics.ready, tone: '#AA895E' },
+                  { label: 'Aún verdes', value: Math.max(intakeMetrics.total - intakeMetrics.ready, 0), tone: '#A97556' },
                 ].map((item) => (
-                  <div key={item.label} style={{ borderRadius: '8px', background: 'rgba(255,255,255,0.03)', padding: '10px 12px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#615846', textTransform: 'uppercase' }}>{item.label}</div>
+                  <div key={item.label} style={{ borderRadius: '8px', background: 'rgba(97,71,130,0.03)', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--c-text4)', textTransform: 'uppercase' }}>{item.label}</div>
                     <div style={{ marginTop: '7px', fontFamily: SORA, fontSize: '22px', fontWeight: 700, color: item.tone }}>{item.value}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Siguiente movimiento</div>
+            <div style={{ borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '14px 16px' }}>
+              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Siguiente movimiento</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>Ideas que requieren clarificar problema</span>
-                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#DB8A66' }}>{intakeMetrics.missingProblem}</span>
+                  <span style={{ fontSize: '12.5px', color: 'var(--c-text2)' }}>Ideas que requieren clarificar problema</span>
+                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#A97556' }}>{intakeMetrics.missingProblem}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>Iniciativas sin próxima revisión</span>
-                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#C4A86E' }}>{intakeMetrics.total - intakeMetrics.withReview}</span>
+                  <span style={{ fontSize: '12.5px', color: 'var(--c-text2)' }}>Iniciativas sin próxima revisión</span>
+                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#AA895E' }}>{intakeMetrics.total - intakeMetrics.withReview}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <span style={{ fontSize: '12.5px', color: '#C8BFAE' }}>Proyectos listos para pasar de intake</span>
-                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#76A878' }}>{intakeMetrics.ready}</span>
+                  <span style={{ fontSize: '12.5px', color: 'var(--c-text2)' }}>Proyectos listos para pasar de intake</span>
+                  <span style={{ fontFamily: SORA, fontSize: '18px', fontWeight: 700, color: '#548B73' }}>{intakeMetrics.ready}</span>
                 </div>
               </div>
             </div>
@@ -1263,17 +1263,17 @@ export default function ProjectsPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '4px 0 24px' }}>
           <label style={{ position: 'relative', minWidth: '240px', flex: '1 1 340px' }}>
-            <Search size={15} aria-hidden="true" style={{ color: '#827A6D', position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)' }} />
+            <Search size={15} aria-hidden="true" style={{ color: 'var(--c-text3)', position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar tus proyectos"
               aria-label="Buscar tus proyectos"
-              style={{ width: '100%', height: '42px', padding: '0 14px 0 38px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.035)', color: '#E8E1D2', outline: 'none', fontSize: '12.5px' }}
+              style={{ width: '100%', height: '42px', padding: '0 14px 0 38px', borderRadius: '10px', border: '1px solid rgba(97,71,130,0.09)', background: 'rgba(97,71,130,0.035)', color: 'var(--c-text)', outline: 'none', fontSize: '12.5px' }}
             />
           </label>
 
-          <div role="group" aria-label="Filtrar proyectos por estado" style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', padding: '4px', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '11px', background: 'rgba(255,255,255,0.025)' }}>
+          <div role="group" aria-label="Filtrar proyectos por estado" style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', padding: '4px', border: '1px solid rgba(97,71,130,0.07)', borderRadius: '11px', background: 'rgba(97,71,130,0.025)' }}>
             {[
               { key: 'all' as const, label: 'Todos', count: projects.length },
               { key: 'active' as const, label: 'En marcha', count: projects.filter(isActiveProject).length },
@@ -1287,7 +1287,7 @@ export default function ProjectsPage() {
                   type="button"
                   aria-pressed={active}
                   onClick={() => setProjectListFilter(filter.key)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', minHeight: '32px', padding: '0 10px', border: '1px solid transparent', borderRadius: '8px', background: active ? 'rgba(242,87,30,0.14)' : 'transparent', color: active ? '#F4905A' : '#A69B88', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', minHeight: '32px', padding: '0 10px', border: '1px solid transparent', borderRadius: '8px', background: active ? 'rgba(116,82,166,0.14)' : 'transparent', color: active ? '#9271BD' : '#A69B88', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
                 >
                   {filter.label}
                   <span style={{ color: active ? '#F1B18D' : '#746B5D', fontSize: '10px' }}>{filter.count}</span>
@@ -1300,7 +1300,7 @@ export default function ProjectsPage() {
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E', animation: 'spin 0.7s linear infinite' }} />
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid rgba(97,71,130,0.1)', borderTopColor: 'var(--c-accent-text)', animation: 'spin 0.7s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         ) : viewMode === 'portfolio' ? (
@@ -1308,8 +1308,8 @@ export default function ProjectsPage() {
             <section aria-labelledby="project-list-title">
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
                 <div>
-                  <h2 id="project-list-title" style={{ margin: 0, color: '#E8E1D2', fontFamily: SORA, fontSize: '17px', fontWeight: 700 }}>Tus proyectos</h2>
-                  <p style={{ margin: '5px 0 0', color: '#827A6D', fontSize: '12px' }}>Abre un proyecto para continuar trabajando en él.</p>
+                  <h2 id="project-list-title" style={{ margin: 0, color: 'var(--c-text)', fontFamily: SORA, fontSize: '17px', fontWeight: 700 }}>Tus proyectos</h2>
+                  <p style={{ margin: '5px 0 0', color: 'var(--c-text3)', fontSize: '12px' }}>Abre un proyecto para continuar trabajando en él.</p>
                 </div>
                 <span style={{ color: '#A69B88', fontSize: '11.5px', fontWeight: 600 }}>{filteredProjects.length} de {projects.length}</span>
               </div>
@@ -1330,12 +1330,12 @@ export default function ProjectsPage() {
             {pausedProjects.length > 0 && (
               <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: '14px', padding: '11px 14px', borderRadius: '10px', border: '1px solid rgba(219,138,102,0.28)', background: 'rgba(219,138,102,0.08)' }}>
                 <div>
-                  <div style={{ color: '#DB8A66', fontFamily: SORA, fontSize: '12px', fontWeight: 700 }}>{pausedProjects.length} proyecto(s) en pausa</div>
-                  <div style={{ marginTop: '3px', color: '#C8BFAE', fontSize: '11.5px' }}>No forman parte del flujo activo y requieren una decisión para continuar, cerrar o replanificar.</div>
+                  <div style={{ color: '#A97556', fontFamily: SORA, fontSize: '12px', fontWeight: 700 }}>{pausedProjects.length} proyecto(s) en pausa</div>
+                  <div style={{ marginTop: '3px', color: 'var(--c-text2)', fontSize: '11.5px' }}>No forman parte del flujo activo y requieren una decisión para continuar, cerrar o replanificar.</div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
                   {pausedProjects.slice(0, 3).map((project) => (
-                    <button key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)} style={{ border: '1px solid rgba(219,138,102,0.3)', borderRadius: '999px', padding: '5px 9px', background: 'rgba(255,255,255,0.04)', color: '#E8E1D2', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>{project.name}</button>
+                    <button key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)} style={{ border: '1px solid rgba(219,138,102,0.3)', borderRadius: '999px', padding: '5px 9px', background: 'rgba(97,71,130,0.04)', color: 'var(--c-text)', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>{project.name}</button>
                   ))}
                 </div>
               </section>
@@ -1346,16 +1346,16 @@ export default function ProjectsPage() {
                   <div style={{ marginBottom: '10px', padding: '12px 12px 10px', borderRadius: '10px', border: `1px solid ${stage.border}`, background: stage.soft }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                       <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: stage.tone }}>{stage.label}</div>
-                      <div style={{ minWidth: '24px', height: '24px', borderRadius: '999px', background: 'rgba(0,0,0,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#E8E1D2' }}>
+                      <div style={{ minWidth: '24px', height: '24px', borderRadius: '999px', background: 'rgba(0,0,0,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--c-text)' }}>
                         {stage.projects.length}
                       </div>
                     </div>
-                    <p style={{ margin: '6px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: '#C8BFAE' }}>{stage.hint}</p>
+                    <p style={{ margin: '6px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: 'var(--c-text2)' }}>{stage.hint}</p>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {stage.projects.length === 0 ? (
-                      <div style={{ borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.12)', padding: '18px 14px', color: '#615846', fontSize: '12px', textAlign: 'center', background: 'rgba(255,255,255,0.015)' }}>
+                      <div style={{ borderRadius: '10px', border: '1px dashed rgba(97,71,130,0.12)', padding: '18px 14px', color: 'var(--c-text4)', fontSize: '12px', textAlign: 'center', background: 'rgba(97,71,130,0.015)' }}>
                         Sin proyectos en esta etapa
                       </div>
                     ) : (
@@ -1373,30 +1373,30 @@ export default function ProjectsPage() {
               ))}
             </div>
 
-            <details style={{ marginTop: '18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '0 16px' }}>
-              <summary style={{ cursor: 'pointer', padding: '14px 0', fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>
+            <details style={{ marginTop: '18px', borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '0 16px' }}>
+              <summary style={{ cursor: 'pointer', padding: '14px 0', fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>
                 Lectura analítica del estándar
               </summary>
 
               <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', padding: '0 0 16px' }}>
-                <div style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '14px' }}>
+                <div style={{ borderRadius: '9px', border: '1px solid rgba(97,71,130,0.06)', background: 'rgba(97,71,130,0.02)', padding: '14px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                     <div>
-                      <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Cohortes por versión</div>
-                      <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D', lineHeight: 1.45 }}>
+                      <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Cohortes por versión</div>
+                      <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--c-text3)', lineHeight: 1.45 }}>
                         Compara proyectos según la versión aplicada.
                       </div>
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{versionReporting.length} cohortes</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--c-text2)' }}>{versionReporting.length} cohortes</span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {versionReporting.map((row) => {
                       const isCurrent = currentProjectStandard?.version === row.version;
                       return (
-                        <div key={row.version} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: '10px', alignItems: 'center', borderRadius: '8px', border: `1px solid ${isCurrent ? 'rgba(118,168,120,0.22)' : 'rgba(255,255,255,0.06)'}`, background: isCurrent ? 'rgba(118,168,120,0.06)' : 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
-                          <div style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? '#76A878' : '#E8E1D2', fontFamily: SORA }}>v{row.version}</div>
-                          <div style={{ fontSize: '11.5px', color: '#827A6D' }}>{row.count} proyecto(s) - {row.readyCount} listos</div>
+                        <div key={row.version} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: '10px', alignItems: 'center', borderRadius: '8px', border: `1px solid ${isCurrent ? 'rgba(118,168,120,0.22)' : 'rgba(97,71,130,0.06)'}`, background: isCurrent ? 'rgba(118,168,120,0.06)' : 'rgba(97,71,130,0.02)', padding: '10px 12px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? '#548B73' : 'var(--c-text)', fontFamily: SORA }}>v{row.version}</div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--c-text3)' }}>{row.count} proyecto(s) - {row.readyCount} listos</div>
                           <div style={{ fontFamily: SORA, fontSize: '15px', fontWeight: 700, color: getCoverageTone(row.avgCoverage) }}>{row.avgCoverage}%</div>
                         </div>
                       );
@@ -1405,13 +1405,13 @@ export default function ProjectsPage() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '16px' }}>
-                  <div style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '14px' }}>
+                  <div style={{ borderRadius: '9px', border: '1px solid rgba(97,71,130,0.06)', background: 'rgba(97,71,130,0.02)', padding: '14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
                       <div>
-                        <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Embudo</div>
-                        <div style={{ marginTop: '4px', fontSize: '12px', color: '#827A6D' }}>Distribución actual.</div>
+                        <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Embudo</div>
+                        <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--c-text3)' }}>Distribución actual.</div>
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#C8BFAE' }}>{metrics.total} total</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--c-text2)' }}>{metrics.total} total</span>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1420,22 +1420,22 @@ export default function ProjectsPage() {
                         return (
                           <div key={row.key} style={{ display: 'grid', gridTemplateColumns: '82px minmax(0, 1fr) 42px', gap: '8px', alignItems: 'center' }}>
                             <div style={{ minWidth: 0, fontSize: '11px', fontWeight: 700, color: row.tone, fontFamily: SORA }}>{row.label}</div>
-                            <div style={{ height: '9px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                            <div style={{ height: '9px', borderRadius: '999px', background: 'rgba(97,71,130,0.06)', overflow: 'hidden' }}>
                               <div style={{ width: `${width}%`, height: '100%', borderRadius: '999px', background: row.tone, transition: 'width 0.25s ease' }} />
                             </div>
-                            <div style={{ textAlign: 'right', fontSize: '10.5px', color: '#C8BFAE' }}>{row.count}</div>
+                            <div style={{ textAlign: 'right', fontSize: '10.5px', color: 'var(--c-text2)' }}>{row.count}</div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
 
-                  <div style={{ borderRadius: '9px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '14px' }}>
-                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Brechas estructurales</div>
+                  <div style={{ borderRadius: '9px', border: '1px solid rgba(97,71,130,0.06)', background: 'rgba(97,71,130,0.02)', padding: '14px' }}>
+                    <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Brechas estructurales</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '12px' }}>
                       {reporting.alerts.map((alert) => (
-                        <div key={alert.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                          <span style={{ fontSize: '12px', color: '#C8BFAE' }}>{alert.label}</span>
+                        <div key={alert.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 0', borderBottom: '1px solid rgba(97,71,130,0.05)' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--c-text2)' }}>{alert.label}</span>
                           <span style={{ fontFamily: SORA, fontSize: '16px', fontWeight: 700, color: alert.tone }}>{alert.count}</span>
                         </div>
                       ))}
@@ -1446,25 +1446,25 @@ export default function ProjectsPage() {
             </details>
           </>
         ) : intakeProjects.length === 0 ? (
-          <div style={{ borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.12)', padding: '40px 24px', textAlign: 'center', color: '#615846', background: 'rgba(255,255,255,0.015)' }}>
+          <div style={{ borderRadius: '12px', border: '1px dashed rgba(97,71,130,0.12)', padding: '40px 24px', textAlign: 'center', color: 'var(--c-text4)', background: 'rgba(97,71,130,0.015)' }}>
             No hay proyectos en intake con el filtro actual.
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: SUMMARY_GRID, gap: '16px', alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {intakeProjects.map((project) => (
-                <div key={project.id} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
+                <div key={project.id} style={{ borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '14px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <button onClick={() => router.push(`/dashboard/projects/${project.id}`)} style={{ padding: 0, border: 'none', background: 'transparent', color: '#E8E1D2', cursor: 'pointer', fontFamily: SORA, fontSize: '14px', fontWeight: 700 }}>
+                        <button onClick={() => router.push(`/dashboard/projects/${project.id}`)} style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--c-text)', cursor: 'pointer', fontFamily: SORA, fontSize: '14px', fontWeight: 700 }}>
                           {project.name}
                         </button>
                         <span style={{ fontSize: '10.5px', fontWeight: 700, color: getMaturityMeta(project.maturityStage ?? 'IDEA').tone, background: getMaturityMeta(project.maturityStage ?? 'IDEA').soft, border: `1px solid ${getMaturityMeta(project.maturityStage ?? 'IDEA').border}`, borderRadius: '999px', padding: '4px 8px' }}>
                           {getMaturityMeta(project.maturityStage ?? 'IDEA').label}
                         </span>
                       </div>
-                      <p style={{ margin: '8px 0 0', fontSize: '12.5px', color: '#C8BFAE', lineHeight: 1.55 }}>
+                      <p style={{ margin: '8px 0 0', fontSize: '12.5px', color: 'var(--c-text2)', lineHeight: 1.55 }}>
                         {project.problemStatement?.trim() || project.description?.trim() || 'Todavía no declara bien el problema u oportunidad.'}
                       </p>
                     </div>
@@ -1475,18 +1475,18 @@ export default function ProjectsPage() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: COMPACT_GRID, gap: '8px', marginTop: '12px' }}>
                     {(project.formalization?.checklist ?? []).map((item) => (
-                      <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '7px', borderRadius: '8px', padding: '8px 9px', background: item.done ? 'rgba(118,168,120,0.08)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '7px', borderRadius: '8px', padding: '8px 9px', background: item.done ? 'rgba(118,168,120,0.08)' : 'rgba(97,71,130,0.03)', border: '1px solid rgba(97,71,130,0.05)' }}>
                         <span style={{ width: '14px', height: '14px', borderRadius: '50%', background: item.done ? 'rgba(118,168,120,0.18)' : 'rgba(219,138,102,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {item.done ? <CheckCircle2 style={{ width: '10px', height: '10px', color: '#76A878' }} /> : <AlertCircle style={{ width: '10px', height: '10px', color: '#DB8A66' }} />}
+                          {item.done ? <CheckCircle2 style={{ width: '10px', height: '10px', color: '#548B73' }} /> : <AlertCircle style={{ width: '10px', height: '10px', color: '#A97556' }} />}
                         </span>
-                        <span style={{ fontSize: '11px', color: item.done ? '#C8BFAE' : '#827A6D' }}>{item.label}</span>
+                        <span style={{ fontSize: '11px', color: item.done ? 'var(--c-text2)' : 'var(--c-text3)' }}>{item.label}</span>
                       </div>
                     )).slice(0, 6)}
                   </div>
 
                   {project.nextStep && (
-                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'flex-start', gap: '7px', color: '#C8BFAE', fontSize: '12px', lineHeight: 1.45 }}>
-                      <ChevronRight style={{ width: '13px', height: '13px', color: '#827A6D', marginTop: '2px', flexShrink: 0 }} />
+                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'flex-start', gap: '7px', color: 'var(--c-text2)', fontSize: '12px', lineHeight: 1.45 }}>
+                      <ChevronRight style={{ width: '13px', height: '13px', color: 'var(--c-text3)', marginTop: '2px', flexShrink: 0 }} />
                       <span>{project.nextStep}</span>
                     </div>
                   )}
@@ -1497,8 +1497,8 @@ export default function ProjectsPage() {
                       disabled={busyActionByProject[project.id] !== null}
                       style={{
                         height: '31px', padding: '0 12px', borderRadius: '8px', border: 'none',
-                        background: busyActionByProject[project.id] === null ? 'rgba(118,168,120,0.16)' : 'rgba(255,255,255,0.05)',
-                        color: busyActionByProject[project.id] === null ? '#76A878' : '#615846',
+                        background: busyActionByProject[project.id] === null ? 'rgba(118,168,120,0.16)' : 'rgba(97,71,130,0.05)',
+                        color: busyActionByProject[project.id] === null ? '#548B73' : 'var(--c-text4)',
                         cursor: busyActionByProject[project.id] === null ? 'pointer' : 'not-allowed', fontSize: '12px', fontWeight: 700,
                       }}
                     >
@@ -1509,7 +1509,7 @@ export default function ProjectsPage() {
                       disabled={busyActionByProject[project.id] !== null}
                       style={{
                         height: '31px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(219,138,102,0.25)',
-                        background: 'rgba(219,138,102,0.08)', color: busyActionByProject[project.id] === null ? '#DB8A66' : '#615846',
+                        background: 'rgba(219,138,102,0.08)', color: busyActionByProject[project.id] === null ? '#A97556' : 'var(--c-text4)',
                         cursor: busyActionByProject[project.id] === null ? 'pointer' : 'not-allowed', fontSize: '12px', fontWeight: 700,
                       }}
                     >
@@ -1520,8 +1520,8 @@ export default function ProjectsPage() {
                       disabled={busyActionByProject[project.id] !== null || !project.formalization?.readyToFormalize}
                       style={{
                         height: '31px', padding: '0 12px', borderRadius: '8px', border: 'none',
-                        background: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? 'rgba(118,168,120,0.16)' : 'rgba(255,255,255,0.05)',
-                        color: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? '#76A878' : '#615846',
+                        background: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? 'rgba(118,168,120,0.16)' : 'rgba(97,71,130,0.05)',
+                        color: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? '#548B73' : 'var(--c-text4)',
                         cursor: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? 'pointer' : 'not-allowed',
                         fontSize: '12px', fontWeight: 700,
                       }}
@@ -1534,8 +1534,8 @@ export default function ProjectsPage() {
                       disabled={busyActionByProject[project.id] !== null || !project.formalization?.readyToFormalize}
                       style={{
                         height: '31px', padding: '0 12px', borderRadius: '8px', border: 'none',
-                        background: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? 'rgba(75,96,127,0.18)' : 'rgba(255,255,255,0.05)',
-                        color: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? '#7B8FA8' : '#615846',
+                        background: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? 'rgba(75,96,127,0.18)' : 'rgba(97,71,130,0.05)',
+                        color: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? '#8D84B0' : 'var(--c-text4)',
                         cursor: project.formalization?.readyToFormalize && busyActionByProject[project.id] === null ? 'pointer' : 'not-allowed',
                         fontSize: '12px', fontWeight: 700,
                       }}
@@ -1548,9 +1548,9 @@ export default function ProjectsPage() {
                       disabled={busyActionByProject[project.id] !== null || !hasChecklistGap(project, 'board')}
                       style={{
                         height: '31px', padding: '0 12px', borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        background: busyActionByProject[project.id] === null && hasChecklistGap(project, 'board') ? 'rgba(242,87,30,0.1)' : 'rgba(255,255,255,0.03)',
-                        color: busyActionByProject[project.id] === null && hasChecklistGap(project, 'board') ? '#F4905A' : '#615846',
+                        border: '1px solid rgba(97,71,130,0.08)',
+                        background: busyActionByProject[project.id] === null && hasChecklistGap(project, 'board') ? 'rgba(116,82,166,0.1)' : 'rgba(97,71,130,0.03)',
+                        color: busyActionByProject[project.id] === null && hasChecklistGap(project, 'board') ? '#9271BD' : 'var(--c-text4)',
                         cursor: busyActionByProject[project.id] === null && hasChecklistGap(project, 'board') ? 'pointer' : 'not-allowed',
                         fontSize: '12px', fontWeight: 700,
                       }}
@@ -1563,9 +1563,9 @@ export default function ProjectsPage() {
                       disabled={busyActionByProject[project.id] !== null || !hasChecklistGap(project, 'milestone')}
                       style={{
                         height: '31px', padding: '0 12px', borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        background: busyActionByProject[project.id] === null && hasChecklistGap(project, 'milestone') ? 'rgba(123,143,168,0.12)' : 'rgba(255,255,255,0.03)',
-                        color: busyActionByProject[project.id] === null && hasChecklistGap(project, 'milestone') ? '#7B8FA8' : '#615846',
+                        border: '1px solid rgba(97,71,130,0.08)',
+                        background: busyActionByProject[project.id] === null && hasChecklistGap(project, 'milestone') ? 'rgba(123,143,168,0.12)' : 'rgba(97,71,130,0.03)',
+                        color: busyActionByProject[project.id] === null && hasChecklistGap(project, 'milestone') ? '#8D84B0' : 'var(--c-text4)',
                         cursor: busyActionByProject[project.id] === null && hasChecklistGap(project, 'milestone') ? 'pointer' : 'not-allowed',
                         fontSize: '12px', fontWeight: 700,
                       }}
@@ -1584,9 +1584,9 @@ export default function ProjectsPage() {
                       disabled={busyActionByProject[project.id] !== null || !hasChecklistGap(project, 'team') || !teams.some((team) => team.workspaceId === project.workspaceId)}
                       style={{
                         height: '31px', padding: '0 12px', borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        background: busyActionByProject[project.id] === null && hasChecklistGap(project, 'team') && teams.length > 0 ? 'rgba(196,168,110,0.12)' : 'rgba(255,255,255,0.03)',
-                        color: busyActionByProject[project.id] === null && hasChecklistGap(project, 'team') && teams.length > 0 ? '#C4A86E' : '#615846',
+                        border: '1px solid rgba(97,71,130,0.08)',
+                        background: busyActionByProject[project.id] === null && hasChecklistGap(project, 'team') && teams.length > 0 ? 'rgba(196,168,110,0.12)' : 'rgba(97,71,130,0.03)',
+                        color: busyActionByProject[project.id] === null && hasChecklistGap(project, 'team') && teams.length > 0 ? '#AA895E' : 'var(--c-text4)',
                         cursor: busyActionByProject[project.id] === null && hasChecklistGap(project, 'team') && teams.length > 0 ? 'pointer' : 'not-allowed',
                         fontSize: '12px', fontWeight: 700,
                       }}
@@ -1596,13 +1596,13 @@ export default function ProjectsPage() {
                   </div>
 
                   {teamPickerProjectId === project.id && teams.some((team) => team.workspaceId === project.workspaceId) && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(97,71,130,0.07)', background: 'rgba(97,71,130,0.03)' }}>
                       <select
                         value={selectedTeamByProject[project.id] ?? ''}
                         onChange={(e) => setSelectedTeamByProject((prev) => ({ ...prev, [project.id]: e.target.value }))}
                         style={{
                           minWidth: '180px', height: '32px', padding: '0 10px', borderRadius: '7px',
-                          border: '1px solid rgba(255,255,255,0.08)', background: '#1B2237', color: '#E8E1D2',
+                          border: '1px solid rgba(97,71,130,0.08)', background: 'var(--c-bg2)', color: 'var(--c-text)',
                           outline: 'none', fontSize: '12px',
                         }}
                       >
@@ -1616,8 +1616,8 @@ export default function ProjectsPage() {
                         disabled={!selectedTeamByProject[project.id] || busyActionByProject[project.id] !== null}
                         style={{
                           height: '32px', padding: '0 12px', borderRadius: '7px', border: 'none',
-                          background: selectedTeamByProject[project.id] && busyActionByProject[project.id] === null ? '#C4A86E' : 'rgba(255,255,255,0.05)',
-                          color: selectedTeamByProject[project.id] && busyActionByProject[project.id] === null ? '#24180A' : '#615846',
+                          background: selectedTeamByProject[project.id] && busyActionByProject[project.id] === null ? '#AA895E' : 'rgba(97,71,130,0.05)',
+                          color: selectedTeamByProject[project.id] && busyActionByProject[project.id] === null ? '#FFFFFF' : 'var(--c-text4)',
                           cursor: selectedTeamByProject[project.id] && busyActionByProject[project.id] === null ? 'pointer' : 'not-allowed',
                           fontSize: '12px', fontWeight: 700,
                         }}
@@ -1630,8 +1630,8 @@ export default function ProjectsPage() {
               ))}
             </div>
 
-            <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }}>
-              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: '#E8E1D2' }}>Qué mirar primero</div>
+            <div style={{ borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '14px 16px' }}>
+              <div style={{ fontFamily: SORA, fontSize: '13px', fontWeight: 700, color: 'var(--c-text)' }}>Qué mirar primero</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
                 {[
                   '¿El problema está descrito con suficiente claridad para que otro lo entienda?',
@@ -1639,8 +1639,8 @@ export default function ProjectsPage() {
                   '¿Tiene un tablero y un hito que permitan pasar de conversación a coordinación?',
                   'Si ya cumple el mínimo, conviene moverlo a formalizado o planificado.',
                 ].map((text) => (
-                  <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#C8BFAE', fontSize: '12.5px', lineHeight: 1.55 }}>
-                    <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', color: '#827A6D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>•</span>
+                  <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--c-text2)', fontSize: '12.5px', lineHeight: 1.55 }}>
+                    <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'rgba(97,71,130,0.06)', color: 'var(--c-text3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>•</span>
                     <span>{text}</span>
                   </div>
                 ))}

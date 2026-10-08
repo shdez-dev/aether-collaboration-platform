@@ -45,21 +45,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     pathname?.startsWith('/dashboard');
 
   return (
-    <html lang={lang}>
+    <html lang={lang} className="light">
       <head>
         <meta charSet="utf-8" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes"
         />
-        <meta name="theme-color" content="#13182A" />
+        <meta name="theme-color" content="var(--c-bg)" />
         <meta
           name="description"
           content="Aether | Plataforma de colaboración para equipos. Gestiona espacios, tableros y documentos en tiempo real."
         />
         <meta name="application-name" content="Aether" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Aether" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />

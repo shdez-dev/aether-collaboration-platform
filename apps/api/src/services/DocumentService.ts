@@ -470,7 +470,7 @@ export class DocumentService {
     try {
       await client.query('BEGIN');
 
-      const docResult = await client.query(`SELECT workspace_id FROM documents WHERE id = $1`, [
+      const docResult = await client.query(`SELECT workspace_id, project_id, title FROM documents WHERE id = $1`, [
         documentId,
       ]);
 
@@ -490,8 +490,9 @@ export class DocumentService {
       await eventStore.emit({
         type: 'document.deleted',
         actor: { id: userId, name: actorDelName },
-        subject: { type: 'document', id: documentId, name: '' },
+        subject: { type: 'document', id: documentId, name: docResult.rows[0].title },
         context: { workspaceId, documentId },
+        payload: { projectId: docResult.rows[0].project_id },
       });
     } catch (error) {
       await client.query('ROLLBACK');

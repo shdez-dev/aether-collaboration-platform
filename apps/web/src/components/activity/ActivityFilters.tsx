@@ -197,7 +197,7 @@ export function ActivityFiltersComponent({
                 value={filters.startDate ?? ''}
                 max={filters.endDate ?? ''}
                 onChange={(e) => onChange({ ...filters, startDate: e.target.value || undefined })}
-                style={{ ...selectStyle, colorScheme: 'dark', cursor: 'pointer' }}
+                style={{ ...selectStyle, colorScheme: 'light', cursor: 'pointer' }}
               />
             </div>
             <div>
@@ -210,7 +210,7 @@ export function ActivityFiltersComponent({
                 value={filters.endDate ?? ''}
                 min={filters.startDate ?? ''}
                 onChange={(e) => onChange({ ...filters, endDate: e.target.value || undefined })}
-                style={{ ...selectStyle, colorScheme: 'dark', cursor: 'pointer' }}
+                style={{ ...selectStyle, colorScheme: 'light', cursor: 'pointer' }}
               />
             </div>
           </div>

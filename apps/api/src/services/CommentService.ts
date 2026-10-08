@@ -5,7 +5,10 @@ import { eventStore } from './EventStoreService'; // ✅ CAMBIO 1: Usar instanci
 import { notificationService } from './NotificationService';
 import { CardService } from './CardService';
 import { pool } from '../lib/db';
-import type { Comment, CommentWithUser, CommentId, CardId, UserId } from '@aether/types';
+import { documentService } from './DocumentService';
+import type { Comment, CommentWithUser, CommentDocumentReference, CommentId, CardId, UserId } from '@aether/types';
+
+type DocumentReferenceInput = { documentId: string; from: number; to: number; quote: string };
 
 // ❌ ELIMINAR: const eventStore = new EventStoreService();
 
@@ -24,6 +27,7 @@ export class CommentService {
     userId: string;
     content: string;
     mentions?: string[];
+    documentReference?: DocumentReferenceInput;
   }): Promise<CommentWithUser> {
     if (!data.content || data.content.trim().length === 0) {
       throw new Error('Comment content cannot be empty');
@@ -33,12 +37,21 @@ export class CommentService {
       throw new Error('Comment content cannot exceed 5000 characters');
     }
 
+    if (data.mentions?.length) {
+      await this.assertMentionCandidates(data.cardId, data.userId, data.mentions);
+    }
+
+    const documentReference = data.documentReference
+      ? await this.resolveDocumentReference(data.cardId, data.userId, data.documentReference)
+      : undefined;
+
     // Crear comentario en DB (sin transacción, el repositorio la maneja)
     const comment = await this.commentRepository.create({
       cardId: data.cardId,
       userId: data.userId,
       content: data.content.trim(),
       mentions: data.mentions || [],
+      ...(documentReference ? { documentReference } : {}),
     });
 
     // Obtener información del autor y la tarjeta para el evento y notificaciones
@@ -63,17 +76,21 @@ export class CommentService {
     } catch (_) {}
 
     // ✅ EMITIR EVENTO con contexto completo
-    await eventStore.emit({
-      type: 'comment.created',
-      actor: { id: data.userId, name: eventAuthorName ?? '' },
-      subject: { type: 'comment', id: comment.id, name: comment.content.slice(0, 50) },
-      context: {
-        workspaceId: eventWorkspaceId ?? '',
-        boardId: eventBoardId,
-        cardId: data.cardId,
-      },
-      payload: { mentions: (comment.mentions || []) as UserId[], cardTitle: eventCardTitle ?? '' },
-    });
+    try {
+      await eventStore.emit({
+        type: 'comment.created',
+        actor: { id: data.userId, name: eventAuthorName ?? '' },
+        subject: { type: 'comment', id: comment.id, name: comment.content.slice(0, 50) },
+        context: {
+          workspaceId: eventWorkspaceId ?? '',
+          boardId: eventBoardId,
+          cardId: data.cardId,
+        },
+        payload: { mentions: (comment.mentions || []) as UserId[], cardTitle: eventCardTitle ?? '' },
+      });
+    } catch (error) {
+      console.error('[CommentService.createComment] event emission failed:', error);
+    }
 
     try {
       const authorResult = await pool.query(`SELECT id, name, email FROM users WHERE id = $1`, [
@@ -117,7 +134,7 @@ export class CommentService {
                 boardId: eventBoardId,
                 cardId: data.cardId,
               },
-              payload: { mentionedUserId, mentionedUserName, contentPreview: comment.content.slice(0, 100) },
+              payload: { mentionedUserId, mentionedUserName, cardTitle: eventCardTitle ?? '', contentPreview: comment.content.slice(0, 100) },
               targetUserId: mentionedUserId,
             });
           }
@@ -152,15 +169,140 @@ export class CommentService {
   /**
    * Obtener comentarios de una card
    */
-  async getCommentsByCardId(cardId: string): Promise<CommentWithUser[]> {
-    return await this.commentRepository.findByCardId(cardId);
+  async getCommentsByCardId(cardId: string, userId?: string): Promise<CommentWithUser[]> {
+    return this.withVisibleReferences(await this.commentRepository.findByCardId(cardId), userId);
+  }
+
+  /** Documentos del mismo proyecto (o espacio) que el tablero, visibles para el usuario. */
+  async getDocumentCandidates(cardId: string, userId: string): Promise<Array<{ id: string; title: string }>> {
+    const result = await pool.query<{ id: string; title: string }>(
+      `SELECT DISTINCT d.id, d.title
+         FROM cards c
+         JOIN lists l ON l.id = c.list_id
+         JOIN boards b ON b.id = l.board_id
+         LEFT JOIN project_boards pb ON pb.board_id = b.id
+         JOIN documents d ON d.workspace_id = b.workspace_id
+          AND (d.project_id IS NULL OR d.project_id = pb.project_id)
+        WHERE c.id = $1
+        ORDER BY d.title
+        LIMIT 100`,
+      [cardId],
+    );
+    const accessible = await Promise.all(result.rows.map(async (document) =>
+      (await documentService.getEffectiveUserPermission(document.id, userId)) ? document : null,
+    ));
+    return accessible.filter((document): document is { id: string; title: string } => document !== null);
+  }
+
+  private async resolveDocumentReference(cardId: string, userId: string, input: DocumentReferenceInput): Promise<CommentDocumentReference> {
+    const result = await pool.query<{ id: string; title: string; content: string }>(
+      `SELECT d.id, d.title, d.content
+         FROM cards c
+         JOIN lists l ON l.id = c.list_id
+         JOIN boards b ON b.id = l.board_id
+         LEFT JOIN project_boards pb ON pb.board_id = b.id
+         JOIN documents d ON d.id = $2 AND d.workspace_id = b.workspace_id
+          AND (d.project_id IS NULL OR d.project_id = pb.project_id)
+        WHERE c.id = $1
+        LIMIT 1`,
+      [cardId, input.documentId],
+    );
+    const document = result.rows[0];
+    if (!document || !(await documentService.getEffectiveUserPermission(document.id, userId))) {
+      throw new Error('No tienes acceso a este documento del proyecto');
+    }
+    const quote = document.content.slice(input.from, input.to);
+    if (!quote.trim() || quote.length > 500 || input.to > document.content.length) {
+      throw new Error('Selecciona un fragmento de hasta 500 caracteres');
+    }
+    if (quote !== input.quote) {
+      throw new Error('El documento cambió. Vuelve a seleccionar el fragmento');
+    }
+    return { documentId: document.id, title: document.title, quote, from: input.from, to: input.to };
+  }
+
+  private async withVisibleReferences(comments: CommentWithUser[], userId?: string): Promise<CommentWithUser[]> {
+    const references = [...new Set(comments.map((comment) => comment.documentReference?.documentId).filter((id): id is string => !!id))];
+    const allowed = new Set<string>();
+    if (userId) {
+      await Promise.all(references.map(async (id) => {
+        if (await documentService.getEffectiveUserPermission(id, userId)) allowed.add(id);
+      }));
+    }
+    const currentContent = new Map<string, string>();
+    if (allowed.size > 0) {
+      const result = await pool.query<{ id: string; content: string }>(
+        'SELECT id, content FROM documents WHERE id = ANY($1::uuid[])',
+        [[...allowed]],
+      );
+      result.rows.forEach((document) => currentContent.set(document.id, document.content));
+    }
+    return comments.map((comment) => {
+      if (!comment.documentReference) return comment;
+      return allowed.has(comment.documentReference.documentId)
+        ? { ...comment, documentReference: {
+            ...comment.documentReference,
+            stale: !currentContent.get(comment.documentReference.documentId)?.includes(comment.documentReference.quote),
+          } }
+        : { ...comment, documentReference: null };
+    });
+  }
+
+  /** Personas con acceso al proyecto de la card (o al espacio si no está vinculada). */
+  async getMentionCandidates(cardId: string, currentUserId: string): Promise<Array<{ id: string; name: string; email: string; avatar: string | null }>> {
+    const result = await pool.query(
+      `WITH card_scope AS (
+         SELECT b.id AS board_id, w.id AS workspace_id, w.organization_id
+           FROM cards c
+           JOIN lists l ON l.id = c.list_id
+           JOIN boards b ON b.id = l.board_id
+           JOIN workspaces w ON w.id = b.workspace_id
+          WHERE c.id = $1
+       )
+       SELECT DISTINCT u.id, u.name, u.email, u.avatar
+         FROM card_scope scope
+         JOIN workspace_members wm ON wm.workspace_id = scope.workspace_id
+         JOIN users u ON u.id = wm.user_id
+        WHERE u.id != $2
+          AND NOT EXISTS (
+            SELECT 1 FROM organization_access_revocations r
+             WHERE r.organization_id = scope.organization_id AND r.user_id = u.id
+          )
+          AND (
+            NOT EXISTS (SELECT 1 FROM project_boards pb WHERE pb.board_id = scope.board_id)
+            OR NOT EXISTS (
+              SELECT 1 FROM project_boards pb
+              WHERE pb.board_id = scope.board_id
+                AND NOT (
+                  EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = pb.project_id AND pm.user_id = u.id)
+                  OR EXISTS (
+                    SELECT 1 FROM project_teams pt
+                    JOIN team_members tm ON tm.team_id = pt.team_id AND tm.user_id = u.id
+                    WHERE pt.project_id = pb.project_id
+                  )
+                )
+            )
+          )
+        ORDER BY u.name, u.email`,
+      [cardId, currentUserId]
+    );
+    return result.rows.map((row) => ({ id: row.id, name: row.name, email: row.email, avatar: row.avatar ?? null }));
+  }
+
+  private async assertMentionCandidates(cardId: string, userId: string, mentions: string[]) {
+    const candidates = await this.getMentionCandidates(cardId, userId);
+    const allowed = new Set(candidates.map((candidate) => candidate.id));
+    if (mentions.some((id) => !allowed.has(id))) {
+      throw new Error('Solo puedes mencionar a personas con acceso a este proyecto');
+    }
   }
 
   /**
    * Obtener un comentario por ID
    */
-  async getCommentById(commentId: string): Promise<CommentWithUser | null> {
-    return await this.commentRepository.findById(commentId);
+  async getCommentById(commentId: string, userId?: string): Promise<CommentWithUser | null> {
+    const comment = await this.commentRepository.findById(commentId);
+    return comment ? (await this.withVisibleReferences([comment], userId))[0] : null;
   }
 
   /**
@@ -172,12 +314,24 @@ export class CommentService {
     data: {
       content?: string;
       mentions?: string[];
+      documentReference?: DocumentReferenceInput | null;
     }
   ): Promise<CommentWithUser> {
     const isAuthor = await this.commentRepository.isAuthor(commentId, userId);
     if (!isAuthor) {
       throw new Error('Only the author can edit this comment');
     }
+
+    if (data.mentions?.length) {
+      const cardId = await this.commentRepository.getCardId(commentId);
+      if (!cardId) throw new Error('Card not found for comment');
+      await this.assertMentionCandidates(cardId, userId, data.mentions);
+    }
+
+    const cardIdForReference = data.documentReference ? await this.commentRepository.getCardId(commentId) : null;
+    const documentReference = data.documentReference
+      ? await this.resolveDocumentReference(cardIdForReference!, userId, data.documentReference)
+      : data.documentReference;
 
     // Fetch contenido anterior para delta
     let oldContent: string | undefined;
@@ -198,7 +352,7 @@ export class CommentService {
       data.content = data.content.trim();
     }
 
-    const updatedComment = await this.commentRepository.update(commentId, data);
+    const updatedComment = await this.commentRepository.update(commentId, { ...data, documentReference });
     if (!updatedComment) {
       throw new Error('Comment not found');
     }
@@ -285,7 +439,7 @@ export class CommentService {
                 boardId: updateBoardId,
                 cardId,
               },
-              payload: { mentionedUserId, mentionedUserName: mentionedUserName2, contentPreview: updatedComment.content.slice(0, 100) },
+              payload: { mentionedUserId, mentionedUserName: mentionedUserName2, cardTitle: updateCardTitle ?? '', contentPreview: updatedComment.content.slice(0, 100) },
               targetUserId: mentionedUserId,
             });
           }
@@ -298,7 +452,7 @@ export class CommentService {
       throw new Error('Failed to retrieve updated comment');
     }
 
-    return commentWithUser;
+    return (await this.withVisibleReferences([commentWithUser], userId))[0];
   }
 
   /**

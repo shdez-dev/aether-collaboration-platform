@@ -40,12 +40,12 @@ const TODO_LS_KEY = 'aether-today-todos';
 const TODO_TTL_MS = 24 * 60 * 60 * 1000;
 
 const PRIORITY_COLORS: Record<string, string> = {
-  HIGH: '#E05252',
-  MEDIUM: '#DB8A66',
-  LOW: '#76A878',
+  HIGH: '#B45C72',
+  MEDIUM: '#A97556',
+  LOW: '#548B73',
 };
 
-const WS_PALETTE = ['#4B607F', '#76A878', '#DB8A66', '#8C7C9E', '#F2571E', '#5B8FA8'];
+const WS_PALETTE = ['#8076A7', '#548B73', '#A97556', '#8262B2', '#7452A6', '#7D91B1'];
 function hashColor(str: string): string {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
@@ -98,7 +98,7 @@ function TaskItem({ title, project, dotColor, done, time, isOverdue, onToggle, o
       style={{
         display: 'flex', alignItems: 'center', gap: '13px',
         padding: '13px 14px', borderRadius: '8px', cursor: 'pointer',
-        background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
+        background: hov ? 'rgba(97,71,130,0.03)' : 'transparent',
       }}
     >
       {/* Circle checkbox */}
@@ -106,15 +106,15 @@ function TaskItem({ title, project, dotColor, done, time, isOverdue, onToggle, o
         onClick={e => { e.stopPropagation(); onToggle(); }}
         style={{
           width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
-          background: done ? '#76A878' : 'transparent',
-          border: done ? '2px solid #76A878' : '1.8px solid #3F3930',
+          background: done ? '#548B73' : 'transparent',
+          border: done ? '2px solid #548B73' : '1.8px solid #3F3930',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer',
         }}
       >
         {done && (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-            <path d="M5 13l4 4L19 7" stroke="#24180A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M5 13l4 4L19 7" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         )}
       </span>
@@ -122,28 +122,28 @@ function TaskItem({ title, project, dotColor, done, time, isOverdue, onToggle, o
       {/* Color dot */}
       <span style={{
         width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
-        background: dotColor ?? '#615846',
+        background: dotColor ?? 'var(--c-text4)',
       }} />
 
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: '14.5px',
-          color: done ? '#615846' : '#D8D0C1',
+          color: done ? 'var(--c-text4)' : 'var(--c-text2)',
           textDecoration: done ? 'line-through' : 'none',
         }}>
           {title}
         </div>
         {project && (
-          <div style={{ fontSize: '12px', color: '#827A6D', marginTop: '2px' }}>{project}</div>
+          <div style={{ fontSize: '12px', color: 'var(--c-text3)', marginTop: '2px' }}>{project}</div>
         )}
       </div>
 
       {/* Time badge */}
       {time && (
         <span style={{
-          fontSize: '12px', color: isOverdue ? '#E05252' : '#8B8275',
-          background: 'rgba(255,255,255,0.05)',
+          fontSize: '12px', color: isOverdue ? '#B45C72' : 'var(--c-text3)',
+          background: 'rgba(97,71,130,0.05)',
           padding: '3px 9px', borderRadius: '8px', flexShrink: 0,
         }}>
           {time}
@@ -305,7 +305,7 @@ export default function DashboardPage() {
 
   // Agenda grouped by day label
   const agendaByDay: { day: string; color: string; tasks: UserCard[] }[] = [];
-  const dayColors = ['#4B607F', '#76A878', '#DB8A66', '#8C7C9E', '#F2571E', '#5B8FA8'];
+  const dayColors = ['#8076A7', '#548B73', '#A97556', '#8262B2', '#7452A6', '#7D91B1'];
   const seenDays: Record<string, number> = {};
   for (const c of cards.upcoming) {
     if (!c.dueDate) continue;
@@ -323,11 +323,11 @@ export default function DashboardPage() {
         <h1 style={{
           fontFamily: SORA, fontWeight: 700,
           fontSize: 'clamp(1.7rem,3vw,2.2rem)',
-          letterSpacing: '-0.02em', color: '#F4EEE2', margin: 0,
+          letterSpacing: '-0.02em', color: 'var(--c-text)', margin: 0,
         }}>
           {greetMsg}
         </h1>
-        <p style={{ margin: '8px 0 0', fontSize: '1.05rem', color: totalOverdue > 0 ? '#E05252' : '#9C9486' }}>
+        <p style={{ margin: '8px 0 0', fontSize: '1.05rem', color: totalOverdue > 0 ? '#B45C72' : 'var(--c-text2)' }}>
           {summaryText}
         </p>
       </div>
@@ -337,11 +337,11 @@ export default function DashboardPage() {
         display: 'flex', alignItems: 'center', gap: '12px',
         marginTop: '26px',
         padding: '4px 4px 4px 18px', borderRadius: '8px',
-        border: '1px solid rgba(255,255,255,0.09)',
-        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(97,71,130,0.09)',
+        background: 'rgba(97,71,130,0.03)',
       }}>
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-          <path d="M12 5v14M5 12h14" stroke="#F2571E" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M12 5v14M5 12h14" stroke="#7452A6" strokeWidth="2" strokeLinecap="round"/>
         </svg>
         <input
           ref={quickRef}
@@ -353,12 +353,12 @@ export default function DashboardPage() {
           style={{
             flex: 1, minWidth: 0, padding: '13px 0',
             border: 'none', background: 'transparent',
-            color: '#E8E1D2', fontFamily: MANROPE, fontSize: '15.5px', outline: 'none',
+            color: 'var(--c-text)', fontFamily: MANROPE, fontSize: '15.5px', outline: 'none',
           }}
         />
         <span style={{
-          fontSize: '11.5px', color: '#5C5447',
-          border: '1px solid rgba(255,255,255,0.1)',
+          fontSize: '11.5px', color: 'var(--c-text4)',
+          border: '1px solid rgba(97,71,130,0.1)',
           borderRadius: '8px', padding: '3px 8px', marginRight: '10px',
         }}>
           Enter
@@ -373,10 +373,10 @@ export default function DashboardPage() {
 
           {/* Section header — Sora h2, same as design */}
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: 0 }}>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: 0 }}>
               Para hoy
             </h2>
-            <span style={{ fontSize: '13px', color: '#827A6D' }}>{pendingLabel}</span>
+            <span style={{ fontSize: '13px', color: 'var(--c-text3)' }}>{pendingLabel}</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -386,7 +386,7 @@ export default function DashboardPage() {
                 key={c.id}
                 title={c.title}
                 project={`${c.boardName} - ${c.workspaceName}`}
-                dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? '#E05252'}
+                dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? '#B45C72'}
                 done={c.completed}
                 time={c.dueDate ? formatDueShort(c.dueDate) : undefined}
                 isOverdue
@@ -414,7 +414,7 @@ export default function DashboardPage() {
               <TaskItem
                 key={item.id}
                 title={item.text}
-                dotColor="#9C9486"
+                dotColor="var(--c-text2)"
                 done={false}
                 onToggle={() => toggleTodo(item.id)}
               />
@@ -425,7 +425,7 @@ export default function DashboardPage() {
               <TaskItem
                 key={item.id}
                 title={item.text}
-                dotColor="#76A878"
+                dotColor="#548B73"
                 done
                 onToggle={() => toggleTodo(item.id)}
               />
@@ -436,7 +436,7 @@ export default function DashboardPage() {
               <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
                 <div style={{
                   width: '20px', height: '20px', borderRadius: '50%',
-                  border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E',
+                  border: '2px solid rgba(97,71,130,0.1)', borderTopColor: 'var(--c-accent-text)',
                   animation: 'spin 0.8s linear infinite',
                 }} />
               </div>
@@ -445,14 +445,14 @@ export default function DashboardPage() {
             {/* Empty */}
             {!cardsLoading && totalToday === 0 && totalOverdue === 0 && todoItems.length === 0 && (
               <div style={{ padding: '40px 14px', textAlign: 'center' }}>
-                <p style={{ color: '#615846', fontSize: '14px', margin: '0 0 14px' }}>
+                <p style={{ color: 'var(--c-text4)', fontSize: '14px', margin: '0 0 14px' }}>
                   Sin tareas para hoy
                 </p>
                 <button
                   onClick={() => quickRef.current?.focus()}
                   style={{
-                    background: 'rgba(242,87,30,0.1)', border: '1px solid rgba(242,87,30,0.2)',
-                    color: '#F2571E', borderRadius: '8px', padding: '8px 18px',
+                    background: 'rgba(116,82,166,0.1)', border: '1px solid rgba(116,82,166,0.2)',
+                    color: 'var(--c-accent-text)', borderRadius: '8px', padding: '8px 18px',
                     fontFamily: SORA, fontWeight: 600, fontSize: '13px', cursor: 'pointer',
                   }}
                 >
@@ -468,7 +468,7 @@ export default function DashboardPage() {
 
           {/* Necesita tu atención */}
           <section>
-            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: '0 0 14px' }}>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: '0 0 14px' }}>
               Necesita tu atención
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -477,29 +477,29 @@ export default function DashboardPage() {
                   key={c.id}
                   onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
                   style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '8px', cursor: 'pointer' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)')}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.03)')}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
                 >
                   <span style={{
                     width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
                     background: hashColor(c.workspaceId),
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '12px', fontWeight: 700, color: '#24180A',
+                    fontSize: '12px', fontWeight: 700, color: '#FFFFFF',
                   }}>
                     {c.workspaceName?.[0]?.toUpperCase() ?? '?'}
                   </span>
-                  <div style={{ flex: 1, minWidth: 0, fontSize: '13px', color: '#C8BFAE', lineHeight: 1.4 }}>
-                    <strong style={{ color: '#E8E1D2' }}>{c.boardName}</strong>{' '}
+                  <div style={{ flex: 1, minWidth: 0, fontSize: '13px', color: 'var(--c-text2)', lineHeight: 1.4 }}>
+                    <strong style={{ color: 'var(--c-text)' }}>{c.boardName}</strong>{' '}
                     tiene una tarea en{' '}
-                    <strong style={{ color: '#F2571E' }}>{c.title}</strong>
+                    <strong style={{ color: 'var(--c-accent-text)' }}>{c.title}</strong>
                   </div>
-                  <span style={{ fontSize: '11px', color: '#736B5E', flexShrink: 0 }}>
+                  <span style={{ fontSize: '11px', color: '#81748D', flexShrink: 0 }}>
                     {c.dueDate ? formatDueShort(c.dueDate) : ''}
                   </span>
                 </div>
               )) : (
-                <div style={{ padding: '16px 12px', fontSize: '13px', color: '#615846' }}>
-                  Sin elementos urgentes — <span style={{ color: '#76A878' }}>¡todo bien!</span>
+                <div style={{ padding: '16px 12px', fontSize: '13px', color: 'var(--c-text4)' }}>
+                  Sin elementos urgentes — <span style={{ color: '#548B73' }}>¡todo bien!</span>
                 </div>
               )}
             </div>
@@ -507,12 +507,12 @@ export default function DashboardPage() {
 
           {/* Continúa donde lo dejaste */}
           <section>
-            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: '0 0 14px' }}>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: '0 0 14px' }}>
               Continúa donde lo dejaste
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {recentProjects.map(p => {
-                const color = p.color ?? '#4B607F';
+                const color = p.color ?? '#8076A7';
                 const pct   = p.progressPercent ?? p.stats?.progressPercent ?? 0;
                 const statusLabel = p.status === 'ACTIVE' ? 'Activo' : p.status === 'PLANNING' ? 'Planificación' : p.status === 'ON_HOLD' ? 'En pausa' : p.status === 'COMPLETED' ? 'Completado' : p.status;
                 return (
@@ -522,11 +522,11 @@ export default function DashboardPage() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: '13px',
                       padding: '13px', borderRadius: '8px',
-                      border: '1px solid rgba(255,255,255,0.07)',
-                      background: 'rgba(255,255,255,0.02)', cursor: 'pointer',
+                      border: '1px solid rgba(97,71,130,0.07)',
+                      background: 'rgba(97,71,130,0.02)', cursor: 'pointer',
                     }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.16)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'; }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.16)'; (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.07)'; (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.02)'; }}
                   >
                     {/* Project icon */}
                     <span style={{
@@ -540,29 +540,29 @@ export default function DashboardPage() {
                       }
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {p.name}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                        <span style={{ fontSize: '11px', color: '#827A6D' }}>{statusLabel}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--c-text3)' }}>{statusLabel}</span>
                         {pct > 0 && (
                           <>
-                            <span style={{ fontSize: '11px', color: '#5C5447' }}>-</span>
+                            <span style={{ fontSize: '11px', color: 'var(--c-text4)' }}>-</span>
                             <span style={{ fontSize: '11px', color }}>{ pct}%</span>
                           </>
                         )}
                       </div>
                     </div>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                      <path d="M9 6l6 6-6 6" stroke="#5C5447" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M9 6l6 6-6 6" stroke="var(--c-text4)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </div>
                 );
               })}
               {recentProjects.length === 0 && (
                 <div style={{
-                  padding: '20px', textAlign: 'center', fontSize: '13px', color: '#615846',
-                  border: '1px dashed rgba(255,255,255,0.07)', borderRadius: '8px',
+                  padding: '20px', textAlign: 'center', fontSize: '13px', color: 'var(--c-text4)',
+                  border: '1px dashed rgba(97,71,130,0.07)', borderRadius: '8px',
                 }}>
                   Sin proyectos aún
                 </div>
@@ -573,7 +573,7 @@ export default function DashboardPage() {
           {/* Tu semana */}
           {agendaByDay.length > 0 && (
             <section>
-              <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: '0 0 14px' }}>
+              <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: '0 0 14px' }}>
                 Tu semana
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -583,17 +583,17 @@ export default function DashboardPage() {
                       key={c.id}
                       onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
                       style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer' }}
-                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)')}
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.03)')}
                       onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
                     >
-                      <span style={{ fontFamily: SORA, fontSize: '11px', fontWeight: 700, color: '#827A6D', width: '34px', flexShrink: 0 }}>
+                      <span style={{ fontFamily: SORA, fontSize: '11px', fontWeight: 700, color: 'var(--c-text3)', width: '34px', flexShrink: 0 }}>
                         {grp.day}
                       </span>
                       <span style={{ width: '3px', height: '26px', borderRadius: '8px', background: grp.color, flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontSize: '13.5px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ flex: 1, fontSize: '13.5px', color: 'var(--c-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {c.title}
                       </span>
-                      <span style={{ fontSize: '12px', color: '#827A6D' }}>
+                      <span style={{ fontSize: '12px', color: 'var(--c-text3)' }}>
                         {c.dueDate ? formatDueShort(c.dueDate) : ''}
                       </span>
                     </div>

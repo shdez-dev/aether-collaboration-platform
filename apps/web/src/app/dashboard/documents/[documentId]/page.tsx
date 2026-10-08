@@ -258,7 +258,7 @@ export default function DocumentEditorPage() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onFocus={(e) => (e.currentTarget.style.color = '#F4EEE2')}
+                onFocus={(e) => (e.currentTarget.style.color = 'var(--c-text)')}
                 onBlur={(e) => { e.currentTarget.style.color = C.text; handleTitleBlur(); }}
                 disabled={!canEdit || isSavingTitle}
                 placeholder="Título del documento"
@@ -328,7 +328,7 @@ export default function DocumentEditorPage() {
                   fontSize: '11.5px', color: '#9FC59A', fontFamily: MANROPE,
                   background: 'rgba(118,168,120,0.1)', padding: '2px 8px', borderRadius: '6px',
                 }}>
-                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#76A878' }} />
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#548B73' }} />
                   {activeUsers.length === 1 ? 'En línea' : `${activeUsers.length} en línea`}
                 </span>
               </div>
@@ -447,7 +447,7 @@ export default function DocumentEditorPage() {
             style={{
               width: '100%', maxWidth: '560px', maxHeight: '80vh',
               display: 'flex', flexDirection: 'column',
-              background: '#13161b', border: `1px solid ${C.border}`,
+              background: 'var(--c-surface)', border: `1px solid ${C.border}`,
               borderRadius: '12px', boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
               overflow: 'hidden',
             }}
@@ -560,7 +560,7 @@ export default function DocumentEditorPage() {
             </div>
 
             {/* Footer */}
-            <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${C.border}`, background: '#111418', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${C.border}`, background: 'var(--c-surface2)', display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setShowShareModal(false)}
                 style={{
@@ -588,7 +588,7 @@ export default function DocumentEditorPage() {
           <div
             style={{
               width: '100%', maxWidth: '420px',
-              background: '#13161b', border: `1px solid ${C.border}`,
+              background: 'var(--c-surface)', border: `1px solid ${C.border}`,
               borderRadius: '12px', boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
               overflow: 'hidden',
             }}

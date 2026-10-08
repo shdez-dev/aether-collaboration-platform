@@ -662,14 +662,15 @@ function ToolbarButton({
   const [hovered, setHovered] = useState(false);
   return (
     <button
+      className="doc-format-button"
       onMouseDown={(e) => { e.preventDefault(); onClick(); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       disabled={disabled}
       title={title}
       style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: '28px', height: '28px', borderRadius: '6px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '10px',
+        width: '100%', minHeight: '34px', padding: '0 9px', borderRadius: '8px', flexShrink: 0,
         background: isActive ? `${C.accent}22` : hovered ? C.hover : 'transparent',
         border: `1px solid ${isActive ? `${C.accent}55` : hovered ? C.border2 : 'transparent'}`,
         color: isActive ? C.accent : hovered ? C.text : C.text3,
@@ -679,12 +680,13 @@ function ToolbarButton({
       }}
     >
       {children}
+      <span className="doc-format-button-label" style={{ fontSize: '12px', fontFamily: MANROPE, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title.split(' (')[0]}</span>
     </button>
   );
 }
 
-function Divider() {
-  return <div style={{ width: '1px', height: '18px', background: C.border2, margin: '0 3px', flexShrink: 0 }} />;
+function Divider({ label }: { label: string }) {
+  return <div className="doc-format-divider" style={{ borderTop: `1px solid ${C.border}`, margin: '11px 0 7px', paddingTop: '10px', color: C.text4, fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</div>;
 }
 
 // ── Highlight colour picker button ────────────────────────────────────────────
@@ -705,15 +707,16 @@ function HighlightPicker({ editor }: { editor: any }) {
 
   const [hBtn, setHBtn] = useState(false);
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} className="doc-format-control" style={{ position: 'relative' }}>
       <button
+        className="doc-format-button"
         onMouseDown={(e) => { e.preventDefault(); setOpen((v) => !v); }}
         onMouseEnter={() => setHBtn(true)}
         onMouseLeave={() => setHBtn(false)}
         title="Color de resaltado"
         style={{
-          display: 'flex', alignItems: 'center', gap: '2px',
-          padding: '0 5px', height: '28px', borderRadius: '5px',
+          display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
+          padding: '0 9px', minHeight: '34px', borderRadius: '8px',
           background: isActive ? C.accent : hBtn ? C.hover : 'transparent',
           border: `1px solid ${isActive ? C.accent : hBtn ? C.border2 : 'transparent'}`,
           color: isActive ? '#fff' : hBtn ? C.text : C.text3,
@@ -721,6 +724,7 @@ function HighlightPicker({ editor }: { editor: any }) {
         }}
       >
         <Highlighter style={{ width: '13px', height: '13px' }} />
+        <span className="doc-format-button-label" style={{ flex: 1, textAlign: 'left', fontSize: 12 }}>Resaltar</span>
         <ChevronDown style={{ width: '10px', height: '10px', opacity: 0.6 }} />
       </button>
 
@@ -740,7 +744,7 @@ function HighlightPicker({ editor }: { editor: any }) {
                 key={hc.value}
                 onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHighlight({ color: hc.value }).run(); setOpen(false); }}
                 title={hc.label}
-                style={{ backgroundColor: hc.value, width: '32px', height: '32px', borderRadius: '5px', border: '2px solid rgba(255,255,255,0.12)', cursor: 'pointer' }}
+                style={{ backgroundColor: hc.value, width: '32px', height: '32px', borderRadius: '5px', border: '2px solid rgba(97,71,130,0.12)', cursor: 'pointer' }}
               />
             ))}
           </div>
@@ -990,9 +994,9 @@ function TableMenu({ editor, t }: { editor: any; t: any }) {
   const run = (cmd: () => void) => { cmd(); setOpen(false); };
   return (
     <>
-      <div style={{ width: '1px', height: '18px', background: C.border2, margin: '0 3px', flexShrink: 0 }} />
-      <div ref={ref} style={{ position: 'relative' }}>
+      <div ref={ref} className="doc-format-control" style={{ position: 'relative' }}>
         <button
+          className="doc-format-button"
           onMouseDown={(e) => {
             e.preventDefault();
             // Register outside-click handler only when opening
@@ -1011,8 +1015,8 @@ function TableMenu({ editor, t }: { editor: any; t: any }) {
           onMouseLeave={() => setHBtn(false)}
           title="Opciones de tabla"
           style={{
-            display: 'flex', alignItems: 'center', gap: '3px',
-            padding: '0 7px', height: '28px', borderRadius: '6px',
+            display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
+            padding: '0 9px', minHeight: '34px', borderRadius: '8px',
             background: open ? `${C.accent}22` : hBtn ? C.hover : 'transparent',
             border: `1px solid ${open ? `${C.accent}55` : hBtn ? C.border2 : 'transparent'}`,
             color: open ? C.accent : hBtn ? C.text : C.text3,
@@ -1021,7 +1025,7 @@ function TableMenu({ editor, t }: { editor: any; t: any }) {
           }}
         >
           <TableIcon style={{ width: '13px', height: '13px' }} />
-          <span>Tabla</span>
+          <span className="doc-format-button-label" style={{ flex: 1, textAlign: 'left' }}>Tabla</span>
           <ChevronDown style={{ width: '10px', height: '10px', opacity: 0.6 }} />
         </button>
 
@@ -1030,7 +1034,7 @@ function TableMenu({ editor, t }: { editor: any; t: any }) {
             position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
             background: C.surface, border: `1px solid ${C.border2}`,
             borderRadius: '10px', boxShadow: '0 12px 40px rgba(0,0,0,0.55)',
-            padding: '4px', width: '210px',
+            padding: '4px', width: '200px',
             animation: 'tbMenuIn 0.15s cubic-bezier(0.22,1,0.36,1)',
           }}>
             <style>{`@keyframes tbMenuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}`}</style>
@@ -1102,13 +1106,14 @@ function CommentsBtn({ active, onClick }: { active: boolean; onClick: () => void
   const [h, setH] = useState(false);
   return (
     <button
+      className="doc-format-button"
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       title={active ? 'Cerrar comentarios' : 'Abrir comentarios'}
       style={{
-        display: 'flex', alignItems: 'center', gap: '5px',
-        padding: '0 10px', height: '28px', borderRadius: '5px', fontSize: '12px',
+        display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
+        padding: '0 9px', minHeight: '34px', borderRadius: '8px', fontSize: '12px',
         background: active ? `${C.accent}18` : h ? C.hover : 'transparent',
         border: `1px solid ${active ? `${C.accent}50` : h ? C.border2 : 'transparent'}`,
         color: active ? C.accent : h ? C.text2 : C.text3,
@@ -1116,6 +1121,7 @@ function CommentsBtn({ active, onClick }: { active: boolean; onClick: () => void
       }}
     >
       <MessageSquare style={{ width: '13px', height: '13px' }} />
+      <span className="doc-format-button-label">Comentarios</span>
     </button>
   );
 }
@@ -1124,14 +1130,15 @@ function SaveBtn({ onClick, isSaving }: { onClick: () => void; isSaving: boolean
   const [h, setH] = useState(false);
   return (
     <button
+      className="doc-format-button"
       onClick={onClick}
       disabled={isSaving}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       title="Guardar manualmente (Ctrl+S)"
       style={{
-        display: 'flex', alignItems: 'center', gap: '5px',
-        padding: '0 10px', height: '28px', borderRadius: '5px', fontSize: '12px', fontWeight: 500,
+        display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
+        padding: '0 9px', minHeight: '34px', borderRadius: '8px', fontSize: '12px', fontWeight: 500,
         background: isSaving ? `${C.green}18` : h ? C.hover : 'transparent',
         border: `1px solid ${isSaving ? `${C.green}40` : h ? C.border2 : C.border}`,
         color: isSaving ? C.green : h ? C.text : C.text2,
@@ -1139,8 +1146,8 @@ function SaveBtn({ onClick, isSaving }: { onClick: () => void; isSaving: boolean
       }}
     >
       {isSaving
-        ? <><Check style={{ width: '12px', height: '12px' }} /> Guardado</>
-        : <><Save style={{ width: '12px', height: '12px' }} /> Ctrl+S</>
+        ? <><Check style={{ width: '12px', height: '12px' }} /><span className="doc-format-button-label">Guardado</span></>
+        : <><Save style={{ width: '12px', height: '12px' }} /><span className="doc-format-button-label">Guardar</span></>
       }
     </button>
   );
@@ -1211,7 +1218,7 @@ function LinkInput({
         top: 'calc(100% + 6px)',
         left: 0,
         zIndex: 100,
-        width: '292px',
+        width: '200px',
         background: C.surface,
         border: `1px solid ${C.border2}`,
         borderRadius: '10px',
@@ -1419,8 +1426,10 @@ function EditorToolbar({
   };
 
   return (
-    <div style={{ borderBottom: `1px solid ${C.border}`, background: C.surface, padding: '6px 16px', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexWrap: 'wrap', overflowX: 'auto', fontFamily: MANROPE }}>
+    <aside className="doc-format-panel" aria-label="Herramientas de formato" style={{ background: C.surface, borderRight: `1px solid ${C.border}`, flexShrink: 0 }}>
+      <div className="doc-format-panel-inner" style={{ fontFamily: MANROPE }}>
+        <div className="doc-format-heading" style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 3 }}>Formato</div>
+        <div className="doc-format-subheading" style={{ fontSize: 11, color: C.text4, marginBottom: 12 }}>Herramientas del documento</div>
         {/* History */}
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
@@ -1437,7 +1446,7 @@ function EditorToolbar({
           <Redo className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider />
+        <Divider label="Texto" />
 
         {/* Inline formatting */}
         <ToolbarButton
@@ -1476,7 +1485,7 @@ function EditorToolbar({
         >
           <Code className="w-4 h-4" />
         </ToolbarButton>
-        <div ref={linkWrapperRef} style={{ position: 'relative' }}>
+        <div ref={linkWrapperRef} className="doc-format-control" style={{ position: 'relative' }}>
           <ToolbarButton
             onClick={handleLinkToggle}
             isActive={editor.isActive('link') || showLinkInput}
@@ -1493,7 +1502,7 @@ function EditorToolbar({
           )}
         </div>
 
-        <Divider />
+        <Divider label="Encabezados" />
 
         {/* Headings */}
         <ToolbarButton
@@ -1518,7 +1527,7 @@ function EditorToolbar({
           <Heading3 className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider />
+        <Divider label="Listas" />
 
         {/* Lists */}
         <ToolbarButton
@@ -1543,7 +1552,7 @@ function EditorToolbar({
           <ListChecks className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider />
+        <Divider label="Sangría" />
 
         {/* Indent / outdent */}
         <ToolbarButton onClick={handleOutdent} title="Disminuir sangría (Shift+Tab)">
@@ -1553,7 +1562,7 @@ function EditorToolbar({
           <IndentIncrease className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider />
+        <Divider label="Bloques" />
 
         {/* Blocks */}
         <ToolbarButton
@@ -1580,7 +1589,7 @@ function EditorToolbar({
         {/* Table management — only shown when cursor is inside an existing table */}
         <TableMenu editor={editor} t={t} />
 
-        <div style={{ flex: 1 }} />
+        <Divider label="Documento" />
 
         {/* Auto-save indicator */}
         {isSavingToServer ? (
@@ -1611,7 +1620,7 @@ function EditorToolbar({
         {/* Manual Save (Ctrl+S) */}
         <SaveBtn onClick={onSave} isSaving={!!isSaving} />
       </div>
-    </div>
+    </aside>
   );
 }
 
@@ -1843,6 +1852,35 @@ export default function CollaborativeEditor({
     },
     [] // Solo crear una vez, no recrear en cada render
   );
+
+  // Al abrir una referencia desde una card, llevar al lector al texto citado.
+  useEffect(() => {
+    if (!editor || !isDocumentReady || typeof window === 'undefined') return;
+    const quote = new URLSearchParams(window.location.search).get('fragment');
+    if (!quote) return;
+    let attempts = 0;
+    let timeout: ReturnType<typeof setTimeout>;
+    const focusFragment = () => {
+      const normalized = quote.replace(/\s+/g, ' ').trim();
+      const needles = [normalized.slice(0, 80), normalized.slice(0, 32), normalized.split(' ')[0]]
+        .filter((value, index, values) => value.length >= 3 && values.indexOf(value) === index);
+      let found = false;
+      for (const needle of needles) {
+        editor.state.doc.descendants((node, position) => {
+          if (!node.isText || !node.text || found) return;
+          const index = node.text.indexOf(needle);
+          if (index < 0) return;
+          editor.commands.setTextSelection({ from: position + index, to: position + index + needle.length });
+          editor.commands.scrollIntoView();
+          found = true;
+        });
+        if (found) break;
+      }
+      if (!found && ++attempts < 8) timeout = setTimeout(focusFragment, 250);
+    };
+    timeout = setTimeout(focusFragment, 250);
+    return () => clearTimeout(timeout);
+  }, [editor, isDocumentReady, documentId]);
 
   useEffect(() => {
     if (!editor) return;
@@ -2162,18 +2200,6 @@ export default function CollaborativeEditor({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
-      {canEdit && (
-        <EditorToolbar
-          editor={editor}
-          onSave={saveNow}
-          isSaving={isSaving}
-          isSavingToServer={isSavingToServer}
-          lastSaveTime={lastSavedAt}
-          onToggleComments={() => setSidebarOpen(!commentSidebarOpen)}
-          commentsOpen={commentSidebarOpen}
-          t={t}
-        />
-      )}
 
       {/* Bubble menu — appears on text selection */}
       {canEdit && (
@@ -2214,7 +2240,7 @@ export default function CollaborativeEditor({
               key={hc.value}
               onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHighlight({ color: hc.value }).run(); }}
               title={`Resaltar: ${hc.label}`}
-              style={{ backgroundColor: hc.value, width: '18px', height: '18px', borderRadius: '4px', border: '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', flexShrink: 0 }}
+              style={{ backgroundColor: hc.value, width: '18px', height: '18px', borderRadius: '4px', border: '2px solid rgba(97,71,130,0.15)', cursor: 'pointer', flexShrink: 0 }}
             />
           ))}
           {editor.isActive('highlight') && (
@@ -2254,8 +2280,8 @@ export default function CollaborativeEditor({
                 placeholder="https://..."
                 autoFocus
                 style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  border: '1px solid rgba(255,255,255,0.18)',
+                  background: 'rgba(97,71,130,0.08)',
+                  border: '1px solid rgba(97,71,130,0.18)',
                   borderRadius: '4px',
                   padding: '3px 8px',
                   fontSize: '12px',
@@ -2264,8 +2290,8 @@ export default function CollaborativeEditor({
                   width: '190px',
                   fontFamily: 'inherit',
                 }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(242,87,30,0.6)')}
-                onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)')}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(116,82,166,0.6)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(97,71,130,0.18)')}
               />
               <BubbleBtn
                 onMouseDown={(e) => {
@@ -2326,22 +2352,34 @@ export default function CollaborativeEditor({
       )}
 
       {/* Main content area: editor + sidebar */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="doc-editor-shell" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {canEdit && (
+          <EditorToolbar
+            editor={editor}
+            onSave={saveNow}
+            isSaving={isSaving}
+            isSavingToServer={isSavingToServer}
+            lastSaveTime={lastSavedAt}
+            onToggleComments={() => setSidebarOpen(!commentSidebarOpen)}
+            commentsOpen={commentSidebarOpen}
+            t={t}
+          />
+        )}
         {/* Editor scroll area */}
-        <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto' }}>
-          <div style={{ minHeight: '100%', padding: '40px 24px' }}>
+        <div ref={scrollContainerRef} className="doc-editor-scroll" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+          <div className="doc-editor-canvas" style={{ minHeight: '100%', padding: '36px 28px 72px' }}>
             <div
-              className="doc-page-enter"
+              className="doc-page-enter doc-editor-paper"
               style={{
-                maxWidth: '780px', margin: '0 auto',
+                maxWidth: '820px', minHeight: 'calc(100vh - 190px)', margin: '0 auto',
                 background: C.surface, border: `1px solid ${C.border}`,
-                borderRadius: '12px', boxShadow: '0 12px 48px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2)',
+                borderRadius: '16px', boxShadow: '0 16px 48px rgba(29,19,48,0.12), 0 2px 8px rgba(29,19,48,0.06)',
                 opacity: isTransitioning ? 0.45 : 1,
                 transform: isTransitioning ? 'scale(0.985) translateY(4px)' : 'scale(1) translateY(0)',
                 transition: 'opacity 0.25s ease, transform 0.25s ease',
               }}
             >
-              <div ref={editorWrapRef} style={{ padding: '48px 64px', position: 'relative' }}>
+              <div ref={editorWrapRef} className="doc-editor-paper-inner" style={{ padding: '56px 70px', position: 'relative' }}>
                 {!canEdit && (
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
@@ -2356,7 +2394,7 @@ export default function CollaborativeEditor({
                 <EditorContent
                   editor={editor}
                   className={`
-                    prose prose-invert prose-lg max-w-none transition-opacity duration-300
+                    prose prose-lg max-w-none transition-opacity duration-300
                     ${isTransitioning ? 'opacity-50' : 'opacity-100'}
                     prose-headings:font-bold prose-headings:tracking-tight
                     prose-h1:text-4xl prose-h1:mb-4
@@ -2451,7 +2489,7 @@ export default function CollaborativeEditor({
         {commentSidebarOpen && (
           <div
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 30 }}
-            className="md:hidden"
+            className="doc-comment-backdrop md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -2464,7 +2502,7 @@ export default function CollaborativeEditor({
             width: commentSidebarOpen ? '384px' : '0',
             borderLeft: commentSidebarOpen ? `1px solid ${C.border}` : 'none',
           }}
-          className={commentSidebarOpen ? 'fixed inset-y-0 right-0 z-40 md:relative md:inset-auto' : ''}
+          className={`doc-comment-sidebar ${commentSidebarOpen ? 'fixed inset-y-0 right-0 z-40 md:relative md:inset-auto' : ''}`}
         >
           <DocumentCommentsSidebar
             documentId={documentId}

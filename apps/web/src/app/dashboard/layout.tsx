@@ -45,23 +45,23 @@ function NavItem({ href, label, icon, active, badge, onClick }: {
   const style: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: '10px',
     padding: '9px 11px', borderRadius: '8px', cursor: 'pointer',
-    background: active ? 'rgba(242,87,30,0.1)' : 'transparent',
-    color: active ? '#F2571E' : '#9C9486',
+    background: active ? 'rgba(116,82,166,0.1)' : 'transparent',
+    color: active ? '#7452A6' : 'var(--c-text2)',
     fontSize: '14px', fontFamily: MANROPE,
     textDecoration: 'none',
   };
 
   const inner = (
     <div role="button" style={style}
-      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; } }}
-      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; } }}
+      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; } }}
+      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; } }}
     >
-      <span style={{ display: 'flex', flexShrink: 0, color: active ? '#F2571E' : '#9C9486' }}>{icon}</span>
+      <span style={{ display: 'flex', flexShrink: 0, color: active ? '#7452A6' : 'var(--c-text2)' }}>{icon}</span>
       <span style={{ flex: 1 }}>{label}</span>
       {badge !== undefined && badge > 0 && (
         <span style={{
           marginLeft: 'auto', fontSize: '11px', fontWeight: 700,
-          color: '#24180A', background: '#F2571E',
+          color: '#FFFFFF', background: '#7452A6',
           borderRadius: '8px', minWidth: '18px', height: '18px',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
         }}>
@@ -139,8 +139,8 @@ function Sidebar({
     <aside className="dshScroll" style={{
       width: `${SIDEBAR_W}px`, flexShrink: 0,
       height: '100vh', position: 'sticky', top: 0,
-      background: '#191F33',
-      borderRight: '1px solid rgba(255,255,255,0.06)',
+      background: 'var(--c-bg2)',
+      borderRight: '1px solid rgba(97,71,130,0.06)',
       display: 'flex', flexDirection: 'column',
       padding: '16px 14px', overflowY: 'auto', zIndex: 30,
     }}>
@@ -148,17 +148,17 @@ function Sidebar({
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px 16px' }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-          <span style={{ width: '30px', height: '30px', borderRadius: '9px', background: '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px -4px rgba(242,87,30,0.55)' }}>
+          <span style={{ width: '30px', height: '30px', borderRadius: '9px', background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px -4px rgba(116,82,166,0.55)' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4.5 L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 4.5 L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
-              <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
-              <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+              <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 4.5 L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
+              <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
+              <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
             </svg>
           </span>
-          <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '17px', color: '#ECE5D6', letterSpacing: '-0.015em' }}>Aether</span>
+          <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '17px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
         </Link>
       </div>
 
@@ -196,25 +196,25 @@ function Sidebar({
           style={{
             fontFamily: SORA, fontSize: '11px', fontWeight: 600,
             letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: pathname?.startsWith('/dashboard/projects') ? '#9C9486' : '#615846',
+            color: pathname?.startsWith('/dashboard/projects') ? 'var(--c-text2)' : 'var(--c-text4)',
             textDecoration: 'none', transition: 'color 0.14s',
           }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = pathname?.startsWith('/dashboard/projects') ? '#9C9486' : '#615846')}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text2)')}
+          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = pathname?.startsWith('/dashboard/projects') ? 'var(--c-text2)' : 'var(--c-text4)')}
         >
           Proyectos
         </Link>
         <button onClick={onCreateProject} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#827A6D" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="var(--c-text3)" strokeWidth="1.8" strokeLinecap="round"/></svg>
         </button>
       </div>
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
         {projectsLoading ? null : activeProjects.length === 0 ? (
           <div
             onClick={onCreateProject}
-            style={{ padding: '8px 11px', fontSize: '13px', color: '#615846', cursor: 'pointer', borderRadius: '8px' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#615846'; }}
+            style={{ padding: '8px 11px', fontSize: '13px', color: 'var(--c-text4)', cursor: 'pointer', borderRadius: '8px' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text4)'; }}
           >
             + Nuevo proyecto
           </div>
@@ -228,14 +228,14 @@ function Sidebar({
               style={{
                 display: 'flex', alignItems: 'center', gap: '10px',
                 padding: '8px 11px', borderRadius: '8px',
-                color: isAct ? '#E8E1D2' : '#9C9486',
-                background: isAct ? 'rgba(255,255,255,0.05)' : 'transparent',
+                color: isAct ? 'var(--c-text)' : 'var(--c-text2)',
+                background: isAct ? 'rgba(97,71,130,0.05)' : 'transparent',
                 fontSize: '13px', cursor: 'pointer',
               }}
-              onMouseEnter={e => { if (!isAct) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = '#E8E1D2'; } }}
-              onMouseLeave={e => { if (!isAct) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9C9486'; } }}
+              onMouseEnter={e => { if (!isAct) { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; } }}
+              onMouseLeave={e => { if (!isAct) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; } }}
             >
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color ?? '#8C7C9E', flexShrink: 0 }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color ?? '#8262B2', flexShrink: 0 }} />
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
             </div>
           );
@@ -288,33 +288,33 @@ function Sidebar({
         style={{
           display: 'flex', alignItems: 'center', gap: '10px',
           padding: '9px', borderRadius: '8px',
-          border: '1px solid rgba(255,255,255,0.06)',
+          border: '1px solid rgba(97,71,130,0.06)',
           marginTop: '14px', cursor: 'pointer',
         }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.14)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.06)'; }}
       >
         <Avatar style={{ width: '30px', height: '30px', flexShrink: 0 }}>
           {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt={user?.name ?? ''} crossOrigin="anonymous" />}
-          <AvatarFallback style={{ fontSize: '12px', fontWeight: 700, color: '#24180A', background: '#F2571E', width: '30px', height: '30px' }}>
+          <AvatarFallback style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', background: '#7452A6', width: '30px', height: '30px' }}>
             {user ? getInitials(user.name) : '?'}
           </AvatarFallback>
         </Avatar>
         <span style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
-          <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#E8E1D2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {user?.name ?? 'Usuario'}
           </span>
-          <span style={{ display: 'block', fontSize: '11px', color: '#827A6D' }}>Plan gratis</span>
+          <span style={{ display: 'block', fontSize: '11px', color: 'var(--c-text3)' }}>Plan gratis</span>
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
           {showBell && <NotificationBell />}
           <button
             onClick={e => { e.stopPropagation(); router.push('/dashboard/settings'); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '6px' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)')}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.08)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'none')}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="#827A6D" strokeWidth="1.7"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="#827A6D" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="var(--c-text3)" strokeWidth="1.7"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="var(--c-text3)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
         </div>
       </div>
@@ -332,8 +332,8 @@ function MobileTopbar({ onMenuClick }: { onMenuClick: () => void }) {
         position: 'sticky', top: 0, zIndex: 50,
         display: 'flex', alignItems: 'center', gap: '12px',
         padding: '0 14px', height: '52px',
-        background: '#191F33',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: 'var(--c-bg2)',
+        borderBottom: '1px solid rgba(97,71,130,0.06)',
         flexShrink: 0,
       }}
     >
@@ -347,31 +347,31 @@ function MobileTopbar({ onMenuClick }: { onMenuClick: () => void }) {
           display: 'flex', flexDirection: 'column', gap: '4px',
           flexShrink: 0,
         }}
-        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
+        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.06)')}
         onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'none')}
       >
-        <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#9C9486', borderRadius: '2px' }} />
-        <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#9C9486', borderRadius: '2px' }} />
-        <span style={{ display: 'block', width: '13px', height: '1.5px', background: '#9C9486', borderRadius: '2px' }} />
+        <span style={{ display: 'block', width: '18px', height: '1.5px', background: 'var(--c-text2)', borderRadius: '2px' }} />
+        <span style={{ display: 'block', width: '18px', height: '1.5px', background: 'var(--c-text2)', borderRadius: '2px' }} />
+        <span style={{ display: 'block', width: '13px', height: '1.5px', background: 'var(--c-text2)', borderRadius: '2px' }} />
       </button>
 
       {/* Logo */}
       <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none', flex: 1 }}>
         <span style={{
-          width: '26px', height: '26px', borderRadius: '8px', background: '#F2571E',
+          width: '26px', height: '26px', borderRadius: '8px', background: '#7452A6',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          boxShadow: '0 3px 10px -3px rgba(242,87,30,0.55)',
+          boxShadow: '0 3px 10px -3px rgba(116,82,166,0.55)',
         }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M12 4.5 L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M12 4.5 L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
-            <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
-            <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+            <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M12 4.5 L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
+            <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
+            <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
           </svg>
         </span>
-        <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '16px', color: '#ECE5D6', letterSpacing: '-0.015em' }}>
+        <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '16px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>
           Aether
         </span>
       </Link>
@@ -511,7 +511,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }} />
         ) : (
         <>
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#161B2E', color: '#E8E1D2', fontFamily: MANROPE }}>
+        <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--c-bg)', color: 'var(--c-text)', fontFamily: MANROPE }}>
 
           {/* Backdrop — visible solo en móvil cuando el drawer está abierto */}
           <div
@@ -525,7 +525,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           {/* Main */}
-          <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#161B2E', overflow: 'auto' }}>
+          <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--c-bg)', overflow: 'auto' }}>
 
             {/* Topbar móvil — oculto en desktop por CSS */}
             <MobileTopbar onMenuClick={() => setSidebarOpen(v => !v)} />

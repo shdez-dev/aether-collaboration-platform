@@ -42,6 +42,7 @@ router.delete('/:id/milestones/:milestoneId', requireProjectEditor, (req, res) =
 
 // ── Teams del proyecto ─────────────────────────────────────────────────────────
 router.get('/:id/teams', (req, res) => projectController.getTeams(req, res));
+router.get('/:id/team-members', (req, res) => projectController.getTeamMembers(req, res));
 router.post('/:id/teams', requireProjectEditor, (req, res) => projectController.assignTeam(req, res));
 router.delete('/:id/teams/:teamId', requireProjectEditor, (req, res) => projectController.removeTeam(req, res));
 

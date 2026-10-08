@@ -79,20 +79,20 @@ export default function PortfoliosPage() {
   </main>;
 }
 
-const page: CSSProperties = { minHeight: '100%', padding: '40px clamp(20px, 4vw, 64px)', background: '#12172a', color: '#f8fafc', fontFamily: "'Manrope', system-ui, sans-serif" };
+const page: CSSProperties = { minHeight: '100%', padding: '40px clamp(20px, 4vw, 64px)', background: 'var(--c-bg)', color: '#f8fafc', fontFamily: "'Manrope', system-ui, sans-serif" };
 const header: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 18, flexWrap: 'wrap', marginBottom: 24 };
 const headerActions: CSSProperties = { display: 'flex', alignItems: 'end', gap: 10, flexWrap: 'wrap' };
 const eyebrow: CSSProperties = { margin: 0, color: '#f97316', fontSize: 11, fontWeight: 800, letterSpacing: '.11em' };
 const title: CSSProperties = { margin: '4px 0 8px', fontSize: 'clamp(32px, 4vw, 46px)', letterSpacing: '-.05em' };
 const subtitle: CSSProperties = { margin: 0, color: '#a6afc5', lineHeight: 1.55, maxWidth: 650 };
 const selectLabel: CSSProperties = { display: 'grid', gap: 6, color: '#b9c2d6', fontSize: 11, fontWeight: 800, letterSpacing: '.04em' };
-const select: CSSProperties = { minWidth: 210, background: '#181e33', color: '#edf1fa', border: '1px solid #36405a', padding: '10px 12px', borderRadius: 9 };
-const primaryButton: CSSProperties = { border: 0, borderRadius: 9, background: '#f2571e', color: '#1c1320', padding: '11px 14px', display: 'inline-flex', gap: 7, alignItems: 'center', fontWeight: 800, cursor: 'pointer', textDecoration: 'none' };
+const select: CSSProperties = { minWidth: 210, background: 'var(--c-bg2)', color: '#edf1fa', border: '1px solid #36405a', padding: '10px 12px', borderRadius: 9 };
+const primaryButton: CSSProperties = { border: 0, borderRadius: 9, background: '#7452A6', color: '#1c1320', padding: '11px 14px', display: 'inline-flex', gap: 7, alignItems: 'center', fontWeight: 800, cursor: 'pointer', textDecoration: 'none' };
 const secondaryButton: CSSProperties = { border: '1px solid #39435d', borderRadius: 9, background: '#1a2035', color: '#e7ebf3', padding: '10px 14px', fontWeight: 700, cursor: 'pointer' };
 const notice: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, padding: '12px 14px', border: '1px solid #3e465d', borderRadius: 10, background: '#1a2034', color: '#c8d1e0', marginBottom: 18, fontSize: 13 };
 const errorStyle: CSSProperties = { color: '#fca5a5', margin: '0 0 14px' };
 const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(285px, 1fr))', gap: 15 };
-const card: CSSProperties = { display: 'flex', flexDirection: 'column', minHeight: 220, padding: 18, borderRadius: 13, border: '1px solid #2f3852', background: '#181e33', color: '#edf1fa', textDecoration: 'none' };
+const card: CSSProperties = { display: 'flex', flexDirection: 'column', minHeight: 220, padding: 18, borderRadius: 13, border: '1px solid #2f3852', background: 'var(--c-bg2)', color: '#edf1fa', textDecoration: 'none' };
 const cardTop: CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 8 };
 const rolePill: CSSProperties = { border: '1px solid #42516f', color: '#a7c8f0', background: '#182940', borderRadius: 99, padding: '4px 8px', fontSize: 11, fontWeight: 800 };
 const archived: CSSProperties = { color: '#f6c86e', fontSize: 11, fontWeight: 800 };
@@ -102,8 +102,8 @@ const stats: CSSProperties = { display: 'flex', gap: 14, color: '#9eabc2', fontS
 const cardFooter: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#8290aa', fontSize: 11, marginTop: 'auto', paddingTop: 18 };
 const empty: CSSProperties = { minHeight: 250, gridColumn: '1 / -1', display: 'grid', alignContent: 'center', justifyItems: 'center', gap: 10, textAlign: 'center', color: '#aab5c8', border: '1px dashed #3d4760', borderRadius: 13, padding: 25 };
 const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 70, display: 'grid', placeItems: 'center', background: 'rgba(7,10,20,.74)', padding: 20 };
-const modal: CSSProperties = { width: 'min(520px, 100%)', display: 'grid', gap: 15, padding: 22, borderRadius: 14, background: '#1a2138', border: '1px solid #3b4663' };
+const modal: CSSProperties = { width: 'min(520px, 100%)', display: 'grid', gap: 15, padding: 22, borderRadius: 14, background: 'var(--c-surface2)', border: '1px solid #3b4663' };
 const field: CSSProperties = { display: 'grid', gap: 7, color: '#c7d0df', fontWeight: 800, fontSize: 12 };
-const input: CSSProperties = { width: '100%', boxSizing: 'border-box', background: '#11172a', border: '1px solid #36415c', borderRadius: 8, color: '#f8fafc', padding: '10px 11px' };
+const input: CSSProperties = { width: '100%', boxSizing: 'border-box', background: 'var(--c-bg)', border: '1px solid #36415c', borderRadius: 8, color: '#f8fafc', padding: '10px 11px' };
 const textarea: CSSProperties = { ...input, minHeight: 90, resize: 'vertical', fontFamily: 'inherit' };
 const actions: CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 };

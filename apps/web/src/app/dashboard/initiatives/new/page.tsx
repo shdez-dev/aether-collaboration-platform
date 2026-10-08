@@ -9,7 +9,7 @@ import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useInitiativeStore } from '@/stores/initiativeStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
-const accent = '#F2571E';
+const accent = '#7452A6';
 
 export default function NewInstitutionalInitiativePage() {
   const router = useRouter();
@@ -94,7 +94,7 @@ export default function NewInstitutionalInitiativePage() {
         </header>
 
         <div style={stepper} aria-label="Pasos de la iniciativa">
-          {PROPOSAL_STEPS.map((item, index) => <div key={item.title} aria-current={index === step ? 'step' : undefined} style={{ ...stepItem, color: index === step ? '#F4EEE2' : '#8D8A83' }}><span style={{ ...stepNumber, color: index <= step ? accent : '#8D8A83', borderColor: index <= step ? 'rgba(242,87,30,0.45)' : 'rgba(255,255,255,0.12)', background: index < step ? 'rgba(242,87,30,0.12)' : 'transparent' }}>{index < step ? <Check size={13} /> : `0${index + 1}`}</span>{item.title}</div>)}
+          {PROPOSAL_STEPS.map((item, index) => <div key={item.title} aria-current={index === step ? 'step' : undefined} style={{ ...stepItem, color: index === step ? 'var(--c-text)' : '#8D8A83' }}><span style={{ ...stepNumber, color: index <= step ? accent : '#8D8A83', borderColor: index <= step ? 'rgba(116,82,166,0.45)' : 'rgba(97,71,130,0.12)', background: index < step ? 'rgba(116,82,166,0.12)' : 'transparent' }}>{index < step ? <Check size={13} /> : `0${index + 1}`}</span>{item.title}</div>)}
         </div>
 
         <form onSubmit={submit} style={form}>
@@ -130,30 +130,30 @@ export default function NewInstitutionalInitiativePage() {
   );
 }
 
-const page = { minHeight: '100%', padding: '28px clamp(16px, 4vw, 52px) 50px', background: '#12172A', color: '#F4EEE2', fontFamily: "'Manrope', system-ui, sans-serif" } as const;
+const page = { minHeight: '100%', padding: '28px clamp(16px, 4vw, 52px) 50px', background: 'var(--c-bg)', color: 'var(--c-text)', fontFamily: "'Manrope', system-ui, sans-serif" } as const;
 const shell = { width: '100%', maxWidth: 820, margin: '0 auto' } as const;
-const backLink = { display: 'inline-flex', alignItems: 'center', gap: 7, color: '#B7AD9B', fontSize: 12, textDecoration: 'none', marginBottom: 22 } as const;
+const backLink = { display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--c-text3)', fontSize: 12, textDecoration: 'none', marginBottom: 22 } as const;
 const header = { textAlign: 'center' as const, marginBottom: 24 };
 const eyebrow = { margin: '0 0 8px', color: accent, fontSize: 10, fontWeight: 800, letterSpacing: '0.13em' } as const;
 const title = { margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: 'clamp(28px, 4vw, 38px)', letterSpacing: '-0.045em' } as const;
-const subtitle = { maxWidth: 580, margin: '9px auto 0', color: '#A8A092', fontSize: 13, lineHeight: 1.55 } as const;
-const stepper = { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', maxWidth: 650, margin: '0 auto 15px', borderBottom: '1px solid rgba(255,255,255,0.11)' } as const;
+const subtitle = { maxWidth: 580, margin: '9px auto 0', color: 'var(--c-text3)', fontSize: 13, lineHeight: 1.55 } as const;
+const stepper = { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', maxWidth: 650, margin: '0 auto 15px', borderBottom: '1px solid rgba(97,71,130,0.11)' } as const;
 const stepItem = { minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, borderBottom: '2px solid transparent', fontSize: 12, fontWeight: 700 } as const;
 const stepNumber = { width: 24, height: 24, display: 'grid', placeItems: 'center', border: '1px solid', borderRadius: 99, fontSize: 10, fontWeight: 800 } as const;
-const form = { border: '1px solid rgba(255,255,255,0.1)', borderRadius: 15, background: '#1A2135', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.18)' } as const;
+const form = { border: '1px solid rgba(97,71,130,0.1)', borderRadius: 15, background: 'var(--c-surface)', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.18)' } as const;
 const workspacePicker = { display: 'grid', gap: 7, padding: '18px clamp(18px, 4vw, 34px) 0' } as const;
-const workspaceLabel = { color: '#BEB5A5', fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' as const };
-const workspaceSelect = { minHeight: 42, boxSizing: 'border-box' as const, padding: '0 12px', border: '1px solid rgba(255,255,255,0.11)', borderRadius: 9, background: '#141A2A', color: '#F4EEE2', colorScheme: 'dark' as const, fontFamily: "'Manrope', system-ui, sans-serif", fontSize: 12.5 };
+const workspaceLabel = { color: 'var(--c-text2)', fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' as const };
+const workspaceSelect = { minHeight: 42, boxSizing: 'border-box' as const, padding: '0 12px', border: '1px solid rgba(97,71,130,0.11)', borderRadius: 9, background: 'var(--c-surface)', color: 'var(--c-text)', colorScheme: 'light' as const, fontFamily: "'Manrope', system-ui, sans-serif", fontSize: 12.5 };
 const questionnaire = { padding: '24px clamp(18px, 4vw, 34px) 28px' } as const;
 const stepLabel = { margin: 0, color: accent, fontSize: 10, fontWeight: 800, letterSpacing: '0.1em' } as const;
 const sectionTitle = { margin: '7px 0 0', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 21, letterSpacing: '-0.03em' } as const;
-const sectionCopy = { margin: '5px 0 0', color: '#9C9486', fontSize: 12.5 } as const;
-const footer = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '14px clamp(18px, 4vw, 34px)', borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.015)' } as const;
-const progressText = { color: '#8F897D', fontSize: 11 } as const;
-const primaryButton = { minHeight: 39, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '0 15px', border: 0, borderRadius: 9, background: accent, color: '#20150E', fontSize: 12, fontWeight: 800, cursor: 'pointer', textDecoration: 'none' } as const;
-const secondaryButton = { minHeight: 39, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '0 13px', border: '1px solid rgba(255,255,255,0.11)', borderRadius: 9, background: 'rgba(255,255,255,0.025)', color: '#C8BFAE', fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'none' } as const;
-const errorText = { margin: '15px 0 0', padding: '10px 12px', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, background: 'rgba(248,113,113,0.08)', color: '#FCA5A5', fontSize: 12 } as const;
-const footnote = { margin: '13px 0 0', textAlign: 'center' as const, color: '#777365', fontSize: 11, lineHeight: 1.5 };
-const stateCard = { maxWidth: 520, minHeight: 250, margin: '8vh auto', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 28, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, background: '#1A2135', color: '#C8BFAE', textAlign: 'center' as const };
-const stateTitle = { margin: 0, color: '#F4EEE2', fontSize: 20, fontFamily: "'Sora', system-ui, sans-serif" };
-const stateCopy = { maxWidth: 380, margin: 0, color: '#9C9486', fontSize: 13, lineHeight: 1.55 };
+const sectionCopy = { margin: '5px 0 0', color: 'var(--c-text2)', fontSize: 12.5 } as const;
+const footer = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '14px clamp(18px, 4vw, 34px)', borderTop: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.015)' } as const;
+const progressText = { color: 'var(--c-text3)', fontSize: 11 } as const;
+const primaryButton = { minHeight: 39, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '0 15px', border: 0, borderRadius: 9, background: accent, color: '#FFFFFF', fontSize: 12, fontWeight: 800, cursor: 'pointer', textDecoration: 'none' } as const;
+const secondaryButton = { minHeight: 39, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '0 13px', border: '1px solid rgba(97,71,130,0.11)', borderRadius: 9, background: 'rgba(97,71,130,0.025)', color: 'var(--c-text2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'none' } as const;
+const errorText = { margin: '15px 0 0', padding: '10px 12px', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, background: 'rgba(248,113,113,0.08)', color: '#9F455F', fontSize: 12 } as const;
+const footnote = { margin: '13px 0 0', textAlign: 'center' as const, color: 'var(--c-text3)', fontSize: 11, lineHeight: 1.5 };
+const stateCard = { maxWidth: 520, minHeight: 250, margin: '8vh auto', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 28, border: '1px solid rgba(97,71,130,0.1)', borderRadius: 14, background: 'var(--c-surface)', color: 'var(--c-text2)', textAlign: 'center' as const };
+const stateTitle = { margin: 0, color: 'var(--c-text)', fontSize: 20, fontFamily: "'Sora', system-ui, sans-serif" };
+const stateCopy = { maxWidth: 380, margin: 0, color: 'var(--c-text2)', fontSize: 13, lineHeight: 1.55 };

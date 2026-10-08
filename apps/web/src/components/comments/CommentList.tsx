@@ -1,13 +1,15 @@
 // apps/web/src/components/comments/CommentList.tsx
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
 import { useComments } from '@/hooks/useComment';
 import { es } from '@/lib/i18n';
 import { MessageSquare, RefreshCw } from 'lucide-react';
 import { C } from '@/lib/colors';
+import { apiService } from '@/services/apiService';
+import type { MentionCandidate } from './CommentForm';
 
 interface CommentListProps {
   cardId: string;
@@ -28,9 +30,19 @@ export function CommentList({
   onCountChange,
   workspaceId,
 }: CommentListProps) {
-  const { comments, count, isLoading, isCreating, createComment, updateComment, deleteComment, refreshComments } = useComments(cardId);
+  const { comments, count, isLoading, loadError, isCreating, createComment, updateComment, deleteComment, refreshComments } = useComments(cardId);
   const t = es;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [mentionCandidates, setMentionCandidates] = useState<MentionCandidate[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMentionCandidates([]);
+    apiService.get<{ users: MentionCandidate[] }>(`/api/cards/${cardId}/mentions`, true)
+      .then((response) => { if (!cancelled) setMentionCandidates(response.success ? response.data?.users ?? [] : []); })
+      .catch(() => { if (!cancelled) setMentionCandidates([]); });
+    return () => { cancelled = true; };
+  }, [cardId]);
 
   useEffect(() => {
     if (onCountChange) onCountChange(count);
@@ -72,12 +84,12 @@ export function CommentList({
       )}
 
       {/* Empty state */}
-      {comments.length === 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px 16px', borderRadius: '8px', border: `1px dashed ${C.border}`, gap: '6px' }}>
-          <MessageSquare style={{ width: '22px', height: '22px', color: C.text4, opacity: 0.5 }} />
-          <p style={{ fontSize: '12.5px', color: C.text4, margin: 0 }}>{t.comments_empty_title}</p>
-          <p style={{ fontSize: '11px', color: C.text4, opacity: 0.7, margin: 0 }}>{t.comments_empty_desc}</p>
-        </div>
+      {loadError && <div role="alert" style={{ padding: '10px 12px', borderRadius: 8, background: `${C.red}12`, color: C.red, fontSize: 12 }}>
+        No se pudieron cargar los comentarios: {loadError}{' '}
+        <button type="button" onClick={refreshComments} style={{ border: 0, background: 'none', color: C.red, fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>
+      </div>}
+      {comments.length === 0 && !loadError && (
+        <p style={{ margin: 0, padding: '8px 2px', fontSize: 12.5, color: C.text4 }}>{t.comments_empty_title}. {t.comments_empty_desc}</p>
       )}
 
       {/* Comment list */}
@@ -93,6 +105,7 @@ export function CommentList({
               onUpdate={updateComment}
               onDelete={deleteComment}
               showActions={true}
+              mentionCandidates={mentionCandidates}
             />
           ))}
         </div>
@@ -100,12 +113,17 @@ export function CommentList({
 
       {/* New comment form */}
       {showForm && (
-        <div style={{ paddingTop: '10px', borderTop: `1px solid ${C.border}` }}>
+        <div style={{ paddingTop: '14px', borderTop: `1px solid ${C.border}` }}>
           <CommentForm
-            onSubmit={async (content, mentions) => { await createComment(content, mentions); }}
+            onSubmit={async (content, mentions, documentReference) => {
+              const created = await createComment(content, mentions, documentReference);
+              if (!created) throw new Error('No se pudo publicar el comentario');
+            }}
             isLoading={isCreating}
             placeholder={comments.length === 0 ? t.comments_first_placeholder : t.comments_add_placeholder}
             workspaceId={workspaceId}
+            mentionCandidates={mentionCandidates}
+            cardId={cardId}
           />
         </div>
       )}

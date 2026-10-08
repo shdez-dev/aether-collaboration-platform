@@ -79,7 +79,7 @@ describe('FirstWorkspaceOnboarding', () => {
       name: 'Operaciones',
       description: 'Trabajo del equipo',
       icon: 'briefcase',
-      color: '#F2571E',
+      color: '#7452A6',
       organizationId: 'company-org',
       workspaceTemplateId: 'team',
     }));

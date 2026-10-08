@@ -1001,7 +1001,7 @@ function ProjectTable({
 const page: CSSProperties = {
   minHeight: '100%',
   padding: '34px clamp(20px, 4vw, 64px)',
-  background: '#12172a',
+  background: 'var(--c-bg)',
   color: '#f8fafc',
   fontFamily: "'Manrope', system-ui, sans-serif",
 };
@@ -1069,7 +1069,7 @@ const tabButton: CSSProperties = {
   fontWeight: 750,
   whiteSpace: 'nowrap',
 };
-const activeTab: CSSProperties = { ...tabButton, color: '#fff1e9', borderBottomColor: '#f2571e' };
+const activeTab: CSSProperties = { ...tabButton, color: '#fff1e9', borderBottomColor: 'var(--c-accent-text)' };
 const metricGrid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -1079,13 +1079,13 @@ const metricGrid: CSSProperties = {
 const metric: CSSProperties = {
   display: 'grid',
   gap: 7,
-  background: '#181e33',
+  background: 'var(--c-bg2)',
   border: '1px solid #303a53',
   borderRadius: 12,
   padding: '15px 16px',
 };
 const section: CSSProperties = {
-  background: '#181e33',
+  background: 'var(--c-bg2)',
   border: '1px solid #303a53',
   borderRadius: 13,
   padding: '18px',
@@ -1166,7 +1166,7 @@ const filterSelect: CSSProperties = {
   boxSizing: 'border-box',
   minHeight: 36,
   color: '#ecf0f8',
-  background: '#11172a',
+  background: 'var(--c-bg)',
   border: '1px solid #38445f',
   borderRadius: 7,
   padding: '7px 8px',

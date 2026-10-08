@@ -1,4 +1,3 @@
-import type { TeamMember } from '@/stores/teamStore';
 import { apiService } from '@/services/apiService';
 
 export type ProjectTeam = {
@@ -16,6 +15,17 @@ export type ProjectDirectMember = {
   avatar?: string | null;
   role: string;
   addedAt: string;
+};
+
+export type ProjectTeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+  role: 'ADMIN' | 'MEMBER' | 'VIEWER';
+  teamId: string;
+  teamName: string;
+  teamColor: string | null;
 };
 
 export type ProjectActivityEntry = {
@@ -65,9 +75,8 @@ export const projectApi = {
   async getBacklog(projectId: string): Promise<ProjectBacklogCard[]> {
     return (await requireData(apiService.get<{ cards: ProjectBacklogCard[] }>(`/api/projects/${projectId}/backlog`, true))).cards;
   },
-  async getTeamMembers(teamId: string): Promise<TeamMember[]> {
-    const data = await requireData(apiService.get<{ team: { members?: TeamMember[] } }>(`/api/teams/${teamId}`, true));
-    return data.team.members ?? [];
+  async getTeamMembers(projectId: string): Promise<ProjectTeamMember[]> {
+    return (await requireData(apiService.get<{ members: ProjectTeamMember[] }>(`/api/projects/${projectId}/team-members`, true))).members;
   },
   async assignTeam(projectId: string, teamId: string): Promise<void> {
     await requireData(apiService.post(`/api/projects/${projectId}/teams`, { teamId }, true));

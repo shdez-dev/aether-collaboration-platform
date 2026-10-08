@@ -204,11 +204,13 @@ export interface AddLabelRequest {
 export interface CreateCommentRequest {
   content: string;
   mentions?: string[];
+  documentReference?: { documentId: string; from: number; to: number; quote: string };
 }
 
 export interface UpdateCommentRequest {
   content: string;
   mentions?: string[];
+  documentReference?: { documentId: string; from: number; to: number; quote: string } | null;
 }
 
 // ============================================================================

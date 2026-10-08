@@ -22,7 +22,7 @@ const DAYS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const DAYS_UPPER = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
 const DAYS_FULL  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
-const EVENT_PALETTE = ['#4B607F','#76A878','#DB8A66','#8C7C9E','#F2571E','#5B8FA8','#A87876'];
+const EVENT_PALETTE = ['#8076A7','#548B73','#A97556','#8262B2','#7452A6','#7D91B1','#A87876'];
 function hashColor(str: string) {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
@@ -102,7 +102,7 @@ function CircleBtn({ onClick, children }: { onClick: () => void; children: React
   return (
     <span onClick={onClick}
       className="cal-circle-btn"
-      style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+      style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px solid rgba(97,71,130,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
       {children}
     </span>
   );
@@ -119,19 +119,19 @@ function MiniCalendar({ year, month, selectedDate, today, eventDays, onPrev, onN
   const selKey   = toKey(selectedDate);
 
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '16px', background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
+    <div style={{ border: '1px solid rgba(97,71,130,0.07)', borderRadius: '8px', padding: '16px', background: 'rgba(97,71,130,0.02)', flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
         <CircleBtn onClick={onPrev}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="#9C9486" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </CircleBtn>
-        <span style={{ fontFamily: SORA, fontWeight: 600, fontSize: '14px', color: '#E8E1D2' }}>{MONTHS_ES[month]} {year}</span>
+        <span style={{ fontFamily: SORA, fontWeight: 600, fontSize: '14px', color: 'var(--c-text)' }}>{MONTHS_ES[month]} {year}</span>
         <CircleBtn onClick={onNext}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#9C9486" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="var(--c-text2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </CircleBtn>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '2px', marginBottom: '4px' }}>
-        {DAYS_SHORT.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '10.5px', fontWeight: 600, color: '#615846', padding: '3px 0' }}>{d}</div>)}
+        {DAYS_SHORT.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '10.5px', fontWeight: 600, color: 'var(--c-text4)', padding: '3px 0' }}>{d}</div>)}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '3px' }}>
@@ -142,13 +142,13 @@ function MiniCalendar({ year, month, selectedDate, today, eventDays, onPrev, onN
           return (
             <div key={key} onClick={() => onSelectDay(day)}
               style={{ aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.12s' }}
-              onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
+              onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.06)'; }}
               onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
               {isSel
-                ? <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#F2571E', color: '#24180A', fontWeight: 700, fontSize: '12.5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{day}</span>
-                : <span style={{ fontSize: '12.5px', color: isToday ? '#F2571E' : '#9C9486', fontWeight: isToday ? 700 : 400 }}>{day}</span>
+                ? <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#7452A6', color: '#FFFFFF', fontWeight: 700, fontSize: '12.5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{day}</span>
+                : <span style={{ fontSize: '12.5px', color: isToday ? '#7452A6' : 'var(--c-text2)', fontWeight: isToday ? 700 : 400 }}>{day}</span>
               }
-              {hasEv && !isSel && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#F2571E' }} />}
+              {hasEv && !isSel && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#7452A6' }} />}
             </div>
           );
         })}
@@ -190,8 +190,8 @@ function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
         minHeight: `${Math.max(qc.durationH * HOUR_PX, 148)}px`,
         zIndex: 20, borderRadius: '10px',
         background: '#1C2236',
-        border: '1px solid rgba(242,87,30,0.35)',
-        borderLeft: '3px solid #F2571E',
+        border: '1px solid rgba(116,82,166,0.35)',
+        borderLeft: '3px solid #7452A6',
         padding: '12px 14px',
         boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
         display: 'flex', flexDirection: 'column', gap: '10px',
@@ -200,7 +200,7 @@ function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
       }}
     >
       {/* Time range */}
-      <div style={{ fontSize: '12px', fontWeight: 600, color: '#F2571E', fontFamily: SORA }}>
+      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--c-accent-text)', fontFamily: SORA }}>
         {fmtHM(qc.hour, qc.minute)} → {fmtHM(end.hour, end.minute)}
       </div>
 
@@ -213,13 +213,13 @@ function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
         placeholder="Título del evento…"
         style={{
           padding: '8px 10px', borderRadius: '7px',
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          color: '#E8E1D2', fontFamily: MANROPE, fontSize: '14px',
+          background: 'rgba(97,71,130,0.05)',
+          border: '1px solid rgba(97,71,130,0.12)',
+          color: 'var(--c-text)', fontFamily: MANROPE, fontSize: '14px',
           outline: 'none', transition: 'border-color 0.12s',
         }}
-        onFocus={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.28)')}
-        onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
+        onFocus={e => (e.currentTarget.style.borderColor = 'rgba(97,71,130,0.28)')}
+        onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(97,71,130,0.12)')}
       />
 
       {/* Duration chips */}
@@ -230,12 +230,12 @@ function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
             <span key={value} onClick={() => onChange({ ...qc, durationH: value })}
               style={{
                 fontSize: '11.5px', padding: '4px 9px', borderRadius: '6px', cursor: 'pointer',
-                background: active ? '#F2571E' : 'rgba(255,255,255,0.06)',
-                color: active ? '#24180A' : '#9C9486',
+                background: active ? '#7452A6' : 'rgba(97,71,130,0.06)',
+                color: active ? '#FFFFFF' : 'var(--c-text2)',
                 fontWeight: active ? 700 : 400, transition: 'background 0.1s, color 0.1s',
               }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.12)'; }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}>
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.12)'; }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.06)'; }}>
               {label}
             </span>
           );
@@ -244,13 +244,13 @@ function QuickCreateCard({ qc, onChange, onCancel, onSave, saving }: {
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
-        <button onClick={onCancel} style={{ flex: 1, padding: '7px', borderRadius: '7px', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#827A6D', fontFamily: SORA, fontSize: '12.5px', cursor: 'pointer', transition: 'background 0.13s, border-color 0.13s' }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}>
+        <button onClick={onCancel} style={{ flex: 1, padding: '7px', borderRadius: '7px', background: 'none', border: '1px solid rgba(97,71,130,0.1)', color: 'var(--c-text3)', fontFamily: SORA, fontSize: '12.5px', cursor: 'pointer', transition: 'background 0.13s, border-color 0.13s' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(97,71,130,0.06)'; e.currentTarget.style.borderColor = 'rgba(97,71,130,0.18)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(97,71,130,0.1)'; }}>
           Cancelar
         </button>
         <button onClick={onSave} disabled={saving || !qc.title.trim()}
-          style={{ flex: 2, padding: '7px', borderRadius: '7px', border: 'none', background: qc.title.trim() && !saving ? '#F2571E' : 'rgba(255,255,255,0.07)', color: qc.title.trim() && !saving ? '#24180A' : '#615846', fontFamily: SORA, fontWeight: 600, fontSize: '12.5px', cursor: qc.title.trim() && !saving ? 'pointer' : 'not-allowed', transition: 'background 0.15s, color 0.15s, filter 0.13s' }}
+          style={{ flex: 2, padding: '7px', borderRadius: '7px', border: 'none', background: qc.title.trim() && !saving ? '#7452A6' : 'rgba(97,71,130,0.07)', color: qc.title.trim() && !saving ? '#FFFFFF' : 'var(--c-text4)', fontFamily: SORA, fontWeight: 600, fontSize: '12.5px', cursor: qc.title.trim() && !saving ? 'pointer' : 'not-allowed', transition: 'background 0.15s, color 0.15s, filter 0.13s' }}
           onMouseEnter={e => { if (qc.title.trim() && !saving) e.currentTarget.style.filter = 'brightness(1.08)'; }}
           onMouseLeave={e => { e.currentTarget.style.filter = 'none'; }}>
           {saving ? 'Guardando…' : '+ Crear evento'}
@@ -309,15 +309,15 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
     <section style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* Day header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flexShrink: 0 }}>
-        <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: 'clamp(2.4rem,4vw,3rem)', lineHeight: 0.9, color: '#F2571E' }}>
+        <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: 'clamp(2.4rem,4vw,3rem)', lineHeight: 0.9, color: 'var(--c-accent-text)' }}>
           {date.getDate()}
         </span>
         <div style={{ paddingTop: '4px' }}>
-          <div style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2' }}>{DAYS_FULL[date.getDay()]}</div>
-          <div style={{ fontSize: '13px', color: '#827A6D', marginTop: '3px' }}>{MONTHS_ES[date.getMonth()]} {date.getFullYear()}</div>
-          <div style={{ fontSize: '12.5px', color: '#827A6D', marginTop: '1px' }}>
+          <div style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)' }}>{DAYS_FULL[date.getDay()]}</div>
+          <div style={{ fontSize: '13px', color: 'var(--c-text3)', marginTop: '3px' }}>{MONTHS_ES[date.getMonth()]} {date.getFullYear()}</div>
+          <div style={{ fontSize: '12.5px', color: 'var(--c-text3)', marginTop: '1px' }}>
             {eventsCount === 0 ? 'Sin eventos' : `${eventsCount} ${eventsCount === 1 ? 'evento' : 'eventos'}`}
-            {isToday && <span style={{ color: '#F2571E', marginLeft: '8px' }}>- Hoy</span>}
+            {isToday && <span style={{ color: 'var(--c-accent-text)', marginLeft: '8px' }}>- Hoy</span>}
           </div>
         </div>
       </div>
@@ -327,7 +327,7 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
         ref={scrollRef}
         className="dshScroll"
         onClick={handleGridClick}
-        style={{ flex: 1, position: 'relative', overflowY: 'auto', marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.06)', cursor: 'crosshair', paddingTop: '12px' }}
+        style={{ flex: 1, position: 'relative', overflowY: 'auto', marginTop: '20px', borderTop: '1px solid rgba(97,71,130,0.06)', cursor: 'crosshair', paddingTop: '12px' }}
       >
         {/* Inner fixed-height canvas */}
         <div style={{ position: 'relative', height: `${TOTAL_HRS * HOUR_PX}px` }}>
@@ -335,8 +335,8 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
           {/* Hour rows */}
           {hours.map(({ h, label, top }) => (
             <div key={h}>
-              <div style={{ position: 'absolute', left: '60px', right: 0, top: `${top}px`, borderTop: '1px solid rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', left: 0, top: `${top - 9}px`, fontSize: '11px', color: '#5C5447', userSelect: 'none', pointerEvents: 'none', width: '54px', textAlign: 'right', paddingRight: '8px' }}>
+              <div style={{ position: 'absolute', left: '60px', right: 0, top: `${top}px`, borderTop: '1px solid rgba(97,71,130,0.05)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', left: 0, top: `${top - 9}px`, fontSize: '11px', color: 'var(--c-text4)', userSelect: 'none', pointerEvents: 'none', width: '54px', textAlign: 'right', paddingRight: '8px' }}>
                 {label}
               </div>
             </div>
@@ -344,8 +344,8 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
 
           {/* Now line */}
           {isToday && nowTop >= 0 && (
-            <div data-event style={{ position: 'absolute', left: '60px', right: 0, top: `${nowTop}px`, borderTop: '1.5px solid #F2571E', zIndex: 3, pointerEvents: 'none' }}>
-              <span style={{ position: 'absolute', left: '-5px', top: '-5px', width: '9px', height: '9px', borderRadius: '50%', background: '#F2571E' }} />
+            <div data-event style={{ position: 'absolute', left: '60px', right: 0, top: `${nowTop}px`, borderTop: '1.5px solid #7452A6', zIndex: 3, pointerEvents: 'none' }}>
+              <span style={{ position: 'absolute', left: '-5px', top: '-5px', width: '9px', height: '9px', borderRadius: '50%', background: '#7452A6' }} />
             </div>
           )}
 
@@ -358,22 +358,22 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
                 onClick={e => { e.stopPropagation(); onEventClick(ev); }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.12)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#E8E1D2' }}>{ev.title}</div>
-                <div style={{ fontSize: '11px', color: '#8B8275', marginTop: '1px' }}>{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--c-text)' }}>{ev.title}</div>
+                <div style={{ fontSize: '11px', color: 'var(--c-text3)', marginTop: '1px' }}>{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}</div>
               </div>
             );
           })}
 
           {/* Due-date cards */}
           {dayCards.map((c, idx) => {
-            const color = c.priority === 'HIGH' ? '#E05252' : c.priority === 'MEDIUM' ? '#DB8A66' : '#76A878';
+            const color = c.priority === 'HIGH' ? '#B45C72' : c.priority === 'MEDIUM' ? '#A97556' : '#548B73';
             const topPx = Math.max(0, (9 + idx * 0.5 - START_HOUR) * HOUR_PX);
             return (
               <div key={c.id} data-event="true"
                 style={{ position: 'absolute', left: '68px', right: '8px', top: `${topPx}px`, height: `${HOUR_PX * 0.7}px`, borderRadius: '8px', background: `${color}14`, borderLeft: `3px solid ${color}`, padding: '5px 10px', cursor: 'pointer', overflow: 'hidden', zIndex: 2 }}
                 onClick={e => e.stopPropagation()}>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#E8E1D2' }}>{c.title}</div>
-                <div style={{ fontSize: '11px', color: '#8B8275', marginTop: '1px' }}>{c.boardName} - Fecha límite</div>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--c-text)' }}>{c.title}</div>
+                <div style={{ fontSize: '11px', color: 'var(--c-text3)', marginTop: '1px' }}>{c.boardName} - Fecha límite</div>
               </div>
             );
           })}
@@ -391,7 +391,7 @@ function DayView({ date, events, cards, quickCreate, onGridClick, onQcChange, on
 
           {/* Empty state */}
           {dayEvents.length === 0 && dayCards.length === 0 && !quickCreate && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '10px', color: '#615846', fontSize: '13px', pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '10px', color: 'var(--c-text4)', fontSize: '13px', pointerEvents: 'none' }}>
               <span style={{ fontSize: '26px', opacity: 0.25 }}>◎</span>
               Día libre — haz clic para añadir un evento
             </div>
@@ -415,7 +415,7 @@ function WeekView({ selectedDate, events, cards, onSelectDay, onEventClick }: {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* Header */}
-      <div style={{ display: 'grid', gridTemplateColumns: `56px repeat(7,1fr)`, flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `56px repeat(7,1fr)`, flexShrink: 0, borderBottom: '1px solid rgba(97,71,130,0.06)' }}>
         <div />
         {weekDays.map(d => {
           const isToday = sameDay(d, today), isSel = sameDay(d, selectedDate);
@@ -423,8 +423,8 @@ function WeekView({ selectedDate, events, cards, onSelectDay, onEventClick }: {
             <div key={toKey(d)} onClick={() => onSelectDay(d)} style={{ textAlign: 'center', padding: '10px 4px', cursor: 'pointer', transition: 'opacity 0.14s' }}
               onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.8')}
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}>
-              <div style={{ fontSize: '11px', color: '#615846', fontFamily: SORA, fontWeight: 600 }}>{DAYS_UPPER[d.getDay()]}</div>
-              <span style={{ display: 'inline-flex', width: '30px', height: '30px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', marginTop: '4px', background: isSel ? '#F2571E' : 'transparent', color: isSel ? '#24180A' : isToday ? '#F2571E' : '#E8E1D2', fontWeight: isSel || isToday ? 700 : 400, fontSize: '14px', fontFamily: SORA, transition: 'background 0.18s, color 0.18s' }}>
+              <div style={{ fontSize: '11px', color: 'var(--c-text4)', fontFamily: SORA, fontWeight: 600 }}>{DAYS_UPPER[d.getDay()]}</div>
+              <span style={{ display: 'inline-flex', width: '30px', height: '30px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', marginTop: '4px', background: isSel ? '#7452A6' : 'transparent', color: isSel ? '#FFFFFF' : isToday ? '#7452A6' : 'var(--c-text)', fontWeight: isSel || isToday ? 700 : 400, fontSize: '14px', fontFamily: SORA, transition: 'background 0.18s, color 0.18s' }}>
                 {d.getDate()}
               </span>
             </div>
@@ -439,8 +439,8 @@ function WeekView({ selectedDate, events, cards, onSelectDay, onEventClick }: {
             const h = START_HOUR + i;
             return (
               <div key={h}>
-                <div style={{ position: 'absolute', left: '56px', right: 0, top: `${i*HOUR_PX}px`, borderTop: '1px solid rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
-                <div style={{ position: 'absolute', left: 0, top: `${i*HOUR_PX-9}px`, fontSize: '11px', color: '#5C5447', userSelect: 'none', width: '52px', textAlign: 'right', paddingRight: '6px' }}>{h}:00</div>
+                <div style={{ position: 'absolute', left: '56px', right: 0, top: `${i*HOUR_PX}px`, borderTop: '1px solid rgba(97,71,130,0.05)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', left: 0, top: `${i*HOUR_PX-9}px`, fontSize: '11px', color: 'var(--c-text4)', userSelect: 'none', width: '52px', textAlign: 'right', paddingRight: '6px' }}>{h}:00</div>
               </div>
             );
           })}
@@ -458,15 +458,15 @@ function WeekView({ selectedDate, events, cards, onSelectDay, onEventClick }: {
                       onClick={() => onEventClick(ev)}
                       onMouseEnter={e => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.1)')}
                       onMouseLeave={e => ((e.currentTarget as HTMLElement).style.filter = 'none')}>
-                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#E8E1D2' }}>{ev.title}</div>
+                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--c-text)' }}>{ev.title}</div>
                     </div>
                   );
                 })}
                 {dayCards.map((c, i) => {
-                  const color = c.priority === 'HIGH' ? '#E05252' : c.priority === 'MEDIUM' ? '#DB8A66' : '#76A878';
+                  const color = c.priority === 'HIGH' ? '#B45C72' : c.priority === 'MEDIUM' ? '#A97556' : '#548B73';
                   return (
                     <div key={c.id} style={{ position: 'absolute', left: colL, width: colW, top: `${(9+i*0.5-START_HOUR)*HOUR_PX}px`, height: `${HOUR_PX*0.7}px`, borderRadius: '6px', background: `${color}14`, borderLeft: `3px solid ${color}`, padding: '3px 6px', overflow: 'hidden', cursor: 'pointer', zIndex: 2 }}>
-                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#E8E1D2' }}>{c.title}</div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--c-text)' }}>{c.title}</div>
                     </div>
                   );
                 })}
@@ -491,7 +491,7 @@ function MonthView({ year, month, selectedDate, events, cards, onSelectDay }: {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px', marginBottom: '8px', flexShrink: 0 }}>
-        {DAYS_SHORT.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, color: '#615846', padding: '4px 0', fontFamily: SORA }}>{d}</div>)}
+        {DAYS_SHORT.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, color: 'var(--c-text4)', padding: '4px 0', fontFamily: SORA }}>{d}</div>)}
       </div>
       <div className="dshScroll" style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px' }}>
@@ -505,13 +505,13 @@ function MonthView({ year, month, selectedDate, events, cards, onSelectDay }: {
             const total  = dayEvs.length + dayCs.length;
             return (
               <div key={key} onClick={() => onSelectDay(d)}
-                style={{ minHeight: '80px', padding: '8px', borderRadius: '8px', cursor: 'pointer', border: isSel ? '1px solid rgba(242,87,30,0.4)' : '1px solid rgba(255,255,255,0.04)', background: isSel ? 'rgba(242,87,30,0.06)' : 'rgba(255,255,255,0.01)', transition: 'background 0.14s, border-color 0.14s' }}
-                onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; }}
-                onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.01)'; }}>
-                <span style={{ display: 'inline-flex', width: '24px', height: '24px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: isToday && !isSel ? '#F2571E' : 'transparent', color: isToday && !isSel ? '#24180A' : isSel ? '#F2571E' : '#9C9486', fontSize: '12.5px', fontWeight: isToday || isSel ? 700 : 400 }}>{day}</span>
-                {dayEvs.slice(0, 2).map(ev => { const c = hashColor(ev.id); return <div key={ev.id} style={{ marginTop: '3px', padding: '1px 5px', borderRadius: '3px', background: `${c}20`, borderLeft: `2px solid ${c}`, fontSize: '10px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>; })}
-                {dayCs.slice(0, total > 2 ? 1 : 2).map(c => { const col = c.priority === 'HIGH' ? '#E05252' : c.priority === 'MEDIUM' ? '#DB8A66' : '#76A878'; return <div key={c.id} style={{ marginTop: '2px', padding: '1px 5px', borderRadius: '3px', background: `${col}16`, borderLeft: `2px solid ${col}`, fontSize: '10px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>; })}
-                {total > 3 && <div style={{ marginTop: '2px', fontSize: '10px', color: '#615846' }}>+{total - 3} más</div>}
+                style={{ minHeight: '80px', padding: '8px', borderRadius: '8px', cursor: 'pointer', border: isSel ? '1px solid rgba(116,82,166,0.4)' : '1px solid rgba(97,71,130,0.04)', background: isSel ? 'rgba(116,82,166,0.06)' : 'rgba(97,71,130,0.01)', transition: 'background 0.14s, border-color 0.14s' }}
+                onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.05)'; }}
+                onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.01)'; }}>
+                <span style={{ display: 'inline-flex', width: '24px', height: '24px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: isToday && !isSel ? '#7452A6' : 'transparent', color: isToday && !isSel ? '#FFFFFF' : isSel ? '#7452A6' : 'var(--c-text2)', fontSize: '12.5px', fontWeight: isToday || isSel ? 700 : 400 }}>{day}</span>
+                {dayEvs.slice(0, 2).map(ev => { const c = hashColor(ev.id); return <div key={ev.id} style={{ marginTop: '3px', padding: '1px 5px', borderRadius: '3px', background: `${c}20`, borderLeft: `2px solid ${c}`, fontSize: '10px', color: 'var(--c-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>; })}
+                {dayCs.slice(0, total > 2 ? 1 : 2).map(c => { const col = c.priority === 'HIGH' ? '#B45C72' : c.priority === 'MEDIUM' ? '#A97556' : '#548B73'; return <div key={c.id} style={{ marginTop: '2px', padding: '1px 5px', borderRadius: '3px', background: `${col}16`, borderLeft: `2px solid ${col}`, fontSize: '10px', color: 'var(--c-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>; })}
+                {total > 3 && <div style={{ marginTop: '2px', fontSize: '10px', color: 'var(--c-text4)' }}>+{total - 3} más</div>}
               </div>
             );
           })}
@@ -526,8 +526,8 @@ function MonthView({ year, month, selectedDate, events, cards, onSelectDay }: {
 function DetailRow({ icon, text, muted }: { icon: React.ReactNode; text: string; muted?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-      <span style={{ color: '#5C5447', flexShrink: 0, marginTop: '1px', lineHeight: 0 }}>{icon}</span>
-      <span style={{ fontSize: '13.5px', color: muted ? '#827A6D' : '#C8C0B1', lineHeight: 1.55, wordBreak: 'break-word' }}>{text}</span>
+      <span style={{ color: 'var(--c-text4)', flexShrink: 0, marginTop: '1px', lineHeight: 0 }}>{icon}</span>
+      <span style={{ fontSize: '13.5px', color: muted ? 'var(--c-text3)' : '#C8C0B1', lineHeight: 1.55, wordBreak: 'break-word' }}>{text}</span>
     </div>
   );
 }
@@ -559,7 +559,7 @@ function EventDetailModal({ event, onClose, onDelete }: {
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: '#13171D', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.6)', width: '400px', maxWidth: 'calc(100vw - 32px)', overflow: 'hidden', animation: 'qcIn 0.22s cubic-bezier(0.16,1,0.3,1)', transformOrigin: 'center' }}
+        style={{ background: '#13171D', borderRadius: '16px', border: '1px solid rgba(97,71,130,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.6)', width: '400px', maxWidth: 'calc(100vw - 32px)', overflow: 'hidden', animation: 'qcIn 0.22s cubic-bezier(0.16,1,0.3,1)', transformOrigin: 'center' }}
       >
         {/* Color bar */}
         <div style={{ height: '4px', background: color }} />
@@ -570,13 +570,13 @@ function EventDetailModal({ event, onClose, onDelete }: {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '2px' }}>
                 <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#615846', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: SORA }}>{typeLabel}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: SORA }}>{typeLabel}</span>
               </div>
-              <h2 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '19px', color: '#E8E1D2', margin: 0, lineHeight: 1.2 }}>{event.title}</h2>
+              <h2 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '19px', color: 'var(--c-text)', margin: 0, lineHeight: 1.2 }}>{event.title}</h2>
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#5C5447', cursor: 'pointer', padding: '2px', lineHeight: 0, flexShrink: 0, marginTop: '2px', transition: 'color 0.13s' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#9C9486')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#5C5447')}>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--c-text4)', cursor: 'pointer', padding: '2px', lineHeight: 0, flexShrink: 0, marginTop: '2px', transition: 'color 0.13s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--c-text2)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--c-text4)')}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
             </button>
           </div>
@@ -604,7 +604,7 @@ function EventDetailModal({ event, onClose, onDelete }: {
           <button
             onClick={handleDelete}
             disabled={deleting}
-            style={{ marginTop: '22px', width: '100%', padding: '10px 0', borderRadius: '9px', border: '1px solid rgba(224,82,82,0.32)', background: 'rgba(224,82,82,0.07)', color: deleting ? '#7A4040' : '#E05252', fontFamily: SORA, fontWeight: 600, fontSize: '13.5px', cursor: deleting ? 'not-allowed' : 'pointer', transition: 'background 0.14s, border-color 0.14s, color 0.14s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}
+            style={{ marginTop: '22px', width: '100%', padding: '10px 0', borderRadius: '9px', border: '1px solid rgba(224,82,82,0.32)', background: 'rgba(224,82,82,0.07)', color: deleting ? '#7A4040' : '#B45C72', fontFamily: SORA, fontWeight: 600, fontSize: '13.5px', cursor: deleting ? 'not-allowed' : 'pointer', transition: 'background 0.14s, border-color 0.14s, color 0.14s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}
             onMouseEnter={e => { if (!deleting) { e.currentTarget.style.background = 'rgba(224,82,82,0.15)'; e.currentTarget.style.borderColor = 'rgba(224,82,82,0.5)'; }}}
             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(224,82,82,0.07)'; e.currentTarget.style.borderColor = 'rgba(224,82,82,0.32)'; }}
           >
@@ -687,7 +687,7 @@ export default function CalendarPage() {
         startTime: startISO,
         endTime:   endISO,
         type:      'personal',
-        color:     '#F2571E',
+        color:     'var(--c-accent-text)',
       });
       if (result) {
         fetchEvents();
@@ -725,7 +725,7 @@ export default function CalendarPage() {
       if (!c.dueDate) continue;
       const d = new Date(c.dueDate);
       if (d >= now && d <= limit) {
-        const color = c.priority === 'HIGH' ? '#E05252' : c.priority === 'MEDIUM' ? '#DB8A66' : '#76A878';
+        const color = c.priority === 'HIGH' ? '#B45C72' : c.priority === 'MEDIUM' ? '#A97556' : '#548B73';
         upcoming.push({ key: c.id, day: DAYS_UPPER[d.getDay()], color, title: c.title, time: 'Límite' });
       }
     }
@@ -756,7 +756,7 @@ export default function CalendarPage() {
           transition: background 0.15s;
         }
         .cal-circle-btn:hover {
-          background: rgba(255,255,255,0.07) !important;
+          background: rgba(97,71,130,0.07) !important;
         }
       `}</style>
 
@@ -771,39 +771,39 @@ export default function CalendarPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexShrink: 0, paddingBottom: '16px' }}>
 
         {/* View switcher */}
-        <div style={{ display: 'flex', gap: '2px', padding: '3px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', gap: '2px', padding: '3px', borderRadius: '8px', background: 'rgba(97,71,130,0.05)' }}>
           {(['dia','semana','mes'] as ViewType[]).map(key => (
             <span key={key} onClick={() => setView(key)}
-              style={{ padding: '6px 15px', borderRadius: '8px', fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: view === key ? '#24180A' : '#8B8275', background: view === key ? '#F2571E' : 'transparent', cursor: 'pointer', transition: 'background 0.18s, color 0.18s' }}>
+              style={{ padding: '6px 15px', borderRadius: '8px', fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: view === key ? '#FFFFFF' : 'var(--c-text3)', background: view === key ? '#7452A6' : 'transparent', cursor: 'pointer', transition: 'background 0.18s, color 0.18s' }}>
               {key === 'dia' ? 'Día' : key === 'semana' ? 'Semana' : 'Mes'}
             </span>
           ))}
         </div>
 
         {/* Date label */}
-        <span style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 600, color: '#E8E1D2', flex: 1, textAlign: 'center' }}>
+        <span style={{ fontFamily: SORA, fontSize: '14px', fontWeight: 600, color: 'var(--c-text)', flex: 1, textAlign: 'center' }}>
           {headerLabel}
         </span>
 
         {/* Nav + create */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <CircleBtn onClick={() => navigate(-1)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="#9C9486" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="var(--c-text2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </CircleBtn>
           <span onClick={goToday}
-            style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: '#D8D0C1', cursor: 'pointer', transition: 'background 0.14s' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
+            style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid rgba(97,71,130,0.1)', fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: 'var(--c-text2)', cursor: 'pointer', transition: 'background 0.14s' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.06)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
             Hoy
           </span>
           <CircleBtn onClick={() => navigate(1)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#9C9486" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="var(--c-text2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </CircleBtn>
           <button onClick={() => { setModalHour(undefined); setShowModal(true); }}
-            style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 15px', borderRadius: '8px', border: 'none', background: '#F2571E', color: '#24180A', fontFamily: SORA, fontWeight: 600, fontSize: '13px', cursor: 'pointer', transition: 'filter 0.14s, transform 0.14s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 15px', borderRadius: '8px', border: 'none', background: '#7452A6', color: '#FFFFFF', fontFamily: SORA, fontWeight: 600, fontSize: '13px', cursor: 'pointer', transition: 'filter 0.14s, transform 0.14s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round"/></svg>
             Nuevo evento
           </button>
         </div>
@@ -853,19 +853,19 @@ export default function CalendarPage() {
           />
 
           <div>
-            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: '#615846', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 10px' }}>Próximos</h2>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '13px', color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 10px' }}>Próximos</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {agenda.length > 0 ? agenda.map(e => (
                 <div key={e.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.12s' }}
-                  onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)')}
+                  onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)')}
                   onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.background = 'transparent')}>
-                  <span style={{ fontFamily: SORA, fontSize: '11px', fontWeight: 700, color: '#827A6D', width: '32px', flexShrink: 0 }}>{e.day}</span>
+                  <span style={{ fontFamily: SORA, fontSize: '11px', fontWeight: 700, color: 'var(--c-text3)', width: '32px', flexShrink: 0 }}>{e.day}</span>
                   <span style={{ width: '3px', height: '24px', borderRadius: '8px', background: e.color, flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: '13px', color: '#D8D0C1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
-                  <span style={{ fontSize: '11.5px', color: '#827A6D', flexShrink: 0 }}>{e.time}</span>
+                  <span style={{ flex: 1, fontSize: '13px', color: 'var(--c-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
+                  <span style={{ fontSize: '11.5px', color: 'var(--c-text3)', flexShrink: 0 }}>{e.time}</span>
                 </div>
               )) : (
-                <div style={{ padding: '14px 10px', fontSize: '13px', color: '#615846' }}>Sin eventos próximos</div>
+                <div style={{ padding: '14px 10px', fontSize: '13px', color: 'var(--c-text4)' }}>Sin eventos próximos</div>
               )}
             </div>
           </div>

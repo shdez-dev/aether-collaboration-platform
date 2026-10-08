@@ -13,7 +13,7 @@
 .assigned-labels-section {
   flex-shrink: 0;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #2e3440;
+  border-bottom: 1px solid var(--c-border);
   max-height: 30%;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -87,24 +87,24 @@
 .label-search-input {
   width: 100%;
   padding: 0.5rem 0.625rem;
-  background: #242933;
-  border: 1px solid #2e3440;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   transition: all 0.12s ease;
   flex-shrink: 0;
 }
 
 .label-search-input:focus {
   outline: none;
-  border-color: #5e81ac;
-  background: #282e38;
+  border-color: #7452A6;
+  background: var(--c-surface2);
 }
 
 .label-search-input::placeholder {
-  color: #616e88;
+  color: var(--c-text3);
 }
 
 /* ========== ÁREA DE CONTENIDO ========== */
@@ -145,7 +145,7 @@
   gap: 0.625rem;
   padding: 0.5rem 0.625rem;
   background: transparent;
-  border: 1px solid #2e3440;
+  border: 1px solid var(--c-border);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.12s ease;
@@ -153,8 +153,8 @@
 }
 
 .label-item:hover {
-  background: #242933;
-  border-color: #3b4252;
+  background: var(--c-surface2);
+  border-color: var(--c-border2);
 }
 
 /* Mini badge con 3 letras */
@@ -177,7 +177,7 @@
   text-align: left;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -186,7 +186,7 @@
 .label-checkbox {
   width: 1.125rem;
   height: 1.125rem;
-  border: 1px solid #3b4252;
+  border: 1px solid var(--c-border2);
   border-radius: 3px;
   display: flex;
   align-items: center;
@@ -196,12 +196,12 @@
 }
 
 .label-checkbox-checked {
-  background: #5e81ac;
-  border-color: #5e81ac;
+  background: #7452A6;
+  border-color: #7452A6;
 }
 
 .label-checkbox-checked span {
-  color: #eceff4;
+  color: var(--c-text);
   font-size: 0.75rem;
   font-weight: bold;
 }
@@ -220,7 +220,7 @@
 .empty-state p {
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #616e88;
+  color: var(--c-text3);
 }
 
 /* ========== BOTÓN CREAR NUEVA ETIQUETA ========== */
@@ -228,11 +228,11 @@
   width: 100%;
   padding: 0.5rem;
   background: transparent;
-  border: 1px dashed #3b4252;
+  border: 1px dashed var(--c-border2);
   border-radius: 4px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #81a1c1;
+  color: #8262B2;
   cursor: pointer;
   transition: all 0.12s ease;
   display: flex;
@@ -244,9 +244,9 @@
 }
 
 .btn-new-label:hover {
-  background: #242933;
-  border-color: #5e81ac;
-  color: #5e81ac;
+  background: var(--c-surface2);
+  border-color: #7452A6;
+  color: #7452A6;
 }
 
 .btn-new-label span {
@@ -289,7 +289,7 @@
   display: block;
   font-size: 0.688rem;
   font-family: 'Courier New', monospace;
-  color: #81a1c1;
+  color: #8262B2;
   margin-bottom: 0.375rem;
   font-weight: 600;
 }
@@ -297,19 +297,19 @@
 .label-name-input {
   width: 100%;
   padding: 0.5rem 0.625rem;
-  background: #242933;
-  border: 1px solid #2e3440;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
-  color: #d8dee9;
+  color: var(--c-text2);
   transition: all 0.12s ease;
 }
 
 .label-name-input:focus {
   outline: none;
-  border-color: #5e81ac;
-  background: #282e38;
+  border-color: #7452A6;
+  background: var(--c-surface2);
 }
 
 /* ========== GRID DE COLORES (estilo Asana) ========== */
@@ -374,22 +374,22 @@
 
 .btn-cancel-create {
   background: transparent;
-  border: 1px solid #3b4252;
-  color: #d8dee9;
+  border: 1px solid var(--c-border2);
+  color: var(--c-text2);
 }
 
 .btn-cancel-create:hover {
-  background: #242933;
-  border-color: #434c5e;
+  background: var(--c-surface2);
+  border-color: #C8B6D8;
 }
 
 .btn-create-label {
-  background: #5e81ac;
-  color: #eceff4;
+  background: #7452A6;
+  color: var(--c-text);
 }
 
 .btn-create-label:hover:not(:disabled) {
-  background: #81a1c1;
+  background: #8262B2;
 }
 
 .btn-create-label:disabled {

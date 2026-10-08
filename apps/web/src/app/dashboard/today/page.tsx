@@ -33,10 +33,10 @@ const TODO_LS_KEY = 'aether-today-todos';
 const TODO_TTL_MS = 24 * 60 * 60 * 1000;
 
 const PRIORITY_COLORS: Record<string, string> = {
-  HIGH: '#E05252', MEDIUM: '#DB8A66', LOW: '#76A878',
+  HIGH: '#B45C72', MEDIUM: '#A97556', LOW: '#548B73',
 };
 
-const WS_PALETTE = ['#4B607F', '#76A878', '#DB8A66', '#8C7C9E', '#F2571E', '#5B8FA8'];
+const WS_PALETTE = ['#8076A7', '#548B73', '#A97556', '#8262B2', '#7452A6', '#7D91B1'];
 function hashColor(str: string): string {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
@@ -69,35 +69,35 @@ function TaskItem({ title, project, dotColor, done, time, isOverdue, onToggle, o
       style={{
         display: 'flex', alignItems: 'center', gap: '13px',
         padding: '13px 14px', borderRadius: '8px', cursor: 'pointer',
-        background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
+        background: hov ? 'rgba(97,71,130,0.03)' : 'transparent',
       }}
     >
       <span
         onClick={e => { e.stopPropagation(); onToggle(); }}
         style={{
           width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
-          background: done ? '#76A878' : 'transparent',
-          border: done ? '2px solid #76A878' : '1.8px solid #3F3930',
+          background: done ? '#548B73' : 'transparent',
+          border: done ? '2px solid #548B73' : '1.8px solid #3F3930',
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}
       >
         {done && (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-            <path d="M5 13l4 4L19 7" stroke="#24180A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M5 13l4 4L19 7" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         )}
       </span>
-      <span style={{ width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0, background: dotColor ?? '#615846' }} />
+      <span style={{ width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0, background: dotColor ?? 'var(--c-text4)' }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '14.5px', color: done ? '#615846' : '#D8D0C1', textDecoration: done ? 'line-through' : 'none' }}>
+        <div style={{ fontSize: '14.5px', color: done ? 'var(--c-text4)' : 'var(--c-text2)', textDecoration: done ? 'line-through' : 'none' }}>
           {title}
         </div>
-        {project && <div style={{ fontSize: '12px', color: '#827A6D', marginTop: '2px' }}>{project}</div>}
+        {project && <div style={{ fontSize: '12px', color: 'var(--c-text3)', marginTop: '2px' }}>{project}</div>}
       </div>
       {time && (
         <span style={{
-          fontSize: '12px', color: isOverdue ? '#E05252' : '#8B8275',
-          background: 'rgba(255,255,255,0.05)', padding: '3px 9px', borderRadius: '8px', flexShrink: 0,
+          fontSize: '12px', color: isOverdue ? '#B45C72' : 'var(--c-text3)',
+          background: 'rgba(97,71,130,0.05)', padding: '3px 9px', borderRadius: '8px', flexShrink: 0,
         }}>
           {time}
         </span>
@@ -205,11 +205,11 @@ export default function TodayPage() {
           <h1 style={{
             fontFamily: SORA, fontWeight: 700,
             fontSize: 'clamp(1.7rem,3vw,2.2rem)',
-            letterSpacing: '-0.02em', color: '#F4EEE2', margin: 0,
+            letterSpacing: '-0.02em', color: 'var(--c-text)', margin: 0,
           }}>
             Para hoy
           </h1>
-          <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: '#9C9486' }}>
+          <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: 'var(--c-text2)' }}>
             {todayDate()}
           </p>
         </div>
@@ -218,14 +218,14 @@ export default function TodayPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '11px 18px', borderRadius: '8px', border: 'none',
-            background: '#F2571E', color: '#24180A',
+            background: '#7452A6', color: '#FFFFFF',
             fontFamily: SORA, fontWeight: 600, fontSize: '14px', cursor: 'pointer',
           }}
           onMouseEnter={e => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)')}
           onMouseLeave={e => ((e.currentTarget as HTMLElement).style.filter = 'none')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="#24180A" strokeWidth="2.2" strokeLinecap="round"/>
+            <path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round"/>
           </svg>
           Nueva tarea
         </button>
@@ -235,11 +235,11 @@ export default function TodayPage() {
       <div style={{
         display: 'flex', alignItems: 'center', gap: '12px',
         marginTop: '24px', padding: '4px 4px 4px 18px', borderRadius: '8px',
-        border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(97,71,130,0.09)', background: 'rgba(97,71,130,0.03)',
         maxWidth: '680px',
       }}>
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-          <path d="M12 5v14M5 12h14" stroke="#F2571E" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M12 5v14M5 12h14" stroke="#7452A6" strokeWidth="2" strokeLinecap="round"/>
         </svg>
         <input
           ref={quickRef}
@@ -250,13 +250,13 @@ export default function TodayPage() {
           placeholder="Añade una tarea y pulsa Enter"
           style={{
             flex: 1, minWidth: 0, padding: '13px 0', border: 'none',
-            background: 'transparent', color: '#E8E1D2',
+            background: 'transparent', color: 'var(--c-text)',
             fontFamily: MANROPE, fontSize: '15.5px', outline: 'none',
           }}
         />
         <span style={{
-          fontSize: '11.5px', color: '#5C5447',
-          border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
+          fontSize: '11.5px', color: 'var(--c-text4)',
+          border: '1px solid rgba(97,71,130,0.1)', borderRadius: '8px',
           padding: '3px 8px', marginRight: '10px',
         }}>
           Enter
@@ -268,8 +268,8 @@ export default function TodayPage() {
 
         {/* "Hoy" section */}
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: 0 }}>Hoy</h2>
-          <span style={{ fontSize: '13px', color: '#827A6D' }}>{pendingLabel}</span>
+          <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: 0 }}>Hoy</h2>
+          <span style={{ fontSize: '13px', color: 'var(--c-text3)' }}>{pendingLabel}</span>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -278,7 +278,7 @@ export default function TodayPage() {
               key={`ov-${c.id}`}
               title={c.title}
               project={`${c.boardName} - ${c.workspaceName}`}
-              dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? '#E05252'}
+              dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? '#B45C72'}
               done={c.completed}
               time="Vencida"
               isOverdue
@@ -302,7 +302,7 @@ export default function TodayPage() {
             <TaskItem
               key={`td-todo-${item.id}`}
               title={item.text}
-              dotColor="#9C9486"
+              dotColor="var(--c-text2)"
               done={false}
               onToggle={() => toggleTodo(item.id)}
             />
@@ -311,18 +311,18 @@ export default function TodayPage() {
             <TaskItem
               key={`done-${item.id}`}
               title={item.text}
-              dotColor="#76A878"
+              dotColor="#548B73"
               done
               onToggle={() => toggleTodo(item.id)}
             />
           ))}
           {cardsLoading && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-              <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#F2571E', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid rgba(97,71,130,0.1)', borderTopColor: 'var(--c-accent-text)', animation: 'spin 0.8s linear infinite' }} />
             </div>
           )}
           {!cardsLoading && totalToday === 0 && (
-            <div style={{ padding: '32px 14px', textAlign: 'center', color: '#615846', fontSize: '14px' }}>
+            <div style={{ padding: '32px 14px', textAlign: 'center', color: 'var(--c-text4)', fontSize: '14px' }}>
               Sin tareas para hoy — usa el campo de arriba para añadir una.
             </div>
           )}
@@ -331,7 +331,7 @@ export default function TodayPage() {
         {/* "Próximas" section */}
         {cards.upcoming.length > 0 && (
           <>
-            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: '#E8E1D2', margin: '28px 0 10px' }}>
+            <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: '28px 0 10px' }}>
               Próximas
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>

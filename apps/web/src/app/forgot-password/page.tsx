@@ -72,14 +72,14 @@ export default function ForgotPasswordPage() {
               margin: '0 auto 24px',
             }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12l4 4 10-9" stroke="#76A878" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M5 12l4 4 10-9" stroke="#548B73" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
 
-            <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '24px', letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 10px' }}>
+            <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '24px', letterSpacing: '-0.025em', color: 'var(--c-text)', margin: '0 0 10px' }}>
               {t.forgot_success_title}
             </h1>
-            <p style={{ fontFamily: MANROPE, fontSize: '14px', lineHeight: 1.65, color: '#9C9486', margin: '0 0 32px' }}>
+            <p style={{ fontFamily: MANROPE, fontSize: '14px', lineHeight: 1.65, color: 'var(--c-text2)', margin: '0 0 32px' }}>
               {t.forgot_success_desc}
             </p>
 
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
               onClick={() => router.push('/login')}
               style={{
                 width: '100%', padding: '13px', borderRadius: '9px', border: 'none',
-                background: '#F2571E', color: '#1A0B03',
+                background: '#7452A6', color: '#1A0B03',
                 fontFamily: SORA, fontWeight: 700, fontSize: '14px', cursor: 'pointer',
                 transition: 'filter 0.15s',
               }}
@@ -111,11 +111,11 @@ export default function ForgotPasswordPage() {
           {/* Back */}
           <Link href="/login" style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
-            fontFamily: MANROPE, fontSize: '13px', color: '#615846',
+            fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text4)',
             textDecoration: 'none', marginBottom: '36px',
           }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9C9486')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#615846')}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text2)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'var(--c-text4)')}
           >
             ← {t.login_btn_back_to_login}
           </Link>
@@ -124,26 +124,26 @@ export default function ForgotPasswordPage() {
           <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '28px' }}>
             <span style={{
               width: '34px', height: '34px', borderRadius: '10px',
-              background: '#F2571E', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 14px -4px rgba(242,87,30,0.6)',
+              background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 14px -4px rgba(116,82,166,0.6)',
             }}>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-                <path d="M12 4.5L5.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M12 4.5L18.5 19.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#F8F1E3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12" cy="4.5" r="2.2" fill="#F8F1E3"/>
-                <circle cx="5.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
-                <circle cx="18.5" cy="19.5" r="2.2" fill="#F8F1E3"/>
+                <path d="M12 4.5L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 4.5L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
+                <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
+                <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
               </svg>
             </span>
-            <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: '#ECE5D6', letterSpacing: '-0.015em' }}>Aether</span>
+            <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
           </Link>
 
           {/* Header */}
-          <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '28px', letterSpacing: '-0.025em', color: '#F4EEE2', margin: '0 0 8px' }}>
+          <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '28px', letterSpacing: '-0.025em', color: 'var(--c-text)', margin: '0 0 8px' }}>
             {t.forgot_title}
           </h1>
-          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: '#9C9486', margin: '0 0 32px' }}>
+          <p style={{ fontFamily: MANROPE, fontSize: '14px', color: 'var(--c-text2)', margin: '0 0 32px' }}>
             {t.forgot_subtitle}
           </p>
 
@@ -152,7 +152,7 @@ export default function ForgotPasswordPage() {
             <div style={{ marginBottom: '20px' }}>
               <label htmlFor="email" style={{
                 display: 'block', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9C9486', marginBottom: '8px',
+                textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--c-text2)', marginBottom: '8px',
               }}>
                 {t.forgot_label_email}
               </label>
@@ -185,7 +185,7 @@ export default function ForgotPasswordPage() {
               disabled={isLoading}
               style={{
                 width: '100%', padding: '13px', borderRadius: '9px', border: 'none',
-                background: isLoading ? 'rgba(242,87,30,0.6)' : '#F2571E',
+                background: isLoading ? 'rgba(116,82,166,0.6)' : '#7452A6',
                 color: '#1A0B03', fontFamily: SORA, fontWeight: 700, fontSize: '14px',
                 cursor: isLoading ? 'not-allowed' : 'pointer', transition: 'filter 0.15s',
               }}

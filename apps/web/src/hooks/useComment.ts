@@ -6,9 +6,10 @@ import {
   selectCommentsByCard,
   selectCommentCount,
   selectIsLoading,
+  selectError,
 } from '@/stores/commentStore';
 import { socketService } from '@/services/socketService';
-import type { Event } from '@aether/types';
+import type { Event, CommentDocumentReference } from '@aether/types';
 import { toast } from 'sonner';
 
 /**
@@ -19,6 +20,7 @@ export function useComments(cardId: string) {
   const comments = useCommentStore(selectCommentsByCard(cardId));
   const count = useCommentStore(selectCommentCount(cardId));
   const isLoading = useCommentStore(selectIsLoading(cardId));
+  const loadError = useCommentStore(selectError(cardId));
   const isCreating = useCommentStore(selectIsLoading(`create-${cardId}`));
 
   const fetchComments = useCommentStore((state) => state.fetchCommentsByCard);
@@ -102,14 +104,14 @@ export function useComments(cardId: string) {
    * Crear un nuevo comentario
    */
   const handleCreateComment = useCallback(
-    async (content: string, mentions?: string[]) => {
+    async (content: string, mentions?: string[], documentReference?: Pick<CommentDocumentReference, 'documentId' | 'from' | 'to' | 'quote'>) => {
       if (!content.trim()) {
         toast.error('El comentario no puede estar vacío');
         return null;
       }
 
       try {
-        const newComment = await createComment(cardId, content.trim(), mentions);
+        const newComment = await createComment(cardId, content.trim(), mentions, documentReference);
 
         if (newComment) {
           toast.success('Comentario agregado');
@@ -141,6 +143,7 @@ export function useComments(cardId: string) {
       } catch (error: any) {
         const errorMessage = error.message || error.toString() || 'Error al actualizar comentario';
         toast.error(errorMessage);
+        throw error;
       }
     },
     [updateComment]
@@ -176,6 +179,7 @@ export function useComments(cardId: string) {
 
     // Loading states
     isLoading,
+    loadError,
     isCreating,
 
     // Actions

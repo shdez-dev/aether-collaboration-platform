@@ -110,10 +110,18 @@ export type ProjectEventType =
   | 'project.updated'
   | 'project.deleted'
   | 'project.status.changed'
+  | 'project.workflow.changed'
   | 'project.board.linked'
   | 'project.board.unlinked'
   | 'project.milestone.created'
-  | 'project.milestone.completed';
+  | 'project.milestone.completed'
+  | 'project.milestone.missed'
+  | 'project.milestone.updated'
+  | 'project.milestone.deleted'
+  | 'project.team.assigned'
+  | 'project.team.removed'
+  | 'project.member.added'
+  | 'project.member.removed';
 
 export type SprintEventType =
   | 'sprint.created'

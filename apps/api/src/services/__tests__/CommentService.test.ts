@@ -6,12 +6,14 @@ import { eventStore } from '../EventStoreService';
 import { notificationService } from '../NotificationService';
 import { CardService } from '../CardService';
 import { pool } from '../../lib/db';
+import { documentService } from '../DocumentService';
 
 jest.mock('../../repositories/CommentRepository');
 jest.mock('../EventStoreService');
 jest.mock('../NotificationService');
 jest.mock('../CardService');
 jest.mock('../../lib/db');
+jest.mock('../DocumentService');
 
 describe('CommentService', () => {
   let commentService: CommentService;
@@ -66,6 +68,7 @@ describe('CommentService', () => {
 
       mockCommentRepository.create.mockResolvedValue(mockComment);
       mockCommentRepository.findById.mockResolvedValue(mockCommentWithUser);
+      jest.spyOn(commentService, 'getMentionCandidates').mockResolvedValue([{ id: 'user-456', name: 'Mentioned User', email: 'mentioned@example.com', avatar: null }]);
 
       // Mock author query
       (pool.query as jest.Mock).mockResolvedValue({
@@ -121,6 +124,42 @@ describe('CommentService', () => {
         'Comment content cannot exceed 5000 characters'
       );
     });
+
+    it('rejects mentions outside the card project before inserting the comment', async () => {
+      jest.spyOn(commentService, 'getMentionCandidates').mockResolvedValue([]);
+      await expect(commentService.createComment({ cardId: 'card-123', userId: 'user-123', content: 'Hola', mentions: ['user-456'] }))
+        .rejects.toThrow('Solo puedes mencionar a personas con acceso a este proyecto');
+      expect(mockCommentRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('valida el documento y guarda una cita generada en el servidor', async () => {
+      (pool.query as jest.Mock).mockResolvedValue({ rows: [{ id: 'doc-1', title: 'Plan', content: 'Un texto importante' }] });
+      (documentService.getEffectiveUserPermission as jest.Mock).mockResolvedValue('VIEW');
+      mockCommentRepository.create.mockResolvedValue({ id: 'comment-1' });
+      mockCommentRepository.findById.mockResolvedValue({ id: 'comment-1', content: 'Revisar', documentReference: { documentId: 'doc-1', title: 'Plan', quote: 'texto', from: 3, to: 8 } });
+
+      await commentService.createComment({ cardId: 'card-1', userId: 'user-1', content: 'Revisar', documentReference: { documentId: 'doc-1', from: 3, to: 8, quote: 'texto' } });
+
+      expect(mockCommentRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+        documentReference: { documentId: 'doc-1', title: 'Plan', quote: 'texto', from: 3, to: 8 },
+      }));
+    });
+
+    it('rechaza referencias a documentos sin acceso antes de crear el comentario', async () => {
+      (pool.query as jest.Mock).mockResolvedValue({ rows: [{ id: 'doc-1', title: 'Privado', content: 'Secreto' }] });
+      (documentService.getEffectiveUserPermission as jest.Mock).mockResolvedValue(null);
+      await expect(commentService.createComment({ cardId: 'card-1', userId: 'user-1', content: 'Revisar', documentReference: { documentId: 'doc-1', from: 0, to: 7, quote: 'Secreto' } }))
+        .rejects.toThrow('No tienes acceso a este documento del proyecto');
+      expect(mockCommentRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('no enlaza otro texto si el documento cambió antes de publicar', async () => {
+      (pool.query as jest.Mock).mockResolvedValue({ rows: [{ id: 'doc-1', title: 'Plan', content: 'Otro texto' }] });
+      (documentService.getEffectiveUserPermission as jest.Mock).mockResolvedValue('VIEW');
+      await expect(commentService.createComment({ cardId: 'card-1', userId: 'user-1', content: 'Revisar', documentReference: { documentId: 'doc-1', from: 0, to: 4, quote: 'Plan' } }))
+        .rejects.toThrow('El documento cambió');
+      expect(mockCommentRepository.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('getCommentsByCardId', () => {
@@ -149,6 +188,46 @@ describe('CommentService', () => {
 
       expect(result).toEqual(mockComments);
       expect(mockCommentRepository.findByCardId).toHaveBeenCalledWith(cardId);
+    });
+
+    it('oculta el fragmento si el lector perdió acceso al documento', async () => {
+      mockCommentRepository.findByCardId.mockResolvedValue([{ id: 'comment-1', documentReference: { documentId: 'doc-1', title: 'Privado', quote: 'Secreto', from: 0, to: 7 } }]);
+      (documentService.getEffectiveUserPermission as jest.Mock).mockResolvedValue(null);
+      const comments = await commentService.getCommentsByCardId('card-1', 'reader-1');
+      expect(comments[0].documentReference).toBeNull();
+    });
+
+    it('avisa si el fragmento ya no está en el documento', async () => {
+      mockCommentRepository.findByCardId.mockResolvedValue([{ id: 'comment-1', documentReference: { documentId: 'doc-1', title: 'Plan', quote: 'Texto anterior', from: 0, to: 14 } }]);
+      (documentService.getEffectiveUserPermission as jest.Mock).mockResolvedValue('VIEW');
+      (pool.query as jest.Mock).mockResolvedValue({ rows: [{ id: 'doc-1', content: 'Texto nuevo' }] });
+      const comments = await commentService.getCommentsByCardId('card-1', 'reader-1');
+      expect(comments[0].documentReference?.stale).toBe(true);
+    });
+  });
+
+  describe('getMentionCandidates', () => {
+    it('limita las opciones a personas con acceso al proyecto de la card', async () => {
+      (pool.query as jest.Mock).mockResolvedValue({ rows: [{ id: 'user-456', name: 'Ana', email: 'ana@example.com', avatar: null }] });
+      const candidates = await commentService.getMentionCandidates('card-123', 'user-123');
+
+      expect(candidates).toEqual([{ id: 'user-456', name: 'Ana', email: 'ana@example.com', avatar: null }]);
+      expect((pool.query as jest.Mock).mock.calls[0][0]).toContain('project_members pm');
+      expect((pool.query as jest.Mock).mock.calls[0][0]).toContain('team_members tm');
+      expect((pool.query as jest.Mock).mock.calls[0][1]).toEqual(['card-123', 'user-123']);
+    });
+  });
+
+  describe('getDocumentCandidates', () => {
+    it('solo entrega documentos accesibles del contexto de la card', async () => {
+      (pool.query as jest.Mock).mockResolvedValue({ rows: [{ id: 'doc-1', title: 'Visible' }, { id: 'doc-2', title: 'Privado' }] });
+      (documentService.getEffectiveUserPermission as jest.Mock).mockImplementation((id: string) => Promise.resolve(id === 'doc-1' ? 'VIEW' : null));
+
+      const documents = await commentService.getDocumentCandidates('card-1', 'reader-1');
+
+      expect(documents).toEqual([{ id: 'doc-1', title: 'Visible' }]);
+      expect((pool.query as jest.Mock).mock.calls[0][0]).toContain('d.workspace_id = b.workspace_id');
+      expect((pool.query as jest.Mock).mock.calls[0][0]).toContain('d.project_id = pb.project_id');
     });
   });
 
@@ -199,6 +278,7 @@ describe('CommentService', () => {
       };
 
       mockCommentRepository.isAuthor.mockResolvedValue(true);
+      jest.spyOn(commentService, 'getMentionCandidates').mockResolvedValue([{ id: 'user-456', name: 'Mentioned User', email: 'mentioned@example.com', avatar: null }]);
       mockCommentRepository.getCardId.mockResolvedValue('card-1');
       mockCommentRepository.update.mockResolvedValue(mockUpdatedComment);
       mockCommentRepository.findById.mockResolvedValue(mockUpdatedComment);

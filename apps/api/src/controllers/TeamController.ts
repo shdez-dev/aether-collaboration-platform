@@ -385,22 +385,30 @@ class TeamController {
       // Resolver userId desde email si es necesario
       let targetUserId = body.data.userId;
       if (!targetUserId && body.data.email) {
-        const userRes = await pool.query(`SELECT id FROM users WHERE email = $1`, [body.data.email]);
+        const userRes = await pool.query(`SELECT id FROM users WHERE LOWER(email) = LOWER($1)`, [body.data.email.trim()]);
         if (!userRes.rows.length) return res.status(404).json({ success: false, error: { message: 'Usuario no encontrado' } });
         targetUserId = userRes.rows[0].id;
       }
 
-      // Un equipo sólo puede incorporar usuarios que ya tienen acceso al workspace.
+      // Una invitación de equipo también puede incorporar al espacio a alguien
+      // que ya pertenece a la organización. El acceso se concede al aceptarla.
       const workspaceAccess = await pool.query(
         `SELECT 1 FROM teams t
-          JOIN workspace_members wm ON wm.workspace_id = t.workspace_id AND wm.user_id = $2
-         WHERE t.id = $1`,
+          JOIN workspaces w ON w.id = t.workspace_id AND w.archived = false
+          LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $2
+          LEFT JOIN organization_members om ON om.organization_id = w.organization_id AND om.user_id = $2
+         WHERE t.id = $1
+           AND (wm.user_id IS NOT NULL OR om.user_id IS NOT NULL)
+           AND NOT EXISTS (
+             SELECT 1 FROM organization_access_revocations r
+              WHERE r.organization_id = w.organization_id AND r.user_id = $2
+           )`,
         [id, targetUserId]
       );
       if (!workspaceAccess.rows.length) {
         return res.status(403).json({
           success: false,
-          error: { code: 'WORKSPACE_MEMBER_REQUIRED', message: 'La persona debe tener acceso primero al espacio de trabajo del equipo' },
+          error: { code: 'ORGANIZATION_MEMBER_REQUIRED', message: 'La persona debe aceptar primero la invitación a la organización' },
         });
       }
 
@@ -783,9 +791,17 @@ class TeamController {
                 u.name AS inviter_name, u.avatar AS inviter_avatar
          FROM team_invitations ti
          JOIN teams t ON t.id = ti.team_id
-         JOIN workspace_members wm ON wm.workspace_id = t.workspace_id AND wm.user_id = $1
+         JOIN workspaces w ON w.id = t.workspace_id AND w.archived = false
          JOIN users u ON u.id = ti.invited_by
          WHERE ti.invited_user_id = $1 AND ti.status = 'PENDING'
+           AND (
+             EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.user_id = $1)
+             OR EXISTS (SELECT 1 FROM organization_members om WHERE om.organization_id = w.organization_id AND om.user_id = $1)
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM organization_access_revocations r
+              WHERE r.organization_id = w.organization_id AND r.user_id = $1
+           )
          ORDER BY ti.created_at DESC`,
         [userId]
       );
@@ -833,21 +849,15 @@ class TeamController {
         const inv = invResult.rows[0];
 
         const teamWorkspace = await client.query(
-          `SELECT workspace_id FROM teams WHERE id = $1 FOR UPDATE`,
+          `SELECT t.workspace_id, w.organization_id, w.archived
+             FROM teams t
+             LEFT JOIN workspaces w ON w.id = t.workspace_id
+            WHERE t.id = $1 FOR UPDATE OF t`,
           [inv.team_id]
         );
-        if (!teamWorkspace.rows[0]?.workspace_id) {
+        if (!teamWorkspace.rows[0]?.workspace_id || !teamWorkspace.rows[0]?.organization_id || teamWorkspace.rows[0]?.archived) {
           await client.query('ROLLBACK');
           return res.status(409).json({ success: false, error: { code: 'TEAM_WORKSPACE_UNRESOLVED', message: 'Este equipo heredado debe clasificarse en un espacio de trabajo antes de aceptar invitaciones' } });
-        }
-
-        const workspaceMembership = await client.query(
-          `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 FOR KEY SHARE`,
-          [teamWorkspace.rows[0].workspace_id, userId]
-        );
-        if (!workspaceMembership.rows[0]) {
-          await client.query('ROLLBACK');
-          return res.status(403).json({ success: false, error: { code: 'WORKSPACE_MEMBERSHIP_REQUIRED', message: 'Debes pertenecer al espacio de trabajo para aceptar esta invitación' } });
         }
 
         const revoked = await client.query(
@@ -863,10 +873,45 @@ class TeamController {
           return res.status(403).json({ success: false, error: { code: 'ORGANIZATION_ACCESS_REVOKED', message: 'El acceso a la organización fue revocado' } });
         }
 
+        // La invitación al equipo autoriza también el acceso al espacio que lo contiene.
+        // Bloquear el espacio serializa el control del límite de miembros.
+        await client.query(`SELECT id FROM workspaces WHERE id = $1 FOR UPDATE`, [teamWorkspace.rows[0].workspace_id]);
+        const workspaceMembership = await client.query(
+          `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+          [teamWorkspace.rows[0].workspace_id, userId]
+        );
+        if (!workspaceMembership.rows[0]) {
+          const organizationMembership = await client.query(
+            `SELECT 1 FROM organization_members WHERE organization_id = $1 AND user_id = $2`,
+            [teamWorkspace.rows[0].organization_id, userId]
+          );
+          if (!organizationMembership.rows[0]) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ success: false, error: { code: 'ORGANIZATION_MEMBERSHIP_REQUIRED', message: 'Debes pertenecer a la organización para aceptar esta invitación' } });
+          }
+          const workspaceCount = await client.query(
+            `SELECT COUNT(*) FROM workspace_members WHERE workspace_id = $1`,
+            [teamWorkspace.rows[0].workspace_id]
+          );
+          if (Number(workspaceCount.rows[0].count) >= 5) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ success: false, error: { code: 'WORKSPACE_MEMBER_LIMIT_REACHED', message: 'El espacio de trabajo ha alcanzado el máximo de 5 miembros' } });
+          }
+        }
+
         const memberCount = await client.query(`SELECT COUNT(*) FROM team_members WHERE team_id = $1`, [inv.team_id]);
         if (parseInt(memberCount.rows[0].count) >= 5) {
           await client.query('ROLLBACK');
           return res.status(403).json({ success: false, error: { code: 'MEMBER_LIMIT_REACHED', message: 'El equipo ha alcanzado el máximo de 5 miembros' } });
+        }
+
+        if (!workspaceMembership.rows[0]) {
+          await client.query(
+            `INSERT INTO workspace_members (id, workspace_id, user_id, role)
+             VALUES (uuid_generate_v4(), $1, $2, 'MEMBER')
+             ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+            [teamWorkspace.rows[0].workspace_id, userId]
+          );
         }
 
         await client.query(
