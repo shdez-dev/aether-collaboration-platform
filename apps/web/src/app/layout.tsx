@@ -73,9 +73,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="manifest" href="/manifest.json" />
 
         {/* Favicons */}
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+        <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
+        <link rel="icon" href="/favicon-32.png?v=2" type="image/png" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" sizes="180x180" />
 
         <title>Aether | Colaboración</title>
       </head>

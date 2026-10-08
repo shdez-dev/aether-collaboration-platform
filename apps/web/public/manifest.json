@@ -5,7 +5,7 @@
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#13182A",
-  "theme_color": "#F2571E",
+  "theme_color": "#7452A6",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "es-ES",
@@ -13,23 +13,23 @@
   "categories": ["productivity", "business"],
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/icon.svg?v=2",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/favicon-32.png",
+      "src": "/favicon-32.png?v=2",
       "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "/apple-touch-icon.png",
+      "src": "/apple-touch-icon.png?v=2",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-512.png?v=2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable any"
@@ -41,7 +41,7 @@
       "short_name": "Dashboard",
       "description": "Ir al dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "/icon.svg?v=2", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
 }
