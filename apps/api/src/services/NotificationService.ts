@@ -13,6 +13,12 @@ type NotificationInput = {
 
 type Actor = { id: string; name: string };
 
+function cardDeadlineKey(cardId: string, dueDate: Date): string {
+  // A change to the hour on the same day is still the same deadline reminder.
+  // Due-soon and overdue share this key: at most one alert per user/card/day.
+  return `card-deadline:${cardId}:${dueDate.toISOString().slice(0, 10)}`;
+}
+
 export class NotificationService {
   private async deliver(input: NotificationInput, actor: Actor, once = false): Promise<Notification | null> {
     const notification = once
@@ -152,19 +158,19 @@ export class NotificationService {
   }
 
   async createCardDueSoonNotification(data: { userId: string; cardId: string; cardTitle: string; dueDate: Date; boardId: string }): Promise<Notification | null> {
-    const daysUntilDue = Math.ceil((data.dueDate.getTime() - Date.now()) / 86_400_000);
+    const hoursUntilDue = Math.max(1, Math.ceil((data.dueDate.getTime() - Date.now()) / 3_600_000));
     return this.deliver({
       userId: data.userId, type: 'CARD_DUE_SOON', title: 'Tarjeta por vencer',
-      message: `La tarjeta "${data.cardTitle}" vence en ${daysUntilDue} día${daysUntilDue === 1 ? '' : 's'}`,
-      dedupeKey: `card-due-soon:${data.cardId}:${data.dueDate.toISOString()}`,
-      data: { cardId: data.cardId, cardTitle: data.cardTitle, dueDate: data.dueDate.toISOString(), boardId: data.boardId, daysUntilDue },
+      message: `La tarjeta "${data.cardTitle}" vence en ${hoursUntilDue} hora${hoursUntilDue === 1 ? '' : 's'}`,
+      dedupeKey: cardDeadlineKey(data.cardId, data.dueDate),
+      data: { cardId: data.cardId, cardTitle: data.cardTitle, dueDate: data.dueDate.toISOString(), boardId: data.boardId, hoursUntilDue },
     }, { id: 'system', name: '' }, true);
   }
 
   async createCardOverdueNotification(data: { userId: string; cardId: string; cardTitle: string; dueDate: Date; boardId: string }): Promise<Notification | null> {
     return this.deliver({
       userId: data.userId, type: 'CARD_OVERDUE', title: 'Tarjeta vencida', message: `La tarjeta "${data.cardTitle}" ha vencido`,
-      dedupeKey: `card-overdue:${data.cardId}:${data.dueDate.toISOString()}`,
+      dedupeKey: cardDeadlineKey(data.cardId, data.dueDate),
       data: { cardId: data.cardId, cardTitle: data.cardTitle, dueDate: data.dueDate.toISOString(), boardId: data.boardId },
     }, { id: 'system', name: '' }, true);
   }

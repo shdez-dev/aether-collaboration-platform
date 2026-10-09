@@ -1,816 +1,1018 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  ArrowLeft,
+  CalendarDays,
+  Check,
+  Clock3,
+  Languages,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Search,
+  Send,
+  ShieldCheck,
+  Star,
+  UserPlus,
+  Users,
+  X,
+} from 'lucide-react';
 import { apiService } from '@/services/apiService';
-import { C } from '@/lib/colors';
+import { socketService } from '@/services/socketService';
+import { useAuthStore } from '@/stores/authStore';
 import { getAvatarUrl } from '@/lib/utils/avatar';
+import styles from './ContactsMessenger.module.css';
 
-const SORA    = "'Sora', system-ui, sans-serif";
-const MANROPE = "'Manrope', system-ui, sans-serif";
+type Person = {
+  id: string;
+  name: string;
+  email?: string;
+  avatar?: string | null;
+  position?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  timezone?: string | null;
+  language?: string | null;
+  createdAt?: string | null;
+};
+type Conversation = Person & {
+  contact_id: string;
+  last_body: string | null;
+  last_message_at: string | null;
+  unread_count: number;
+};
+type Request = Person & { user_id: string; created_at: string; direction: 'incoming' | 'outgoing' };
+type Message = {
+  id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  expires_at: string;
+  read_at: string | null;
+};
+type Eligibility = {
+  canMessage: boolean;
+  relationship: 'shared' | 'connected' | 'incoming' | 'outgoing' | 'declined' | 'none';
+};
+type Detail = Person & {
+  sharedItems: { id: string; name: string; kind: 'workspace' | 'team' | 'project' }[];
+  eligibility?: Eligibility;
+};
+type Tab = 'chats' | 'people' | 'requests';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface Contact {
-  id: string; name: string; email: string;
-  avatar?: string | null; bio?: string | null; position?: string | null;
-  isFavorite: boolean; isTeammate: boolean;
-}
-
-interface SharedItem { id: string; name: string; kind: 'team' | 'project'; }
-
-interface ContactDetail extends Contact { sharedItems: SharedItem[]; }
-
-type FilterTab = 'todos' | 'favoritos' | 'equipo';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const PALETTE = ['#9271BD','#548B73','#7B8EBF','#C4B9D0','#F4B740','#E07B7B','#86B5C0'];
-
-function hashColor(s: string) {
-  let h = 0;
-  for (const c of s) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
-  return PALETTE[h % PALETTE.length];
-}
-
-function initials(name: string) {
-  return name.split(' ').map((n) => n[0] ?? '').join('').toUpperCase().slice(0, 2);
-}
-
-function ContactAvatar({ contact, size, borderColor }: { contact: Contact; size: number; borderColor?: string }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const avatarUrl = getAvatarUrl(contact.avatar);
+function Avatar({ person, size = 42 }: { person: Person; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  const url = getAvatarUrl(person.avatar);
   return (
-    <span style={{ display: 'inline-flex', width: size, height: size, flexShrink: 0, overflow: 'hidden', borderRadius: '50%',
-      alignItems: 'center', justifyContent: 'center', background: hashColor(contact.id), color: '#FFFFFF',
-      fontFamily: SORA, fontSize: size * 0.33, fontWeight: 700,
-      border: borderColor ? `4px solid ${borderColor}` : undefined }}>
-      {avatarUrl && !imageFailed
-        ? <img src={avatarUrl} alt="" onError={() => setImageFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        : initials(contact.name)}
+    <span
+      className={styles.avatar}
+      style={{ width: size, height: size, flexBasis: size, fontSize: Math.max(14, size * 0.3) }}
+    >
+      {url && !failed ? (
+        <img src={url} alt="" onError={() => setFailed(true)} />
+      ) : (
+        (person.name || '?').trim().charAt(0).toLocaleUpperCase('es')
+      )}
     </span>
   );
 }
 
-// ── Star ──────────────────────────────────────────────────────────────────────
-
-function Star({ filled, size = 17 }: { filled: boolean; size?: number }) {
-  return filled ? (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="#F4B740">
-      <path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.2l1-5.8L3.5 9.2l5.9-.9Z"
-        stroke="#F4B740" strokeWidth="1.2" strokeLinejoin="round"/>
-    </svg>
-  ) : (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.2l1-5.8L3.5 9.2l5.9-.9Z"
-        stroke="var(--c-text4)" strokeWidth="1.6" strokeLinejoin="round"/>
-    </svg>
-  );
+function time(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (date.toDateString() === new Date().toDateString())
+    return date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
 }
-
-// ── FilterPill ────────────────────────────────────────────────────────────────
-
-function FilterPill({ active, onClick, children }: {
-  active: boolean; onClick: () => void; children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={active ? 'fp-active' : 'fp-idle'}
-      style={{
-        padding: '6px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
-        fontFamily: SORA, fontSize: '12.5px', fontWeight: 600,
-        background: active ? 'var(--c-accent)' : 'rgba(97,71,130,0.05)',
-        color: active ? '#FFFFFF' : C.text3,
-        transition: 'background 0.2s, color 0.2s, transform 0.15s',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-// ── Skeleton row ──────────────────────────────────────────────────────────────
-
-function SkeletonRow({ delay = 0 }: { delay?: number }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '13px',
-      padding: '12px 13px', borderRadius: '8px',
-      animation: `fadeIn 0.3s ${delay}s ease both`,
-    }}>
-      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(97,71,130,0.06)', flexShrink: 0, animation: 'shimmer 1.6s ease infinite' }} />
-      <div style={{ flex: 1 }}>
-        <div style={{ width: '52%', height: 12, borderRadius: 4, background: 'rgba(97,71,130,0.06)', marginBottom: 7, animation: 'shimmer 1.6s 0.1s ease infinite' }} />
-        <div style={{ width: '68%', height: 10, borderRadius: 4, background: 'rgba(97,71,130,0.04)', animation: 'shimmer 1.6s 0.2s ease infinite' }} />
-      </div>
-    </div>
-  );
-}
-
-// ── ContactRow ────────────────────────────────────────────────────────────────
-
-function ContactRow({ contact, isSelected, index, onSelect, onToggleFav, toggling }: {
-  contact: Contact; isSelected: boolean; index: number;
-  onSelect: () => void; onToggleFav: (e: React.MouseEvent) => void; toggling: boolean;
-}) {
-  const [hov, setHov] = useState(false);
-  const [starPop, setStarPop] = useState(false);
-
-  const handleFav = (e: React.MouseEvent) => {
-    setStarPop(true);
-    setTimeout(() => setStarPop(false), 300);
-    onToggleFav(e);
-  };
-
-  return (
-    <div
-      onClick={onSelect}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: '13px',
-        padding: '11px 13px', borderRadius: '10px', cursor: 'pointer',
-        border: isSelected
-          ? '1px solid rgba(116,82,166,0.4)'
-          : `1px solid ${hov ? 'rgba(97,71,130,0.08)' : 'transparent'}`,
-        background: isSelected
-          ? 'rgba(116,82,166,0.07)'
-          : hov ? 'rgba(97,71,130,0.04)' : 'transparent',
-        transition: 'background 0.18s, border-color 0.18s, transform 0.15s',
-        transform: hov && !isSelected ? 'translateX(2px)' : 'translateX(0)',
-        animation: `fadeIn 0.25s ${index * 0.04}s ease both`,
-      }}
-    >
-      {/* Avatar */}
-      <ContactAvatar contact={contact} size={40} />
-
-      {/* Info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {contact.name}
-        </div>
-        <div style={{ fontSize: '12px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
-          {contact.position ? `${contact.position} - ` : ''}{contact.email}
-        </div>
-      </div>
-
-      {/* Badges */}
-      {contact.isTeammate && (
-        <span style={{
-          fontSize: '10.5px', fontWeight: 600, padding: '2px 7px', borderRadius: '8px',
-          background: 'rgba(116,82,166,0.1)', color: '#9271BD', flexShrink: 0,
-          opacity: hov || isSelected ? 1 : 0.7, transition: 'opacity 0.2s',
-        }}>
-          Equipo
-        </span>
-      )}
-
-      {/* Star */}
-      <span
-        onClick={handleFav}
-        style={{
-          flexShrink: 0, width: 30, height: 30,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          borderRadius: '8px', cursor: 'pointer',
-          background: hov ? 'rgba(97,71,130,0.06)' : 'transparent',
-          opacity: toggling ? 0.4 : 1,
-          transform: starPop ? 'scale(1.35)' : 'scale(1)',
-          transition: 'background 0.15s, transform 0.2s cubic-bezier(.34,1.56,.64,1)',
-        }}
-      >
-        <Star filled={contact.isFavorite} />
-      </span>
-    </div>
-  );
-}
-
-// ── Empty state ───────────────────────────────────────────────────────────────
-
-function EmptyState({ hasSearch }: { hasSearch: boolean }) {
-  return (
-    <div style={{
-      textAlign: 'center', padding: '56px 0',
-      animation: 'fadeIn 0.3s ease both',
-    }}>
-      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 14px', display: 'block', opacity: 0.25 }}>
-        <path d="M5 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5V4Z" stroke={C.text} strokeWidth="1.4" strokeLinejoin="round"/>
-        <path d="M5 4v16" stroke={C.text} strokeWidth="1.4"/>
-        <circle cx="12.5" cy="10.5" r="2" stroke={C.text} strokeWidth="1.4"/>
-        <path d="M9.5 16a3 3 0 0 1 6 0" stroke={C.text} strokeWidth="1.4" strokeLinecap="round"/>
-      </svg>
-      <p style={{ color: C.text4, fontSize: '14px', margin: 0 }}>
-        {hasSearch ? 'No encontramos a nadie con esos datos.' : 'Aún no tienes contactos compartidos. Busca a alguien por nombre o correo.'}
-      </p>
-    </div>
-  );
-}
-
-// ── Detail panel ──────────────────────────────────────────────────────────────
-
-function DetailPanel({ contact, loading, onToggleFav, toggling, onNavigate }: {
-  contact: ContactDetail; loading: boolean;
-  onToggleFav: (e: React.MouseEvent) => void; toggling: boolean;
-  onNavigate: (kind: 'team' | 'project', id: string) => void;
-}) {
-  const color = hashColor(contact.id);
-  const [starPop, setStarPop] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleFav = (e: React.MouseEvent) => {
-    setStarPop(true);
-    setTimeout(() => setStarPop(false), 300);
-    onToggleFav(e);
-  };
-
-  return (
-    <div
-      key={contact.id}
-      style={{
-        border: `1px solid ${C.border}`, borderRadius: '18px',
-        background: C.surface, overflow: 'hidden',
-        boxShadow: '0 20px 48px rgba(45, 28, 65, 0.10)',
-        animation: 'slideUp 0.3s cubic-bezier(.22,.9,.36,1) both',
-      }}
-    >
-      {/* Banner and overlapping avatar, in the style of a compact profile card. */}
-      <div style={{
-        height: '112px', position: 'relative',
-        background: `radial-gradient(circle at 85% 20%, ${color}80, transparent 42%), linear-gradient(135deg, #44315F, #7452A6 65%, ${color})`,
-      }}>
-        <span style={{ position: 'absolute', left: 20, top: 18, color: 'rgba(255,255,255,0.88)', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Perfil</span>
-        <span
-          onClick={handleFav}
-          style={{
-            position: 'absolute', top: 14, right: 14,
-            width: 34, height: 34, borderRadius: '50%',
-            background: 'rgba(25,21,34,0.50)', backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', opacity: toggling ? 0.4 : 1,
-            transform: starPop ? 'scale(1.3)' : 'scale(1)',
-            transition: 'background 0.15s, transform 0.2s cubic-bezier(.34,1.56,.64,1)',
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(25,21,34,0.72)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(25,21,34,0.50)'; }}
-          role="button" aria-label={contact.isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-        >
-          <Star filled={contact.isFavorite} size={18} />
-        </span>
-      </div>
-
-      <div style={{ padding: '0 22px 24px', marginTop: '-43px', position: 'relative' }}>
-        {/* Avatar */}
-        <ContactAvatar contact={contact} size={78} borderColor={C.surface} />
-
-        {/* Name */}
-        <div style={{ fontFamily: SORA, fontSize: '19px', fontWeight: 700, color: C.text, marginTop: '12px', lineHeight: 1.2 }}>
-          {contact.name}
-        </div>
-
-        {/* Position + team badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px', flexWrap: 'wrap' }}>
-          {contact.position && (
-            <span style={{ fontSize: '13px', color: C.text3 }}>{contact.position}</span>
-          )}
-          {contact.isTeammate && (
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              fontSize: '11.5px', fontWeight: 600, color: C.accent,
-              background: C.bg2, padding: '3px 9px', borderRadius: '10px',
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.green }} />
-              Mi equipo
-            </span>
-          )}
-        </div>
-
-        <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 18, paddingTop: 16 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: C.text4, marginBottom: 6 }}>Sobre esta persona</div>
-          <p style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, margin: 0 }}>{contact.bio || 'Aún no ha añadido una descripción a su perfil.'}</p>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: '8px', marginTop: '18px' }}>
-          <a
-            href={`mailto:${contact.email}`}
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: '7px', padding: '10px', borderRadius: '8px', border: 'none',
-              background: 'var(--c-accent)', color: '#FFFFFF',
-              fontFamily: SORA, fontWeight: 600, fontSize: '13.5px',
-              textDecoration: 'none', transition: 'filter 0.15s',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.1)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1)'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#FFFFFF" strokeWidth="1.8"/>
-              <path d="m4 7 8 6 8-6" stroke="#FFFFFF" strokeWidth="1.8" strokeLinejoin="round"/>
-            </svg>
-            Enviar correo
-          </a>
-          <button
-            type="button"
-            aria-label="Copiar correo"
-            onClick={() => {
-              if (!navigator.clipboard?.writeText) return;
-              void navigator.clipboard.writeText(contact.email).then(() => {
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1800);
-              }).catch(() => setCopied(false));
-            }}
-            style={{
-              minWidth: '102px', padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              borderRadius: '8px', border: '1px solid rgba(97,71,130,0.12)',
-              background: C.surface2, color: C.text2, fontSize: 12, fontWeight: 650, cursor: 'pointer',
-              transition: 'background 0.15s, border-color 0.15s',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.07)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.22)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.03)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.12)'; }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="var(--c-text2)" strokeWidth="1.7"/>
-              <path d="m4 7 8 6 8-6" stroke="var(--c-text2)" strokeWidth="1.7" strokeLinejoin="round"/>
-            </svg>
-            {copied ? 'Copiado' : 'Copiar'}
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div style={{ height: 1, background: C.border, margin: '20px 0' }} />
-
-        {/* Email */}
-        <div style={{ fontFamily: SORA, fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.text4, marginBottom: '10px' }}>
-          Correo
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13px', color: 'var(--c-text2)' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="var(--c-text4)" strokeWidth="1.6"/>
-            <path d="m4 7 8 6 8-6" stroke="var(--c-text4)" strokeWidth="1.6" strokeLinejoin="round"/>
-          </svg>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.email}</span>
-        </div>
-
-        {/* En común */}
-        {loading ? (
-          <div style={{ marginTop: '20px', animation: 'fadeIn 0.2s ease both' }}>
-            <div style={{ width: 72, height: 10, borderRadius: 4, background: 'rgba(97,71,130,0.06)', marginBottom: 12, animation: 'shimmer 1.6s ease infinite' }} />
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {[88, 112].map((w, i) => (
-                <div key={i} style={{ width: w, height: 30, borderRadius: 8, background: 'rgba(97,71,130,0.05)', animation: `shimmer 1.6s ${i * 0.15}s ease infinite` }} />
-              ))}
-            </div>
-          </div>
-        ) : contact.sharedItems.length > 0 ? (
-          <div style={{ marginTop: '20px', animation: 'fadeIn 0.35s ease both' }}>
-            <div style={{ fontFamily: SORA, fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.text4, marginBottom: '10px' }}>
-              En común
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
-              {contact.sharedItems.map((item, i) => (
-                <button
-                  key={`${item.kind}-${item.id}`}
-                  onClick={() => onNavigate(item.kind, item.id)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    fontSize: '12px', color: 'var(--c-text2)', fontFamily: MANROPE,
-                    background: 'rgba(97,71,130,0.04)', border: '1px solid rgba(97,71,130,0.08)',
-                    padding: '5px 10px', borderRadius: '8px', cursor: 'pointer',
-                    transition: 'background 0.15s, border-color 0.15s, transform 0.15s',
-                    animation: `fadeIn 0.25s ${i * 0.05}s ease both`,
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.08)';
-                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.18)';
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)';
-                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.08)';
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                  }}
-                >
-                  {item.kind === 'team' ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <circle cx="9" cy="8" r="3" stroke="#9271BD" strokeWidth="1.8"/>
-                      <path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke="#9271BD" strokeWidth="1.8" strokeLinecap="round"/>
-                    </svg>
-                  ) : (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <rect x="3" y="4" width="7" height="16" rx="1.4" stroke="#C4B9D0" strokeWidth="1.8"/>
-                      <rect x="14" y="4" width="7" height="10" rx="1.4" stroke="#C4B9D0" strokeWidth="1.8"/>
-                    </svg>
-                  )}
-                  {item.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-// ── Empty detail placeholder ───────────────────────────────────────────────────
-
-function DetailPlaceholder() {
-  return (
-    <div style={{
-      border: '1px solid rgba(97,71,130,0.07)', borderRadius: '12px',
-      background: 'rgba(97,71,130,0.015)', padding: '56px 24px',
-      textAlign: 'center', animation: 'fadeIn 0.3s ease both',
-    }}>
-      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 14px', display: 'block', opacity: 0.2 }}>
-        <path d="M5 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5V4Z" stroke={C.text} strokeWidth="1.4" strokeLinejoin="round"/>
-        <path d="M5 4v16" stroke={C.text} strokeWidth="1.4"/>
-        <circle cx="12.5" cy="10.5" r="2" stroke={C.text} strokeWidth="1.4"/>
-        <path d="M9.5 16a3 3 0 0 1 6 0" stroke={C.text} strokeWidth="1.4" strokeLinecap="round"/>
-      </svg>
-      <p style={{ color: C.text4, fontSize: '13.5px', margin: 0, lineHeight: 1.5 }}>
-        Selecciona un contacto<br/>para ver su perfil
-      </p>
-    </div>
-  );
-}
-
-// ── Invite modal ──────────────────────────────────────────────────────────────
-
-function InviteButton() {
-  const [show, setShow]       = useState(false);
-  const [email, setEmail]     = useState('');
-  const [sending, setSending] = useState(false);
-  const [sent, setSent]       = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!show) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setShow(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [show]);
-
-  const send = async () => {
-    if (!email.trim()) return;
-    setSending(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSending(false); setSent(true);
-    setTimeout(() => { setSent(false); setEmail(''); setShow(false); }, 2000);
-  };
-
-  return (
-    <>
-      <button
-        onClick={() => setShow(true)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          padding: '10px 18px', borderRadius: '10px', border: 'none',
-          background: 'var(--c-accent)', color: '#FFFFFF',
-          fontFamily: SORA, fontWeight: 600, fontSize: '13.5px', cursor: 'pointer',
-          transition: 'filter 0.15s, transform 0.15s',
-        }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.1)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round"/>
-          <circle cx="9" cy="7" r="3.4" stroke="#FFFFFF" strokeWidth="1.9"/>
-          <path d="M19 8v6M22 11h-6" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round"/>
-        </svg>
-        Invitar por correo
-      </button>
-
-      {show && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)',
-          animation: 'fadeIn 0.18s ease both',
-        }}>
-          <div
-            ref={ref}
-            style={{
-              width: '100%', maxWidth: '420px', margin: '0 16px',
-              background: '#1A1410', border: '1px solid rgba(97,71,130,0.1)',
-              borderRadius: '14px', padding: '28px',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
-              animation: 'slideUp 0.25s cubic-bezier(.22,.9,.36,1) both',
-            }}
-          >
-            <h2 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '17px', color: C.text, margin: '0 0 5px' }}>
-              Invitar por correo
-            </h2>
-            <p style={{ fontSize: '13px', color: C.text3, margin: '0 0 20px' }}>
-              Envía una invitación a tu workspace por email.
-            </p>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-text3)', marginBottom: '8px' }}>
-              Correo electrónico
-            </label>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && send()}
-              placeholder="nombre@empresa.com"
-              type="email"
-              style={{
-                width: '100%', padding: '12px 14px', borderRadius: '8px',
-                border: '1px solid rgba(97,71,130,0.13)',
-                background: 'rgba(97,71,130,0.04)',
-                color: C.text, fontFamily: MANROPE, fontSize: '14.5px', outline: 'none',
-                boxSizing: 'border-box', transition: 'border-color 0.15s',
-              }}
-              onFocus={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(116,82,166,0.5)'; }}
-              onBlur={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(97,71,130,0.13)'; }}
-            />
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button
-                onClick={() => setShow(false)}
-                style={{
-                  flex: 1, padding: '11px', borderRadius: '8px',
-                  border: '1px solid rgba(97,71,130,0.13)',
-                  background: 'transparent', color: C.text2,
-                  fontFamily: SORA, fontWeight: 600, fontSize: '13px', cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.05)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={send}
-                disabled={sending || sent}
-                style={{
-                  flex: 2, padding: '11px', borderRadius: '8px', border: 'none',
-                  background: sent ? '#548B73' : 'var(--c-accent)',
-                  color: '#FFFFFF', fontFamily: SORA, fontWeight: 600, fontSize: '13px',
-                  cursor: sending || sent ? 'default' : 'pointer',
-                  opacity: sending ? 0.7 : 1, transition: 'background 0.2s, opacity 0.2s',
-                }}
-              >
-                {sent ? '¡Enviado!' : sending ? 'Enviando...' : 'Enviar invitación'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ContactsPage() {
-  const router = useRouter();
-  const [mounted, setMounted]   = useState(false);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [loadError, setLoadError] = useState('');
-  const [search, setSearch]     = useState('');
-  const [filter, setFilter]     = useState<FilterTab>('todos');
-  const [selected, setSelected] = useState<ContactDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [togglingFav, setTogglingFav]     = useState<string | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const requestId = useRef(0);
+  const userId = useAuthStore((state) => state.user?.id);
+  const [tab, setTab] = useState<Tab>('chats');
+  const [query, setQuery] = useState('');
+  const [people, setPeople] = useState<Person[]>([]);
+  const [favorites, setFavorites] = useState<Person[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [selected, setSelected] = useState<Detail | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [profileOpen, setProfileOpen] = useState(true);
+  const [mobileDetail, setMobileDetail] = useState(false);
+  const searchSequence = useRef(0);
+  const selectionSequence = useRef(0);
+  const activeConversation = useRef<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
+  const profileToggleRef = useRef<HTMLButtonElement>(null);
+  const olderPosition = useRef<{ height: number; top: number } | null>(null);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    activeConversation.current = conversationId;
+  }, [conversationId]);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    if (olderPosition.current) {
+      list.scrollTop = olderPosition.current.top + list.scrollHeight - olderPosition.current.height;
+      olderPosition.current = null;
+    } else if (stickToBottom.current) {
+      const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      list.scrollTo({ top: list.scrollHeight, behavior: reducedMotion ? 'auto' : 'smooth' });
+    }
+  }, [conversationId, messages.length]);
 
-  const fetchContacts = useCallback(async (q = '') => {
-    const currentRequest = ++requestId.current;
-    const query = q.trim();
-    if (query && query.length < 3) {
-      setContacts([]);
-      setLoadError('');
-      setLoading(false);
+  useEffect(() => {
+    if (!profileOpen || !selected) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+        profileToggleRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [profileOpen, selected]);
+
+  const refresh = useCallback(async () => {
+    const [chats, contacts, pending, saved] = await Promise.all([
+      apiService.get<{ conversations: Conversation[] }>('/api/chat/conversations', true),
+      apiService.get<{ contacts: Person[] }>('/api/chat/contacts', true),
+      apiService.get<{ requests: Request[] }>('/api/chat/requests', true),
+      apiService.get<{ favorites: Person[] }>('/api/users/favorites', true),
+    ]);
+    if (chats.success) setConversations(chats.data?.conversations ?? []);
+    if (contacts.success) setPeople(contacts.data?.contacts ?? []);
+    if (pending.success) setRequests(pending.data?.requests ?? []);
+    if (saved.success) setFavorites(saved.data?.favorites ?? []);
+    setLoading(false);
+  }, []);
+
+  const loadMessages = useCallback(async (id: string) => {
+    const response = await apiService.get<{ messages: Message[] }>(
+      `/api/chat/conversations/${id}/messages`,
+      true
+    );
+    if (activeConversation.current !== id) return;
+    if (!response.success) {
+      setError(response.error?.message ?? 'No se pudieron cargar los mensajes.');
       return;
     }
-    setLoading(true);
-    setLoadError('');
+    setMessages(response.data?.messages ?? []);
+    setHasOlder((response.data?.messages?.length ?? 0) === 50);
+    void apiService.post(`/api/chat/conversations/${id}/read`, {}, true);
+    setConversations((current) =>
+      current.map((c) => (c.id === id ? { ...c, unread_count: 0 } : c))
+    );
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const onChange = (payload: { conversationId?: string }) => {
+      void refresh();
+      if (payload?.conversationId && activeConversation.current === payload.conversationId)
+        void loadMessages(payload.conversationId);
+    };
+    const onRead = () => {
+      void refresh();
+    };
+    socketService.on('chat:message', onChange);
+    socketService.on('chat:request', onChange);
+    socketService.on('chat:request-updated', onChange);
+    socketService.on('chat:read', onRead);
+    socketService.onConnect(onRead);
+    return () => {
+      socketService.off('chat:message', onChange);
+      socketService.off('chat:request', onChange);
+      socketService.off('chat:request-updated', onChange);
+      socketService.off('chat:read', onRead);
+      socketService.offConnect(onRead);
+    };
+  }, [refresh, loadMessages]);
+
+  useEffect(() => {
+    const value = query.trim();
+    const sequence = ++searchSequence.current;
+    if (value.length < 3) {
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      const response = await apiService.get<{ users: Person[] }>(
+        `/api/users/search?q=${encodeURIComponent(value)}&limit=50`,
+        true
+      );
+      if (sequence !== searchSequence.current) return;
+      if (response.success) setPeople(response.data?.users ?? []);
+      else setError(response.error?.message ?? 'No se pudo buscar personas.');
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  async function fetchProfile(person: Person, sequence: number) {
     try {
-      const [uRes, tRes, fRes] = await Promise.all([
-        apiService.get<{ users: any[] }>(query
-          ? `/api/users/search?q=${encodeURIComponent(query)}&limit=50`
-          : '/api/users?limit=50', true),
-        apiService.get<{ teammates: any[] }>('/api/users/me/teammates', true),
-        apiService.get<{ favorites: any[] }>('/api/users/favorites', true),
+      const [detail, access] = await Promise.all([
+        apiService.get<{
+          user: Person;
+          sharedWorkspaces: { id: string; name: string }[];
+          sharedTeams: { id: string; name: string }[];
+          sharedProjects: { id: string; name: string }[];
+        }>(`/api/users/${person.id}`, true),
+        apiService.get<Eligibility>(`/api/chat/eligibility/${person.id}`, true),
       ]);
-      if (currentRequest !== requestId.current) return;
-      if (!uRes.success) {
-        setLoadError(uRes.error?.message || 'No pudimos buscar contactos.');
-        setContacts([]);
+      if (sequence !== selectionSequence.current) return;
+      if (!detail.success || !detail.data?.user) {
+        setProfileError(detail.error?.message ?? 'No se pudo cargar el perfil.');
+      } else {
+        const profileUser = detail.data.user;
+        const sharedItems: Detail['sharedItems'] = [
+          ...(detail.data.sharedWorkspaces ?? []).map((item) => ({
+            ...item,
+            kind: 'workspace' as const,
+          })),
+          ...(detail.data.sharedTeams ?? []).map((item) => ({ ...item, kind: 'team' as const })),
+          ...(detail.data.sharedProjects ?? []).map((item) => ({
+            ...item,
+            kind: 'project' as const,
+          })),
+        ];
+        setSelected((current) =>
+          current?.id === person.id
+            ? {
+                ...current,
+                ...profileUser,
+                sharedItems,
+                eligibility: access.success ? access.data : current.eligibility,
+              }
+            : current
+        );
+        setProfileError('');
+      }
+      if (!access.success)
+        setError(access.error?.message ?? 'No se pudo consultar el acceso a este contacto.');
+      else
+        setSelected((current) =>
+          current?.id === person.id ? { ...current, eligibility: access.data } : current
+        );
+    } catch {
+      if (sequence === selectionSequence.current) setProfileError('No se pudo cargar el perfil.');
+    } finally {
+      if (sequence === selectionSequence.current) setProfileLoading(false);
+    }
+  }
+
+  function choose(person: Person, existingId?: string) {
+    const sequence = ++selectionSequence.current;
+    setSelected({ ...person, sharedItems: [] });
+    setConversationId(existingId ?? null);
+    activeConversation.current = existingId ?? null;
+    stickToBottom.current = true;
+    setMessages([]);
+    setHasOlder(false);
+    setError('');
+    setProfileError('');
+    setProfileLoading(true);
+    setDraft('');
+    setMobileDetail(true);
+    setProfileOpen(window.innerWidth > 950);
+    if (existingId) void loadMessages(existingId);
+    void fetchProfile(person, sequence);
+  }
+
+  async function beginChat() {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await apiService.post<{ conversationId: string }>(
+        '/api/chat/conversations',
+        { userId: selected.id },
+        true
+      );
+      if (!response.success || !response.data) {
+        setError(response.error?.message ?? 'No se pudo abrir la conversación.');
         return;
       }
-      const tIds = new Set((tRes.data?.teammates ?? []).map((t: any) => t.id));
-      const favorites = fRes.data?.favorites ?? [];
-      const fIds = new Set(favorites.map((f: any) => f.id));
-      const users = query ? (uRes.data?.users ?? []) : Array.from(new Map(
-        [...(uRes.data?.users ?? []), ...favorites].map((user: any) => [user.id, user])
-      ).values());
-      setContacts(users.map((u: any) => ({
-        id: u.id, name: u.name, email: u.email,
-        avatar: u.avatar ?? null, bio: u.bio ?? null, position: u.position ?? null,
-        isFavorite: fIds.has(u.id) || !!u.isFavorite, isTeammate: tIds.has(u.id),
-      })));
-    } catch {
-      if (currentRequest === requestId.current) setLoadError('No pudimos buscar contactos. Revisa la conexión e inténtalo de nuevo.');
+      activeConversation.current = response.data.conversationId;
+      setConversationId(response.data.conversationId);
+      await loadMessages(response.data.conversationId);
+      void refresh();
     } finally {
-      if (currentRequest === requestId.current) setLoading(false);
+      setBusy(false);
     }
-  }, []);
+  }
 
-  useEffect(() => { fetchContacts(); }, [fetchContacts]);
-  useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); requestId.current++; }, []);
-
-  const handleSearch = (val: string) => {
-    requestId.current++;
-    setSearch(val);
-    setSelected(null);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (val.trim().length < 3) { setContacts([]); setLoading(false); setLoadError(''); }
-    searchTimer.current = setTimeout(() => fetchContacts(val), 350);
-  };
-
-  const selectContact = useCallback(async (c: Contact) => {
-    setDetailLoading(true);
-    setSelected({ ...c, sharedItems: [] });
+  async function send(event: FormEvent) {
+    event.preventDefault();
+    if (!conversationId || !draft.trim() || busy) return;
+    setBusy(true);
+    setError('');
+    stickToBottom.current = true;
     try {
-      const res = await apiService.get<any>(`/api/users/${c.id}`, true);
-      if (res.success && res.data) {
-        const items: SharedItem[] = [
-          ...(res.data.sharedTeams    ?? []).map((t: any) => ({ id: t.id, name: t.name, kind: 'team'    as const })),
-          ...(res.data.sharedProjects ?? []).map((p: any) => ({ id: p.id, name: p.name, kind: 'project' as const })),
-        ];
-        setSelected((prev) => prev?.id === c.id ? { ...prev, ...res.data.user, sharedItems: items } : prev);
+      const response = await apiService.post<{ message: Message }>(
+        `/api/chat/conversations/${conversationId}/messages`,
+        { body: draft.trim() },
+        true
+      );
+      if (!response.success || !response.data) {
+        setError(response.error?.message ?? 'No se pudo enviar el mensaje.');
+        return;
       }
-    } finally { setDetailLoading(false); }
-  }, []);
+      setDraft('');
+      setMessages((current) =>
+        current.some((m) => m.id === response.data!.message.id)
+          ? current
+          : [...current, response.data!.message]
+      );
+      void refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
-  const toggleFav = useCallback(async (e: React.MouseEvent, id: string, fav: boolean) => {
-    e.stopPropagation();
-    setTogglingFav(id);
+  async function sendRequest() {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError('');
     try {
-      const response = fav
-        ? await apiService.delete(`/api/users/favorites/${id}`, true)
-        : await apiService.post(`/api/users/favorites/${id}`, {}, true);
-      if (!response.success) return;
-      setContacts((prev) => prev.map((c) => c.id === id ? { ...c, isFavorite: !c.isFavorite } : c));
-      setSelected((prev) => prev?.id === id ? { ...prev, isFavorite: !prev.isFavorite } : prev);
-    } finally { setTogglingFav(null); }
-  }, []);
+      const response = await apiService.post('/api/chat/requests', { userId: selected.id }, true);
+      if (!response.success) {
+        setError(response.error?.message ?? 'No se pudo enviar la solicitud.');
+        return;
+      }
+      setSelected((current) =>
+        current
+          ? { ...current, eligibility: { canMessage: false, relationship: 'outgoing' } }
+          : current
+      );
+      void refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
-  const filtered = contacts.filter((c) => {
-    if (filter === 'favoritos') return c.isFavorite;
-    if (filter === 'equipo')   return c.isTeammate;
-    return true;
-  });
+  async function respond(request: Request, action: 'accept' | 'decline') {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await apiService.post(
+        `/api/chat/requests/${request.id}/respond`,
+        { action },
+        true
+      );
+      if (!response.success) {
+        setError(response.error?.message ?? 'No se pudo responder la solicitud.');
+        return;
+      }
+      await refresh();
+      if (selected?.id === request.user_id)
+        setSelected((current) =>
+          current
+            ? {
+                ...current,
+                eligibility: {
+                  canMessage: action === 'accept',
+                  relationship: action === 'accept' ? 'connected' : 'declined',
+                },
+              }
+            : current
+        );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleFavorite() {
+    if (!selected || busy) return;
+    const saved = favorites.some((p) => p.id === selected.id);
+    setBusy(true);
+    setError('');
+    try {
+      const response = saved
+        ? await apiService.delete(`/api/users/favorites/${selected.id}`, true)
+        : await apiService.post(`/api/users/favorites/${selected.id}`, {}, true);
+      if (!response.success) {
+        setError(response.error?.message ?? 'No se pudo actualizar favoritos.');
+        return;
+      }
+      setFavorites((current) =>
+        saved ? current.filter((p) => p.id !== selected.id) : [...current, selected]
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadOlder() {
+    if (!conversationId || !messages.length || busy) return;
+    setBusy(true);
+    try {
+      const response = await apiService.get<{ messages: Message[] }>(
+        `/api/chat/conversations/${conversationId}/messages?before=${encodeURIComponent(messages[0].created_at)}`,
+        true
+      );
+      if (!response.success) {
+        setError(response.error?.message ?? 'No se pudieron cargar mensajes anteriores.');
+        return;
+      }
+      const older = response.data?.messages ?? [];
+      if (listRef.current)
+        olderPosition.current = {
+          height: listRef.current.scrollHeight,
+          top: listRef.current.scrollTop,
+        };
+      setMessages((current) => [...older, ...current]);
+      setHasOlder(older.length === 50);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const term = query.trim().toLocaleLowerCase('es');
+  const incoming = requests.filter((r) => r.direction === 'incoming');
+  const uniquePeople = Array.from(
+    new Map([...favorites, ...people].map((p) => [p.id, p])).values()
+  );
+  const visiblePeople = uniquePeople.filter(
+    (p) =>
+      !term ||
+      `${p.name} ${p.email ?? ''} ${p.position ?? ''}`.toLocaleLowerCase('es').includes(term)
+  );
+  const visibleChats = conversations.filter(
+    (c) => !term || `${c.name} ${c.last_body ?? ''}`.toLocaleLowerCase('es').includes(term)
+  );
+  const visibleRequests = requests.filter(
+    (r) => !term || r.name.toLocaleLowerCase('es').includes(term)
+  );
+  const selectedRequest = incoming.find((r) => r.user_id === selected?.id);
+  const isFavorite = favorites.some((p) => p.id === selected?.id);
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: MANROPE }}>
-
-      {/* ── Centered container ── */}
-      <div style={{
-        maxWidth: '1080px', margin: '0 auto',
-        padding: 'clamp(28px, 4vw, 48px) clamp(20px, 3vw, 40px)',
-        opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(12px)',
-        transition: 'opacity 0.4s ease, transform 0.4s ease',
-      }}>
-
-        {/* ── Header ── */}
-        <div style={{
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
-          gap: '16px', flexWrap: 'wrap', marginBottom: '32px',
-        }}>
-          <div>
-            <h1 style={{
-              fontFamily: SORA, fontWeight: 700,
-              fontSize: 'clamp(1.8rem, 3vw, 2.3rem)', letterSpacing: '-0.025em',
-              color: C.text, margin: '0 0 8px',
-            }}>
-              Contactos
-            </h1>
-            <p style={{ margin: 0, fontSize: '1rem', color: C.text3, lineHeight: 1.5 }}>
-              Las personas con las que compartes equipos y proyectos.
-            </p>
-          </div>
-          <InviteButton />
-        </div>
-
-        {/* ── Body ── */}
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-
-          {/* List column */}
-          <section style={{ flex: '1 1 380px', minWidth: '280px' }}>
-
-            {/* Search bar */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              padding: '11px 14px', borderRadius: '10px',
-              border: '1px solid rgba(97,71,130,0.09)',
-              background: 'rgba(97,71,130,0.03)',
-              transition: 'border-color 0.2s',
+    <div className={styles.shell}>
+      <aside
+        className={`${styles.rail} ${mobileDetail ? styles.mobileHidden : ''}`}
+        aria-label="Mensajería y contactos"
+      >
+        <header className={styles.railHeader}>
+          <span className={styles.eyebrow}>TU RED</span>
+          <h1>
+            Contactos{' '}
+            <span className={styles.headingIcon}>
+              <MessageCircle size={19} />
+            </span>
+          </h1>
+          <p>Un lugar para conversar y colaborar.</p>
+        </header>
+        <div className={styles.searchBox}>
+          <Search size={17} />
+          <input
+            aria-label="Buscar por nombre o correo"
+            placeholder="Buscar por nombre o correo"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              if (event.target.value.trim().length >= 3) setTab('people');
             }}
-              onFocus={() => {}}
+          />
+          {query && (
+            <button
+              type="button"
+              aria-label="Limpiar búsqueda"
+              onClick={() => {
+                setQuery('');
+                void refresh();
+              }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="11" cy="11" r="7" stroke="var(--c-text3)" strokeWidth="1.8"/>
-                <path d="m20 20-3-3" stroke="var(--c-text3)" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              <input
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Buscar por nombre o correo"
-                style={{
-                  flex: 1, minWidth: 0, border: 'none', background: 'transparent',
-                  color: C.text, fontFamily: MANROPE, fontSize: '14.5px', outline: 'none',
-                }}
-              />
-              {search && (
-                <button
-                  onClick={() => { if (searchTimer.current) clearTimeout(searchTimer.current); setSearch(''); setSelected(null); void fetchContacts(''); }}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: C.text4, padding: 0, display: 'flex',
-                    transition: 'color 0.15s',
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text2; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.text4; }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M2 2l10 10M12 2L2 12"/>
-                  </svg>
-                </button>
+              <X size={15} />
+            </button>
+          )}
+        </div>
+        <nav className={styles.tabs} aria-label="Secciones de contactos">
+          <button
+            type="button"
+            className={tab === 'chats' ? styles.activeTab : ''}
+            onClick={() => setTab('chats')}
+          >
+            Chats
+          </button>
+          <button
+            type="button"
+            className={tab === 'people' ? styles.activeTab : ''}
+            onClick={() => setTab('people')}
+          >
+            Personas
+          </button>
+          <button
+            type="button"
+            className={tab === 'requests' ? styles.activeTab : ''}
+            onClick={() => setTab('requests')}
+          >
+            Solicitudes
+            {incoming.length > 0 && <span className={styles.tabBadge}>{incoming.length}</span>}
+          </button>
+        </nav>
+        <div key={tab} className={styles.railList}>
+          {loading && <div className={styles.listHint}>Cargando conversaciones…</div>}
+          {!loading && tab === 'chats' && (
+            <>
+              {visibleChats.length === 0 && (
+                <div className={styles.listEmpty}>
+                  <MessageCircle size={24} />
+                  <strong>{term ? 'Sin resultados' : 'Tus chats aparecerán aquí'}</strong>
+                  <p>
+                    {term
+                      ? 'Prueba otro nombre o busca en Personas.'
+                      : 'Abre una conversación desde Personas.'}
+                  </p>
+                  <button type="button" onClick={() => setTab('people')}>
+                    Explorar personas
+                  </button>
+                </div>
               )}
+              {visibleChats.map((chat) => (
+                <button
+                  type="button"
+                  key={chat.id}
+                  className={`${styles.personRow} ${selected?.id === chat.contact_id ? styles.selectedRow : ''}`}
+                  onClick={() => void choose({ ...chat, id: chat.contact_id }, chat.id)}
+                >
+                  <Avatar person={chat} />
+                  <span className={styles.rowText}>
+                    <span className={styles.rowTop}>
+                      <strong>{chat.name}</strong>
+                      <small>{time(chat.last_message_at)}</small>
+                    </span>
+                    <span className={styles.rowPreview}>
+                      {chat.last_body ?? 'Inicia la conversación'}
+                    </span>
+                  </span>
+                  {chat.unread_count > 0 && (
+                    <span className={styles.unread}>{chat.unread_count}</span>
+                  )}
+                </button>
+              ))}
+            </>
+          )}
+          {!loading && tab === 'people' && (
+            <>
+              {favorites.length > 0 && !term && (
+                <div className={styles.listSection}>
+                  <Star size={12} /> FAVORITOS
+                </div>
+              )}
+              {visiblePeople.length === 0 && (
+                <div className={styles.listEmpty}>
+                  <Users size={24} />
+                  <strong>
+                    {searching
+                      ? 'Buscando…'
+                      : term.length > 0 && term.length < 3
+                        ? 'Escribe al menos 3 caracteres'
+                        : 'No hay personas para mostrar'}
+                  </strong>
+                  <p>Busca por nombre o correo para encontrar a alguien en Aether.</p>
+                </div>
+              )}
+              {visiblePeople.map((person) => (
+                <button
+                  type="button"
+                  key={person.id}
+                  className={`${styles.personRow} ${selected?.id === person.id ? styles.selectedRow : ''}`}
+                  onClick={() => void choose(person)}
+                >
+                  <Avatar person={person} />
+                  <span className={styles.rowText}>
+                    <strong>{person.name}</strong>
+                    <span className={styles.rowPreview}>
+                      {person.position || person.email || 'Contacto de Aether'}
+                    </span>
+                  </span>
+                  {favorites.some((p) => p.id === person.id) && (
+                    <Star size={14} className={styles.favoriteIcon} fill="currentColor" />
+                  )}
+                </button>
+              ))}
+            </>
+          )}
+          {!loading && tab === 'requests' && (
+            <>
+              {visibleRequests.length === 0 && (
+                <div className={styles.listEmpty}>
+                  <UserPlus size={24} />
+                  <strong>Sin solicitudes</strong>
+                  <p>Las solicitudes para conectar aparecerán aquí.</p>
+                </div>
+              )}
+              {visibleRequests.map((request) => (
+                <button
+                  type="button"
+                  key={request.id}
+                  className={`${styles.personRow} ${selected?.id === request.user_id ? styles.selectedRow : ''}`}
+                  onClick={() => void choose({ ...request, id: request.user_id })}
+                >
+                  <Avatar person={request} />
+                  <span className={styles.rowText}>
+                    <strong>{request.name}</strong>
+                    <span className={styles.rowPreview}>
+                      {request.direction === 'incoming'
+                        ? 'Quiere conectar contigo'
+                        : 'Solicitud enviada'}
+                    </span>
+                  </span>
+                  {request.direction === 'incoming' && <span className={styles.requestDot} />}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+        <footer className={styles.railFooter}>
+          <ShieldCheck size={15} />
+          <span>Conversaciones privadas entre contactos.</span>
+        </footer>
+      </aside>
+
+      <section
+        key={`conversation:${selected?.id ?? 'empty'}`}
+        className={`${styles.main} ${!mobileDetail ? styles.mobileHidden : ''}`}
+        aria-label="Conversación"
+      >
+        {!selected ? (
+          <div className={styles.welcome}>
+            <div className={styles.welcomeArt}>
+              <MessageCircle size={34} />
             </div>
-
-            {/* Filters */}
-            <div style={{ display: 'flex', gap: '7px', margin: '14px 0 12px', flexWrap: 'wrap' }}>
-              <FilterPill active={filter === 'todos'}     onClick={() => setFilter('todos')}>Todos</FilterPill>
-              <FilterPill active={filter === 'favoritos'} onClick={() => setFilter('favoritos')}>Favoritos</FilterPill>
-              <FilterPill active={filter === 'equipo'}    onClick={() => setFilter('equipo')}>Mi equipo</FilterPill>
-            </div>
-
-            {search.trim().length > 0 && search.trim().length < 3 && (
-              <p style={{ fontSize: 12, color: C.text3, margin: '2px 0 12px' }}>Escribe al menos 3 caracteres para buscar usuarios registrados.</p>
-            )}
-
-            {/* Count hint */}
-            {!loading && filtered.length > 0 && (
-              <div style={{
-                fontSize: '11.5px', color: C.text4, marginBottom: '8px',
-                animation: 'fadeIn 0.2s ease both',
-              }}>
-                {filtered.length} {filtered.length === 1 ? 'contacto' : 'contactos'}
+            <span className={styles.eyebrow}>CONVERSA EN AETHER</span>
+            <h2>
+              El trabajo también sucede
+              <br />
+              en las conversaciones.
+            </h2>
+            <p>
+              Elige un chat o encuentra a una persona para empezar. Todo queda en un espacio
+              tranquilo y fácil de seguir.
+            </p>
+            <button type="button" className={styles.primaryButton} onClick={() => setTab('people')}>
+              Ver personas <Users size={16} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <header className={styles.chatHeader}>
+              <button
+                type="button"
+                className={styles.backButton}
+                aria-label="Volver a contactos"
+                onClick={() => setMobileDetail(false)}
+              >
+                <ArrowLeft size={19} />
+              </button>
+              <Avatar person={selected} size={38} />
+              <span className={styles.chatHeading}>
+                <strong>{selected.name}</strong>
+                <small>{selected.position || 'Conversación privada'}</small>
+              </span>
+              <button
+                type="button"
+                ref={profileToggleRef}
+                className={styles.profileButton}
+                onClick={() => setProfileOpen((value) => !value)}
+                aria-label={profileOpen ? 'Ocultar perfil' : 'Mostrar perfil'}
+              >
+                <Users size={17} />
+                <span>Perfil</span>
+              </button>
+            </header>
+            {conversationId ? (
+              <>
+                <div className={styles.retention}>
+                  <Clock3 size={14} /> Los mensajes se eliminan automáticamente después de 30 días.
+                </div>
+                <div
+                  className={styles.messageList}
+                  ref={listRef}
+                  aria-live="polite"
+                  onScroll={(event) => {
+                    const list = event.currentTarget;
+                    stickToBottom.current =
+                      list.scrollHeight - list.scrollTop - list.clientHeight < 100;
+                  }}
+                >
+                  {hasOlder && (
+                    <button
+                      type="button"
+                      className={styles.olderButton}
+                      disabled={busy}
+                      onClick={() => void loadOlder()}
+                    >
+                      Cargar mensajes anteriores
+                    </button>
+                  )}
+                  {messages.length === 0 && (
+                    <div className={styles.messageEmpty}>
+                      <Avatar person={selected} size={62} />
+                      <h3>Empieza a conversar con {selected.name.split(' ')[0]}</h3>
+                      <p>Un mensaje breve puede abrir una gran colaboración.</p>
+                    </div>
+                  )}
+                  {messages.map((message, index) => {
+                    const mine = message.sender_id === userId;
+                    const previous = messages[index - 1];
+                    const showDate =
+                      !previous ||
+                      new Date(previous.created_at).toDateString() !==
+                        new Date(message.created_at).toDateString();
+                    return (
+                      <div key={message.id}>
+                        {showDate && (
+                          <div className={styles.dateDivider}>
+                            <span>
+                              {new Date(message.created_at).toLocaleDateString('es-CL', {
+                                weekday: 'long',
+                                day: 'numeric',
+                                month: 'long',
+                              })}
+                            </span>
+                          </div>
+                        )}
+                        <div className={`${styles.messageRow} ${mine ? styles.mine : ''}`}>
+                          {!mine && <Avatar person={selected} size={30} />}
+                          <div className={styles.messageContent}>
+                            <div className={styles.bubble}>{message.body}</div>
+                            <time dateTime={message.created_at}>{time(message.created_at)}</time>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <form className={styles.composer} onSubmit={(event) => void send(event)}>
+                  <textarea
+                    aria-label="Escribir mensaje"
+                    placeholder={`Escribe a ${selected.name.split(' ')[0]}…`}
+                    value={draft}
+                    maxLength={4000}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === 'Enter' &&
+                        !event.shiftKey &&
+                        !event.nativeEvent.isComposing
+                      ) {
+                        event.preventDefault();
+                        void send(event);
+                      }
+                    }}
+                  />
+                  <div className={styles.composerFooter}>
+                    <span>Enter para enviar — Shift + Enter para salto de línea</span>
+                    <button
+                      type="submit"
+                      aria-label="Enviar mensaje"
+                      disabled={!draft.trim() || busy}
+                    >
+                      <Send size={17} />
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <div className={styles.connectionState}>
+                <div className={styles.connectionIcon}>
+                  {selected.eligibility?.canMessage ? (
+                    <MessageCircle size={29} />
+                  ) : (
+                    <UserPlus size={29} />
+                  )}
+                </div>
+                <h2>
+                  {selected.eligibility?.canMessage
+                    ? `Conversa con ${selected.name.split(' ')[0]}`
+                    : selected.eligibility?.relationship === 'outgoing'
+                      ? 'Solicitud enviada'
+                      : selected.eligibility?.relationship === 'incoming'
+                        ? 'Quiere conectar contigo'
+                        : 'Conecten para conversar'}
+                </h2>
+                <p>
+                  {selected.eligibility?.canMessage
+                    ? 'Abre este chat privado para enviar tu primer mensaje.'
+                    : selected.eligibility?.relationship === 'outgoing'
+                      ? 'Cuando acepte, podrán enviarse mensajes.'
+                      : selected.eligibility?.relationship === 'incoming'
+                        ? 'Acepta la solicitud para comenzar un chat privado.'
+                        : 'Para escribir a alguien fuera de tu organización o espacio, primero deben conectarse.'}
+                </p>
+                {selected.eligibility?.canMessage ? (
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    disabled={busy}
+                    onClick={() => void beginChat()}
+                  >
+                    Abrir conversación <MessageCircle size={16} />
+                  </button>
+                ) : selected.eligibility?.relationship === 'incoming' && selectedRequest ? (
+                  <div className={styles.requestActions}>
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      disabled={busy}
+                      onClick={() => void respond(selectedRequest, 'accept')}
+                    >
+                      <Check size={16} /> Aceptar solicitud
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      disabled={busy}
+                      onClick={() => void respond(selectedRequest, 'decline')}
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                ) : selected.eligibility?.relationship === 'outgoing' ? (
+                  <span className={styles.pendingPill}>
+                    <Clock3 size={14} /> Pendiente de respuesta
+                  </span>
+                ) : (
+                  selected.eligibility && (
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      disabled={busy}
+                      onClick={() => void sendRequest()}
+                    >
+                      <UserPlus size={16} /> Enviar solicitud
+                    </button>
+                  )
+                )}
               </div>
             )}
+            {error && (
+              <div className={styles.error} role="alert">
+                {error}
+                <button type="button" aria-label="Cerrar error" onClick={() => setError('')}>
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
-            {/* List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              {loadError ? (
-                <div role="alert" style={{ color: C.red, fontSize: 13, padding: '20px 8px' }}>{loadError} <button type="button" onClick={() => void fetchContacts(search)} style={{ color: C.accent, background: 'none', border: 0, cursor: 'pointer', fontWeight: 700 }}>Reintentar</button></div>
-              ) : loading
-                ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} delay={i * 0.05} />)
-                : filtered.length === 0
-                ? search.trim().length >= 3 || !search ? <EmptyState hasSearch={!!search} /> : null
-                : filtered.map((c, i) => (
-                    <ContactRow
-                      key={c.id}
-                      contact={c}
-                      index={i}
-                      isSelected={selected?.id === c.id}
-                      onSelect={() => selectContact(c)}
-                      onToggleFav={(e) => toggleFav(e, c.id, c.isFavorite)}
-                      toggling={togglingFav === c.id}
-                    />
-                  ))
-              }
+      {selected && (
+        <aside
+          key={`profile:${selected.id}`}
+          className={`${styles.profile} ${!profileOpen ? styles.profileClosed : ''} ${!mobileDetail ? styles.mobileHidden : ''}`}
+          aria-label={`Perfil de ${selected.name}`}
+          aria-hidden={!profileOpen}
+        >
+          <div className={styles.profileBanner}>
+            <button
+              type="button"
+              className={styles.profileClose}
+              aria-label="Cerrar perfil"
+              onClick={() => {
+                setProfileOpen(false);
+                profileToggleRef.current?.focus();
+              }}
+            >
+              <X size={17} />
+            </button>
+          </div>
+          <div className={styles.profileBody}>
+            <div className={styles.profileAvatar}>
+              <Avatar person={selected} size={78} />
             </div>
-          </section>
-
-          {/* Detail column */}
-          <aside style={{ flex: '1 1 300px', maxWidth: '370px', minWidth: '260px', position: 'sticky', top: '24px' }}>
-            {selected
-              ? <DetailPanel
-                  contact={selected}
-                  loading={detailLoading}
-                  onToggleFav={(e) => toggleFav(e, selected.id, selected.isFavorite)}
-                  toggling={togglingFav === selected.id}
-                  onNavigate={(kind, id) => router.push(kind === 'project' ? `/dashboard/projects/${id}` : `/dashboard/teams/${id}`)}
-                />
-              : <DetailPlaceholder />
-            }
-          </aside>
-        </div>
-      </div>
-
-      <style>{`
-        input::placeholder { color: #614E3A; }
-        .fp-idle:hover  { background: rgba(97,71,130,0.08) !important; transform: scale(1.03); }
-        .fp-active:hover { filter: brightness(1.08); transform: scale(1.03); }
-        @keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes slideUp { from { opacity:0; transform:translateY(14px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
-        @keyframes shimmer { 0%,100% { opacity:0.6; } 50% { opacity:1; } }
-      `}</style>
+            <div className={styles.profileIdentity}>
+              <span className={styles.eyebrow}>PERFIL DE CONTACTO</span>
+              <h2>{selected.name}</h2>
+              <p>{selected.position || 'Miembro de Aether'}</p>
+            </div>
+            <button
+              type="button"
+              className={`${styles.favoriteButton} ${isFavorite ? styles.favoriteActive : ''}`}
+              aria-label={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+              title={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+              disabled={busy}
+              onClick={() => void toggleFavorite()}
+            >
+              <Star size={17} fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+            <div className={styles.profileRule} />
+            {profileLoading && (
+              <div className={styles.profileStatus} role="status">
+                Cargando información del perfil…
+              </div>
+            )}
+            {profileError && (
+              <div className={styles.profileStatus} role="alert">
+                <span>{profileError}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sequence = ++selectionSequence.current;
+                    setProfileError('');
+                    setProfileLoading(true);
+                    void fetchProfile(selected, sequence);
+                  }}
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+            {!profileLoading && !profileError && (
+              <>
+                <div className={styles.profileBlock}>
+                  <span className={styles.profileLabel}>ACERCA DE</span>
+                  <p>{selected.bio || 'Aún no ha agregado una biografía a su perfil.'}</p>
+                </div>
+                <div className={styles.profileBlock}>
+                  <span className={styles.profileLabel}>INFORMACIÓN</span>
+                  <div className={styles.profileFacts}>
+                    {selected.email && (
+                      <div className={styles.profileLine}>
+                        <Mail size={15} />
+                        <span>{selected.email}</span>
+                      </div>
+                    )}
+                    {selected.location && (
+                      <div className={styles.profileLine}>
+                        <MapPin size={15} />
+                        <span>{selected.location}</span>
+                      </div>
+                    )}
+                    {selected.timezone && (
+                      <div className={styles.profileLine}>
+                        <Clock3 size={15} />
+                        <span>{selected.timezone}</span>
+                      </div>
+                    )}
+                    {selected.language && (
+                      <div className={styles.profileLine}>
+                        <Languages size={15} />
+                        <span>
+                          {selected.language === 'es'
+                            ? 'Español'
+                            : selected.language === 'en'
+                              ? 'English'
+                              : selected.language}
+                        </span>
+                      </div>
+                    )}
+                    {selected.createdAt && (
+                      <div className={styles.profileLine}>
+                        <CalendarDays size={15} />
+                        <span>
+                          En Aether desde{' '}
+                          {new Date(selected.createdAt).toLocaleDateString('es-CL', {
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className={styles.profileBlock}>
+                  <span className={styles.profileLabel}>EN COMÚN</span>
+                  {selected.sharedItems.length ? (
+                    <div className={styles.sharedItems}>
+                      {selected.sharedItems.map((item) => (
+                        <span key={`${item.kind}-${item.id}`}>
+                          {item.kind === 'workspace'
+                            ? 'Espacio'
+                            : item.kind === 'team'
+                              ? 'Equipo'
+                              : 'Proyecto'}{' '}
+                          — {item.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>Sin espacios, equipos o proyectos compartidos.</p>
+                  )}
+                </div>
+              </>
+            )}
+            <div className={styles.profileNote}>
+              <ShieldCheck size={16} />
+              <span>Chat privado. Los mensajes se conservan durante 30 días.</span>
+            </div>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

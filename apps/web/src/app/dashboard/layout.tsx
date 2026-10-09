@@ -12,7 +12,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { RealtimeNotificationProvider } from '@/components/realtime/RealtimeNotificationProvider';
 import { SocketProvider } from '@/components/providers/SocketProvider';
 import { NotificationListener } from '@/components/notifications/NotificationListener';
-import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { NotificationPopupHost } from '@/components/notifications/NotificationPopupHost';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -28,6 +28,8 @@ import CreateProjectModal from '@/components/CreateProjectModal';
 import FirstWorkspaceOnboarding from '@/components/FirstWorkspaceOnboarding';
 import { socketService } from '@/services/socketService';
 import { apiService } from '@/services/apiService';
+import ChatDock from '@/components/chat/ChatDock';
+import { BellRing, FolderKanban, PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react';
 
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
@@ -53,14 +55,14 @@ function NavItem({ href, label, icon, active, badge, onClick }: {
   };
 
   const inner = (
-    <div role="button" style={style}
+    <div role="button" className="dsh-nav-item" style={style} title={label} aria-label={label}
       onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; } }}
       onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; } }}
     >
-      <span style={{ display: 'flex', flexShrink: 0, color: active ? '#7452A6' : 'var(--c-text2)' }}>{icon}</span>
-      <span style={{ flex: 1 }}>{label}</span>
+      <span className="dsh-nav-icon" style={{ display: 'flex', flexShrink: 0, color: active ? '#7452A6' : 'var(--c-text2)' }}>{icon}</span>
+      <span className="dsh-nav-label" style={{ flex: 1 }}>{label}</span>
       {badge !== undefined && badge > 0 && (
-        <span style={{
+        <span className="dsh-nav-badge" style={{
           marginLeft: 'auto', fontSize: '11px', fontWeight: 700,
           color: '#FFFFFF', background: '#7452A6',
           borderRadius: '8px', minWidth: '18px', height: '18px',
@@ -82,6 +84,7 @@ function Sidebar({
   pathname, router, user, workspaces, userAvatarUrl,
   onLogout, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onCreateOrganization,
   onEditWorkspace, onRefreshWorkspaces, onCreateBoard, onCreateProject, sidebarProjects, projectsLoading,
+  compact, onToggleCompact,
 }: {
   pathname: string | null; router: ReturnType<typeof useRouter>;
   user: any; workspaces: any[]; userAvatarUrl: string | null;
@@ -91,10 +94,10 @@ function Sidebar({
   onRefreshWorkspaces: () => Promise<void>;
   onCreateBoard: () => void; onCreateProject: () => void;
   sidebarProjects: any[]; projectsLoading: boolean;
+  compact: boolean; onToggleCompact: () => void;
 }) {
   const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
   const notifCount  = useNotificationStore(s => s.unreadCount);
-  const showBell    = usePreferencesStore(s => s.preferences?.inAppNotifications ?? true);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
 
   useEffect(() => {
@@ -119,8 +122,8 @@ function Sidebar({
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" {...ic(17)}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9h17M8 3.5v3M16 3.5v3" strokeLinecap="round"/></svg>,
     },
     {
-      label: 'Bandeja', href: '/dashboard/notifications', active: !!pathname?.startsWith('/dashboard/notifications'),
-      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" {...ic(17)}><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5V14a2.5 2.5 0 0 1-2.5 2.5H9l-4 3.5V6.5Z"/></svg>,
+      label: 'Notificaciones', href: '/dashboard/notifications', active: !!pathname?.startsWith('/dashboard/notifications'),
+      icon: <BellRing size={17} strokeWidth={1.7} aria-hidden="true" />,
       badge: notifCount,
     },
     {
@@ -146,8 +149,8 @@ function Sidebar({
   const hasPortfolioCapability = activeWorkspace?.capabilities?.portfolio === true;
 
   return (
-    <aside className="dshScroll" style={{
-      width: `${SIDEBAR_W}px`, flexShrink: 0,
+    <aside className="dshScroll dsh-sidebar" style={{
+      width: '100%', flexShrink: 0,
       height: '100vh', position: 'sticky', top: 0,
       background: 'var(--c-bg2)',
       borderRight: '1px solid rgba(97,71,130,0.06)',
@@ -156,8 +159,8 @@ function Sidebar({
     }}>
 
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px 16px' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+      <div className="dsh-sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px 16px' }}>
+        <Link href="/" title="Aether" aria-label="Aether" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
           <span style={{ width: '30px', height: '30px', borderRadius: '9px', background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px -4px rgba(116,82,166,0.55)' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
               <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
@@ -168,11 +171,17 @@ function Sidebar({
               <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
             </svg>
           </span>
-          <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '17px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
+          <span className="dsh-logo-label" style={{ fontFamily: SORA, fontWeight: 700, fontSize: '17px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
         </Link>
+        <button type="button" className="dsh-sidebar-toggle" onClick={onToggleCompact}
+          aria-label={compact ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+          aria-expanded={!compact} title={compact ? 'Expandir barra lateral' : 'Minimizar barra lateral'}>
+          {compact ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+        </button>
       </div>
 
       {/* Workspace switcher */}
+      <div className="dsh-workspace-slot">
       <WorkspaceContextSwitcher
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
@@ -182,6 +191,7 @@ function Sidebar({
         onEdit={onEditWorkspace}
         onRefresh={onRefreshWorkspaces}
       />
+      </div>
 
       {/* Main nav */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -200,6 +210,7 @@ function Sidebar({
       </nav>
 
       {/* Proyectos section */}
+      <div className="dsh-projects-expanded">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '20px 11px 8px' }}>
         <Link
           href="/dashboard/projects"
@@ -250,6 +261,20 @@ function Sidebar({
             </div>
           );
         })}
+      </nav>
+      </div>
+      <nav className="dsh-projects-compact" aria-label="Proyectos">
+        <Link href="/dashboard/projects" className={`dsh-compact-icon${pathname?.startsWith('/dashboard/projects') ? ' is-active' : ''}`}
+          title="Proyectos" aria-label="Proyectos">
+          <FolderKanban size={18} />
+        </Link>
+        {!projectsLoading && activeProjects.map((project) => (
+          <Link key={project.id} href={`/dashboard/projects/${project.id}`}
+            className={`dsh-compact-icon dsh-compact-project${pathname?.startsWith(`/dashboard/projects/${project.id}`) ? ' is-active' : ''}`}
+            title={project.name} aria-label={`Proyecto: ${project.name}`}>
+            <FolderKanban size={17} style={{ color: project.color ?? 'var(--c-accent-text)' }} />
+          </Link>
+        ))}
       </nav>
 
       {/* Equipo */}
@@ -303,6 +328,7 @@ function Sidebar({
 
       {/* User footer */}
       <div
+        className="dsh-user-footer-expanded"
         onClick={() => router.push('/dashboard/profile')}
         style={{
           display: 'flex', alignItems: 'center', gap: '10px',
@@ -326,7 +352,6 @@ function Sidebar({
           <span style={{ display: 'block', fontSize: '11px', color: 'var(--c-text3)' }}>Plan gratis</span>
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-          {showBell && <NotificationBell />}
           <button
             onClick={e => { e.stopPropagation(); router.push('/dashboard/settings'); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '6px' }}
@@ -336,6 +361,19 @@ function Sidebar({
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="var(--c-text3)" strokeWidth="1.7"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="var(--c-text3)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
         </div>
+      </div>
+      <div className="dsh-user-footer-compact">
+        <Link href="/dashboard/profile" className="dsh-compact-icon" title="Mi perfil" aria-label="Mi perfil">
+          <Avatar style={{ width: '30px', height: '30px', flexShrink: 0 }}>
+            {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt="" crossOrigin="anonymous" />}
+            <AvatarFallback style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', background: '#7452A6' }}>
+              {user ? getInitials(user.name) : '?'}
+            </AvatarFallback>
+          </Avatar>
+        </Link>
+        <Link href="/dashboard/settings" className="dsh-compact-icon" title="Ajustes" aria-label="Ajustes">
+          <Settings size={18} />
+        </Link>
       </div>
     </aside>
   );
@@ -422,11 +460,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCompact, setSidebarCompact] = useState(false);
   const [workspaceBootstrapLoaded, setWorkspaceBootstrapLoaded] = useState(false);
 
   const userAvatarUrl = getAvatarUrl(user?.avatar ?? null);
 
   useEffect(() => { loadPreferences(); }, [loadPreferences]);
+
+  useEffect(() => {
+    try { setSidebarCompact(window.localStorage.getItem('aether:sidebar-compact') === 'true'); } catch { /* Storage can be unavailable. */ }
+  }, []);
+
+  const toggleSidebarCompact = () => {
+    const next = !sidebarCompact;
+    setSidebarCompact(next);
+    try { window.localStorage.setItem('aether:sidebar-compact', String(next)); } catch { /* Keep the in-memory preference. */ }
+  };
 
   // Cierra el drawer al navegar
   useEffect(() => { setSidebarOpen(false); }, [pathname]);
@@ -518,6 +567,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     onCreateBoard: () => setCreateBoardOpen(true),
     onCreateProject: () => setCreateProjectOpen(true),
     sidebarBoards, sidebarProjects, boardsLoading, projectsLoading,
+    compact: sidebarCompact,
+    onToggleCompact: toggleSidebarCompact,
   };
 
   return (
@@ -539,7 +590,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
 
           {/* Sidebar — drawer en móvil, columna fija en desktop */}
-          <div className={`dsh-sidebar-wrap${sidebarOpen ? ' is-open' : ''}`}>
+          <div className={`dsh-sidebar-wrap${sidebarOpen ? ' is-open' : ''}${sidebarCompact ? ' is-compact' : ''}`}
+            style={{ '--dsh-sidebar-expanded-width': `${SIDEBAR_W}px` } as React.CSSProperties}>
             <Sidebar {...sidebarProps} />
           </div>
 
@@ -554,6 +606,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <Toaster />
+        <NotificationPopupHost sidebarCompact={sidebarCompact} />
+        {!pathname?.startsWith('/dashboard/contacts') && <ChatDock userId={user?.id} />}
         <NotificationListener />
         <RealtimeNotificationProvider />
         <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />

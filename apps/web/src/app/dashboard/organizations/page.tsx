@@ -1,12 +1,16 @@
 'use client';
 
-import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { ArrowRight, Building2, Clock3, Mail, RefreshCw, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { type CSSProperties, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Building2, Clock3, Copy, KeyRound, Mail, RefreshCw, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/apiService';
 import { getDisplayOrganizationName } from '@/lib/organizationName';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
+import { useAuthStore } from '@/stores/authStore';
+import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
+import styles from './organizations.module.css';
 
 type OrganizationRole = 'OWNER' | 'ADMIN' | 'BILLING_ADMIN' | 'MEMBER';
 type InviteRole = 'ADMIN' | 'BILLING_ADMIN' | 'MEMBER';
@@ -39,6 +43,14 @@ type OrganizationInvitation = {
   invitedBy: { id: string; name: string };
 };
 
+type GeneratedInvitation = {
+  code: string;
+  link: string;
+  email: string;
+  expiresAt: string;
+  emailStatus: 'sent' | 'failed' | 'not_sent';
+};
+
 const canManage = (role?: OrganizationRole) => role === 'OWNER' || role === 'ADMIN';
 const roleLabel: Record<OrganizationRole, string> = {
   OWNER: 'Propietario',
@@ -64,7 +76,14 @@ function initials(name: string) {
 }
 
 export default function OrganizationsPage() {
-  const { currentWorkspace } = useWorkspaceStore();
+  const { currentWorkspace, workspaces, inviteMember } = useWorkspaceStore();
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const activeWorkspaceId = useActiveWorkspaceStore((state) => state.activeWorkspaceId);
+  const activeWorkspace = workspaces?.find((workspace) => workspace.id === activeWorkspaceId);
+  const activeWorkspaceOrganizationId = activeWorkspace?.organizationId;
+  const currentWorkspaceOrganizationId = currentWorkspace?.organization?.id ?? currentWorkspace?.organizationId;
+  const activeOrganizationId = activeWorkspaceOrganizationId ?? currentWorkspaceOrganizationId;
+  const manuallySelectedOrganization = useRef(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
   const [members, setMembers] = useState<OrganizationMember[]>([]);
@@ -77,6 +96,14 @@ export default function OrganizationsPage() {
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<InviteRole>('MEMBER');
   const [sending, setSending] = useState(false);
+  const [regeneratingId, setRegeneratingId] = useState('');
+  const [generatedInvitation, setGeneratedInvitation] = useState<GeneratedInvitation | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState('');
+  const [memberToAssign, setMemberToAssign] = useState<OrganizationMember | null>(null);
+  const [assignWorkspaceId, setAssignWorkspaceId] = useState('');
+  const [assignRole, setAssignRole] = useState<'MEMBER' | 'VIEWER'>('MEMBER');
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState('');
   const [revokingId, setRevokingId] = useState('');
   const [refreshCount, setRefreshCount] = useState(0);
 
@@ -93,24 +120,31 @@ export default function OrganizationsPage() {
       const available = response.data.organizations ?? [];
       setOrganizations(available);
       const queryOrganizationId = new URLSearchParams(window.location.search).get('organizationId');
-      const workspaceOrganizationId = currentWorkspace?.organization?.id ?? currentWorkspace?.organizationId;
       const preferred = available.find((organization) => organization.id === queryOrganizationId)
-        ?? available.find((organization) => organization.id === workspaceOrganizationId)
+        ?? available.find((organization) => organization.id === activeWorkspaceOrganizationId)
+        ?? available.find((organization) => organization.id === currentWorkspaceOrganizationId && organization.type !== 'PERSONAL')
+        ?? available.find((organization) => organization.type !== 'PERSONAL')
+        ?? available.find((organization) => organization.id === currentWorkspaceOrganizationId)
         ?? available[0];
-      setOrganizationId((current) => current || preferred?.id || '');
+      setOrganizationId((current) => manuallySelectedOrganization.current && available.some((organization) => organization.id === current)
+        ? current : preferred?.id || '');
       setLoadError('');
     }).catch(() => {
       if (active) setLoadError('No se pudieron cargar las organizaciones. Revisa tu conexión.');
     }).finally(() => { if (active) setLoadingOrganizations(false); });
     return () => { active = false; };
-  }, [currentWorkspace?.organization?.id, currentWorkspace?.organizationId, refreshCount]);
+  }, [activeWorkspaceOrganizationId, currentWorkspaceOrganizationId, refreshCount]);
 
   const selectedOrganization = useMemo(
     () => organizations.find((organization) => organization.id === organizationId) ?? null,
     [organizations, organizationId],
   );
+  const sharedOrganization = organizations.find((organization) => organization.id === activeOrganizationId && organization.type !== 'PERSONAL')
+    ?? organizations.find((organization) => organization.type !== 'PERSONAL');
   const isManager = canManage(selectedOrganization?.role);
   const isPersonal = selectedOrganization?.type === 'PERSONAL';
+  const assignableWorkspaces = (workspaces ?? []).filter((workspace) => workspace.organizationId === selectedOrganization?.id
+    && !workspace.archived && (workspace.userRole === 'OWNER' || workspace.userRole === 'ADMIN'));
 
   useEffect(() => {
     if (!selectedOrganization) {
@@ -155,7 +189,7 @@ export default function OrganizationsPage() {
     if (!selectedOrganization || !isManager || isPersonal || sending) return;
     setSending(true);
     setActionError('');
-    const response = await apiService.post<{ message: string }>(
+    const response = await apiService.post<{ invitation: GeneratedInvitation }>(
       `/api/organizations/${selectedOrganization.id}/invitations`,
       { email: email.trim().toLowerCase(), role: inviteRole },
       true,
@@ -166,11 +200,72 @@ export default function OrganizationsPage() {
       setActionError(message);
       return;
     }
-    toast.success(`Invitación enviada a ${email.trim()}.`);
+    if (!response.data?.invitation) {
+      setActionError('La invitación pudo haberse creado, pero no recibimos su código. Actualiza la lista antes de intentarlo de nuevo.');
+      setRefreshCount((count) => count + 1);
+      return;
+    }
+    setGeneratedInvitation(response.data.invitation);
+    setCopyFeedback('');
+    if (response.data.invitation.emailStatus === 'failed') {
+      toast.warning('Invitación creada, pero el correo no se pudo enviar. Comparte el código o enlace manualmente.');
+    } else {
+      toast.success(`Invitación creada para ${email.trim()}.`);
+    }
     setEmail('');
     setInviteRole('MEMBER');
     setInviteOpen(false);
     setRefreshCount((count) => count + 1);
+  }
+
+  async function regenerateCode(invitation: OrganizationInvitation) {
+    if (!selectedOrganization || regeneratingId) return;
+    if (!window.confirm(`Se invalidará el código anterior de ${invitation.email}. ¿Generar uno nuevo?`)) return;
+    setRegeneratingId(invitation.id);
+    setActionError('');
+    const response = await apiService.post<{ invitation: GeneratedInvitation }>(
+      `/api/organizations/${selectedOrganization.id}/invitations/${invitation.id}/regenerate`, {}, true,
+    );
+    setRegeneratingId('');
+    if (!response.success || !response.data?.invitation) {
+      setActionError(invitationError(response.error?.code, response.error?.message));
+      return;
+    }
+    setGeneratedInvitation(response.data.invitation);
+    setCopyFeedback('');
+    setRefreshCount((count) => count + 1);
+  }
+
+  async function copyInvitation(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyFeedback(`${label} copiado.`);
+    } catch {
+      setCopyFeedback('No se pudo copiar automáticamente. Selecciona el texto y cópialo manualmente.');
+    }
+  }
+
+  function openAssignment(member: OrganizationMember) {
+    setMemberToAssign(member);
+    setAssignWorkspaceId(assignableWorkspaces[0]?.id ?? '');
+    setAssignRole('MEMBER');
+    setAssignError('');
+  }
+
+  async function assignWorkspace(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!memberToAssign || !assignWorkspaceId || assigning) return;
+    setAssigning(true);
+    setAssignError('');
+    try {
+      await inviteMember(assignWorkspaceId, memberToAssign.email, assignRole);
+      toast.success(`Invitación al espacio enviada a ${memberToAssign.name}.`);
+      setMemberToAssign(null);
+    } catch (error) {
+      setAssignError(error instanceof Error ? error.message : 'No se pudo asignar el espacio.');
+    } finally {
+      setAssigning(false);
+    }
   }
 
   async function revokeInvitation(invitation: OrganizationInvitation) {
@@ -190,8 +285,8 @@ export default function OrganizationsPage() {
   }
 
   return (
-    <main style={page}>
-      <header style={header}>
+    <main className={styles.page} style={page}>
+      <header className={styles.header} style={header}>
         <div>
           <p style={eyebrow}>PERSONAS Y ACCESOS</p>
           <h1 style={title}>Organización</h1>
@@ -200,13 +295,13 @@ export default function OrganizationsPage() {
         <div style={headerActions}>
           <label style={field}>
             Organización
-            <select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} disabled={loadingOrganizations || organizations.length === 0} style={select}>
+            <select value={organizationId} onChange={(event) => { manuallySelectedOrganization.current = true; setOrganizationId(event.target.value); }} disabled={loadingOrganizations || organizations.length === 0} style={select}>
               {organizations.length === 0 && <option value="">Sin organizaciones</option>}
               {organizations.map((organization) => <option key={organization.id} value={organization.id}>{getDisplayOrganizationName(organization.name)}</option>)}
             </select>
           </label>
           {selectedOrganization && isManager && !isPersonal && (
-            <button type="button" style={primaryButton} onClick={() => { setActionError(''); setInviteOpen(true); }}>
+            <button type="button" className={styles.primaryButton} style={primaryButton} onClick={() => { setActionError(''); setInviteOpen(true); }}>
               <UserPlus size={16} /> Invitar persona
             </button>
           )}
@@ -222,7 +317,7 @@ export default function OrganizationsPage() {
 
       {selectedOrganization && (
         <>
-          <section style={orgCard}>
+          <section className={styles.orgCard} style={orgCard}>
             <span style={orgIcon}><Building2 size={20} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2 style={orgName}>{getDisplayOrganizationName(selectedOrganization.name)}</h2>
@@ -232,45 +327,49 @@ export default function OrganizationsPage() {
           </section>
 
           {isPersonal ? (
-            <section style={notice}><ShieldCheck size={18} /><span>Esta es una organización personal. No admite invitaciones. Cambia a una organización de equipo, empresa o institución para agregar personas.</span></section>
+            <section style={notice}><ShieldCheck size={18} /><span>Esta es una organización personal. No admite invitaciones. Cambia a una organización de equipo, empresa o institución para agregar personas.
+              {sharedOrganization && <button type="button" onClick={() => { manuallySelectedOrganization.current = true; setOrganizationId(sharedOrganization.id); }} style={{ display: 'block', marginTop: 8, border: 0, padding: 0, background: 'transparent', color: 'var(--c-accent-text)', fontWeight: 800, cursor: 'pointer' }}>Cambiar a {getDisplayOrganizationName(sharedOrganization.name)} →</button>}
+            </span></section>
           ) : (
-            <section style={notice}>
+            <section className={styles.notice} style={notice}>
               <Mail size={18} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <span>La persona recibirá un correo y deberá aceptar la invitación con esa misma dirección. Después, asígnale un espacio de trabajo para que pueda colaborar. La invitación a la organización no concede acceso automático a sus espacios.</span>
-                <div style={{ marginTop: 10 }}>
-                  <Link href="/dashboard/users" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--c-accent-text)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
-                    Asignar acceso a un espacio de trabajo <ArrowRight size={14} />
-                  </Link>
+                <span>Al invitar se genera un código y un enlace que puedes copiar. También intentaremos enviarlos por correo. La persona debe aceptar con esa misma dirección; después, asígnale un espacio de trabajo para colaborar.</span>
+                <div style={{ marginTop: 10, color: 'var(--c-accent-text)', fontSize: 12, fontWeight: 700 }}>
+                  Cuando acepte, usa «Asignar espacio» junto a su nombre en la lista de miembros.
                 </div>
               </div>
             </section>
           )}
 
-          <section style={section}>
+          <section className={styles.section} style={section}>
             <div style={sectionHeader}><div><h2 style={sectionTitle}>Miembros</h2><p style={sectionCopy}>Personas que ya aceptaron unirse a esta organización.</p></div><span style={countPill}>{members.length}</span></div>
             {loadingMembers ? <div style={listEmpty}><RefreshCw className="animate-spin" size={18} /> Cargando miembros…</div> : members.length === 0 ? <div style={listEmpty}>Todavía no hay miembros.</div> : (
               <div style={list}>
                 {members.map((member) => (
-                  <article key={member.userId} style={personRow}>
+                  <article key={member.userId} className={styles.personRow} style={personRow}>
                     <span style={avatar}>{initials(member.name)}</span>
                     <span style={personCopy}><strong style={{ fontSize: 13, fontWeight: 700 }}>{member.name}</strong><small style={{ color: 'var(--c-text3)', fontSize: 11.5 }}>{member.email}</small></span>
                     <span style={rolePill}>{roleLabel[member.role]}</span>
+                    {isManager && member.userId !== currentUserId && assignableWorkspaces.length > 0 && <button type="button" onClick={() => openAssignment(member)} style={secondaryButton}>Asignar espacio</button>}
                   </article>
                 ))}
               </div>
             )}
           </section>
 
-          {!isPersonal && isManager && <section style={section}>
-            <div style={sectionHeader}><div><h2 style={sectionTitle}>Invitaciones pendientes</h2><p style={sectionCopy}>Tienen una semana para aceptar el enlace que recibieron por correo.</p></div><span style={countPill}><Clock3 size={14} /> {invitations.length}</span></div>
+          {!isPersonal && isManager && <section className={styles.section} style={section}>
+            <div style={sectionHeader}><div><h2 style={sectionTitle}>Invitaciones pendientes</h2><p style={sectionCopy}>Cada código vence a los siete días. Si lo perdiste, puedes generar uno nuevo.</p></div><span style={countPill}><Clock3 size={14} /> {invitations.length}</span></div>
             {loadingMembers ? <div style={listEmpty}>Cargando invitaciones…</div> : invitations.length === 0 ? <div style={listEmpty}>No hay invitaciones pendientes.</div> : (
               <div style={list}>
                 {invitations.map((invitation) => (
-                  <article key={invitation.id} style={personRow}>
+                  <article key={invitation.id} className={styles.personRow} style={personRow}>
                     <span style={inviteIcon}><Mail size={16} /></span>
                     <span style={personCopy}><strong style={{ fontSize: 13, fontWeight: 700 }}>{invitation.email}</strong><small style={{ color: 'var(--c-text3)', fontSize: 11.5 }}>Invitó {invitation.invitedBy.name}. Vence el {formatDate(invitation.expiresAt)}.</small></span>
                     <span style={rolePill}>{roleLabel[invitation.role]}</span>
+                    <button type="button" aria-label={`Regenerar código para ${invitation.email}`} title="Regenerar código (invalida el anterior)" onClick={() => void regenerateCode(invitation)} disabled={!!regeneratingId} style={iconButton}>
+                      {regeneratingId === invitation.id ? <RefreshCw size={15} className="animate-spin" /> : <KeyRound size={15} />}
+                    </button>
                     <button type="button" aria-label={`Revocar invitación para ${invitation.email}`} title="Revocar invitación" onClick={() => void revokeInvitation(invitation)} disabled={revokingId === invitation.id} style={iconButton}>
                       {revokingId === invitation.id ? <RefreshCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
                     </button>
@@ -284,20 +383,47 @@ export default function OrganizationsPage() {
         </>
       )}
 
-      {inviteOpen && selectedOrganization && <div style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !sending) setInviteOpen(false); }}>
-        <form onSubmit={(event) => void sendInvitation(event)} style={modal}>
+      {inviteOpen && selectedOrganization && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !sending) setInviteOpen(false); }}>
+        <form onSubmit={(event) => void sendInvitation(event)} className={styles.modal} style={modal}>
           <div style={modalHeader}><div><p style={eyebrow}>INVITAR A LA ORGANIZACIÓN</p><h2 style={modalTitle}>Añadir una persona</h2></div><button type="button" aria-label="Cerrar" onClick={() => setInviteOpen(false)} style={iconButton}><X size={17} /></button></div>
-          <p style={modalCopy}>Enviaremos un enlace de aceptación a su correo. La invitación caduca en siete días.</p>
+          <p style={modalCopy}>Generaremos un código y un enlace para compartir. También intentaremos enviarlos por correo. Caducan en siete días.</p>
           <label style={field}>Correo electrónico<input autoFocus required type="email" maxLength={255} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nombre@empresa.com" style={input} /></label>
-          <label style={field}>Rol en la organización<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as InviteRole)} style={select}>
-            <option value="MEMBER">Miembro</option>
-            {selectedOrganization.role === 'OWNER' && <><option value="ADMIN">Administrador</option><option value="BILLING_ADMIN">Administrador de facturación</option></>}
-          </select></label>
+          <div className={styles.selectField} style={field}><span>Rol en la organización</span><ProjectOptionSelect label="Rol en la organización" value={inviteRole} onChange={(value) => setInviteRole(value as InviteRole)} menuZIndex={100} options={[{ value: 'MEMBER', label: 'Miembro' }, ...(selectedOrganization.role === 'OWNER' ? [{ value: 'ADMIN', label: 'Administrador' }, { value: 'BILLING_ADMIN', label: 'Administrador de facturación' }] : [])]} /></div>
           {selectedOrganization.role !== 'OWNER' && <p style={roleHint}>Como administrador, puedes invitar miembros. El propietario gestiona los demás roles.</p>}
           {actionError && <p role="alert" style={errorBanner}>{actionError}</p>}
-          <div style={actions}><button type="button" onClick={() => setInviteOpen(false)} disabled={sending} style={secondaryButton}>Cancelar</button><button type="submit" disabled={!email.trim() || sending} style={primaryButton}>{sending ? 'Enviando…' : 'Enviar invitación'}</button></div>
+          <div style={actions}><button type="button" onClick={() => setInviteOpen(false)} disabled={sending} style={secondaryButton}>Cancelar</button><button type="submit" disabled={!email.trim() || sending} style={primaryButton}>{sending ? 'Generando…' : 'Generar invitación'}</button></div>
         </form>
-      </div>}
+      </div>, document.body)}
+      {generatedInvitation && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) setGeneratedInvitation(null); }}>
+        <section role="dialog" aria-label="Código de invitación generado" className={styles.modal} style={modal}>
+          <div style={modalHeader}><div><p style={eyebrow}>INVITACIÓN GENERADA</p><h2 style={modalTitle}>Comparte el acceso</h2></div><button type="button" aria-label="Cerrar código" onClick={() => setGeneratedInvitation(null)} style={iconButton}><X size={17} /></button></div>
+          <p style={modalCopy}>Para <strong>{generatedInvitation.email}</strong>. Vence el {formatDate(generatedInvitation.expiresAt)}. La persona debe iniciar sesión con ese correo.</p>
+          {generatedInvitation.emailStatus === 'failed' && <p role="alert" style={errorBanner}>No se pudo enviar el correo. La invitación sí está activa: comparte el código o enlace manualmente.</p>}
+          {generatedInvitation.emailStatus === 'not_sent' && <p style={notice}>Se generó un código nuevo; no se envió un correo. El código anterior ya no funciona.</p>}
+          {generatedInvitation.emailStatus === 'sent' && <p style={notice}>El proveedor aceptó el correo. También puedes compartir el código o enlace manualmente.</p>}
+          <label style={field}>Código de invitación<input aria-label="Código de invitación" readOnly value={generatedInvitation.code} onFocus={(event) => event.currentTarget.select()} style={{ ...input, fontFamily: 'monospace', fontSize: 11 }} /></label>
+          <button type="button" onClick={() => void copyInvitation(generatedInvitation.code, 'Código')} style={secondaryButton}><Copy size={14} /> Copiar código</button>
+          <label style={field}>Enlace de invitación<input aria-label="Enlace de invitación" readOnly value={generatedInvitation.link} onFocus={(event) => event.currentTarget.select()} style={input} /></label>
+          <button type="button" onClick={() => void copyInvitation(generatedInvitation.link, 'Enlace')} style={secondaryButton}><Copy size={14} /> Copiar enlace</button>
+          {copyFeedback && <p role="status" style={modalCopy}>{copyFeedback}</p>}
+          <p style={roleHint}>Guárdalo ahora: por seguridad, el código no se vuelve a mostrar. Puedes generar otro desde Invitaciones pendientes.</p>
+          <div style={actions}><button type="button" onClick={() => setGeneratedInvitation(null)} style={primaryButton}>Listo</button></div>
+        </section>
+      </div>, document.body)}
+      {memberToAssign && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !assigning) setMemberToAssign(null); }}>
+        <form onSubmit={(event) => void assignWorkspace(event)} className={styles.modal} style={modal}>
+          <div style={modalHeader}><div><p style={eyebrow}>ACCESO A ESPACIO</p><h2 style={modalTitle}>Asignar a {memberToAssign.name}</h2></div><button type="button" aria-label="Cerrar asignación" onClick={() => setMemberToAssign(null)} disabled={assigning} style={iconButton}><X size={17} /></button></div>
+          <p style={modalCopy}>Esta persona ya pertenece a la organización. Recibirá una invitación para acceder al espacio elegido.</p>
+          <label style={field}>Espacio de trabajo<select value={assignWorkspaceId} onChange={(event) => setAssignWorkspaceId(event.target.value)} style={select}>
+            {assignableWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
+          </select></label>
+          <label style={field}>Rol en el espacio<select value={assignRole} onChange={(event) => setAssignRole(event.target.value as 'MEMBER' | 'VIEWER')} style={select}>
+            <option value="MEMBER">Miembro</option><option value="VIEWER">Observador</option>
+          </select></label>
+          {assignError && <p role="alert" style={errorBanner}>{assignError}</p>}
+          <div style={actions}><button type="button" onClick={() => setMemberToAssign(null)} disabled={assigning} style={secondaryButton}>Cancelar</button><button type="submit" disabled={assigning || !assignWorkspaceId} style={primaryButton}>{assigning ? 'Enviando…' : 'Enviar invitación al espacio'}</button></div>
+        </form>
+      </div>, document.body)}
     </main>
   );
 }
@@ -334,7 +460,7 @@ const listEmpty: CSSProperties = { display: 'flex', alignItems: 'center', justif
 const empty: CSSProperties = { minHeight: 220, display: 'grid', justifyItems: 'center', alignContent: 'center', gap: 10, border: '1px dashed var(--c-border2)', borderRadius: 14, color: 'var(--c-text3)', background: 'var(--c-surface)', padding: 24, textAlign: 'center' };
 const errorBanner: CSSProperties = { padding: '11px 13px', marginBottom: 12, border: '1px solid color-mix(in srgb, var(--c-red) 30%, transparent)', borderRadius: 10, background: 'color-mix(in srgb, var(--c-red) 9%, var(--c-surface))', color: 'var(--c-red)', fontSize: 12.5 };
 const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 80, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(18, 14, 24, .58)', backdropFilter: 'blur(6px)' };
-const modal: CSSProperties = { width: 'min(460px, 100%)', display: 'grid', gap: 15, padding: 22, border: '1px solid var(--c-border2)', borderRadius: 15, background: 'var(--c-surface)', color: 'var(--c-text)', boxShadow: '0 22px 70px rgba(25, 18, 34, .22)' };
+const modal: CSSProperties = { width: 'min(460px, 100%)', display: 'grid', gap: 15, padding: 22, border: '1px solid var(--c-border2)', borderRadius: 15, background: 'var(--c-surface)', color: 'var(--c-text)', fontFamily: "'Manrope', system-ui, sans-serif", boxShadow: '0 22px 70px rgba(25, 18, 34, .22)' };
 const modalHeader: CSSProperties = { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 };
 const modalTitle: CSSProperties = { margin: '5px 0 0', color: 'var(--c-text)', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 18 };
 const modalCopy: CSSProperties = { margin: 0, color: 'var(--c-text2)', fontSize: 12.5, lineHeight: 1.55 };

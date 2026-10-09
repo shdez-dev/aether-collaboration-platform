@@ -6,13 +6,13 @@ import type { Notification } from '@aether/types';
 import { notificationService } from '@/services/notificationService';
 import { socketService } from '@/services/socketService';
 import { useAuthStore } from '@/stores/authStore';
-import { toast as showToast } from '@/hooks/use-toast';
 
 interface NotificationState {
   notifications: Notification[];
   unreadCount: number;
   isLoading: boolean;
   isOpen: boolean;
+  popupNotifications: Notification[];
 }
 
 interface NotificationActions {
@@ -28,6 +28,7 @@ interface NotificationActions {
   reset: () => void;
   addNotification: (notification: Notification) => void;
   updateUnreadCount: (count: number) => void;
+  dismissPopup: (notificationId: string) => void;
   /** Llamar una sola vez cuando el socket se conecta */
   initSocketListener: () => void;
 }
@@ -37,25 +38,11 @@ const initialState: NotificationState = {
   unreadCount: 0,
   isLoading: false,
   isOpen: false,
+  popupNotifications: [],
 };
 
 // Guardamos la referencia del handler fuera del store para poder hacer off exacto
 let _socketHandler: ((event: any) => void) | null = null;
-
-function getNotificationVariant(type: string): 'info' | 'warning' | 'error' | 'success' {
-  switch (type) {
-    case 'CARD_OVERDUE':
-    case 'WORKSPACE_REMOVED':
-      return 'error';
-    case 'CARD_DUE_SOON':
-      return 'warning';
-    case 'WORKSPACE_INVITE':
-    case 'CARD_ASSIGNED':
-      return 'success';
-    default:
-      return 'info';
-  }
-}
 
 function logicalNotificationKey(notification: Notification): string {
   // The server deduplicates domain events atomically. Collapsing by resource
@@ -144,7 +131,7 @@ export const useNotificationStore = create<NotificationState & NotificationActio
       },
 
       reset: () => {
-        set({ notifications: [], unreadCount: 0, isLoading: false, isOpen: false });
+        set({ notifications: [], unreadCount: 0, isLoading: false, isOpen: false, popupNotifications: [] });
         if (_socketHandler) {
           socketService.off('event', _socketHandler);
           _socketHandler = null;
@@ -168,6 +155,9 @@ export const useNotificationStore = create<NotificationState & NotificationActio
       },
 
       updateUnreadCount: (count) => set({ unreadCount: count }),
+      dismissPopup: (notificationId) => set((s) => ({
+        popupNotifications: s.popupNotifications.filter((n) => n.id !== notificationId),
+      })),
 
       // ── Listener único de socket ─────────────────────────────────────────────
       initSocketListener: () => {
@@ -196,13 +186,13 @@ export const useNotificationStore = create<NotificationState & NotificationActio
               read: false,
               createdAt: new Date().toISOString(),
             };
+            if (!notification.id || get().notifications.some((n) => n.id === notification.id)) return;
             get().addNotification(notification);
-            showToast({
-              title:       notification.title,
-              description: notification.message,
-              variant:     getNotificationVariant(notification.type) as any,
-              duration:    5000,
-            });
+            // El aviso es efímero; la notificación permanece en la bandeja.
+            // No mostrar avisos atrasados al volver a una pestaña oculta.
+            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+              set((s) => ({ popupNotifications: [...s.popupNotifications, notification].slice(-3) }));
+            }
           }
 
           if (event.type === 'notification.read') {

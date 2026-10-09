@@ -10,9 +10,11 @@ import { es } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
 import {
   ArrowLeft, Users, MoreHorizontal, Plus, Trash2, Crown,
-  AlertTriangle, CheckCircle2, Clock, ExternalLink, FolderKanban, Check,
+  AlertTriangle, CheckCircle2, Clock, ExternalLink, FolderKanban, Check, X,
 } from 'lucide-react';
 import { C } from '@/lib/colors';
+import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
+import styles from '../teams.module.css';
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 
@@ -159,15 +161,8 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Rol dentro del equipo</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'ADMIN' | 'MEMBER' | 'VIEWER')}
-              className="rounded-[8px] px-3 text-[13px] outline-none"
-              style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '42px' }}
-            >
-              {allowedRoles.map((option) => <option key={option} value={option}>{roleLabel(option, t)}</option>)}
-            </select>
+            <span className="text-[12px] font-medium" style={{ color: C.text2 }}>Rol dentro del equipo</span>
+            <ProjectOptionSelect label="Rol dentro del equipo" value={role} onChange={(value) => setRole(value as 'ADMIN' | 'MEMBER' | 'VIEWER')} options={allowedRoles.map((option) => ({ value: option, label: roleLabel(option, t) }))} />
           </div>
           <div className="rounded-[9px] px-3 py-2.5 text-[11.5px] leading-5" style={{ background: C.bg2, border: `1px solid ${C.border}`, color: C.text3 }}>
             La persona debe pertenecer a la organización. Al aceptar la invitación, obtendrá acceso al espacio de trabajo y al equipo.
@@ -207,7 +202,8 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
 
 // ── Settings Modal ────────────────────────────────────────────────────────────
 
-const COLOR_OPTIONS = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#fb923c','#84cc16','#ef4444','#8b5cf6'];
+const COLOR_OPTIONS = ['#7452A6', '#548B73', '#8076A7', '#A97556', '#8262B2', '#AA895E', '#8D84B0', '#B85C5C'];
+const MAX_TEAM_DESCRIPTION_LENGTH = 120;
 
 function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
   team: Team;
@@ -230,10 +226,16 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    const descriptionChanged = description !== (team.description ?? '');
+    const nextDescription = description.trim();
+    if (descriptionChanged && nextDescription.length > MAX_TEAM_DESCRIPTION_LENGTH) {
+      setError(`La descripción no puede superar los ${MAX_TEAM_DESCRIPTION_LENGTH} caracteres.`);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      await updateTeam(team.id, { name: name.trim(), description: description.trim() || null, color, leadId: leadId || null });
+      await updateTeam(team.id, { name: name.trim(), ...(descriptionChanged ? { description: nextDescription || null } : {}), color, leadId: leadId || null });
       onUpdated();
       onClose();
     } catch (err: any) {
@@ -285,12 +287,14 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
             <label className="text-[12px] font-medium" style={{ color: C.text2 }}>{t.teams_settings_desc}</label>
             <textarea
               value={description} onChange={(e) => setDescription(e.target.value)}
+              maxLength={Math.max(MAX_TEAM_DESCRIPTION_LENGTH, (team.description ?? '').length)}
               rows={2}
               className="rounded-[6px] px-3 py-2 text-[13px] outline-none resize-none"
               style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text }}
               onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
               onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
             />
+            <span className="text-right text-[11px]" style={{ color: description.length > MAX_TEAM_DESCRIPTION_LENGTH ? C.red : C.text4 }}>{description.length}/{MAX_TEAM_DESCRIPTION_LENGTH}{description.length > MAX_TEAM_DESCRIPTION_LENGTH ? ' — Acórtala para cambiarla.' : ''}</span>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -400,7 +404,7 @@ function MemberCard({
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => { setHov(false); setRoleOpen(false); }}
-      className="rounded-[8px] flex flex-col gap-3 p-4 relative transition-all"
+      className={`${styles.memberCard} flex flex-col gap-3 p-4 relative transition-all`}
       style={{
         background: hov ? C.hover : C.surface,
         border: `1px solid ${hov ? C.border2 : C.border}`,
@@ -458,7 +462,7 @@ function MemberCard({
               ▾
             </button>
             {roleOpen && (
-              <div style={{
+              <div className={styles.roleMenu} style={{
                 position: 'absolute', top: '100%', left: 0, zIndex: 20, marginTop: '4px',
                 background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '8px',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '110px', overflow: 'hidden',
@@ -520,12 +524,21 @@ interface ProjectOption {
   workspaceName: string;
 }
 
-function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigned }: {
+interface AssignedProject extends ProjectOption {
+  status: string;
+  assignedAt: string;
+}
+
+function AssignProjectModal({ teamId, teamColor, workspaceId, assignedProjects, assignedLoading, assignedError, onRetry, onClose, onAssigned }: {
   teamId: string;
   teamColor: string;
   workspaceId: string | null | undefined;
+  assignedProjects: AssignedProject[];
+  assignedLoading: boolean;
+  assignedError: string;
+  onRetry: () => void;
   onClose: () => void;
-  onAssigned: () => void;
+  onAssigned: () => Promise<void>;
 }) {
   const t = es;
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -533,6 +546,7 @@ function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigne
   const [assigning, setAssigning] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [assignError, setAssignError] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -552,12 +566,14 @@ function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigne
 
   async function handleAssign(projectId: string) {
     setAssigning(projectId);
+    setAssignError('');
     try {
-      await apiService.post(`/api/projects/${projectId}/teams`, { teamId }, true);
+      const response = await apiService.post(`/api/projects/${projectId}/teams`, { teamId }, true);
+      if (!response.success) throw new Error(response.error?.message || 'No se pudo asignar el equipo.');
       setDone((prev) => new Set([...prev, projectId]));
-      onAssigned();
-    } catch {
-      /* silencioso */
+      await onAssigned();
+    } catch (error) {
+      setAssignError(error instanceof Error ? error.message : 'No se pudo asignar el equipo.');
     } finally {
       setAssigning(null);
     }
@@ -570,21 +586,23 @@ function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigne
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+      className={`${styles.projectModalOverlay} fixed inset-0 z-[80] flex items-center justify-center`}
+      style={{ background: 'rgba(0,0,0,0.58)', backdropFilter: 'blur(5px)' }}
       onClick={onClose}
     >
       <div
-        style={{ width: '440px', maxHeight: '520px', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}
+        className={styles.projectModal}
+        style={{ width: '460px', maxWidth: 'calc(100vw - 32px)', maxHeight: 'min(560px, calc(100vh - 48px))', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.28)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FolderKanban size={15} style={{ color: teamColor }} />
-            <span style={{ fontSize: '13.5px', fontWeight: 600, color: C.text }}>{t.teams_assign_project_title}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className={styles.projectModalIcon} style={{ color: teamColor }}><FolderKanban size={17} /></span>
+            <span style={{ display: 'grid', gap: 3 }}><strong style={{ fontSize: '14px', color: C.text }}>{t.teams_assign_project_title}</strong><small style={{ fontSize: '11px', color: C.text3 }}>{assignedProjects.length} vinculados. Selecciona otro proyecto para añadirlo.</small></span>
           </div>
           <button
+            aria-label="Cerrar asignación de proyecto"
             onClick={onClose}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', background: 'none', border: 'none', cursor: 'pointer', color: C.text3 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; (e.currentTarget as HTMLElement).style.color = C.text; }}
@@ -607,11 +625,13 @@ function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigne
 
         {/* List */}
         <div style={{ overflowY: 'auto', flex: 1 }}>
-          {loading ? (
+          {assignError && <div role="alert" className={styles.assignError}>{assignError}</div>}
+          {assignedError && <div role="alert" className={styles.assignError}>{assignedError} <button type="button" onClick={onRetry}>Reintentar</button></div>}
+          {loading || assignedLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 0' }}>
               <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${C.border2}`, borderTopColor: teamColor, animation: 'spin 0.7s linear infinite' }} />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : assignedError ? null : filtered.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '36px 0' }}>
               <FolderKanban size={22} style={{ color: C.text4 }} />
               <span style={{ fontSize: '12.5px', color: C.text4 }}>
@@ -621,13 +641,14 @@ function AssignProjectModal({ teamId, teamColor, workspaceId, onClose, onAssigne
           ) : (
             filtered.map((p) => {
               const pColor = p.color ?? teamColor;
-              const isAssigned = done.has(p.id);
+              const isAssigned = done.has(p.id) || assignedProjects.some((assigned) => assigned.id === p.id);
               return (
                 <button
                   key={p.id}
                   onClick={() => !isAssigned && handleAssign(p.id)}
                   disabled={assigning === p.id || isAssigned}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: 'none', border: 'none', borderTop: `1px solid ${C.border}`, cursor: isAssigned ? 'default' : 'pointer', textAlign: 'left', transition: 'background 0.1s' }}
+                  className={styles.projectOption}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'none', border: 'none', borderTop: `1px solid ${C.border}`, cursor: isAssigned ? 'default' : 'pointer', textAlign: 'left' }}
                   onMouseEnter={(e) => { if (!isAssigned) (e.currentTarget as HTMLElement).style.background = C.hover; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
                 >
@@ -680,6 +701,12 @@ export default function TeamDetailPage() {
   const [activityDate, setActivityDate] = useState<'today' | '7d' | '30d' | 'all'>('all');
 
   const [activeWorkspaces, setActiveWorkspaces] = useState<ActiveWorkspace[]>([]);
+  const [assignedProjects, setAssignedProjects] = useState<AssignedProject[]>([]);
+  const [assignedLoading, setAssignedLoading] = useState(true);
+  const [assignedError, setAssignedError] = useState('');
+  const [projectActionError, setProjectActionError] = useState('');
+  const [removingProjectId, setRemovingProjectId] = useState<string | null>(null);
+  const [projectPendingRemoval, setProjectPendingRemoval] = useState<AssignedProject | null>(null);
   const [leadId, setLeadId] = useState('');
 
   const [showAddMember, setShowAddMember] = useState(false);
@@ -752,11 +779,27 @@ export default function TeamDetailPage() {
     } catch { /* silencioso */ }
   }, [teamId]);
 
+  const loadAssignedProjects = useCallback(async () => {
+    if (!teamId) return;
+    setAssignedLoading(true);
+    setAssignedError('');
+    try {
+      const response = await apiService.get<{ projects: AssignedProject[] }>(`/api/teams/${teamId}/projects`, true);
+      if (!response.success || !response.data) throw new Error(response.error?.message || 'No se pudieron cargar los proyectos asignados.');
+      setAssignedProjects(response.data.projects);
+    } catch (error) {
+      setAssignedError(error instanceof Error ? error.message : 'No se pudieron cargar los proyectos asignados.');
+    } finally {
+      setAssignedLoading(false);
+    }
+  }, [teamId]);
+
   useEffect(() => {
     loadMembers();
     loadWorkspaces();
+    loadAssignedProjects();
     loadPendingTeamInvitations();
-  }, [loadMembers, loadWorkspaces, loadPendingTeamInvitations]);
+  }, [loadMembers, loadWorkspaces, loadAssignedProjects, loadPendingTeamInvitations]);
 
   // Load team standups (published today by teammates)
   useEffect(() => {
@@ -815,13 +858,31 @@ export default function TeamDetailPage() {
   }
 
   const currentUser = useAuthStore((s) => s.user);
-  const teamColor = currentTeam?.color || '#3b82f6';
+  const teamColor = currentTeam?.color || '#7452A6';
   const leadMember = members.find((m) => m.id === currentTeam?.leadId) || members.find((m) => m.role === 'ADMIN');
   const isTeamOwner = currentUser != null && currentTeam?.createdBy === currentUser.id;
   const currentMemberRole = members.find((member) => member.id === currentUser?.id)?.role;
   const isTeamAdmin = currentMemberRole === 'ADMIN';
   const isOwnerOrAdmin = isTeamOwner || isTeamAdmin;
   const inviteRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'> = isTeamOwner ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+
+  async function handleRemoveProject() {
+    const project = projectPendingRemoval;
+    if (!isOwnerOrAdmin || !project || removingProjectId) return;
+
+    setRemovingProjectId(project.id);
+    setProjectActionError('');
+    try {
+      const response = await apiService.delete(`/api/projects/${project.id}/teams/${teamId}`, true);
+      if (!response.success) throw new Error(response.error?.message || 'No se pudo quitar el equipo del proyecto.');
+      await Promise.all([loadAssignedProjects(), loadWorkspaces()]);
+      setProjectPendingRemoval(null);
+    } catch (err) {
+      setProjectActionError(err instanceof Error ? err.message : 'No se pudo quitar el equipo del proyecto.');
+    } finally {
+      setRemovingProjectId(null);
+    }
+  }
 
   function canManageMember(member: TeamMember) {
     if (!currentUser || member.id === currentTeam?.createdBy || member.id === currentUser.id) return false;
@@ -857,11 +918,11 @@ export default function TeamDetailPage() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: C.bg }}>
+    <div className={`flex flex-col h-full overflow-hidden ${styles.detailPage}`} style={{ background: C.bg }}>
       {/* ── HEADER (sticky) ── */}
-      <div className="flex-shrink-0" style={{ background: C.bg2, borderBottom: `1px solid ${C.border}` }}>
+      <div className={`flex-shrink-0 ${styles.detailHeader}`} style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 px-7 pt-4 pb-1 text-[12px]" style={{ color: C.text3 }}>
+        <div className={`${styles.headerInner} flex items-center gap-2 px-7 pt-5 pb-1 text-[12px]`} style={{ color: C.text3 }}>
           <button
             onClick={() => router.push('/dashboard/teams')}
             className="flex items-center gap-1.5 transition-colors"
@@ -876,12 +937,12 @@ export default function TeamDetailPage() {
         </div>
 
         {/* Title row */}
-        <div className="flex flex-wrap items-center justify-between px-7 py-5 gap-5">
+        <div className={`${styles.headerInner} ${styles.heroRow} flex flex-wrap items-center justify-between px-7 py-5 gap-5`}>
           <div className="flex items-center gap-4 min-w-0 flex-1">
             {/* Team avatar */}
             <div
-              className="flex-shrink-0 flex items-center justify-center rounded-[15px] text-[23px] font-bold text-white shadow-lg"
-              style={{ width: '52px', height: '52px', background: `linear-gradient(145deg, ${teamColor}, ${teamColor}B8)`, boxShadow: `0 8px 24px ${teamColor}30` }}
+              className="flex-shrink-0 flex items-center justify-center rounded-[13px] text-[21px] font-bold text-white"
+              style={{ width: '48px', height: '48px', background: teamColor }}
             >
               {getInitial(currentTeam.name)}
             </div>
@@ -896,6 +957,7 @@ export default function TeamDetailPage() {
                   <Users size={11} />
                   {t.teams_members_count(members.length)}
                 </div>
+                <div className={styles.projectCount}><FolderKanban size={12} /> {assignedProjects.length} {assignedProjects.length === 1 ? 'proyecto' : 'proyectos'}</div>
               </div>
 
               {currentTeam.description && (
@@ -912,17 +974,14 @@ export default function TeamDetailPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end justify-end gap-2 flex-shrink-0">
+          <div className={`${styles.heroActions} flex flex-wrap items-end justify-end gap-2 flex-shrink-0`}>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.text4 }}>Responsable del equipo</label>
-              <select value={leadId} onChange={(e) => handleLeadChange(e.target.value)} disabled={!isOwnerOrAdmin} className="rounded-[8px] px-3 text-[12px] outline-none" style={{ height: '36px', minWidth: '205px', background: C.surface, border: `1px solid ${C.border2}`, color: C.text, opacity: isOwnerOrAdmin ? 1 : 0.65 }}>
-                <option value="">Sin responsable asignado</option>
-                {members.map((member) => <option key={member.id} value={member.id}>{member.name} | {roleLabel(member.role, es)}</option>)}
-              </select>
+              <div style={{ minWidth: '220px' }}><ProjectOptionSelect label="Responsable del equipo" value={leadId} onChange={handleLeadChange} disabled={!isOwnerOrAdmin} options={[{ value: '', label: 'Sin responsable asignado' }, ...members.map((member) => ({ value: member.id, label: `${member.name} | ${roleLabel(member.role, es)}` }))]} /></div>
             </div>
             {isOwnerOrAdmin && <>
               <button
-                onClick={() => setShowAssignProject(true)}
+                onClick={() => { void loadAssignedProjects(); setShowAssignProject(true); }}
                 className="flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-medium transition-all"
                 style={{ height: '36px', padding: '0 12px', color: C.text2, border: `1px solid ${C.border2}`, background: C.surface }}
                 onMouseEnter={(e) => { (e.currentTarget.style.borderColor = teamColor); (e.currentTarget.style.color = teamColor); (e.currentTarget.style.background = `${teamColor}10`); }}
@@ -943,13 +1002,11 @@ export default function TeamDetailPage() {
           </div>
         </div>
 
-        {/* Accent line */}
-        <div style={{ height: '2px', background: `linear-gradient(90deg, ${teamColor}, transparent)` }} />
       </div>
 
       {/* ── BODY (scrollable) ── */}
       <div className="flex-1 overflow-auto">
-        <div className="max-w-[1100px] mx-auto px-7 py-8 flex flex-col gap-10">
+        <div className={`${styles.detailContent} max-w-[1100px] mx-auto px-7 py-8 flex flex-col gap-10`}>
 
           {/* ── INVITACIONES PENDIENTES (propias de este equipo) ── */}
           {pendingTeamInvitations.filter((inv) => inv.team.id === teamId).length > 0 && (
@@ -1167,6 +1224,43 @@ export default function TeamDetailPage() {
             )}
           </section>
 
+          {/* ── PROYECTOS VINCULADOS ── */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.text4 }}>Proyectos asignados</div>
+              {isOwnerOrAdmin && <button type="button" className={styles.textAction} onClick={() => { void loadAssignedProjects(); setShowAssignProject(true); }}><Plus size={13} /> Asignar proyecto</button>}
+            </div>
+            {assignedLoading ? (
+              <div className={styles.projectEmpty}>Cargando proyectos…</div>
+            ) : assignedError ? (
+              <div className={styles.projectEmpty} role="alert">{assignedError} <button type="button" onClick={() => void loadAssignedProjects()}>Reintentar</button></div>
+            ) : assignedProjects.length === 0 ? (
+              <div className={styles.projectEmpty}>Este equipo todavía no está vinculado a ningún proyecto.</div>
+            ) : (
+              <div className={styles.projectGrid}>
+                {assignedProjects.map((project) => (
+                  <div key={project.id} className={styles.projectCard}>
+                    <Link href={`/dashboard/projects/${project.id}`} className={styles.projectLink}>
+                      <span className={styles.projectMark} style={{ background: project.color || teamColor }}><FolderKanban size={16} /></span>
+                      <span className={styles.projectCopy}><strong>{project.name}</strong><small>{project.workspaceName}{project.status === 'ARCHIVED' ? ' — Archivado' : ''}</small></span>
+                      <ExternalLink size={14} aria-hidden="true" />
+                    </Link>
+                    {isOwnerOrAdmin && <button
+                      type="button"
+                      className={styles.projectRemove}
+                      aria-label={`Quitar equipo del proyecto ${project.name}`}
+                      title="Quitar equipo de este proyecto"
+                      disabled={removingProjectId !== null}
+                      onClick={() => { setProjectActionError(''); setProjectPendingRemoval(project); }}
+                    >
+                      <X size={15} aria-hidden="true" />
+                    </button>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           {/* ── WORKSPACES ACTIVOS ── */}
           {activeWorkspaces.length > 0 && (
             <section>
@@ -1208,20 +1302,7 @@ export default function TeamDetailPage() {
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 {/* Filtro por persona */}
-                <select
-                  value={activityUser}
-                  onChange={(e) => setActivityUser(e.target.value)}
-                  style={{
-                    background: C.surface, border: `1px solid ${activityUser ? C.accent : C.border2}`, borderRadius: '6px',
-                    color: activityUser ? C.text : C.text3,
-                    fontSize: '12px', padding: '4px 8px', cursor: 'pointer', outline: 'none',
-                  }}
-                >
-                  <option value="">{t.teams_activity_select_member}</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                <div style={{ minWidth: '190px' }}><ProjectOptionSelect label="Filtrar actividad por miembro" value={activityUser} onChange={setActivityUser} options={[{ value: '', label: t.teams_activity_select_member }, ...members.map((m) => ({ value: m.id, label: m.name }))]} /></div>
 
                 {/* Filtro por fecha */}
                 {(['all', 'today', '7d', '30d'] as const).map((range) => {
@@ -1404,9 +1485,72 @@ export default function TeamDetailPage() {
           teamId={teamId}
           teamColor={teamColor}
           workspaceId={currentTeam?.workspaceId}
+          assignedProjects={assignedProjects}
+          assignedLoading={assignedLoading}
+          assignedError={assignedError}
+          onRetry={() => void loadAssignedProjects()}
           onClose={() => setShowAssignProject(false)}
-          onAssigned={loadWorkspaces}
+          onAssigned={async () => { await Promise.all([loadAssignedProjects(), loadWorkspaces()]); }}
         />
+      )}
+
+      {projectPendingRemoval && (
+        <div
+          className={`${styles.projectModalOverlay} fixed inset-0 z-[90] flex items-center justify-center p-4`}
+          style={{ background: 'rgba(0,0,0,0.58)', backdropFilter: 'blur(5px)' }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !removingProjectId) {
+              setProjectPendingRemoval(null);
+              setProjectActionError('');
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-team-project-title"
+            className={styles.projectModal}
+            style={{ width: 'min(420px, calc(100vw - 32px))', display: 'grid', gap: 14, padding: 20, background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 16, color: C.text, boxShadow: '0 24px 64px rgba(0,0,0,0.28)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
+              <span style={{ display: 'grid', flex: 'none', width: 36, height: 36, placeItems: 'center', borderRadius: 10, background: 'color-mix(in srgb, var(--c-red) 10%, var(--c-surface))', color: 'var(--c-red)' }}>
+                <AlertTriangle size={17} aria-hidden="true" />
+              </span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 id="remove-team-project-title" style={{ margin: '1px 0 5px', color: C.text, fontSize: 15, fontWeight: 700 }}>¿Quitar el equipo del proyecto?</h2>
+                <p style={{ margin: 0, color: C.text3, fontSize: 12, lineHeight: 1.55 }}>El equipo «{currentTeam?.name}» dejará de tener acceso a «{projectPendingRemoval.name}». El proyecto, el equipo y sus integrantes se conservarán.</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Cerrar confirmación"
+                disabled={removingProjectId !== null}
+                onClick={() => { setProjectPendingRemoval(null); setProjectActionError(''); }}
+                style={{ display: 'grid', flex: 'none', width: 28, height: 28, placeItems: 'center', border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, color: C.text3, cursor: 'pointer' }}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </div>
+            {projectActionError && <p role="alert" style={{ margin: 0, padding: '9px 11px', border: '1px solid color-mix(in srgb, var(--c-red) 25%, transparent)', borderRadius: 9, background: 'color-mix(in srgb, var(--c-red) 8%, var(--c-surface))', color: 'var(--c-red)', fontSize: 12 }}>{projectActionError}</p>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 2 }}>
+              <button
+                type="button"
+                disabled={removingProjectId !== null}
+                onClick={() => { setProjectPendingRemoval(null); setProjectActionError(''); }}
+                style={{ padding: '8px 12px', border: `1px solid ${C.border2}`, borderRadius: 8, background: C.surface, color: C.text2, fontSize: 12, fontWeight: 600, cursor: removingProjectId ? 'wait' : 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={removingProjectId !== null}
+                onClick={() => void handleRemoveProject()}
+                style={{ padding: '8px 12px', border: '1px solid var(--c-red)', borderRadius: 8, background: 'var(--c-red)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: removingProjectId ? 'wait' : 'pointer', opacity: removingProjectId ? .7 : 1 }}
+              >
+                {removingProjectId === projectPendingRemoval.id ? 'Quitando…' : 'Quitar del proyecto'}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

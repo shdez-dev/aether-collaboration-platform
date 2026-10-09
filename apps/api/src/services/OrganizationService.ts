@@ -27,6 +27,14 @@ export interface OrganizationInvitationDetails {
   invitedBy: { id: string; name: string };
 }
 
+export interface OrganizationInvitationCode {
+  code: string;
+  link: string;
+  email: string;
+  expiresAt: Date;
+  emailStatus: 'sent' | 'failed' | 'not_sent';
+}
+
 export class OrganizationServiceError extends Error {
   constructor(public readonly code: string, message: string, public readonly status: number) {
     super(message);
@@ -192,13 +200,14 @@ class OrganizationService {
     organizationId: string,
     inviterId: string,
     data: { email: string; role: Exclude<OrganizationMemberRole, 'OWNER'> }
-  ): Promise<void> {
+  ): Promise<OrganizationInvitationCode> {
     const email = data.email.trim().toLowerCase();
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const client = await pool.connect();
     let organizationName = '';
     let inviterName = '';
+    let expiresAt: Date;
     try {
       await client.query('BEGIN');
       const organization = await client.query(
@@ -230,11 +239,13 @@ class OrganizationService {
 
       const inviter = await client.query('SELECT name FROM users WHERE id = $1', [inviterId]);
       inviterName = inviter.rows[0]?.name ?? 'El equipo de Aether';
-      await client.query(
+      const created = await client.query(
         `INSERT INTO organization_invitations (id, organization_id, email, role, token_hash, invited_by, expires_at, created_at, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2, $3::"OrganizationMemberRole", $4, $5, CURRENT_TIMESTAMP + INTERVAL '7 days', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+         VALUES (uuid_generate_v4(), $1, $2, $3::"OrganizationMemberRole", $4, $5, CURRENT_TIMESTAMP + INTERVAL '7 days', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING expires_at`,
         [organizationId, email, data.role, tokenHash, inviterId]
       );
+      expiresAt = created.rows[0].expires_at;
       await client.query('COMMIT');
     } catch (error: any) {
       await client.query('ROLLBACK');
@@ -246,6 +257,7 @@ class OrganizationService {
 
     const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
     const invitationLink = `${frontendUrl}/organization-invitation?token=${token}`;
+    let emailStatus: OrganizationInvitationCode['emailStatus'] = 'sent';
     try {
       await emailService.sendEmail({
         to: email,
@@ -254,7 +266,52 @@ class OrganizationService {
         html: `<p>Hola,</p><p><strong>${this.escapeHtml(inviterName)}</strong> te invitó a unirte a <strong>${this.escapeHtml(organizationName)}</strong> en Aether.</p><p><a href="${invitationLink}">Aceptar invitación</a></p><p>La invitación expira en 7 días.</p>`,
       });
     } catch (error) {
-      console.error('[OrganizationService.inviteMember] invitation email failed:', error);
+      emailStatus = 'failed';
+      console.error('[OrganizationService.inviteMember] invitation email failed:', error instanceof Error ? error.message : 'Unknown error');
+    }
+    return { code: token, link: invitationLink, email, expiresAt: expiresAt!, emailStatus };
+  }
+
+  async regenerateInvitationCode(
+    organizationId: string,
+    invitationId: string,
+    actorId: string
+  ): Promise<OrganizationInvitationCode> {
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const actor = await this.requireMembership(organizationId, actorId, client);
+      const invitation = await client.query(
+        `SELECT email, role FROM organization_invitations
+          WHERE id = $1 AND organization_id = $2 AND accepted_at IS NULL
+            AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+          FOR UPDATE`,
+        [invitationId, organizationId]
+      );
+      if (!invitation.rows[0]) throw new OrganizationServiceError('INVITATION_NOT_FOUND', 'Active invitation not found', 404);
+      this.assertCanManageTarget(actor.role, invitation.rows[0].role, 'revoke');
+      const updated = await client.query(
+        `UPDATE organization_invitations SET token_hash = $2,
+            expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days', updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1 RETURNING expires_at`,
+        [invitationId, tokenHash]
+      );
+      await client.query('COMMIT');
+      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
+      return {
+        code: token,
+        link: `${frontendUrl}/organization-invitation?token=${token}`,
+        email: invitation.rows[0].email,
+        expiresAt: updated.rows[0].expires_at,
+        emailStatus: 'not_sent',
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
   }
 

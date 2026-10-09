@@ -7,10 +7,13 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { C } from '@/lib/colors';
+import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
+import styles from './teams.module.css';
 
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 const COLOR_OPTIONS = ['#7452A6', '#548B73', '#8076A7', '#A97556', '#8262B2', '#AA895E', '#8D84B0', '#B85C5C'];
+const MAX_TEAM_DESCRIPTION_LENGTH = 120;
 
 function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
@@ -32,9 +35,8 @@ function TeamCard({ team, onOpen }: { team: Team; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      style={{ width: '100%', minWidth: 0, padding: '18px', textAlign: 'left', cursor: 'pointer', border: '1px solid rgba(97,71,130,0.08)', borderTop: `2px solid ${color}`, borderRadius: '13px', background: 'linear-gradient(145deg, rgba(97,71,130,0.035), rgba(97,71,130,0.012))', color: 'inherit', fontFamily: MANROPE, transition: 'border-color .15s, background .15s, transform .15s, box-shadow .15s' }}
-      onMouseEnter={(event) => { event.currentTarget.style.borderColor = `${color}88`; event.currentTarget.style.background = 'rgba(97,71,130,0.05)'; event.currentTarget.style.transform = 'translateY(-2px)'; event.currentTarget.style.boxShadow = `0 12px 30px ${color}12`; }}
-      onMouseLeave={(event) => { event.currentTarget.style.borderColor = 'rgba(97,71,130,0.08)'; event.currentTarget.style.borderTopColor = color; event.currentTarget.style.background = 'linear-gradient(145deg, rgba(97,71,130,0.035), rgba(97,71,130,0.012))'; event.currentTarget.style.transform = 'none'; event.currentTarget.style.boxShadow = 'none'; }}
+      className={styles.teamCard}
+      style={{ fontFamily: MANROPE, ['--team-color' as string]: color }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
         <span style={{ width: '42px', height: '42px', borderRadius: '13px', background: tint, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
@@ -53,7 +55,7 @@ function TeamCard({ team, onOpen }: { team: Team; onOpen: () => void }) {
       <p style={{ minHeight: '36px', margin: '12px 0 14px', color: 'var(--c-text2)', fontSize: '12.5px', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{team.description || 'Sin descripción'}</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '12px', alignItems: 'center', color: 'var(--c-text2)', fontSize: '11.5px', marginBottom: '14px' }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><strong style={{ color: 'var(--c-text)' }}>Responsable</strong><br />{team.leadName || 'Sin asignar'}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><strong style={{ color: 'var(--c-text)' }}>Responsable</strong><br />{team.leadName || (team.leadId ? members.find((member) => member.id === team.leadId)?.name : null) || 'Sin asignar'}</span>
         <span style={{ textAlign: 'right' }}><strong style={{ color: 'var(--c-text)' }}>Trabajo activo</strong><br />{team.activeCards ?? 0} tarjetas</span>
       </div>
 
@@ -87,7 +89,7 @@ function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, 
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!name.trim() || !workspaceId) return;
+    if (!name.trim() || !workspaceId || description.trim().length > MAX_TEAM_DESCRIPTION_LENGTH) return;
     setLoading(true);
     setError(null);
     try {
@@ -104,26 +106,24 @@ function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, 
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,.65)' }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div style={{ width: '440px', maxWidth: '92vw', borderRadius: '12px', background: '#1A2035', border: '1px solid rgba(97,71,130,.1)' }}>
+      <div className={styles.modal} style={{ width: '440px', maxWidth: '92vw' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid rgba(97,71,130,.07)' }}>
           <span style={{ color: 'var(--c-text)', fontFamily: SORA, fontSize: '14.5px', fontWeight: 600 }}>Nuevo equipo</span>
           <button type="button" onClick={onClose} style={{ padding: '2px', border: 0, background: 'none', color: 'var(--c-text3)', cursor: 'pointer' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></button>
         </div>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase' }}>Espacio de trabajo</span>
-            <select value={workspaceId} onChange={(event) => onWorkspaceChange(event.target.value)} disabled={!availableWorkspaces.length} style={{ ...fieldStyle, cursor: availableWorkspaces.length ? 'pointer' : 'not-allowed' }}>
-              <option value="">{availableWorkspaces.length ? 'Selecciona un espacio de trabajo' : 'No tienes espacios de trabajo disponibles'}</option>
-              {availableWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-            </select>
-          </label>
+            <ProjectOptionSelect label="Espacio de trabajo" value={workspaceId} onChange={onWorkspaceChange} options={[{ value: '', label: availableWorkspaces.length ? 'Selecciona un espacio de trabajo' : 'No tienes espacios disponibles' }, ...availableWorkspaces.map((workspace) => ({ value: workspace.id, label: workspace.name }))]} disabled={!availableWorkspaces.length} />
+          </div>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase' }}>Nombre</span>
             <input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Ej. Diseño, Desarrollo" style={fieldStyle} />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase' }}>Descripción <span style={{ opacity: .5 }}>(opcional)</span></span>
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="¿En qué se enfoca este equipo?" rows={2} style={{ ...fieldStyle, resize: 'none' }} />
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={MAX_TEAM_DESCRIPTION_LENGTH} placeholder="¿En qué se enfoca este equipo?" rows={2} style={{ ...fieldStyle, resize: 'none' }} />
+            <span style={{ alignSelf: 'flex-end', color: 'var(--c-text4)', fontSize: '11px' }}>{description.length}/{MAX_TEAM_DESCRIPTION_LENGTH}</span>
           </label>
           <div>
             <div style={{ marginBottom: '8px', color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase' }}>Color</div>
@@ -181,7 +181,7 @@ export default function TeamsPage() {
   }
 
   return (
-    <div style={{ minHeight: '100%', padding: '0 clamp(20px, 4vw, 48px) 48px', background: C.bg }}>
+    <div className={styles.page} style={{ minHeight: '100%', padding: '0 clamp(20px, 4vw, 48px) 48px', background: C.bg }}>
       <div style={{ maxWidth: '1080px', margin: '0 auto', animation: 'fadeUp .4s ease both' }}>
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}`}</style>
         <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '18px', paddingTop: '42px' }}>
@@ -198,7 +198,7 @@ export default function TeamsPage() {
             { label: 'Espacios de trabajo', value: activeWorkspaces.length, color: '#548B73' },
             { label: 'Tarjetas activas', value: activeCardCount, color: '#8D84B0' },
           ].map((metric) => (
-            <div key={metric.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', border: '1px solid rgba(97,71,130,.08)', borderRadius: '11px', background: 'rgba(97,71,130,.025)' }}>
+            <div key={metric.label} className={styles.metric} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
               <span style={{ color: 'var(--c-text2)', fontFamily: MANROPE, fontSize: '12px' }}>{metric.label}</span>
               <strong style={{ color: metric.color, fontFamily: SORA, fontSize: '20px' }}>{metric.value}</strong>
             </div>
@@ -206,17 +206,11 @@ export default function TeamsPage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '24px 0 14px', padding: '12px 14px', border: '1px solid rgba(97,71,130,.07)', borderRadius: '11px', background: 'rgba(97,71,130,.018)' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--c-text2)', fontFamily: MANROPE, fontSize: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--c-text2)', fontFamily: MANROPE, fontSize: '12px' }}>
             <span>Espacio de trabajo</span>
-            <select value={workspaceFilter} onChange={(event) => selectFilter(event.target.value)} style={{ minWidth: '240px', padding: '9px 34px 9px 11px', borderRadius: '8px', border: '1px solid rgba(97,71,130,.13)', background: 'var(--c-surface2)', color: 'var(--c-text)', fontFamily: MANROPE, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-              <option value="ALL">Todos los espacios ({teams.length} equipos)</option>
-              {activeWorkspaces.map((workspace) => {
-                const count = teams.filter((team) => team.workspaceId === workspace.id).length;
-                return <option key={workspace.id} value={workspace.id}>{workspace.name} ({count} {count === 1 ? 'equipo' : 'equipos'})</option>;
-              })}
-            </select>
-          </label>
-          {workspaceFilter !== 'ALL' && <button type="button" onClick={() => selectFilter('ALL')} style={{ padding: '7px 0', border: 0, background: 'transparent', color: '#F57A4A', cursor: 'pointer', fontFamily: MANROPE, fontSize: '12.5px', fontWeight: 600 }}>Ver todos</button>}
+            <div style={{ minWidth: '240px' }}><ProjectOptionSelect label="Filtrar por espacio de trabajo" value={workspaceFilter} onChange={selectFilter} options={[{ value: 'ALL', label: `Todos los espacios (${teams.length} equipos)` }, ...activeWorkspaces.map((workspace) => { const count = teams.filter((team) => team.workspaceId === workspace.id).length; return { value: workspace.id, label: `${workspace.name} (${count} ${count === 1 ? 'equipo' : 'equipos'})` }; })]} /></div>
+          </div>
+          {workspaceFilter !== 'ALL' && <button type="button" onClick={() => selectFilter('ALL')} style={{ padding: '7px 0', border: 0, background: 'transparent', color: 'var(--c-accent-text)', cursor: 'pointer', fontFamily: MANROPE, fontSize: '12.5px', fontWeight: 600 }}>Ver todos</button>}
         </div>
 
         {isLoading ? (
@@ -226,7 +220,7 @@ export default function TeamsPage() {
             {visibleWorkspaces.map((workspace) => {
               const workspaceTeams = teams.filter((team) => team.workspaceId === workspace.id);
               return (
-                <section key={workspace.id} style={{ overflow: 'hidden', border: '1px solid rgba(97,71,130,.08)', borderRadius: '11px', background: 'rgba(97,71,130,.018)' }}>
+                <section key={workspace.id} className={styles.workspaceGroup}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 16px', borderBottom: '1px solid rgba(97,71,130,.07)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                       <span style={{ width: '10px', height: '10px', flexShrink: 0, borderRadius: '50%', background: workspace.color ?? '#7452A6', boxShadow: `0 0 0 4px ${workspace.color ?? '#7452A6'}22` }} />

@@ -12,14 +12,14 @@ import type { TeamRequest } from '../middleware/team';
 const createTeamSchema = z.object({
   workspaceId: z.string().uuid(),
   name:        z.string().min(1).max(255),
-  description: z.string().max(1000).optional(),
+  description: z.string().max(120, 'La descripción no puede superar los 120 caracteres.').optional(),
   color:       z.string().max(50).optional(),
   icon:        z.string().max(500).optional(),
 });
 
 const updateTeamSchema = z.object({
   name:        z.string().min(1).max(255).optional(),
-  description: z.string().max(1000).nullable().optional(),
+  description: z.string().max(120, 'La descripción no puede superar los 120 caracteres.').nullable().optional(),
   color:       z.string().max(50).nullable().optional(),
   icon:        z.string().max(500).nullable().optional(),
   leadId:      z.string().uuid().nullable().optional(),
@@ -45,6 +45,8 @@ function fmtTeam(row: any) {
     color:       row.color,
     icon:        row.icon,
     leadId:      row.lead_id,
+    leadName:    row.lead_name ?? null,
+    leadAvatar:  row.lead_avatar ?? null,
     workspaceId: row.workspace_id,
     createdBy:   row.created_by,
     createdAt:   new Date(row.created_at).toISOString(),
@@ -184,7 +186,8 @@ class TeamController {
         } as any);
       } catch {}
 
-      res.status(201).json({ success: true, data: { team: fmtTeam({ ...team, member_count: 1, viewer_role: 'ADMIN', viewer_user_id: userId }) } });
+      const creator = await pool.query('SELECT name, avatar FROM users WHERE id = $1', [userId]);
+      res.status(201).json({ success: true, data: { team: fmtTeam({ ...team, lead_name: creator.rows[0]?.name, lead_avatar: creator.rows[0]?.avatar, member_count: 1, viewer_role: 'ADMIN', viewer_user_id: userId }) } });
     } catch (error) {
       console.error('[TeamController.create]', error);
       res.status(500).json({ success: false, error: { message: 'Error al crear equipo' } });
@@ -261,14 +264,14 @@ class TeamController {
       const result = await pool.query(
         `UPDATE teams SET
            name        = COALESCE($1, name),
-           description = COALESCE($2, description),
+           description = CASE WHEN $8::boolean THEN $2 ELSE description END,
            color       = COALESCE($3, color),
            icon        = COALESCE($4, icon),
            lead_id     = CASE WHEN $5::boolean THEN $6::uuid ELSE lead_id END,
            updated_at  = NOW()
          WHERE id = $7
          RETURNING *`,
-        [name ?? null, description ?? null, color ?? null, icon ?? null, leadId !== undefined, leadId ?? null, id]
+        [name ?? null, description ?? null, color ?? null, icon ?? null, leadId !== undefined, leadId ?? null, id, description !== undefined]
       );
 
       try {
@@ -619,6 +622,35 @@ class TeamController {
     } catch (error) {
       console.error('[TeamController.removeMember]', error);
       res.status(500).json({ success: false, error: { message: 'Error al remover miembro' } });
+    }
+  }
+
+  /** GET /api/teams/:id/projects — proyectos vinculados al equipo */
+  async getProjects(req: Request, res: Response) {
+    try {
+      const result = await pool.query(
+        `SELECT p.id, p.name, p.color, p.description, p.status,
+                w.name AS workspace_name, pt.assigned_at
+           FROM project_teams pt
+           JOIN projects p ON p.id = pt.project_id
+           JOIN teams t ON t.id = pt.team_id AND t.workspace_id = p.workspace_id
+           JOIN workspaces w ON w.id = p.workspace_id
+          WHERE pt.team_id = $1
+          ORDER BY pt.assigned_at DESC`,
+        [req.params.id]
+      );
+      res.json({ success: true, data: { projects: result.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        color: row.color ?? null,
+        description: row.description ?? null,
+        status: row.status,
+        workspaceName: row.workspace_name,
+        assignedAt: new Date(row.assigned_at).toISOString(),
+      })) } });
+    } catch (error) {
+      console.error('[TeamController.getProjects]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al obtener proyectos del equipo' } });
     }
   }
 

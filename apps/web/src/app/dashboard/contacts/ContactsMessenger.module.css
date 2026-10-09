@@ -1,0 +1,1037 @@
+.shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: 'Manrope', system-ui, sans-serif;
+  overflow: hidden;
+}
+.rail {
+  display: flex;
+  flex-direction: column;
+  width: 330px;
+  min-width: 288px;
+  flex-shrink: 0;
+  background: var(--c-surface);
+  border-right: 1px solid var(--c-border);
+}
+.railHeader {
+  padding: 34px 24px 20px;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  font-weight: 800;
+  color: var(--c-accent-text);
+}
+.railHeader h1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 26px;
+  letter-spacing: -0.055em;
+  margin: 9px 0 6px;
+  font-weight: 750;
+}
+.railHeader p {
+  font-size: 12px;
+  color: var(--c-text3);
+  margin: 0;
+}
+.headingIcon {
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
+  border-radius: 11px;
+  color: var(--c-accent-text);
+}
+.searchBox {
+  margin: 0 16px 16px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  height: 40px;
+  background: var(--c-bg2);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  color: var(--c-text4);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.searchBox:focus-within {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 12%, transparent);
+}
+.searchBox input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--c-text);
+  font-size: 12px;
+  min-width: 0;
+  width: 100%;
+}
+.searchBox input::placeholder {
+  color: var(--c-text4);
+}
+.searchBox button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--c-text3);
+  cursor: pointer;
+  padding: 2px;
+}
+.tabs {
+  display: flex;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--c-border);
+  gap: 3px;
+}
+.tabs button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 1;
+  padding: 11px 3px 12px;
+  border: 0;
+  background: none;
+  color: var(--c-text3);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color 0.18s,
+    background 0.18s;
+}
+.tabs button:hover {
+  color: var(--c-accent-text);
+}
+.tabs .activeTab {
+  color: var(--c-accent-text);
+}
+.tabs .activeTab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 18%;
+  width: 64%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--c-accent);
+}
+.tabBadge,
+.unread {
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 8px;
+  background: var(--c-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 750;
+}
+.railList {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 8px;
+}
+.listHint {
+  padding: 20px;
+  color: var(--c-text3);
+  font-size: 12px;
+}
+.listSection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 13px 13px 8px;
+  color: var(--c-text4);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.listEmpty {
+  padding: 45px 24px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  color: var(--c-text3);
+}
+.listEmpty svg {
+  color: var(--c-accent-text);
+  opacity: 0.7;
+  margin-bottom: 14px;
+}
+.listEmpty strong {
+  color: var(--c-text);
+  font-size: 13px;
+}
+.listEmpty p {
+  font-size: 11px;
+  line-height: 1.6;
+  max-width: 220px;
+}
+.listEmpty button {
+  border: 1px solid var(--c-border2);
+  border-radius: 8px;
+  background: var(--c-surface2);
+  color: var(--c-accent-text);
+  font-size: 11px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.personRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--c-text);
+  text-align: left;
+  padding: 11px 10px;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    transform 0.18s;
+}
+.personRow:hover {
+  background: var(--c-hover);
+  transform: translateX(2px);
+}
+.personRow.selectedRow {
+  background: var(--c-surface2);
+  border-color: var(--c-border);
+}
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(145deg, #8d73bc, #5c468e);
+  color: #fff;
+  font-family: 'Sora', system-ui, sans-serif;
+  font-weight: 750;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.rowText strong {
+  font-size: 12px;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowTop {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: space-between;
+  min-width: 0;
+}
+.rowTop strong {
+  min-width: 0;
+}
+.rowTop small {
+  font-size: 9px;
+  color: var(--c-text4);
+  white-space: nowrap;
+}
+.rowPreview {
+  color: var(--c-text3);
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.favoriteIcon {
+  color: var(--c-accent-text);
+  flex-shrink: 0;
+}
+.requestDot {
+  height: 8px;
+  width: 8px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  flex-shrink: 0;
+}
+.railFooter {
+  border-top: 1px solid var(--c-border);
+  padding: 14px 21px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--c-text4);
+  font-size: 10px;
+}
+.railFooter svg {
+  color: var(--c-accent-text);
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: var(--c-bg);
+}
+.welcome {
+  margin: auto;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 30px;
+  max-width: 460px;
+}
+.welcomeArt {
+  display: grid;
+  place-items: center;
+  width: 82px;
+  height: 82px;
+  border-radius: 25px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--c-accent) 18%, var(--c-surface)),
+    var(--c-surface2)
+  );
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--c-accent) 10%, transparent);
+  color: var(--c-accent-text);
+  margin-bottom: 30px;
+}
+.welcome h2 {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: clamp(21px, 2.3vw, 31px);
+  line-height: 1.25;
+  letter-spacing: -0.05em;
+  margin: 11px 0;
+}
+.welcome p {
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--c-text3);
+  margin: 0 0 22px;
+}
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 37px;
+  padding: 9px 15px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    transform 0.18s,
+    background 0.18s,
+    box-shadow 0.18s;
+}
+.primaryButton {
+  background: var(--c-accent);
+  color: #fff;
+  box-shadow: 0 5px 15px color-mix(in srgb, var(--c-accent) 20%, transparent);
+}
+.primaryButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 19px color-mix(in srgb, var(--c-accent) 25%, transparent);
+}
+.secondaryButton {
+  background: var(--c-surface);
+  color: var(--c-text2);
+  border-color: var(--c-border2);
+}
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+.chatHeader {
+  height: 70px;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+.chatHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.chatHeading strong {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chatHeading small {
+  font-size: 10.5px;
+  color: var(--c-text3);
+}
+.profileButton,
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface2);
+  color: var(--c-text2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+.profileButton:hover,
+.backButton:hover {
+  background: var(--c-hover);
+  color: var(--c-accent-text);
+}
+.backButton {
+  display: none;
+}
+.retention {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 10.5px;
+  color: var(--c-text3);
+  background: var(--c-surface2);
+}
+.messageList {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 18px clamp(18px, 5vw, 80px) 28px;
+  scroll-behavior: smooth;
+}
+.olderButton {
+  display: block;
+  margin: 0 auto 18px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-accent-text);
+  font-size: 10.5px;
+  cursor: pointer;
+}
+.messageEmpty {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  margin: 60px auto;
+  max-width: 280px;
+}
+.messageEmpty h3 {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 15px;
+  margin: 16px 0 5px;
+}
+.messageEmpty p {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--c-text3);
+}
+.dateDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--c-text4);
+  font-size: 10px;
+  margin: 21px 0;
+}
+.dateDivider:before,
+.dateDivider:after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--c-border);
+}
+.messageRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 10px 0;
+}
+.messageRow.mine {
+  justify-content: flex-end;
+}
+.messageContent {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  max-width: min(74%, 540px);
+  min-width: 0;
+}
+.messageRow.mine .messageContent {
+  align-items: flex-end;
+}
+.bubble {
+  padding: 10px 13px;
+  border: 1px solid var(--c-border);
+  border-radius: 13px 13px 13px 3px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--c-text) 3%, transparent);
+}
+.mine .bubble {
+  background: var(--c-accent);
+  color: #fff;
+  border-color: var(--c-accent);
+  border-radius: 13px 13px 3px 13px;
+}
+.messageContent time {
+  font-size: 9px;
+  color: var(--c-text4);
+  margin: 4px 3px 0;
+}
+.composer {
+  margin: 10px clamp(15px, 4vw, 60px) 22px;
+  border: 1px solid var(--c-border2);
+  border-radius: 13px;
+  background: var(--c-surface);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--c-text) 4%, transparent);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.composer:focus-within {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 11%, transparent);
+}
+.composer textarea {
+  display: block;
+  resize: none;
+  width: 100%;
+  height: 70px;
+  padding: 14px 16px 4px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--c-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.composer textarea::placeholder {
+  color: var(--c-text4);
+}
+.composerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px 8px 16px;
+  color: var(--c-text4);
+  font-size: 9px;
+}
+.composerFooter button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: var(--c-accent);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+}
+.composerFooter button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.connectionState {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  max-width: 380px;
+  margin: auto;
+  padding: 25px;
+}
+.connectionIcon {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 70px;
+  border-radius: 22px;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
+  color: var(--c-accent-text);
+  margin-bottom: 18px;
+}
+.connectionState h2 {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 18px;
+  letter-spacing: -0.035em;
+  margin: 0 0 7px;
+}
+.connectionState p {
+  color: var(--c-text3);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0 0 19px;
+}
+.requestActions {
+  display: flex;
+  gap: 8px;
+}
+.pendingPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--c-text2);
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
+  border-radius: 20px;
+  padding: 7px 11px;
+  font-size: 11px;
+}
+.error {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: color-mix(in srgb, var(--c-red) 12%, var(--c-surface));
+  border: 1px solid var(--c-red);
+  color: var(--c-red);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.error button {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.profile {
+  width: 292px;
+  min-width: 255px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--c-border);
+  background: var(--c-surface);
+  overflow-y: auto;
+}
+.profileBanner {
+  height: 104px;
+  background: linear-gradient(125deg, #c8b2e0 0%, #9477c1 53%, #5c468e 100%);
+  position: relative;
+}
+.profileClose {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(28, 17, 48, 0.22);
+  color: #fff;
+  cursor: pointer;
+}
+.profileBody {
+  position: relative;
+  padding: 0 21px 28px;
+}
+.profileAvatar {
+  margin-top: -39px;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--c-surface);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--c-text) 13%, transparent);
+}
+.profileIdentity {
+  padding-top: 14px;
+}
+.profileIdentity h2 {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 17px;
+  letter-spacing: -0.04em;
+  line-height: 1.3;
+  margin: 6px 0 3px;
+}
+.profileIdentity p {
+  font-size: 11px;
+  color: var(--c-text3);
+  margin: 0;
+}
+.favoriteButton {
+  position: absolute;
+  top: 6px;
+  right: 20px;
+  display: grid;
+  place-items: center;
+  height: 33px;
+  width: 33px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface2);
+  border-radius: 9px;
+  color: var(--c-text3);
+  cursor: pointer;
+}
+.favoriteButton:hover,
+.favoriteActive {
+  color: var(--c-accent-text);
+  background: var(--c-hover);
+}
+.profileRule {
+  height: 1px;
+  background: var(--c-border);
+  margin: 23px 0;
+}
+.profileBlock {
+  margin: 0 0 25px;
+}
+.profileLabel {
+  display: block;
+  color: var(--c-text4);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  margin-bottom: 10px;
+}
+.profileBlock p {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--c-text2);
+  margin: 0;
+}
+.profileLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--c-text2);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.profileFacts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.profileStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+  color: var(--c-text3);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.profileStatus button {
+  align-self: flex-start;
+  border: 1px solid var(--c-border2);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: var(--c-surface2);
+  color: var(--c-accent-text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.profileLine svg {
+  flex-shrink: 0;
+  color: var(--c-accent-text);
+}
+.sharedItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sharedItems span {
+  display: inline-block;
+  padding: 6px 8px;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  color: var(--c-text2);
+  font-size: 10px;
+}
+.profileNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  padding: 11px;
+  background: var(--c-surface2);
+  color: var(--c-text3);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.profileNote svg {
+  color: var(--c-accent-text);
+  flex-shrink: 0;
+}
+@media (max-width: 1120px) {
+  .rail {
+    width: 290px;
+  }
+  .profile {
+    width: 255px;
+    min-width: 235px;
+  }
+  .messageList {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+@media (max-width: 950px) {
+  .shell {
+    position: relative;
+  }
+  .profile {
+    position: absolute;
+    z-index: 6;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: min(310px, 85vw);
+    box-shadow: -16px 0 35px color-mix(in srgb, var(--c-text) 14%, transparent);
+  }
+  .rail {
+    width: 310px;
+  }
+}
+@media (max-width: 640px) {
+  .shell {
+    height: calc(100dvh - 54px);
+    max-height: calc(100dvh - 54px);
+  }
+  .rail {
+    width: 100%;
+    min-width: 0;
+  }
+  .main {
+    width: 100%;
+  }
+  .mobileHidden {
+    display: none !important;
+  }
+  .backButton {
+    display: flex;
+  }
+  .chatHeader {
+    padding: 0 12px;
+  }
+  .messageList {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+  .composer {
+    margin: 8px 10px 12px;
+  }
+  .railHeader {
+    padding-top: 22px;
+  }
+  .railFooter {
+    display: none;
+  }
+}
+
+/* Motion is intentionally short and restrained so the inbox remains quick to use. */
+@keyframes contactsEnter {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes messageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(9px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes gentlePulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.railList {
+  animation: contactsEnter 0.23s ease-out both;
+}
+.main {
+  animation: contactsEnter 0.28s ease-out both;
+}
+.personRow {
+  animation: contactsEnter 0.22s ease-out both;
+}
+.personRow:active,
+.primaryButton:active,
+.secondaryButton:active {
+  transform: scale(0.98);
+}
+.messageRow {
+  animation: messageEnter 0.23s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.messageList {
+  scroll-behavior: auto;
+}
+.listHint {
+  animation: gentlePulse 1.25s ease-in-out infinite;
+}
+.tabs button {
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+.tabs button:active {
+  transform: translateY(1px);
+}
+.tabs .activeTab::after {
+  animation: contactsEnter 0.22s ease-out both;
+}
+.profile {
+  transition:
+    width 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+    min-width 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 0.2s ease,
+    transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+    visibility 0s;
+}
+.profile.profileClosed {
+  width: 0;
+  min-width: 0;
+  border-left: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    width 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+    min-width 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 0.2s ease,
+    transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+    visibility 0s linear 0.28s;
+}
+.profileBody {
+  min-width: 254px;
+}
+.profileClose,
+.favoriteButton,
+.olderButton,
+.composerFooter button,
+.listEmpty button {
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+.profileClose:hover,
+.favoriteButton:hover,
+.olderButton:hover,
+.composerFooter button:not(:disabled):hover,
+.listEmpty button:hover {
+  transform: translateY(-2px);
+}
+.composerFooter button:not(:disabled):active {
+  transform: scale(0.94);
+}
+.connectionState,
+.welcome,
+.messageEmpty {
+  animation: contactsEnter 0.3s ease-out both;
+}
+@media (max-width: 950px) {
+  .profile {
+    transition:
+      transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+      opacity 0.2s ease,
+      visibility 0s;
+  }
+  .profile.profileClosed {
+    width: min(310px, 85vw);
+    min-width: 0;
+    transform: translateX(105%);
+    box-shadow: none;
+    transition:
+      transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+      opacity 0.2s ease,
+      visibility 0s linear 0.28s;
+  }
+}
+@media (max-width: 640px) {
+  .main:not(.mobileHidden) {
+    animation: contactsEnter 0.24s ease-out both;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell *,
+  .shell *::before,
+  .shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

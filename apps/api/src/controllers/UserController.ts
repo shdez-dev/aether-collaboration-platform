@@ -1124,7 +1124,7 @@ class UserController {
       const { id } = req.params;
 
       const result = await pool.query(
-        `SELECT id, name, email, avatar, bio, position, location, created_at
+        `SELECT id, name, email, avatar, bio, position, location, timezone, language, created_at
          FROM users
          WHERE id = $1`,
         [id]
@@ -1180,6 +1180,8 @@ class UserController {
             bio: u.bio,
             position: u.position,
             location: u.location,
+            timezone: u.timezone,
+            language: u.language,
             createdAt: u.created_at,
           },
           sharedWorkspaces: sharedWorkspaces.rows.map((w) => ({

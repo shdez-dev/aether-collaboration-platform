@@ -1,0 +1,46 @@
+.picker { position: relative; width: 100%; min-width: 0; }
+.trigger { display: flex; align-items: center; gap: 10px; width: 100%; height: 46px; padding: 0 12px; border: 1px solid var(--c-border2); border-radius: 10px; background: var(--c-surface2); color: var(--c-text); font: 600 13px 'Manrope', system-ui, sans-serif; text-align: left; cursor: pointer; transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease; }
+.trigger svg:first-child { flex: none; color: var(--c-accent-text); }
+.trigger span { flex: 1; white-space: nowrap; }
+.trigger:hover, .triggerOpen { border-color: var(--c-accent-text); background: var(--c-surface); }
+.trigger:focus-visible, .calendar button:focus-visible, .clock button:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
+.triggerOpen { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent-text) 12%, transparent); }
+.chevron { color: var(--c-text4); transition: transform 160ms ease; }
+.triggerOpen .chevron { transform: rotate(180deg); }
+.calendar, .clock { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; border: 1px solid var(--c-border2); border-radius: 14px; background: var(--c-surface); box-shadow: 0 18px 48px rgba(25, 17, 38, .18); color: var(--c-text); animation: appear 150ms ease both; }
+.alignRight { left: auto; right: 0; }
+.calendar { width: 288px; padding: 14px; }
+.calendarHeader, .calendarFooter, .clockHeader { display: flex; align-items: center; justify-content: space-between; }
+.calendarHeader strong { font: 700 13px 'Sora', system-ui, sans-serif; text-transform: capitalize; }
+.navigation { display: flex; gap: 3px; }
+.navigation button { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--c-text2); cursor: pointer; }
+.navigation button:hover, .calendarFooter button:hover { background: var(--c-hover); color: var(--c-accent-text); }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 11px; }
+.weekday { display: grid; place-items: center; height: 27px; color: var(--c-text3); font: 700 10px 'Manrope', system-ui, sans-serif; }
+.day { display: grid; place-items: center; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--c-text); font: 600 11px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.day:hover:not(:disabled) { background: var(--c-hover); color: var(--c-accent-text); }
+.otherMonth { color: var(--c-text4); opacity: .7; }
+.today:not(.selectedDay) { box-shadow: inset 0 0 0 1px var(--c-accent-text); color: var(--c-accent-text); }
+.selectedDay, .selectedDay:hover:not(:disabled) { background: var(--c-accent) !important; color: #fff !important; }
+.day:disabled, .calendarFooter button:disabled { opacity: .28; cursor: not-allowed; }
+.calendarFooter { gap: 8px; margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--c-border2); }
+.calendarFooter span { color: var(--c-text3); font-size: 10px; text-transform: capitalize; }
+.calendarFooter button { flex: none; border: 0; border-radius: 7px; padding: 6px 8px; background: transparent; color: var(--c-accent-text); font: 700 11px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.clock { width: 206px; padding: 12px; }
+.clockHeader { padding: 2px 3px 10px; color: var(--c-text3); font: 700 11px 'Sora', system-ui, sans-serif; }
+.clockHeader span { color: var(--c-accent-text); font-size: 14px; }
+.clockColumns { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.clockColumn { height: 194px; overflow-y: auto; scrollbar-width: thin; border: 1px solid var(--c-border2); border-radius: 8px; background: var(--c-surface2); }
+.timeOption { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 32px; padding: 0 10px; border: 0; background: transparent; color: var(--c-text2); font: 600 12px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.timeOption:hover { background: var(--c-hover); color: var(--c-accent-text); }
+.selectedTime, .selectedTime:hover { background: color-mix(in srgb, var(--c-accent-text) 14%, var(--c-surface)) !important; color: var(--c-accent-text) !important; font-weight: 800; }
+.done { width: 100%; height: 31px; margin-top: 10px; border: 0; border-radius: 7px; background: var(--c-accent); color: #fff; font: 700 11px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.done:hover { filter: brightness(1.08); }
+.placeholder { color: var(--c-text3); font-weight: 500; }
+.selectMenu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; width: 100%; max-height: 220px; overflow-y: auto; padding: 5px; border: 1px solid var(--c-border2); border-radius: 11px; background: var(--c-surface); box-shadow: 0 18px 48px rgba(25, 17, 38, .18); animation: appear 150ms ease both; }
+.selectOption { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 38px; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--c-text2); font: 600 12px 'Manrope', system-ui, sans-serif; text-align: left; cursor: pointer; }
+.selectOption:hover, .selectOption:focus-visible { background: var(--c-hover); color: var(--c-accent-text); }
+.selectedOption, .selectedOption:hover { background: color-mix(in srgb, var(--c-accent-text) 12%, var(--c-surface)); color: var(--c-accent-text); }
+.selectEmpty { padding: 12px 10px; color: var(--c-text3); font: 500 12px 'Manrope', system-ui, sans-serif; }
+@keyframes appear { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .calendar, .clock, .selectMenu, .trigger, .chevron { animation: none; transition: none; } }

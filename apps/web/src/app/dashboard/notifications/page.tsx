@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Notification } from '@aether/types';
-import { Archive, ArrowUpRight, AtSign, Bell, CalendarClock, Check, CheckCheck, Inbox, ListChecks, MessageCircle, Users } from 'lucide-react';
+import { Archive, ArrowUpRight, AtSign, Bell, BellRing, CalendarClock, Check, CheckCheck, ListChecks, MessageCircle, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -131,7 +131,7 @@ function NotificationRow({ notification, onOpen, onRead, onResolve, onArchive }:
   );
 }
 
-export default function BandejaPage() {
+export default function NotificationsPage() {
   const router = useRouter();
   const { notifications, isLoading, loadNotifications, markAsRead, markAllAsRead, archiveNotification, resolveNotification } = useNotifications();
   const setActiveWorkspaceId = useActiveWorkspaceStore(state => state.setActiveWorkspaceId);
@@ -204,11 +204,11 @@ export default function BandejaPage() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.headerIcon}><Inbox size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+        <div className={styles.headerIcon}><BellRing size={24} strokeWidth={1.8} aria-hidden="true" /></div>
         <div className={styles.headerText}>
-          <span className={styles.eyebrow}>Centro de actividad</span>
-          <h1>Bandeja</h1>
-          <p>Revisa las novedades y decide qué necesita tu atención.</p>
+          <span className={styles.eyebrow}>Avisos y novedades</span>
+          <h1>Notificaciones</h1>
+          <p>Revisa menciones, asignaciones y otros avisos que requieren tu atención.</p>
         </div>
         <div className={styles.unreadSummary} aria-label={`${unreadCount} ${unreadCount === 1 ? 'notificación' : 'notificaciones'} sin leer`}>
           <strong>{unreadCount}</strong><span>sin leer</span>
@@ -233,7 +233,7 @@ export default function BandejaPage() {
           <div className={styles.state} role="status"><span className={styles.spinner} />Cargando notificaciones…</div>
         ) : filtered.length === 0 ? (
           <div className={styles.empty}>
-            <div className={styles.emptyIcon}><Inbox size={27} strokeWidth={1.6} aria-hidden="true" /></div>
+            <div className={styles.emptyIcon}><BellRing size={27} strokeWidth={1.6} aria-hidden="true" /></div>
             <h2>{emptyTitle[filter]}</h2>
             <p>{filter === 'todo' ? 'Cuando tengas novedades, aparecerán aquí.' : 'Prueba otro filtro para ver el resto de tu actividad.'}</p>
             {filter !== 'todo' && <button type="button" onClick={() => setFilter('todo')}>Ver todas las notificaciones</button>}

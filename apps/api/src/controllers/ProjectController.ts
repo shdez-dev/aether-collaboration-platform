@@ -886,7 +886,22 @@ class ProjectController {
           } as any);
         }
       } catch {}
-      res.json({ success: true, data: { project: await hydrateProject(result.rows[0], relations) } });
+      const access = (req as ProjectRequest).projectContext;
+      res.json({
+        success: true,
+        data: {
+          project: {
+            ...(await hydrateProject(result.rows[0], relations)),
+            access: access ? {
+              level: access.level,
+              external: access.external,
+              canRead: true,
+              canContribute: access.level !== 'READ',
+              canManage: access.level === 'MANAGE',
+            } : undefined,
+          },
+        },
+      });
     } catch (error) {
       console.error('[ProjectController.update]', error);
       res.status(500).json({ success: false, error: { message: 'Error al actualizar' } });

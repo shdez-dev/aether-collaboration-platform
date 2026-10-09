@@ -170,18 +170,18 @@ export default function WorkspaceContextSwitcher({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={styles.trigger}
+          className={`${styles.trigger} dsh-workspace-trigger`}
           aria-label={`Cambiar espacio de trabajo: ${organizationName}, ${activeWorkspace?.name ?? 'Tu espacio'}`}
         >
           <span className={styles.triggerIcon} style={{ '--workspace-color': color } as React.CSSProperties} aria-hidden="true">
             <WorkspaceIcon icon={activeWorkspace?.icon ?? 'briefcase'} size={17} />
           </span>
-          <span className={styles.triggerCopy}>
+          <span className={`${styles.triggerCopy} dsh-workspace-copy`}>
             <strong title={activeWorkspace?.name}>{activeWorkspace?.name ?? 'Tu espacio'}</strong>
             <small title={organizationName}>{organizationName}</small>
           </span>
-          {activeWorkspace ? <span className={styles.modePill}>{workspaceModeLabel(activeWorkspace.mode)}</span> : null}
-          <ChevronDown className={styles.chevron} data-open={open} size={16} aria-hidden="true" />
+          {activeWorkspace ? <span className={`${styles.modePill} dsh-workspace-mode`}>{workspaceModeLabel(activeWorkspace.mode)}</span> : null}
+          <ChevronDown className={`${styles.chevron} dsh-workspace-chevron`} data-open={open} size={16} aria-hidden="true" />
         </button>
       </PopoverTrigger>
 

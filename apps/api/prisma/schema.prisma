@@ -195,6 +195,12 @@ model User {
   aiBuilderDocuments           AiBuilderDocument[]
   favoriteContacts             UserFavoriteContact[] @relation("UserFavorites")
   favoritedBy                  UserFavoriteContact[] @relation("FavoritedUser")
+  connectionAsA                DirectConnection[] @relation("DirectConnectionUserA")
+  connectionAsB                DirectConnection[] @relation("DirectConnectionUserB")
+  connectionRequestsSent       DirectConnection[] @relation("DirectConnectionRequester")
+  conversationsAsA             DirectConversation[] @relation("DirectConversationUserA")
+  conversationsAsB             DirectConversation[] @relation("DirectConversationUserB")
+  directMessagesSent           DirectMessage[] @relation("DirectMessageSender")
   teamMemberships              TeamMember[]
   createdTeams                 Team[]                @relation("TeamCreator")
   ledTeams                     Team[]                @relation("TeamLead")
@@ -310,6 +316,59 @@ model UserFavoriteContact {
   @@unique([userId, favoriteUserId])
   @@index([userId])
   @@map("user_favorite_contacts")
+}
+
+// Private, time-limited messaging. A favorite is only a bookmark; an accepted
+// connection or shared organization/workspace grants permission to write.
+model DirectConnection {
+  id            String    @id @default(uuid()) @db.Uuid
+  userAId       String    @map("user_a_id") @db.Uuid
+  userBId       String    @map("user_b_id") @db.Uuid
+  requestedById String    @map("requested_by_id") @db.Uuid
+  status        String    @default("PENDING") @db.VarChar(20)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  respondedAt   DateTime? @map("responded_at")
+
+  userA       User @relation("DirectConnectionUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB       User @relation("DirectConnectionUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  requestedBy User @relation("DirectConnectionRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userBId, status])
+  @@map("direct_connections")
+}
+
+model DirectConversation {
+  id            String    @id @default(uuid()) @db.Uuid
+  userAId       String    @map("user_a_id") @db.Uuid
+  userBId       String    @map("user_b_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastMessageAt DateTime? @map("last_message_at")
+
+  userA    User @relation("DirectConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User @relation("DirectConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages DirectMessage[]
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+  @@map("direct_conversations")
+}
+
+model DirectMessage {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  senderId       String   @map("sender_id") @db.Uuid
+  body           String   @db.VarChar(4000)
+  createdAt      DateTime @default(now()) @map("created_at")
+  expiresAt      DateTime @default(dbgenerated("(now() + '30 days'::interval)")) @map("expires_at")
+  readAt         DateTime? @map("read_at")
+
+  conversation DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("direct_messages")
 }
 
 // ── User Activity Log ─────────────────────────────────────────────────────────

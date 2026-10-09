@@ -31,6 +31,7 @@ import searchRoutes from './routes/search';
 import aiRoutes from './routes/ai';
 import eventRoutes from './routes/events';
 import adminRoutes from './routes/admin';
+import chatRoutes from './routes/chat';
 import { documentCommentController } from './controllers/DocumentCommentController';
 
 // Import middleware
@@ -49,6 +50,7 @@ import { initializeRedis, closeRedisConnections } from './lib/redis';
 import { initializeRealtimeGateway } from './websocket/RealtimeGateway';
 import { initializeYjsGateway } from './websocket/Yjsgateway';
 import { startDueDateJob, stopDueDateJob } from './jobs/dueDateJob';
+import { startDirectMessageRetentionJob, stopDirectMessageRetentionJob } from './jobs/directMessageRetentionJob';
 
 // ============================================================================
 // ENVIRONMENT VALIDATION
@@ -203,6 +205,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', boardRoutes);
 app.use('/api', cardRoutes);
@@ -275,6 +278,7 @@ async function startServer() {
 
     // 5. Start due date notification cron job
     startDueDateJob();
+    startDirectMessageRetentionJob();
 
     // 6. Start HTTP server
     httpServer.listen(PORT, () => {
@@ -305,6 +309,7 @@ const shutdown = async (signal: string) => {
   httpServer.close(async () => {
     try {
       stopDueDateJob();
+      stopDirectMessageRetentionJob();
       await closeRedisConnections();
       process.exit(0);
     } catch {

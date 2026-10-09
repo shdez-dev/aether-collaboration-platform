@@ -24,6 +24,7 @@ router.put('/:id',    requireTeamAccess(true), (req, res) => teamController.upda
 router.delete('/:id', requireTeamAccess(true), (req, res) => teamController.delete(req, res));
 
 // ── Workspaces activos (derivados de project_teams) ───────────────────────────
+router.get('/:id/projects', requireTeamAccess(), (req, res) => teamController.getProjects(req, res));
 router.get('/:id/workspaces', requireTeamAccess(), (req, res) => teamController.getWorkspaces(req, res));
 
 // ── Actividad ──────────────────────────────────────────────────────────────────

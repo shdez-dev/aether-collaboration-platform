@@ -402,8 +402,8 @@ export default function CreateWorkspaceModal({ isOpen, onClose, initialOrganizat
                 background: C.hover, border: `1px solid ${C.border2}`, color: C.text2,
                 cursor: 'pointer', transition: 'all 0.12s',
               }}
-              onMouseEnter={(e) => { (e.currentTarget.style.borderColor = C.text4); (e.currentTarget.style.color = C.text); }}
-              onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border2); (e.currentTarget.style.color = C.text2); }}
+              onMouseEnter={(e) => { (e.currentTarget.style.background = 'color-mix(in srgb, var(--c-accent) 12%, var(--c-surface))'); (e.currentTarget.style.borderColor = C.accent); (e.currentTarget.style.color = C.text); }}
+              onMouseLeave={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.borderColor = C.border2); (e.currentTarget.style.color = C.text2); }}
             >
               Cancelar
             </button>
@@ -420,7 +420,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose, initialOrganizat
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 transition: 'background 0.12s',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#d94e18')}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'color-mix(in srgb, var(--c-accent) 82%, #271637)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = C.accent)}
             >
               {isLoading ? (

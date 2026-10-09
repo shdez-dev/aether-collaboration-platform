@@ -70,4 +70,18 @@ describe('NotificationService', () => {
       dedupeKey: 'project-status:project:ACTIVE',
     }));
   });
+
+  it('uses one deadline key for due-soon and overdue alerts on the same day', async () => {
+    (notificationRepository.createOnce as jest.Mock).mockResolvedValue(null);
+    const dueSoon = new Date('2026-10-09T09:00:00.000Z');
+    const overdue = new Date('2026-10-09T18:00:00.000Z');
+
+    await service.createCardDueSoonNotification({ userId: 'user', cardId: 'card', cardTitle: 'Tarjeta', dueDate: dueSoon, boardId: 'board' });
+    await service.createCardOverdueNotification({ userId: 'user', cardId: 'card', cardTitle: 'Tarjeta', dueDate: overdue, boardId: 'board' });
+
+    expect(notificationRepository.createOnce).toHaveBeenCalledTimes(2);
+    for (const [input] of (notificationRepository.createOnce as jest.Mock).mock.calls) {
+      expect(input).toMatchObject({ userId: 'user', dedupeKey: 'card-deadline:card:2026-10-09' });
+    }
+  });
 });

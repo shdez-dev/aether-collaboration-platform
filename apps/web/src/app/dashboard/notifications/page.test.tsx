@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import BandejaPage from './page';
+import NotificationsPage from './page';
 
 const mockPush = jest.fn();
 const mockLoad = jest.fn();
@@ -26,7 +26,7 @@ jest.mock('@/hooks/useNotifications', () => ({
 jest.mock('@/stores/activeWorkspaceStore', () => ({ useActiveWorkspaceStore: (select: any) => select({ setActiveWorkspaceId: mockSetWorkspace }) }));
 jest.mock('@/stores/workspaceStore', () => ({ useWorkspaceStore: (select: any) => select({ fetchWorkspaces: mockFetchWorkspaces }) }));
 
-describe('Bandeja', () => {
+describe('Notificaciones', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockNotifications = [
@@ -36,9 +36,9 @@ describe('Bandeja', () => {
   });
 
   it('organiza notificaciones y mantiene accesibles las acciones de cada fila', () => {
-    render(<BandejaPage />);
+    render(<NotificationsPage />);
 
-    expect(screen.getByRole('heading', { name: 'Bandeja' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Notificaciones' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Hoy' })).toBeTruthy();
     expect(screen.getByLabelText('1 notificación sin leer')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Marcar como leída' }));
@@ -48,7 +48,7 @@ describe('Bandeja', () => {
   });
 
   it('filtra menciones y conserva la navegación al abrir una notificación', async () => {
-    render(<BandejaPage />);
+    render(<NotificationsPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Menciones' }));
     expect(screen.getByText('Plan')).toBeTruthy();
     expect(screen.queryByText('Revisión')).toBeNull();

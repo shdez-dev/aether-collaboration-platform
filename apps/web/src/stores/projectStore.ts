@@ -235,6 +235,10 @@ interface ProjectState {
 
 // ==================== STORE ====================
 
+function withPreservedAccess(updated: Project, previous?: Project | null): Project {
+  return updated.access || !previous?.access ? updated : { ...updated, access: previous.access };
+}
+
 export const useProjectStore = create<ProjectState>()(
   persist(
     (set, get) => ({
@@ -331,8 +335,8 @@ export const useProjectStore = create<ProjectState>()(
         }
         const updated = response.data.project;
         set((state) => ({
-          projects: state.projects.map((p) => (p.id === id ? updated : p)),
-          currentProject: state.currentProject?.id === id ? updated : state.currentProject,
+          projects: state.projects.map((p) => (p.id === id ? withPreservedAccess(updated, p) : p)),
+          currentProject: state.currentProject?.id === id ? withPreservedAccess(updated, state.currentProject) : state.currentProject,
         }));
       },
 
@@ -343,8 +347,8 @@ export const useProjectStore = create<ProjectState>()(
         }
         const project = response.data.project;
         set((state) => ({
-          projects: state.projects.map((item) => item.id === id ? { ...item, ...project } : item),
-          currentProject: state.currentProject?.id === id ? project : state.currentProject,
+          projects: state.projects.map((item) => item.id === id ? withPreservedAccess({ ...item, ...project }, item) : item),
+          currentProject: state.currentProject?.id === id ? withPreservedAccess(project, state.currentProject) : state.currentProject,
         }));
         return project;
       },
@@ -360,8 +364,8 @@ export const useProjectStore = create<ProjectState>()(
         }
         const project = response.data.project;
         set((state) => ({
-          projects: state.projects.map((item) => item.id === id ? { ...item, ...project } : item),
-          currentProject: state.currentProject?.id === id ? project : state.currentProject,
+          projects: state.projects.map((item) => item.id === id ? withPreservedAccess({ ...item, ...project }, item) : item),
+          currentProject: state.currentProject?.id === id ? withPreservedAccess(project, state.currentProject) : state.currentProject,
         }));
         return project;
       },

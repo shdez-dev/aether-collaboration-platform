@@ -4,18 +4,15 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useNotificationStore } from '../notificationStore';
 import { notificationService } from '@/services/notificationService';
 import { socketService } from '@/services/socketService';
-import { toast } from '@/hooks/use-toast';
 import type { Notification } from '@aether/types';
 
 // Mock dependencies
 jest.mock('@/services/notificationService');
 jest.mock('@/services/socketService');
-jest.mock('@/hooks/use-toast');
 
 describe('NotificationStore', () => {
   const mockNotificationService = notificationService as jest.Mocked<typeof notificationService>;
   const mockSocketService = socketService as jest.Mocked<typeof socketService>;
-  const mockToast = toast as jest.MockedFunction<typeof toast>;
 
   const mockNotification: Notification = {
     id: 'notif-1',
@@ -353,6 +350,26 @@ describe('NotificationStore', () => {
       });
 
       expect(result.current.notifications).toHaveLength(1);
+    });
+
+    it('shows one popup for a new socket notification and ignores duplicate delivery', () => {
+      useNotificationStore.setState({ notifications: [], unreadCount: 0, popupNotifications: [] });
+      useNotificationStore.getState().initSocketListener();
+      const handler = (mockSocketService.on as jest.Mock).mock.calls.find(([name]) => name === 'event')?.[1];
+      expect(handler).toBeDefined();
+      const event = {
+        type: 'notification.created',
+        payload: { notificationId: 'popup-1', type: 'CARD_ASSIGNED', title: 'Tarjeta asignada', message: 'Te asignaron una tarjeta' },
+      };
+
+      act(() => {
+        handler(event);
+        handler(event);
+      });
+
+      expect(useNotificationStore.getState().notifications).toHaveLength(1);
+      expect(useNotificationStore.getState().popupNotifications).toHaveLength(1);
+      expect(useNotificationStore.getState().unreadCount).toBe(1);
     });
 
     it('should add notification when received via socket', () => {

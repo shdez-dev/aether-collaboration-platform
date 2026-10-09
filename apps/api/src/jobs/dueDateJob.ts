@@ -7,12 +7,14 @@ import { notificationService } from '../services/NotificationService';
 let jobInterval: NodeJS.Timeout | null = null;
 
 /**
- * Busca tarjetas que vencen en las próximas 48h o ya vencieron
- * y envía notificaciones a los miembros asignados.
+ * Envía un único aviso de plazo por tarjeta/usuario/fecha.
+ * Una asignación reciente ya genera su propio aviso, por lo que no se envía
+ * además un recordatorio de vencimiento inmediato.
  */
 async function runDueDateCheck(): Promise<void> {
   try {
-    // Tarjetas que vencen en las próximas 48 horas (no completadas, no archivadas)
+    // Un recordatorio dentro de las últimas 24h, solo para asignaciones con
+    // al menos 24h de antigüedad y mientras falten 2h o más para vencer.
     const dueSoonResult = await pool.query(
       `SELECT
          c.id        AS card_id,
@@ -22,11 +24,19 @@ async function runDueDateCheck(): Promise<void> {
          l.board_id
        FROM cards c
        JOIN lists l ON l.id = c.list_id
+       JOIN boards b ON b.id = l.board_id
        JOIN card_members cm ON cm.card_id = c.id
        WHERE c.completed = false
+         AND b.archived = false
          AND c.due_date IS NOT NULL
-         AND c.due_date > NOW()
-         AND c.due_date <= NOW() + INTERVAL '48 hours'`
+         AND c.due_date > NOW() + INTERVAL '2 hours'
+         AND c.due_date <= NOW() + INTERVAL '24 hours'
+         AND cm.assigned_at <= NOW() - INTERVAL '24 hours'
+         AND NOT EXISTS (
+           SELECT 1 FROM notifications n
+           WHERE n.user_id = cm.user_id
+             AND n.dedupe_key = 'card-deadline:' || c.id::text || ':' || TO_CHAR(c.due_date, 'YYYY-MM-DD')
+         )`
     );
 
     for (const row of dueSoonResult.rows) {
@@ -41,7 +51,9 @@ async function runDueDateCheck(): Promise<void> {
       } catch {}
     }
 
-    // Tarjetas ya vencidas
+    // Si no hubo recordatorio previo, avisar una vez entre 2h y 24h después
+    // del vencimiento. No inundar la bandeja con tareas antiguas al reiniciar.
+    // La clave compartida en NotificationService impide un segundo aviso.
     const overdueResult = await pool.query(
       `SELECT
          c.id        AS card_id,
@@ -51,10 +63,19 @@ async function runDueDateCheck(): Promise<void> {
          l.board_id
        FROM cards c
        JOIN lists l ON l.id = c.list_id
+       JOIN boards b ON b.id = l.board_id
        JOIN card_members cm ON cm.card_id = c.id
        WHERE c.completed = false
+         AND b.archived = false
          AND c.due_date IS NOT NULL
-         AND c.due_date < NOW()`
+         AND c.due_date <= NOW() - INTERVAL '2 hours'
+         AND c.due_date > NOW() - INTERVAL '24 hours'
+         AND cm.assigned_at <= NOW() - INTERVAL '2 hours'
+         AND NOT EXISTS (
+           SELECT 1 FROM notifications n
+           WHERE n.user_id = cm.user_id
+             AND n.dedupe_key = 'card-deadline:' || c.id::text || ':' || TO_CHAR(c.due_date, 'YYYY-MM-DD')
+         )`
     );
 
     for (const row of overdueResult.rows) {

@@ -5,6 +5,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useCalendarEventStore, type CalendarEvent, type CreateEventInput } from '@/stores/calendarEventStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTeamStore } from '@/stores/teamStore';
+import { CalendarDatePicker, ClockTimePicker } from './DateTimePickers';
+import { CalendarSelect } from './CalendarSelect';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -84,17 +86,6 @@ function ATextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
     <textarea
       {...props}
       style={{ ...inputBase, resize: 'none', lineHeight: 1.55, ...props.style }}
-      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)'; }}
-      onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(97,71,130,0.09)'; }}
-    />
-  );
-}
-
-function ASelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      style={{ ...inputBase, cursor: 'pointer', ...props.style }}
       onFocus={e => { e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)'; }}
       onBlur={e  => { e.currentTarget.style.borderColor = 'rgba(97,71,130,0.09)'; }}
     />
@@ -377,12 +368,15 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
               <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '140px' }}>
                   <Field label="Fecha de inicio">
-                    <AInput type="date" value={date} onChange={e => setDate(e.target.value)} />
+                    <CalendarDatePicker label="Fecha de inicio" value={date} onChange={nextDate => {
+                      setDate(nextDate);
+                      if (endDate < nextDate) setEndDate(nextDate);
+                    }} />
                   </Field>
                 </div>
                 <div style={{ flex: 1, minWidth: '140px' }}>
                   <Field label="Fecha de fin">
-                    <AInput type="date" min={date} value={endDate} onChange={e => setEndDate(e.target.value)} />
+                    <CalendarDatePicker label="Fecha de fin" min={date} value={endDate} onChange={setEndDate} align="right" />
                   </Field>
                 </div>
                 <div style={{ paddingBottom: '2px' }}>
@@ -393,19 +387,12 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
               {/* Hora inicio / fin */}
               {!allDay && (
                 <div style={{ display: 'flex', gap: '14px' }}>
-                  <Field label="Inicio">
-                    <AInput
-                      type="time"
-                      value={startTime}
-                      onChange={e => {
-                        setStartTime(e.target.value);
-                      }}
-                      style={{ flex: 1 }}
-                    />
-                  </Field>
-                  <Field label="Fin">
-                    <AInput type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ flex: 1 }} />
-                  </Field>
+                  <div style={{ flex: 1, minWidth: 0 }}><Field label="Inicio">
+                    <ClockTimePicker label="Inicio" value={startTime} onChange={setStartTime} />
+                  </Field></div>
+                  <div style={{ flex: 1, minWidth: 0 }}><Field label="Fin">
+                    <ClockTimePicker label="Fin" value={endTime} onChange={setEndTime} align="right" />
+                  </Field></div>
                 </div>
               )}
 
@@ -469,24 +456,14 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
               {/* Selector de espacio */}
               {type === 'workspace' && (
                 <Field label="Espacio">
-                  <ASelect value={workspaceId} onChange={e => setWorkspaceId(e.target.value)}>
-                    <option value="">Selecciona un espacio…</option>
-                    {workspaces.map(ws => (
-                      <option key={ws.id} value={ws.id}>{ws.name}</option>
-                    ))}
-                  </ASelect>
+                  <CalendarSelect label="Espacio" kind="workspace" placeholder="Selecciona un espacio…" value={workspaceId} onChange={setWorkspaceId} options={workspaces.map(ws => ({ value: ws.id, label: ws.name }))} />
                 </Field>
               )}
 
               {/* Team selector */}
               {type === 'team' && (
                 <Field label="Equipo">
-                  <ASelect value={teamId} onChange={e => setTeamId(e.target.value)}>
-                    <option value="">Selecciona un equipo…</option>
-                    {teams.map(team => (
-                      <option key={team.id} value={team.id}>{team.name}</option>
-                    ))}
-                  </ASelect>
+                  <CalendarSelect label="Equipo" kind="team" placeholder="Selecciona un equipo…" value={teamId} onChange={setTeamId} options={teams.map(team => ({ value: team.id, label: team.name }))} />
                 </Field>
               )}
 

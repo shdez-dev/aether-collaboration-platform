@@ -83,4 +83,14 @@ describe('CreateWorkspaceModal', () => {
     await waitFor(() => expect(apiService.get).toHaveBeenCalledTimes(2));
     expect((await screen.findByLabelText('Organización') as HTMLSelectElement).value).toBe('org-current');
   });
+
+  it('keeps the action buttons in the lavender palette on hover', async () => {
+    render(<CreateWorkspaceModal isOpen onClose={jest.fn()} />);
+    const submit = await screen.findByRole('button', { name: 'Crear espacio de trabajo' });
+    fireEvent.mouseEnter(submit);
+    expect((submit as HTMLButtonElement).style.background).not.toMatch(/d94e18|217, 78, 24/i);
+    const cancel = screen.getByRole('button', { name: 'Cancelar' });
+    fireEvent.mouseEnter(cancel);
+    expect((cancel as HTMLButtonElement).style.background).not.toMatch(/d94e18|217, 78, 24/i);
+  });
 });

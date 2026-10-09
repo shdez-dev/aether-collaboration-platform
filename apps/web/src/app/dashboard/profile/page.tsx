@@ -388,7 +388,7 @@ export default function ProfilePage() {
     if (phoneErr) return;
     setIsSaving(true); setSaved(false);
     try {
-      await updateProfile(form);
+      await updateProfile({ ...form, timezone: tz });
       const saveError = useAuthStore.getState().error;
       if (saveError) throw new Error(saveError);
       setSaved(true);

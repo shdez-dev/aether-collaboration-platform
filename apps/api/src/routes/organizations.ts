@@ -12,6 +12,7 @@ router.patch('/:id/members/:userId', (req, res) => organizationController.update
 router.delete('/:id/members/:userId', (req, res) => organizationController.removeMember(req, res));
 router.post('/:id/invitations', (req, res) => organizationController.inviteMember(req, res));
 router.get('/:id/invitations', (req, res) => organizationController.getPendingInvitations(req, res));
+router.post('/:id/invitations/:invitationId/regenerate', (req, res) => organizationController.regenerateInvitationCode(req, res));
 router.delete('/:id/invitations/:invitationId', (req, res) => organizationController.revokeInvitation(req, res));
 router.post('/:id/transfer-ownership', (req, res) => organizationController.transferOwnership(req, res));
 router.get('/:id', (req, res) => organizationController.getById(req, res));

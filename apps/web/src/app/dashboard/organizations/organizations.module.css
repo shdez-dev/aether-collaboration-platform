@@ -1,0 +1,21 @@
+.page { animation: pageEnter .38s cubic-bezier(.2,.8,.2,1) both; }
+.header { animation: pageEnter .38s cubic-bezier(.2,.8,.2,1) both; }
+.orgCard, .notice, .section { animation: pageEnter .38s cubic-bezier(.2,.8,.2,1) both; transition: border-color .24s ease, box-shadow .24s ease, transform .24s cubic-bezier(.2,.8,.2,1); }
+.notice { animation-delay: 45ms; }
+.section { animation-delay: 80ms; }
+.section:hover, .orgCard:hover { box-shadow: 0 14px 34px color-mix(in srgb, var(--c-text) 6%, transparent); }
+.personRow { transition: border-color .2s ease, background-color .2s ease, transform .24s cubic-bezier(.2,.8,.2,1); }
+.personRow:hover { border-color: var(--c-border2) !important; transform: translateX(3px); }
+.page button { transition: color .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .22s ease, transform .22s cubic-bezier(.2,.8,.2,1); }
+.page button:not(:disabled):hover { transform: translateY(-1px); }
+.page button:not(:disabled):active { transform: translateY(0) scale(.98); }
+.page button:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 3px; }
+.primaryButton:not(:disabled):hover { box-shadow: 0 9px 22px color-mix(in srgb, var(--c-accent) 28%, transparent); }
+.overlay { animation: overlayEnter .22s ease both; }
+.modal { animation: modalEnter .28s cubic-bezier(.2,.8,.2,1) both; }
+.selectField { min-width: 0; }
+.selectField :global(button[aria-haspopup="listbox"]) { height: 44px; width: 100%; border-radius: 10px; background: var(--c-surface2); font-size: 13px; letter-spacing: 0; text-transform: none; }
+@keyframes pageEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes overlayEnter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalEnter { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .page, .header, .orgCard, .notice, .section, .personRow, .overlay, .modal, .page button { animation: none !important; transition: none !important; } }

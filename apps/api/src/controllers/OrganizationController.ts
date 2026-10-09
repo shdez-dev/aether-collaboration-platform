@@ -110,10 +110,23 @@ class OrganizationController {
     const validation = inviteOrganizationMemberSchema.safeParse(req.body);
     if (!validation.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid invitation data', details: validation.error.errors } });
     try {
-      await organizationService.inviteMember(req.params.id, userId, validation.data);
-      return res.status(201).json({ success: true, data: { message: 'Invitation sent' } });
+      const invitation = await organizationService.inviteMember(req.params.id, userId, validation.data);
+      res.set('Cache-Control', 'no-store');
+      return res.status(201).json({ success: true, data: { invitation } });
     } catch (error) {
       return serviceError(res, error, 'Failed to invite organization member');
+    }
+  }
+
+  async regenerateInvitationCode(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const invitation = await organizationService.regenerateInvitationCode(req.params.id, req.params.invitationId, userId);
+      res.set('Cache-Control', 'no-store');
+      return res.json({ success: true, data: { invitation } });
+    } catch (error) {
+      return serviceError(res, error, 'Failed to regenerate invitation code');
     }
   }
 

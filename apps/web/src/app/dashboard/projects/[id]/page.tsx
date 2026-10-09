@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useProjectStore, type Project, type ProjectMilestone, type ProjectBoard, type ProjectMaturityStage } from '@/stores/projectStore';
@@ -18,10 +19,12 @@ import { useT } from '@/lib/i18n';
 import {
   Plus, X, Check, Trash2, AlertCircle, Flag,
   LayoutDashboard, Settings, MoreHorizontal,
-  Calendar, Target, Users, GitBranch, Pencil, UserPlus,
+  Calendar, Users, GitBranch, Pencil, UserPlus,
 } from 'lucide-react';
 import { C } from '@/lib/colors';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
+import { ProjectAppearanceModal } from '@/components/ProjectAppearanceModal';
+import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import { InlineBoardView } from '@/components/InlineBoardView';
 import { CardDetailModal } from '@/components/CardDetailModal';
 import { useCardStore } from '@/stores/cardStore';
@@ -1333,6 +1336,18 @@ function LegacyTeamSelector({ projectId, assigned, allTeams, onAssign, onRemove 
 const DP_DAYS   = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
 const DP_MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+function datePopupPosition(rect: DOMRect) {
+  const popupWidth = 274;
+  const popupHeight = Math.min(310, window.innerHeight - 24);
+  const preferredTop = window.innerHeight - rect.bottom < popupHeight + 12 && rect.top > popupHeight + 12
+    ? rect.top - popupHeight - 6
+    : rect.bottom + 6;
+  return {
+    left: Math.max(12, Math.min(rect.left, window.innerWidth - popupWidth - 12)),
+    top: Math.max(12, Math.min(preferredTop, window.innerHeight - popupHeight - 12)),
+  };
+}
+
 function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#7452A6' }: {
   value: string; onChange: (v: string) => void; placeholder?: string; accent?: string;
 }) {
@@ -1342,10 +1357,32 @@ function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#745
   const [viewYear,  setViewYear]  = useState(parsed?.getFullYear()  ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState(parsed?.getMonth()     ?? today.getMonth());
   const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     if (!open) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const placePopup = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPopupPosition(datePopupPosition(rect));
+    };
+    placePopup();
+    window.addEventListener('resize', placePopup);
+    window.addEventListener('scroll', placePopup, true);
+    return () => {
+      window.removeEventListener('resize', placePopup);
+      window.removeEventListener('scroll', placePopup, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!ref.current?.contains(target) && !popupRef.current?.contains(target)) setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
@@ -1388,7 +1425,10 @@ function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#745
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       {/* Trigger */}
-      <button type="button" onClick={() => setOpen(v => !v)}
+      <button ref={triggerRef} type="button" onClick={(event) => {
+        setPopupPosition(datePopupPosition(event.currentTarget.getBoundingClientRect()));
+        setOpen(v => !v);
+      }}
         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${open ? accent : C.border2}`, color: value ? C.text : C.text4, cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.14s', boxSizing: 'border-box' as const }}
       >
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" width="13" height="13" style={{ flexShrink: 0, color: C.text3 }}>
@@ -1407,8 +1447,8 @@ function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#745
       </button>
 
       {/* Calendar */}
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 5px)', left: 0, zIndex: 400, background: C.bg2, border: `1px solid ${C.border2}`, borderRadius: '10px', boxShadow: '0 16px 48px rgba(0,0,0,0.55)', padding: '12px', minWidth: '248px', animation: 'dpIn 0.15s cubic-bezier(0.16,1,0.3,1)' }}>
+      {open && createPortal(
+        <div ref={popupRef} style={{ position: 'fixed', top: popupPosition.top, left: popupPosition.left, zIndex: 60, background: C.bg2, border: `1px solid ${C.border2}`, borderRadius: '10px', boxShadow: '0 16px 48px rgba(0,0,0,0.3)', padding: '12px', width: 'min(274px, calc(100vw - 24px))', maxHeight: 'calc(100dvh - 24px)', overflowY: 'auto', animation: 'dpIn 0.15s cubic-bezier(0.16,1,0.3,1)' }}>
           <style>{`@keyframes dpIn { from { opacity:0; transform:translateY(-5px) scale(0.97) } to { opacity:1; transform:translateY(0) scale(1) } }`}</style>
 
           {/* Month nav */}
@@ -1457,13 +1497,13 @@ function DatePicker({ value, onChange, placeholder = 'Sin fecha', accent = '#745
 
           {/* Hoy shortcut */}
           <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${C.border}`, textAlign: 'center' }}>
-            <button type="button" onClick={() => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); select(today.getDate()); }}
+            <button type="button" onClick={() => { onChange(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`); setOpen(false); }}
               style={{ fontSize: '11px', color: C.text3, background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: "'Manrope', system-ui, sans-serif", transition: 'color 0.1s' }}
               onMouseEnter={e => (e.currentTarget.style.color = C.text)}
               onMouseLeave={e => (e.currentTarget.style.color = C.text3)}
             >Hoy</button>
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   );
@@ -1709,23 +1749,11 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
               <LBL>Estado</LBL>
-              <select value={status} onChange={(e) => setStatus(e.target.value as any)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'light', cursor: 'pointer' }}
-              >
-                {(['PLANNING','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map((s) => (
-                  <option key={s} value={s}>{statusLabelsEs[s]}</option>
-                ))}
-              </select>
+              <ProjectOptionSelect label="Estado" value={status} onChange={value => setStatus(value as Project['status'])} options={(['PLANNING','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map(s => ({ value: s, label: statusLabelsEs[s] }))} />
               </div>
               <div>
                 <LBL>Madurez</LBL>
-                <select value={maturityStage} onChange={(e) => setMaturityStage(e.target.value as ProjectMaturityStage)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', colorScheme: 'light', cursor: 'pointer' }}
-                >
-                  {(['IDEA','DRAFT','FORMALIZED','PLANNED','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map((stage) => (
-                    <option key={stage} value={stage}>{getMaturityCfg(stage).label}</option>
-                  ))}
-                </select>
+                <ProjectOptionSelect label="Madurez" value={maturityStage} onChange={value => setMaturityStage(value as ProjectMaturityStage)} options={(['IDEA','DRAFT','FORMALIZED','PLANNED','ACTIVE','ON_HOLD','COMPLETED','ARCHIVED'] as const).map(stage => ({ value: stage, label: getMaturityCfg(stage).label }))} />
               </div>
             </div>
 
@@ -2047,6 +2075,7 @@ export default function ProjectDetailPage() {
   const { documents, fetchProjectDocuments } = useDocumentStore();
 
   const [showConfig,    setShowConfig]    = useState(false);
+  const [showAppearance, setShowAppearance] = useState(false);
   const [showAddBoard,  setShowAddBoard]  = useState(false);
   const [showAddMs,     setShowAddMs]     = useState(false);
   const [showAddDoc,    setShowAddDoc]    = useState(false);
@@ -2355,14 +2384,15 @@ export default function ProjectDetailPage() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flexWrap: 'wrap' }}>
 
             {/* Project icon */}
-            <span style={{
+            <button type="button" disabled={!canEdit} onClick={() => setShowAppearance(true)} title={canEdit ? 'Personalizar icono y color' : undefined} aria-label="Personalizar icono y color del proyecto" style={{
               width: '54px', height: '54px', borderRadius: '50%', flexShrink: 0,
               background: color + '1A',
               border: '1px solid rgba(97,71,130,0.08)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: canEdit ? 'pointer' : 'default', transition: 'transform 160ms ease, box-shadow 160ms ease',
             }}>
               <WorkspaceIcon icon={project.icon} size={24} color={color} />
-            </span>
+            </button>
 
             <div style={{ flex: '1 1 360px', minWidth: 0 }}>
               {/* Name + status badge */}
@@ -2463,14 +2493,6 @@ export default function ProjectDetailPage() {
               </div>
             )}
 
-            {project.formalization && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: 'var(--c-text2)' }}>
-                <Target style={{ width: '16px', height: '16px', color: project.formalization.readyToFormalize ? '#548B73' : '#AA895E' }} />
-                <span style={{ fontSize: '13.5px' }}>
-                  Formalización {project.formalization.completed}/{project.formalization.required}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Tabs */}
@@ -2570,14 +2592,14 @@ export default function ProjectDetailPage() {
                         <span style={{ width: 29, height: 29, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, border: '1px solid rgba(116,82,166,0.2)', background: 'rgba(116,82,166,0.09)', color: '#9271BD', fontSize: 10, fontWeight: 800 }}>{group.number}</span>
                         <div>
                           <h2 style={{ margin: 0, color: 'var(--c-text)', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 15, lineHeight: 1.35, fontWeight: 650 }}>{group.title}</h2>
-                          <p style={{ margin: '4px 0 0', color: '#8F887B', fontSize: 11.5, lineHeight: 1.45 }}>{group.description}</p>
+                          <p style={{ margin: '4px 0 0', color: 'var(--c-text3)', fontSize: 11.5, lineHeight: 1.45 }}>{group.description}</p>
                         </div>
                       </header>
                       <div style={{ display: 'grid', gap: 17, paddingLeft: 40 }}>
                         {group.fields.map(([label, value]) => (
                           <div key={label} style={{ minWidth: 0 }}>
-                            <span style={{ color: '#A59B89', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{label}</span>
-                            <p style={{ margin: '5px 0 0', color: '#D7D0C3', fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</p>
+                            <span style={{ color: 'var(--c-text3)', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{label}</span>
+                            <p style={{ margin: '5px 0 0', color: 'var(--c-text)', fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</p>
                           </div>
                         ))}
                       </div>
@@ -2586,7 +2608,7 @@ export default function ProjectDetailPage() {
                 </section>
               ) : (
                 <section style={{ padding: '17px 19px', border: '1px solid rgba(97,71,130,0.08)', borderRadius: 12, background: 'rgba(97,71,130,0.02)' }}>
-                  <p style={{ margin: 0, color: '#A59B89', fontSize: 12.5, lineHeight: 1.55 }}>Este proyecto todavía no tiene información de contexto, impacto o propuesta. Puedes agregarla desde Editar proyecto.</p>
+                  <p style={{ margin: 0, color: 'var(--c-text2)', fontSize: 12.5, lineHeight: 1.55 }}>Este proyecto todavía no tiene información de contexto, impacto o propuesta. Puedes agregarla desde Editar proyecto.</p>
                 </section>
               )}
 
@@ -2628,39 +2650,15 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: '18px', marginBottom: '18px' }}>
-                <div style={{ padding: '18px', borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)' }}>
-                  <h3 style={{ margin: 0, fontFamily: "'Sora', system-ui, sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--c-text)' }}>
-                    Coordinación operativa
-                  </h3>
-                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: 'var(--c-text3)', lineHeight: 1.5 }}>
-                    {boards.length} {boards.length === 1 ? 'tablero sostiene' : 'tableros sostienen'} la ejecución de este proyecto. Entra al que necesite destrabe y ordena trabajo desde ahí.
-                  </p>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
-                  {[
-                    { label: 'Tableros', value: String(boards.length), tone: 'var(--c-text)' },
-                    { label: 'Equipos', value: String(assignedTeams.length), tone: '#AA895E' },
-                    { label: 'Hitos', value: String(milestones.length), tone: '#8D84B0' },
-                  ].map((item) => (
-                    <div key={item.label} style={{ padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)' }}>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--c-text4)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{item.label}</div>
-                      <div style={{ marginTop: '8px', fontFamily: "'Sora', system-ui, sans-serif", fontSize: '22px', fontWeight: 700, color: item.tone }}>{item.value}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(264px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
                 {boards.map((board) => (
-                  <BoardCard key={board.id} board={board} color={color} workspaceId={project.workspaceId}
+                  <BoardCard key={board.id} board={board} color={C.accent} workspaceId={project.workspaceId}
                     onNavigate={() => setActiveBoardId(board.id)}
                     onRemove={canEdit ? () => setBoardToRemove({ id: board.id, name: board.name }) : undefined}
                   />
                 ))}
                 {canEdit && <NewBoardCard onClick={() => setShowAddBoard(true)} />}
               </div>
-            </>
           )
         )}
 
@@ -2699,12 +2697,10 @@ export default function ProjectDetailPage() {
                   { label: 'Fecha', value: backlogDate, onChange: setBacklogDate, options: [['all', 'Todas'], ['overdue', 'Vencidas'], ['today', 'Hoy'], ['week', 'Próximos 7 días'], ['dated', 'Con fecha'], ['none', 'Sin fecha']] },
                   { label: 'Estado', value: backlogStatus, onChange: setBacklogStatus, options: [['pending', 'Pendientes'], ['completed', 'Completadas'], ['all', 'Todas']] },
                 ].map((filter) => (
-                  <label key={filter.label} style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 180px', color: '#A59B89', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                    {filter.label}
-                    <select aria-label={`Filtrar por ${filter.label.toLowerCase()}`} value={filter.value} onChange={(event) => filter.onChange(event.target.value)} style={{ width: '100%', minHeight: 38, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(97,71,130,0.12)', background: 'var(--c-surface)', color: 'var(--c-text)', fontSize: 12, cursor: 'pointer' }}>
-                      {filter.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                  </label>
+                  <div key={filter.label} style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 180px', color: 'var(--c-text3)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                    <span>{filter.label}</span>
+                    <ProjectOptionSelect label={`Filtrar por ${filter.label.toLowerCase()}`} value={filter.value} onChange={filter.onChange} options={filter.options.map(([value, label]) => ({ value, label }))} />
+                  </div>
                 ))}
               </div>
 
@@ -3282,6 +3278,7 @@ export default function ProjectDetailPage() {
 
       {/* ── MODALS ──────────────────────────────────────────────────────────── */}
       {showConfig   && <ConfigModal            project={project}   onClose={() => setShowConfig(false)} />}
+      {showAppearance && <ProjectAppearanceModal project={project} onClose={() => setShowAppearance(false)} />}
       {showAddBoard && <AddBoardModal          project={project}   onClose={() => setShowAddBoard(false)} />}
       {showAddMs    && <CreateMilestoneModal   projectId={project.id} color={color} onClose={() => setShowAddMs(false)} />}
       {editMs       && <CreateMilestoneModal   projectId={project.id} color={color} milestone={editMs} onClose={() => setEditMs(null)} />}
@@ -3366,7 +3363,7 @@ function BoardCard({ board, color, workspaceId, onNavigate, onRemove }: {
         width: '100%', height: '100%', minHeight: '168px',
         display: 'flex', flexDirection: 'column',
         borderRadius: '10px',
-        border: `1px solid ${hov ? color + '55' : 'rgba(97,71,130,0.08)'}`,
+        border: `1px solid ${hov ? `color-mix(in srgb, ${color} 36%, transparent)` : 'rgba(97,71,130,0.08)'}`,
         background: hov ? 'rgba(97,71,130,0.045)' : 'rgba(97,71,130,0.02)',
         overflow: 'hidden', position: 'relative', cursor: 'pointer',
         transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.15s',
@@ -3382,7 +3379,7 @@ function BoardCard({ board, color, workspaceId, onNavigate, onRemove }: {
       <div style={{ padding: '18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Circle icon + name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-          <span style={{ width: '38px', height: '38px', borderRadius: '50%', background: color + '22', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ width: '38px', height: '38px', borderRadius: '50%', background: `color-mix(in srgb, ${color} 13%, transparent)`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
               <rect x="3" y="4" width="7" height="16" rx="1.6" stroke={color} strokeWidth="1.8"/>
               <rect x="14" y="4" width="7" height="10" rx="1.6" stroke={color} strokeWidth="1.8"/>

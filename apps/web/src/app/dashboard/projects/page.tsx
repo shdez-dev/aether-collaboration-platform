@@ -405,7 +405,7 @@ function PortfolioList({
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h3 style={{ display: '-webkit-box', margin: 0, overflow: 'hidden', color: '#F1EBDD', fontFamily: SORA, fontSize: '15px', fontWeight: 700, lineHeight: 1.4, WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
+                <h3 style={{ display: '-webkit-box', margin: 0, overflow: 'hidden', color: 'var(--c-text)', fontFamily: SORA, fontSize: '15px', fontWeight: 700, lineHeight: 1.4, WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
                   {project.name}
                 </h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginTop: '8px', flexWrap: 'wrap' }}>
@@ -426,7 +426,7 @@ function PortfolioList({
             </div>
 
             {summary ? (
-              <p style={{ display: '-webkit-box', margin: 0, overflow: 'hidden', color: '#A69B88', fontSize: '12px', lineHeight: 1.5, WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
+              <p style={{ display: '-webkit-box', margin: 0, overflow: 'hidden', color: 'var(--c-text2)', fontSize: '12px', lineHeight: 1.5, WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
                 {summary}
               </p>
             ) : null}
@@ -997,7 +997,7 @@ export default function ProjectsPage() {
       <div style={{ maxWidth: '1360px', margin: '0 auto', padding: '28px clamp(18px,3vw,36px) 48px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', marginBottom: '22px' }}>
           <div>
-            <h1 style={{ margin: 0, fontFamily: SORA, fontSize: '28px', fontWeight: 700, color: '#F1EBDD', letterSpacing: '-0.04em' }}>
+            <h1 style={{ margin: 0, fontFamily: SORA, fontSize: '28px', fontWeight: 700, color: 'var(--c-text)', letterSpacing: '-0.04em' }}>
               {workspaceExperience === 'personal' ? 'Mis proyectos' : 'Proyectos del espacio'}
             </h1>
             <p style={{ margin: '7px 0 0', fontSize: '13px', color: 'var(--c-text3)', maxWidth: '760px', lineHeight: 1.55 }}>
@@ -1287,10 +1287,10 @@ export default function ProjectsPage() {
                   type="button"
                   aria-pressed={active}
                   onClick={() => setProjectListFilter(filter.key)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', minHeight: '32px', padding: '0 10px', border: '1px solid transparent', borderRadius: '8px', background: active ? 'rgba(116,82,166,0.14)' : 'transparent', color: active ? '#9271BD' : '#A69B88', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', minHeight: '32px', padding: '0 10px', border: '1px solid transparent', borderRadius: '8px', background: active ? 'rgba(116,82,166,0.14)' : 'transparent', color: active ? 'var(--c-accent-text)' : 'var(--c-text2)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
                 >
                   {filter.label}
-                  <span style={{ color: active ? '#F1B18D' : '#746B5D', fontSize: '10px' }}>{filter.count}</span>
+                  <span style={{ color: active ? 'var(--c-accent-text)' : 'var(--c-text3)', fontSize: '10px' }}>{filter.count}</span>
                 </button>
               );
             })}
@@ -1311,7 +1311,7 @@ export default function ProjectsPage() {
                   <h2 id="project-list-title" style={{ margin: 0, color: 'var(--c-text)', fontFamily: SORA, fontSize: '17px', fontWeight: 700 }}>Tus proyectos</h2>
                   <p style={{ margin: '5px 0 0', color: 'var(--c-text3)', fontSize: '12px' }}>Abre un proyecto para continuar trabajando en él.</p>
                 </div>
-                <span style={{ color: '#A69B88', fontSize: '11.5px', fontWeight: 600 }}>{filteredProjects.length} de {projects.length}</span>
+                <span style={{ color: 'var(--c-text3)', fontSize: '11.5px', fontWeight: 600 }}>{filteredProjects.length} de {projects.length}</span>
               </div>
               <PortfolioList
                 projects={portfolioProjects}
