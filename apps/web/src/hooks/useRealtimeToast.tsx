@@ -30,7 +30,7 @@ export function useRealtimeToast() {
     baseToast({ title: `${itemType} actualizado`, description: itemName, variant: 'info' as ToastVariant, duration: 3000 });
 
   const deleted = (itemType: string, itemName?: string) =>
-    baseToast({ title: `${itemType} eliminado`, description: itemName, variant: 'error' as ToastVariant, duration: 3000 });
+    baseToast({ title: `${itemType} eliminado`, description: itemName, variant: 'success' as ToastVariant, duration: 3000 });
 
   const moved = (itemType: string, itemName?: string) =>
     baseToast({ title: `${itemType} movido`, description: itemName, variant: 'info' as ToastVariant, duration: 3000 });

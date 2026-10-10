@@ -21,7 +21,7 @@ import {
 import { apiService } from '@/services/apiService';
 import { socketService } from '@/services/socketService';
 import { useAuthStore } from '@/stores/authStore';
-import { getAvatarUrl } from '@/lib/utils/avatar';
+import { PresenceAvatar, PresencePicker, presenceLabel, usePresence, type PresenceStatus } from '@/components/chat/presence';
 import styles from './ContactsMessenger.module.css';
 
 type Person = {
@@ -61,21 +61,8 @@ type Detail = Person & {
 };
 type Tab = 'chats' | 'people' | 'requests';
 
-function Avatar({ person, size = 42 }: { person: Person; size?: number }) {
-  const [failed, setFailed] = useState(false);
-  const url = getAvatarUrl(person.avatar);
-  return (
-    <span
-      className={styles.avatar}
-      style={{ width: size, height: size, flexBasis: size, fontSize: Math.max(14, size * 0.3) }}
-    >
-      {url && !failed ? (
-        <img src={url} alt="" onError={() => setFailed(true)} />
-      ) : (
-        (person.name || '?').trim().charAt(0).toLocaleUpperCase('es')
-      )}
-    </span>
-  );
+function Avatar({ person, size = 42, status }: { person: Person; size?: number; status: PresenceStatus }) {
+  return <PresenceAvatar name={person.name} avatar={person.avatar} status={status} size={size} />;
 }
 
 function time(value: string | null) {
@@ -87,7 +74,9 @@ function time(value: string | null) {
 }
 
 export default function ContactsPage() {
-  const userId = useAuthStore((state) => state.user?.id);
+  const user = useAuthStore((state) => state.user);
+  const userId = user?.id;
+  const presence = usePresence(userId);
   const [tab, setTab] = useState<Tab>('chats');
   const [query, setQuery] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
@@ -473,6 +462,7 @@ export default function ContactsPage() {
             </span>
           </h1>
           <p>Un lugar para conversar y colaborar.</p>
+          {user && <div style={{ marginTop: 15 }}><PresencePicker name={user.name} avatar={user.avatar} status={presence.preference} onChange={(status) => void presence.setStatus(status)} disabled={presence.busy} error={presence.error} /></div>}
         </header>
         <div className={styles.searchBox}>
           <Search size={17} />
@@ -547,7 +537,7 @@ export default function ContactsPage() {
                   className={`${styles.personRow} ${selected?.id === chat.contact_id ? styles.selectedRow : ''}`}
                   onClick={() => void choose({ ...chat, id: chat.contact_id }, chat.id)}
                 >
-                  <Avatar person={chat} />
+                  <Avatar person={chat} status={presence.statusFor(chat.contact_id)} />
                   <span className={styles.rowText}>
                     <span className={styles.rowTop}>
                       <strong>{chat.name}</strong>
@@ -558,7 +548,7 @@ export default function ContactsPage() {
                     </span>
                   </span>
                   {chat.unread_count > 0 && (
-                    <span className={styles.unread}>{chat.unread_count}</span>
+                    <span className={styles.unread}>{chat.unread_count > 99 ? '+99' : chat.unread_count}</span>
                   )}
                 </button>
               ))}
@@ -591,11 +581,11 @@ export default function ContactsPage() {
                   className={`${styles.personRow} ${selected?.id === person.id ? styles.selectedRow : ''}`}
                   onClick={() => void choose(person)}
                 >
-                  <Avatar person={person} />
+                  <Avatar person={person} status={presence.statusFor(person.id)} />
                   <span className={styles.rowText}>
                     <strong>{person.name}</strong>
                     <span className={styles.rowPreview}>
-                      {person.position || person.email || 'Contacto de Aether'}
+                      {presenceLabel(presence.statusFor(person.id))} · {person.position || person.email || 'Contacto de Aether'}
                     </span>
                   </span>
                   {favorites.some((p) => p.id === person.id) && (
@@ -621,7 +611,7 @@ export default function ContactsPage() {
                   className={`${styles.personRow} ${selected?.id === request.user_id ? styles.selectedRow : ''}`}
                   onClick={() => void choose({ ...request, id: request.user_id })}
                 >
-                  <Avatar person={request} />
+                  <Avatar person={request} status={presence.statusFor(request.user_id)} />
                   <span className={styles.rowText}>
                     <strong>{request.name}</strong>
                     <span className={styles.rowPreview}>
@@ -677,7 +667,7 @@ export default function ContactsPage() {
               >
                 <ArrowLeft size={19} />
               </button>
-              <Avatar person={selected} size={38} />
+              <Avatar person={selected} size={38} status={presence.statusFor(selected.id)} />
               <span className={styles.chatHeading}>
                 <strong>{selected.name}</strong>
                 <small>{selected.position || 'Conversación privada'}</small>
@@ -720,7 +710,7 @@ export default function ContactsPage() {
                   )}
                   {messages.length === 0 && (
                     <div className={styles.messageEmpty}>
-                      <Avatar person={selected} size={62} />
+                      <Avatar person={selected} size={62} status={presence.statusFor(selected.id)} />
                       <h3>Empieza a conversar con {selected.name.split(' ')[0]}</h3>
                       <p>Un mensaje breve puede abrir una gran colaboración.</p>
                     </div>
@@ -746,7 +736,7 @@ export default function ContactsPage() {
                           </div>
                         )}
                         <div className={`${styles.messageRow} ${mine ? styles.mine : ''}`}>
-                          {!mine && <Avatar person={selected} size={30} />}
+                          {!mine && <Avatar person={selected} size={30} status={presence.statusFor(selected.id)} />}
                           <div className={styles.messageContent}>
                             <div className={styles.bubble}>{message.body}</div>
                             <time dateTime={message.created_at}>{time(message.created_at)}</time>
@@ -893,7 +883,7 @@ export default function ContactsPage() {
           </div>
           <div className={styles.profileBody}>
             <div className={styles.profileAvatar}>
-              <Avatar person={selected} size={78} />
+              <Avatar person={selected} size={78} status={presence.statusFor(selected.id)} />
             </div>
             <div className={styles.profileIdentity}>
               <span className={styles.eyebrow}>PERFIL DE CONTACTO</span>

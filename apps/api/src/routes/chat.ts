@@ -30,6 +30,38 @@ async function permission(userId: string, otherId: string): Promise<Permission |
 
 const canMessage = (access: Permission) => access.shared || access.connection_status === 'ACCEPTED';
 
+type PresenceStatus = 'ONLINE' | 'AWAY' | 'DND' | 'OFFLINE';
+const presenceStatuses: PresenceStatus[] = ['ONLINE', 'AWAY', 'DND', 'OFFLINE'];
+
+router.get('/presence', async (req, res, next) => {
+  try {
+    const id = viewerId(req);
+    const result = await query<{ id: string; presence_status: PresenceStatus }>(`SELECT u.id, u.presence_status
+      FROM users u WHERE u.id = $1 OR (
+        EXISTS (SELECT 1 FROM direct_connections dc WHERE dc.status = 'ACCEPTED'
+          AND dc.user_a_id = LEAST($1::uuid, u.id) AND dc.user_b_id = GREATEST($1::uuid, u.id))
+        OR EXISTS (SELECT 1 FROM organization_members a JOIN organization_members b
+          ON b.organization_id = a.organization_id WHERE a.user_id = $1 AND b.user_id = u.id)
+        OR EXISTS (SELECT 1 FROM workspace_members a JOIN workspace_members b
+          ON b.workspace_id = a.workspace_id WHERE a.user_id = $1 AND b.user_id = u.id)
+      ) ORDER BY (u.id = $1) DESC, u.id LIMIT 250`, [id]);
+    const online = getRealtimeGateway().getOnlineUserIds();
+    const statuses = Object.fromEntries(result.rows.map(user => [user.id,
+      online.has(user.id) ? user.presence_status : 'OFFLINE']));
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ success: true, data: { statuses, preference: result.rows.find(user => user.id === id)?.presence_status ?? 'ONLINE' } });
+  } catch (error) { return next(error); }
+});
+
+router.put('/presence', async (req, res, next) => {
+  try {
+    const status = req.body?.status;
+    if (!presenceStatuses.includes(status)) return res.status(400).json(fail('INVALID_PRESENCE', 'Estado de presencia inválido'));
+    await query('UPDATE users SET presence_status = $2 WHERE id = $1', [viewerId(req), status]);
+    return res.json({ success: true, data: { status } });
+  } catch (error) { return next(error); }
+});
+
 function emit(userId: string, event: string, payload: object): void {
   getRealtimeGateway().getIO().to(`user:${userId}`).emit(event, payload);
 }

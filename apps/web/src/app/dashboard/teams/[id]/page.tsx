@@ -225,7 +225,10 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || (name !== team.name && name.trim().length > 80)) {
+      setError('El nombre no puede superar 80 caracteres.');
+      return;
+    }
     const descriptionChanged = description !== (team.description ?? '');
     const nextDescription = description.trim();
     if (descriptionChanged && nextDescription.length > MAX_TEAM_DESCRIPTION_LENGTH) {
@@ -235,7 +238,7 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
     setLoading(true);
     setError(null);
     try {
-      await updateTeam(team.id, { name: name.trim(), ...(descriptionChanged ? { description: nextDescription || null } : {}), color, leadId: leadId || null });
+      await updateTeam(team.id, { ...(name !== team.name ? { name: name.trim() } : {}), ...(descriptionChanged ? { description: nextDescription || null } : {}), color, leadId: leadId || null });
       onUpdated();
       onClose();
     } catch (err: any) {
@@ -275,7 +278,7 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-medium" style={{ color: C.text2 }}>{t.teams_settings_name}</label>
             <input
-              value={name} onChange={(e) => setName(e.target.value)}
+              value={name} maxLength={Math.max(80, team.name.length)} onChange={(e) => setName(e.target.value)}
               className="rounded-[6px] px-3 text-[13px] outline-none"
               style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '36px' }}
               onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
@@ -294,6 +297,7 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
               onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
               onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
             />
+            <span className="text-right text-[11px]" style={{ color: name.length > 80 ? C.red : C.text4 }}>{name.length}/80{name.length > 80 ? ' — Acórtalo para cambiarlo.' : ''}</span>
             <span className="text-right text-[11px]" style={{ color: description.length > MAX_TEAM_DESCRIPTION_LENGTH ? C.red : C.text4 }}>{description.length}/{MAX_TEAM_DESCRIPTION_LENGTH}{description.length > MAX_TEAM_DESCRIPTION_LENGTH ? ' — Acórtala para cambiarla.' : ''}</span>
           </div>
 

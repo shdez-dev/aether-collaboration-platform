@@ -284,6 +284,7 @@ export function CardDetailModal() {
     const next = editedDescription.trim() || null;
     const curr = selectedCard.description || null;
     if (next === curr) { setEditingDesc(false); return; }
+    if (next && next.length > 3000) return;
     setSavingDesc(true);
     try {
       const r = await apiService.put<{ card: any }>(`/api/cards/${selectedCard.id}`, { description: next }, true);
@@ -505,9 +506,11 @@ export function CardDetailModal() {
                   {typingUsers.length > 0 && <TypingIndicator typingUsers={typingUsers} position="inline" size="sm" />}
                 </div>
                 {editingDesc && canEdit ? (
+                  <div>
                   <textarea
                     className="cdm-desc"
                     value={editedDescription}
+                    maxLength={3000}
                     onChange={(e) => setEditedDescription(e.target.value)}
                     onFocus={() => setIsDescFocused(true)}
                     onBlur={saveDesc}
@@ -517,6 +520,8 @@ export function CardDetailModal() {
                     autoFocus
                     style={{ width:'100%', padding:'14px 16px', borderRadius:'10px', resize:'vertical', lineHeight:1.7, background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.1)', color:'var(--c-text2)', fontSize:'14px', outline:'none', boxSizing:'border-box' as const, fontFamily:MANROPE, transition:'border-color 0.15s' }}
                   />
+                  <div style={{ textAlign:'right', fontSize:'11px', color:editedDescription.length > 3000?'var(--c-red)':'var(--c-text4)' }}>{editedDescription.length}/3000</div>
+                  </div>
                 ) : (
                   <div
                     onClick={() => canEdit && setEditingDesc(true)}
@@ -550,7 +555,7 @@ export function CardDetailModal() {
             </div>
 
             {/* ══ RIGHT — sidebar ══════════════════════════════════════════ */}
-            <div className="cdm-l" style={{ width:'286px', flexShrink:0, borderLeft:'1px solid rgba(97,71,130,0.07)', overflowY:'auto', padding:'24px 20px', display:'flex', flexDirection:'column', gap:'0', background:'rgba(97,71,130,0.008)', animation:'cdmSbIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.07s both' }}>
+            <div className="cdm-l" style={{ width:'286px', boxSizing:'border-box', minWidth:0, flexShrink:0, borderLeft:'1px solid rgba(97,71,130,0.07)', overflowY:'auto', overflowX:'hidden', padding:'24px 20px', display:'flex', flexDirection:'column', gap:'0', background:'rgba(97,71,130,0.008)', animation:'cdmSbIn 0.22s cubic-bezier(0.16,1,0.3,1) 0.07s both' }}>
 
               {/* Priority */}
               <div style={{ paddingBottom:'18px', borderBottom:'1px solid rgba(97,71,130,0.06)', marginBottom:'4px' }}>
@@ -742,7 +747,7 @@ export function CardDetailModal() {
               {/* Labels */}
               <div style={{ padding:'18px 0', borderBottom:'1px solid rgba(97,71,130,0.06)' }}>
                 <SbLabel>{t.card_section_labels}</SbLabel>
-                <div style={{ maxHeight:'160px', overflowY:'auto' }}>
+                <div style={{ maxHeight:'160px', minWidth:0, overflowY:'auto', overflowX:'hidden' }}>
                   {currentWorkspaceId
                     ? <LabelPicker workspaceId={currentWorkspaceId} cardId={selectedCard.id} assignedLabels={selectedCard.labels || []} onLabelAssigned={handleLabelAssigned} onLabelRemoved={handleLabelRemoved} />
                     : <p style={{ fontSize:'11px', color:C.text4, margin:0 }}>{t.loading}</p>
@@ -756,7 +761,7 @@ export function CardDetailModal() {
                 <div style={{ maxHeight:'180px', overflowY:'auto' }}>
                   {currentWorkspaceId ? (
                     canEdit ? (
-                      <MemberPicker workspaceId={currentWorkspaceId} cardId={selectedCard.id} assignedMembers={selectedCard.members || []} onMemberAssigned={handleMemberAssigned} onMemberRemoved={handleMemberRemoved} />
+                      <MemberPicker cardId={selectedCard.id} assignedMembers={selectedCard.members || []} onMemberAssigned={handleMemberAssigned} onMemberRemoved={handleMemberRemoved} />
                     ) : (
                       <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
                         {(selectedCard.members || []).length > 0

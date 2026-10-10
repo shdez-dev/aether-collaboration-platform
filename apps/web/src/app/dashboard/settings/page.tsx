@@ -5,6 +5,7 @@ import { Bell, Check, Moon, Sun } from 'lucide-react';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useTheme } from '@/providers/ThemeProvider';
 import { C } from '@/lib/colors';
+import entrance from '../pageEntrance.module.css';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -41,7 +42,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <main style={{ minHeight: '100%', overflow: 'auto', background: C.bg, color: C.text }}>
+    <main className={entrance.page} style={{ minHeight: '100%', overflow: 'auto', background: C.bg, color: C.text }}>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: 'clamp(24px, 5vw, 52px) 20px 72px', display: 'grid', gap: 20 }}>
         <header style={{ marginBottom: 8 }}>
           <h1 style={{ fontFamily: "'Sora', system-ui, sans-serif", fontSize: 28, fontWeight: 700, margin: 0 }}>Ajustes</h1>

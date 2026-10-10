@@ -2,7 +2,7 @@
 
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import * as Y from 'yjs';
-import { documentService } from '../services/DocumentService';
+import { documentService, DOCUMENT_TEXT_LIMIT } from '../services/DocumentService';
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -172,6 +172,20 @@ export class YjsGateway {
           await this.ensureSocketDocumentMembership(socket, documentId);
 
           // Aplicar el update al documento Yjs en memoria
+          const currentState = Y.encodeStateAsUpdate(doc);
+          const currentLength = documentService.getVisibleTextLength(currentState);
+          const candidate = new Y.Doc();
+          try {
+            Y.applyUpdate(candidate, currentState);
+            Y.applyUpdate(candidate, new Uint8Array(update));
+            const nextLength = documentService.getVisibleTextLength(Y.encodeStateAsUpdate(candidate));
+            if (nextLength > DOCUMENT_TEXT_LIMIT && nextLength > currentLength) {
+              socket.emit('document:text-limit', { documentId, limit: DOCUMENT_TEXT_LIMIT });
+              return;
+            }
+          } finally {
+            candidate.destroy();
+          }
           Y.applyUpdate(doc, new Uint8Array(update));
 
           // Hacer broadcast a los demás usuarios del mismo documento

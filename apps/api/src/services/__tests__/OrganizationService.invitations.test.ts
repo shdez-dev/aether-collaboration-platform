@@ -63,3 +63,59 @@ describe('códigos de invitación a organización', () => {
     expect(client.query.mock.calls.some(([sql]) => sql.includes('UPDATE organization_invitations SET token_hash'))).toBe(false);
   });
 });
+
+describe('eliminación de organización', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (pool.connect as jest.Mock).mockResolvedValue(client);
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM organizations o')) return { rows: [{ name: 'Acme', type: 'COMPANY', owner_user_id: 'owner-1', role: 'OWNER' }] };
+      if (sql.includes('SELECT COUNT(*)::int AS workspace_count')) return { rows: [{ workspace_count: 0 }] };
+      return { rows: [] };
+    });
+  });
+
+  it('elimina con transacción solo cuando el propietario confirma el nombre y no hay espacios', async () => {
+    await organizationService.deleteOrganization('org-1', 'owner-1', 'Acme');
+
+    expect(client.query).toHaveBeenCalledWith('DELETE FROM organizations WHERE id = $1', ['org-1']);
+    expect(client.query).toHaveBeenCalledWith('COMMIT');
+    expect(client.query).not.toHaveBeenCalledWith('ROLLBACK');
+    expect(client.release).toHaveBeenCalled();
+  });
+
+  it('rechaza el nombre incorrecto antes de consultar o borrar espacios', async () => {
+    await expect(organizationService.deleteOrganization('org-1', 'owner-1', 'acme'))
+      .rejects.toMatchObject({ code: 'ORGANIZATION_NAME_MISMATCH', status: 400 });
+
+    expect(client.query.mock.calls.some(([sql]) => sql.includes('workspace_count'))).toBe(false);
+    expect(client.query.mock.calls.some(([sql]) => sql.includes('DELETE FROM organizations'))).toBe(false);
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
+  it('impide eliminar si todavía existe algún espacio de trabajo', async () => {
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM organizations o')) return { rows: [{ name: 'Acme', type: 'COMPANY', owner_user_id: 'owner-1', role: 'OWNER' }] };
+      if (sql.includes('SELECT COUNT(*)::int AS workspace_count')) return { rows: [{ workspace_count: 2 }] };
+      return { rows: [] };
+    });
+
+    await expect(organizationService.deleteOrganization('org-1', 'owner-1', 'Acme'))
+      .rejects.toMatchObject({ code: 'WORKSPACES_EXIST', status: 409 });
+
+    expect(client.query.mock.calls.some(([sql]) => sql.includes('DELETE FROM organizations'))).toBe(false);
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
+  it('reserva el borrado para el propietario', async () => {
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM organizations o')) return { rows: [{ name: 'Acme', type: 'COMPANY', owner_user_id: 'owner-1', role: 'ADMIN' }] };
+      return { rows: [] };
+    });
+
+    await expect(organizationService.deleteOrganization('org-1', 'admin-1', 'Acme'))
+      .rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
+    expect(client.query.mock.calls.some(([sql]) => sql.includes('DELETE FROM organizations'))).toBe(false);
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+  });
+});

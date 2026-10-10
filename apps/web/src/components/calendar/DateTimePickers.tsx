@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
 import styles from './DateTimePickers.module.css';
+import { availableEndHours, availableEndMinutes, timeForSelectedHour } from './calendarTime';
 
 const WEEKDAYS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -100,20 +101,24 @@ interface TimePickerProps {
   onChange: (value: string) => void;
   label: string;
   align?: 'left' | 'right';
+  minTime?: string;
 }
 
-export function ClockTimePicker({ value, onChange, label, align = 'left' }: TimePickerProps) {
+export function ClockTimePicker({ value, onChange, label, align = 'left', minTime }: TimePickerProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const hoursColumn = useRef<HTMLDivElement>(null);
   const minutesColumn = useRef<HTMLDivElement>(null);
   useOutsideClose(root, () => setOpen(false), open);
   const [hour = '00', minute = '00'] = value.split(':');
+  const hours = availableEndHours(minTime);
+  const visibleHour = hours.includes(Number(hour)) ? Number(hour) : hours[0];
+  const minutes = availableEndMinutes(visibleHour, minTime);
 
   useEffect(() => {
     if (!open) return;
-    if (hoursColumn.current) hoursColumn.current.scrollTop = Number(hour) * 32 - 80;
-    if (minutesColumn.current) minutesColumn.current.scrollTop = Number(minute) * 32 - 80;
+    if (hoursColumn.current) hoursColumn.current.scrollTop = Math.max(0, hours.indexOf(visibleHour) * 32 - 80);
+    if (minutesColumn.current) minutesColumn.current.scrollTop = Math.max(0, minutes.indexOf(Number(minute)) * 32 - 80);
   }, [open]); // Scroll to the current selection when the picker opens.
 
   return (
@@ -130,13 +135,13 @@ export function ClockTimePicker({ value, onChange, label, align = 'left' }: Time
           <div className={styles.clockHeader}>Hora <span>{hour}:{minute}</span></div>
           <div className={styles.clockColumns}>
             <div ref={hoursColumn} className={styles.clockColumn} role="group" aria-label="Horas">
-              {Array.from({ length: 24 }, (_, index) => pad(index)).map(option => (
-                <button key={option} type="button" className={`${styles.timeOption} ${hour === option ? styles.selectedTime : ''}`} aria-pressed={hour === option} onClick={() => onChange(`${option}:${minute}`)}>{option}{hour === option && <Check size={12} />}</button>
+              {hours.map(value => pad(value)).map(option => (
+                <button key={option} type="button" className={`${styles.timeOption} ${hour === option ? styles.selectedTime : ''}`} aria-pressed={hour === option} onClick={() => onChange(timeForSelectedHour(Number(option), Number(minute), minTime))}>{option}{hour === option && <Check size={12} />}</button>
               ))}
             </div>
             <div ref={minutesColumn} className={styles.clockColumn} role="group" aria-label="Minutos">
-              {Array.from({ length: 60 }, (_, index) => pad(index)).map(option => (
-                <button key={option} type="button" className={`${styles.timeOption} ${minute === option ? styles.selectedTime : ''}`} aria-pressed={minute === option} onClick={() => onChange(`${hour}:${option}`)}>{option}{minute === option && <Check size={12} />}</button>
+              {minutes.map(value => pad(value)).map(option => (
+                <button key={option} type="button" className={`${styles.timeOption} ${minute === option ? styles.selectedTime : ''}`} aria-pressed={minute === option} onClick={() => onChange(`${pad(visibleHour)}:${option}`)}>{option}{minute === option && <Check size={12} />}</button>
               ))}
             </div>
           </div>

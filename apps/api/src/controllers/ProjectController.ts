@@ -12,8 +12,8 @@ import type { ProjectRequest } from '../middleware/project';
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
 const createProjectSchema = z.object({
-  name: z.string().min(1).max(255),
-  description: z.string().trim().min(1).max(8000),
+  name: z.string().min(1).max(120),
+  description: z.string().trim().min(1).max(1000),
   icon: z.string().max(100).optional(),
   color: z.string().max(50).optional(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
@@ -32,8 +32,8 @@ const createProjectSchema = z.object({
 });
 
 const updateProjectSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  description: z.string().max(8000).optional().nullable(),
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(1000).optional().nullable(),
   icon: z.string().max(100).optional().nullable(),
   color: z.string().max(50).optional().nullable(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),

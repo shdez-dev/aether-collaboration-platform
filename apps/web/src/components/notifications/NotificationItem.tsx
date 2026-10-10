@@ -22,6 +22,10 @@ interface NotificationItemProps {
 }
 
 const TYPE_META: Record<string, { color: string; icon: React.ReactNode }> = {
+  CALENDAR_EVENT_INVITE: {
+    color: '#7452A6',
+    icon: <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12"><rect x="1.5" y="3" width="11" height="9" rx="1.5" /><path d="M1.5 5.5h11M4 1v3M10 1v3" /></svg>,
+  },
   COMMENT_MENTION: {
     color: '#3b82f6',
     icon: (
@@ -188,7 +192,11 @@ export function NotificationItem({
       fetchWorkspaces().catch(() => {});
     }
 
-    if (projectTypes.includes(notification.type) && data.projectId) {
+    if (notification.type === 'CALENDAR_EVENT_INVITE') {
+      const date = typeof data.eventStartTime === 'string' ? `&at=${encodeURIComponent(data.eventStartTime)}` : '';
+      window.dispatchEvent(new CustomEvent('aether:calendar-invite', { detail: data.eventStartTime ?? '' }));
+      router.push(`/dashboard/calendar?view=agenda${date}`); onClose?.();
+    } else if (projectTypes.includes(notification.type) && data.projectId) {
       router.push(`/dashboard/projects/${data.projectId}`); onClose?.();
     } else if (notification.type === 'TEAM_INVITE' || (notification.type as string) === 'TEAM_MEMBER_ADDED' || (notification.type as string) === 'TEAM_MEMBER_REMOVED') {
       if (data.teamId) { router.push(`/dashboard/teams/${data.teamId}`); } else { router.push('/dashboard'); }
@@ -229,6 +237,9 @@ export function NotificationItem({
     setIsLoading(true);
     try { await onDelete(notification.id); } catch {} finally { setIsLoading(false); }
   };
+  const displayMessage = notification.type === 'CALENDAR_EVENT_INVITE'
+    ? `Invitación para un evento en el calendario. Abre tu agenda para aceptar o rechazar.`
+    : notification.message;
 
   const handleArchive = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -292,7 +303,7 @@ export function NotificationItem({
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           overflow: 'hidden', marginBottom: '4px',
         }}>
-          {notification.message}
+          {displayMessage}
         </p>
         <span style={{
           fontSize: '10.5px', color: C.text4,

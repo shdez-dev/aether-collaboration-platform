@@ -265,8 +265,12 @@ export const apiService = {
   /**
    * Petición DELETE
    */
-  async delete<T>(endpoint: string, useAuth: boolean = false): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'DELETE' }, useAuth);
+  async delete<T>(endpoint: string, useAuth: boolean = false, body?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(
+      endpoint,
+      { method: 'DELETE', ...(body === undefined ? {} : { body: JSON.stringify(body) }) },
+      useAuth
+    );
   },
 
   /**

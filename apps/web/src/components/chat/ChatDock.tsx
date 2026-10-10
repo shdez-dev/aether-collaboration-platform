@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { ArrowLeft, Check, ChevronRight, MessageCircle, Search, Send, UserPlus, X } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import { socketService } from '@/services/socketService';
-import { getAvatarUrl } from '@/lib/utils/avatar';
+import { useAuthStore } from '@/stores/authStore';
+import { PresenceAvatar, PresencePicker, presenceLabel, usePresence, type PresenceStatus } from './presence';
 import styles from './ChatDock.module.css';
 
 type Contact = { id: string; name: string; avatar: string | null; position: string | null };
@@ -25,11 +26,8 @@ type Eligibility = { canMessage: boolean; relationship: 'shared' | 'connected' |
 type Tab = 'chats' | 'contacts' | 'requests';
 type ActiveChat = { conversationId: string; contact: Contact };
 
-function Avatar({ contact, size = 36 }: { contact: Contact; size?: number }) {
-  const url = getAvatarUrl(contact.avatar);
-  return <span className={styles.avatar} style={{ width: size, height: size, flexBasis: size }}>
-    {url ? <img src={url} alt="" /> : contact.name.trim().charAt(0).toLocaleUpperCase('es')}
-  </span>;
+function Avatar({ contact, size = 36, status }: { contact: Contact; size?: number; status: PresenceStatus }) {
+  return <PresenceAvatar name={contact.name} avatar={contact.avatar} status={status} size={size} />;
 }
 
 function relativeTime(value: string | null) {
@@ -41,6 +39,8 @@ function relativeTime(value: string | null) {
 }
 
 export default function ChatDock({ userId }: { userId?: string }) {
+  const user = useAuthStore((state) => state.user);
+  const presence = usePresence(userId);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('chats');
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -192,9 +192,12 @@ export default function ChatDock({ userId }: { userId?: string }) {
   return <div className={styles.dock} ref={dockRef}>
     {open && <section className={styles.panel} role="dialog" aria-label="Mensajes" id="aether-chat-panel">
       <header className={styles.header}>
-        {active || requestTarget ? <button type="button" className={styles.iconButton} aria-label="Volver a los chats" onClick={() => { setActive(null); setRequestTarget(null); setError(''); }}><ArrowLeft size={18} /></button> : <span className={styles.headerIcon}><MessageCircle size={18} /></span>}
-        <div className={styles.headerText}><strong>{active?.contact.name ?? requestTarget?.name ?? 'Mensajes'}</strong><small>{active ? 'Chat privado' : requestTarget ? 'Contacto' : 'Conversaciones y contactos'}</small></div>
-        <button type="button" className={styles.iconButton} aria-label="Cerrar mensajes" onClick={() => setOpen(false)}><X size={18} /></button>
+        <div className={styles.headerMain}>
+          {active || requestTarget ? <button type="button" className={styles.iconButton} aria-label="Volver a los chats" onClick={() => { setActive(null); setRequestTarget(null); setError(''); }}><ArrowLeft size={18} /></button> : <span className={styles.headerIcon}><MessageCircle size={18} /></span>}
+          <div className={styles.headerText}><strong>{active?.contact.name ?? requestTarget?.name ?? 'Mensajes'}</strong><small>{active ? presenceLabel(presence.statusFor(active.contact.id)) : requestTarget ? presenceLabel(presence.statusFor(requestTarget.id)) : 'Conversaciones y contactos'}</small></div>
+          <button type="button" className={styles.iconButton} aria-label="Cerrar mensajes" onClick={() => setOpen(false)}><X size={18} /></button>
+        </div>
+        {user && <div className={styles.presenceSlot}><PresencePicker name={user.name} avatar={user.avatar} status={presence.preference} onChange={(status) => void presence.setStatus(status)} disabled={presence.busy} error={presence.error} /></div>}
       </header>
 
       {active ? <>
@@ -207,10 +210,11 @@ export default function ChatDock({ userId }: { userId?: string }) {
         </div>
         <form className={styles.composer} onSubmit={(event) => void sendMessage(event)}>
           <textarea aria-label="Escribir mensaje" placeholder="Escribe un mensaje…" value={draft} maxLength={4000} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(event); } }} />
+          <span className={styles.charCount}>{draft.length}/4000</span>
           <button type="submit" aria-label="Enviar mensaje" disabled={!draft.trim() || busy}><Send size={17} /></button>
         </form>
       </> : requestTarget ? <div className={styles.requestPrompt}>
-        <Avatar contact={requestTarget} size={58} />
+        <Avatar contact={requestTarget} size={58} status={presence.statusFor(requestTarget.id)} />
         <strong>{requestTarget.name}</strong>
         <p>{targetRelationship === 'outgoing' ? 'La solicitud está pendiente. Podrás escribirle cuando la acepte.' : targetRelationship === 'incoming' ? 'Esta persona quiere agregarte. Revisa la solicitud para comenzar a conversar.' : targetRelationship === 'declined' ? 'La solicitud anterior no fue aceptada. Puedes volver a intentarlo después de 7 días.' : 'Para escribirle fuera de tus organizaciones o espacios compartidos, primero debe aceptar tu solicitud.'}</p>
         {targetRelationship === 'incoming' ? <button type="button" className={styles.primaryButton} onClick={() => { setRequestTarget(null); setTab('requests'); }}>Ver solicitud</button>
@@ -225,15 +229,15 @@ export default function ChatDock({ userId }: { userId?: string }) {
         {tab !== 'requests' && <label className={styles.search}><Search size={15} /><input aria-label="Filtrar chats o contactos" placeholder="Buscar…" value={search} onChange={(event) => setSearch(event.target.value)} /></label>}
         <div className={styles.list}>
           {tab === 'chats' && (filteredConversations.length ? filteredConversations.map((conversation) => <button type="button" key={conversation.id} className={styles.row} onClick={() => { const chat = { conversationId: conversation.id, contact: { id: conversation.contact_id, name: conversation.name, avatar: conversation.avatar, position: conversation.position } }; setActive(chat); setMessages([]); void loadMessages(chat.conversationId); }}>
-            <Avatar contact={{ id: conversation.contact_id, name: conversation.name, avatar: conversation.avatar, position: conversation.position }} />
+            <Avatar contact={{ id: conversation.contact_id, name: conversation.name, avatar: conversation.avatar, position: conversation.position }} status={presence.statusFor(conversation.contact_id)} />
             <span className={styles.rowMain}><strong>{conversation.name}</strong><small>{conversation.last_body ?? 'Sin mensajes todavía'}</small></span>
-            <span className={styles.rowAside}><small>{relativeTime(conversation.last_message_at)}</small>{conversation.unread_count > 0 && <b>{conversation.unread_count}</b>}</span>
+            <span className={styles.rowAside}><small>{relativeTime(conversation.last_message_at)}</small>{conversation.unread_count > 0 && <b>{conversation.unread_count > 99 ? '+99' : conversation.unread_count}</b>}</span>
           </button>) : <div className={styles.empty}><MessageCircle size={25} /><strong>No hay chats todavía</strong><span>Elige un contacto para empezar.</span><button type="button" onClick={() => setTab('contacts')}>Ver contactos <ChevronRight size={14} /></button></div>)}
           {tab === 'contacts' && (filteredContacts.length ? filteredContacts.map((contact) => <button type="button" key={contact.id} className={styles.row} onClick={() => void startConversation(contact)}>
-            <Avatar contact={contact} /><span className={styles.rowMain}><strong>{contact.name}</strong><small>{contact.position ?? 'Disponible para conversar'}</small></span><ChevronRight size={16} className={styles.chevron} />
+            <Avatar contact={contact} status={presence.statusFor(contact.id)} /><span className={styles.rowMain}><strong>{contact.name}</strong><small>{presenceLabel(presence.statusFor(contact.id))} · {contact.position ?? 'Disponible para conversar'}</small></span><ChevronRight size={16} className={styles.chevron} />
           </button>) : <div className={styles.empty}><UserPlus size={25} /><strong>Sin contactos disponibles</strong><span>Busca personas en Contactos para conectar.</span></div>)}
           {tab === 'requests' && (requests.length ? requests.map((request) => <div key={request.id} className={styles.requestRow}>
-            <Avatar contact={{ id: request.user_id, name: request.name, avatar: request.avatar, position: request.position }} />
+            <Avatar contact={{ id: request.user_id, name: request.name, avatar: request.avatar, position: request.position }} status={presence.statusFor(request.user_id)} />
             <div className={styles.requestInfo}><strong>{request.name}</strong><small>{request.direction === 'incoming' ? 'Quiere agregarte' : 'Solicitud enviada'}</small>
               {request.direction === 'incoming' && <span className={styles.requestActions}><button type="button" disabled={busy} onClick={() => void respond(request, 'accept')}><Check size={14} /> Aceptar</button><button type="button" disabled={busy} onClick={() => void respond(request, 'decline')}>Rechazar</button></span>}
             </div>
@@ -243,6 +247,6 @@ export default function ChatDock({ userId }: { userId?: string }) {
       </>}
       {error && <p className={styles.error} role="alert">{error}</p>}
     </section>}
-    <button type="button" className={styles.launcher} aria-label={open ? 'Cerrar mensajes' : 'Abrir mensajes'} aria-controls="aether-chat-panel" aria-expanded={open} onClick={() => { setOpen((value) => !value); if (!open) void refresh(); }}><MessageCircle size={23} fill="none" />{badgeCount > 0 && <span className={styles.badge}>{badgeCount > 99 ? '99+' : badgeCount}</span>}</button>
+    <button type="button" className={styles.launcher} aria-label={open ? 'Cerrar mensajes' : 'Abrir mensajes'} aria-controls="aether-chat-panel" aria-expanded={open} onClick={() => { setOpen((value) => !value); if (!open) void refresh(); }}><MessageCircle size={23} fill="none" />{badgeCount > 0 && <span className={styles.badge}>{badgeCount > 99 ? '+99' : badgeCount}</span>}</button>
   </div>;
 }

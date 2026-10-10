@@ -24,6 +24,33 @@ describe('CardService', () => {
     (eventStore.emit as jest.Mock) = jest.fn().mockResolvedValue({});
   });
 
+  describe('getEligibleMembers', () => {
+    it('uses project participation, not general workspace membership, for project cards', async () => {
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'workspace-1', project_ids: ['project-1'] }] })
+        .mockResolvedValueOnce({ rows: [{ id: 'member-1', name: 'Project member', email: 'member@test.com' }] });
+
+      const members = await CardService.getEligibleMembers('card-1');
+
+      expect(members).toEqual([{ id: 'member-1', name: 'Project member', email: 'member@test.com' }]);
+      const [sql, params] = (pool.query as jest.Mock).mock.calls[1];
+      expect(sql).toContain('FROM unnest($2::uuid[])');
+      expect(sql).toContain('project_members');
+      expect(sql).toContain('project_teams');
+      expect(sql).not.toContain("wm.role IN ('OWNER', 'ADMIN')");
+      expect(params).toEqual(['workspace-1', ['project-1']]);
+    });
+
+    it('falls back to workspace members when a card has no project', async () => {
+      (pool.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ workspace_id: 'workspace-1', project_ids: [] }] })
+        .mockResolvedValueOnce({ rows: [{ id: 'member-1', name: 'Member', email: 'member@test.com' }] });
+
+      expect(await CardService.getEligibleMembers('card-1')).toHaveLength(1);
+      expect((pool.query as jest.Mock).mock.calls[1][0]).toContain('FROM workspace_members wm');
+    });
+  });
+
   describe('getCardsByListId', () => {
     it('should return cards with members and labels', async () => {
       const listId = 'list-123';

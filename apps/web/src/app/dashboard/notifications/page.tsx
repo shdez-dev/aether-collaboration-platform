@@ -11,6 +11,7 @@ import { apiService } from '@/services/apiService';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import styles from './page.module.css';
+import entrance from '../pageEntrance.module.css';
 
 type Filter = 'todo' | 'sin-leer' | 'menciones' | 'asignaciones';
 
@@ -47,7 +48,7 @@ function extractActor(message: string): string {
 function notificationContent(notification: Notification) {
   const data = (notification.data ?? {}) as Record<string, unknown>;
   const stringValue = (...keys: string[]) => keys.map(key => data[key]).find(value => typeof value === 'string') as string | undefined;
-  const actor = stringValue('actorName', 'senderName', 'actor') || extractActor(notification.message ?? '') || 'Aether';
+  const actor = stringValue('creatorName', 'actorName', 'senderName', 'actor') || extractActor(notification.message ?? '') || 'Aether';
   const board = stringValue('boardName', 'board') || '';
   const card = stringValue('cardTitle', 'card') || '';
   const workspace = stringValue('workspaceName', 'workspace') || '';
@@ -67,6 +68,7 @@ function notificationContent(notification: Notification) {
     BOARD_INVITE: ['te invitó al tablero', board],
     WORKSPACE_INVITE: ['te invitó al espacio', workspace || board],
     TEAM_INVITE: ['te invitó al equipo', team],
+    CALENDAR_EVENT_INVITE: ['te invitó a un evento de calendario:', stringValue('eventTitle') || ''],
     PROJECT_INVITE: ['te invitó al proyecto', stringValue('projectName') || ''],
     WORKSPACE_REMOVED: ['te retiró de', workspace || board],
     MILESTONE_COMPLETED: ['completó un hito en', stringValue('projectName') || ''],
@@ -111,7 +113,9 @@ function NotificationRow({ notification, onOpen, onRead, onResolve, onArchive }:
           <span className={styles.notificationTitle}>
             <strong>{actor}</strong> {action}{target && <> <strong className={styles.target}>{target}</strong></>}
           </span>
-          {notification.message && <span className={styles.message}>{notification.message}</span>}
+          {notification.message && <span className={styles.message}>{notification.type === 'CALENDAR_EVENT_INVITE'
+            ? `Es una invitación para un evento de calendario. Abre tu agenda para revisarla y aceptar o rechazar.`
+            : notification.message}</span>}
           <span className={styles.meta}>
             <span className={styles.category}><CategoryIcon size={12} aria-hidden="true" />{label}</span>
             {context && <span className={styles.context}>{context}</span>}
@@ -163,7 +167,11 @@ export default function NotificationsPage() {
       fetchWorkspaces().catch(() => {});
     }
 
-    if (['PROJECT_INVITE', 'MILESTONE_COMPLETED', 'MILESTONE_MISSED', 'PROJECT_STATUS_CHANGED'].includes(notification.type) && projectId) {
+    if (notification.type === 'CALENDAR_EVENT_INVITE') {
+      const date = typeof data.eventStartTime === 'string' ? `&at=${encodeURIComponent(data.eventStartTime)}` : '';
+      window.dispatchEvent(new CustomEvent('aether:calendar-invite', { detail: data.eventStartTime ?? '' }));
+      router.push(`/dashboard/calendar?view=agenda${date}`);
+    } else if (['PROJECT_INVITE', 'MILESTONE_COMPLETED', 'MILESTONE_MISSED', 'PROJECT_STATUS_CHANGED'].includes(notification.type) && projectId) {
       router.push(`/dashboard/projects/${projectId}`);
     } else if (notification.type === 'WORKSPACE_INVITE' || notification.type === 'WORKSPACE_REMOVED') {
       router.push('/dashboard');
@@ -202,7 +210,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${entrance.page}`}>
       <header className={styles.header}>
         <div className={styles.headerIcon}><BellRing size={24} strokeWidth={1.8} aria-hidden="true" /></div>
         <div className={styles.headerText}>

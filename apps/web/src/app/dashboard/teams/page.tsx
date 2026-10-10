@@ -89,7 +89,7 @@ function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, 
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!name.trim() || !workspaceId || description.trim().length > MAX_TEAM_DESCRIPTION_LENGTH) return;
+    if (!name.trim() || name.trim().length > 80 || !workspaceId || description.trim().length > MAX_TEAM_DESCRIPTION_LENGTH) return;
     setLoading(true);
     setError(null);
     try {
@@ -118,7 +118,8 @@ function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, 
           </div>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase' }}>Nombre</span>
-            <input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Ej. Diseño, Desarrollo" style={fieldStyle} />
+            <input autoFocus value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder="Ej. Diseño, Desarrollo" style={fieldStyle} />
+            <span style={{ alignSelf: 'flex-end', color: 'var(--c-text4)', fontSize: '11px' }}>{name.length}/80</span>
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase' }}>Descripción <span style={{ opacity: .5 }}>(opcional)</span></span>

@@ -27,16 +27,20 @@ type OrganizationGroup = {
   id: string;
   name: string;
   type: string;
+  role?: string;
   workspaces: Workspace[];
   workspaceCount?: number;
 };
 
-type OrganizationSummary = { id: string; name: string; type: string; workspaceCount?: number };
+type OrganizationSummary = { id: string; name: string; type: string; role?: string; workspaceCount?: number };
 
 type WorkspaceContextSwitcherProps = {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
+  activeOrganizationId: string | null;
+  activeOrganization: OrganizationSummary | null;
   onSelect: (workspaceId: string) => void;
+  onSelectOrganization: (organizationId: string) => void;
   onCreateNew: (organizationId?: string) => void;
   onNewOrganization: () => void;
   onEdit: (workspace: Workspace) => void;
@@ -52,7 +56,10 @@ function workspaceModeLabel(mode?: string) {
 export default function WorkspaceContextSwitcher({
   workspaces,
   activeWorkspaceId,
+  activeOrganizationId,
+  activeOrganization,
   onSelect,
+  onSelectOrganization,
   onCreateNew,
   onNewOrganization,
   onEdit,
@@ -74,6 +81,10 @@ export default function WorkspaceContextSwitcher({
   const organizations = useMemo(() => {
     const groups = new Map<string, OrganizationGroup>();
     organizationRecords.forEach((organization) => groups.set(organization.id, { ...organization, workspaces: [...organization.workspaces] }));
+    if (activeOrganization) groups.set(activeOrganization.id, {
+      ...groups.get(activeOrganization.id), ...activeOrganization,
+      workspaces: groups.get(activeOrganization.id)?.workspaces ?? [],
+    });
     activeWorkspaces.forEach((workspace) => {
       const id = workspace.organization?.id ?? workspace.organizationId;
       const group = groups.get(id);
@@ -91,7 +102,7 @@ export default function WorkspaceContextSwitcher({
       });
     });
     return [...groups.values()];
-  }, [activeWorkspaces, organizationRecords]);
+  }, [activeWorkspaces, organizationRecords, activeOrganization]);
 
   useEffect(() => {
     if (!open || step !== 'organizations') return;
@@ -109,6 +120,7 @@ export default function WorkspaceContextSwitcher({
           id: organization.id,
           name: getDisplayOrganizationName(organization.name),
           type: organization.type,
+          role: organization.role,
           workspaceCount: organization.workspaceCount ?? 0,
           workspaces: [],
         })));
@@ -120,17 +132,14 @@ export default function WorkspaceContextSwitcher({
     return () => { active = false; };
   }, [open, step, organizationLoadAttempt]);
 
-  const activeWorkspace =
-    activeWorkspaces.find((workspace) => workspace.id === activeWorkspaceId) ??
-    activeWorkspaces[0] ??
-    null;
-  const activeOrganizationId =
-    activeWorkspace?.organization?.id ?? activeWorkspace?.organizationId;
-  const activeOrganization = organizations.find(
+  const activeWorkspace = activeWorkspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? null;
+  const selectedOrganization = organizations.find(
     (organization) => organization.id === activeOrganizationId,
   );
-  const organizationWorkspaces = activeOrganization?.workspaces ?? activeWorkspaces;
-  const organizationName = getDisplayOrganizationName(activeOrganization?.name ?? 'Tu organización');
+  const organizationWorkspaces = selectedOrganization?.workspaces ?? [];
+  const organizationName = getDisplayOrganizationName(selectedOrganization?.name ?? 'Tu organización');
+  const canCreateWorkspace = selectedOrganization?.role === 'OWNER' || selectedOrganization?.role === 'ADMIN';
+  const emptyWorkspaceLabel = (selectedOrganization?.workspaceCount ?? 0) > 0 ? 'Sin acceso' : 'Sin espacios';
 
   async function refreshWorkspaces() {
     if (refreshing) return;
@@ -148,13 +157,14 @@ export default function WorkspaceContextSwitcher({
       organization.workspaces[0];
     if (!firstWorkspace) {
       setOpen(false);
-      onCreateNew(organization.id);
+      onSelectOrganization(organization.id);
       return;
     }
     if (firstWorkspace && firstWorkspace.id !== activeWorkspaceId) {
       onSelect(firstWorkspace.id);
     }
     setStep('workspaces');
+    setOpen(false);
   }
 
   const color = activeWorkspace?.color ?? '#7452A6';
@@ -171,13 +181,13 @@ export default function WorkspaceContextSwitcher({
         <button
           type="button"
           className={`${styles.trigger} dsh-workspace-trigger`}
-          aria-label={`Cambiar espacio de trabajo: ${organizationName}, ${activeWorkspace?.name ?? 'Tu espacio'}`}
+          aria-label={`Cambiar espacio de trabajo: ${organizationName}, ${activeWorkspace?.name ?? emptyWorkspaceLabel}`}
         >
           <span className={styles.triggerIcon} style={{ '--workspace-color': color } as React.CSSProperties} aria-hidden="true">
             <WorkspaceIcon icon={activeWorkspace?.icon ?? 'briefcase'} size={17} />
           </span>
           <span className={`${styles.triggerCopy} dsh-workspace-copy`}>
-            <strong title={activeWorkspace?.name}>{activeWorkspace?.name ?? 'Tu espacio'}</strong>
+            <strong title={activeWorkspace?.name ?? emptyWorkspaceLabel}>{activeWorkspace?.name ?? emptyWorkspaceLabel}</strong>
             <small title={organizationName}>{organizationName}</small>
           </span>
           {activeWorkspace ? <span className={`${styles.modePill} dsh-workspace-mode`}>{workspaceModeLabel(activeWorkspace.mode)}</span> : null}
@@ -250,16 +260,16 @@ export default function WorkspaceContextSwitcher({
                         </button>
                       );
                     }) : (
-                      <p className={styles.emptyState}>Esta organización todavía no tiene espacios.</p>
+                      <p className={styles.emptyState}>{emptyWorkspaceLabel === 'Sin acceso' ? 'Todavía no tienes acceso a un espacio de esta organización.' : 'Esta organización todavía no tiene espacios.'}</p>
                     )}
                   </div>
 
                   <div className={styles.spaceActions}>
-                    <button type="button" className={styles.createAction} onClick={() => { setOpen(false); onCreateNew(activeOrganizationId); }}>
+                    {canCreateWorkspace && <button type="button" className={styles.createAction} onClick={() => { setOpen(false); onCreateNew(activeOrganizationId ?? undefined); }}>
                       <Plus size={16} aria-hidden="true" />
                       Nuevo espacio
-                    </button>
-                    {activeOrganizationId && activeOrganization?.type !== 'PERSONAL' ? (
+                    </button>}
+                    {activeOrganizationId && selectedOrganization?.type !== 'PERSONAL' ? (
                       <button
                         type="button"
                         className={styles.manageAction}
@@ -337,11 +347,11 @@ export default function WorkspaceContextSwitcher({
               <button
                 type="button"
                 className={styles.footerAction}
-                disabled={!activeWorkspace}
+                disabled={!activeWorkspace && !activeOrganizationId}
                 onClick={() => {
-                  if (!activeWorkspace) return;
                   setOpen(false);
-                  onEdit(activeWorkspace);
+                  if (activeWorkspace) onEdit(activeWorkspace);
+                  else if (activeOrganizationId) router.push(`/dashboard/organizations?organizationId=${encodeURIComponent(activeOrganizationId)}`);
                 }}
               >
                 <Settings2 size={15} aria-hidden="true" /> Configuración

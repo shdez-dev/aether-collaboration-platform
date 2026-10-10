@@ -2,11 +2,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useCalendarEventStore, type CalendarEvent, type CreateEventInput } from '@/stores/calendarEventStore';
+import { useCalendarEventStore, type CalendarEvent, type CalendarInvitee, type CreateEventInput } from '@/stores/calendarEventStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTeamStore } from '@/stores/teamStore';
 import { CalendarDatePicker, ClockTimePicker } from './DateTimePickers';
+import { oneHourAfter, timeForSelectedHour } from './calendarTime';
 import { CalendarSelect } from './CalendarSelect';
+import { apiService } from '@/services/apiService';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -147,6 +149,11 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
   const [type,        setType]        = useState<'personal' | 'workspace' | 'team'>('personal');
   const [workspaceId, setWorkspaceId] = useState('');
   const [teamId,      setTeamId]      = useState('');
+  const [contacts,    setContacts]    = useState<{ id: string; name: string; avatar: string | null }[]>([]);
+  const [inviteeIds,  setInviteeIds]  = useState<string[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
+  const [loadedInvitees, setLoadedInvitees] = useState<CalendarInvitee[]>([]);
+  const [inviteesLoading, setInviteesLoading] = useState(false);
   const [saving,      setSaving]      = useState(false);
   const [deleting,    setDeleting]    = useState(false);
   const [error,       setError]       = useState('');
@@ -168,6 +175,25 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
   useEffect(() => {
     if (open) void fetchTeams();
   }, [open, fetchTeams]);
+
+  useEffect(() => {
+    if (!open || isEdit) return;
+    let active = true;
+    void apiService.get<{ contacts: { id: string; name: string; avatar: string | null }[] }>('/api/chat/contacts', true)
+      .then(response => { if (active) setContacts(response.success ? response.data?.contacts ?? [] : []); });
+    return () => { active = false; };
+  }, [open, isEdit]);
+
+  useEffect(() => {
+    if (!open || !eventToEdit || eventToEdit.type !== 'personal') return;
+    let active = true;
+    setLoadedInvitees(eventToEdit.invitees ?? []);
+    setInviteesLoading(true);
+    void apiService.get<{ event: CalendarEvent }>(`/api/events/${eventToEdit.id}`, true).then(response => {
+      if (active && response.success) setLoadedInvitees(response.data?.event.invitees ?? []);
+    }).catch(() => {}).finally(() => { if (active) setInviteesLoading(false); });
+    return () => { active = false; };
+  }, [open, eventToEdit]);
 
   // Prefill on edit
   useEffect(() => {
@@ -194,6 +220,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
       setEndTime(`${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`);
       setAllDay(initialAllDay ?? false); setColor(COLORS[0].value);
       setType('personal'); setWorkspaceId(''); setTeamId('');
+      setInviteeIds([]); setContactSearch('');
     }
     setError('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -209,11 +236,38 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
 
   function validate(): string {
     if (!title.trim())                        return 'El título es requerido';
+    if (title.trim().length > 120 && (!eventToEdit || title.trim() !== eventToEdit.title)) return 'El título no puede superar 120 caracteres';
+    if (description.trim().length > 1000 && (!eventToEdit || description.trim() !== (eventToEdit.description ?? ''))) return 'La descripción no puede superar 1000 caracteres';
     if (!date || !endDate)                     return 'Selecciona las fechas de inicio y fin';
     if (new Date(`${endDate}T${allDay ? '23:59:59' : endTime + ':00'}`).getTime() <= new Date(`${date}T${allDay ? '00:00:00' : startTime + ':00'}`).getTime()) return 'El fin debe ser posterior al inicio';
     if (type === 'workspace' && !workspaceId) return 'Selecciona un espacio';
     if (type === 'team'      && !teamId)      return 'Selecciona un equipo';
     return '';
+  }
+
+  function handleStartTimeChange(nextTime: string) {
+    const nextEnd = oneHourAfter(date, nextTime);
+    setStartTime(nextTime);
+    setEndDate(nextEnd.date);
+    setEndTime(nextEnd.time);
+  }
+
+  function handleStartDateChange(nextDate: string) {
+    setDate(nextDate);
+    if (allDay) {
+      if (endDate < nextDate) setEndDate(nextDate);
+    } else if (new Date(`${endDate}T${endTime}:00`).getTime() <= new Date(`${nextDate}T${startTime}:00`).getTime()) {
+      const nextEnd = oneHourAfter(nextDate, startTime);
+      setEndDate(nextEnd.date);
+      setEndTime(nextEnd.time);
+    }
+  }
+
+  function handleEndDateChange(nextDate: string) {
+    setEndDate(nextDate);
+    if (!allDay && nextDate === date && endTime <= startTime) {
+      setEndTime(timeForSelectedHour(Number(startTime.slice(0, 2)), Number(startTime.slice(3, 5)), startTime));
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -237,14 +291,32 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
       allDay, color, type,
       workspaceId: type === 'workspace' ? workspaceId : undefined,
       teamId:      type === 'team'      ? teamId      : undefined,
+      inviteeIds: isEdit || type !== 'personal' ? undefined : inviteeIds,
     };
 
     if (isEdit && eventToEdit) {
-      const ok = await updateEvent(eventToEdit.id, input);
+      const ok = await updateEvent(eventToEdit.id, {
+        ...input,
+        title: title.trim() === eventToEdit.title ? undefined : input.title,
+        description: description.trim() === (eventToEdit.description ?? '') ? undefined : (description.trim() || null),
+      });
       if (!ok) { setError('No se pudo actualizar el evento'); setSaving(false); return; }
     } else {
+      if (inviteeIds.length > 0) {
+        const capability = await apiService.get<{ invitations: unknown[] }>('/api/events/invitations', true);
+        if (!capability.success) {
+          setError('El servidor aún no admite invitaciones a eventos. Actualízalo antes de crear este evento.');
+          setSaving(false);
+          return;
+        }
+      }
       const ok = await createEvent(input);
-      if (!ok) { setError('No se pudo crear el evento'); setSaving(false); return; }
+      if (!ok) { setError(useCalendarEventStore.getState().error ?? 'No se pudo crear el evento'); setSaving(false); return; }
+      if (inviteeIds.length > 0 && inviteeIds.some(id => !ok.invitees?.some(person => person.id === id))) {
+        setError('El evento se creó, pero el servidor no confirmó todas las invitaciones. Revisa el evento antes de continuar.');
+        setSaving(false);
+        return;
+      }
     }
     setSaving(false);
     onClose();
@@ -348,35 +420,36 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                 <AInput
                   autoFocus
                   value={title}
+                  maxLength={Math.max(120, eventToEdit?.title.length ?? 0)}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="Nombre del evento"
                   style={{ fontSize: '15px', fontWeight: 600 }}
                 />
+                <small style={{ display: 'block', textAlign: 'right', color: 'var(--c-text4)' }}>{title.length}/120</small>
               </Field>
 
               {/* Descripción */}
               <Field label="Descripción">
                 <ATextarea
                   value={description}
+                  maxLength={Math.max(1000, eventToEdit?.description?.length ?? 0)}
                   onChange={e => setDescription(e.target.value)}
                   placeholder="Detalles opcionales..."
                   rows={2}
                 />
+                <small style={{ display: 'block', textAlign: 'right', color: 'var(--c-text4)' }}>{description.length}/1000</small>
               </Field>
 
               {/* Fechas + Todo el día */}
               <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '140px' }}>
                   <Field label="Fecha de inicio">
-                    <CalendarDatePicker label="Fecha de inicio" value={date} onChange={nextDate => {
-                      setDate(nextDate);
-                      if (endDate < nextDate) setEndDate(nextDate);
-                    }} />
+                    <CalendarDatePicker label="Fecha de inicio" value={date} onChange={handleStartDateChange} />
                   </Field>
                 </div>
                 <div style={{ flex: 1, minWidth: '140px' }}>
                   <Field label="Fecha de fin">
-                    <CalendarDatePicker label="Fecha de fin" min={date} value={endDate} onChange={setEndDate} align="right" />
+                    <CalendarDatePicker label="Fecha de fin" min={!allDay && startTime === '23:59' ? oneHourAfter(date, startTime).date : date} value={endDate} onChange={handleEndDateChange} align="right" />
                   </Field>
                 </div>
                 <div style={{ paddingBottom: '2px' }}>
@@ -388,10 +461,10 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
               {!allDay && (
                 <div style={{ display: 'flex', gap: '14px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}><Field label="Inicio">
-                    <ClockTimePicker label="Inicio" value={startTime} onChange={setStartTime} />
+                    <ClockTimePicker label="Inicio" value={startTime} onChange={handleStartTimeChange} />
                   </Field></div>
                   <div style={{ flex: 1, minWidth: 0 }}><Field label="Fin">
-                    <ClockTimePicker label="Fin" value={endTime} onChange={setEndTime} align="right" />
+                    <ClockTimePicker label="Fin" value={endTime} onChange={setEndTime} minTime={date === endDate ? startTime : undefined} align="right" />
                   </Field></div>
                 </div>
               )}
@@ -466,6 +539,34 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
                   <CalendarSelect label="Equipo" kind="team" placeholder="Selecciona un equipo…" value={teamId} onChange={setTeamId} options={teams.map(team => ({ value: team.id, label: team.name }))} />
                 </Field>
               )}
+
+              {!isEdit && type === 'personal' && <Field label="Invitar contactos (opcional)">
+                <p style={{ margin: 0, color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: 12 }}>Puedes invitar contactos de cualquier organización. Cada persona decide si acepta; hasta entonces el evento no aparecerá en su calendario.</p>
+                <AInput aria-label="Buscar contactos para invitar" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Buscar contacto…" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 154, overflowY: 'auto' }}>
+                  {contacts.filter(contact => contact.name.toLocaleLowerCase().includes(contactSearch.toLocaleLowerCase())).map(contact => (
+                    <label key={contact.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: inviteeIds.includes(contact.id) ? 'rgba(116,82,166,.13)' : 'rgba(97,71,130,.04)', cursor: 'pointer', fontFamily: MANROPE, fontSize: 13 }}>
+                      <input type="checkbox" checked={inviteeIds.includes(contact.id)} disabled={!inviteeIds.includes(contact.id) && inviteeIds.length >= 30} onChange={() => setInviteeIds(current => current.includes(contact.id) ? current.filter(id => id !== contact.id) : [...current, contact.id])} />
+                      <span style={{ width: 25, height: 25, borderRadius: '50%', background: '#7452A6', color: 'white', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>{contact.avatar ? <img src={contact.avatar} alt="" width={25} height={25} /> : contact.name.charAt(0).toUpperCase()}</span>
+                      {contact.name}
+                    </label>
+                  ))}
+                  {contacts.length === 0 && <small style={{ color: 'var(--c-text3)', padding: '8px 2px' }}>Aún no tienes contactos disponibles para invitar.</small>}
+                </div>
+                {inviteeIds.length > 0 && <small style={{ color: 'var(--c-text3)' }}>{inviteeIds.length} {inviteeIds.length === 1 ? 'persona seleccionada' : 'personas seleccionadas'}</small>}
+              </Field>}
+
+              {isEdit && type === 'personal' && <Field label="Personas invitadas">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '11px', border: '1px solid rgba(97,71,130,.12)', borderRadius: 9, background: 'rgba(97,71,130,.035)' }}>
+                  {inviteesLoading ? <span style={{ fontFamily: MANROPE, color: 'var(--c-text3)', fontSize: 12 }}>Cargando invitaciones…</span> : loadedInvitees.length === 0 ?
+                    <span style={{ fontFamily: MANROPE, color: 'var(--c-text3)', fontSize: 12 }}>No se invitó a ningún contacto a este evento.</span> :
+                    loadedInvitees.map(person => <div key={person.id} style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, fontFamily: MANROPE, fontSize: 12 }}>
+                      <span style={{ width: 28, height: 28, flex: '0 0 28px', borderRadius: '50%', background: '#7452A6', color: '#fff', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>{person.avatar ? <img src={person.avatar} alt="" width={28} height={28} /> : person.name.charAt(0).toUpperCase()}</span>
+                      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.name}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: person.status === 'ACCEPTED' ? '#548B73' : person.status === 'DECLINED' ? '#B45C72' : '#A97556' }}>{person.status === 'ACCEPTED' ? 'Aceptó' : person.status === 'DECLINED' ? 'Rechazó' : 'Pendiente'}</span>
+                    </div>)}
+                </div>
+              </Field>}
 
               {/* Error */}
               {error && (

@@ -14,9 +14,10 @@ interface Props {
   onChange: (value: string) => void;
   disabled?: boolean;
   menuZIndex?: number;
+  placeholder?: string;
 }
 
-export function ProjectOptionSelect({ label, value, options, onChange, disabled = false, menuZIndex }: Props) {
+export function ProjectOptionSelect({ label, value, options, onChange, disabled = false, menuZIndex, placeholder = 'Seleccionar' }: Props) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
@@ -79,7 +80,7 @@ export function ProjectOptionSelect({ label, value, options, onChange, disabled 
         setPosition({ top: Math.max(10, Math.min(top, window.innerHeight - menuHeight - 10)), left: rect.left, width: rect.width });
         setOpen(previous => !previous);
       }}>
-        <span>{options[selectedIndex]?.label ?? 'Seleccionar'}</span>
+        <span>{options[selectedIndex]?.label ?? placeholder}</span>
         <ChevronDown size={15} aria-hidden="true" />
       </button>
       {open && createPortal(

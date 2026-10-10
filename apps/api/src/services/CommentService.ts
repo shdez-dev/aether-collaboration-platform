@@ -33,8 +33,8 @@ export class CommentService {
       throw new Error('Comment content cannot be empty');
     }
 
-    if (data.content.length > 5000) {
-      throw new Error('Comment content cannot exceed 5000 characters');
+    if (data.content.length > 2000) {
+      throw new Error('Comment content cannot exceed 2000 characters');
     }
 
     if (data.mentions?.length) {
@@ -345,8 +345,8 @@ export class CommentService {
         throw new Error('Comment content cannot be empty');
       }
 
-      if (data.content.length > 5000) {
-        throw new Error('Comment content cannot exceed 5000 characters');
+      if (data.content.length > 2000) {
+        throw new Error('Comment content cannot exceed 2000 characters');
       }
 
       data.content = data.content.trim();

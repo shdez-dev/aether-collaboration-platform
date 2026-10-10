@@ -142,6 +142,15 @@
 .agendaItems { display: flex; flex-direction: column; gap: 4px; }
 .agendaItem { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 51px; padding: 0 11px 0 0; border: 1px solid var(--calendar-line); border-radius: 5px; background: var(--c-surface); color: var(--c-text2); text-align: left; cursor: pointer; }
 .agendaItem:hover { background: var(--c-hover); }
+.agendaInvitation { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px 10px 0; border: 1px solid rgba(116,82,166,.4); border-radius: 8px; background: rgba(116,82,166,.08); color: var(--c-text); animation: eventEnter 200ms ease-out both; }
+.agendaInvitation > div:nth-child(2) { flex: 1; min-width: 0; }
+.agendaInvitation strong { font-size: 12px; }
+.agendaInvitation p { margin: 3px 0 0; color: var(--c-text2); font-size: 11px; }
+.agendaInvitation small { display: block; margin-top: 5px; color: #a97556; font-size: 11px; }
+.invitationActions { display: flex; gap: 6px; flex-wrap: wrap; }
+.invitationActions button { padding: 7px 10px; border: 1px solid var(--c-border2); border-radius: 6px; background: var(--c-surface); color: var(--c-text); cursor: pointer; font: 600 11px 'Manrope', system-ui, sans-serif; }
+.invitationActions button:first-child { border-color: #7452a6; background: #7452a6; color: white; }
+.invitationActions button:hover { filter: brightness(1.12); }
 .agendaStripe { flex: 0 0 3px; width: 3px; height: 30px; margin-left: 8px; border-radius: 3px; }
 .agendaTime { flex: 0 0 116px; width: 116px; color: var(--c-text3); font-size: 10px; }
 .agendaTitle { display: flex; flex: 1; flex-direction: column; color: var(--c-text); font-size: 12px; font-weight: 700; }
@@ -241,6 +250,8 @@
   .agendaGroup { grid-template-columns: 64px minmax(0, 1fr); gap: 8px; }
   .agendaDate { flex-direction: column; gap: 0; }
   .agendaTime { flex-basis: 68px; width: 68px; }
+  .agendaInvitation { flex-wrap: wrap; }
+  .invitationActions { width: 100%; padding-left: 19px; }
   .monthGrid { min-width: 650px; }
 }
 @media (prefers-reduced-motion: reduce) {

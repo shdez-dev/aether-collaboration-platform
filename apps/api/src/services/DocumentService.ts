@@ -14,7 +14,28 @@ import type {
 import { documentTemplateService, type TemplateCategory } from './DocumentTemplateService';
 import { projectAuthorizationService } from './ProjectAuthorizationService';
 
+export const DOCUMENT_TEXT_LIMIT = 100_000;
+export class DocumentTextLimitError extends Error {}
+
 export class DocumentService {
+  getVisibleTextLength(yjsState: Uint8Array): number {
+    const doc = new Y.Doc();
+    try {
+      Y.applyUpdate(doc, yjsState);
+      const count = (node: Y.XmlFragment | Y.XmlElement): number => node.toArray().reduce((total, child) => {
+        if (child instanceof Y.XmlText) {
+          const delta = child.toDelta() as Array<{ insert: unknown }>;
+          return total + delta.reduce<number>((length, part) => length + (typeof part.insert === 'string' ? part.insert.length : 0), 0);
+        }
+        if (child instanceof Y.XmlElement) return total + count(child);
+        return total;
+      }, 0);
+      const fragment = Array.from(doc.share.values()).find((value) => value instanceof Y.XmlFragment) as unknown as Y.XmlFragment | undefined;
+      return fragment ? count(fragment) : this.extractTextFromYjs(yjsState).length;
+    } finally {
+      doc.destroy();
+    }
+  }
   /**
    * Extraer texto plano de Yjs state para búsqueda y preview
    * Intenta múltiples nombres de fragments porque TipTap puede usar diferentes nombres
@@ -114,6 +135,7 @@ export class DocumentService {
     userId: string,
     data: {
       title: string;
+      description?: string;
       templateId?: string;
       content?: any;
       metadata?: {
@@ -139,10 +161,10 @@ export class DocumentService {
       }
 
       const result = await client.query(
-        `INSERT INTO documents (workspace_id, project_id, title, content, created_by)
-       VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO documents (workspace_id, project_id, title, description, content, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-        [workspaceId, data.projectId ?? null, data.title, '', userId]
+        [workspaceId, data.projectId ?? null, data.title, data.description ?? '', '', userId]
       );
 
       const document = this.formatDocument(result.rows[0]);
@@ -255,6 +277,7 @@ export class DocumentService {
     if (search) {
       query += ` AND (
         d.title ILIKE $${paramIndex} OR
+        d.description ILIKE $${paramIndex} OR
         d.content ILIKE $${paramIndex}
       )`;
       params.push(`%${search}%`);
@@ -272,7 +295,7 @@ export class DocumentService {
       countParams.push(options.accessibleProjectIds);
     }
     if (search) {
-      countConditions.push(`(title ILIKE $${countParams.length + 1} OR content ILIKE $${countParams.length + 1})`);
+      countConditions.push(`(title ILIKE $${countParams.length + 1} OR description ILIKE $${countParams.length + 1} OR content ILIKE $${countParams.length + 1})`);
       countParams.push(`%${search}%`);
     }
     const countResult = await pool.query(
@@ -398,6 +421,7 @@ export class DocumentService {
     userId: string,
     data: {
       title?: string;
+      description?: string;
       content?: string;
     }
   ): Promise<Document> {
@@ -417,6 +441,11 @@ export class DocumentService {
       if (data.title !== undefined) {
         updates.push(`title = $${paramIndex++}`);
         values.push(data.title);
+      }
+
+      if (data.description !== undefined) {
+        updates.push(`description = $${paramIndex++}`);
+        values.push(data.description);
       }
 
       if (data.content !== undefined) {
@@ -529,7 +558,7 @@ export class DocumentService {
       // Leer el estado actual antes de sobrescribir (con FOR UPDATE para evitar
       // race conditions entre guardados concurrentes del mismo documento)
       const current = await client.query(
-        'SELECT id, length(yjs_state) as current_bytes FROM documents WHERE id = $1 FOR UPDATE',
+        'SELECT id, content, yjs_state, length(yjs_state) as current_bytes FROM documents WHERE id = $1 FOR UPDATE',
         [documentId]
       );
 
@@ -552,6 +581,13 @@ export class DocumentService {
       }
 
       const plainText = this.extractTextFromYjs(yjsState);
+      const nextLength = this.getVisibleTextLength(yjsState);
+      const previousLength = current.rows[0].yjs_state
+        ? this.getVisibleTextLength(new Uint8Array(current.rows[0].yjs_state))
+        : (current.rows[0].content ?? '').length;
+      if (nextLength > DOCUMENT_TEXT_LIMIT && nextLength > previousLength) {
+        throw new DocumentTextLimitError(`El documento no puede superar ${DOCUMENT_TEXT_LIMIT.toLocaleString('es-CL')} caracteres de texto.`);
+      }
 
       await client.query(
         `UPDATE documents 
@@ -670,6 +706,17 @@ export class DocumentService {
       }
 
       const yjsState = new Uint8Array(versionResult.rows[0].yjs_state);
+      const restoredLength = this.getVisibleTextLength(yjsState);
+      if (restoredLength > DOCUMENT_TEXT_LIMIT) {
+        const currentResult = await client.query('SELECT yjs_state, content FROM documents WHERE id = $1 FOR UPDATE', [documentId]);
+        const currentState = currentResult.rows[0]?.yjs_state;
+        const currentLength = currentState
+          ? this.getVisibleTextLength(new Uint8Array(currentState))
+          : (currentResult.rows[0]?.content ?? '').length;
+        if (restoredLength > currentLength) {
+          throw new DocumentTextLimitError(`La versión supera el límite de ${DOCUMENT_TEXT_LIMIT.toLocaleString('es-CL')} caracteres.`);
+        }
+      }
 
       // Extraer texto plano del snapshot
       const plainText = this.extractTextFromYjs(yjsState);
@@ -1012,6 +1059,7 @@ export class DocumentService {
       workspaceId: row.workspace_id,
       projectId: row.project_id ?? null,
       title: row.title,
+      description: row.description ?? '',
       content: row.content,
       yjsState: row.yjs_state ? new Uint8Array(row.yjs_state) : undefined,
       createdBy: row.created_by,

@@ -67,6 +67,14 @@ function invitationError(code?: string, message?: string) {
   return message || 'No se pudo completar la operación. Inténtalo de nuevo.';
 }
 
+function deletionError(code?: string, message?: string) {
+  if (code === 'WORKSPACES_EXIST') return 'Primero elimina o mueve todos los espacios de trabajo de esta organización.';
+  if (code === 'ORGANIZATION_NAME_MISMATCH') return 'El nombre no coincide. Escríbelo exactamente como aparece.';
+  if (code === 'PERSONAL_ORGANIZATION_IMMUTABLE') return 'Las organizaciones personales no se pueden eliminar.';
+  if (code === 'FORBIDDEN') return 'Solo el propietario de la organización puede eliminarla.';
+  return message || 'No se pudo eliminar la organización. Inténtalo de nuevo.';
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
 }
@@ -105,6 +113,10 @@ export default function OrganizationsPage() {
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState('');
   const [revokingId, setRevokingId] = useState('');
+  const [deleteOrganizationOpen, setDeleteOrganizationOpen] = useState(false);
+  const [deleteOrganizationName, setDeleteOrganizationName] = useState('');
+  const [deletingOrganization, setDeletingOrganization] = useState(false);
+  const [deleteOrganizationError, setDeleteOrganizationError] = useState('');
   const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
@@ -284,6 +296,47 @@ export default function OrganizationsPage() {
     setRefreshCount((count) => count + 1);
   }
 
+  async function deleteOrganization(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedOrganization || selectedOrganization.type === 'PERSONAL' || selectedOrganization.role !== 'OWNER'
+      || selectedOrganization.workspaceCount > 0 || deletingOrganization
+      || deleteOrganizationName.trim() !== selectedOrganization.name) return;
+
+    setDeletingOrganization(true);
+    setDeleteOrganizationError('');
+    const response = await apiService.delete<void>(
+      `/api/organizations/${selectedOrganization.id}`,
+      true,
+      { confirmationName: deleteOrganizationName.trim() },
+    );
+    setDeletingOrganization(false);
+    if (!response.success) {
+      setDeleteOrganizationError(deletionError(response.error?.code, response.error?.message));
+      return;
+    }
+
+    const remainingOrganizations = organizations.filter((organization) => organization.id !== selectedOrganization.id);
+    const nextOrganization = remainingOrganizations.find((organization) => organization.id === activeOrganizationId)
+      ?? remainingOrganizations.find((organization) => organization.type !== 'PERSONAL')
+      ?? remainingOrganizations[0];
+    manuallySelectedOrganization.current = true;
+    setOrganizations(remainingOrganizations);
+    setOrganizationId(nextOrganization?.id ?? '');
+    setMembers([]);
+    setInvitations([]);
+    setDeleteOrganizationOpen(false);
+    setDeleteOrganizationName('');
+    toast.success('La organización se eliminó correctamente.');
+    if (nextOrganization) window.dispatchEvent(new CustomEvent('aether:select-organization', { detail: nextOrganization.id }));
+    window.dispatchEvent(new Event('aether:organizations-changed'));
+  }
+
+  function openDeleteOrganization() {
+    setDeleteOrganizationName('');
+    setDeleteOrganizationError('');
+    setDeleteOrganizationOpen(true);
+  }
+
   return (
     <main className={styles.page} style={page}>
       <header className={styles.header} style={header}>
@@ -293,13 +346,18 @@ export default function OrganizationsPage() {
           <p style={subtitle}>Invita personas a la organización y revisa quiénes ya forman parte.</p>
         </div>
         <div style={headerActions}>
-          <label style={field}>
-            Organización
-            <select value={organizationId} onChange={(event) => { manuallySelectedOrganization.current = true; setOrganizationId(event.target.value); }} disabled={loadingOrganizations || organizations.length === 0} style={select}>
-              {organizations.length === 0 && <option value="">Sin organizaciones</option>}
-              {organizations.map((organization) => <option key={organization.id} value={organization.id}>{getDisplayOrganizationName(organization.name)}</option>)}
-            </select>
-          </label>
+          <div className={`${styles.selectField} ${styles.organizationSelect}`} style={field}>
+            <span>Organización</span>
+            <ProjectOptionSelect
+              label="Organización"
+              value={organizationId}
+              options={organizations.map((organization) => ({ value: organization.id, label: getDisplayOrganizationName(organization.name) }))}
+              onChange={(value) => { manuallySelectedOrganization.current = true; setOrganizationId(value); window.dispatchEvent(new CustomEvent('aether:select-organization', { detail: value })); }}
+              disabled={loadingOrganizations || organizations.length === 0}
+              placeholder="Sin organizaciones"
+              menuZIndex={70}
+            />
+          </div>
           {selectedOrganization && isManager && !isPersonal && (
             <button type="button" className={styles.primaryButton} style={primaryButton} onClick={() => { setActionError(''); setInviteOpen(true); }}>
               <UserPlus size={16} /> Invitar persona
@@ -380,6 +438,17 @@ export default function OrganizationsPage() {
           </section>}
 
           {!isPersonal && !isManager && <section style={notice}><ShieldCheck size={18} /><span>Solo el propietario o los administradores pueden invitar personas y gestionar invitaciones pendientes.</span></section>}
+
+          {!isPersonal && selectedOrganization.role === 'OWNER' && <section className={styles.dangerSection}>
+            <div className={styles.dangerCopy}>
+              <div className={styles.dangerHeading}><Trash2 size={17} /><h2>Zona de peligro</h2></div>
+              <p>Eliminarla es permanente y también quita miembros, invitaciones, redes, portafolios y demás datos asociados.</p>
+              {selectedOrganization.workspaceCount > 0 && <p className={styles.dangerBlocked}>Antes de eliminarla, mueve o elimina sus {selectedOrganization.workspaceCount} {selectedOrganization.workspaceCount === 1 ? 'espacio de trabajo' : 'espacios de trabajo'}.</p>}
+            </div>
+            <button type="button" className={styles.dangerButton} onClick={openDeleteOrganization} disabled={selectedOrganization.workspaceCount > 0}>
+              <Trash2 size={15} /> Eliminar organización
+            </button>
+          </section>}
         </>
       )}
 
@@ -395,20 +464,46 @@ export default function OrganizationsPage() {
         </form>
       </div>, document.body)}
       {generatedInvitation && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) setGeneratedInvitation(null); }}>
-        <section role="dialog" aria-label="Código de invitación generado" className={styles.modal} style={modal}>
+        <section role="dialog" aria-modal="true" aria-label="Código de invitación generado" className={styles.modal} style={{ ...modal, width: 'min(560px, 100%)' }}>
           <div style={modalHeader}><div><p style={eyebrow}>INVITACIÓN GENERADA</p><h2 style={modalTitle}>Comparte el acceso</h2></div><button type="button" aria-label="Cerrar código" onClick={() => setGeneratedInvitation(null)} style={iconButton}><X size={17} /></button></div>
           <p style={modalCopy}>Para <strong>{generatedInvitation.email}</strong>. Vence el {formatDate(generatedInvitation.expiresAt)}. La persona debe iniciar sesión con ese correo.</p>
           {generatedInvitation.emailStatus === 'failed' && <p role="alert" style={errorBanner}>No se pudo enviar el correo. La invitación sí está activa: comparte el código o enlace manualmente.</p>}
           {generatedInvitation.emailStatus === 'not_sent' && <p style={notice}>Se generó un código nuevo; no se envió un correo. El código anterior ya no funciona.</p>}
           {generatedInvitation.emailStatus === 'sent' && <p style={notice}>El proveedor aceptó el correo. También puedes compartir el código o enlace manualmente.</p>}
-          <label style={field}>Código de invitación<input aria-label="Código de invitación" readOnly value={generatedInvitation.code} onFocus={(event) => event.currentTarget.select()} style={{ ...input, fontFamily: 'monospace', fontSize: 11 }} /></label>
-          <button type="button" onClick={() => void copyInvitation(generatedInvitation.code, 'Código')} style={secondaryButton}><Copy size={14} /> Copiar código</button>
-          <label style={field}>Enlace de invitación<input aria-label="Enlace de invitación" readOnly value={generatedInvitation.link} onFocus={(event) => event.currentTarget.select()} style={input} /></label>
-          <button type="button" onClick={() => void copyInvitation(generatedInvitation.link, 'Enlace')} style={secondaryButton}><Copy size={14} /> Copiar enlace</button>
+          <div className={styles.shareRow}>
+            <label className={styles.shareField} style={field}>Código de invitación<input aria-label="Código de invitación" readOnly value={generatedInvitation.code} onFocus={(event) => event.currentTarget.select()} style={{ ...input, fontFamily: 'monospace', fontSize: 11 }} /></label>
+            <button type="button" className={styles.copyButton} onClick={() => void copyInvitation(generatedInvitation.code, 'Código')}><Copy size={15} /> Copiar código</button>
+          </div>
+          <div className={styles.shareRow}>
+            <label className={styles.shareField} style={field}>Enlace de invitación<input aria-label="Enlace de invitación" readOnly value={generatedInvitation.link} onFocus={(event) => event.currentTarget.select()} style={input} /></label>
+            <button type="button" className={styles.copyButton} onClick={() => void copyInvitation(generatedInvitation.link, 'Enlace')}><Copy size={15} /> Copiar enlace</button>
+          </div>
           {copyFeedback && <p role="status" style={modalCopy}>{copyFeedback}</p>}
           <p style={roleHint}>Guárdalo ahora: por seguridad, el código no se vuelve a mostrar. Puedes generar otro desde Invitaciones pendientes.</p>
           <div style={actions}><button type="button" onClick={() => setGeneratedInvitation(null)} style={primaryButton}>Listo</button></div>
         </section>
+      </div>, document.body)}
+      {deleteOrganizationOpen && selectedOrganization && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !deletingOrganization) setDeleteOrganizationOpen(false); }}>
+        <form role="dialog" aria-modal="true" aria-labelledby="delete-organization-title" onSubmit={(event) => void deleteOrganization(event)} className={`${styles.modal} ${styles.deleteModal}`} style={modal}>
+          <div className={styles.deleteHeading}>
+            <span className={styles.deleteIcon}><Trash2 size={19} /></span>
+            <button type="button" aria-label="Cerrar confirmación" onClick={() => setDeleteOrganizationOpen(false)} disabled={deletingOrganization} style={iconButton}><X size={17} /></button>
+          </div>
+          <div>
+            <p className={styles.dangerEyebrow}>ACCIÓN IRREVERSIBLE</p>
+            <h2 id="delete-organization-title" style={modalTitle}>Eliminar organización</h2>
+          </div>
+          <p style={modalCopy}>Se eliminará junto con sus miembros, invitaciones y datos asociados. Esta acción no se puede deshacer. Para confirmar, escribe exactamente:</p>
+          <code className={styles.organizationConfirmationName}>{selectedOrganization.name}</code>
+          <label style={field}>Escribe el nombre exacto para confirmar<input autoFocus required maxLength={255} value={deleteOrganizationName} onChange={(event) => setDeleteOrganizationName(event.target.value)} placeholder={selectedOrganization.name} style={input} /></label>
+          {deleteOrganizationError && <p role="alert" style={errorBanner}>{deleteOrganizationError}</p>}
+          <div className={styles.deleteActions} style={actions}>
+            <button type="button" onClick={() => setDeleteOrganizationOpen(false)} disabled={deletingOrganization} style={secondaryButton}>Cancelar</button>
+            <button type="submit" className={styles.dangerButton} disabled={deletingOrganization || deleteOrganizationName.trim() !== selectedOrganization.name}>
+              <Trash2 size={15} /> {deletingOrganization ? 'Eliminando…' : 'Eliminar definitivamente'}
+            </button>
+          </div>
+        </form>
       </div>, document.body)}
       {memberToAssign && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !assigning) setMemberToAssign(null); }}>
         <form onSubmit={(event) => void assignWorkspace(event)} className={styles.modal} style={modal}>

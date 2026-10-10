@@ -12,6 +12,7 @@ import CreateProjectModal from '@/components/CreateProjectModal';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import { apiService } from '@/services/apiService';
 import { C } from '@/lib/colors';
+import entrance from '../pageEntrance.module.css';
 
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
@@ -993,7 +994,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div style={{ minHeight: '100%', background: C.bg, fontFamily: MANROPE }}>
+    <div className={entrance.page} style={{ minHeight: '100%', background: C.bg, fontFamily: MANROPE }}>
       <div style={{ maxWidth: '1360px', margin: '0 auto', padding: '28px clamp(18px,3vw,36px) 48px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', marginBottom: '22px' }}>
           <div>

@@ -17,5 +17,6 @@ router.delete('/:id/invitations/:invitationId', (req, res) => organizationContro
 router.post('/:id/transfer-ownership', (req, res) => organizationController.transferOwnership(req, res));
 router.get('/:id', (req, res) => organizationController.getById(req, res));
 router.put('/:id', (req, res) => organizationController.update(req, res));
+router.delete('/:id', (req, res) => organizationController.remove(req, res));
 
 export default router;

@@ -78,7 +78,7 @@ export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssign
 
   const handleCreateLabel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLabelName.trim()) return;
+    if (!newLabelName.trim() || newLabelName.trim().length > 30) return;
     try {
       const newLabel = await createLabel(workspaceId, { name: newLabelName.trim(), color: selectedColor });
       await handleAssignLabel(newLabel);
@@ -93,17 +93,17 @@ export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssign
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0, maxWidth: '100%' }}>
 
       {/* Assigned badges */}
       {assignedLabels.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', paddingBottom: '8px', borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', minWidth: 0, maxWidth: '100%', paddingBottom: '8px', borderBottom: `1px solid ${C.border}` }}>
           {assignedLabels.map((label) => (
-            <div key={label.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 8px 2px 8px', borderRadius: '12px', background: label.color, color: getTextColor(label.color), fontSize: '11px', fontWeight: 600 }}>
-              <span>{label.name}</span>
+            <div key={label.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, maxWidth: '100%', padding: '2px 8px', borderRadius: '12px', background: label.color, color: getTextColor(label.color), fontSize: '11px', fontWeight: 600, boxSizing: 'border-box' }}>
+              <span title={label.name} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label.name}</span>
               <button
                 onClick={() => handleAssignLabel(label)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '14px', height: '14px', borderRadius: '50%', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.8, padding: 0, lineHeight: 1 }}
+                style={{ display: 'flex', flexShrink: 0, alignItems: 'center', justifyContent: 'center', width: '14px', height: '14px', borderRadius: '50%', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.8, padding: 0, lineHeight: 1 }}
                 onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
                 onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.8')}
                 title="Quitar"
@@ -124,11 +124,12 @@ export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssign
               autoFocus type="text" value={newLabelName}
               onChange={(e) => setNewLabelName(e.target.value)}
               placeholder="Nombre de la etiqueta"
-              maxLength={50}
+              maxLength={30}
               style={{ padding: '6px 8px', borderRadius: '6px', background: C.bg2, border: `1px solid ${C.border}`, color: C.text, fontSize: '12px', outline: 'none' }}
               onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
               onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
             />
+            <span style={{ alignSelf: 'flex-end', fontSize: '10px', color: C.text4 }}>{newLabelName.length}/30</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '10px', color: C.text4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Color</span>
@@ -170,7 +171,7 @@ export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssign
           />
 
           {/* Label list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
             {filteredLabels.length === 0 ? (
               <div style={{ padding: '12px 0', textAlign: 'center', fontSize: '12px', color: C.text4 }}>
                 {workspaceLabels.length === 0 ? 'Sin etiquetas' : t.checklist_empty}
@@ -179,10 +180,11 @@ export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssign
               filteredLabels.map((label) => {
                 const isAssigned = assignedLabelIds.has(label.id);
                 return (
-                  <button
-                    key={label.id} type="button"
+                  <div
+                    key={label.id} role="button" tabIndex={0}
                     onClick={() => handleAssignLabel(label)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleAssignLabel(label); } }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, padding: '6px 8px', borderRadius: '6px', background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', boxSizing: 'border-box', textAlign: 'left' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -192,7 +194,7 @@ export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssign
                         {label.name.slice(0,3).toUpperCase()}
                       </span>
                     </div>
-                    <span style={{ flex: 1, fontSize: '12px', color: C.text2 }}>{label.name}</span>
+                    <span title={label.name} style={{ flex: 1, minWidth: 0, fontSize: '12px', color: C.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label.name}</span>
 
                     {/* Assigned check */}
                     <div style={{
@@ -209,6 +211,7 @@ export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssign
                       <button
                         type="button"
                         onClick={(e) => handleDeleteLabel(label.id, e)}
+                        onKeyDown={(e) => e.stopPropagation()}
                         disabled={deletingId === label.id}
                         style={{ width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: C.text4, padding: 0 }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = `${C.red}18`; e.currentTarget.style.color = C.red; }}
@@ -221,7 +224,7 @@ export function LabelPicker({ workspaceId, cardId, assignedLabels, onLabelAssign
                         }
                       </button>
                     )}
-                  </button>
+                  </div>
                 );
               })
             )}

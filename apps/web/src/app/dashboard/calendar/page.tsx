@@ -23,6 +23,7 @@ type CalendarItem = {
   event?: CalendarEvent; card?: AssignedCard;
 };
 type CreateContext = { date: string; hour?: number; minute?: number; allDay?: boolean };
+type EventInvitation = { eventId: string; title: string; description: string | null; startTime: string; endTime: string; allDay: boolean; color: string; inviterName: string; conflictCount: number };
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const VIEWS: { key: View; label: string }[] = [
@@ -116,6 +117,7 @@ function TimeGrid({ days, items, selectedDate, onDateSelect, onSlotClick, onItem
     const interval = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(interval);
   }, []);
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = Math.max(0, (days.some((day) => dateKey(day) === dateKey(new Date())) ? new Date().getHours() - 2 : 7) * HOUR_HEIGHT);
   }, [days, isWeek, selectedDate]);
@@ -200,11 +202,18 @@ function MonthGrid({ date, items, onDateSelect, onCreate, onItemClick }: {
   </div></div>;
 }
 
-function AgendaView({ date, items, onItemClick, onCreate }: { date: Date; items: CalendarItem[]; onItemClick: (item: CalendarItem) => void; onCreate: (date: Date) => void }) {
+function AgendaView({ date, items, invitations, onRespond, onItemClick, onCreate }: { date: Date; items: CalendarItem[]; invitations: EventInvitation[]; onRespond: (id: string, accept: boolean) => Promise<void>; onItemClick: (item: CalendarItem) => void; onCreate: (date: Date) => void }) {
   const days = Array.from({ length: 30 }, (_, index) => addDays(date, index));
-  const daysWithItems = days.map((day) => ({ day, entries: items.filter((item) => item.kind === 'card' ? dateKey(item.start) === dateKey(day) : overlapsDay(item.start, item.end, day)) })).filter(({ entries }) => entries.length > 0);
+  const daysWithItems = days.map((day) => ({ day, entries: items.filter((item) => item.kind === 'card' ? dateKey(item.start) === dateKey(day) : overlapsDay(item.start, item.end, day)), pending: invitations.filter(invitation => overlapsDay(new Date(invitation.startTime), new Date(invitation.endTime), day) && dateKey(new Date(invitation.startTime)) === dateKey(day)) })).filter(({ entries, pending }) => entries.length > 0 || pending.length > 0);
   if (daysWithItems.length === 0) return <div className={styles.agendaEmpty}><CalendarDays size={28} /><h2>No hay compromisos en los próximos 30 días</h2><p>Puedes crear un evento o añadir una fecha límite a una tarjeta.</p><button onClick={() => onCreate(date)}>Crear evento</button></div>;
-  return <div className={styles.agendaScroll}>{daysWithItems.map(({ day, entries }) => <section className={styles.agendaGroup} key={dateKey(day)}><div className={styles.agendaDate}><strong>{day.getDate()}</strong><span>{new Intl.DateTimeFormat('es-CL', { weekday: 'long', month: 'long' }).format(day)}</span></div><div className={styles.agendaItems}>{entries.sort((a, b) => a.start.getTime() - b.start.getTime()).map((item) => <button type="button" key={item.id} className={styles.agendaItem} onClick={() => onItemClick(item)}><span className={styles.agendaStripe} style={{ background: item.color }} /><span className={styles.agendaTime}>{timeRange(item)}</span><span className={styles.agendaTitle}>{item.title}<small>{item.kind === 'card' ? item.card?.boardName : item.source === 'personal' ? 'Personal' : item.source === 'workspace' ? 'Espacio' : 'Equipo'}</small></span><ChevronRight size={16} /></button>)}</div></section>)}</div>;
+  return <div className={styles.agendaScroll}>{daysWithItems.map(({ day, entries, pending }) => <section className={styles.agendaGroup} key={dateKey(day)}><div className={styles.agendaDate}><strong>{day.getDate()}</strong><span>{new Intl.DateTimeFormat('es-CL', { weekday: 'long', month: 'long' }).format(day)}</span></div><div className={styles.agendaItems}>
+    {pending.map(invitation => <div key={`invite-${invitation.eventId}`} className={styles.agendaInvitation}>
+      <span className={styles.agendaStripe} style={{ background: invitation.color }} />
+      <div><strong>{invitation.title}</strong><p>{invitation.inviterName} quiere incluirte en este evento · {invitation.allDay ? 'Todo el día' : `${formatTime(new Date(invitation.startTime))}–${formatTime(new Date(invitation.endTime))}`}</p>{invitation.conflictCount > 0 && <small>Coincide con {invitation.conflictCount} {invitation.conflictCount === 1 ? 'evento' : 'eventos'} de tu calendario. Puedes aceptar ambos.</small>}</div>
+      <div className={styles.invitationActions}><button type="button" onClick={() => void onRespond(invitation.eventId, true)}>Aceptar</button><button type="button" onClick={() => void onRespond(invitation.eventId, false)}>Rechazar</button></div>
+    </div>)}
+    {entries.sort((a, b) => a.start.getTime() - b.start.getTime()).map((item) => <button type="button" key={item.id} className={styles.agendaItem} onClick={() => onItemClick(item)}><span className={styles.agendaStripe} style={{ background: item.color }} /><span className={styles.agendaTime}>{timeRange(item)}</span><span className={styles.agendaTitle}>{item.title}<small>{item.kind === 'card' ? item.card?.boardName : item.source === 'personal' ? 'Personal' : item.source === 'workspace' ? 'Espacio' : 'Equipo'}</small></span><ChevronRight size={16} /></button>)}
+  </div></section>)}</div>;
 }
 
 function ItemDetail({ item, userId, closing, onClose, onEdit, onDelete }: { item: CalendarItem; userId?: string; closing: boolean; onClose: () => void; onEdit: () => void; onDelete: () => Promise<boolean> }) {
@@ -231,6 +240,9 @@ export default function CalendarPage() {
   const [date, setDate] = useState(() => startOfDay(new Date()));
   const [sideOpen, setSideOpen] = useState(false);
   const [cards, setCards] = useState<AssignedCard[]>([]);
+  const [invitations, setInvitations] = useState<EventInvitation[]>([]);
+  const [inviteRefresh, setInviteRefresh] = useState(0);
+  const [invitationError, setInvitationError] = useState('');
   const [visibleSources, setVisibleSources] = useState<Source[]>(['personal', 'workspace', 'team', 'deadline']);
   const [search, setSearch] = useState('');
   const [createContext, setCreateContext] = useState<CreateContext | null>(null);
@@ -240,7 +252,28 @@ export default function CalendarPage() {
   const detailCloseTimer = useRef<number | null>(null);
 
   useEffect(() => {
+    const showInvite = (event: Event) => {
+      setView('agenda');
+      setInviteRefresh(value => value + 1);
+      const at = (event as CustomEvent<string>).detail;
+      if (at) {
+        const parsed = new Date(at);
+        if (!Number.isNaN(parsed.getTime())) setDate(startOfDay(parsed));
+      }
+    };
+    window.addEventListener('aether:calendar-invite', showInvite);
+    return () => window.removeEventListener('aether:calendar-invite', showInvite);
+  }, []);
+
+  useEffect(() => {
     if (window.innerWidth <= 650) setView('day');
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'agenda') setView('agenda');
+    const requestedDate = params.get('at');
+    if (requestedDate) {
+      const parsed = new Date(requestedDate);
+      if (!Number.isNaN(parsed.getTime())) setDate(startOfDay(parsed));
+    }
   }, []);
 
   const visibleDays = useMemo(() => view === 'month' ? monthDays(date) : view === 'week' ? Array.from({ length: 7 }, (_, index) => addDays(startOfWeek(date), index)) : view === 'agenda' ? Array.from({ length: 30 }, (_, index) => addDays(date, index)) : [startOfDay(date)], [date, view]);
@@ -248,6 +281,22 @@ export default function CalendarPage() {
   const to = addDays(visibleDays[visibleDays.length - 1], 1).toISOString();
 
   useEffect(() => { void fetchEvents(from, to); }, [fetchEvents, from, to]);
+  useEffect(() => {
+    if (view !== 'agenda') return;
+    let active = true;
+    void apiService.get<{ invitations: EventInvitation[] }>(`/api/events/invitations?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, true).then(response => {
+      if (active) setInvitations(response.success ? response.data?.invitations ?? [] : []);
+    });
+    return () => { active = false; };
+  }, [view, from, to, inviteRefresh]);
+
+  const respondToInvitation = useCallback(async (eventId: string, accept: boolean) => {
+    setInvitationError('');
+    const response = await apiService.post(`/api/events/${eventId}/respond`, { response: accept ? 'accept' : 'decline' }, true);
+    if (!response.success) { setInvitationError(response.error?.message ?? 'No se pudo responder a la invitación'); return; }
+    setInvitations(current => current.filter(invitation => invitation.eventId !== eventId));
+    if (accept) void fetchEvents(from, to);
+  }, [fetchEvents, from, to]);
   useEffect(() => {
     let active = true;
     void apiService.get<{ pending: AssignedCard[]; overdue: AssignedCard[] }>('/api/users/me/cards', true).then((response) => {
@@ -336,11 +385,12 @@ export default function CalendarPage() {
       </header>
       <div className={styles.subbar}><span><CalendarDays size={14} /> {view === 'week' ? 'Vista semanal' : view === 'day' ? 'Vista diaria' : view === 'month' ? 'Vista mensual' : 'Próximos 30 días'} <small>{loading ? 'Actualizando…' : `${items.length} ${items.length === 1 ? 'elemento' : 'elementos'}`}</small></span><div className={styles.viewTabs} aria-label="Vista del calendario">{VIEWS.map(({ key, label }) => <button type="button" key={key} aria-pressed={view === key} className={view === key ? styles.viewTabActive : ''} onClick={() => setView(key)}>{label}</button>)}</div></div>
       {error && <div className={styles.error} role="alert">No se pudieron cargar los eventos: {error}</div>}
+      {invitationError && <div className={styles.error} role="alert">{invitationError}</div>}
       <section className={styles.calendar} aria-busy={loading}>
         <div className={styles.viewMotion} key={`${view}-${dateKey(visibleDays[0])}`}>
           {(view === 'day' || view === 'week') && <TimeGrid days={visibleDays} items={items} selectedDate={date} onDateSelect={(next) => { setDate(next); setView('day'); }} onSlotClick={(day, hour, minute) => openCreate(day, hour < 0 ? undefined : hour, minute, hour < 0)} onItemClick={openItem} />}
           {view === 'month' && <MonthGrid date={date} items={items} onDateSelect={(next) => { setDate(next); setView('day'); }} onCreate={(day) => openCreate(day, undefined, undefined, true)} onItemClick={openItem} />}
-          {view === 'agenda' && <AgendaView date={date} items={items} onCreate={(day) => openCreate(day)} onItemClick={openItem} />}
+          {view === 'agenda' && <AgendaView date={date} items={items} invitations={invitations} onRespond={respondToInvitation} onCreate={(day) => openCreate(day)} onItemClick={openItem} />}
         </div>
       </section>
     </div>

@@ -113,15 +113,15 @@ describe('CommentService', () => {
       );
     });
 
-    it('should throw error if content exceeds 5000 characters', async () => {
+    it('should throw error if content exceeds 2000 characters', async () => {
       const commentData = {
         cardId: 'card-123',
         userId: 'user-123',
-        content: 'a'.repeat(5001),
+        content: 'a'.repeat(2001),
       };
 
       await expect(commentService.createComment(commentData)).rejects.toThrow(
-        'Comment content cannot exceed 5000 characters'
+        'Comment content cannot exceed 2000 characters'
       );
     });
 

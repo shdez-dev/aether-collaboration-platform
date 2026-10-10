@@ -12,7 +12,7 @@ import { canContributeToProjectBoundResource, canManageProjectBoundResource } fr
 
 const createCardSchema = z.object({
   title: z.string().min(1).max(255),
-  description: z.string().max(5000).optional(),
+  description: z.string().max(3000).optional(),
   startDate: z.string().datetime().optional(),
   dueDate: z.string().datetime().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
@@ -20,7 +20,7 @@ const createCardSchema = z.object({
 
 const updateCardSchema = z.object({
   title: z.string().min(1).max(255).optional(),
-  description: z.string().max(5000).optional().or(z.null()),
+  description: z.string().max(3000).optional().or(z.null()),
   startDate: z.string().datetime().optional().or(z.null()),
   dueDate: z.string().datetime().optional().or(z.null()),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional().or(z.null()),
@@ -53,6 +53,15 @@ function getSocketId(req: Request): string | undefined {
 // ==================== CONTROLLER ====================
 
 export class CardController {
+  static async getEligibleMembers(req: WorkspaceRequest, res: Response) {
+    try {
+      const members = await CardService.getEligibleMembers(req.params.id);
+      return res.status(200).json({ success: true, data: { members } });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: error.message } });
+    }
+  }
+
   /**
    * GET /api/lists/:listId/cards
    * Obtener todas las cards de una lista ordenadas por posición

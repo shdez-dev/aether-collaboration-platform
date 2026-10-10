@@ -41,6 +41,27 @@ describe('chat individual', () => {
     expect(query).not.toHaveBeenCalled();
   });
 
+  it('muestra la preferencia solo cuando existe una conexión activa', async () => {
+    (getRealtimeGateway as jest.Mock).mockReturnValue({ getOnlineUserIds: () => new Set([alice]) });
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [
+      { id: alice, presence_status: 'DND' }, { id: bob, presence_status: 'AWAY' },
+    ] });
+    const response = await request(app).get('/api/chat/presence').set('x-test-user', alice);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({ statuses: { [alice]: 'DND', [bob]: 'OFFLINE' }, preference: 'DND' });
+    expect((query as jest.Mock).mock.calls[0][0]).toContain('direct_connections');
+  });
+
+  it('valida los estados y solo actualiza al usuario autenticado', async () => {
+    const invalid = await request(app).put('/api/chat/presence').set('x-test-user', alice).send({ status: 'BUSY' });
+    expect(invalid.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+    const updated = await request(app).put('/api/chat/presence').set('x-test-user', alice).send({ status: 'AWAY' });
+    expect(updated.status).toBe(200);
+    expect((query as jest.Mock).mock.calls[0][1]).toEqual([alice, 'AWAY']);
+  });
+
   it('no permite abrir un chat externo sin una solicitud aceptada', async () => {
     (query as jest.Mock).mockResolvedValueOnce({ rows: [person()] });
     const response = await request(app).post('/api/chat/conversations')

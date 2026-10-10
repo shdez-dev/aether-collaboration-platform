@@ -1,0 +1,22 @@
+.avatarWrap { position: relative; display: inline-flex; flex-shrink: 0; }
+.avatar { display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; border-radius: 50%; background: linear-gradient(145deg,#8d73bc,#5c468e); color: white; font-family: 'Sora',system-ui,sans-serif; font-weight: 750; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dot,.menuDot { display: block; flex: none; border-radius: 50%; background: #9695a1; }
+.dot { position: absolute; right: -2px; bottom: -1px; width: 12px; height: 12px; border: 2px solid var(--c-surface); box-sizing: border-box; }
+.largeAvatar .dot { right: 5px; bottom: 5px; width: 17px; height: 17px; border-width: 3px; }
+.menuDot { width: 11px; height: 11px; }
+.online { background: #42b783; }.away { background: #e9a53b; }.dnd { background: #da5c70; }.offline { background: #92919d; }
+.picker { position: relative; min-width: 0; }
+.trigger { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 9px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface2); color: var(--c-text); text-align: left; cursor: pointer; transition: background 160ms ease,border-color 160ms ease; }
+.trigger:hover,.trigger[aria-expanded='true'] { background: var(--c-hover); border-color: var(--c-accent); }
+.triggerText { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 1px; }
+.triggerText strong { font-size: 11px; }.triggerText small { color: var(--c-text3); font-size: 10px; }
+.trigger svg { color: var(--c-text3); }
+.menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 95; min-width: 190px; padding: 5px; border: 1px solid var(--c-border2); border-radius: 11px; background: var(--c-surface); box-shadow: 0 16px 38px rgba(22,14,35,.2); animation: appear 160ms ease both; }
+.menu button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 35px; padding: 6px 9px; border: 0; border-radius: 7px; background: transparent; color: var(--c-text2); font: 650 11px 'Manrope',system-ui,sans-serif; text-align: left; cursor: pointer; }
+.menu button:hover,.menu button:focus-visible { background: var(--c-hover); color: var(--c-text); }
+.menu button svg { margin-left: auto; color: var(--c-accent); }
+.error { display: block; margin-top: 5px; color: var(--c-red); font-size: 10px; line-height: 1.35; }
+.trigger:focus-visible,.menu button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+@keyframes appear { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion:reduce) { .menu { animation: none; }.trigger { transition: none; } }

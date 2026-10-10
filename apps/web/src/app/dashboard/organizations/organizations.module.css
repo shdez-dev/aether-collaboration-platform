@@ -15,7 +15,28 @@
 .modal { animation: modalEnter .28s cubic-bezier(.2,.8,.2,1) both; }
 .selectField { min-width: 0; }
 .selectField :global(button[aria-haspopup="listbox"]) { height: 44px; width: 100%; border-radius: 10px; background: var(--c-surface2); font-size: 13px; letter-spacing: 0; text-transform: none; }
+.organizationSelect { width: clamp(210px, 24vw, 280px); }
+.shareRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; min-width: 0; }
+.shareField { min-width: 0; }
+.copyButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 13px; border: 1px solid var(--c-border2); border-radius: 9px; background: var(--c-surface2); color: var(--c-text2); font: 600 12px 'Manrope', system-ui, sans-serif; white-space: nowrap; cursor: pointer; }
+.copyButton:hover { border-color: var(--c-accent-text); color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent-text) 7%, var(--c-surface)); }
+.dangerSection { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px; margin-top: 14px; border: 1px solid color-mix(in srgb, var(--c-red) 30%, var(--c-border)); border-radius: 14px; background: color-mix(in srgb, var(--c-red) 3%, var(--c-surface)); animation: pageEnter .38s cubic-bezier(.2,.8,.2,1) both; }
+.dangerCopy { min-width: 0; }
+.dangerHeading { display: flex; align-items: center; gap: 8px; color: var(--c-red); }
+.dangerHeading h2 { margin: 0; color: var(--c-text); font: 700 14px 'Sora', system-ui, sans-serif; }
+.dangerCopy p { margin: 6px 0 0; color: var(--c-text3); font-size: 12px; line-height: 1.5; }
+.dangerCopy .dangerBlocked { color: var(--c-red); font-weight: 700; }
+.dangerButton { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--c-red) 55%, transparent); border-radius: 9px; background: color-mix(in srgb, var(--c-red) 10%, var(--c-surface)); color: var(--c-red); font: 700 12px 'Manrope', system-ui, sans-serif; cursor: pointer; transition: background-color .18s ease, border-color .18s ease, opacity .18s ease, transform .2s ease; }
+.dangerButton:hover:not(:disabled) { border-color: var(--c-red); background: color-mix(in srgb, var(--c-red) 16%, var(--c-surface)); transform: translateY(-1px); }
+.dangerButton:disabled { opacity: .48; cursor: not-allowed; }
+.deleteModal { border-color: color-mix(in srgb, var(--c-red) 25%, var(--c-border2)); }
+.deleteHeading { display: flex; align-items: center; justify-content: space-between; }
+.deleteIcon { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid color-mix(in srgb, var(--c-red) 25%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--c-red) 10%, var(--c-surface)); color: var(--c-red); }
+.dangerEyebrow { margin: 0 0 5px; color: var(--c-red); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.organizationConfirmationName { display: block; overflow-wrap: anywhere; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--c-red) 22%, var(--c-border)); border-radius: 9px; background: color-mix(in srgb, var(--c-red) 5%, var(--c-surface2)); color: var(--c-text); font: 700 13px 'Manrope', system-ui, sans-serif; }
+.deleteActions .dangerButton { min-height: 42px; }
 @keyframes pageEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes overlayEnter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalEnter { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .page, .header, .orgCard, .notice, .section, .personRow, .overlay, .modal, .page button { animation: none !important; transition: none !important; } }
+@media (max-width: 560px) { .shareRow { grid-template-columns: minmax(0, 1fr); align-items: stretch; } .copyButton { width: 100%; } .dangerSection { align-items: stretch; flex-direction: column; } .dangerButton { width: 100%; } .deleteActions { flex-direction: column-reverse; } .deleteActions > button { width: 100%; } }

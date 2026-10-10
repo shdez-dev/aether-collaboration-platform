@@ -2,7 +2,7 @@
 
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { documentService } from '../services/DocumentService';
+import { documentService, DocumentTextLimitError } from '../services/DocumentService';
 import { documentExportService } from '../services/DocumentExportService';
 import { documentTemplateService } from '../services/DocumentTemplateService';
 import { WorkspaceRequest } from '../middleware/workspace';
@@ -14,7 +14,8 @@ import { projectAuthorizationService } from '../services/ProjectAuthorizationSer
  * Validation schemas
  */
 const createDocumentSchema = z.object({
-  title: z.string().min(1).max(255),
+  title: z.string().min(1).max(180),
+  description: z.string().max(300).optional(),
   projectId: z.string().uuid().nullable().optional(),
   templateId: z.string().optional(),
   content: z.any().optional(),
@@ -26,8 +27,9 @@ const createDocumentSchema = z.object({
 });
 
 const updateDocumentSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-  content: z.string().optional(),
+  title: z.string().min(1).max(180).optional(),
+  description: z.string().max(300).optional(),
+  content: z.string().max(100_000).optional(),
 });
 
 const updatePermissionSchema = z.object({
@@ -438,6 +440,9 @@ class DocumentController {
         data: { document },
       });
     } catch (error: any) {
+      if (error instanceof DocumentTextLimitError) {
+        return res.status(400).json({ success: false, error: { code: 'DOCUMENT_TEXT_LIMIT', message: error.message } });
+      }
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },

@@ -22,6 +22,7 @@ interface NotificationActions {
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
   archiveNotification: (notificationId: string) => Promise<void>;
+  restoreNotification: (notificationId: string) => Promise<void>;
   resolveNotification: (notificationId: string) => Promise<void>;
   toggleDropdown: () => void;
   closeDropdown: () => void;
@@ -117,6 +118,15 @@ export const useNotificationStore = create<NotificationState & NotificationActio
             unreadCount: notification && !notification.read ? Math.max(0, s.unreadCount - 1) : s.unreadCount,
           };
         });
+      },
+
+      restoreNotification: async (notificationId) => {
+        await notificationService.restoreNotification(notificationId);
+        const [notifications, unreadCount] = await Promise.all([
+          notificationService.getNotifications(),
+          notificationService.getUnreadCount(),
+        ]);
+        set({ notifications, unreadCount });
       },
 
       resolveNotification: async (notificationId) => {

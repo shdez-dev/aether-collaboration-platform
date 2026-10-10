@@ -18,6 +18,7 @@ import {
   Loader2,
   type LucideIcon,
 } from "lucide-react"
+import styles from "./toast.module.css"
 
 // ── Icon + color per variant ──────────────────────────────────────────────────
 
@@ -46,9 +47,9 @@ export function Toaster() {
         return (
           <Toast key={id} variant={variant as ToastVariant} className={className} {...props}>
             {/* Accent icon */}
-            <div style={{ flexShrink: 0, marginTop: '1px' }}>
+            <div className={styles.icon}>
               <Icon
-                style={{ width: '15px', height: '15px', color }}
+                style={{ width: '16px', height: '16px', color }}
                 className={spin ? 'animate-spin' : undefined}
               />
             </div>

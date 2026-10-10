@@ -110,7 +110,7 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
   // ── Agregar ítem ──────────────────────────────────────────────────────────
 
   const handleAdd = async () => {
-    if (!newTitle.trim() || isAdding) return;
+    if (!newTitle.trim() || newTitle.trim().length > 120 || isAdding) return;
     setIsAdding(true);
 
     try {
@@ -152,6 +152,7 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
       setEditingId(null);
       return;
     }
+    if (editingTitle.trim().length > 120) return;
     const oldTitle = item.title;
     // Optimistic
     setItems((prev) =>
@@ -308,16 +309,18 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
 
             {/* Título o input de edición */}
             {editingId === item.id ? (
-              <div className="flex-1 flex items-center gap-1">
+              <div className="flex-1 min-w-0 flex items-center gap-1">
                 <input
                   value={editingTitle}
+                  maxLength={120}
                   onChange={(e) => setEditingTitle(e.target.value)}
                   onKeyDown={(e) => handleEditKeyDown(e, item)}
                   onBlur={() => handleEditSave(item)}
                   autoFocus
-                  className="flex-1 text-sm bg-transparent border-b border-accent focus:outline-none font-mono text-text-primary"
+                  className="flex-1 min-w-0 text-sm bg-transparent border-b border-accent focus:outline-none font-mono text-text-primary"
                   placeholder={t.checklist_edit_placeholder}
                 />
+                <span className="text-[10px] text-text-muted flex-shrink-0">{editingTitle.length}/120</span>
                 <button
                   onMouseDown={() => handleEditSave(item)}
                   className="p-0.5 text-success hover:text-success/80"
@@ -376,12 +379,14 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
             <input
               ref={inputRef}
               value={newTitle}
+              maxLength={120}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={handleAddKeyDown}
               placeholder={t.checklist_input_placeholder}
               disabled={isAdding}
-              className="flex-1 text-sm bg-transparent focus:outline-none font-mono text-text-primary placeholder-text-muted"
+              className="flex-1 min-w-0 text-sm bg-transparent focus:outline-none font-mono text-text-primary placeholder-text-muted"
             />
+            <span className="text-[10px] text-text-muted flex-shrink-0">{newTitle.length}/120</span>
             <button
               onClick={handleAdd}
               disabled={!newTitle.trim() || isAdding}

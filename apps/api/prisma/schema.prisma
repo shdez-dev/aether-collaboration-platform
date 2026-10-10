@@ -165,6 +165,7 @@ model User {
   password                 String
   name                     String
   avatar                   String?
+  presenceStatus           String    @default("ONLINE") @map("presence_status") @db.VarChar(12)
   bio                      String?
   position                 String?   @db.VarChar(255)
   timezone                 String?   @default("UTC") @db.VarChar(100)
@@ -212,6 +213,8 @@ model User {
   projectMembershipsAdded      ProjectMember[]       @relation("ProjectMemberAdder")
   calendarEventsCreated        CalendarEvent[]       @relation("CalendarEventCreator")
   calendarEventAttendances     CalendarEventAttendee[] @relation("CalendarEventAttendeeUser")
+  calendarInvitationsReceived  CalendarEventInvitation[] @relation("CalendarInvitationRecipient")
+  calendarInvitationsSent      CalendarEventInvitation[] @relation("CalendarInvitationSender")
   ownedOrganizations           Organization[]        @relation("OrganizationOwner")
   organizationMemberships      OrganizationMember[]
   organizationInvitationsSent  OrganizationInvitation[] @relation("OrganizationInvitationInviter")
@@ -716,6 +719,7 @@ model Document {
   workspaceId String   @map("workspace_id") @db.Uuid
   projectId   String?  @map("project_id") @db.Uuid
   title       String   @db.VarChar(500)
+  description String   @default("") @db.VarChar(300)
   content     String   @default("")
   yjsState    Bytes?   @map("yjs_state")
   createdBy   String   @map("created_by") @db.Uuid
@@ -1096,6 +1100,7 @@ model CalendarEvent {
   workspace Workspace?                  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   team      Team?                       @relation(fields: [teamId],      references: [id], onDelete: SetNull)
   attendees CalendarEventAttendee[]
+  invitations CalendarEventInvitation[]
 
   @@index([createdBy])
   @@index([startTime])
@@ -1131,6 +1136,23 @@ model AiBuilderDocument {
 
   @@index([userId])
   @@map("ai_builder_documents")
+}
+
+model CalendarEventInvitation {
+  eventId     String    @map("event_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  invitedBy   String    @map("invited_by") @db.Uuid
+  status      String    @default("PENDING") @db.VarChar(12)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  respondedAt DateTime? @map("responded_at") @db.Timestamptz()
+
+  event   CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user    User @relation("CalendarInvitationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  inviter User @relation("CalendarInvitationSender", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
+  @@index([userId, status])
+  @@map("calendar_event_invitations")
 }
 
 // ── Account, subscription and cross-workspace portfolio ────────────────────

@@ -55,6 +55,7 @@ interface DocumentState {
 
 interface CreateDocumentData {
   title: string;
+  description?: string;
   projectId?: string | null;
   templateId?: string;
   metadata?: {
@@ -65,6 +66,7 @@ interface CreateDocumentData {
 
 interface UpdateDocumentData {
   title?: string;
+  description?: string;
   content?: string;
 }
 
@@ -200,6 +202,7 @@ export const useDocumentStore = create<DocumentState>()(
 
       updateDocument: async (documentId: string, data: UpdateDocumentData) => {
         const response = await apiService.put(`/api/documents/${documentId}`, data, true);
+        if (!response.success) throw new Error(response.error?.message || 'No se pudo actualizar el documento');
         if (response.success && response.data) {
           set((state) => ({
             documents: state.documents.map((d) =>
@@ -214,16 +217,12 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       saveYjsState: async (documentId: string, yjsState: Uint8Array) => {
-        try {
-          const response = await apiService.put(
-            `/api/documents/${documentId}/yjs-state`,
-            { yjsState: Array.from(yjsState) },
-            true
-          );
-
-          if (!response.success) {
-          }
-        } catch (error) {}
+        const response = await apiService.put(
+          `/api/documents/${documentId}/yjs-state`,
+          { yjsState: Array.from(yjsState) },
+          true
+        );
+        if (!response.success) throw new Error(response.error?.message || 'No se pudo guardar el documento');
       },
 
       deleteDocument: async (documentId: string) => {

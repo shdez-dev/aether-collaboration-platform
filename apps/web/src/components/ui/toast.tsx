@@ -4,6 +4,7 @@ import * as React from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import styles from "./toast.module.css"
 
 const ToastProvider = ToastPrimitives.Provider
 
@@ -14,7 +15,7 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      "fixed bottom-4 right-4 z-[100] flex flex-col gap-2 w-[340px] max-w-[calc(100vw-2rem)]",
+      styles.viewport,
       className
     )}
     {...props}
@@ -49,6 +50,7 @@ const Toast = React.forwardRef<
       className={cn(
         // layout
         "group pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden",
+        styles.toast,
         // swipe
         "data-[swipe=cancel]:translate-x-0",
         "data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)]",
@@ -57,19 +59,10 @@ const Toast = React.forwardRef<
         // enter / exit animations
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out",
         "data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full",
-        "data-[state=open]:slide-in-from-bottom-full",
+        "data-[state=open]:slide-in-from-top-full",
         className
       )}
-      style={{
-        background:    'var(--c-surface)',
-        border:        '1px solid var(--c-border2)',
-        borderLeft:    `3px solid ${accent}`,
-        borderRadius:  '10px',
-        padding:       '12px 36px 12px 14px',
-        boxShadow:     '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(97,71,130,0.03)',
-        backdropFilter: 'blur(12px)',
-        ...style,
-      }}
+      style={{ '--toast-accent': accent, ...style } as React.CSSProperties}
       {...props}
     />
   )
@@ -85,15 +78,10 @@ const ToastAction = React.forwardRef<
   <ToastPrimitives.Action
     ref={ref}
     className={cn(
-      "inline-flex h-7 shrink-0 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors focus:outline-none disabled:pointer-events-none disabled:opacity-50",
+      styles.action,
       className
     )}
-    style={{
-      background: 'var(--c-hover)',
-      border:     '1px solid var(--c-border2)',
-      color:      'var(--c-text2)',
-      ...style,
-    }}
+    style={style}
     {...props}
   />
 ))
@@ -106,15 +94,14 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-2 top-2 rounded-md p-0.5 opacity-0 transition-opacity",
-      "group-hover:opacity-100 focus:opacity-100 focus:outline-none",
+      styles.close,
       className
     )}
-    style={{ color: 'var(--c-text4)', ...style }}
+    style={style}
     toast-close=""
     {...props}
   >
-    <X style={{ width: '13px', height: '13px' }} />
+    <X size={15} />
   </ToastPrimitives.Close>
 ))
 ToastClose.displayName = ToastPrimitives.Close.displayName
@@ -125,8 +112,8 @@ const ToastTitle = React.forwardRef<
 >(({ className, style, ...props }, ref) => (
   <ToastPrimitives.Title
     ref={ref}
-    className={cn("text-sm font-semibold leading-snug", className)}
-    style={{ color: 'var(--c-text)', ...style }}
+    className={cn(styles.title, className)}
+    style={style}
     {...props}
   />
 ))
@@ -138,8 +125,8 @@ const ToastDescription = React.forwardRef<
 >(({ className, style, ...props }, ref) => (
   <ToastPrimitives.Description
     ref={ref}
-    className={cn("text-xs leading-relaxed mt-0.5", className)}
-    style={{ color: 'var(--c-text3)', ...style }}
+    className={cn(styles.description, className)}
+    style={style}
     {...props}
   />
 ))

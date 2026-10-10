@@ -6,6 +6,54 @@ import { projectAuthorizationService } from './ProjectAuthorizationService';
 import type { Card } from '@aether/types';
 
 export class CardService {
+  /** Only people participating in every project linked to the card's board are assignable. */
+  static async getEligibleMembers(cardId: string): Promise<Array<{ id: string; name: string; email: string }>> {
+    const scope = await pool.query(
+      `SELECT b.workspace_id, COALESCE(array_agg(pb.project_id) FILTER (WHERE pb.project_id IS NOT NULL), ARRAY[]::uuid[]) AS project_ids
+       FROM cards c JOIN lists l ON l.id = c.list_id JOIN boards b ON b.id = l.board_id
+       LEFT JOIN project_boards pb ON pb.board_id = b.id
+       WHERE c.id = $1 GROUP BY b.workspace_id`,
+      [cardId],
+    );
+    const card = scope.rows[0] as { workspace_id: string; project_ids: string[] } | undefined;
+    if (!card) throw new Error('Card not found');
+
+    if (card.project_ids.length === 0) {
+      const result = await pool.query(
+        `SELECT u.id, u.name, u.email FROM workspace_members wm
+         JOIN users u ON u.id = wm.user_id
+         JOIN workspaces w ON w.id = wm.workspace_id
+         WHERE wm.workspace_id = $1
+           AND NOT EXISTS (SELECT 1 FROM organization_access_revocations r WHERE r.organization_id = w.organization_id AND r.user_id = u.id)
+         ORDER BY u.name`,
+        [card.workspace_id],
+      );
+      return result.rows;
+    }
+
+    const result = await pool.query(
+      `SELECT u.id, u.name, u.email FROM users u
+       JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $1
+       JOIN workspaces w ON w.id = wm.workspace_id
+       WHERE NOT EXISTS (SELECT 1 FROM organization_access_revocations r WHERE r.organization_id = w.organization_id AND r.user_id = u.id)
+         AND NOT EXISTS (
+         SELECT 1 FROM unnest($2::uuid[]) AS linked(project_id)
+         JOIN projects p ON p.id = linked.project_id
+         WHERE NOT (
+           p.owner_id = u.id
+           OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = u.id)
+           OR EXISTS (SELECT 1 FROM project_teams pt JOIN team_members tm ON tm.team_id = pt.team_id WHERE pt.project_id = p.id AND tm.user_id = u.id)
+           OR EXISTS (SELECT 1 FROM project_role_assignments pra WHERE pra.project_id = p.id AND pra.user_id = u.id AND pra.ended_at IS NULL)
+           OR EXISTS (SELECT 1 FROM network_access_grants g WHERE g.resource_type = 'PROJECT' AND g.resource_id = p.id AND g.user_id = u.id
+             AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP))
+         )
+       )
+       ORDER BY u.name`,
+      [card.workspace_id, card.project_ids],
+    );
+    return result.rows;
+  }
+
   // ============================================================================
   // HELPERS
   // ============================================================================

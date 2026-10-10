@@ -387,6 +387,7 @@ export interface Document {
   /** Null only for workspace-level material such as policies and templates. */
   projectId?: string | null;
   title: string;
+  description: string;
   content: string; // Texto plano extraído para búsqueda
   yjsState?: Uint8Array; // Estado binario serializado de Yjs
   createdBy: string;
@@ -903,7 +904,8 @@ export type NotificationType =
   | 'MILESTONE_COMPLETED'
   | 'PROJECT_STATUS_CHANGED'
   | 'TEAM_MEMBER_ADDED'
-  | 'TEAM_MEMBER_REMOVED';
+  | 'TEAM_MEMBER_REMOVED'
+  | 'CALENDAR_EVENT_INVITE';
 
 /**
  * Notification

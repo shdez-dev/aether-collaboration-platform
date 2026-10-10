@@ -265,7 +265,7 @@ export default function DashboardPage() {
 
   function addQuickTask() {
     const text = quickText.trim();
-    if (!text) return;
+    if (!text || text.length > 120) return;
     const item: TodoItem = {
       id: Math.random().toString(36).slice(2) + Date.now().toString(36),
       text, completed: false, createdAt: new Date().toISOString(),
@@ -347,6 +347,7 @@ export default function DashboardPage() {
           ref={quickRef}
           className="dshInput"
           value={quickText}
+          maxLength={120}
           onChange={e => setQuickText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') addQuickTask(); }}
           placeholder="Añade una tarea para hoy y pulsa Enter"
@@ -356,6 +357,7 @@ export default function DashboardPage() {
             color: 'var(--c-text)', fontFamily: MANROPE, fontSize: '15.5px', outline: 'none',
           }}
         />
+        <span style={{ fontSize: '11px', color: 'var(--c-text4)', flexShrink: 0 }}>{quickText.length}/120</span>
         <span style={{
           fontSize: '11.5px', color: 'var(--c-text4)',
           border: '1px solid rgba(97,71,130,0.1)',

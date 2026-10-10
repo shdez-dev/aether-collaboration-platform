@@ -11,14 +11,14 @@ import type { TeamRequest } from '../middleware/team';
 
 const createTeamSchema = z.object({
   workspaceId: z.string().uuid(),
-  name:        z.string().min(1).max(255),
+  name:        z.string().min(1).max(80),
   description: z.string().max(120, 'La descripción no puede superar los 120 caracteres.').optional(),
   color:       z.string().max(50).optional(),
   icon:        z.string().max(500).optional(),
 });
 
 const updateTeamSchema = z.object({
-  name:        z.string().min(1).max(255).optional(),
+  name:        z.string().min(1).max(80).optional(),
   description: z.string().max(120, 'La descripción no puede superar los 120 caracteres.').nullable().optional(),
   color:       z.string().max(50).nullable().optional(),
   icon:        z.string().max(500).nullable().optional(),

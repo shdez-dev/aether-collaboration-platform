@@ -60,6 +60,7 @@ export default function DocumentEditorPage() {
   const { toast } = useToast();
 
   const [title,             setTitle]             = useState('');
+  const [description,       setDescription]       = useState('');
   const [isSavingTitle,     setIsSavingTitle]     = useState(false);
   const [showOptionsMenu,   setShowOptionsMenu]   = useState(false);
   const [showDeleteModal,   setShowDeleteModal]   = useState(false);
@@ -104,15 +105,25 @@ export default function DocumentEditorPage() {
   }, [documentId, fetchDocumentById, toast]);
 
   useEffect(() => {
-    if (currentDocument) setTitle(currentDocument.title);
+    if (currentDocument) {
+      setTitle(currentDocument.title);
+      setDescription(currentDocument.description ?? '');
+    }
   }, [currentDocument]);
 
   const handleTitleBlur = async () => {
     if (!currentDocument || title === currentDocument.title) return;
+    if (!title.trim() || title.length > 180) return;
     setIsSavingTitle(true);
     try { await updateDocument(documentId, { title }); }
     catch { setTitle(currentDocument.title); }
     finally { setIsSavingTitle(false); }
+  };
+
+  const handleDescriptionBlur = async () => {
+    if (!currentDocument || description === (currentDocument.description ?? '') || description.length > 300) return;
+    try { await updateDocument(documentId, { description: description.trim() }); }
+    catch { setDescription(currentDocument.description ?? ''); }
   };
 
   const handleBack = () => {
@@ -147,7 +158,7 @@ export default function DocumentEditorPage() {
     setIsDeleting(true);
     try {
       await deleteDocument(documentId);
-      toast({ title: '🗑️ Documento eliminado', description: 'El documento ha sido eliminado correctamente' });
+      toast({ title: 'Documento eliminado', description: 'El documento se eliminó correctamente.', variant: 'success' });
       handleBack();
     } catch {
       toast({ title: 'Error al eliminar', description: 'No se pudo eliminar el documento.', variant: 'destructive' });
@@ -257,6 +268,7 @@ export default function DocumentEditorPage() {
               <input
                 type="text"
                 value={title}
+                maxLength={Math.max(180, currentDocument.title.length)}
                 onChange={(e) => setTitle(e.target.value)}
                 onFocus={(e) => (e.currentTarget.style.color = 'var(--c-text)')}
                 onBlur={(e) => { e.currentTarget.style.color = C.text; handleTitleBlur(); }}
@@ -277,6 +289,7 @@ export default function DocumentEditorPage() {
                     Actualizado {formatDate(currentDocument.updatedAt)}
                   </span>
                 </div>
+                <span style={{ fontSize: '10px', color: title.length > 180 ? C.red : C.text4, fontFamily: MANROPE }}>{title.length}/180</span>
                 <span style={{ fontSize: '10.5px', color: C.text4, fontFamily: MANROPE }}>
                   - {currentDocument.creator?.name}
                 </span>
@@ -406,6 +419,10 @@ export default function DocumentEditorPage() {
               </div>
             )}
           </div>
+        </div>
+        <div style={{ padding: '0 0 9px 48px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input aria-label="Descripción del documento" value={description} maxLength={Math.max(300, (currentDocument.description ?? '').length)} onChange={(e) => setDescription(e.target.value)} onBlur={handleDescriptionBlur} disabled={!canEdit} placeholder="Añadir descripción del documento…" style={{ flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: C.text3, fontSize: 11.5 }} />
+          <small style={{ color: description.length > 300 ? C.red : C.text4, fontSize: 10 }}>{description.length}/300</small>
         </div>
       </header>
 

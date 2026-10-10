@@ -54,4 +54,17 @@ describe('panel global de mensajes', () => {
     expect(await screen.findByText('Los mensajes se eliminan automáticamente después de 30 días.')).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Escribir mensaje' })).toBeTruthy();
   });
+
+  it('limita a +99 el contador de mensajes sin leer', async () => {
+    (apiService.get as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === '/api/chat/conversations') return { success: true, data: { conversations: [{ id: 'conversation-1', contact_id: other.id, name: other.name, avatar: null, position: null, last_body: null, last_message_at: null, unread_count: 120 }] } };
+      if (url === '/api/chat/contacts') return { success: true, data: { contacts: [] } };
+      if (url === '/api/chat/requests') return { success: true, data: { requests: [] } };
+      return { success: true, data: { statuses: {}, preference: 'ONLINE' } };
+    });
+    render(<ChatDock userId="user-1" />);
+    expect(await screen.findByText('+99')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir mensajes' }));
+    expect(screen.getAllByText('+99')).toHaveLength(2);
+  });
 });

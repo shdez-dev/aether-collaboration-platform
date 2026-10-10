@@ -1,8 +1,9 @@
 // apps/web/src/hooks/useNotifications.ts
 
-import { useCallback, useRef, useEffect } from 'react';
+import { createElement, useCallback, useRef, useEffect } from 'react';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { toast as showToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 
 /**
  * Hook para manejar notificaciones
@@ -20,6 +21,7 @@ export function useNotifications() {
   const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
   const deleteNotification = useNotificationStore((state) => state.deleteNotification);
   const archiveNotification = useNotificationStore((state) => state.archiveNotification);
+  const restoreNotification = useNotificationStore((state) => state.restoreNotification);
   const resolveNotification = useNotificationStore((state) => state.resolveNotification);
   const toggleDropdown = useNotificationStore((state) => state.toggleDropdown);
   const closeDropdown = useNotificationStore((state) => state.closeDropdown);
@@ -75,10 +77,30 @@ export function useNotifications() {
     [deleteNotification]
   );
 
+  const handleRestoreNotification = useCallback(async (notificationId: string) => {
+    try {
+      await restoreNotification(notificationId);
+      showToast({ title: 'Notificación recuperada', description: 'Volvió a aparecer en tu bandeja.' });
+    } catch {
+      showToast({ title: 'No se pudo recuperar la notificación', description: 'Inténtalo de nuevo.', variant: 'destructive' });
+    }
+  }, [restoreNotification]);
+
   const handleArchiveNotification = useCallback(async (notificationId: string) => {
-    try { await archiveNotification(notificationId); }
-    catch { showToast({ title: 'Error al archivar la notificación', variant: 'destructive' }); }
-  }, [archiveNotification]);
+    try {
+      await archiveNotification(notificationId);
+      showToast({
+        title: 'Notificación archivada',
+        description: 'Se quitó de tu bandeja. Puedes recuperarla ahora.',
+        action: createElement(ToastAction, {
+          altText: 'Deshacer el archivado',
+          onClick: () => { void handleRestoreNotification(notificationId); },
+        }, 'Deshacer'),
+      });
+    } catch {
+      showToast({ title: 'Error al archivar la notificación', description: 'Inténtalo de nuevo.', variant: 'destructive' });
+    }
+  }, [archiveNotification, handleRestoreNotification]);
 
   const handleResolveNotification = useCallback(async (notificationId: string) => {
     try { await resolveNotification(notificationId); }

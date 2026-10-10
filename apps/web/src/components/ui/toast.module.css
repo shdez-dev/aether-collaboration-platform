@@ -1,0 +1,99 @@
+.viewport {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(370px, calc(100vw - 32px));
+  max-height: calc(100dvh - 36px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  outline: none;
+}
+
+.toast {
+  min-width: 0;
+  padding: 14px 42px 14px 14px;
+  border: 1px solid color-mix(in srgb, var(--toast-accent) 28%, var(--c-border2));
+  border-radius: 14px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  box-shadow: 0 16px 44px rgba(13, 9, 24, .22), 0 2px 8px rgba(13, 9, 24, .08);
+  font-family: 'Manrope', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid color-mix(in srgb, var(--toast-accent) 22%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--toast-accent) 11%, var(--c-surface2));
+  color: var(--toast-accent);
+}
+
+.title {
+  margin: 1px 0 0;
+  color: var(--c-text);
+  font: 700 12px/1.4 'Sora', system-ui, sans-serif;
+  letter-spacing: -.02em;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  margin-top: 4px;
+  color: var(--c-text3);
+  font: 500 11px/1.5 'Manrope', system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--c-text3);
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease;
+}
+
+.close:hover { background: var(--c-hover); color: var(--c-text); }
+.close:focus-visible, .action:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+.action {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--c-border2);
+  border-radius: 8px;
+  background: var(--c-surface2);
+  color: var(--c-text2);
+  font: 700 11px 'Manrope', system-ui, sans-serif;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease;
+}
+
+.action:hover { background: var(--c-hover); border-color: var(--c-accent); }
+
+@media (max-width: 480px) {
+  .viewport { top: 12px; right: 12px; width: calc(100vw - 24px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast, .action, .close { animation: none !important; transition: none; }
+}

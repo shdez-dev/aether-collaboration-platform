@@ -4,11 +4,14 @@
 .launcher:active { transform: scale(.96); }
 .badge { position: absolute; top: -6px; right: -6px; display: grid; min-width: 21px; height: 21px; padding: 0 4px; place-items: center; border: 2px solid var(--c-bg); border-radius: 12px; background: #B45C72; color: #fff; font-size: 10px; font-weight: 800; }
 .panel { display: flex; flex-direction: column; width: min(380px, calc(100vw - 24px)); height: min(560px, calc(100dvh - 102px)); overflow: hidden; border: 1px solid var(--c-border2); border-radius: 16px; background: var(--c-surface); color: var(--c-text); box-shadow: 0 22px 65px rgba(26, 15, 40, .25); animation: panelEnter 190ms cubic-bezier(.2, .75, .25, 1) both; }
-.header { display: flex; align-items: center; gap: 11px; min-height: 64px; padding: 11px 14px; border-bottom: 1px solid var(--c-border); background: var(--c-surface2); }
+.header { display: flex; flex-direction: column; gap: 9px; padding: 12px 14px; border-bottom: 1px solid var(--c-border); background: var(--c-surface2); }
+.headerMain { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .headerIcon { display: grid; width: 35px; height: 35px; place-items: center; border-radius: 11px; background: color-mix(in srgb, var(--c-accent) 12%, var(--c-surface)); color: var(--c-accent); }
 .headerText { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .headerText strong { overflow: hidden; font: 700 13px 'Sora', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 .headerText small { color: var(--c-text3); font-size: 10px; }
+.presenceSlot { min-width: 0; }
+.presenceSlot :global(button[aria-haspopup="menu"]) { min-height: 42px; padding: 5px 9px; }
 .iconButton { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--c-text3); cursor: pointer; transition: background 150ms ease, color 150ms ease; }
 .iconButton:hover { background: var(--c-hover); color: var(--c-text); }
 .tabs { display: flex; flex: 0 0 42px; border-bottom: 1px solid var(--c-border); }
@@ -47,6 +50,7 @@
 .composer { display: flex; align-items: flex-end; gap: 8px; padding: 11px; border-top: 1px solid var(--c-border); }
 .composer textarea { flex: 1; min-width: 0; min-height: 38px; max-height: 100px; padding: 9px 10px; resize: vertical; border: 1px solid var(--c-border2); border-radius: 8px; outline: 0; background: var(--c-surface2); color: var(--c-text); font: 11px 'Manrope', system-ui, sans-serif; line-height: 1.45; transition: border-color 150ms ease; }
 .composer textarea:focus { border-color: var(--c-accent); }
+.charCount { align-self: center; color: var(--c-text4); font: 10px 'Manrope', system-ui, sans-serif; white-space: nowrap; }
 .composer button { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border: 0; border-radius: 9px; background: var(--c-accent); color: #fff; cursor: pointer; }
 .composer button:disabled { opacity: .45; cursor: not-allowed; }
 .requestPrompt { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 30px; text-align: center; }

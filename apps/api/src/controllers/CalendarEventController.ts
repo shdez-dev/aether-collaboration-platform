@@ -7,8 +7,8 @@ import { calendarEventService } from '../services/CalendarEventService';
 // ─── Schemas de validación ─────────────────────────────────────────────────────
 
 const createSchema = z.object({
-  title:       z.string().min(1).max(500),
-  description: z.string().max(2000).optional(),
+  title:       z.string().min(1).max(120),
+  description: z.string().max(1000).optional(),
   startTime:   z.string().datetime({ offset: true }),
   endTime:     z.string().datetime({ offset: true }),
   allDay:      z.boolean().optional(),
@@ -16,6 +16,7 @@ const createSchema = z.object({
   type:        z.enum(['personal', 'workspace', 'team']),
   workspaceId: z.string().uuid().optional(),
   teamId:      z.string().uuid().optional(),
+  inviteeIds:  z.array(z.string().uuid()).max(30).optional(),
 }).refine((d) => {
   if (d.type === 'workspace') return !!d.workspaceId;
   if (d.type === 'team')      return !!d.teamId;
@@ -23,8 +24,8 @@ const createSchema = z.object({
 }, { message: 'workspaceId es requerido para tipo workspace, teamId para tipo team' });
 
 const updateSchema = z.object({
-  title:       z.string().min(1).max(500).optional(),
-  description: z.string().max(2000).nullable().optional(),
+  title:       z.string().min(1).max(120).optional(),
+  description: z.string().max(1000).nullable().optional(),
   startTime:   z.string().datetime({ offset: true }).optional(),
   endTime:     z.string().datetime({ offset: true }).optional(),
   allDay:      z.boolean().optional(),
@@ -62,6 +63,34 @@ class CalendarEventController {
       return res.status(201).json({ success: true, data: { event } });
     } catch (error: any) {
       console.error('[CalendarEventController.create]', error);
+      return res.status(error.status ?? 500).json({ success: false, error: { message: error.message } });
+    }
+  }
+
+  async getPendingInvitations(req: Request, res: Response) {
+    const userId = (req as any).user?.id as string;
+    if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
+    const parsed = querySchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ success: false, error: { message: 'Parámetros inválidos' } });
+    try {
+      const invitations = await calendarEventService.getPendingInvitations(userId, parsed.data.from, parsed.data.to);
+      return res.json({ success: true, data: { invitations } });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: { message: error.message } });
+    }
+  }
+
+  async respondToInvitation(req: Request, res: Response) {
+    const userId = (req as any).user?.id as string;
+    if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
+    if (!z.string().uuid().safeParse(req.params.id).success || !z.enum(['accept', 'decline']).safeParse(req.body?.response).success) {
+      return res.status(400).json({ success: false, error: { message: 'Respuesta inválida' } });
+    }
+    try {
+      const changed = await calendarEventService.respondToInvitation(req.params.id, userId, req.body.response === 'accept');
+      if (!changed) return res.status(404).json({ success: false, error: { message: 'Invitación no encontrada o ya respondida' } });
+      return res.json({ success: true });
+    } catch (error: any) {
       return res.status(500).json({ success: false, error: { message: error.message } });
     }
   }

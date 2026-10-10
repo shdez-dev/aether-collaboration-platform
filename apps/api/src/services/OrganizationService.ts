@@ -2,6 +2,7 @@ import { pool } from '../lib/db';
 import crypto from 'crypto';
 import type { OrganizationMemberRole, OrganizationType, OrganizationSummary } from '@aether/types';
 import { emailService } from './EmailService';
+import { renderOrganizationInvitationEmail } from './emailTemplates';
 
 export interface OrganizationDetails extends OrganizationSummary {
   billingEmail: string | null;
@@ -151,6 +152,49 @@ class OrganizationService {
     return this.getForUser(organizationId, userId);
   }
 
+  async deleteOrganization(organizationId: string, actorId: string, confirmationName: string): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const organization = await client.query(
+        `SELECT o.name, o.type, o.owner_user_id, om.role
+           FROM organizations o
+           JOIN organization_members om ON om.organization_id = o.id AND om.user_id = $2
+          WHERE o.id = $1
+          FOR UPDATE OF o, om`,
+        [organizationId, actorId]
+      );
+      const row = organization.rows[0];
+      if (!row) throw new OrganizationServiceError('ORGANIZATION_NOT_FOUND', 'Organization not found or access denied', 404);
+      if (row.type === 'PERSONAL') {
+        throw new OrganizationServiceError('PERSONAL_ORGANIZATION_IMMUTABLE', 'Personal organizations cannot be deleted', 400);
+      }
+      if (row.role !== 'OWNER' || row.owner_user_id !== actorId) {
+        throw new OrganizationServiceError('FORBIDDEN', 'Only the organization owner can delete it', 403);
+      }
+      if (confirmationName.trim() !== row.name) {
+        throw new OrganizationServiceError('ORGANIZATION_NAME_MISMATCH', 'The organization name does not match', 400);
+      }
+
+      const workspaces = await client.query(
+        `SELECT COUNT(*)::int AS workspace_count FROM workspaces WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const workspaceCount = Number(workspaces.rows[0]?.workspace_count ?? 0);
+      if (workspaceCount > 0) {
+        throw new OrganizationServiceError('WORKSPACES_EXIST', 'Delete or move all workspaces before deleting this organization', 409);
+      }
+
+      await client.query('DELETE FROM organizations WHERE id = $1', [organizationId]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async getMembers(organizationId: string, userId: string): Promise<OrganizationMemberDetails[]> {
     await this.requireMembership(organizationId, userId);
     const result = await pool.query(
@@ -262,8 +306,8 @@ class OrganizationService {
       await emailService.sendEmail({
         to: email,
         subject: `${inviterName} te invitó a ${organizationName} en Aether`,
-        text: `${inviterName} te invitó a unirte a ${organizationName}. Acepta la invitación: ${invitationLink}. Expira en 7 días.`,
-        html: `<p>Hola,</p><p><strong>${this.escapeHtml(inviterName)}</strong> te invitó a unirte a <strong>${this.escapeHtml(organizationName)}</strong> en Aether.</p><p><a href="${invitationLink}">Aceptar invitación</a></p><p>La invitación expira en 7 días.</p>`,
+        text: `Aether - Invitación a una organización\n\n${inviterName} te invitó a unirte a ${organizationName}.\nAcepta la invitación: ${invitationLink}\n\nInicia sesión con la misma dirección de correo que recibió esta invitación. Expira en 7 días.`,
+        html: renderOrganizationInvitationEmail(inviterName, organizationName, invitationLink),
       });
     } catch (error) {
       emailStatus = 'failed';
@@ -604,10 +648,6 @@ class OrganizationService {
     if (actorRole === 'OWNER') return;
     if (actorRole === 'ADMIN' && targetRole === 'MEMBER') return;
     throw new OrganizationServiceError('FORBIDDEN', 'You do not have permission to manage this organization member', 403);
-  }
-
-  private escapeHtml(value: string): string {
-    return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character] as string));
   }
 
   private formatSummary(row: any): OrganizationSummary {

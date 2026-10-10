@@ -2,6 +2,7 @@
 
 import { pool } from '../lib/db';
 import { notificationRepository } from '../repositories/NotificationRepository';
+import { notificationService } from './NotificationService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,12 +21,17 @@ export interface CalendarEvent {
   createdAt:   string;
   updatedAt:   string;
   attendees:   Attendee[];
+  invitees:    EventInvitee[];
 }
 
 export interface Attendee {
   id:     string;
   name:   string;
   avatar: string | null;
+}
+
+export interface EventInvitee extends Attendee {
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
 }
 
 export interface CreateCalendarEventInput {
@@ -38,6 +44,19 @@ export interface CreateCalendarEventInput {
   type:        'personal' | 'workspace' | 'team';
   workspaceId?: string;
   teamId?:     string;
+  inviteeIds?: string[];
+}
+
+export interface CalendarEventInvitation {
+  eventId: string;
+  title: string;
+  description: string | null;
+  startTime: string;
+  endTime: string;
+  allDay: boolean;
+  color: string;
+  inviterName: string;
+  conflictCount: number;
 }
 
 export interface UpdateCalendarEventInput {
@@ -51,7 +70,7 @@ export interface UpdateCalendarEventInput {
 
 // ─── Mapper ───────────────────────────────────────────────────────────────────
 
-function mapEvent(row: any, attendees: Attendee[] = []): CalendarEvent {
+function mapEvent(row: any, attendees: Attendee[] = [], invitees: EventInvitee[] = []): CalendarEvent {
   return {
     id:          row.id,
     title:       row.title,
@@ -67,6 +86,7 @@ function mapEvent(row: any, attendees: Attendee[] = []): CalendarEvent {
     createdAt:   new Date(row.created_at).toISOString(),
     updatedAt:   new Date(row.updated_at).toISOString(),
     attendees,
+    invitees,
   };
 }
 
@@ -79,6 +99,28 @@ class CalendarEventService {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const inviteeIds = [...new Set(input.inviteeIds ?? [])].filter(id => id !== userId);
+      if (inviteeIds.length && input.type !== 'personal') {
+        const error = new Error('Las invitaciones individuales están disponibles en eventos personales');
+        (error as any).status = 400;
+        throw error;
+      }
+      if (inviteeIds.length) {
+        const eligible = await client.query(`SELECT u.id FROM users u WHERE u.id = ANY($2::uuid[]) AND (
+          EXISTS (SELECT 1 FROM direct_connections dc WHERE dc.status = 'ACCEPTED'
+            AND dc.user_a_id = LEAST($1::uuid, u.id) AND dc.user_b_id = GREATEST($1::uuid, u.id))
+          OR EXISTS (SELECT 1 FROM organization_members a JOIN organization_members b
+            ON b.organization_id = a.organization_id WHERE a.user_id = $1 AND b.user_id = u.id)
+          OR EXISTS (SELECT 1 FROM workspace_members a JOIN workspace_members b
+            ON b.workspace_id = a.workspace_id WHERE a.user_id = $1 AND b.user_id = u.id)
+        )`, [userId, inviteeIds]);
+        if (eligible.rows.length !== inviteeIds.length) {
+          const error = new Error('Solo puedes invitar a personas que están en tus contactos');
+          (error as any).status = 400;
+          throw error;
+        }
+      }
 
       // 1. Insertar evento
       const evResult = await client.query(
@@ -130,10 +172,18 @@ class CalendarEventService {
         );
       }
 
+      // A personal invitation is not an attendee until the recipient accepts it.
+      // Workspace/team members may already be attendees through their shared calendar.
+      for (const inviteeId of inviteeIds) {
+        await client.query(`INSERT INTO calendar_event_invitations (event_id, user_id, invited_by)
+          VALUES ($1, $2, $3)`, [event.id, inviteeId, userId]);
+      }
+
       await client.query('COMMIT');
 
       // 4. Leer asistentes con sus datos para la respuesta
       const attendees = await this._getAttendees(event.id);
+      const invitees = await this._getInvitees(event.id);
 
       // 5. Enviar notificaciones a los demás miembros (fuera de la transacción)
       if (memberIds.length > 0) {
@@ -151,12 +201,83 @@ class CalendarEventService {
         });
       }
 
-      return mapEvent(event, attendees);
+      if (inviteeIds.length) {
+        await this._notifyIndividualInvitees(event, userId, userName, inviteeIds);
+      }
+
+      return mapEvent(event, attendees, invitees);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  async getPendingInvitations(userId: string, from?: string, to?: string): Promise<CalendarEventInvitation[]> {
+    const result = await pool.query(`SELECT ce.id AS event_id, ce.title, ce.description, ce.start_time,
+      ce.end_time, ce.all_day, ce.color, u.name AS inviter_name,
+      (SELECT COUNT(*)::int FROM calendar_event_attendees cea
+       JOIN calendar_events busy ON busy.id = cea.event_id
+       WHERE cea.user_id = $1 AND busy.id <> ce.id
+         AND busy.start_time < ce.end_time AND busy.end_time > ce.start_time) AS conflict_count
+      FROM calendar_event_invitations i
+      JOIN calendar_events ce ON ce.id = i.event_id
+      JOIN users u ON u.id = i.invited_by
+      WHERE i.user_id = $1 AND i.status = 'PENDING'
+        AND ($2::timestamptz IS NULL OR ce.end_time > $2)
+        AND ($3::timestamptz IS NULL OR ce.start_time < $3)
+      ORDER BY ce.start_time`, [userId, from ?? null, to ?? null]);
+    return result.rows.map(row => ({
+      eventId: row.event_id, title: row.title, description: row.description,
+      startTime: new Date(row.start_time).toISOString(), endTime: new Date(row.end_time).toISOString(),
+      allDay: row.all_day, color: row.color, inviterName: row.inviter_name,
+      conflictCount: row.conflict_count,
+    }));
+  }
+
+  async respondToInvitation(eventId: string, userId: string, accept: boolean): Promise<boolean> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updated = await client.query(`UPDATE calendar_event_invitations
+        SET status = $3, responded_at = NOW()
+        WHERE event_id = $1 AND user_id = $2 AND status = 'PENDING' RETURNING event_id`,
+        [eventId, userId, accept ? 'ACCEPTED' : 'DECLINED']);
+      if (!updated.rows.length) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+      if (accept) {
+        await client.query(`INSERT INTO calendar_event_attendees (event_id, user_id) VALUES ($1, $2)
+          ON CONFLICT (event_id, user_id) DO NOTHING`, [eventId, userId]);
+      }
+      await client.query('COMMIT');
+      try {
+        const notifications = await pool.query(`SELECT id FROM notifications
+          WHERE user_id = $1 AND dedupe_key = $2 AND resolved_at IS NULL`,
+          [userId, `calendar-event-individual:${eventId}`]);
+        for (const notification of notifications.rows) {
+          await notificationService.resolveNotification(notification.id, userId);
+        }
+      } catch (_) { /* Response is already committed; notification cleanup is best effort. */ }
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async _notifyIndividualInvitees(event: any, creatorId: string, creatorName: string, inviteeIds: string[]): Promise<void> {
+    for (const inviteeId of inviteeIds) {
+      try {
+        await notificationService.createCalendarInvitationNotification({
+          userId: inviteeId, eventId: event.id, eventTitle: event.title,
+          eventStartTime: new Date(event.start_time).toISOString(), creatorId, creatorName,
+        });
+      } catch (_) { /* The invitation remains visible in the agenda even without notifications. */ }
     }
   }
 
@@ -202,7 +323,19 @@ class CalendarEventService {
       attendeesByEvent.get(row.event_id)!.push({ id: row.id, name: row.name, avatar: row.avatar });
     }
 
-    return result.rows.map((row: any) => mapEvent(row, attendeesByEvent.get(row.id) ?? []));
+    const inviteesResult = await pool.query(`SELECT i.event_id, u.id, u.name, u.avatar, i.status
+      FROM calendar_event_invitations i
+      JOIN calendar_events ce ON ce.id = i.event_id AND ce.created_by = $2
+      JOIN users u ON u.id = i.user_id
+      WHERE i.event_id = ANY($1::uuid[])
+      ORDER BY u.name`, [eventIds, userId]);
+    const inviteesByEvent = new Map<string, EventInvitee[]>();
+    for (const row of inviteesResult.rows) {
+      if (!inviteesByEvent.has(row.event_id)) inviteesByEvent.set(row.event_id, []);
+      inviteesByEvent.get(row.event_id)!.push({ id: row.id, name: row.name, avatar: row.avatar, status: row.status });
+    }
+
+    return result.rows.map((row: any) => mapEvent(row, attendeesByEvent.get(row.id) ?? [], inviteesByEvent.get(row.id) ?? []));
   }
 
   // ── Obtener un evento por ID ─────────────────────────────────────────────────
@@ -217,7 +350,8 @@ class CalendarEventService {
     if (!result.rows.length) return null;
 
     const attendees = await this._getAttendees(eventId);
-    return mapEvent(result.rows[0], attendees);
+    const invitees = result.rows[0].created_by === userId ? await this._getInvitees(eventId) : [];
+    return mapEvent(result.rows[0], attendees, invitees);
   }
 
   // ── Actualizar evento ────────────────────────────────────────────────────────
@@ -251,7 +385,8 @@ class CalendarEventService {
     );
 
     const attendees = await this._getAttendees(eventId);
-    return mapEvent(result.rows[0], attendees);
+    const invitees = await this._getInvitees(eventId);
+    return mapEvent(result.rows[0], attendees, invitees);
   }
 
   // ── Eliminar evento ──────────────────────────────────────────────────────────
@@ -274,6 +409,13 @@ class CalendarEventService {
       [eventId]
     );
     return result.rows.map((r: any) => ({ id: r.id, name: r.name, avatar: r.avatar }));
+  }
+
+  private async _getInvitees(eventId: string): Promise<EventInvitee[]> {
+    const result = await pool.query(`SELECT u.id, u.name, u.avatar, i.status
+      FROM calendar_event_invitations i JOIN users u ON u.id = i.user_id
+      WHERE i.event_id = $1 ORDER BY u.name`, [eventId]);
+    return result.rows.map((row: any) => ({ id: row.id, name: row.name, avatar: row.avatar, status: row.status }));
   }
 
   private async _notifyAttendees(data: {

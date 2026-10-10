@@ -9,11 +9,11 @@ import { canContributeToProjectBoundResource, canManageProjectBoundResource } fr
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
 const createItemSchema = z.object({
-  title: z.string().min(1).max(500),
+  title: z.string().min(1).max(120),
 });
 
 const updateItemSchema = z.object({
-  title: z.string().min(1).max(500).optional(),
+  title: z.string().min(1).max(120).optional(),
   completed: z.boolean().optional(),
 });
 

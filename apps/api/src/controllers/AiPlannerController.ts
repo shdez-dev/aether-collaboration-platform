@@ -20,8 +20,8 @@ const workspacePlanSchema = z.object({
   }),
   projects: z.array(
     z.object({
-      name: z.string().min(1).max(255),
-      description: z.string(),
+      name: z.string().min(1).max(120),
+      description: z.string().max(1000),
       status: z.enum(['PLANNING', 'ACTIVE']),
       milestones: z.array(
         z.object({
@@ -40,10 +40,10 @@ const workspacePlanSchema = z.object({
               cards: z.array(
                 z.object({
                   title: z.string().min(1).max(255),
-                  description: z.string().optional(),
+                  description: z.string().max(3000).optional(),
                   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
                   dueDate: z.string().nullable().optional(),
-                  checklistItems: z.array(z.string().max(500)).optional(),
+                  checklistItems: z.array(z.string().max(120)).optional(),
                   dependsOn: z.array(z.string().max(255)).optional(),
                 })
               ),

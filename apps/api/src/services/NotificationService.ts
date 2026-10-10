@@ -48,6 +48,20 @@ export class NotificationService {
     return notification;
   }
 
+  async createCalendarInvitationNotification(data: {
+    userId: string; eventId: string; eventTitle: string; eventStartTime: string;
+    creatorId: string; creatorName: string;
+  }): Promise<Notification | null> {
+    return this.deliver({
+      userId: data.userId, type: 'CALENDAR_EVENT_INVITE',
+      title: 'Invitación a un evento de calendario',
+      message: `${data.creatorName} te invita a «${data.eventTitle}», un evento en el calendario. Abre tu agenda para aceptar o rechazar la invitación.`,
+      data: { eventId: data.eventId, eventTitle: data.eventTitle, eventStartTime: data.eventStartTime,
+        creatorId: data.creatorId, creatorName: data.creatorName },
+      dedupeKey: `calendar-event-individual:${data.eventId}`,
+    }, { id: data.creatorId, name: data.creatorName });
+  }
+
   async getNotifications(
     userId: string,
     options: { onlyUnread?: boolean; includeArchived?: boolean; includeResolved?: boolean; limit?: number } = {},

@@ -3,7 +3,7 @@
 import { Router } from 'express';
 import { documentController } from '../controllers/DocumentController';
 import { documentCommentController } from '../controllers/DocumentCommentController';
-import { documentService } from '../services/DocumentService';
+import { documentService, DocumentTextLimitError } from '../services/DocumentService';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
 import { requireProjectAccess } from '../middleware/project';
@@ -106,6 +106,9 @@ router.put('/documents/:id/yjs-state', async (req, res) => {
       data: { message: 'Estado guardado exitosamente' },
     });
   } catch (error) {
+    if (error instanceof DocumentTextLimitError) {
+      return res.status(400).json({ success: false, error: { code: 'DOCUMENT_TEXT_LIMIT', message: error.message } });
+    }
     return res.status(500).json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Error al guardar estado' },

@@ -1551,6 +1551,10 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   };
 
   const save = async () => {
+    if ((name !== project.name && name.trim().length > 120) || (desc !== (project.description ?? '') && desc.trim().length > 1000)) {
+      setSaveError('El nombre admite hasta 120 caracteres y el resumen hasta 1000.');
+      return;
+    }
     const parsedImpactedCount = impactedCount.trim() ? Number(impactedCount) : null;
     if (parsedImpactedCount !== null && (!Number.isInteger(parsedImpactedCount) || parsedImpactedCount < 1 || parsedImpactedCount > 1_000_000_000)) {
       setSaveError('La cantidad de personas debe ser un número entero mayor que cero.');
@@ -1560,8 +1564,8 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
     setSaveError('');
     try {
       await updateProject(project.id, {
-        name: name.trim(),
-        description: desc.trim() || null,
+        ...(name !== project.name ? { name: name.trim() } : {}),
+        ...(desc !== (project.description ?? '') ? { description: desc.trim() || null } : {}),
         problemStatement: problem.trim() || null,
         impactedPeople: impactedPeople.trim() || null,
         problemImpact: problemImpact.trim() || null,
@@ -1636,21 +1640,23 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
             {/* Nombre */}
             <div>
               <LBL>Nombre</LBL>
-              <input value={name} onChange={(e) => setName(e.target.value)}
+              <input value={name} maxLength={Math.max(120, project.name.length)} onChange={(e) => setName(e.target.value)}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12.5px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', boxSizing: 'border-box' as const, transition: 'border-color 0.14s', fontFamily: "'Manrope', system-ui, sans-serif" }}
                 onFocus={e => (e.currentTarget.style.borderColor = accent)}
                 onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
               />
+              <small style={{ display: 'block', textAlign: 'right', color: name.length > 120 ? C.red : C.text4 }}>{name.length}/120</small>
             </div>
 
             <div>
               <LBL>Resumen del proyecto</LBL>
-              <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3}
+              <textarea value={desc} maxLength={Math.max(1000, (project.description ?? '').length)} onChange={(e) => setDesc(e.target.value)} rows={3}
                 placeholder="Resume la oportunidad que se está explorando."
                 style={textAreaStyle}
                 onFocus={e => (e.currentTarget.style.borderColor = accent)}
                 onBlur={e  => (e.currentTarget.style.borderColor = C.border2)}
               />
+              <small style={{ display: 'block', textAlign: 'right', color: desc.length > 1000 ? C.red : C.text4 }}>{desc.length}/1000</small>
             </div>
 
             <section style={sectionStyle}>
@@ -2003,6 +2009,7 @@ function CreateDocumentModal({ workspaceId, projectId, color, onClose, onCreated
   const t = useT();
   const { createDocument } = useDocumentStore();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [closing, setClosing] = useState(false);
@@ -2018,7 +2025,7 @@ function CreateDocumentModal({ workspaceId, projectId, color, onClose, onCreated
     if (!name) { setError('El título del documento es obligatorio'); return; }
     setLoading(true);
     try {
-      const doc = await createDocument(workspaceId, { title: name, projectId });
+      const doc = await createDocument(workspaceId, { title: name, description: description.trim(), projectId });
       onCreated(doc);
     } catch (e: any) { setError(e?.message || 'No se pudo crear el documento'); setLoading(false); }
   };
@@ -2041,9 +2048,15 @@ function CreateDocumentModal({ workspaceId, projectId, color, onClose, onCreated
         <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '13px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <label style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.07em', color: C.text4, textTransform: 'uppercase' }}>Título *</label>
-            <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} placeholder="Ej. Especificación técnica"
+            <input autoFocus value={title} maxLength={180} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} placeholder="Ej. Especificación técnica"
               style={{ width: '100%', padding: '9px 11px', borderRadius: '7px', fontSize: '13px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, outline: 'none', boxSizing: 'border-box' as const }} />
+            <small style={{ textAlign: 'right', color: C.text4 }}>{title.length}/180</small>
           </div>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: C.text3, fontSize: 11 }}>
+            Descripción (opcional)
+            <textarea value={description} maxLength={300} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="¿De qué trata este documento?" style={{ padding: '9px 11px', borderRadius: 7, background: C.bg2, border: `1px solid ${C.border2}`, color: C.text, resize: 'vertical' }} />
+            <small style={{ textAlign: 'right', color: C.text4 }}>{description.length}/300</small>
+          </label>
           {error && <p style={{ margin: 0, fontSize: '11.5px', color: C.red }}>{error}</p>}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '12px 18px', borderTop: `1px solid ${C.border}` }}>

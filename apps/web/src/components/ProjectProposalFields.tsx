@@ -96,7 +96,7 @@ export function ProjectProposalFields({
                 type="text"
                 required
                 minLength={3}
-                maxLength={255}
+                maxLength={120}
                 value={values[field.key]}
                 onChange={(event) => onChange(field.key, event.target.value)}
                 placeholder={field.placeholder}
@@ -107,7 +107,7 @@ export function ProjectProposalFields({
                 id={fieldId}
                 required
                 minLength={2}
-                maxLength={8000}
+                maxLength={field.key === 'summary' ? 1000 : 8000}
                 rows={field.key === 'summary' ? 3 : 4}
                 value={values[field.key]}
                 onChange={(event) => onChange(field.key, event.target.value)}
@@ -115,6 +115,7 @@ export function ProjectProposalFields({
                 style={textareaStyle(accent)}
               />
             )}
+            {field.type !== 'number' && <small style={{ justifySelf: 'end', color: '#969184', fontSize: 11 }}>{values[field.key].length}/{field.key === 'title' ? 120 : field.key === 'summary' ? 1000 : 8000}</small>}
           </label>
         );
       })}

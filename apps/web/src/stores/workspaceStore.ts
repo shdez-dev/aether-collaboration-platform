@@ -320,11 +320,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const response = await apiService.delete(`/api/workspaces/${id}`, true);
 
           if (!response.success) {
-            set({
-              error: response.error?.message || 'Failed to delete workspace',
-              isLoading: false,
-            });
-            return;
+            throw new Error(response.error?.message || 'No se pudo eliminar el espacio de trabajo.');
           }
 
           // Remover de la lista local
@@ -341,9 +337,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           }));
         } catch (error) {
           set({
-            error: 'Error al eliminar workspace',
+            error: error instanceof Error ? error.message : 'Error al eliminar el espacio de trabajo',
             isLoading: false,
           });
+          throw error;
         }
       },
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, ChevronDown, FolderKanban, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FolderKanban, Plus, X } from 'lucide-react';
+import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import { ProjectProposalFields, EMPTY_PROJECT_PROPOSAL, PROPOSAL_STEPS, type ProjectProposalAnswers, type ProposalStep } from '@/components/ProjectProposalFields';
 import { useT } from '@/lib/i18n';
@@ -160,15 +161,9 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
               {step === 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <label htmlFor="create-project-workspace" style={{ display: 'block', marginBottom: 8, color: 'var(--c-text2)', fontSize: 12, fontWeight: 700, fontFamily: MANROPE }}>Espacio de trabajo <span style={{ color: PROJECT_COLOR }}>*</span></label>
+                  <label style={{ display: 'block', marginBottom: 8, color: 'var(--c-text2)', fontSize: 12, fontWeight: 700, fontFamily: MANROPE }}>Espacio de trabajo <span style={{ color: PROJECT_COLOR }}>*</span></label>
                   {projectWorkspaces.length > 1 ? (
-                    <div style={{ position: 'relative' }}>
-                      <select id="create-project-workspace" required value={selectedWorkspaceId} onChange={(event) => { setSelectedWorkspaceId(event.target.value); if (error) setError(''); }} className="create-project-input" style={{ width: '100%', height: 46, boxSizing: 'border-box', appearance: 'none', padding: '0 42px 0 13px', borderRadius: 9, background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.1)', color: 'var(--c-text)', colorScheme: 'light', fontSize: 13, fontFamily: MANROPE }}>
-                        <option value="" disabled>Selecciona dónde guardar el proyecto</option>
-                        {projectWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-                      </select>
-                      <ChevronDown size={16} aria-hidden="true" style={{ position: 'absolute', top: 15, right: 13, color: 'var(--c-text2)', pointerEvents: 'none' }} />
-                    </div>
+                    <div className="create-project-workspace-select"><ProjectOptionSelect label="Espacio de trabajo" placeholder="Selecciona dónde guardar el proyecto" value={selectedWorkspaceId} onChange={(value) => { setSelectedWorkspaceId(value); if (error) setError(''); }} menuZIndex={1000} options={projectWorkspaces.map((workspace) => ({ value: workspace.id, label: workspace.name }))} /></div>
                   ) : selectedWorkspace ? (
                     <div style={{ minHeight: 46, display: 'flex', alignItems: 'center', gap: 11, padding: '0 13px', borderRadius: 9, background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.08)' }}>
                       <span style={{ width: 27, height: 27, display: 'grid', placeItems: 'center', flexShrink: 0, borderRadius: 8, color: selectedWorkspace.color ?? PROJECT_COLOR, background: `${selectedWorkspace.color ?? PROJECT_COLOR}1A` }}><WorkspaceIcon icon={selectedWorkspace.icon ?? 'Folder'} style={{ width: 14, height: 14 }} /></span>

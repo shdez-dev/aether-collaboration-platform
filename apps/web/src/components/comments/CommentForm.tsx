@@ -85,12 +85,16 @@ export function CommentForm({
     : [];
 
   const insertMention = (member: MentionCandidate) => {
-    mentionIdsRef.current.set(member.id, member.name);
     const el = textareaRef.current;
     const cursorPos = el ? (el.selectionStart ?? mentionStart) : mentionStart;
     const before = content.slice(0, mentionStart);
     const after  = content.slice(cursorPos);
     const mention = `@[${member.name}] `;
+    if (before.length + mention.length + after.length > 2000) {
+      setSubmitError('El comentario no puede superar 2000 caracteres.');
+      return;
+    }
+    mentionIdsRef.current.set(member.id, member.name);
     setContent(before + mention + after);
     setMentionQuery(null);
     setTimeout(() => {
@@ -126,6 +130,7 @@ export function CommentForm({
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!content.trim() || isSubmitting || isLoading) return;
+    if (content.length > 2000) { setSubmitError('El comentario no puede superar 2000 caracteres.'); return; }
     setIsSubmitting(true);
     const mentionIds = Array.from(mentionIdsRef.current.entries())
       .filter(([, name]) => content.includes(`@[${name}]`))
@@ -181,6 +186,7 @@ export function CommentForm({
             <textarea
               ref={textareaRef}
               value={content}
+              maxLength={2000}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               placeholder={resolvedPlaceholder}
@@ -195,6 +201,7 @@ export function CommentForm({
               }}
             />
           </div>
+          <div style={{ textAlign: 'right', fontSize: '10.5px', color: content.length > 2000 ? C.red : C.text4 }}>{content.length}/2000</div>
 
           {/* Mention dropdown */}
           {filtered.length > 0 && (
@@ -250,6 +257,7 @@ export function CommentForm({
               const el = textareaRef.current;
               const cursor = el?.selectionStart ?? content.length;
               const next = `${content.slice(0, cursor)}@${content.slice(cursor)}`;
+              if (next.length > 2000) return;
               setContent(next); setMentionStart(cursor); setMentionQuery('');
               setTimeout(() => { el?.focus(); el?.setSelectionRange(cursor + 1, cursor + 1); }, 0);
             }} style={{ padding: '1px 5px', borderRadius: 4, border: `1px solid ${C.border2}`, background: C.hover, color: C.text2, cursor: 'pointer', fontSize: 11 }}>@ Mencionar</button>{' '}
@@ -294,13 +302,13 @@ export function CommentForm({
           </button>
         )}
         <button
-          type="submit" disabled={isEmpty || loading}
+          type="submit" disabled={isEmpty || loading || content.length > 2000}
           style={{
             display: 'flex', alignItems: 'center', gap: '5px',
             padding: '9px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-            background: isEmpty || loading ? C.border2 : C.accent,
-            color: isEmpty || loading ? C.text4 : '#fff',
-            border: 'none', cursor: isEmpty || loading ? 'not-allowed' : 'pointer',
+            background: isEmpty || loading || content.length > 2000 ? C.border2 : C.accent,
+            color: isEmpty || loading || content.length > 2000 ? C.text4 : '#fff',
+            border: 'none', cursor: isEmpty || loading || content.length > 2000 ? 'not-allowed' : 'pointer',
             transition: 'background 0.12s',
           }}
         >

@@ -1637,6 +1637,8 @@ export default function CollaborativeEditor({
   const isJoinedRef = useRef(false);
   const [isDocumentReady, setIsDocumentReady] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [characterCount, setCharacterCount] = useState(0);
+  const [limitMessage, setLimitMessage] = useState('');
   const retryCountRef = useRef(0); // Ref en lugar de state para evitar re-renders y re-joins
   const initialSyncReceivedRef = useRef(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -1840,6 +1842,26 @@ export default function CollaborativeEditor({
       editable: canEdit,
       editorProps: {
         attributes: { class: 'focus:outline-none' },
+        handleTextInput(view, from, to, text) {
+          const current = view.state.doc.textBetween(0, view.state.doc.content.size, '\n').length;
+          const removed = view.state.doc.textBetween(from, to, '\n').length;
+          if (current - removed + text.length > 100_000 && current - removed + text.length > current) {
+            setLimitMessage('El documento admite hasta 100.000 caracteres.');
+            return true;
+          }
+          return false;
+        },
+        handlePaste(view, event) {
+          const text = event.clipboardData?.getData('text/plain') ?? '';
+          const current = view.state.doc.textBetween(0, view.state.doc.content.size, '\n').length;
+          const { from, to } = view.state.selection;
+          const removed = view.state.doc.textBetween(from, to, '\n').length;
+          if (current - removed + text.length > 100_000 && current - removed + text.length > current) {
+            setLimitMessage('El documento admite hasta 100.000 caracteres.');
+            return true;
+          }
+          return false;
+        },
         // Override Tab inside lists to sink/lift items
         handleKeyDown(view, event) {
           if (event.key === 'Tab') {
@@ -1852,6 +1874,24 @@ export default function CollaborativeEditor({
     },
     [] // Solo crear una vez, no recrear en cada render
   );
+
+  useEffect(() => {
+    if (!editor) return;
+    const updateCount = () => setCharacterCount(editor.getText().length);
+    updateCount();
+    editor.on('update', updateCount);
+    return () => { editor.off('update', updateCount); };
+  }, [editor]);
+
+  useEffect(() => {
+    const onLimit = (data: { documentId: string }) => {
+      if (data.documentId !== documentId) return;
+      setLimitMessage('Se alcanzó el límite del documento. Se recargará el último estado compartido.');
+      setTimeout(() => window.location.reload(), 1200);
+    };
+    socketService.on('document:text-limit', onLimit);
+    return () => { socketService.off('document:text-limit', onLimit); };
+  }, [documentId]);
 
   // Al abrir una referencia desde una card, llevar al lector al texto citado.
   useEffect(() => {
@@ -1897,7 +1937,8 @@ export default function CollaborativeEditor({
     enabled: canEdit && isDocumentReady,
     lastServerSnapshotRef,
     onSave: async (docId, state) => {
-      await saveYjsState(docId, state);
+      try { await saveYjsState(docId, state); setLimitMessage(''); }
+      catch (error) { setLimitMessage(error instanceof Error ? error.message : 'No se pudo guardar el documento'); throw error; }
     },
   });
 
@@ -2200,6 +2241,11 @@ export default function CollaborativeEditor({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
+
+      <div role={limitMessage ? 'alert' : undefined} style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '5px 16px', color: limitMessage || characterCount >= 80_000 ? C.amber : C.text4, fontSize: 11 }}>
+        {limitMessage || (characterCount >= 80_000 ? 'El documento se acerca al límite.' : '')}
+        <span>{characterCount.toLocaleString('es-CL')}/100.000</span>
+      </div>
 
       {/* Bubble menu — appears on text selection */}
       {canEdit && (

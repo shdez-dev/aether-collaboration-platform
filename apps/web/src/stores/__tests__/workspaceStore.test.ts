@@ -271,6 +271,15 @@ describe('WorkspaceStore', () => {
         expect(result.current.currentWorkspace).toBeNull();
       });
     });
+
+    it('does not treat a failed deletion as a deleted workspace', async () => {
+      mockApiService.delete.mockResolvedValue({ success: false, error: { code: 'FORBIDDEN', message: 'No tienes permiso' } });
+      const { result } = renderHook(() => useWorkspaceStore());
+      act(() => { useWorkspaceStore.setState({ workspaces: [mockWorkspace] }); });
+
+      await expect(result.current.deleteWorkspace('ws-1')).rejects.toThrow('No tienes permiso');
+      expect(result.current.workspaces).toEqual([mockWorkspace]);
+    });
   });
 
   describe('selectWorkspace', () => {

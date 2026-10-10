@@ -62,6 +62,13 @@ router.delete('/cards/:id', authenticateJWT, requireProjectBoundResourceAccess('
 
 // ==================== MIEMBROS DE CARD ====================
 
+router.get(
+  '/cards/:id/eligible-members',
+  authenticateJWT,
+  requireProjectBoundResourceAccess('READ', 'card'),
+  CardController.getEligibleMembers
+);
+
 // Asignar miembro a card
 // Middleware: checkWorkspaceMembership (resuelve workspace desde cardId)
 // Controller: Valida rol ADMIN/OWNER

@@ -9,6 +9,8 @@ const router = Router();
 router.use(authenticateJWT);
 
 router.get('/me',  (req, res) => calendarEventController.getMyEvents(req, res));
+router.get('/invitations', (req, res) => calendarEventController.getPendingInvitations(req, res));
+router.post('/:id/respond', (req, res) => calendarEventController.respondToInvitation(req, res));
 router.post('/',   (req, res) => calendarEventController.create(req, res));
 router.get('/:id', (req, res) => calendarEventController.getById(req, res));
 router.patch('/:id', (req, res) => calendarEventController.update(req, res));

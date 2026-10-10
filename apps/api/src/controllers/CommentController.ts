@@ -13,7 +13,7 @@ const createCommentSchema = z.object({
   content: z
     .string()
     .min(1, 'Content cannot be empty')
-    .max(5000, 'Content cannot exceed 5000 characters'),
+    .max(2000, 'Content cannot exceed 2000 characters'),
   mentions: z.array(z.string().uuid('Invalid user ID format')).optional().default([]),
   documentReference: z.object({
     documentId: z.string().uuid(),
@@ -31,7 +31,7 @@ const updateCommentSchema = z
     content: z
       .string()
       .min(1, 'Content cannot be empty')
-      .max(5000, 'Content cannot exceed 5000 characters')
+      .max(2000, 'Content cannot exceed 2000 characters')
       .optional(),
     mentions: z.array(z.string().uuid('Invalid user ID format')).optional(),
     documentReference: z.object({

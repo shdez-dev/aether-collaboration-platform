@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DashboardLayout from './layout';
+import { apiService } from '@/services/apiService';
 
 const router = { push: jest.fn(), replace: jest.fn() };
+let mockPathname = '/dashboard/projects/project-1';
 const fetchWorkspaces = jest.fn().mockResolvedValue(undefined);
 const loadPreferences = jest.fn();
 const workspaceState = {
@@ -10,7 +12,7 @@ const workspaceState = {
   error: null,
 };
 const activeWorkspaceState = {
-  activeWorkspaceId: 'workspace-1',
+  activeWorkspaceId: 'workspace-1' as string | null,
   setActiveWorkspaceId: jest.fn(),
   fetchSidebarBoards: jest.fn(),
   fetchSidebarProjects: jest.fn(),
@@ -21,7 +23,7 @@ const activeWorkspaceState = {
   addSidebarProject: jest.fn(),
 };
 
-jest.mock('next/navigation', () => ({ usePathname: () => '/dashboard/projects/project-1', useRouter: () => router }));
+jest.mock('next/navigation', () => ({ usePathname: () => mockPathname, useRouter: () => router }));
 jest.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ user: { id: 'user-1', name: 'Sebastian Hernandez' }, logout: jest.fn() }) }));
 jest.mock('@/stores/workspaceStore', () => ({ useWorkspaceStore: () => workspaceState }));
 jest.mock('@/stores/activeWorkspaceStore', () => ({ useActiveWorkspaceStore: () => activeWorkspaceState }));
@@ -51,6 +53,10 @@ describe('sidebar compacto', () => {
   beforeEach(() => {
     window.localStorage.clear();
     jest.clearAllMocks();
+    mockPathname = '/dashboard/projects/project-1';
+    workspaceState.workspaces = [{ id: 'workspace-1', mode: 'TEAM', organization: { type: 'COMPANY' } }];
+    activeWorkspaceState.activeWorkspaceId = 'workspace-1';
+    (apiService.get as jest.Mock).mockResolvedValue({ success: true, data: { platformAdmin: false, organizations: [] } });
   });
 
   it('minimiza, conserva accesos por icono y recuerda la preferencia', async () => {
@@ -67,5 +73,54 @@ describe('sidebar compacto', () => {
     unmount();
     render(<DashboardLayout><div>Contenido</div></DashboardLayout>);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toBeTruthy());
+  });
+
+  it('mantiene el dashboard y limita la navegación si la organización no tiene espacios', async () => {
+    mockPathname = '/dashboard';
+    workspaceState.workspaces = [];
+    activeWorkspaceState.activeWorkspaceId = null;
+    (apiService.get as jest.Mock).mockImplementation((path: string) => Promise.resolve({ success: true, data: path === '/api/organizations'
+      ? { organizations: [{ id: 'organization-1', name: 'Aether', type: 'COMPANY', role: 'OWNER', workspaceCount: 0 }] }
+      : { platformAdmin: false } }));
+
+    render(<DashboardLayout><div>Inicio habitual</div></DashboardLayout>);
+
+    await waitFor(() => expect(screen.getByText('Todavía no hay espacios de trabajo')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Crear espacio de trabajo' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Organización' }).getAttribute('href')).toContain('organizationId=organization-1');
+    expect(screen.getByRole('link', { name: 'Notificaciones' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Contactos' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Documentos' })).toBeNull();
+    expect(screen.queryByText('+ Nuevo proyecto')).toBeNull();
+    expect(screen.queryByText('Inicio habitual')).toBeNull();
+  });
+
+  it('muestra espera sin opción de crear a un miembro de una organización vacía', async () => {
+    mockPathname = '/dashboard';
+    workspaceState.workspaces = [];
+    activeWorkspaceState.activeWorkspaceId = null;
+    (apiService.get as jest.Mock).mockImplementation((path: string) => Promise.resolve({ success: true, data: path === '/api/organizations'
+      ? { organizations: [{ id: 'organization-1', name: 'Aether', type: 'COMPANY', role: 'MEMBER', workspaceCount: 0 }] }
+      : { platformAdmin: false } }));
+
+    render(<DashboardLayout><div>Inicio habitual</div></DashboardLayout>);
+
+    await waitFor(() => expect(screen.getByText(/cuando un administrador cree un espacio/i)).toBeTruthy());
+    expect(screen.queryByRole('button', { name: 'Crear espacio de trabajo' })).toBeNull();
+  });
+
+  it('distingue una organización con espacios sin acceso de una organización vacía', async () => {
+    mockPathname = '/dashboard';
+    workspaceState.workspaces = [];
+    activeWorkspaceState.activeWorkspaceId = null;
+    (apiService.get as jest.Mock).mockImplementation((path: string) => Promise.resolve({ success: true, data: path === '/api/organizations'
+      ? { organizations: [{ id: 'organization-1', name: 'Aether', type: 'COMPANY', role: 'MEMBER', workspaceCount: 2 }] }
+      : { platformAdmin: false } }));
+
+    render(<DashboardLayout><div>Inicio habitual</div></DashboardLayout>);
+
+    await waitFor(() => expect(screen.getByText('Aún no tienes acceso a un espacio')).toBeTruthy());
+    expect(screen.queryByText('Todavía no hay espacios de trabajo')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Crear espacio de trabajo' })).toBeNull();
   });
 });

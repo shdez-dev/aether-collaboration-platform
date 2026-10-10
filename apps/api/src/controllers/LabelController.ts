@@ -10,7 +10,7 @@ import { z } from 'zod';
  * Schema para crear un label
  */
 const createLabelSchema = z.object({
-  name: z.string().min(1).max(50),
+  name: z.string().min(1).max(30),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex color'),
 });
 
@@ -18,7 +18,7 @@ const createLabelSchema = z.object({
  * Schema para actualizar un label
  */
 const updateLabelSchema = z.object({
-  name: z.string().min(1).max(50).optional(),
+  name: z.string().min(1).max(30).optional(),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex color')

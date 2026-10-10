@@ -11,6 +11,10 @@ export interface CalendarAttendee {
   avatar: string | null;
 }
 
+export interface CalendarInvitee extends CalendarAttendee {
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+}
+
 export interface CalendarEvent {
   id:          string;
   title:       string;
@@ -26,6 +30,7 @@ export interface CalendarEvent {
   createdAt:   string;
   updatedAt:   string;
   attendees:   CalendarAttendee[];
+  invitees:    CalendarInvitee[];
 }
 
 export interface CreateEventInput {
@@ -38,6 +43,7 @@ export interface CreateEventInput {
   type:         'personal' | 'workspace' | 'team';
   workspaceId?: string;
   teamId?:      string;
+  inviteeIds?:  string[];
 }
 
 export interface UpdateEventInput {
@@ -94,8 +100,10 @@ export const useCalendarEventStore = create<CalendarEventState>((set, get) => ({
         set(state => ({ events: [...state.events, res.data!.event] }));
         return res.data.event;
       }
+      set({ error: res.error?.message ?? 'No se pudo crear el evento' });
       return null;
     } catch {
+      set({ error: 'No se pudo crear el evento' });
       return null;
     }
   },

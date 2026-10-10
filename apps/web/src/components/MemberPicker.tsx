@@ -14,7 +14,6 @@ interface Member {
 }
 
 interface MemberPickerProps {
-  workspaceId: string;
   cardId: string;
   assignedMembers: Member[];
   onMemberAssigned: (member: Member) => void;
@@ -28,30 +27,24 @@ function hashColor(str: string) {
   return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
 }
 
-export function MemberPicker({ workspaceId, cardId, assignedMembers, onMemberAssigned, onMemberRemoved }: MemberPickerProps) {
+export function MemberPicker({ cardId, assignedMembers, onMemberAssigned, onMemberRemoved }: MemberPickerProps) {
   const t = es;
-  const [workspaceMembers, setWorkspaceMembers] = useState<Member[]>([]);
+  const [eligibleMembers, setEligibleMembers] = useState<Member[]>([]);
   const [isLoading,   setIsLoading]   = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const assignedMemberIds = useMemo(() => new Set(assignedMembers.map((m) => m.id)), [assignedMembers]);
 
   useEffect(() => {
-    if (workspaceMembers.length > 0) return;
     setIsLoading(true);
-    apiService.get<{ members: any[] }>(`/api/workspaces/${workspaceId}/members`, true)
+    apiService.get<{ members: Member[] }>(`/api/cards/${cardId}/eligible-members`, true)
       .then((res) => {
         if (!res.success) throw new Error('Error al obtener miembros');
-        const members = (res.data?.members || []).map((item: any) => {
-          if (item.name && item.email) return { id: item.id, name: item.name, email: item.email };
-          if (item.user) return { id: item.user.id || item.userId, name: item.user.name, email: item.user.email };
-          return item;
-        });
-        setWorkspaceMembers(members);
+        setEligibleMembers(res.data?.members || []);
       })
-      .catch(() => setWorkspaceMembers([]))
+      .catch(() => setEligibleMembers([]))
       .finally(() => setIsLoading(false));
-  }, [workspaceId]);
+  }, [cardId]);
 
   const handleAssign = useCallback(async (member: Member) => {
     if (assignedMemberIds.has(member.id)) return;
@@ -71,7 +64,7 @@ export function MemberPicker({ workspaceId, cardId, assignedMembers, onMemberAss
   }, [cardId, onMemberRemoved]);
 
   const { unassigned, assignedFiltered } = useMemo(() => {
-    const filtered = workspaceMembers.filter((m) => {
+    const filtered = eligibleMembers.filter((m) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return m?.name?.toLowerCase().includes(q) || m?.email?.toLowerCase().includes(q);
@@ -80,7 +73,7 @@ export function MemberPicker({ workspaceId, cardId, assignedMembers, onMemberAss
       unassigned:      filtered.filter((m) => !assignedMemberIds.has(m.id)),
       assignedFiltered: filtered.filter((m) =>  assignedMemberIds.has(m.id)),
     };
-  }, [workspaceMembers, searchQuery, assignedMemberIds]);
+  }, [eligibleMembers, searchQuery, assignedMemberIds]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -124,8 +117,8 @@ export function MemberPicker({ workspaceId, cardId, assignedMembers, onMemberAss
             <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: `2px solid ${C.accent}`, borderTopColor: 'transparent', animation: 'spin 0.6s linear infinite' }} />
             <span style={{ fontSize: '11px', color: C.text4 }}>Cargando...</span>
           </div>
-        ) : workspaceMembers.length === 0 ? (
-          <div style={{ padding: '14px 0', textAlign: 'center', fontSize: '12px', color: C.text4 }}>Sin miembros en el espacio de trabajo</div>
+        ) : eligibleMembers.length === 0 ? (
+          <div style={{ padding: '14px 0', textAlign: 'center', fontSize: '12px', color: C.text4 }}>Sin miembros disponibles para esta tarjeta</div>
         ) : unassigned.length === 0 && assignedFiltered.length === 0 ? (
           <div style={{ padding: '14px 0', textAlign: 'center', fontSize: '12px', color: C.text4 }}>{t.comments_mention_no_results}</div>
         ) : (
@@ -155,9 +148,9 @@ export function MemberPicker({ workspaceId, cardId, assignedMembers, onMemberAss
       </div>
 
       {/* Footer */}
-      {workspaceMembers.length > 0 && (
+      {eligibleMembers.length > 0 && (
         <div style={{ paddingTop: '6px', borderTop: `1px solid ${C.border}`, fontSize: '11px', color: C.text4, textAlign: 'right' }}>
-          {assignedMembers.length} de {workspaceMembers.length} asignados
+          {assignedMembers.length} de {eligibleMembers.length} asignados
         </div>
       )}
     </div>

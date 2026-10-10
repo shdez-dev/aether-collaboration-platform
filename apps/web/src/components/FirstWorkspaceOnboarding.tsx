@@ -117,6 +117,7 @@ export default function FirstWorkspaceOnboarding({
       setSelectedOrganization(organization);
       setWorkspaceName('');
       setStep('workspace');
+      window.dispatchEvent(new Event('aether:organizations-changed'));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'No fue posible crear la organización.');
     } finally {
@@ -142,6 +143,7 @@ export default function FirstWorkspaceOnboarding({
       const updatedOrganizations = await loadOrganizations();
       const joined = updatedOrganizations.find((organization) => organization.id === response.data?.organizationId);
       if (!joined) throw new Error('La invitación se aceptó, pero no pudimos cargar la organización. Actualiza e inténtalo de nuevo.');
+      window.dispatchEvent(new Event('aether:organizations-changed'));
       if (joined.role === 'OWNER' || joined.role === 'ADMIN') {
         setSelectedOrganization(joined);
         setStep('workspace');

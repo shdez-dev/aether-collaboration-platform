@@ -27,4 +27,13 @@ describe('CommentForm', () => {
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'No se pudo guardar');
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Mi comentario');
   });
+
+  it('no envía un comentario antiguo que exceda el nuevo límite', () => {
+    const onSubmit = jest.fn();
+    render(<CommentForm onSubmit={onSubmit} initialValue={'a'.repeat(2001)} isEditing mentionCandidates={candidates} />);
+
+    expect(screen.getByText('2001/2000')).toBeTruthy();
+    fireEvent.submit(screen.getByRole('textbox').closest('form')!);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });

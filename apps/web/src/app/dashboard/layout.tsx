@@ -26,6 +26,7 @@ import WorkspaceContextSwitcher from '@/components/WorkspaceContextSwitcher';
 import CreateBoardModal from '@/components/CreateBoardModal';
 import CreateProjectModal from '@/components/CreateProjectModal';
 import FirstWorkspaceOnboarding from '@/components/FirstWorkspaceOnboarding';
+import OrganizationEmptyState from '@/components/OrganizationEmptyState';
 import { socketService } from '@/services/socketService';
 import { apiService } from '@/services/apiService';
 import ChatDock from '@/components/chat/ChatDock';
@@ -34,6 +35,7 @@ import { BellRing, FolderKanban, PanelLeftClose, PanelLeftOpen, Settings } from 
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 const SIDEBAR_W = 256;
+type OrganizationContext = { id: string; name: string; type: string; role?: string; workspaceCount?: number };
 
 function getInitials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -41,23 +43,24 @@ function getInitials(name: string) {
 
 // ── Nav item ────────────────────────────────────────────────────────────────────
 
-function NavItem({ href, label, icon, active, badge, onClick }: {
+function NavItem({ href, label, icon, active, badge, onClick, disabledReason }: {
   href?: string; label: string; icon: React.ReactNode;
-  active?: boolean; badge?: number; onClick?: () => void;
+  active?: boolean; badge?: number; onClick?: () => void; disabledReason?: string;
 }) {
   const style: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: '10px',
-    padding: '9px 11px', borderRadius: '8px', cursor: 'pointer',
+    padding: '9px 11px', borderRadius: '8px', cursor: disabledReason ? 'not-allowed' : 'pointer',
     background: active ? 'rgba(116,82,166,0.1)' : 'transparent',
     color: active ? '#7452A6' : 'var(--c-text2)',
     fontSize: '14px', fontFamily: MANROPE,
     textDecoration: 'none',
+    opacity: disabledReason ? .48 : 1,
   };
 
   const inner = (
-    <div role="button" className="dsh-nav-item" style={style} title={label} aria-label={label}
-      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; } }}
-      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; } }}
+    <div role={disabledReason ? undefined : 'button'} className="dsh-nav-item" style={style} title={disabledReason ?? label} aria-label={label}
+      onMouseEnter={e => { if (!active && !disabledReason) { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text)'; } }}
+      onMouseLeave={e => { if (!active && !disabledReason) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--c-text2)'; } }}
     >
       <span className="dsh-nav-icon" style={{ display: 'flex', flexShrink: 0, color: active ? '#7452A6' : 'var(--c-text2)' }}>{icon}</span>
       <span className="dsh-nav-label" style={{ flex: 1 }}>{label}</span>
@@ -74,6 +77,7 @@ function NavItem({ href, label, icon, active, badge, onClick }: {
     </div>
   );
 
+  if (disabledReason) return <div aria-disabled="true" title={disabledReason}>{inner}</div>;
   if (href) return <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>{inner}</Link>;
   return <div onClick={onClick} style={{ display: 'block' }}>{inner}</div>;
 }
@@ -83,6 +87,7 @@ function NavItem({ href, label, icon, active, badge, onClick }: {
 function Sidebar({
   pathname, router, user, workspaces, userAvatarUrl,
   onLogout, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onCreateOrganization,
+  activeOrganizationId, activeOrganization, onSelectOrganization, workspaceUnavailable,
   onEditWorkspace, onRefreshWorkspaces, onCreateBoard, onCreateProject, sidebarProjects, projectsLoading,
   compact, onToggleCompact,
 }: {
@@ -90,6 +95,8 @@ function Sidebar({
   user: any; workspaces: any[]; userAvatarUrl: string | null;
   onLogout: () => void;
   activeWorkspaceId: string | null; onSelectWorkspace: (id: string) => void;
+  activeOrganizationId: string | null; activeOrganization: OrganizationContext | null;
+  onSelectOrganization: (id: string) => void; workspaceUnavailable: boolean;
   onCreateWorkspace: (organizationId?: string) => void; onCreateOrganization: () => void; onEditWorkspace: (ws: any) => void;
   onRefreshWorkspaces: () => Promise<void>;
   onCreateBoard: () => void; onCreateProject: () => void;
@@ -114,10 +121,6 @@ function Sidebar({
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...ic(17)}><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>,
     },
     {
-      label: 'Para hoy', href: '/dashboard/today', active: pathname === '/dashboard/today',
-      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" {...ic(17)}><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-    },
-    {
       label: 'Calendario', href: '/dashboard/calendar', active: !!pathname?.startsWith('/dashboard/calendar'),
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" {...ic(17)}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9h17M8 3.5v3M16 3.5v3" strokeLinecap="round"/></svg>,
     },
@@ -129,6 +132,7 @@ function Sidebar({
     {
       label: 'Documentos',
       href: '/dashboard/documents',
+      disabledReason: workspaceUnavailable ? 'Necesitas acceso a un espacio de trabajo' : undefined,
       active: !!pathname?.startsWith('/dashboard/documents'),
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" {...ic(17)}><path d="M6 3h8l4 4v14H6V3Z"/><path d="M13 3v5h5M9 13h6M9 16.5h6" strokeLinecap="round"/></svg>,
     },
@@ -141,8 +145,7 @@ function Sidebar({
   ];
 
   const activeProjects = sidebarProjects.filter(p => p.status !== 'ARCHIVED' && p.status !== 'COMPLETED').slice(0, 6);
-  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
-  const isPersonalWorkspace = activeWorkspace?.mode === 'PERSONAL';
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId && workspace.organizationId === activeOrganizationId);
   const isInstitutionalWorkspace = activeWorkspace?.organization?.type === 'INSTITUTION';
   // This is only a navigation affordance. Portfolio endpoints still enforce
   // organization capability and portfolio membership on every request.
@@ -185,7 +188,10 @@ function Sidebar({
       <WorkspaceContextSwitcher
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
+        activeOrganizationId={activeOrganizationId}
+        activeOrganization={activeOrganization}
         onSelect={onSelectWorkspace}
+        onSelectOrganization={onSelectOrganization}
         onCreateNew={onCreateWorkspace}
         onNewOrganization={onCreateOrganization}
         onEdit={onEditWorkspace}
@@ -195,9 +201,7 @@ function Sidebar({
 
       {/* Main nav */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        {mainNav
-          .filter(item => !(isPersonalWorkspace && item.href === '/dashboard/today'))
-          .map(item => (
+        {mainNav.map(item => (
           <NavItem
             key={item.href ?? item.label}
             href={item.href}
@@ -205,12 +209,13 @@ function Sidebar({
             icon={item.icon}
             active={item.active}
             badge={(item as any).badge}
+            disabledReason={'disabledReason' in item ? item.disabledReason : undefined}
           />
           ))}
       </nav>
 
       {/* Proyectos section */}
-      <div className="dsh-projects-expanded">
+      {workspaceUnavailable ? <div className="dsh-projects-expanded" style={{ margin: '21px 11px 11px', color: 'var(--c-text4)', font: `600 11px ${SORA}`, letterSpacing: '.1em' }} title="Necesitas acceso a un espacio de trabajo">PROYECTOS · SIN ESPACIO</div> : <div className="dsh-projects-expanded">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '20px 11px 8px' }}>
         <Link
           href="/dashboard/projects"
@@ -262,8 +267,8 @@ function Sidebar({
           );
         })}
       </nav>
-      </div>
-      <nav className="dsh-projects-compact" aria-label="Proyectos">
+      </div>}
+      {!workspaceUnavailable && <nav className="dsh-projects-compact" aria-label="Proyectos">
         <Link href="/dashboard/projects" className={`dsh-compact-icon${pathname?.startsWith('/dashboard/projects') ? ' is-active' : ''}`}
           title="Proyectos" aria-label="Proyectos">
           <FolderKanban size={18} />
@@ -275,13 +280,14 @@ function Sidebar({
             <FolderKanban size={17} style={{ color: project.color ?? 'var(--c-accent-text)' }} />
           </Link>
         ))}
-      </nav>
+      </nav>}
 
       {/* Equipo */}
       <div style={{ marginTop: '8px' }}>
         <NavItem
           href="/dashboard/teams"
           label="Equipo"
+          disabledReason={workspaceUnavailable ? 'Necesitas acceso a un espacio de trabajo' : undefined}
           active={!!pathname?.startsWith('/dashboard/teams')}
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" strokeLinecap="round"/><path d="M16 6a3 3 0 0 1 0 6M18.5 19a5.5 5.5 0 0 0-3-4.9" strokeLinecap="round"/></svg>}
         />
@@ -289,7 +295,7 @@ function Sidebar({
 
       <div style={{ marginTop: '3px' }}>
         <NavItem
-          href="/dashboard/organizations"
+          href={activeOrganizationId ? `/dashboard/organizations?organizationId=${encodeURIComponent(activeOrganizationId)}` : '/dashboard/organizations'}
           label="Organización"
           active={!!pathname?.startsWith('/dashboard/organizations')}
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><path d="M4 21V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v15M2 21h20M8 8h2m4 0h2M8 12h2m4 0h2M10 21v-4h4v4" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 4V2h6v2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -462,6 +468,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCompact, setSidebarCompact] = useState(false);
   const [workspaceBootstrapLoaded, setWorkspaceBootstrapLoaded] = useState(false);
+  const [organizations, setOrganizations] = useState<OrganizationContext[]>([]);
+  const [organizationsLoaded, setOrganizationsLoaded] = useState(false);
+  const [organizationsError, setOrganizationsError] = useState('');
+  const [activeOrganizationId, setActiveOrganizationId] = useState<string | null>(null);
 
   const userAvatarUrl = getAvatarUrl(user?.avatar ?? null);
 
@@ -498,11 +508,61 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => { active = false; };
   }, [fetchWorkspaces]);
 
-  const needsFirstWorkspace = workspaceBootstrapLoaded && !workspaceError && !workspaces.some((workspace) => !workspace.archived);
+  const refreshOrganizations = useCallback(async () => {
+    try {
+      const response = await apiService.get<{ organizations: OrganizationContext[] }>('/api/organizations', true);
+      if (!response.success || !response.data) throw new Error(response.error?.message ?? 'No se pudieron cargar las organizaciones.');
+      setOrganizations(response.data.organizations ?? []);
+      setOrganizationsError('');
+    } catch (error) {
+      setOrganizationsError(error instanceof Error ? error.message : 'No se pudieron cargar las organizaciones.');
+    } finally {
+      setOrganizationsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => { void refreshOrganizations(); }, [refreshOrganizations, user?.id]);
+  useEffect(() => {
+    const refresh = () => { void refreshOrganizations(); void fetchWorkspaces(); };
+    window.addEventListener('aether:organizations-changed', refresh);
+    return () => window.removeEventListener('aether:organizations-changed', refresh);
+  }, [refreshOrganizations, fetchWorkspaces]);
 
   useEffect(() => {
-    if (workspaces.length > 0 && !activeWorkspaceId) setActiveWorkspaceId(workspaces[0].id);
-  }, [workspaces, activeWorkspaceId, setActiveWorkspaceId]);
+    if (!organizationsLoaded || organizations.length === 0) return;
+    if (activeOrganizationId && organizations.some((organization) => organization.id === activeOrganizationId)) return;
+    let storedId: string | null = null;
+    try { storedId = window.localStorage.getItem(`aether:active-org:${user?.id ?? ''}`); } catch { /* Storage can be unavailable. */ }
+    const preferred = organizations.find((organization) => organization.id === storedId)
+      ?? organizations.find((organization) => workspaces.some((workspace) => workspace.id === activeWorkspaceId && workspace.organizationId === organization.id))
+      ?? organizations.find((organization) => organization.type !== 'PERSONAL')
+      ?? organizations[0];
+    setActiveOrganizationId(preferred.id);
+  }, [organizationsLoaded, organizations, activeOrganizationId, activeWorkspaceId, workspaces, user?.id]);
+
+  useEffect(() => {
+    if (!activeOrganizationId || !workspaceBootstrapLoaded) return;
+    try { window.localStorage.setItem(`aether:active-org:${user?.id ?? ''}`, activeOrganizationId); } catch { /* Storage can be unavailable. */ }
+    const selectedWorkspace = workspaces.find((workspace) => !workspace.archived && workspace.id === activeWorkspaceId);
+    if (selectedWorkspace && selectedWorkspace.organizationId !== activeOrganizationId) {
+      setActiveOrganizationId(selectedWorkspace.organizationId);
+      return;
+    }
+    const matching = workspaces.filter((workspace) => !workspace.archived && workspace.organizationId === activeOrganizationId);
+    if (!matching.some((workspace) => workspace.id === activeWorkspaceId)) setActiveWorkspaceId(matching[0]?.id ?? null);
+  }, [activeOrganizationId, activeWorkspaceId, setActiveWorkspaceId, workspaceBootstrapLoaded, workspaces, user?.id]);
+
+  const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId) ?? null;
+  const activeWorkspace = workspaces.find((workspace) => !workspace.archived && workspace.id === activeWorkspaceId && workspace.organizationId === activeOrganizationId);
+  const workspaceUnavailable = workspaceBootstrapLoaded && !!activeOrganization && !activeWorkspace;
+  const resolvingFirstContext = workspaceBootstrapLoaded && !workspaces.some((workspace) => !workspace.archived)
+    && (!organizationsLoaded || (organizations.length > 0 && !activeOrganizationId));
+  const needsFirstWorkspace = workspaceBootstrapLoaded && organizationsLoaded && !workspaceError && !organizationsError
+    && !workspaces.some((workspace) => !workspace.archived) && organizations.length === 0;
+
+  useEffect(() => {
+    if (!activeOrganizationId && workspaces.length > 0 && !activeWorkspaceId && !organizationsLoaded) setActiveWorkspaceId(workspaces[0].id);
+  }, [workspaces, activeWorkspaceId, activeOrganizationId, organizationsLoaded, setActiveWorkspaceId]);
 
   useEffect(() => {
     const match = pathname?.match(/\/dashboard\/workspaces\/([^\/\?]+)/);
@@ -537,33 +597,57 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const handleSelectWorkspace = useCallback((id: string) => {
     setActiveWorkspaceId(id);
+    const workspace = workspaces.find((item) => item.id === id);
+    if (workspace) setActiveOrganizationId(workspace.organizationId);
     router.push('/dashboard');
-  }, [setActiveWorkspaceId, router]);
+  }, [setActiveWorkspaceId, router, workspaces]);
+
+  const handleSelectOrganization = useCallback((id: string) => {
+    setActiveOrganizationId(id);
+    const workspace = workspaces.find((item) => !item.archived && item.organizationId === id);
+    setActiveWorkspaceId(workspace?.id ?? null);
+    router.push('/dashboard');
+  }, [setActiveWorkspaceId, router, workspaces]);
+
+  useEffect(() => {
+    const select = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      if (!id) return;
+      setActiveOrganizationId(id);
+      const workspace = workspaces.find((item) => !item.archived && item.organizationId === id);
+      setActiveWorkspaceId(workspace?.id ?? null);
+    };
+    window.addEventListener('aether:select-organization', select);
+    return () => window.removeEventListener('aether:select-organization', select);
+  }, [setActiveWorkspaceId, workspaces]);
 
   const handleLogout = async () => { await logout(); router.push('/login'); };
 
   const handleWorkspaceDeleted = useCallback((deletedId: string) => {
     setEditingWorkspace(null);
-    const remaining = workspaces.filter(w => w.id !== deletedId && !w.archived);
-    if (remaining.length > 0) {
-      setActiveWorkspaceId(remaining[0].id);
-    }
+    const remaining = workspaces.filter(w => w.id !== deletedId && !w.archived && w.organizationId === activeOrganizationId);
+    setActiveWorkspaceId(remaining[0]?.id ?? null);
     router.push('/dashboard');
-    fetchWorkspaces();
-  }, [workspaces, setActiveWorkspaceId, router, fetchWorkspaces]);
+    void fetchWorkspaces();
+    void refreshOrganizations();
+  }, [workspaces, activeOrganizationId, setActiveWorkspaceId, router, fetchWorkspaces, refreshOrganizations]);
 
   const sidebarProps = {
     pathname, router, user, workspaces, userAvatarUrl,
     onLogout: handleLogout,
     activeWorkspaceId,
+    activeOrganizationId,
+    activeOrganization,
+    workspaceUnavailable,
     onSelectWorkspace: handleSelectWorkspace,
+    onSelectOrganization: handleSelectOrganization,
     onCreateWorkspace: (organizationId?: string) => {
       setPendingWorkspaceOrganizationId(organizationId);
       setCreateWsOpen(true);
     },
     onCreateOrganization: () => setCreateOrganizationOpen(true),
     onEditWorkspace: (ws: any) => setEditingWorkspace(ws),
-    onRefreshWorkspaces: () => fetchWorkspaces(),
+    onRefreshWorkspaces: async () => { await Promise.all([fetchWorkspaces(), refreshOrganizations()]); },
     onCreateBoard: () => setCreateBoardOpen(true),
     onCreateProject: () => setCreateProjectOpen(true),
     sidebarBoards, sidebarProjects, boardsLoading, projectsLoading,
@@ -574,7 +658,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <ProtectedRoute>
       <SocketProvider>
-        {needsFirstWorkspace ? (
+        {resolvingFirstContext ? (
+          <main role="status" style={{ display: 'grid', placeItems: 'center', minHeight: '100dvh', background: 'var(--c-bg)', color: 'var(--c-text3)', fontFamily: MANROPE }}>
+            Cargando tu organización…
+          </main>
+        ) : needsFirstWorkspace ? (
           <FirstWorkspaceOnboarding onWorkspaceCreated={(workspaceId) => {
             setActiveWorkspaceId(workspaceId);
             router.replace('/dashboard');
@@ -601,7 +689,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Topbar móvil — oculto en desktop por CSS */}
             <MobileTopbar onMenuClick={() => setSidebarOpen(v => !v)} />
 
-            {children}
+            {workspaceUnavailable && (pathname === '/dashboard' || /^\/dashboard\/(?:projects|documents|teams|boards|workspaces|portfolios|initiatives)(?:\/|$)/.test(pathname ?? ''))
+              ? <OrganizationEmptyState
+                  organization={activeOrganization}
+                  onCreateWorkspace={() => { setPendingWorkspaceOrganizationId(activeOrganization.id); setCreateWsOpen(true); }}
+                  onRefresh={() => { void Promise.all([fetchWorkspaces(), refreshOrganizations()]); }}
+                />
+              : organizationsLoaded && organizationsError && !workspaces.some((workspace) => !workspace.archived) && pathname === '/dashboard'
+                ? <div style={{ margin: 'auto', padding: 32, textAlign: 'center' }} role="alert">No pudimos cargar tus organizaciones. <button type="button" onClick={() => void refreshOrganizations()}>Reintentar</button></div>
+                : children}
           </main>
         </div>
 
@@ -620,7 +716,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             setPendingWorkspaceOrganizationId(undefined);
           }}
           onCreated={(workspace) => {
+            setActiveOrganizationId(workspace.organizationId);
             setActiveWorkspaceId(workspace.id);
+            void refreshOrganizations();
             router.push('/dashboard');
           }}
         />
@@ -630,8 +728,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           onClose={() => setCreateOrganizationOpen(false)}
           onCreated={(organization) => {
             setCreateOrganizationOpen(false);
-            setPendingWorkspaceOrganizationId(organization.id);
-            setCreateWsOpen(true);
+            setOrganizations((current) => current.some((item) => item.id === organization.id) ? current : [...current, organization]);
+            setActiveOrganizationId(organization.id);
+            setActiveWorkspaceId(null);
+            void refreshOrganizations();
+            router.push('/dashboard');
           }}
         />
 

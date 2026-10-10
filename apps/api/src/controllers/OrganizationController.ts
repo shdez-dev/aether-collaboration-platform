@@ -20,6 +20,7 @@ const inviteOrganizationMemberSchema = z.object({
 });
 const updateOrganizationMemberSchema = z.object({ role: organizationMemberRoleSchema });
 const transferOwnershipSchema = z.object({ userId: z.string().uuid() });
+const deleteOrganizationSchema = z.object({ confirmationName: z.string().min(1).max(255) });
 
 function serviceError(res: Response, error: unknown, fallback: string) {
   if (error instanceof OrganizationServiceError) {
@@ -79,6 +80,19 @@ class OrganizationController {
       if (error instanceof OrganizationServiceError) return serviceError(res, error, 'Failed to update organization');
       const forbidden = error instanceof Error && error.message === 'Organization admin access required';
       return res.status(forbidden ? 403 : 500).json({ success: false, error: { code: forbidden ? 'FORBIDDEN' : 'INTERNAL_ERROR', message: forbidden ? 'Organization admin access required' : 'Failed to update organization' } });
+    }
+  }
+
+  async remove(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    const validation = deleteOrganizationSchema.safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Enter the organization name to confirm deletion', details: validation.error.errors } });
+    try {
+      await organizationService.deleteOrganization(req.params.id, userId, validation.data.confirmationName);
+      return res.status(204).send();
+    } catch (error) {
+      return serviceError(res, error, 'Failed to delete organization');
     }
   }
 

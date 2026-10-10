@@ -28,7 +28,7 @@ interface ActiveWorkspaceState {
   boardsLoading: boolean;
   projectsLoading: boolean;
 
-  setActiveWorkspaceId: (id: string) => void;
+  setActiveWorkspaceId: (id: string | null) => void;
   fetchSidebarBoards: (workspaceId: string) => Promise<void>;
   fetchSidebarProjects: (workspaceId: string) => Promise<void>;
   addSidebarBoard: (board: SidebarBoard) => void;
