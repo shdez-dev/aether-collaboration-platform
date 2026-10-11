@@ -1,199 +1,98 @@
-'use client';
-
 import Link from 'next/link';
+import { LegalDocument, type LegalSection } from '../LegalDocument';
+
+const sections: LegalSection[] = [
+  {
+    id: 'quien', title: 'Quién trata los datos y en qué contexto', content: <>
+      <p>AETHER necesita tratar datos para crear cuentas y permitir la colaboración durante un piloto gratuito por invitación. El operador es <strong>Juan Sebastian Hernandez Rincon</strong>, persona natural residente en Chile. Las consultas y solicitudes de privacidad pueden enviarse a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. El domicilio legal aún requiere confirmación antes de publicar esta política como definitiva.</p>
+      <p>El operador administra la cuenta y la infraestructura del servicio. Una organización que utiliza AETHER determina quién integra sus espacios, proyectos, equipos y recursos, y puede decidir qué información incorpora sobre otras personas. Según la ley aplicable y cada operación, la organización puede asumir responsabilidades propias sobre ese contenido; el detalle contractual entre ambas partes requiere revisión jurídica.</p>
+    </>,
+  },
+  {
+    id: 'datos', title: 'Qué información recibe AETHER', content: <>
+      <ul>
+        <li><strong>Cuenta y perfil:</strong> nombre, correo, contraseña transformada mediante hash, avatar si se proporciona, datos de perfil, idioma, zona horaria y estado de verificación.</li>
+        <li><strong>Colaboración:</strong> organizaciones, membresías, roles, invitaciones, contactos, presencia, proyectos, iniciativas, equipos, tareas, comentarios, documentos, archivos, versiones, actividad y notificaciones.</li>
+        <li><strong>Comunicación y calendario:</strong> mensajes directos, lectura de mensajes, solicitudes de contacto, eventos, horarios, invitados y respuestas a invitaciones.</li>
+        <li><strong>Operación técnica:</strong> tokens y eventos de sesión, dirección IP y datos habituales de la solicitud, registros de error y seguridad, y datos necesarios para limitar abuso o solucionar incidencias.</li>
+        <li><strong>Integraciones opcionales:</strong> datos y eventos autorizados de GitHub, referencias de repositorios y, si se usa el planificador con IA, el contenido que se envíe para generar una propuesta.</li>
+      </ul>
+      <p>La versión actual no procesa pagos de usuarios. Por eso esta política no atribuye a AETHER una recogida de tarjetas o facturación que aún no existe. Tampoco afirma utilizar una plataforma de analítica o publicidad que no se haya identificado en el producto.</p>
+    </>,
+  },
+  {
+    id: 'origen', title: 'De dónde proceden los datos', content: <>
+      <p>Parte de la información la aporta directamente cada persona al registrarse o usar una función. El piloto está destinado a participantes invitados, aunque el formulario de registro todavía no exige una invitación. Otra información procede de administradores y colaboradores que envían invitaciones, asignan tareas, mencionan personas o comparten contenido. Los eventos de GitHub llegan solo si alguien autorizado conecta esa integración. La API y el navegador generan datos técnicos cuando se accede al servicio.</p>
+      <p>Quien incorpore datos de terceros, especialmente en documentos, contactos o eventos, debe contar con una razón legítima y respetar sus permisos y expectativas de privacidad.</p>
+    </>,
+  },
+  {
+    id: 'finalidades', title: 'Para qué se usa la información', content: <>
+      <ul>
+        <li>Crear y verificar cuentas, autenticar sesiones, recuperar acceso y proteger la plataforma.</li>
+        <li>Mostrar el trabajo a quienes tienen permisos, sincronizar documentos, enviar mensajes y gestionar invitaciones y eventos.</li>
+        <li>Enviar correos transaccionales de verificación, recuperación e invitación y notificaciones relacionadas con la colaboración.</li>
+        <li>Registrar actividad relevante, detectar fallos y abuso, atender solicitudes y cumplir obligaciones legales aplicables.</li>
+        <li>Procesar una solicitud de IA solo cuando la función esté habilitada y la persona la invoque.</li>
+      </ul>
+      <p>La justificación jurídica concreta de cada operación depende de la jurisdicción y del papel del operador y la organización. Puede incluir la prestación solicitada, obligaciones legales, intereses legítimos ponderados o un consentimiento separado cuando corresponda. Usar AETHER no equivale por sí solo a consentir cualquier tratamiento opcional ni comunicaciones comerciales. No se declara aquí una campaña de marketing activa.</p>
+    </>,
+  },
+  {
+    id: 'visibilidad', title: 'Quién puede ver cada contenido', content: <>
+      <p>Los perfiles y la presencia se muestran de acuerdo con las funciones de contactos y colaboración. Un mensaje directo se dirige a su conversación; una invitación personal de calendario se envía a los contactos elegidos aunque pertenezcan a organizaciones distintas. El contenido de una organización, espacio, proyecto o equipo se muestra conforme a sus membresías y permisos específicos. Un administrador no debería asumir acceso universal a todo proyecto o documento solo por pertenecer a la organización.</p>
+      <p>Quien comparte un archivo, comentario, documento, evento o enlace debe comprobar su audiencia. Quitar a alguien de un recurso limita accesos futuros, pero no puede recuperar copias que esa persona hubiera recibido legítimamente fuera del servicio.</p>
+    </>,
+  },
+  {
+    id: 'proveedores', title: 'Proveedores y comunicaciones a terceros', content: <>
+      <p>El código permite utilizar <strong>Brevo</strong> para correo transaccional; <strong>Cloudflare R2</strong> o almacenamiento local configurado para archivos; <strong>Groq</strong> para el planificador con IA cuando se habilita; y <strong>GitHub</strong> cuando una organización conecta repositorios. La infraestructura que hospeda la aplicación y la base de datos depende del despliegue y aún debe identificarse en la versión publicada de esta política.</p>
+      <p>Estos proveedores reciben solo la información necesaria para la función correspondiente, bajo sus condiciones y la configuración del operador. AETHER no debe vender datos personales ni compartir contenido con fines publicitarios sin una explicación y una base válida. Podría comunicar información ante una obligación legal válida o una solicitud de autoridad competente, con el alcance exigible.</p>
+    </>,
+  },
+  {
+    id: 'internacional', title: 'Ubicación y transferencias internacionales', content: <>
+      <p>La ubicación efectiva de la base de datos, copias de seguridad, almacenamiento y proveedores puede variar según el despliegue. Por ello no se afirma que todos los datos permanezcan en un país ni que ya existan salvaguardas contractuales concretas. Antes de la publicación definitiva debe documentarse dónde se aloja cada categoría, qué transferencias internacionales se realizan y qué garantías exige la ley aplicable.</p>
+    </>,
+  },
+  {
+    id: 'conservacion', title: 'Conservación y eliminación', content: <>
+      <p>Los <strong>mensajes directos vencen a los 30 días</strong>; un trabajo periódico elimina los mensajes caducados y puede retirar conversaciones antiguas que ya no contienen mensajes. Las cuentas y el contenido compartido se conservan mientras sean necesarios para prestar el servicio y gestionar los recursos que siguen activos, salvo una obligación o derecho que requiera otro tratamiento.</p>
+      <p>Documentos, actividad, notificaciones, registros técnicos, respaldos y archivos no tienen en el código una única regla comprobada de eliminación a 90 días o 12 meses. Sus plazos específicos y el ciclo de respaldos deben definirse antes de publicar esta política. Solicitar el cierre de una cuenta no implica borrar automáticamente aportes compartidos que otras personas o la organización deban conservar; cada caso se evaluará según permisos y derechos aplicables.</p>
+    </>,
+  },
+  {
+    id: 'seguridad', title: 'Seguridad y límites reales', content: <>
+      <p>El registro transforma las contraseñas mediante bcrypt; la API exige autenticación para las rutas protegidas y verifica permisos de recursos. Los tokens de sesión tienen mecanismos de expiración y renovación. Las conexiones HTTPS, los respaldos y el control de acceso a infraestructura dependen también del despliegue y deben verificarse operativamente. Ninguna medida elimina todo riesgo.</p>
+      <p>Si se detecta un incidente de seguridad que afecte datos personales, el operador deberá investigarlo, contenerlo y realizar las notificaciones exigidas por la ley aplicable. No se promete aquí un plazo o certificación que no estén definidos.</p>
+    </>,
+  },
+  {
+    id: 'navegador', title: 'Cookie, almacenamiento local y preferencias', content: <>
+      <p>La aplicación utiliza una cookie ligera llamada <strong>aether_session</strong> para que el middleware detecte una sesión iniciada. No contiene el token de acceso. El navegador guarda los tokens y algunos estados de la aplicación en <strong>localStorage</strong>, incluidos datos de autenticación, preferencias de tema, espacio activo y ciertos estados de interfaz. Estos datos pueden persistir hasta el cierre de sesión, su eliminación o la limpieza del navegador.</p>
+      <p>Quien comparta un dispositivo debe cerrar sesión al terminar. Bloquear la cookie o el almacenamiento local puede impedir que funcionen áreas privadas. El código revisado no acredita cookies publicitarias ni de analítica opcional; si se incorporan, esta política y los controles de consentimiento deberán actualizarse antes de activarlas.</p>
+    </>,
+  },
+  {
+    id: 'derechos', title: 'Derechos y solicitudes', content: <>
+      <p>Según la ley aplicable, una persona puede solicitar información sobre el tratamiento, acceso, corrección, eliminación, oposición, limitación o portabilidad de sus datos, y retirar un consentimiento cuando exista. La respuesta puede requerir verificar identidad y distinguir los datos de su cuenta de los que administra una organización o pertenecen a otras personas.</p>
+      <p>Para ejercer estos derechos o plantear una consulta, escriba a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>, describiendo su solicitud sin incluir credenciales ni más datos de los necesarios. El operador podrá pedir información adicional para verificar identidad cuando corresponda. El procedimiento detallado y la autoridad de control competente deben completarse tras la revisión jurídica. No se promete una exportación integral automática ni un plazo de respuesta universal sin base jurídica verificada.</p>
+    </>,
+  },
+  {
+    id: 'ia-menores', title: 'IA, decisiones y menores', content: <>
+      <p>El planificador con IA propone estructuras de trabajo, pero una persona decide si las utiliza. Esta política no describe una decisión automatizada con efectos jurídicos sobre las personas. Quien lo use debe revisar el resultado y valorar qué información comparte con el proveedor.</p>
+      <p>Se propone que el piloto esté dirigido a personas mayores de 18 años, pero el formulario actual aún no comprueba la edad. Antes de presentar esa restricción como vigente deben confirmarse la regla e implementarse su comprobación y un mecanismo para atender solicitudes relacionadas con menores. AETHER no está diseñada como un servicio dirigido específicamente a niñas o niños.</p>
+    </>,
+  },
+  {
+    id: 'cambios', title: 'Cambios y contacto', content: <>
+      <p>Las modificaciones materiales de esta política deberán comunicarse por un medio apropiado antes de que entren en vigor cuando la ley lo requiera. Se conservará una fecha de vigencia y acceso a la versión aplicable. La revisión indicada arriba solo fecha este borrador, no su entrada en vigor.</p>
+      <p>Operador: Juan Sebastian Hernandez Rincon. Contacto: <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. Antes de publicar una versión definitiva deben confirmarse el domicilio legal, la jurisdicción, las ubicaciones de alojamiento, las transferencias, la retención de categorías distintas del chat y el procedimiento detallado de solicitudes. Consulte también los <Link href="/legal/terms">Términos de servicio</Link> y la <Link href="/legal/aup">Política de uso aceptable</Link>.</p>
+    </>,
+  },
+];
 
 export default function PrivacyPage() {
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--c-bg)', color: 'var(--c-text2)', fontFamily: "'Manrope', system-ui, sans-serif" }}>
-
-      <nav style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
-          <span style={{ width: 26, height: 26, borderRadius: 8, background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4.5L5.5 19.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M12 4.5L18.5 19.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
-              <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-              <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-            </svg>
-          </span>
-          <span style={{ fontFamily: "'Sora', sans-serif", fontWeight: 600, fontSize: 16, color: 'var(--c-text2)' }}>Aether</span>
-        </Link>
-        <div style={{ display: 'flex', gap: 20 }}>
-          <Link href="/legal/terms" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none' }}>Términos</Link>
-          <Link href="/legal/aup" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none' }}>Uso aceptable</Link>
-        </div>
-      </nav>
-
-      <main style={{ maxWidth: 800, margin: '0 auto', padding: '56px 24px 100px' }}>
-        <p style={{ fontSize: 12, color: 'var(--c-text4)', marginBottom: 12 }}>Legal - Aether</p>
-        <h1 style={{ fontFamily: "'Sora', sans-serif", fontSize: 'clamp(28px, 5vw, 40px)', fontWeight: 700, color: 'var(--c-text)', margin: '0 0 8px', lineHeight: 1.2 }}>
-          Política de Privacidad
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--c-text4)', margin: '0 0 52px' }}>Última actualización: 27 de junio de 2026</p>
-
-        <Section title="1. Responsable del tratamiento">
-          <p>El responsable del tratamiento de sus datos personales es <strong style={{ color: 'var(--c-text2)' }}>[NOMBRE LEGAL DE LA EMPRESA]</strong>, con domicilio en <strong style={{ color: 'var(--c-text2)' }}>[DIRECCIÓN LEGAL]</strong> y contacto en <strong style={{ color: 'var(--c-text2)' }}>[EMAIL DE PRIVACIDAD]</strong> («Aether», «nosotros» o «nos»).</p>
-          <p>Esta Política describe cómo recopilamos, usamos, almacenamos y protegemos los datos personales de los usuarios de la plataforma Aether («el Servicio»).</p>
-        </Section>
-
-        <Section title="2. Datos que recopilamos">
-          <p><strong style={{ color: 'var(--c-text2)' }}>Datos que usted nos proporciona directamente:</strong></p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Información de cuenta:</strong> nombre completo, dirección de correo electrónico y contraseña (almacenada en forma cifrada mediante bcrypt).</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Información de perfil:</strong> foto de perfil, zona horaria e idioma preferido.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Contenido del usuario:</strong> proyectos, tableros, tareas, documentos, comentarios y cualquier otro contenido que cree dentro del Servicio.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Información de pago:</strong> datos de facturación procesados por nuestro proveedor de pagos externo. Aether no almacena números de tarjeta de crédito ni datos bancarios completos.</li>
-          </ul>
-          <p><strong style={{ color: 'var(--c-text2)' }}>Datos recopilados automáticamente:</strong></p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Datos de uso:</strong> páginas visitadas, funcionalidades utilizadas, fechas y horas de acceso, duración de las sesiones.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Datos técnicos:</strong> dirección IP, tipo y versión del navegador, sistema operativo, identificadores de dispositivo.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Registros del servidor:</strong> registros de actividad necesarios para la operación, seguridad y diagnóstico del Servicio.</li>
-          </ul>
-        </Section>
-
-        <Section title="3. Finalidades y base legal del tratamiento">
-          <Table
-            headers={['Finalidad', 'Base legal']}
-            rows={[
-              ['Proveer y mantener el Servicio', 'Ejecución del contrato (Términos de Servicio)'],
-              ['Gestionar su cuenta y autenticación', 'Ejecución del contrato'],
-              ['Enviar comunicaciones de servicio (actualizaciones, alertas de seguridad)', 'Interés legítimo / Ejecución del contrato'],
-              ['Enviar comunicaciones de marketing (novedades, nuevas funcionalidades)', 'Consentimiento (puede retirarse en cualquier momento)'],
-              ['Analizar el uso del Servicio para mejorar la plataforma', 'Interés legítimo'],
-              ['Detectar y prevenir fraudes y abusos', 'Interés legítimo / Obligación legal'],
-              ['Cumplir con obligaciones legales y regulatorias', 'Obligación legal'],
-            ]}
-          />
-        </Section>
-
-        <Section title="4. Compartición de datos con terceros">
-          <p>No vendemos ni alquilamos sus datos personales a terceros. Podemos compartir información con:</p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Proveedores de servicios:</strong> empresas que nos ayudan a operar el Servicio (infraestructura cloud, procesamiento de pagos, envío de correos). Estos proveedores actúan como encargados del tratamiento y solo pueden usar sus datos según nuestras instrucciones.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Miembros de su workspace:</strong> el contenido que comparta dentro de un workspace será visible para los demás miembros de dicho workspace.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Autoridades y obligaciones legales:</strong> cuando lo exija la ley, una orden judicial o para proteger derechos, propiedad o seguridad de Aether o terceros.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Transacciones corporativas:</strong> en caso de fusión, adquisición o venta de activos, sus datos podrían ser transferidos. Le notificaremos previamente y le daremos la opción de eliminar su cuenta.</li>
-          </ul>
-          <p>Los principales subencargados que utilizamos actualmente incluyen: <strong style={{ color: 'var(--c-text2)' }}>[PROVEEDOR DE CLOUD]</strong> (infraestructura), <strong style={{ color: 'var(--c-text2)' }}>[PROVEEDOR DE PAGOS]</strong> (pagos) y <strong style={{ color: 'var(--c-text2)' }}>[PROVEEDOR DE EMAIL]</strong> (correo electrónico).</p>
-        </Section>
-
-        <Section title="5. Transferencias internacionales de datos">
-          <p>Sus datos pueden ser almacenados y procesados en servidores ubicados fuera de su país de residencia. Cuando transferimos datos fuera del Espacio Económico Europeo (EEE), nos aseguramos de que se apliquen las salvaguardas adecuadas exigidas por la normativa vigente (por ejemplo, Cláusulas Contractuales Tipo de la UE).</p>
-        </Section>
-
-        <Section title="6. Seguridad de los datos">
-          <p>Implementamos medidas técnicas y organizativas razonables para proteger sus datos personales, incluyendo:</p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li>Cifrado en tránsito mediante TLS/HTTPS en todas las comunicaciones.</li>
-            <li>Contraseñas almacenadas mediante hashing con bcrypt y salt.</li>
-            <li>Tokens de acceso con tiempo de expiración y mecanismo de refresco.</li>
-            <li>Acceso restringido a los datos: solo el personal autorizado puede acceder a datos de producción.</li>
-            <li>Monitoreo continuo de actividades sospechosas.</li>
-          </ul>
-          <p>No obstante, ningún sistema es 100% seguro. En caso de brecha de seguridad que afecte sus datos, le notificaremos en los plazos exigidos por la ley aplicable.</p>
-        </Section>
-
-        <Section title="7. Retención de datos">
-          <p>Conservamos sus datos personales mientras su cuenta esté activa o mientras sea necesario para prestar el Servicio. Específicamente:</p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li>Los datos de cuenta se conservan durante la vigencia de su cuenta y se eliminan en un plazo máximo de 90 días tras la cancelación.</li>
-            <li>Los registros de actividad y seguridad se conservan durante un máximo de 12 meses.</li>
-            <li>Los datos necesarios para el cumplimiento de obligaciones legales o fiscales se conservan por el período que exija la legislación aplicable.</li>
-          </ul>
-        </Section>
-
-        <Section title="8. Sus derechos">
-          <p>Dependiendo de su ubicación, puede tener los siguientes derechos sobre sus datos personales:</p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Acceso:</strong> obtener confirmación de si tratamos sus datos y recibir una copia.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Rectificación:</strong> corregir datos inexactos o incompletos (puede hacerlo directamente desde la configuración de su perfil).</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Supresión («derecho al olvido»):</strong> solicitar la eliminación de sus datos cuando ya no sean necesarios o retire su consentimiento.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Portabilidad:</strong> recibir sus datos en un formato estructurado y legible por máquina.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Oposición y limitación:</strong> oponerse al tratamiento o solicitar su limitación en determinadas circunstancias.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Retirada del consentimiento:</strong> retirar en cualquier momento el consentimiento prestado para comunicaciones de marketing.</li>
-          </ul>
-          <p>Para ejercer sus derechos, escríbanos a <strong style={{ color: 'var(--c-text2)' }}>[EMAIL DE PRIVACIDAD]</strong>. Responderemos en un plazo máximo de 30 días. Tiene derecho a presentar una reclamación ante la autoridad de protección de datos competente de su país.</p>
-        </Section>
-
-        <Section title="9. Cookies y tecnologías similares">
-          <p>Utilizamos cookies y tecnologías similares para:</p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Cookies esenciales:</strong> necesarias para el funcionamiento del Servicio (autenticación, sesión). No pueden desactivarse.</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Cookies de preferencias:</strong> recuerdan sus configuraciones (idioma, tema).</li>
-            <li><strong style={{ color: 'var(--c-text2)' }}>Cookies analíticas:</strong> nos ayudan a entender cómo se utiliza el Servicio para mejorarlo. Puede optar por no participar.</li>
-          </ul>
-          <p>Puede gestionar sus preferencias de cookies desde la configuración de su navegador. Tenga en cuenta que deshabilitar ciertas cookies puede afectar la funcionalidad del Servicio.</p>
-        </Section>
-
-        <Section title="10. Menores de edad">
-          <p>El Servicio no está dirigido a menores de 16 años. No recopilamos intencionadamente datos de menores de esa edad. Si detectamos que hemos recopilado datos de un menor sin consentimiento parental verificable, eliminaremos dicha información de inmediato.</p>
-        </Section>
-
-        <Section title="11. Cambios a esta Política">
-          <p>Podemos actualizar esta Política periódicamente. Le notificaremos los cambios materiales mediante correo electrónico o un aviso en el Servicio con al menos 15 días de anticipación. La versión vigente siempre estará disponible en esta página.</p>
-        </Section>
-
-        <Section title="12. Contacto">
-          <p>Para cualquier consulta, solicitud o reclamación relacionada con la privacidad de sus datos, contáctenos en:</p>
-          <div style={{ background: 'rgba(97,71,130,0.03)', border: '1px solid rgba(97,71,130,0.08)', borderRadius: 10, padding: '16px 20px', marginTop: 8 }}>
-            <p style={{ margin: 0 }}><strong style={{ color: 'var(--c-text2)' }}>[NOMBRE LEGAL DE LA EMPRESA]</strong></p>
-            <p style={{ margin: '4px 0 0' }}>Atención: Responsable de Protección de Datos</p>
-            <p style={{ margin: '4px 0 0' }}><strong style={{ color: 'var(--c-text2)' }}>[DIRECCIÓN POSTAL]</strong></p>
-            <p style={{ margin: '4px 0 0' }}>Email: <strong style={{ color: 'var(--c-text2)' }}>[EMAIL DE PRIVACIDAD]</strong></p>
-          </div>
-        </Section>
-
-        <div style={{ marginTop: 64, paddingTop: 32, borderTop: '1px solid rgba(97,71,130,0.07)', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          <Link href="/legal/terms" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none' }}>Términos de Servicio →</Link>
-          <Link href="/legal/aup" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none' }}>Política de Uso Aceptable →</Link>
-          <Link href="/" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none', marginLeft: 'auto' }}>← Volver al inicio</Link>
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section style={{ marginBottom: 44 }}>
-      <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: 18, fontWeight: 600, color: 'var(--c-text)', margin: '0 0 16px', paddingBottom: 10, borderBottom: '1px solid rgba(97,71,130,0.07)' }}>
-        {title}
-      </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14.5, lineHeight: 1.75, color: 'var(--c-text2)' }}>
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
-  return (
-    <div style={{ overflowX: 'auto', marginTop: 8 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
-        <thead>
-          <tr>
-            {headers.map((h) => (
-              <th key={h} style={{ textAlign: 'left', padding: '10px 14px', color: 'var(--c-text2)', fontWeight: 600, background: 'rgba(97,71,130,0.04)', borderBottom: '1px solid rgba(97,71,130,0.1)' }}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} style={{ borderBottom: '1px solid rgba(97,71,130,0.05)' }}>
-              {row.map((cell, j) => (
-                <td key={j} style={{ padding: '10px 14px', verticalAlign: 'top', color: j === 0 ? 'var(--c-text2)' : 'var(--c-text2)' }}>
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <LegalDocument current="privacy" title="Política de privacidad" lead="Qué datos intervienen en la colaboración, quién puede verlos y qué falta confirmar antes de publicar una versión definitiva." sections={sections} />;
 }

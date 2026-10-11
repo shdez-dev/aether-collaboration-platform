@@ -59,6 +59,14 @@ function isCoordinator(row: any) {
   return Boolean(row?.internal_member) && Boolean(row?.explicit_coordinator || row?.team_coordinator);
 }
 
+function canonicalAuditValue(value: unknown): unknown {
+  if (value instanceof Date) return value.toISOString();
+  if (value === undefined) return null;
+  if (Array.isArray(value)) return value.map(canonicalAuditValue);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonicalAuditValue(item)]));
+  return value;
+}
+
 function validateTriageAssessment(criteriaSnapshot: unknown, assessment: unknown): string | null {
   const criteria = Array.isArray(criteriaSnapshot) ? criteriaSnapshot.filter((criterion): criterion is string => typeof criterion === 'string' && criterion.trim().length > 0) : [];
   if (!criteria.length) return null;
@@ -204,11 +212,12 @@ export class InitiativeController {
     const gate = await access(req.params.id, actorId); if (!gate || !(gate.isRequester || gate.isParticipant || gate.isCoordinator || gate.isAdmin || gate.isExternal)) return error(res, 403, 'FORBIDDEN', 'Initiative access required');
     const externalOnly = gate.isExternal && !gate.internal_member;
     if (gate.isExternal) await pool.query(`INSERT INTO network_access_audits (id, network_id, user_id, resource_type, resource_id, action) SELECT gen_random_uuid(), network_id, $2, 'INITIATIVE'::"NetworkResourceType", $1, 'VIEWED_RESOURCE' FROM network_access_grants WHERE user_id = $2 AND resource_type = 'INITIATIVE' AND resource_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1`, [req.params.id, actorId]);
-    const [initiative, participants, history, assignmentHistory] = await Promise.all([
+    const [initiative, participants, history, assignmentHistory, contentHistory] = await Promise.all([
       pool.query(`${initiativeSelect} WHERE i.id = $1`, [req.params.id]),
       pool.query(`SELECT ip.id, ip.role, ip.assigned_at, u.id AS user_id, u.name, u.email, u.avatar FROM initiative_participants ip JOIN users u ON u.id = ip.user_id WHERE ip.initiative_id = $1 ORDER BY ip.assigned_at`, [req.params.id]),
       pool.query(`SELECT h.*, u.name AS actor_name FROM initiative_workflow_history h LEFT JOIN users u ON u.id = h.actor_id WHERE h.initiative_id = $1 ORDER BY h.created_at DESC`, [req.params.id]),
       pool.query(`SELECT h.*, subject.name AS subject_name, actor.name AS actor_name FROM initiative_assignment_history h LEFT JOIN users subject ON subject.id = h.subject_user_id LEFT JOIN users actor ON actor.id = h.actor_id WHERE h.initiative_id = $1 ORDER BY h.created_at DESC, h.id DESC`, [req.params.id]),
+      externalOnly ? Promise.resolve({ rows: [] }) : pool.query(`SELECT h.*, u.name AS actor_name FROM initiative_content_history h LEFT JOIN users u ON u.id = h.actor_id WHERE h.initiative_id = $1 ORDER BY h.created_at DESC, h.id DESC`, [req.params.id]),
     ]);
     const formatted = format(initiative.rows[0]);
     const safeInitiative = externalOnly ? {
@@ -230,8 +239,9 @@ export class InitiativeController {
         isExternal: externalOnly,
       },
       participants: externalOnly ? [] : participants.rows.map((r: any) => ({ id: r.id, role: r.role, assignedAt: r.assigned_at, user: { id: r.user_id, name: r.name, email: r.email, avatar: r.avatar } })),
-      history: externalOnly ? [] : history.rows.map((r: any) => ({ id: r.id, fromStage: r.from_stage, toStage: r.to_stage, decision: r.decision, reason: r.reason, actorId: r.actor_id, actorName: r.actor_name, createdAt: r.created_at })),
+      history: externalOnly ? [] : history.rows.map((r: any) => ({ id: r.id, fromStage: r.from_stage, toStage: r.to_stage, decision: r.decision, reason: r.reason, triageAssessment: r.triage_assessment, nextReviewAt: r.next_review_at, actorId: r.actor_id, actorName: r.actor_name, createdAt: r.created_at })),
       assignmentHistory: externalOnly ? [] : assignmentHistory.rows.map((r: any) => ({ id: r.id, subjectUserId: r.subject_user_id, subjectName: r.subject_name, role: r.role, action: r.action, actorId: r.actor_id, actorName: r.actor_name, reason: r.reason, createdAt: r.created_at })),
+      contentHistory: contentHistory.rows.map((r: any) => ({ id: r.id, actorId: r.actor_id, actorName: r.actor_name, changes: r.changes, createdAt: r.created_at })),
     } });
   }
 
@@ -288,7 +298,7 @@ export class InitiativeController {
     try {
       await client.query('BEGIN');
       const currentAccess = await client.query(
-        `SELECT i.id
+        `SELECT i.*
          FROM initiatives i
          JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2
          WHERE i.id = $1 AND (
@@ -299,8 +309,17 @@ export class InitiativeController {
         [req.params.id, actorId]
       );
       if (!currentAccess.rows[0]) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'Current initiative access is required'); }
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
+      for (const [key, column] of Object.entries(dbFields)) {
+        if (!(key in data)) continue;
+        const from = canonicalAuditValue(currentAccess.rows[0][column]);
+        const to = canonicalAuditValue((data as any)[key]);
+        if (JSON.stringify(from) !== JSON.stringify(to)) changes[key] = { from, to };
+      }
+      if (Object.keys(changes).length === 0) { await client.query('ROLLBACK'); return res.json({ success: true, data: { initiative: format(currentAccess.rows[0]) } }); }
       values.push(req.params.id);
       const result = await client.query(`UPDATE initiatives SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${values.length} RETURNING *`, values);
+      await client.query(`INSERT INTO initiative_content_history (initiative_id, actor_id, changes) VALUES ($1, $2, $3::jsonb)`, [req.params.id, actorId, JSON.stringify(changes)]);
       await client.query('COMMIT');
       return res.json({ success: true, data: { initiative: format(result.rows[0]) } });
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
@@ -417,7 +436,7 @@ export class InitiativeController {
         [req.params.id, parsed.data.stage, parsed.data.decision ?? null, parsed.data.reason ?? null, parsed.data.nextReviewAt ?? null, actorId, initiative.review_cadence_days, initiative.stage, JSON.stringify(assessment)]
       );
       if (!result.rows[0]) { await client.query('ROLLBACK'); return error(res, 409, 'STALE_INITIATIVE', 'The initiative changed before this decision could be saved'); }
-      await client.query(`INSERT INTO initiative_workflow_history (id, initiative_id, from_stage, to_stage, decision, reason, actor_id) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)`, [req.params.id, initiative.stage, parsed.data.stage, parsed.data.decision ?? null, parsed.data.reason ?? null, actorId]);
+      await client.query(`INSERT INTO initiative_workflow_history (id, initiative_id, from_stage, to_stage, decision, reason, actor_id, triage_assessment, next_review_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7::jsonb, $8)`, [req.params.id, initiative.stage, parsed.data.stage, parsed.data.decision ?? null, parsed.data.reason ?? null, actorId, JSON.stringify(assessment), result.rows[0].next_review_at]);
       await client.query('COMMIT'); return res.json({ success: true, data: { initiative: format(result.rows[0]) } });
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
   }

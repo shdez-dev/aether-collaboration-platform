@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -164,17 +165,7 @@ function Sidebar({
       {/* Logo */}
       <div className="dsh-sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px 16px' }}>
         <Link href="/" title="Aether" aria-label="Aether" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-          <span style={{ width: '30px', height: '30px', borderRadius: '9px', background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px -4px rgba(116,82,166,0.55)' }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 4.5 L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
-              <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-              <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-            </svg>
-          </span>
-          <span className="dsh-logo-label" style={{ fontFamily: SORA, fontWeight: 700, fontSize: '17px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
+          <BrandMark size={38} tone="adaptive" />
         </Link>
         <button type="button" className="dsh-sidebar-toggle" onClick={onToggleCompact}
           aria-label={compact ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
@@ -419,24 +410,8 @@ function MobileTopbar({ onMenuClick }: { onMenuClick: () => void }) {
       </button>
 
       {/* Logo */}
-      <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none', flex: 1 }}>
-        <span style={{
-          width: '26px', height: '26px', borderRadius: '8px', background: '#7452A6',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          boxShadow: '0 3px 10px -3px rgba(116,82,166,0.55)',
-        }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M12 4.5 L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
-            <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-            <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-          </svg>
-        </span>
-        <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '16px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>
-          Aether
-        </span>
+      <Link href="/dashboard" aria-label="AETHER, inicio" style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none', flex: 1 }}>
+        <BrandMark size={34} tone="adaptive" />
       </Link>
     </div>
   );

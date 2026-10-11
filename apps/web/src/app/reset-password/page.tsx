@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const SORA    = "'Sora', system-ui, sans-serif";
@@ -225,22 +226,14 @@ export default function ResetPasswordPage() {
           </Link>
 
           {/* Logo */}
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '28px' }}>
+          <Link href="/" aria-label="AETHER, inicio" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '28px' }}>
             <span style={{
               width: '34px', height: '34px', borderRadius: '10px',
               background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 4px 14px -4px rgba(116,82,166,0.6)',
             }}>
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-                <path d="M12 4.5L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M12 4.5L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
-                <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-                <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-              </svg>
+              <BrandMark size={26} tone="light" />
             </span>
-            <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: '18px', color: 'var(--c-text)', letterSpacing: '-0.015em' }}>Aether</span>
           </Link>
 
           {/* Header */}

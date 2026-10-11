@@ -30,28 +30,11 @@ export function LandingWrapper({ children }: { children: React.ReactNode }) {
           });
         }
 
-        // Cada sección (features, CTA, cierre) se revela al entrar en viewport
-        const sections = document.querySelectorAll(
-          '.aether-landing > section, .aether-landing > footer'
-        );
-        sections.forEach((el) => {
-          gsap.from(el, {
-            y: 48,
-            opacity: 0,
-            duration: 1.05,
-            ease: 'power3.out',
-            scrollTrigger: {
-              trigger: el,
-              start: 'top 84%',
-              once: true,
-            },
-          });
-        });
       });
     }
 
     // ── Scroll suave (Lenis) ──
-    (async () => {
+    if (!reduceMotion) (async () => {
       const { default: Lenis } = await import('lenis');
       if (cancelled) return;
       const lenis = new Lenis({

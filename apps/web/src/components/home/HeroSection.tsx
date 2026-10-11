@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { useIsAuthenticated } from '@/stores/authStore';
 import { useT } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
@@ -215,7 +216,7 @@ function ProductShot() {
         <aside style={{ width: '180px', flexShrink: 0, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', background: C.bg2 }}>
           {/* Brand */}
           <div style={{ padding: '12px', borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: C.text, marginBottom: '2px' }}>[ Aether ]</div>
+            <div style={{ marginBottom: '2px' }}><BrandMark size={24} /></div>
             <div style={{ fontSize: '10px', color: C.text3 }}>platform-team</div>
           </div>
 
@@ -371,19 +372,6 @@ function ProductShot() {
 
 // ── Logo nav ──────────────────────────────────────────────────────────────────
 
-function AetherNavLogo() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 220 220" fill="none" aria-label="Aether logo">
-      <path d="M 110 39 L 32 173" stroke="#3B82F6" strokeWidth="10" strokeLinecap="round" />
-      <path d="M 110 39 L 188 173" stroke="#3B82F6" strokeWidth="10" strokeLinecap="round" />
-      <path d="M 66 122 L 154 122" stroke="#3B82F6" strokeWidth="7" strokeLinecap="round" />
-      <circle cx="110" cy="39" r="9" fill="#3B82F6" />
-      <circle cx="32" cy="173" r="9" fill="#3B82F6" />
-      <circle cx="188" cy="173" r="9" fill="#3B82F6" />
-    </svg>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function HeroSection() {
@@ -398,9 +386,8 @@ export function HeroSection() {
         background: 'var(--home-nav-bg)', borderBottom: '1px solid var(--home-nav-border)',
       }}>
         <div className="max-w-[1240px] mx-auto px-8 flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2.5 text-sm font-semibold" style={{ color: 'var(--home-text-logo)' }}>
-            <AetherNavLogo />
-            <span>Aether</span>
+          <Link href="/" aria-label="AETHER, inicio" className="flex items-center gap-2.5 text-sm font-semibold" style={{ color: 'var(--home-text-logo)' }}>
+            <BrandMark size={32} />
           </Link>
 
           <div className="flex items-center gap-2.5">

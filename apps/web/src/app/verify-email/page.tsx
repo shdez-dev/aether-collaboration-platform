@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { useAuthStore } from '@/stores/authStore';
 
 const SORA    = "'Sora', system-ui, sans-serif";
@@ -10,24 +11,8 @@ const MANROPE = "'Manrope', system-ui, sans-serif";
 
 function AetherLogo() {
   return (
-    <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 40 }}>
-      <span style={{
-        width: 32, height: 32, borderRadius: 9, background: '#7452A6',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        boxShadow: '0 4px 14px -4px rgba(116,82,166,0.5)',
-      }}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-          <path d="M12 4.5L5.5 19.5"  stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M12 4.5L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-          <circle cx="12"  cy="4.5"  r="2.2" fill="#FFFFFF"/>
-          <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-          <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-        </svg>
-      </span>
-      <span style={{ fontFamily: SORA, fontWeight: 700, fontSize: 17, color: 'var(--c-text)', letterSpacing: '-0.015em' }}>
-        Aether
-      </span>
+    <Link href="/" aria-label="AETHER, inicio" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', marginBottom: 40 }}>
+      <BrandMark size={38} tone="light" />
     </Link>
   );
 }

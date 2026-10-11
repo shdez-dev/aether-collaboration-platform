@@ -9,6 +9,8 @@ describe('verification email template', () => {
     expect(html).toContain('Verificar mi correo');
     expect(html).toContain('background-color:#191522');
     expect(html).toContain('background-color:#7452A6');
+    expect(html).toContain('/icon-192.png');
+    expect(html).toContain('alt="AETHER"');
     expect(html).toContain("'Sora'");
     expect(html).toContain("'Manrope'");
     expect(html.toLowerCase()).not.toContain('#f2571e');

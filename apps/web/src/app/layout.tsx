@@ -2,6 +2,7 @@
 
 import '../styles/globals.css';
 import Link from 'next/link';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useIsAuthenticated } from '@/stores/authStore';
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     pathname === '/login' ||
     pathname === '/register' ||
     pathname === '/forgot-password' ||
+    pathname?.startsWith('/legal/') ||
     pathname?.startsWith('/verify-email') ||
     pathname?.startsWith('/dashboard');
 
@@ -68,14 +70,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet" />
 
         {/* PWA Manifest */}
         <link rel="manifest" href="/manifest.json" />
 
         {/* Favicons */}
-        <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
-        <link rel="icon" href="/favicon-32.png?v=2" type="image/png" sizes="32x32" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" sizes="180x180" />
+        <link rel="icon" href="/favicon.ico?v=3" sizes="any" />
+        <link rel="icon" href="/favicon.svg?v=3" type="image/svg+xml" />
+        <link rel="icon" href="/favicon-32.png?v=3" type="image/png" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3" sizes="180x180" />
 
         <title>Aether | Colaboración</title>
       </head>
@@ -91,9 +95,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       {/* Logo */}
                       <Link
                         href="/"
+                        aria-label="AETHER, inicio"
                         className="flex items-center gap-2 text-accent hover:text-accent-hover transition-colors flex-shrink-0 min-h-[44px]"
                       >
-                        <span className="text-lg sm:text-xl font-bold font-mono whitespace-nowrap">[ Aether ]</span>
+                        <BrandMark size={36} />
                       </Link>
 
                       {/* Navigation Links */}

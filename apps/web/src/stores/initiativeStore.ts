@@ -39,6 +39,8 @@ export interface InitiativeWorkflowEntry {
   toStage?: InitiativeStage | null;
   decision?: string | null;
   reason?: string | null;
+  triageAssessment?: TriageAssessment[] | null;
+  nextReviewAt?: string | null;
   actorId?: string | null;
   actorName?: string | null;
   createdAt: string;
@@ -56,6 +58,14 @@ export interface InitiativeAssignmentEntry {
   createdAt: string;
 }
 
+export interface InitiativeContentEntry {
+  id: string;
+  actorId?: string | null;
+  actorName?: string | null;
+  changes: Record<string, { from: unknown; to: unknown }>;
+  createdAt: string;
+}
+
 export interface InitiativeAccess {
   canRead: boolean;
   canEdit: boolean;
@@ -69,6 +79,7 @@ export interface InitiativeDetail {
   participants: InitiativeParticipant[];
   history: InitiativeWorkflowEntry[];
   assignmentHistory: InitiativeAssignmentEntry[];
+  contentHistory: InitiativeContentEntry[];
 }
 
 export interface InitiativeSubmission {

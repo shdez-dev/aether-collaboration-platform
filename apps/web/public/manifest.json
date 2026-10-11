@@ -4,7 +4,7 @@
   "description": "Organiza sin esfuerzo — plataforma de colaboración para equipos",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#13182A",
+  "background_color": "#191522",
   "theme_color": "#7452A6",
   "orientation": "portrait-primary",
   "scope": "/",
@@ -13,26 +13,38 @@
   "categories": ["productivity", "business"],
   "icons": [
     {
-      "src": "/icon.svg?v=2",
+      "src": "/icon.svg?v=3",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/favicon-32.png?v=2",
+      "src": "/favicon-32.png?v=3",
       "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "/apple-touch-icon.png?v=2",
+      "src": "/apple-touch-icon.png?v=3",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "/icon-512.png?v=2",
+      "src": "/icon-192.png?v=3",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -41,7 +53,7 @@
       "short_name": "Dashboard",
       "description": "Ir al dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/icon.svg?v=2", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "/icon.svg?v=3", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
 }

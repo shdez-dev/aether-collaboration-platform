@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Sparkles, FolderKanban, Users, X, ArrowRight } from 'lucide-react';
 import { C } from '@/lib/colors';
 import { useT } from '@/lib/i18n';
+import { BrandMark } from '@/components/brand/BrandMark';
 
 interface Props {
   open: boolean;
@@ -90,16 +91,9 @@ export default function OnboardingModal({ open, userName, onDismiss, onCreateMan
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <div style={{
-              width: '44px', height: '44px', borderRadius: '12px',
-              background: `rgba(56,182,255,0.15)`, border: `1px solid rgba(56,182,255,0.3)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: '22px' }}>⚡</span>
-            </div>
+            <BrandMark size={44} />
             <div>
               <p style={{ fontSize: '11px', color: C.text3, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t.onboarding_welcome_to}</p>
-              <p style={{ fontSize: '20px', fontWeight: 700, color: C.text }}>Aether</p>
             </div>
           </div>
 

@@ -18,6 +18,7 @@ function escapeHtml(value: string): string {
 /** Table layout and inline colors keep transactional emails readable in clients without CSS support. */
 function renderTransactionalEmail(email: TransactionalEmail): string {
   const actionUrl = escapeHtml(email.actionUrl);
+  const brandIconUrl = escapeHtml(new URL('/icon-192.png', process.env.FRONTEND_URL || 'https://aether-web.up.railway.app').toString());
   const paragraphs = email.paragraphs.map((paragraph) =>
     `<p style="margin:0 0 15px;color:#D2C4E0;font-family:'Manrope','Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.7;">${escapeHtml(paragraph)}</p>`,
   ).join('');
@@ -39,8 +40,7 @@ function renderTransactionalEmail(email: TransactionalEmail): string {
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;max-width:580px;border-collapse:separate;">
         <tr><td style="padding:0 3px 19px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-            <td width="35" height="35" align="center" valign="middle" bgcolor="#7452A6" style="width:35px;height:35px;border-radius:10px;background-color:#7452A6;color:#FFFFFF;font-family:'Sora','Segoe UI',Arial,sans-serif;font-size:21px;font-weight:700;line-height:35px;">A</td>
-            <td style="padding-left:10px;color:#F2ECF8;font-family:'Sora','Segoe UI',Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:-.5px;">Aether</td>
+            <td width="48" height="48" align="center" valign="middle" style="width:48px;height:48px;"><img src="${brandIconUrl}" alt="AETHER" width="48" height="48" style="display:block;width:48px;height:48px;border:0;border-radius:9px;"></td>
           </tr></table>
         </td></tr>
         <tr><td bgcolor="#262032" style="background-color:#262032;border:1px solid #493B5B;border-radius:18px;padding:34px 38px 35px;">

@@ -1,180 +1,78 @@
-'use client';
-
 import Link from 'next/link';
+import { LegalDocument, type LegalSection } from '../LegalDocument';
 
-export default function AUPPage() {
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--c-bg)', color: 'var(--c-text2)', fontFamily: "'Manrope', system-ui, sans-serif" }}>
+const sections: LegalSection[] = [
+  {
+    id: 'proposito', title: 'Propósito y alcance', content: <>
+      <p>Esta política establece cómo usar el piloto gratuito y por invitación de AETHER sin perjudicar a otras personas, organizaciones o a la infraestructura. Abarca cuentas, espacios, proyectos, documentos, archivos, invitaciones, chat, calendario, IA e integraciones. Complementa los <Link href="/legal/terms">Términos de servicio</Link> y se aplica también a quienes actúan por cuenta de una organización.</p>
+      <p>El uso ordinario para coordinar equipos, planificar iniciativas, crear documentos y comunicarse con contactos está permitido siempre que se respeten los permisos y la ley aplicable. Una función disponible técnicamente no autoriza un uso que vulnere derechos ajenos.</p>
+    </>,
+  },
+  {
+    id: 'legalidad', title: 'Legalidad y derechos de terceros', content: <>
+      <ul>
+        <li>No usar AETHER para delitos, fraude, suplantación, estafas, amenazas o actividades que vulneren la ley.</li>
+        <li>No subir ni compartir material que infrinja derechos de autor, marcas, secretos comerciales, contratos de confidencialidad u otros derechos sin autorización.</li>
+        <li>No divulgar datos personales, secretos o documentos privados de terceros sin una razón legítima y los permisos necesarios.</li>
+        <li>Está prohibido cualquier material de explotación o abuso sexual infantil. Los reportes de este tipo se tratarán con prioridad y podrán comunicarse a autoridades competentes según la ley.</li>
+      </ul>
+    </>,
+  },
+  {
+    id: 'personas', title: 'Respeto a otras personas', content: <>
+      <p>No se permite acosar, intimidar, amenazar, discriminar, difamar ni dirigir odio o violencia contra personas o grupos. Esta regla se aplica a nombres de proyectos, documentos, comentarios, etiquetas, perfiles, imágenes y mensajes. El desacuerdo profesional o una evaluación crítica de trabajo no son por sí mismos un incumplimiento; importan el contexto y el daño causado.</p>
+      <p>Queda prohibido hacerse pasar por otra persona o institución, ocultar la identidad para engañar o usar el acceso a una organización para hostigar a sus integrantes.</p>
+    </>,
+  },
+  {
+    id: 'comunicaciones', title: 'Invitaciones, contactos y calendario', content: <>
+      <p>Las invitaciones a organizaciones, espacios, equipos y eventos personales deben enviarse a personas con las que exista una relación legítima. No se permite utilizar búsquedas de personas, contactos, mensajes, menciones, notificaciones o eventos para enviar spam, publicidad no solicitada, campañas masivas o intentos repetidos de contacto tras un rechazo.</p>
+      <p>Una invitación de calendario no autoriza a presentar la asistencia como confirmada. No se deben utilizar títulos o descripciones de eventos para engañar, extraer datos ni divulgar horarios privados de otros invitados.</p>
+    </>,
+  },
+  {
+    id: 'seguridad', title: 'Cuentas, acceso y pruebas de seguridad', content: <>
+      <ul>
+        <li>No intentar acceder a cuentas, proyectos, documentos, repositorios o datos fuera de los permisos concedidos, incluso si una URL o respuesta técnica los expone por error.</li>
+        <li>No compartir credenciales, tokens de sesión, secretos de integración ni mecanismos para eludir autenticación o restricciones de acceso.</li>
+        <li>No introducir malware, ransomware, código dañino ni enlaces que busquen robar credenciales o comprometer dispositivos.</li>
+        <li>No realizar ataques de denegación de servicio, escaneos invasivos ni pruebas que comprometan datos o disponibilidad sin autorización expresa.</li>
+      </ul>
+      <p>Si alguien encuentra una vulnerabilidad, debe detener las pruebas antes de acceder a datos ajenos, conservar una descripción mínima para reportarla y escribir a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. No se promete un programa de recompensas o inmunidad legal inexistente.</p>
+    </>,
+  },
+  {
+    id: 'recursos', title: 'Automatización y recursos compartidos', content: <>
+      <p>No se permite usar bots, scripts, scrapers o llamadas automatizadas de manera que eludan límites, recolecten perfiles o contenido ajeno, generen carga desproporcionada o degraden el servicio. La automatización autorizada debe respetar permisos, límites técnicos y las instrucciones del operador.</p>
+      <p>No crear cuentas u organizaciones repetidas para evitar una suspensión, fingir identidades o ampliar artificialmente una capacidad. Tampoco almacenar archivos o datos ajenos al propósito de colaboración de forma que se utilice AETHER como infraestructura de distribución abusiva.</p>
+    </>,
+  },
+  {
+    id: 'integraciones', title: 'GitHub, archivos e IA', content: <>
+      <p>Solo se pueden conectar repositorios de GitHub sobre los que se tenga autoridad. No deben incorporarse secretos, claves privadas o datos confidenciales en webhooks, documentos, tareas o prompts de IA salvo que exista necesidad legítima y medidas adecuadas. Desconectar una integración no elimina automáticamente la actividad que ya se incorporó legítimamente a un proyecto.</p>
+      <p>La asistencia con IA no debe usarse para generar contenido ilícito, suplantaciones o instrucciones de daño. Su resultado requiere revisión humana y no sustituye decisiones profesionales, legales o de seguridad.</p>
+    </>,
+  },
+  {
+    id: 'reportes', title: 'Cómo reportar un problema', content: <>
+      <p>Una denuncia útil identifica el recurso o la cuenta, describe la conducta, indica cuándo ocurrió y aporta solo la evidencia necesaria. No debe difundirse públicamente información privada o una vulnerabilidad para demostrar el problema. Los reportes de abuso y seguridad pueden enviarse a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>.</p>
+      <p>Los reportes se evaluarán según la gravedad, el contexto y la información disponible. Presentar una denuncia deliberadamente falsa para perjudicar a alguien también puede constituir abuso.</p>
+    </>,
+  },
+  {
+    id: 'respuesta', title: 'Medidas ante incumplimientos', content: <>
+      <p>La respuesta puede incluir advertir, solicitar corrección, limitar funciones, retirar contenido, suspender acceso o cancelar una cuenta u organización cuando esté justificado. Una amenaza inmediata para personas, datos o infraestructura puede requerir una medida sin aviso previo. Las medidas deben ser proporcionadas y no sustituir las obligaciones legales de conservación o notificación.</p>
+      <p>Cuando sea seguro hacerlo, se informará el motivo y cómo solicitar una revisión mediante <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. El procedimiento y los plazos de apelación deben definirse antes de publicar esta política como definitiva. Ante hechos potencialmente delictivos, el operador podrá cooperar con autoridades competentes conforme a la ley.</p>
+    </>,
+  },
+  {
+    id: 'cambios', title: 'Cambios y documentos relacionados', content: <>
+      <p>El operador del servicio es Juan Sebastian Hernandez Rincon y el canal público de contacto es <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. Esta política aún requiere una fecha de entrada en vigor y revisión jurídica. Los cambios materiales se comunicarán por un medio apropiado. La revisión indicada arriba identifica este borrador, no lo convierte en versión contractual definitiva.</p>
+      <p>Para reglas sobre cuentas, contenido y disponibilidad consulte los <Link href="/legal/terms">Términos de servicio</Link>. Para saber qué datos se tratan y cómo solicitar acceso o eliminación consulte la <Link href="/legal/privacy">Política de privacidad</Link>.</p>
+    </>,
+  },
+];
 
-      <nav style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
-          <span style={{ width: 26, height: 26, borderRadius: 8, background: '#7452A6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4.5L5.5 19.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M12 4.5L18.5 19.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M8.55 12.5Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
-              <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-              <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-            </svg>
-          </span>
-          <span style={{ fontFamily: "'Sora', sans-serif", fontWeight: 600, fontSize: 16, color: 'var(--c-text2)' }}>Aether</span>
-        </Link>
-        <div style={{ display: 'flex', gap: 20 }}>
-          <Link href="/legal/terms" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none' }}>Términos</Link>
-          <Link href="/legal/privacy" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none' }}>Privacidad</Link>
-        </div>
-      </nav>
-
-      <main style={{ maxWidth: 800, margin: '0 auto', padding: '56px 24px 100px' }}>
-        <p style={{ fontSize: 12, color: 'var(--c-text4)', marginBottom: 12 }}>Legal - Aether</p>
-        <h1 style={{ fontFamily: "'Sora', sans-serif", fontSize: 'clamp(28px, 5vw, 40px)', fontWeight: 700, color: 'var(--c-text)', margin: '0 0 8px', lineHeight: 1.2 }}>
-          Política de Uso Aceptable
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--c-text4)', margin: '0 0 16px' }}>Última actualización: 27 de junio de 2026</p>
-        <div style={{ background: 'rgba(116,82,166,0.08)', border: '1px solid rgba(116,82,166,0.25)', borderRadius: 10, padding: '14px 18px', marginBottom: 52, fontSize: 13.5, color: 'var(--c-text2)', lineHeight: 1.65 }}>
-          Esta Política de Uso Aceptable («PUA») forma parte de los <Link href="/legal/terms" style={{ color: 'var(--c-accent-text)', textDecoration: 'none' }}>Términos de Servicio</Link> de Aether. Al usar el Servicio, usted acepta cumplir con estas reglas. Las violaciones pueden resultar en la suspensión o cancelación permanente de su cuenta.
-        </div>
-
-        <Section title="1. Usos permitidos">
-          <p>Aether está diseñada para facilitar la colaboración, la gestión de proyectos y la productividad. Los usos permitidos incluyen, entre otros:</p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li>Gestión de proyectos personales, académicos o profesionales.</li>
-            <li>Colaboración con equipos dentro de una organización o entre organizaciones.</li>
-            <li>Planificación y seguimiento de tareas, hitos y sprints.</li>
-            <li>Creación y edición de documentos colaborativos relacionados con proyectos.</li>
-            <li>Comunicación y coordinación entre miembros del equipo en el contexto del trabajo.</li>
-            <li>Integración con herramientas externas compatibles mediante las APIs o webhooks autorizados.</li>
-          </ul>
-        </Section>
-
-        <Section title="2. Conductas prohibidas">
-          <p>Queda estrictamente prohibido utilizar el Servicio para:</p>
-
-          <Subsection title="2.1 Actividades ilegales o dañinas">
-            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <li>Violar cualquier ley, regulación o normativa aplicable, local o internacional.</li>
-              <li>Facilitar, planificar o ejecutar actividades ilegales de cualquier tipo.</li>
-              <li>Infringir derechos de propiedad intelectual, marcas registradas, patentes, secretos comerciales u otros derechos de propiedad de terceros.</li>
-              <li>Incurrir en fraude, suplantación de identidad o cualquier tipo de engaño.</li>
-              <li>Distribuir, almacenar o procesar material de abuso sexual infantil (CSAM) o cualquier contenido que explote o dañe a menores.</li>
-            </ul>
-          </Subsection>
-
-          <Subsection title="2.2 Abuso del Servicio y seguridad">
-            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <li>Intentar obtener acceso no autorizado a cuentas de otros usuarios, sistemas o redes.</li>
-              <li>Explotar, escanear o realizar pruebas de vulnerabilidades del Servicio sin autorización expresa por escrito de Aether.</li>
-              <li>Distribuir malware, virus, ransomware, spyware u otro software malicioso.</li>
-              <li>Realizar ataques de denegación de servicio (DoS/DDoS) o sobrecargar intencionalmente la infraestructura.</li>
-              <li>Eludir, deshabilitar o interferir con las funciones de seguridad del Servicio.</li>
-              <li>Realizar ingeniería inversa, descompilar o desensamblar cualquier parte del Servicio.</li>
-              <li>Utilizar scripts automatizados, bots o scrapers para acceder al Servicio de forma no autorizada.</li>
-            </ul>
-          </Subsection>
-
-          <Subsection title="2.3 Contenido inapropiado u ofensivo">
-            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <li>Publicar, transmitir o almacenar contenido que sea obsceno, pornográfico, difamatorio, amenazante, acosador, discriminatorio u odioso.</li>
-              <li>Acosar, intimidar o amenazar a otros usuarios.</li>
-              <li>Difundir desinformación o contenido engañoso que pueda causar daño.</li>
-              <li>Publicar información personal de terceros sin su consentimiento (doxing).</li>
-            </ul>
-          </Subsection>
-
-          <Subsection title="2.4 Spam y abuso de comunicaciones">
-            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <li>Enviar mensajes no solicitados, spam o comunicaciones masivas no autorizadas.</li>
-              <li>Utilizar el Servicio para distribuir publicidad no solicitada o material promocional sin consentimiento de los destinatarios.</li>
-              <li>Crear múltiples cuentas con el fin de eludir restricciones o baneos.</li>
-            </ul>
-          </Subsection>
-
-          <Subsection title="2.5 Uso comercial indebido">
-            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <li>Revender, sublicenciar o distribuir el acceso al Servicio sin autorización expresa de Aether.</li>
-              <li>Utilizar el Servicio para construir un producto o servicio competidor.</li>
-              <li>Realizar minería o extracción masiva de datos del Servicio sin autorización.</li>
-            </ul>
-          </Subsection>
-        </Section>
-
-        <Section title="3. Responsabilidades del usuario">
-          <p><strong style={{ color: 'var(--c-text2)' }}>Seguridad de la cuenta:</strong> Usted es responsable de mantener seguras sus credenciales y de todas las actividades realizadas bajo su cuenta, incluidas las de los miembros de su workspace.</p>
-          <p><strong style={{ color: 'var(--c-text2)' }}>Contenido de terceros:</strong> Si su workspace incluye contenido generado por terceros (colaboradores, clientes), es su responsabilidad garantizar que dicho contenido cumpla con esta PUA.</p>
-          <p><strong style={{ color: 'var(--c-text2)' }}>Respaldo de datos:</strong> Aunque Aether implementa medidas de seguridad razonables, recomendamos mantener copias de seguridad de la información crítica. Aether no se responsabiliza por pérdidas de datos causadas por causas ajenas a su control.</p>
-          <p><strong style={{ color: 'var(--c-text2)' }}>Cumplimiento legal:</strong> Es su responsabilidad asegurarse de que el uso que hace del Servicio cumple con las leyes aplicables en su jurisdicción, incluyendo las relativas a protección de datos, privacidad y exportación.</p>
-        </Section>
-
-        <Section title="4. Responsabilidad sobre el contenido">
-          <p>Aether actúa como proveedor de la plataforma y no revisa de forma proactiva el contenido generado por los usuarios. Sin embargo, nos reservamos el derecho de eliminar cualquier contenido que viole esta PUA o los Términos de Servicio, sin previo aviso.</p>
-          <p>Usted es el único responsable del contenido que carga, crea o comparte en el Servicio. Si Aether recibe una reclamación legítima sobre contenido que infringe derechos de terceros, actuaremos conforme a la normativa aplicable (incluyendo procedimientos de notificación y retirada tipo DMCA o equivalente).</p>
-        </Section>
-
-        <Section title="5. Investigación y reporte de vulnerabilidades">
-          <p>Apreciamos los esfuerzos de la comunidad de seguridad para mejorar la plataforma. Si descubre una vulnerabilidad de seguridad en el Servicio:</p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li>Notifíquenosla de forma responsable a <strong style={{ color: 'var(--c-text2)' }}>[EMAIL DE SEGURIDAD]</strong> antes de divulgarla públicamente.</li>
-            <li>No acceda ni modifique datos de otros usuarios.</li>
-            <li>No realice ataques que afecten la disponibilidad del Servicio.</li>
-          </ul>
-          <p>Las investigaciones de seguridad realizadas de buena fe y conforme a estas directrices no serán consideradas violaciones de esta PUA.</p>
-        </Section>
-
-        <Section title="6. Consecuencias del incumplimiento">
-          <p>El incumplimiento de esta PUA puede resultar en una o más de las siguientes acciones, a discreción de Aether:</p>
-          <ul style={{ paddingLeft: 20, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li>Advertencia formal al usuario o workspace.</li>
-            <li>Eliminación del contenido infractor.</li>
-            <li>Suspensión temporal del acceso al Servicio.</li>
-            <li>Cancelación permanente de la cuenta sin reembolso.</li>
-            <li>Notificación a las autoridades competentes cuando la actividad sea constitutiva de delito.</li>
-            <li>Ejercicio de acciones legales para recuperar daños causados a Aether o a terceros.</li>
-          </ul>
-          <p>Nos reservamos el derecho de actuar de forma inmediata y sin previo aviso cuando la situación así lo requiera, especialmente en casos de actividad ilegal, riesgo para la seguridad o daño a otros usuarios.</p>
-        </Section>
-
-        <Section title="7. Cómo reportar una violación">
-          <p>Si detecta un uso del Servicio que viola esta Política, puede reportarlo a:</p>
-          <div style={{ background: 'rgba(97,71,130,0.03)', border: '1px solid rgba(97,71,130,0.08)', borderRadius: 10, padding: '16px 20px', marginTop: 8 }}>
-            <p style={{ margin: 0 }}>Email: <strong style={{ color: 'var(--c-text2)' }}>[EMAIL DE SOPORTE / ABUSO]</strong></p>
-            <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--c-text4)' }}>Incluya en su reporte: descripción del contenido o conducta, URL o identificador del recurso, fecha y hora aproximada del incidente.</p>
-          </div>
-          <p>Revisaremos todos los reportes y tomaremos las medidas que consideremos apropiadas. La presentación de reportes falsos o malintencionados también puede considerarse una violación de esta PUA.</p>
-        </Section>
-
-        <Section title="8. Modificaciones">
-          <p>Aether puede modificar esta Política en cualquier momento. Le notificaremos los cambios materiales mediante correo electrónico o un aviso en el Servicio. El uso continuado del Servicio tras la entrada en vigor de los cambios implica su aceptación.</p>
-        </Section>
-
-        <div style={{ marginTop: 64, paddingTop: 32, borderTop: '1px solid rgba(97,71,130,0.07)', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          <Link href="/legal/terms" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none' }}>Términos de Servicio →</Link>
-          <Link href="/legal/privacy" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none' }}>Política de Privacidad →</Link>
-          <Link href="/" style={{ fontSize: 13, color: 'var(--c-text4)', textDecoration: 'none', marginLeft: 'auto' }}>← Volver al inicio</Link>
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section style={{ marginBottom: 44 }}>
-      <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: 18, fontWeight: 600, color: 'var(--c-text)', margin: '0 0 16px', paddingBottom: 10, borderBottom: '1px solid rgba(97,71,130,0.07)' }}>
-        {title}
-      </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14.5, lineHeight: 1.75, color: 'var(--c-text2)' }}>
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function Subsection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginTop: 4 }}>
-      <p style={{ color: 'var(--c-text2)', fontWeight: 600, margin: '0 0 8px', fontSize: 13.5 }}>{title}</p>
-      {children}
-    </div>
-  );
+export default function AcceptableUsePage() {
+  return <LegalDocument current="aup" title="Política de uso aceptable" lead="Reglas para colaborar con seguridad, respetar a otras personas y proteger los espacios de trabajo." sections={sections} />;
 }

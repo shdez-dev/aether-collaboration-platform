@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileText, History, Link2, LoaderCircle, ShieldCheck, UserMinus, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileText, Link2, LoaderCircle, ShieldCheck, UserMinus, UserPlus, Users } from 'lucide-react';
+import { InitiativeTraceability } from '@/components/initiatives/InitiativeTraceability';
+import detailStyles from './page.module.css';
 import { InitiativePriority, InitiativeStage, TriageAssessmentStatus, useInitiativeStore } from '@/stores/initiativeStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
@@ -136,7 +138,7 @@ export default function InitiativeDetailPage() {
   if (error) return <main style={page}><section style={state}><ClipboardList size={28} /><h1>No fue posible abrir esta iniciativa</h1><p>{error}</p><Link href="/dashboard/initiatives" style={secondaryButton}><ArrowLeft size={16} /> Volver a iniciativas</Link></section></main>;
   if (!initiativeDetail) return <main style={page}><section style={state}><ClipboardList size={28} /><h1>Iniciativa no encontrada</h1><p>Puede que no tengas acceso o que ya no exista.</p><Link href="/dashboard/initiatives" style={secondaryButton}><ArrowLeft size={16} /> Volver a iniciativas</Link></section></main>;
 
-  const { initiative, access, participants, history, assignmentHistory } = initiativeDetail;
+  const { initiative, access, participants, history, assignmentHistory, contentHistory } = initiativeDetail;
   const canChangeContent = access.canEdit || access.canManage;
   const nextStages = allowedNextStages[initiative.stage];
   const needsDecision = transitionStage !== '' && decisionStages.includes(transitionStage);
@@ -258,7 +260,7 @@ export default function InitiativeDetailPage() {
       <ShieldCheck size={18} /><span>{access.canManage ? 'Tienes permisos de coordinación para administrar esta iniciativa.' : 'Puedes actualizar la información de esta iniciativa durante esta etapa.'}</span>
     </section>}
 
-    <div style={layout}>
+    <div className={detailStyles.layout}>
       <div style={mainColumn}>
         <section style={panel}>
           <h2 style={sectionTitle}>Propuesta de origen</h2>
@@ -375,15 +377,7 @@ export default function InitiativeDetailPage() {
           </div>}
         </section>
 
-        {!access.isExternal && <section style={panel}>
-          <h2 style={sectionTitle}><History size={18} /> Historial de decisiones y etapas</h2>
-          {history.length === 0 ? <p style={emptyText}>Todavía no se han registrado cambios de etapa.</p> : <ol style={timeline}>{history.map((entry) => <li key={entry.id} style={timelineItem}><span style={timelineDot} /><div><strong>{stageLabel(entry.fromStage)} <ArrowRight size={13} /> {stageLabel(entry.toStage)}</strong>{entry.decision && <span style={decisionLabel}>{entry.decision}</span>}<p>{entry.reason || 'Sin motivo registrado.'}</p><small>{entry.actorName || 'Sistema'} - {formatDate(entry.createdAt, true)}</small></div></li>)}</ol>}
-        </section>}
-
-        {!access.isExternal && <section style={panel}>
-          <h2 style={sectionTitle}><History size={18} /> Trazabilidad de asignaciones</h2>
-          {assignmentHistory.length === 0 ? <p style={emptyText}>No hay cambios de responsables registrados.</p> : <ol style={timeline}>{assignmentHistory.map((entry) => <li key={entry.id} style={timelineItem}><span style={timelineDot} /><div><strong>{entry.action === 'ASSIGNED' ? 'Asignación' : entry.action === 'REVOKED' ? 'Revocación' : 'Remoción'} - {roleLabels[entry.role] || entry.role}</strong><p>{entry.subjectName || 'Participante'}{entry.reason ? ` - ${entry.reason}` : ''}</p><small>{entry.actorName || 'Sistema'} - {formatDate(entry.createdAt, true)}</small></div></li>)}</ol>}
-        </section>}
+        {!access.isExternal && <InitiativeTraceability initiativeId={initiative.id} currentStage={initiative.stage} receivedAt={initiative.receivedAt} projectId={initiative.formalizedProjectId} history={history} assignmentHistory={assignmentHistory} contentHistory={contentHistory ?? []} />}
       </div>
 
       <aside style={sidebar}>
@@ -407,7 +401,7 @@ export default function InitiativeDetailPage() {
         </section>
 
         <section style={panel}>
-          <h2 style={sectionTitle}>Trazabilidad</h2>
+          <h2 style={sectionTitle}>Ficha de seguimiento</h2>
           <dl style={metadata}><div><dt>Recibida</dt><dd>{formatDate(initiative.receivedAt)}</dd></div><div><dt>Prioridad</dt><dd>{initiative.priority}</dd></div><div><dt>Solicitante</dt><dd>{initiative.requester?.name || (access.isExternal ? 'No disponible' : 'Interno')}</dd></div><div><dt>Responsable de triage</dt><dd>{initiative.triageOwner?.name || 'Por asignar'}</dd></div><div><dt>Mentoría</dt><dd>{initiative.mentor?.name || 'Sin mentor asignado'}</dd></div></dl>
         </section>
 
@@ -428,7 +422,6 @@ const stagePill: CSSProperties = { display: 'inline-block', border: '1px solid v
 const reviewCard: CSSProperties = { display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px', border: '1px solid var(--c-border2)', borderRadius: 10, background: 'var(--c-bg2)', minWidth: 210, color: 'var(--c-accent-text)' };
 const muted: CSSProperties = { display: 'block', color: 'var(--c-text3)', fontSize: 11, marginBottom: 3 };
 const permissionBanner: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #325765', background: '#EEF6F3', color: '#3D7159', borderRadius: 10, padding: '12px 14px', marginBottom: 20, lineHeight: 1.45 };
-const layout: CSSProperties = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(270px, 340px)', gap: 18, alignItems: 'start' };
 const mainColumn: CSSProperties = { display: 'grid', gap: 18 };
 const sidebar: CSSProperties = { display: 'grid', gap: 18 };
 const panel: CSSProperties = { border: '1px solid var(--c-border2)', borderRadius: 12, padding: 18, background: 'var(--c-bg2)' };
@@ -440,10 +433,6 @@ const resourceList: CSSProperties = { display: 'grid', gap: 8 };
 const resource: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: 11, border: '1px solid var(--c-border2)', borderRadius: 9, color: '#9db4d2' };
 const iconLink: CSSProperties = { color: 'var(--c-accent-text)', marginLeft: 'auto', display: 'inline-flex' };
 const emptyText: CSSProperties = { margin: 0, color: 'var(--c-text3)', lineHeight: 1.5, fontSize: 14 };
-const timeline: CSSProperties = { display: 'grid', gap: 15, margin: 0, padding: 0, listStyle: 'none' };
-const timelineItem: CSSProperties = { position: 'relative', paddingLeft: 20, color: 'var(--c-text2)', lineHeight: 1.45 };
-const timelineDot: CSSProperties = { position: 'absolute', left: 0, top: 5, width: 9, height: 9, borderRadius: '50%', background: '#7452A6', boxShadow: '0 0 0 3px rgba(249,115,22,.15)' };
-const decisionLabel: CSSProperties = { display: 'inline-block', marginLeft: 8, color: '#3D7159', border: '1px solid #386244', borderRadius: 99, padding: '1px 7px', fontSize: 10, fontWeight: 800 };
 const people: CSSProperties = { display: 'grid', gap: 11 };
 const person: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, color: 'var(--c-text)' };
 const avatar: CSSProperties = { display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 30px', borderRadius: '50%', color: '#e9d5ff', background: '#55436c', fontWeight: 800, fontSize: 13 };

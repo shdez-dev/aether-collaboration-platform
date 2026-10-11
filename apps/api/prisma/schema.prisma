@@ -1498,6 +1498,7 @@ model Initiative {
   participants   InitiativeParticipant[]
   workflowHistory InitiativeWorkflowHistory[]
   assignmentHistory InitiativeAssignmentHistory[]
+  contentHistory InitiativeContentHistory[]
   evaluations     InitiativeEvaluation[]
   formalizedProject Project?                  @relation("InitiativeFormalizedProject")
 
@@ -1532,6 +1533,8 @@ model InitiativeWorkflowHistory {
   toStage      InitiativeStage @map("to_stage")
   decision     String?  @db.VarChar(30)
   reason       String?
+  triageAssessment Json? @map("triage_assessment")
+  nextReviewAt DateTime? @map("next_review_at")
   actorId      String?  @map("actor_id") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at")
 
@@ -1558,6 +1561,19 @@ model InitiativeAssignmentHistory {
   @@index([initiativeId, createdAt, id])
   @@index([subjectUserId, createdAt, id])
   @@map("initiative_assignment_history")
+}
+
+model InitiativeContentHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  initiativeId String   @map("initiative_id") @db.Uuid
+  actorId      String?  @map("actor_id") @db.Uuid
+  changes      Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@index([initiativeId, createdAt, id])
+  @@map("initiative_content_history")
 }
 
 model ProjectRoleAssignment {

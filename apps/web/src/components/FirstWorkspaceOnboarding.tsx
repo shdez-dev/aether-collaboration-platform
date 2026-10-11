@@ -10,6 +10,7 @@ import { getDisplayOrganizationName } from '@/lib/organizationName';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import styles from './FirstWorkspaceOnboarding.module.css';
+import { BrandMark } from '@/components/brand/BrandMark';
 
 type Organization = Pick<OrganizationSummary, 'id' | 'name' | 'type' | 'role'>;
 type Step = 'choose' | 'create-organization' | 'join' | 'workspace' | 'waiting';
@@ -198,8 +199,7 @@ export default function FirstWorkspaceOnboarding({
           transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
         >
           <a className={styles.brand} href="/dashboard" aria-label="Aether">
-            <span className={styles.brandMark}><Layers3 size={19} strokeWidth={2.2} /></span>
-            <span>Aether</span>
+            <BrandMark size={40} tone="light" />
           </a>
           <span className={styles.headerNote}>PRIMEROS PASOS</span>
         </motion.header>

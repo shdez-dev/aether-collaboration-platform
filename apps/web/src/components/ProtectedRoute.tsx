@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { BrandMark } from '@/components/brand/BrandMark';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -70,7 +71,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           pointerEvents: 'none',
         }} />
 
-        {/* Logo + wordmark */}
+        {/* Brand symbol */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative', animation: 'lpulse 2.4s ease-in-out infinite' }}>
           <span style={{
             width: '58px', height: '58px', borderRadius: '16px',
@@ -78,17 +79,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 10px 32px -10px rgba(116,82,166,0.6)',
           }}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4.5 L5.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 4.5 L18.5 19.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.55 12.5 Q12 9.2 15.45 12.5" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="4.5" r="2.2" fill="#FFFFFF"/>
-              <circle cx="5.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-              <circle cx="18.5" cy="19.5" r="2.2" fill="#FFFFFF"/>
-            </svg>
-          </span>
-          <span style={{ fontFamily: "'Sora', system-ui, sans-serif", fontWeight: 700, fontSize: '32px', letterSpacing: '-0.02em', color: 'var(--c-text)' }}>
-            Aether
+            <BrandMark size={48} tone="light" />
           </span>
         </div>
 

@@ -54,6 +54,10 @@
   background: rgba(116, 82, 166, 0.06);
 }
 
+.brand-mark-adaptive > img { display: none; }
+html.light .brand-mark-adaptive > .brand-mark-for-light,
+html.dark .brand-mark-adaptive > .brand-mark-for-dark { display: block; }
+
 /* Auth inputs */
 .auth-input {
   width: 100%;

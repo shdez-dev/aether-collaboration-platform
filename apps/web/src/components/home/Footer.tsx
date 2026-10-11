@@ -3,25 +3,7 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useT } from '@/lib/i18n';
-
-function AetherLogo() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 220 220"
-      fill="none"
-      aria-label="Aether logo"
-    >
-      <path d="M 110 39 L 32 173" stroke="#3B82F6" strokeWidth="10" strokeLinecap="round" />
-      <path d="M 110 39 L 188 173" stroke="#3B82F6" strokeWidth="10" strokeLinecap="round" />
-      <path d="M 66 122 L 154 122" stroke="#3B82F6" strokeWidth="7" strokeLinecap="round" />
-      <circle cx="110" cy="39" r="9" fill="#3B82F6" />
-      <circle cx="32" cy="173" r="9" fill="#3B82F6" />
-      <circle cx="188" cy="173" r="9" fill="#3B82F6" />
-    </svg>
-  );
-}
+import { BrandMark } from '@/components/brand/BrandMark';
 
 export function Footer() {
   const t = useT();
@@ -41,9 +23,8 @@ export function Footer() {
           transition={{ duration: 0.5 }}
           className="mb-12"
         >
-          <Link href="/" className="flex items-center gap-2 mb-4" style={{ color: 'var(--home-text-logo)' }}>
-            <AetherLogo />
-            <span className="text-sm font-semibold">Aether</span>
+          <Link href="/" aria-label="AETHER, inicio" className="flex items-center gap-2 mb-4" style={{ color: 'var(--home-text-logo)' }}>
+            <BrandMark size={32} />
           </Link>
           <p className="text-[13px] leading-relaxed max-w-[260px]" style={{ color: 'var(--home-text-3)' }}>
             {t.home_footer_desc}
