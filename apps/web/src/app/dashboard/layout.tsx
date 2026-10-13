@@ -30,6 +30,7 @@ import FirstWorkspaceOnboarding from '@/components/FirstWorkspaceOnboarding';
 import OrganizationEmptyState from '@/components/OrganizationEmptyState';
 import { socketService } from '@/services/socketService';
 import { apiService } from '@/services/apiService';
+import { canManageOrganizationRole } from '@/lib/workspaceFeatures';
 import ChatDock from '@/components/chat/ChatDock';
 import { BellRing, FolderKanban, PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react';
 
@@ -89,7 +90,7 @@ function Sidebar({
   pathname, router, user, workspaces, userAvatarUrl,
   onLogout, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onCreateOrganization,
   activeOrganizationId, activeOrganization, onSelectOrganization, workspaceUnavailable,
-  onEditWorkspace, onRefreshWorkspaces, onCreateBoard, onCreateProject, sidebarProjects, projectsLoading,
+  onEditWorkspace, onRefreshWorkspaces, onCreateBoard, onCreateProject, sidebarProjects, projectsLoading, recentProjectIds,
   compact, onToggleCompact,
 }: {
   pathname: string | null; router: ReturnType<typeof useRouter>;
@@ -101,7 +102,7 @@ function Sidebar({
   onCreateWorkspace: (organizationId?: string) => void; onCreateOrganization: () => void; onEditWorkspace: (ws: any) => void;
   onRefreshWorkspaces: () => Promise<void>;
   onCreateBoard: () => void; onCreateProject: () => void;
-  sidebarProjects: any[]; projectsLoading: boolean;
+  sidebarProjects: any[]; projectsLoading: boolean; recentProjectIds: string[];
   compact: boolean; onToggleCompact: () => void;
 }) {
   const ic = (s: number) => ({ width: `${s}px`, height: `${s}px` } as const);
@@ -145,9 +146,22 @@ function Sidebar({
     },
   ];
 
-  const activeProjects = sidebarProjects.filter(p => p.status !== 'ARCHIVED' && p.status !== 'COMPLETED').slice(0, 6);
+  const projectById = new Map(sidebarProjects.map((project) => [project.id, project]));
+  const recentProjects = recentProjectIds
+    .map((id) => projectById.get(id))
+    .filter((project): project is NonNullable<typeof project> => Boolean(project))
+    .slice(0, 3);
+  const recentVisibleIds = new Set(recentProjects.map((project) => project.id));
+  const activeProjects = [
+    ...recentProjects,
+    ...sidebarProjects.filter((project) => !recentVisibleIds.has(project.id)),
+  ].slice(0, 3);
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId && workspace.organizationId === activeOrganizationId);
   const isInstitutionalWorkspace = activeWorkspace?.organization?.type === 'INSTITUTION';
+  const isPersonalOrganization = activeOrganization?.type === 'PERSONAL'
+    || (!activeOrganization && activeWorkspace?.organization?.type === 'PERSONAL')
+    || (!activeOrganization && !activeWorkspace?.organization?.type && activeWorkspace?.mode === 'PERSONAL');
+  const canCreateProjects = canManageOrganizationRole(activeOrganization?.role ?? activeWorkspace?.organization?.role);
   // This is only a navigation affordance. Portfolio endpoints still enforce
   // organization capability and portfolio membership on every request.
   const hasPortfolioCapability = activeWorkspace?.capabilities?.portfolio === true;
@@ -164,8 +178,9 @@ function Sidebar({
 
       {/* Logo */}
       <div className="dsh-sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px 16px' }}>
-        <Link href="/" title="Aether" aria-label="Aether" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+        <Link href="/" title="Aether" aria-label="Aether" style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1, textDecoration: 'none' }}>
           <BrandMark size={38} tone="adaptive" />
+          <span className="dsh-logo-label">AETHER</span>
         </Link>
         <button type="button" className="dsh-sidebar-toggle" onClick={onToggleCompact}
           aria-label={compact ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
@@ -206,7 +221,7 @@ function Sidebar({
       </nav>
 
       {/* Proyectos section */}
-      {workspaceUnavailable ? <div className="dsh-projects-expanded" style={{ margin: '21px 11px 11px', color: 'var(--c-text4)', font: `600 11px ${SORA}`, letterSpacing: '.1em' }} title="Necesitas acceso a un espacio de trabajo">PROYECTOS · SIN ESPACIO</div> : <div className="dsh-projects-expanded">
+      {workspaceUnavailable ? <div className="dsh-projects-expanded" style={{ margin: '21px 11px 11px', color: 'var(--c-text4)', font: `600 11px ${SORA}`, letterSpacing: '.1em' }} title="Necesitas acceso a un espacio de trabajo">PROYECTOS — SIN ESPACIO</div> : <div className="dsh-projects-expanded">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '20px 11px 8px' }}>
         <Link
           href="/dashboard/projects"
@@ -221,12 +236,12 @@ function Sidebar({
         >
           Proyectos
         </Link>
-        <button onClick={onCreateProject} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+        {canCreateProjects && <button type="button" onClick={onCreateProject} aria-label="Crear proyecto" title="Crear proyecto" style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="var(--c-text3)" strokeWidth="1.8" strokeLinecap="round"/></svg>
-        </button>
+        </button>}
       </div>
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {projectsLoading ? null : activeProjects.length === 0 ? (
+        {projectsLoading ? null : activeProjects.length === 0 ? canCreateProjects ? (
           <div
             onClick={onCreateProject}
             style={{ padding: '8px 11px', fontSize: '13px', color: 'var(--c-text4)', cursor: 'pointer', borderRadius: '8px' }}
@@ -235,7 +250,7 @@ function Sidebar({
           >
             + Nuevo proyecto
           </div>
-        ) : activeProjects.map(p => {
+        ) : null : activeProjects.map(p => {
           const pPath = `/dashboard/projects/${p.id}`;
           const isAct = pathname?.startsWith(pPath) ?? false;
           return (
@@ -273,8 +288,8 @@ function Sidebar({
         ))}
       </nav>}
 
-      {/* Equipo */}
-      <div style={{ marginTop: '8px' }}>
+      {/* Equipo: solo está disponible dentro de una organización. */}
+      {!isPersonalOrganization && <div style={{ marginTop: '8px' }}>
         <NavItem
           href="/dashboard/teams"
           label="Equipo"
@@ -282,7 +297,7 @@ function Sidebar({
           active={!!pathname?.startsWith('/dashboard/teams')}
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="17" height="17"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" strokeLinecap="round"/><path d="M16 6a3 3 0 0 1 0 6M18.5 19a5.5 5.5 0 0 0-3-4.9" strokeLinecap="round"/></svg>}
         />
-      </div>
+      </div>}
 
       <div style={{ marginTop: '3px' }}>
         <NavItem
@@ -326,49 +341,40 @@ function Sidebar({
       {/* User footer */}
       <div
         className="dsh-user-footer-expanded"
-        onClick={() => router.push('/dashboard/profile')}
         style={{
           display: 'flex', alignItems: 'center', gap: '10px',
           padding: '9px', borderRadius: '8px',
           border: '1px solid rgba(97,71,130,0.06)',
-          marginTop: '14px', cursor: 'pointer',
+          marginTop: '14px',
         }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.14)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(97,71,130,0.06)'; }}
       >
-        <Avatar style={{ width: '30px', height: '30px', flexShrink: 0 }}>
-          {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt={user?.name ?? ''} crossOrigin="anonymous" />}
-          <AvatarFallback style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', background: '#7452A6', width: '30px', height: '30px' }}>
-            {user ? getInitials(user.name) : '?'}
-          </AvatarFallback>
-        </Avatar>
-        <span style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
-          <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {user?.name ?? 'Usuario'}
+        <Link href="/dashboard/profile" className="dsh-user-profile-link">
+          <Avatar className="dsh-user-avatar" style={{ width: '30px', height: '30px', flexShrink: 0 }}>
+            {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt={user?.name ?? ''} crossOrigin="anonymous" />}
+            <AvatarFallback style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', background: '#7452A6', width: '30px', height: '30px' }}>
+              {user ? getInitials(user.name) : '?'}
+            </AvatarFallback>
+          </Avatar>
+          <span style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
+            <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user?.name ?? 'Usuario'}
+            </span>
           </span>
-          <span style={{ display: 'block', fontSize: '11px', color: 'var(--c-text3)' }}>Plan gratis</span>
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-          <button
-            onClick={e => { e.stopPropagation(); router.push('/dashboard/settings'); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '6px' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.08)')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'none')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="var(--c-text3)" strokeWidth="1.7"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="var(--c-text3)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-        </div>
+        </Link>
+        <Link href="/dashboard/settings" className="dsh-user-settings-link" aria-label="Ajustes" title="Ajustes">
+          <Settings size={17} strokeWidth={1.8} aria-hidden="true" />
+        </Link>
       </div>
       <div className="dsh-user-footer-compact">
-        <Link href="/dashboard/profile" className="dsh-compact-icon" title="Mi perfil" aria-label="Mi perfil">
-          <Avatar style={{ width: '30px', height: '30px', flexShrink: 0 }}>
+        <Link href="/dashboard/profile" className="dsh-compact-icon dsh-compact-profile-link" title="Mi perfil" aria-label="Mi perfil">
+          <Avatar className="dsh-user-avatar" style={{ width: '30px', height: '30px', flexShrink: 0 }}>
             {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt="" crossOrigin="anonymous" />}
             <AvatarFallback style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', background: '#7452A6' }}>
               {user ? getInitials(user.name) : '?'}
             </AvatarFallback>
           </Avatar>
         </Link>
-        <Link href="/dashboard/settings" className="dsh-compact-icon" title="Ajustes" aria-label="Ajustes">
+        <Link href="/dashboard/settings" className="dsh-compact-icon dsh-compact-settings-link" title="Ajustes" aria-label="Ajustes">
           <Settings size={18} />
         </Link>
       </div>
@@ -447,8 +453,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [organizationsLoaded, setOrganizationsLoaded] = useState(false);
   const [organizationsError, setOrganizationsError] = useState('');
   const [activeOrganizationId, setActiveOrganizationId] = useState<string | null>(null);
+  const [recentProjectIds, setRecentProjectIds] = useState<string[]>([]);
+  const [recentProjectsLoadedForUser, setRecentProjectsLoadedForUser] = useState<string | null>(null);
 
   const userAvatarUrl = getAvatarUrl(user?.avatar ?? null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setRecentProjectIds([]);
+      setRecentProjectsLoadedForUser(null);
+      return;
+    }
+    let ids: string[] = [];
+    try {
+      const stored = window.localStorage.getItem(`aether:recent-projects:${user.id}`);
+      const parsed: unknown = stored ? JSON.parse(stored) : [];
+      if (Array.isArray(parsed)) ids = parsed.filter((id): id is string => typeof id === 'string').slice(0, 50);
+    } catch { /* Ignore malformed or unavailable browser storage. */ }
+    setRecentProjectIds(ids);
+    setRecentProjectsLoadedForUser(user.id);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const projectId = pathname?.match(/^\/dashboard\/projects\/([^/?]+)/)?.[1];
+    if (!user?.id || recentProjectsLoadedForUser !== user.id || !projectId) return;
+    setRecentProjectIds((current) => {
+      const next = [projectId, ...current.filter((id) => id !== projectId)].slice(0, 50);
+      try { window.localStorage.setItem(`aether:recent-projects:${user.id}`, JSON.stringify(next)); } catch { /* Keep recents for this session. */ }
+      return next;
+    });
+  }, [pathname, recentProjectsLoadedForUser, user?.id]);
 
   useEffect(() => { loadPreferences(); }, [loadPreferences]);
 
@@ -556,7 +590,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const { type, payload } = event ?? {};
       if (!payload?.workspaceId || payload.workspaceId !== activeWorkspaceId) return;
       if (type === 'board.created' || type === 'board.archived' || type === 'board.deleted') fetchSidebarBoards(activeWorkspaceId);
-      if (type === 'project.created' || type === 'project.deleted' || type === 'project.updated') fetchSidebarProjects(activeWorkspaceId);
+      if (['project.created', 'project.deleted', 'project.updated', 'project.team.assigned', 'project.team.removed', 'team.member.added', 'team.member.removed'].includes(type)) {
+        fetchSidebarProjects(activeWorkspaceId);
+      }
     };
     socketService.on('event', handler);
     return () => socketService.off('event', handler);
@@ -625,7 +661,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     onRefreshWorkspaces: async () => { await Promise.all([fetchWorkspaces(), refreshOrganizations()]); },
     onCreateBoard: () => setCreateBoardOpen(true),
     onCreateProject: () => setCreateProjectOpen(true),
-    sidebarBoards, sidebarProjects, boardsLoading, projectsLoading,
+    sidebarBoards, sidebarProjects, boardsLoading, projectsLoading, recentProjectIds,
     compact: sidebarCompact,
     onToggleCompact: toggleSidebarCompact,
   };
@@ -732,7 +768,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
         )}
 
-        {createProjectOpen && (
+        {createProjectOpen && canManageOrganizationRole(activeOrganization?.role ?? activeWorkspace?.organization?.role) && (
           <CreateProjectModal
             onClose={() => setCreateProjectOpen(false)}
             defaultWorkspaceId={activeWorkspaceId ?? undefined}

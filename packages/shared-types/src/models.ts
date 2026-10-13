@@ -188,7 +188,8 @@ export type SprintStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED';
 
 export interface Sprint {
   id: string;
-  boardId: string;
+  boardId: string | null;
+  projectId?: string | null;
   name: string;
   goal?: string;
   startDate: string;
@@ -254,6 +255,8 @@ export interface Card {
   listId: string;
   title: string;
   description?: string;
+  acceptanceCriteria?: string | null;
+  storyPoints?: number | null;
   position: number;
   startDate?: string;
   dueDate?: string;
@@ -412,6 +415,7 @@ export interface DocumentWithDetails extends DocumentWithCreator {
   versionCount: number;
   lastModifiedBy?: User;
   userPermission?: DocumentPermission; // Permiso del usuario actual
+  canManage?: boolean; // El usuario actual puede administrar permisos y eliminar el documento
 }
 
 /**
@@ -900,6 +904,7 @@ export type NotificationType =
   | 'DOCUMENT_SHARED'
   | 'DOCUMENT_COMMENT'
   | 'PROJECT_INVITE'
+  | 'ORGANIZATION_INVITE'
   | 'MILESTONE_MISSED'
   | 'MILESTONE_COMPLETED'
   | 'PROJECT_STATUS_CHANGED'

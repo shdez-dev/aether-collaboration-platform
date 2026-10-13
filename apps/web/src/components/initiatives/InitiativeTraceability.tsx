@@ -120,7 +120,7 @@ export function InitiativeTraceability({
             entry.reason,
           ]
             .filter(Boolean)
-            .join(' · '),
+            .join(' — '),
           assessment: entry.triageAssessment,
           nextReviewAt: entry.nextReviewAt,
         })),
@@ -130,7 +130,7 @@ export function InitiativeTraceability({
           date: entry.createdAt,
           title: `${entry.action === 'ASSIGNED' ? 'Asignación' : entry.action === 'REVOKED' ? 'Revocación' : 'Remoción'} de ${roleNames[entry.role] ?? entry.role}`,
           actor: entry.actorName || 'Sistema',
-          detail: [entry.subjectName || 'Participante', entry.reason].filter(Boolean).join(' · '),
+          detail: [entry.subjectName || 'Participante', entry.reason].filter(Boolean).join(' — '),
         })),
         ...contentHistory.map((entry) => ({
           id: `content-${entry.id}`,

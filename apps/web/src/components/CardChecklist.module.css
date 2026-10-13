@@ -1,0 +1,67 @@
+.openButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--c-border2);
+  border-radius: 8px;
+  background: var(--c-surface);
+  color: var(--c-text2);
+  font: 650 12px/1.2 'Manrope', system-ui, sans-serif;
+  cursor: pointer;
+}
+.openButton:hover,
+.openButton[aria-expanded='true'] { border-color: var(--c-accent); color: var(--c-accent); }
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 16px;
+  border: 1px solid var(--c-border2);
+  border-radius: 12px;
+  background: var(--c-surface);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+.composerLabel { color: var(--c-text); font-size: 13px; font-weight: 700; }
+.composerInput {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border2);
+  border-radius: 8px;
+  outline: none;
+  background: var(--c-bg2);
+  color: var(--c-text);
+  font: 500 13px/1.4 'Manrope', system-ui, sans-serif;
+  caret-color: var(--c-accent);
+}
+.composerInput::placeholder { color: var(--c-text3); }
+.composerInput:focus-visible { border-color: var(--c-accent); outline: 2px solid color-mix(in srgb, var(--c-accent) 24%, transparent); outline-offset: 1px; }
+.composerInput:disabled { opacity: .65; }
+.composerFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.helper { color: var(--c-text3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.actions { display: flex; gap: 7px; }
+.cancelButton, .addButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 8px;
+  font: 700 12px/1.2 'Manrope', system-ui, sans-serif;
+  cursor: pointer;
+}
+.cancelButton { border: 1px solid var(--c-border2); background: transparent; color: var(--c-text2); }
+.cancelButton:hover:not(:disabled) { background: var(--c-hover); }
+.addButton { border: 1px solid var(--c-accent); background: var(--c-accent); color: #fff; }
+.addButton:hover:not(:disabled) { filter: brightness(1.1); }
+.addButton:disabled { opacity: .45; cursor: not-allowed; }
+.cancelButton:focus-visible, .addButton:focus-visible, .openButton:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.error { margin: 0; color: var(--c-red); font-size: 12px; }
+@media (max-width: 600px) {
+  .composerFooter { align-items: stretch; flex-direction: column; }
+  .actions { justify-content: flex-end; }
+}

@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileText, Link2, LoaderCircle, ShieldCheck, UserMinus, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileText, Link2, LoaderCircle, ShieldCheck, UserMinus, UserPlus, Users, Workflow, X } from 'lucide-react';
 import { InitiativeTraceability } from '@/components/initiatives/InitiativeTraceability';
+import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import detailStyles from './page.module.css';
 import { InitiativePriority, InitiativeStage, TriageAssessmentStatus, useInitiativeStore } from '@/stores/initiativeStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -47,11 +48,11 @@ type InitiativeEditForm = {
   attachments: AttachmentDraft[];
 };
 
-function formatDate(value?: string | null, includeTime = false) {
+function formatDate(value?: string | null, includeTime = false, locale = 'es-CL', timeZone = 'America/Santiago') {
   if (!value) return 'Sin fecha';
-  return new Intl.DateTimeFormat('es-CL', includeTime
-    ? { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
-    : { day: 'numeric', month: 'long', year: 'numeric' }
+  return new Intl.DateTimeFormat(locale, includeTime
+    ? { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone }
+    : { day: 'numeric', month: 'long', year: 'numeric', timeZone }
   ).format(new Date(value));
 }
 
@@ -82,7 +83,7 @@ function isHttpUrl(value: string) {
 export default function InitiativeDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { initiativeDetail, detailLoading, error, actionError, fetchInitiativeDetail, transitionDetail, updateDetail, assignParticipant, removeParticipant, convertDetail, clearActionError } = useInitiativeStore();
+  const { initiativeDetail, detailLoading, error, actionError, fetchInitiativeDetail, transitionDetail, updateDetail, assignParticipant, removeParticipant, withdrawDetail, convertDetail, clearActionError } = useInitiativeStore();
   const workspaceMembers = useWorkspaceStore((state) => state.currentMembers);
   const fetchWorkspaceMembers = useWorkspaceStore((state) => state.fetchMembers);
   const [transitionStage, setTransitionStage] = useState<InitiativeStage | ''>('');
@@ -95,6 +96,10 @@ export default function InitiativeDetailPage() {
   const [editForm, setEditForm] = useState<InitiativeEditForm>({ description: '', problemStatement: '', impactedPeople: '', problemImpact: '', impactedCount: '', expectedOutcome: '', proposedSolution: '', differentiation: '', proposedNextStep: '', priority: 'MEDIUM', nextReviewAt: '', evidence: [], attachments: [] });
   const [formError, setFormError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [showFormalization, setShowFormalization] = useState(false);
+  const [formalizationMethodology, setFormalizationMethodology] = useState<'FLEXIBLE' | 'SCRUM'>('FLEXIBLE');
+  const [formalizationProductOwnerId, setFormalizationProductOwnerId] = useState('');
+  const [formalizationScrumMasterId, setFormalizationScrumMasterId] = useState('');
 
   useEffect(() => {
     if (id) void fetchInitiativeDetail(id);
@@ -102,9 +107,9 @@ export default function InitiativeDetailPage() {
 
   useEffect(() => {
     const detail = initiativeDetail;
-    if (!detail?.access.canManage || !detail.initiative.workspaceId) return;
+    if (!(detail?.access.canManage || detail?.access.canInviteCollaborators) || !detail.initiative.workspaceId) return;
     void fetchWorkspaceMembers(detail.initiative.workspaceId);
-  }, [fetchWorkspaceMembers, initiativeDetail?.access.canManage, initiativeDetail?.initiative.workspaceId]);
+  }, [fetchWorkspaceMembers, initiativeDetail?.access.canManage, initiativeDetail?.access.canInviteCollaborators, initiativeDetail?.initiative.workspaceId]);
 
   useEffect(() => {
     if (!initiativeDetail) return;
@@ -134,6 +139,15 @@ export default function InitiativeDetailPage() {
     setEditing(false);
   }, [initiativeDetail?.initiative.id, initiativeDetail?.initiative.stage]);
 
+  useEffect(() => {
+    if (!showFormalization) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !actionBusy) setShowFormalization(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [actionBusy, showFormalization]);
+
   if (detailLoading) return <main style={page}><section style={state}><LoaderCircle className="animate-spin" size={24} /><span>Cargando iniciativa…</span></section></main>;
   if (error) return <main style={page}><section style={state}><ClipboardList size={28} /><h1>No fue posible abrir esta iniciativa</h1><p>{error}</p><Link href="/dashboard/initiatives" style={secondaryButton}><ArrowLeft size={16} /> Volver a iniciativas</Link></section></main>;
   if (!initiativeDetail) return <main style={page}><section style={state}><ClipboardList size={28} /><h1>Iniciativa no encontrada</h1><p>Puede que no tengas acceso o que ya no exista.</p><Link href="/dashboard/initiatives" style={secondaryButton}><ArrowLeft size={16} /> Volver a iniciativas</Link></section></main>;
@@ -147,6 +161,12 @@ export default function InitiativeDetailPage() {
     const draft = triageAssessment[criterion];
     return draft?.status ? [{ criterion, status: draft.status, note: draft.note.trim() || null }] : [];
   });
+  const candidatesById = new Map<string, { id: string; name: string }>();
+  workspaceMembers.forEach((member) => candidatesById.set(member.userId, { id: member.userId, name: member.user?.name || member.userId }));
+  participants.forEach((participant) => {
+    if (!candidatesById.has(participant.user.id)) candidatesById.set(participant.user.id, { id: participant.user.id, name: participant.user.name });
+  });
+  const methodologyPeople = Array.from(candidatesById.values());
 
   function resetEditForm() {
     setEditForm({
@@ -191,7 +211,7 @@ export default function InitiativeDetailPage() {
     event.preventDefault();
     if (!participantUserId) { setFormError('Selecciona una persona del espacio de trabajo.'); return; }
     setFormError(null); clearActionError(); setActionBusy(true);
-    const completed = await assignParticipant(initiative.id, { userId: participantUserId, role: participantRole });
+    const completed = await assignParticipant(initiative.id, { userId: participantUserId, role: access.canManage ? participantRole : 'COLLABORATOR' });
     if (completed) { setParticipantUserId(''); await refreshAfterAction(); }
     setActionBusy(false);
   }
@@ -204,9 +224,44 @@ export default function InitiativeDetailPage() {
     setActionBusy(false);
   }
 
-  async function formalizeInitiative() {
+  function openFormalization() {
+    const leadId = participants.find((participant) => participant.role === 'PROJECT_LEAD')?.user.id;
+    const coordinatorId = participants.find((participant) => participant.role === 'TRIAGE_COORDINATOR' || participant.role === 'MENTOR')?.user.id;
+    const firstCandidate = leadId && methodologyPeople.some((person) => person.id === leadId) ? leadId : methodologyPeople[0]?.id ?? '';
+    const secondCandidate = coordinatorId && coordinatorId !== firstCandidate
+      ? coordinatorId
+      : methodologyPeople.find((person) => person.id !== firstCandidate)?.id ?? '';
+    setFormalizationMethodology('FLEXIBLE');
+    setFormalizationProductOwnerId(firstCandidate);
+    setFormalizationScrumMasterId(secondCandidate);
+    setFormError(null);
+    clearActionError();
+    setShowFormalization(true);
+  }
+
+  async function formalizeInitiative(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (formalizationMethodology === 'SCRUM' && (!formalizationProductOwnerId || !formalizationScrumMasterId || formalizationProductOwnerId === formalizationScrumMasterId)) {
+      setFormError('El Product Owner y el Scrum Master deben ser personas distintas.');
+      return;
+    }
     setFormError(null); clearActionError(); setActionBusy(true);
-    const completed = await convertDetail(initiative.id);
+    const completed = await convertDetail(initiative.id, {
+      methodology: formalizationMethodology,
+      productOwnerId: formalizationMethodology === 'SCRUM' ? formalizationProductOwnerId : null,
+      scrumMasterId: formalizationMethodology === 'SCRUM' ? formalizationScrumMasterId : null,
+    });
+    if (completed) {
+      setShowFormalization(false);
+      await refreshAfterAction();
+    }
+    setActionBusy(false);
+  }
+
+  async function withdrawInitiative() {
+    if (!window.confirm('¿Retirar esta iniciativa? Quedará archivada y se registrará en el historial.')) return;
+    setFormError(null); clearActionError(); setActionBusy(true);
+    const completed = await withdrawDetail(initiative.id);
     if (completed) await refreshAfterAction();
     setActionBusy(false);
   }
@@ -238,8 +293,7 @@ export default function InitiativeDetailPage() {
       proposedNextStep: editForm.proposedNextStep.trim() || null,
       priority: editForm.priority,
       nextReviewAt: editForm.nextReviewAt ? new Date(editForm.nextReviewAt).toISOString() : null,
-      evidence: evidence.map((entry) => ({ title: entry.title.trim(), url: entry.url.trim() || undefined, note: entry.note.trim() || undefined })),
-      attachments: attachments.map((entry) => ({ name: entry.name.trim(), url: entry.url.trim(), type: entry.type.trim() || undefined })),
+      ...(access.canAttach !== false ? { evidence: evidence.map((entry) => ({ title: entry.title.trim(), url: entry.url.trim() || undefined, note: entry.note.trim() || undefined })), attachments: attachments.map((entry) => ({ name: entry.name.trim(), url: entry.url.trim(), type: entry.type.trim() || undefined })) } : {}),
     });
     if (completed) { setEditing(false); await refreshAfterAction(); }
     setActionBusy(false);
@@ -253,12 +307,13 @@ export default function InitiativeDetailPage() {
         <div style={titleRow}><h1 style={title}>{initiative.title}</h1><span style={stagePill}>{stageLabel(initiative.stage)}</span></div>
         <p style={subtitle}>{initiative.description || 'Propuesta en evaluación institucional.'}</p>
       </div>
-      <section style={reviewCard}><CalendarClock size={18} /><div><span style={muted}>Próxima revisión</span><strong>{formatDate(initiative.nextReviewAt)}</strong></div></section>
+      <section style={reviewCard}><CalendarClock size={18} /><div><span style={muted}>Próxima revisión</span><strong>{formatDate(initiative.nextReviewAt, false, access.locale, access.timezone)}</strong></div></section>
     </header>
 
     {canChangeContent && <section style={permissionBanner}>
       <ShieldCheck size={18} /><span>{access.canManage ? 'Tienes permisos de coordinación para administrar esta iniciativa.' : 'Puedes actualizar la información de esta iniciativa durante esta etapa.'}</span>
     </section>}
+    {access.canWithdraw && <button type="button" onClick={() => void withdrawInitiative()} disabled={actionBusy} style={{ ...secondaryButton, marginBottom: 18 }}>Retirar iniciativa</button>}
 
     <div className={detailStyles.layout}>
       <div style={mainColumn}>
@@ -343,13 +398,14 @@ export default function InitiativeDetailPage() {
               </label>
             </div>
 
-            <div style={editResourceSection}><div style={editResourceHeader}><h4 style={resourceHeading}>Evidencia</h4><button type="button" onClick={() => setEditForm((current) => ({ ...current, evidence: [...current.evidence, { title: '', url: '', note: '' }] }))} style={textButton} disabled={actionBusy}>Agregar evidencia</button></div>
+            {access.canAttach !== false && <><div style={editResourceSection}><div style={editResourceHeader}><h4 style={resourceHeading}>Evidencia</h4><button type="button" onClick={() => setEditForm((current) => ({ ...current, evidence: [...current.evidence, { title: '', url: '', note: '' }] }))} style={textButton} disabled={actionBusy}>Agregar evidencia</button></div>
               {editForm.evidence.map((entry, index) => <div key={`evidence-${index}`} style={resourceEditor}><input value={entry.title} onChange={(event) => setEditForm((current) => ({ ...current, evidence: current.evidence.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item) }))} style={input} disabled={actionBusy} placeholder="Título" /><input value={entry.url} onChange={(event) => setEditForm((current) => ({ ...current, evidence: current.evidence.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item) }))} style={input} disabled={actionBusy} placeholder="Enlace opcional https://" /><textarea value={entry.note} onChange={(event) => setEditForm((current) => ({ ...current, evidence: current.evidence.map((item, itemIndex) => itemIndex === index ? { ...item, note: event.target.value } : item) }))} style={compactTextarea} disabled={actionBusy} placeholder="Nota opcional" /><button type="button" onClick={() => setEditForm((current) => ({ ...current, evidence: current.evidence.filter((_, itemIndex) => itemIndex !== index) }))} style={removeTextButton} disabled={actionBusy}>Quitar</button></div>)}
             </div>
 
             <div style={editResourceSection}><div style={editResourceHeader}><h4 style={resourceHeading}>Adjuntos</h4><button type="button" onClick={() => setEditForm((current) => ({ ...current, attachments: [...current.attachments, { name: '', url: '', type: '' }] }))} style={textButton} disabled={actionBusy}>Agregar adjunto</button></div>
               {editForm.attachments.map((entry, index) => <div key={`attachment-${index}`} style={resourceEditor}><input value={entry.name} onChange={(event) => setEditForm((current) => ({ ...current, attachments: current.attachments.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) }))} style={input} disabled={actionBusy} placeholder="Nombre del archivo" /><input value={entry.url} onChange={(event) => setEditForm((current) => ({ ...current, attachments: current.attachments.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item) }))} style={input} disabled={actionBusy} placeholder="Enlace https://" /><input value={entry.type} onChange={(event) => setEditForm((current) => ({ ...current, attachments: current.attachments.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item) }))} style={input} disabled={actionBusy} placeholder="Tipo opcional" /><button type="button" onClick={() => setEditForm((current) => ({ ...current, attachments: current.attachments.filter((_, itemIndex) => itemIndex !== index) }))} style={removeTextButton} disabled={actionBusy}>Quitar</button></div>)}
             </div>
+            </>}
             <div style={editActions}><button type="button" onClick={() => { resetEditForm(); setEditing(false); setFormError(null); clearActionError(); }} style={secondaryButton} disabled={actionBusy}>Cancelar</button><button type="submit" style={primaryButton} disabled={actionBusy}>{actionBusy ? 'Guardando…' : 'Guardar información'}</button></div>
           </form>}
           {!editing && nextStages.length > 0 && <form onSubmit={submitTransition} style={manageForm}>
@@ -366,7 +422,7 @@ export default function InitiativeDetailPage() {
             </label>
             <button type="submit" style={primaryButton} disabled={actionBusy}>{actionBusy ? 'Guardando…' : 'Registrar cambio de etapa'} <ArrowRight size={15} /></button>
           </form>}
-          {!editing && initiative.stage === 'APPROVED' && !initiative.formalizedProjectId && <div style={formalizeBox}><div><strong>Lista para ejecución</strong><p>La formalización crea el proyecto, tablero, roles e hito inicial definidos por el estándar.</p></div><button type="button" onClick={formalizeInitiative} style={successButton} disabled={actionBusy}>{actionBusy ? 'Formalizando…' : 'Convertir en proyecto'} <ArrowRight size={15} /></button></div>}
+          {!editing && access.canManage && initiative.stage === 'APPROVED' && !initiative.formalizedProjectId && <div style={formalizeBox}><div><strong>Lista para ejecución</strong><p>Elige cómo se organizará el proyecto. Se conservarán la trazabilidad y los datos aprobados.</p></div><button type="button" onClick={openFormalization} style={successButton} disabled={actionBusy}>Formalizar proyecto <ArrowRight size={15} /></button></div>}
         </section>}
 
         <section style={panel}>
@@ -383,8 +439,8 @@ export default function InitiativeDetailPage() {
       <aside style={sidebar}>
         <section style={panel}>
           <h2 style={sectionTitle}><Users size={18} /> Participantes</h2>
-          {access.isExternal ? <p style={emptyText}>Los participantes internos no se comparten mediante este acceso.</p> : participants.length === 0 ? <p style={emptyText}>Sin participantes asignados.</p> : <div style={people}>{participants.map((participant) => <div key={participant.id} style={person}><div style={avatar}>{participant.user.name.slice(0, 1).toUpperCase()}</div><div><strong>{participant.user.name}</strong><span>{roleLabels[participant.role] || participant.role}</span></div>{access.canManage && participant.role !== 'REQUESTER' && <button type="button" onClick={() => void removePerson(participant.user.id, participant.user.name)} style={removeButton} disabled={actionBusy} aria-label={`Remover a ${participant.user.name}`}><UserMinus size={15} /></button>}</div>)}</div>}
-          {access.canManage && <form onSubmit={submitParticipant} style={assignmentForm}>
+          {access.isExternal ? <p style={emptyText}>Los participantes internos no se comparten mediante este acceso.</p> : participants.length === 0 ? <p style={emptyText}>Sin participantes asignados.</p> : <div style={people}>{participants.map((participant) => <div key={participant.id} style={person}><div style={avatar}>{participant.user.name.slice(0, 1).toUpperCase()}</div><div><strong>{participant.user.name}</strong><span>{participant.role === 'REQUESTER' ? access.requesterLabel || 'Solicitante' : roleLabels[participant.role] || participant.role}</span></div>{access.canManage && participant.role !== 'REQUESTER' && <button type="button" onClick={() => void removePerson(participant.user.id, participant.user.name)} style={removeButton} disabled={actionBusy} aria-label={`Remover a ${participant.user.name}`}><UserMinus size={15} /></button>}</div>)}</div>}
+          {(access.canManage || access.canInviteCollaborators) && <form onSubmit={submitParticipant} style={assignmentForm}>
             <label style={formLabel}>Asignar persona del espacio
               <select value={participantUserId} onChange={(event) => setParticipantUserId(event.target.value)} style={input} disabled={actionBusy} required>
                 <option value="">Selecciona una persona</option>
@@ -392,8 +448,8 @@ export default function InitiativeDetailPage() {
               </select>
             </label>
             <label style={formLabel}>Rol operativo
-              <select value={participantRole} onChange={(event) => setParticipantRole(event.target.value as (typeof assignableRoles)[number])} style={input} disabled={actionBusy}>
-                {assignableRoles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
+              <select value={access.canManage ? participantRole : 'COLLABORATOR'} onChange={(event) => setParticipantRole(event.target.value as (typeof assignableRoles)[number])} style={input} disabled={actionBusy}>
+                {(access.canManage ? assignableRoles : ['COLLABORATOR'] as const).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
               </select>
             </label>
             <button type="submit" style={secondaryButton} disabled={actionBusy}><UserPlus size={15} /> Asignar</button>
@@ -402,12 +458,64 @@ export default function InitiativeDetailPage() {
 
         <section style={panel}>
           <h2 style={sectionTitle}>Ficha de seguimiento</h2>
-          <dl style={metadata}><div><dt>Recibida</dt><dd>{formatDate(initiative.receivedAt)}</dd></div><div><dt>Prioridad</dt><dd>{initiative.priority}</dd></div><div><dt>Solicitante</dt><dd>{initiative.requester?.name || (access.isExternal ? 'No disponible' : 'Interno')}</dd></div><div><dt>Responsable de triage</dt><dd>{initiative.triageOwner?.name || 'Por asignar'}</dd></div><div><dt>Mentoría</dt><dd>{initiative.mentor?.name || 'Sin mentor asignado'}</dd></div></dl>
+          <dl style={metadata}><div><dt>Recibida</dt><dd>{formatDate(initiative.receivedAt, false, access.locale, access.timezone)}</dd></div><div><dt>Prioridad</dt><dd>{initiative.priority}</dd></div><div><dt>{access.requesterLabel || 'Solicitante'}</dt><dd>{initiative.requester?.name || (access.isExternal ? 'No disponible' : 'Interno')}</dd></div><div><dt>Responsable de triage</dt><dd>{initiative.triageOwner?.name || 'Por asignar'}</dd></div><div><dt>Mentoría</dt><dd>{initiative.mentor?.name || 'Sin mentor asignado'}</dd></div></dl>
         </section>
+
+        {!access.isExternal && access.organizationRules && <section style={panel}>
+          <h2 style={sectionTitle}><ShieldCheck size={18} /> Reglas de la organización</h2>
+          <p style={emptyText}>Estas reglas institucionales condicionan las acciones disponibles para esta iniciativa.</p>
+          <dl style={policyRows}>{[
+            ['Edición después del envío', access.organizationRules.canEditAfterSubmission ? 'Permitida en las primeras etapas' : 'Desactivada'],
+            ['Evidencia y adjuntos', access.organizationRules.canAttach ? 'Permitidos' : 'No permitidos para quien presenta'],
+            ['Colaboradores invitados', access.organizationRules.canInviteCollaborators ? 'Permitidos' : 'Desactivados'],
+            ['Mentoría para validar', access.organizationRules.mentorRequiredForValidation ? 'Debe asignarse antes de validar' : 'Puede asignarse según el caso'],
+            ['Decisión independiente', access.organizationRules.separateApproverFromRequester ? 'Quien presenta no decide su propuesta' : 'Según permisos de coordinación'],
+            ['Quién puede aprobar', access.organizationRules.coordinatorCanApprove ? 'Coordinación autorizada' : 'Administración del espacio'],
+            ['Liderazgo al formalizar', access.organizationRules.leadRequiredForConversion ? 'Debe asignarse antes de crear el proyecto' : 'No es requisito previo'],
+            ['Motivo de decisión visible', access.organizationRules.decisionVisibility === 'REASON' ? 'Sí, junto al estado' : 'Solo se muestra el estado'],
+          ].map(([labelText, value]) => <div key={labelText} style={policyRow}><dt style={policyLabel}>{labelText}</dt><dd style={policyValue}>{value}</dd></div>)}</dl>
+        </section>}
 
         {initiative.formalizedProjectId && <section style={{ ...panel, ...successPanel }}><CheckCircle2 size={19} /><div><strong>Proyecto formalizado</strong><p>La propuesta ya pasó a ejecución con trazabilidad conservada.</p><Link href={`/dashboard/projects/${initiative.formalizedProjectId}`} style={secondaryButton}>Abrir proyecto <ArrowRight size={15} /></Link></div></section>}
       </aside>
     </div>
+
+    {showFormalization && <div style={formalizeOverlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !actionBusy) setShowFormalization(false); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="formalize-title" aria-describedby="formalize-description" style={formalizeDialog}>
+        <header style={formalizeHeader}>
+          <span style={formalizeIcon}><Workflow size={19} /></span>
+          <div style={{ minWidth: 0, flex: 1 }}><h2 id="formalize-title" style={formalizeTitle}>Preparar el proyecto</h2><p id="formalize-description" style={formalizeSubtitle}>{initiative.title}</p></div>
+          <button type="button" autoFocus onClick={() => setShowFormalization(false)} style={formalizeClose} aria-label="Cerrar" disabled={actionBusy}><X size={18} /></button>
+        </header>
+        <form onSubmit={(event) => void formalizeInitiative(event)} style={formalizeForm}>
+          <label style={formLabel}>Metodología
+            <ProjectOptionSelect label="Metodología del proyecto" value={formalizationMethodology} onChange={(value) => setFormalizationMethodology(value as 'FLEXIBLE' | 'SCRUM')} disabled={actionBusy} options={[{ value: 'FLEXIBLE', label: 'Flexible' }, { value: 'SCRUM', label: 'Scrum' }]} menuZIndex={130} />
+          </label>
+          {formalizationMethodology === 'FLEXIBLE' ? <p style={methodologyHint}>El equipo podrá definir su forma de trabajo más adelante, desde el proyecto.</p> : <>
+            <div style={scrumRoleGuide}>
+              <strong>Responsabilidades de Scrum</strong>
+              <p><b>Product Owner:</b> prioriza el backlog y maximiza el valor del producto.</p>
+              <p><b>Scrum Master:</b> facilita el marco de trabajo y ayuda a resolver impedimentos.</p>
+              <p>Las demás personas participantes serán Developers.</p>
+            </div>
+            <div style={formalizeRoles}>
+              <label style={formLabel}>Product Owner
+                <ProjectOptionSelect label="Product Owner" value={formalizationProductOwnerId} onChange={setFormalizationProductOwnerId} disabled={actionBusy} placeholder="Seleccionar persona" options={[{ value: '', label: 'Seleccionar persona' }, ...methodologyPeople.map((person) => ({ value: person.id, label: person.name }))]} menuZIndex={130} />
+              </label>
+              <label style={formLabel}>Scrum Master
+                <ProjectOptionSelect label="Scrum Master" value={formalizationScrumMasterId} onChange={setFormalizationScrumMasterId} disabled={actionBusy} placeholder="Seleccionar persona" options={[{ value: '', label: 'Seleccionar persona' }, ...methodologyPeople.map((person) => ({ value: person.id, label: person.name }))]} menuZIndex={130} />
+              </label>
+            </div>
+            <p style={methodologyHint}>Scrum requiere tres participantes. Cuentan la persona propietaria, quienes ya participan en la iniciativa y las personas del equipo coordinador configurado.</p>
+          </>}
+          {(formError || actionError) && <p role="alert" style={actionErrorStyle}>{formError || actionError}</p>}
+          <footer style={formalizeFooter}>
+            <button type="button" onClick={() => setShowFormalization(false)} style={secondaryButton} disabled={actionBusy}>Cancelar</button>
+            <button type="submit" style={primaryButton} disabled={actionBusy || (formalizationMethodology === 'SCRUM' && (!formalizationProductOwnerId || !formalizationScrumMasterId || formalizationProductOwnerId === formalizationScrumMasterId))}>{actionBusy ? 'Formalizando…' : 'Crear proyecto'} {actionBusy ? <LoaderCircle className="animate-spin" size={15} /> : <ArrowRight size={15} />}</button>
+          </footer>
+        </form>
+      </section>
+    </div>}
   </main>;
 }
 
@@ -437,6 +545,10 @@ const people: CSSProperties = { display: 'grid', gap: 11 };
 const person: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, color: 'var(--c-text)' };
 const avatar: CSSProperties = { display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 30px', borderRadius: '50%', color: '#e9d5ff', background: '#55436c', fontWeight: 800, fontSize: 13 };
 const metadata: CSSProperties = { display: 'grid', gap: 12, margin: 0 };
+const policyRows: CSSProperties = { display: 'grid', gap: 0, margin: '14px 0 0' };
+const policyRow: CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '9px 0', borderTop: '1px solid var(--c-border)', fontSize: 11 };
+const policyLabel: CSSProperties = { color: 'var(--c-text3)' };
+const policyValue: CSSProperties = { margin: 0, color: 'var(--c-text2)', textAlign: 'right', fontWeight: 700 };
 const successPanel: CSSProperties = { display: 'flex', gap: 11, background: '#EEF6F0', borderColor: '#31583e', color: '#3D7159' };
 const secondaryButton: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, width: 'fit-content', marginTop: 10, border: '1px solid var(--c-border2)', borderRadius: 8, background: 'var(--c-surface)', color: 'var(--c-text)', padding: '9px 11px', fontWeight: 700, fontSize: 13, textDecoration: 'none' };
 const state: CSSProperties = { minHeight: '55vh', display: 'grid', placeItems: 'center', alignContent: 'center', gap: 10, textAlign: 'center', color: '#b6c1d3' };
@@ -448,6 +560,18 @@ const textarea: CSSProperties = { ...input, minHeight: 82, resize: 'vertical' };
 const primaryButton: CSSProperties = { display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 7, border: 0, borderRadius: 8, background: '#7452A6', color: '#FFFFFF', padding: '10px 13px', fontWeight: 850, cursor: 'pointer' };
 const successButton: CSSProperties = { ...primaryButton, background: '#54a66a', color: '#0d2113', whiteSpace: 'nowrap' };
 const formalizeBox: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, borderTop: '1px solid var(--c-border2)', marginTop: 18, paddingTop: 16, color: 'var(--c-text2)' };
+const formalizeOverlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 120, display: 'grid', placeItems: 'center', padding: 20, background: 'rgba(10, 8, 15, .72)', backdropFilter: 'blur(7px)' };
+const formalizeDialog: CSSProperties = { width: 'min(100%, 560px)', maxHeight: 'min(760px, calc(100dvh - 40px))', overflowY: 'auto', border: '1px solid var(--c-border2)', borderRadius: 16, background: 'var(--c-surface)', boxShadow: '0 24px 80px rgba(0,0,0,.38)', color: 'var(--c-text)' };
+const formalizeHeader: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '19px 21px', borderBottom: '1px solid var(--c-border)' };
+const formalizeIcon: CSSProperties = { display: 'grid', placeItems: 'center', width: 38, height: 38, flex: '0 0 38px', borderRadius: 11, background: 'color-mix(in srgb, var(--c-accent-text) 14%, var(--c-surface2))', color: 'var(--c-accent-text)' };
+const formalizeTitle: CSSProperties = { margin: 0, fontSize: 18, letterSpacing: '-.025em' };
+const formalizeSubtitle: CSSProperties = { overflow: 'hidden', margin: '4px 0 0', color: 'var(--c-text2)', fontSize: 12, textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const formalizeClose: CSSProperties = { display: 'grid', placeItems: 'center', width: 34, height: 34, flex: '0 0 34px', border: '1px solid var(--c-border)', borderRadius: 9, background: 'transparent', color: 'var(--c-text2)', cursor: 'pointer' };
+const formalizeForm: CSSProperties = { display: 'grid', gap: 17, padding: 21 };
+const formalizeRoles: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 };
+const scrumRoleGuide: CSSProperties = { display: 'grid', gap: 6, padding: '14px 15px', border: '1px solid var(--c-border)', borderRadius: 11, background: 'var(--c-surface2)', color: 'var(--c-text2)', fontSize: 11, lineHeight: 1.5 };
+const methodologyHint: CSSProperties = { margin: '-8px 0 0', color: 'var(--c-text3)', fontSize: 11, lineHeight: 1.5 };
+const formalizeFooter: CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 9, paddingTop: 14, borderTop: '1px solid var(--c-border)' };
 const actionErrorStyle: CSSProperties = { margin: '0 0 14px', padding: '9px 11px', border: '1px solid #7b3b45', borderRadius: 8, background: '#FBF0F2', color: '#9F455F', lineHeight: 1.45, fontSize: 13 };
 const removeButton: CSSProperties = { display: 'inline-grid', placeItems: 'center', marginLeft: 'auto', border: '1px solid #603847', borderRadius: 7, background: '#FBF0F2', color: '#9F455F', padding: 6, cursor: 'pointer' };
 const criteriaList: CSSProperties = { display: 'grid', gap: 10, marginTop: 15 };

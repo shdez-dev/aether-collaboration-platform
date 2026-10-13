@@ -61,6 +61,10 @@ function fmtTeam(row: any) {
       row.created_by === row.viewer_user_id ||
       ['OWNER', 'ADMIN'].includes(row.viewer_workspace_role)
     ),
+    canManageAdminRoles: Boolean(
+      row.created_by === row.viewer_user_id ||
+      ['OWNER', 'ADMIN'].includes(row.viewer_workspace_role)
+    ),
     lead:          row.lead_name ? { id: row.lead_id, name: row.lead_name, avatar: row.lead_avatar } : null,
     sampleMembers: row.sample_members ?? [],
   };
@@ -98,7 +102,7 @@ class TeamController {
 
       const result = await pool.query(
         `SELECT t.*,
-                COUNT(tm.id)::int AS member_count,
+                COUNT(DISTINCT tm.id)::int AS member_count,
                 u.name AS lead_name, u.avatar AS lead_avatar,
                 w.name AS workspace_name,
                 tm_viewer.role AS viewer_role,
@@ -116,9 +120,11 @@ class TeamController {
          LEFT JOIN team_members tm_viewer ON tm_viewer.team_id = t.id AND tm_viewer.user_id = $1
          LEFT JOIN workspace_members wm_viewer ON wm_viewer.workspace_id = t.workspace_id AND wm_viewer.user_id = $1
          LEFT JOIN project_teams pt ON pt.team_id = t.id
-         LEFT JOIN projects p ON p.id = pt.project_id AND p.status != 'ARCHIVED'
+         LEFT JOIN projects p ON p.id = pt.project_id
+          AND p.workspace_id = t.workspace_id
+          AND p.status != 'ARCHIVED'
          LEFT JOIN project_boards pb ON pb.project_id = p.id
-         LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
+         LEFT JOIN boards b ON b.id = pb.board_id AND b.workspace_id = t.workspace_id AND b.archived = false
          LEFT JOIN lists l ON l.board_id = b.id
          LEFT JOIN cards c ON c.list_id = l.id
          LEFT JOIN card_members cm ON cm.card_id = c.id
@@ -152,12 +158,24 @@ class TeamController {
       if (!body.success) return res.status(400).json({ success: false, error: { message: body.error.issues[0].message } });
 
       const { workspaceId, name, description, color, icon } = body.data;
-      const membership = await pool.query(
-        `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-        [workspaceId, userId]
+      const workspace = await pool.query(
+        `SELECT o.type AS organization_type, om.role AS organization_role, wm.role AS workspace_role
+           FROM workspaces w
+           JOIN organizations o ON o.id = w.organization_id
+           LEFT JOIN organization_members om ON om.organization_id = o.id AND om.user_id = $2
+           LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $2
+          WHERE w.id = $1`,
+        [workspaceId, userId],
       );
-      if (!membership.rowCount || !['OWNER', 'ADMIN'].includes(membership.rows[0].role)) {
-        return res.status(403).json({ success: false, error: { code: 'WORKSPACE_ADMIN_REQUIRED', message: 'Solo administradores del workspace pueden crear equipos' } });
+      if (!workspace.rows[0]) return res.status(404).json({ success: false, error: { code: 'WORKSPACE_NOT_FOUND', message: 'Espacio de trabajo no encontrado' } });
+      if (workspace.rows[0].organization_type === 'PERSONAL') {
+        return res.status(409).json({ success: false, error: { code: 'ORGANIZATION_TEAMS_REQUIRED', message: 'Los equipos están disponibles en organizaciones.' } });
+      }
+      if (!['OWNER', 'ADMIN'].includes(workspace.rows[0].organization_role)) {
+        return res.status(403).json({ success: false, error: { code: 'ORGANIZATION_MANAGER_REQUIRED', message: 'Solo el propietario o un administrador de la organización puede crear equipos.' } });
+      }
+      if (!workspace.rows[0].workspace_role) {
+        return res.status(403).json({ success: false, error: { code: 'NOT_WORKSPACE_MEMBER', message: 'Necesitas acceso a este espacio de trabajo para crear un equipo.' } });
       }
 
       const result = await pool.query(
@@ -204,7 +222,7 @@ class TeamController {
 
       const result = await pool.query(
         `SELECT t.*,
-                COUNT(tm.id)::int AS member_count,
+                COUNT(DISTINCT tm.id)::int AS member_count,
                 u.name AS lead_name, u.avatar AS lead_avatar,
                 w.name AS workspace_name,
                 tm_viewer.role AS viewer_role,
@@ -217,9 +235,11 @@ class TeamController {
          LEFT JOIN team_members tm_viewer ON tm_viewer.team_id = t.id AND tm_viewer.user_id = $2
          LEFT JOIN workspace_members wm_viewer ON wm_viewer.workspace_id = t.workspace_id AND wm_viewer.user_id = $2
          LEFT JOIN project_teams pt ON pt.team_id = t.id
-         LEFT JOIN projects p ON p.id = pt.project_id AND p.status != 'ARCHIVED'
+         LEFT JOIN projects p ON p.id = pt.project_id
+          AND p.workspace_id = t.workspace_id
+          AND p.status != 'ARCHIVED'
          LEFT JOIN project_boards pb ON pb.project_id = p.id
-         LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
+         LEFT JOIN boards b ON b.id = pb.board_id AND b.workspace_id = t.workspace_id AND b.archived = false
          LEFT JOIN lists l ON l.board_id = b.id
          LEFT JOIN cards c ON c.list_id = l.id
          LEFT JOIN card_members cm ON cm.card_id = c.id
@@ -299,6 +319,10 @@ class TeamController {
       if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
 
       const { id } = req.params;
+      const teamContext = (req as TeamRequest).teamContext;
+      if (!teamContext?.isCreator && !['OWNER', 'ADMIN'].includes(teamContext?.workspaceRole ?? '')) {
+        return res.status(403).json({ success: false, error: { code: 'TEAM_OWNER_REQUIRED', message: 'Solo el creador del equipo o un administrador del espacio puede eliminarlo' } });
+      }
       // Get team name before deleting
       const teamInfo = await pool.query(`SELECT name FROM teams WHERE id = $1`, [id]);
       const teamName = teamInfo.rows[0]?.name;
@@ -363,6 +387,43 @@ class TeamController {
     } catch (error) {
       console.error('[TeamController.getMembers]', error);
       res.status(500).json({ success: false, error: { message: 'Error al obtener miembros' } });
+    }
+  }
+
+  /** GET /api/teams/:id/standups — publicaciones de hoy de este equipo y espacio */
+  async getTodayStandups(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
+      const teamContext = (req as TeamRequest).teamContext;
+      if (!teamContext) return res.status(403).json({ success: false, error: { message: 'Acceso al equipo denegado' } });
+
+      const result = await pool.query(
+        `SELECT s.id, s.user_id, s.today_items, s.blockers, s.published_at,
+                u.name AS user_name, u.avatar AS user_avatar
+           FROM standups s
+           JOIN team_members tm ON tm.team_id = $1 AND tm.user_id = s.user_id
+           JOIN users u ON u.id = s.user_id
+          WHERE s.workspace_id = $2
+            AND s.date = CURRENT_DATE
+            AND s.published_at IS NOT NULL
+          ORDER BY s.published_at DESC`,
+        [teamContext.id, teamContext.workspaceId]
+      );
+
+      const standups = result.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        userName: row.user_name,
+        userAvatar: row.user_avatar ?? null,
+        todayItems: row.today_items ?? [],
+        blockers: row.blockers ?? [],
+        publishedAt: new Date(row.published_at).toISOString(),
+      }));
+      return res.json({ success: true, data: { standups } });
+    } catch (error) {
+      console.error('[TeamController.getTodayStandups]', error);
+      return res.status(500).json({ success: false, error: { message: 'Error al obtener las actualizaciones de hoy' } });
     }
   }
 
@@ -452,7 +513,7 @@ class TeamController {
       );
       const invitationId = invResult.rows[0].id;
 
-      const teamInfo = await pool.query(`SELECT name FROM teams WHERE id = $1`, [id]);
+      const teamInfo = await pool.query(`SELECT name, workspace_id FROM teams WHERE id = $1`, [id]);
       const teamName = teamInfo.rows[0]?.name;
       const actorInfo = await pool.query(`SELECT name FROM users WHERE id = $1`, [userId]);
       const actorName = actorInfo.rows[0]?.name ?? '';
@@ -464,6 +525,7 @@ class TeamController {
             userId: targetUserId!,
             teamId: id,
             teamName: teamName ?? '',
+            workspaceId: teamInfo.rows[0]?.workspace_id,
             inviterId: userId,
             inviterName: actorName,
             invitationId,
@@ -494,6 +556,9 @@ class TeamController {
       if (teamRow.rows[0].created_by === targetId) {
         return res.status(403).json({ success: false, error: { code: 'CANNOT_CHANGE_CREATOR_ROLE', message: 'No se puede cambiar el rol del creador del equipo' } });
       }
+      if (userId === targetId) {
+        return res.status(403).json({ success: false, error: { code: 'CANNOT_CHANGE_OWN_ROLE', message: 'No puedes cambiar tu propio rol en el equipo' } });
+      }
 
       const roles = await pool.query(
         `SELECT
@@ -517,19 +582,8 @@ class TeamController {
         `UPDATE team_members SET role = $1 WHERE team_id = $2 AND user_id = $3`,
         [body.data.role, id, targetId]
       );
-
-      // Sincronizar lead_id: si hay al menos un ADMIN, el primero es el lead; si no, null
-      if (body.data.role === 'ADMIN') {
-        await pool.query(`UPDATE teams SET lead_id = $1, updated_at = NOW() WHERE id = $2`, [targetId, id]);
-      } else {
-        // Si el target era el lead_id y ya no es ADMIN, buscar otro ADMIN
-        await pool.query(
-          `UPDATE teams SET lead_id = (
-             SELECT user_id FROM team_members WHERE team_id = $1 AND role = 'ADMIN' LIMIT 1
-           ), updated_at = NOW() WHERE id = $1`,
-          [id]
-        );
-      }
+      // El rol de equipo y la persona responsable son atributos independientes.
+      await pool.query(`UPDATE teams SET updated_at = NOW() WHERE id = $1`, [id]);
 
       const teamInfo = await pool.query(`SELECT name FROM teams WHERE id = $1`, [id]);
       const teamName = teamInfo.rows[0]?.name;
@@ -632,9 +686,11 @@ class TeamController {
         `SELECT p.id, p.name, p.color, p.description, p.status,
                 w.name AS workspace_name, pt.assigned_at
            FROM project_teams pt
+           JOIN teams t ON t.id = pt.team_id
+           JOIN workspaces w ON w.id = t.workspace_id
            JOIN projects p ON p.id = pt.project_id
-           JOIN teams t ON t.id = pt.team_id AND t.workspace_id = p.workspace_id
-           JOIN workspaces w ON w.id = p.workspace_id
+            AND p.workspace_id = t.workspace_id
+            AND p.workspace_id = w.id
           WHERE pt.team_id = $1
           ORDER BY pt.assigned_at DESC`,
         [req.params.id]
@@ -663,13 +719,14 @@ class TeamController {
       const result = await pool.query(
         `SELECT
            w.id, w.name, w.color,
-           COUNT(DISTINCT pt.project_id)::int AS project_count,
+           COUNT(DISTINCT p.id)::int AS project_count,
            COUNT(DISTINCT cm.card_id) FILTER (WHERE c.completed = false) AS active_cards
          FROM teams t
          JOIN workspaces w ON w.id = t.workspace_id
          LEFT JOIN project_teams pt ON pt.team_id = t.id
-         LEFT JOIN project_boards pb ON pb.project_id = pt.project_id
-         LEFT JOIN boards b ON b.id = pb.board_id
+         LEFT JOIN projects p ON p.id = pt.project_id AND p.workspace_id = t.workspace_id
+         LEFT JOIN project_boards pb ON pb.project_id = p.id
+         LEFT JOIN boards b ON b.id = pb.board_id AND b.workspace_id = t.workspace_id
          LEFT JOIN lists l ON l.board_id = b.id
          LEFT JOIN cards  c  ON c.list_id = l.id
          LEFT JOIN card_members cm ON cm.card_id = c.id
@@ -713,6 +770,7 @@ class TeamController {
              SELECT pt.project_id, p.name AS project_name
              FROM project_teams pt
              JOIN projects p ON p.id = pt.project_id
+             JOIN teams t ON t.id = pt.team_id AND t.workspace_id = p.workspace_id
              WHERE pt.team_id = $1
            )
            SELECT
@@ -752,7 +810,10 @@ class TeamController {
                   NULL::text AS project_name, NULL::text AS project_id
            FROM events e
            JOIN users u ON u.id = e.actor_id
-           WHERE e.subject_id = $1
+           WHERE (e.subject_id = $1 OR (
+                    e.type IN ('team.member.added','team.member.removed','team.member.role-changed')
+                    AND e.payload->>'teamId' = $1::text
+                  ))
              AND e.type IN ('team.member.added','team.member.removed','team.member.role-changed')
            ORDER BY e.created_at DESC LIMIT $2`,
           [id, limit]
@@ -774,7 +835,7 @@ class TeamController {
           case 'card.status-changed':       action = delta.completed ? 'completó la tarjeta' : 'cambió el estado de la tarjeta'; break;
           case 'list.created':              action = 'creó la lista';                  break;
           case 'board.created':             action = 'creó el tablero';                break;
-          case 'team.member.added':         action = 'añadió al equipo a';             break;
+          case 'team.member.added':         action = payload.acceptedInvitation ? 'se unió al equipo' : 'añadió al equipo a'; break;
           case 'team.member.removed':       action = 'eliminó del equipo a';           break;
           case 'team.member.role-changed':  action = 'cambió el rol de';               break;
           case 'project.milestone.created':   action = 'creó el hito';                 break;
@@ -797,7 +858,7 @@ class TeamController {
           userName:    row.user_name,
           userAvatar:  row.user_avatar ?? null,
           action,
-          entityName:  entityName ?? (payload.boardName ?? payload.teamName ?? payload.memberName ?? null),
+          entityName:  payload.acceptedInvitation ? (payload.teamName ?? null) : (entityName ?? (payload.boardName ?? payload.teamName ?? payload.memberName ?? null)),
           projectName: row.project_name ?? null,
           projectId:   row.project_id   ?? null,
           createdAt:   new Date(row.created_at).toISOString(),
@@ -881,7 +942,7 @@ class TeamController {
         const inv = invResult.rows[0];
 
         const teamWorkspace = await client.query(
-          `SELECT t.workspace_id, w.organization_id, w.archived
+          `SELECT t.workspace_id, t.name AS team_name, w.organization_id, w.archived
              FROM teams t
              LEFT JOIN workspaces w ON w.id = t.workspace_id
             WHERE t.id = $1 FOR UPDATE OF t`,
@@ -954,6 +1015,24 @@ class TeamController {
         await client.query(`UPDATE team_invitations SET status = 'ACCEPTED' WHERE id = $1`, [invitationId]);
         await client.query(`UPDATE teams SET updated_at = NOW() WHERE id = $1`, [inv.team_id]);
         await client.query('COMMIT');
+
+        try {
+          const member = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+          await eventStore.emit({
+            type: 'team.member.added',
+            actor: { id: userId, name: member.rows[0]?.name ?? '' },
+            subject: { type: 'member', id: userId, name: member.rows[0]?.name ?? '' },
+            context: { workspaceId: teamWorkspace.rows[0].workspace_id },
+            payload: {
+              teamId: inv.team_id,
+              teamName: teamWorkspace.rows[0].team_name,
+              memberId: userId,
+              memberName: member.rows[0]?.name ?? '',
+              role: inv.role,
+              acceptedInvitation: true,
+            },
+          } as any);
+        } catch { /* la membresía ya quedó confirmada en la transacción */ }
 
         res.json({ success: true, data: { message: 'Invitación aceptada' } });
       } catch (err) {

@@ -1,13 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import OrganizationsPage from './page';
 import { apiService } from '@/services/apiService';
 
-const mockInviteMember = jest.fn();
-jest.mock('@/services/apiService', () => ({ apiService: { get: jest.fn(), post: jest.fn(), delete: jest.fn() } }));
+jest.mock('@/services/apiService', () => ({ apiService: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() } }));
 jest.mock('@/stores/workspaceStore', () => ({ useWorkspaceStore: () => ({
   currentWorkspace: null,
   workspaces: [{ id: 'ws-1', name: 'Operaciones', organizationId: 'org-1', userRole: 'OWNER' }],
-  inviteMember: mockInviteMember,
 }) }));
 jest.mock('@/stores/activeWorkspaceStore', () => ({ useActiveWorkspaceStore: (selector: (state: { activeWorkspaceId: string }) => unknown) => selector({ activeWorkspaceId: 'ws-1' }) }));
 jest.mock('@/stores/authStore', () => ({ useAuthStore: (selector: (state: { user: { id: string } }) => unknown) => selector({ user: { id: 'alice-1' } }) }));
@@ -32,6 +31,7 @@ describe('invitaciones de organización', () => {
         { id: 'org-other', name: 'Otro equipo', type: 'COMPANY', role: 'OWNER', memberCount: 1, workspaceCount: 1 },
         { id: 'org-1', name: 'Acme', type: 'COMPANY', role: 'OWNER', memberCount: 1, workspaceCount: 1 },
       ] } };
+      if (url === '/api/organizations/org-1') return { success: true, data: { organization: { id: 'org-1', name: 'Acme', type: 'COMPANY', role: 'OWNER', memberCount: 2, workspaceCount: 1 } } };
       if (url.endsWith('/members')) return { success: true, data: { members: [{ id: 'member-2', userId: 'bob-1', name: 'Bob', email: 'bob@example.com', role: 'MEMBER', joinedAt: '2026-10-09T12:00:00.000Z' }] } };
       if (url.endsWith('/invitations')) return { success: true, data: { invitations: [invitation] } };
       return { success: false };
@@ -41,7 +41,7 @@ describe('invitaciones de organización', () => {
   it('muestra código y enlace aunque falle el correo', async () => {
     (apiService.post as jest.Mock).mockResolvedValue({ success: true, data: { invitation: generated } });
     render(<OrganizationsPage />);
-    expect((await screen.findByRole('button', { name: 'Organización' })).textContent).toContain('Acme');
+    expect(await screen.findByRole('heading', { name: 'Acme' })).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: /invitar persona/i }));
     fireEvent.change(screen.getByPlaceholderText('nombre@empresa.com'), { target: { value: 'bob@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: 'Generar invitación' }));
@@ -53,11 +53,41 @@ describe('invitaciones de organización', () => {
     expect(screen.getByText(/No se pudo enviar el correo/i)).toBeTruthy();
   });
 
-  it('permite elegir otra organización con el menú personalizado', async () => {
+  it('usa la organización activa del sidebar sin repetir su selector', async () => {
     render(<OrganizationsPage />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Organización' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Otro equipo' }));
-    expect(screen.getByRole('button', { name: 'Organización' }).textContent).toContain('Otro equipo');
+    expect(await screen.findByRole('heading', { name: 'Acme' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Organización' })).toBeNull();
+  });
+
+  it('busca en todos los miembros y pagina los resultados', async () => {
+    (apiService.get as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === '/api/organizations') return { success: true, data: { organizations: [
+        { id: 'org-1', name: 'Acme', type: 'COMPANY', role: 'OWNER', memberCount: 12, workspaceCount: 1 },
+        { id: 'org-other', name: 'Otro equipo', type: 'COMPANY', role: 'OWNER', memberCount: 1, workspaceCount: 0 },
+      ] } };
+      if (url === '/api/organizations/org-1/members') return { success: true, data: { members: [
+        ...Array.from({ length: 11 }, (_, index) => ({ id: `member-${index}`, userId: `user-${index}`, name: `Persona ${String(index + 1).padStart(2, '0')}`, email: `persona${index + 1}@example.com`, role: 'MEMBER', joinedAt: '2026-10-09T12:00:00.000Z' })),
+        { id: 'member-jose', userId: 'user-jose', name: 'José Álvarez', email: 'jose@example.com', role: 'MEMBER', joinedAt: '2026-10-09T12:00:00.000Z' },
+      ] } };
+      if (url === '/api/organizations/org-other/members') return { success: true, data: { members: [
+        { id: 'member-ana', userId: 'user-ana', name: 'Ana', email: 'ana@example.com', role: 'MEMBER', joinedAt: '2026-10-09T12:00:00.000Z' },
+      ] } };
+      if (url.endsWith('/invitations')) return { success: true, data: { invitations: [] } };
+      return { success: false };
+    });
+
+    render(<OrganizationsPage />);
+    expect(await screen.findByText('Persona 01')).toBeTruthy();
+    expect(screen.queryByText('José Álvarez')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
+    expect(screen.getByText('José Álvarez')).toBeTruthy();
+
+    const search = screen.getByRole('searchbox', { name: 'Buscar miembros de esta organización' });
+    fireEvent.change(search, { target: { value: 'jose' } });
+    expect(screen.getByText('José Álvarez')).toBeTruthy();
+    expect(screen.getByText('1 resultado')).toBeTruthy();
+
+    expect((search as HTMLInputElement).value).toBe('jose');
   });
 
   it('abre el rol fuera del modal y envía el rol seleccionado', async () => {
@@ -79,6 +109,50 @@ describe('invitaciones de organización', () => {
     ));
   });
 
+  it('explica qué permisos concede el rol de facturación', async () => {
+    render(<OrganizationsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /invitar persona/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rol en la organización' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Administrador de facturación' }));
+    expect(screen.getByText(/actualizar el correo de facturación/i)).toBeTruthy();
+    expect(screen.getByText(/En el piloto gratuito puedes dejarlo sin asignar/i)).toBeTruthy();
+  });
+
+  it('permite al propietario retirar un miembro con confirmación y actualiza la lista', async () => {
+    (apiService.delete as jest.Mock).mockResolvedValue({ success: true });
+    render(<OrganizationsPage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Acciones de Bob' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Quitar de la organización' }));
+    expect(screen.getByRole('dialog', { name: 'Quitar a Bob' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar de la organización' }));
+
+    await waitFor(() => expect(apiService.delete).toHaveBeenCalledWith('/api/organizations/org-1/members/bob-1', true));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Acciones de Bob' })).toBeNull());
+  });
+
+  it('permite al administrador retirar miembros, pero no roles administrativos', async () => {
+    (apiService.get as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === '/api/organizations') return { success: true, data: { organizations: [
+        { id: 'org-1', name: 'Acme', type: 'COMPANY', role: 'ADMIN', memberCount: 3, workspaceCount: 1 },
+      ] } };
+      if (url.endsWith('/members')) return { success: true, data: { members: [
+        { id: 'member-2', userId: 'bob-1', name: 'Bob', email: 'bob@example.com', role: 'MEMBER', joinedAt: '2026-10-09T12:00:00.000Z' },
+        { id: 'member-3', userId: 'carol-1', name: 'Carol', email: 'carol@example.com', role: 'BILLING_ADMIN', joinedAt: '2026-10-09T12:00:00.000Z' },
+      ] } };
+      if (url.endsWith('/invitations')) return { success: true, data: { invitations: [] } };
+      return { success: false };
+    });
+    render(<OrganizationsPage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Acciones de Bob' }));
+    expect(screen.getByRole('menuitem', { name: 'Quitar de la organización' })).toBeTruthy();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: 'Acciones de Carol' }));
+    expect(screen.queryByRole('menuitem', { name: 'Quitar de la organización' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Cambiar rol' })).toBeNull();
+  });
+
   it('permite regenerar una invitación pendiente sin prometer envío de correo', async () => {
     const confirmation = jest.spyOn(window, 'confirm').mockReturnValue(true);
     (apiService.post as jest.Mock).mockResolvedValue({ success: true, data: { invitation: { ...generated, emailStatus: 'not_sent' } } });
@@ -90,51 +164,30 @@ describe('invitaciones de organización', () => {
     } finally { confirmation.mockRestore(); }
   });
 
-  it('conserva la asignación de espacios al quitar la antigua vista de usuarios', async () => {
-    mockInviteMember.mockResolvedValue(undefined);
+  it('permite asignar una persona a varios espacios con invitación', async () => {
+    (apiService.post as jest.Mock).mockResolvedValue({ success: true });
     render(<OrganizationsPage />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Asignar espacio' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Enviar invitación al espacio' }));
-    await waitFor(() => expect(mockInviteMember).toHaveBeenCalledWith('ws-1', 'bob@example.com', 'MEMBER'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Acciones de Bob' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Asignar espacio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar a 1 espacio' }));
+    await waitFor(() => expect(apiService.post).toHaveBeenCalledWith('/api/workspaces/ws-1/invite', { email: 'bob@example.com', role: 'MEMBER' }, true));
   });
 
-  it('exige el nombre exacto y solo elimina una organización sin espacios', async () => {
-    (apiService.get as jest.Mock).mockImplementation(async (url: string) => {
-      if (url === '/api/organizations') return { success: true, data: { organizations: [
-        { id: 'personal-1', name: 'Alice - Aether', type: 'PERSONAL', role: 'OWNER', memberCount: 1, workspaceCount: 0 },
-        { id: 'org-other', name: 'Otro equipo', type: 'COMPANY', role: 'OWNER', memberCount: 1, workspaceCount: 1 },
-        { id: 'org-1', name: 'Acme', type: 'COMPANY', role: 'OWNER', memberCount: 1, workspaceCount: 0 },
-      ] } };
-      if (url.endsWith('/members')) return { success: true, data: { members: [] } };
-      if (url.endsWith('/invitations')) return { success: true, data: { invitations: [] } };
-      return { success: false };
-    });
-    (apiService.delete as jest.Mock).mockResolvedValue({ success: true });
-
+  it('permite al propietario cambiar el rol desde la fila de la persona', async () => {
+    (apiService.patch as jest.Mock).mockResolvedValue({ success: true });
     render(<OrganizationsPage />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar organización' }));
-
-    const dialog = screen.getByRole('dialog', { name: 'Eliminar organización' });
-    const confirmButton = screen.getByRole('button', { name: 'Eliminar definitivamente' });
-    const nameInput = screen.getByLabelText('Escribe el nombre exacto para confirmar');
-    expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(nameInput, { target: { value: 'acme' } });
-    expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(nameInput, { target: { value: 'Acme' } });
-    expect((confirmButton as HTMLButtonElement).disabled).toBe(false);
-    fireEvent.click(confirmButton);
-
-    await waitFor(() => expect(apiService.delete).toHaveBeenCalledWith(
-      '/api/organizations/org-1', true, { confirmationName: 'Acme' },
-    ));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Eliminar organización' })).toBeNull());
-    expect(dialog).toBeTruthy();
+    await userEvent.click(await screen.findByRole('button', { name: 'Cambiar rol de Bob' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo rol' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Administrador' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar rol' }));
+    await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/api/organizations/org-1/members/bob-1', { role: 'ADMIN' }, true));
+    expect(await screen.findByText('Administrador')).toBeTruthy();
   });
 
-  it('explica que primero deben quitarse los espacios de trabajo', async () => {
+  it('no muestra la eliminación de la organización mientras se define la cancelación', async () => {
     render(<OrganizationsPage />);
-    const deleteButton = await screen.findByRole('button', { name: 'Eliminar organización' });
-    expect((deleteButton as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/mueve o elimina sus 1 espacio de trabajo/i)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Acme' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Eliminar organización' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Eliminar organización' })).toBeNull();
   });
 });

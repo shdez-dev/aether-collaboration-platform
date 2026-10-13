@@ -1,6 +1,7 @@
 import { pool } from '../lib/db';
 
 export type Capability = 'workspaces' | 'members' | 'portfolio' | 'institutional_context' | 'intake' | 'advanced_roles' | 'network_programs' | 'analytics' | 'storage_mb' | 'ai_credits';
+export type CapabilityQueryExecutor = (text: string, params?: any[]) => Promise<{ rows: any[] }>;
 export const PLAN_CATALOG: Record<string, { name: string; capabilities: Partial<Record<Capability, number | boolean>> }> = {
   FREE: { name: 'Free / Personal', capabilities: { workspaces: 1, members: 1, storage_mb: 250, ai_credits: 3 } },
   TEAMS: { name: 'Teams', capabilities: { workspaces: 5, members: 15, advanced_roles: true, storage_mb: 10_000, ai_credits: 100 } },
@@ -10,11 +11,14 @@ export const PLAN_CATALOG: Record<string, { name: string; capabilities: Partial<
 };
 
 export class CapabilityService {
-  async getOrganizationCapabilities(organizationId: string) {
+  async getOrganizationCapabilities(
+    organizationId: string,
+    execute: CapabilityQueryExecutor = (text, params) => pool.query(text, params),
+  ) {
     // An organization can retain historical provider rows while a plan changes.
     // Select the one effective subscription first, then read only its overrides:
     // joining before selecting would otherwise merge entitlements from several plans.
-    const result = await pool.query(`
+    const result = await execute(`
       WITH effective_subscription AS (
         SELECT s.id, s.plan_code, s.status
           FROM subscriptions s
@@ -22,6 +26,7 @@ export class CapabilityService {
            AND s.status IN ('TRIALING', 'ACTIVE', 'PAST_DUE')
            AND (s.current_period_end IS NULL OR s.current_period_end > CURRENT_TIMESTAMP)
          ORDER BY
+           CASE WHEN s.provider = 'platform-admin' THEN 0 ELSE 1 END,
            CASE s.status
              WHEN 'ACTIVE' THEN 1
              WHEN 'TRIALING' THEN 2
@@ -31,9 +36,27 @@ export class CapabilityService {
            s.created_at DESC,
            s.id DESC
          LIMIT 1
+      ), organization AS (
+        SELECT type
+          FROM organizations
+         WHERE id = $1
       )
-      SELECT s.id, s.plan_code, s.status, e.capability, e.limit_value
-        FROM effective_subscription s
+      SELECT s.id,
+             CASE
+               WHEN s.plan_code IS NOT NULL AND s.plan_code <> 'FREE' THEN s.plan_code
+               WHEN o.type = 'COMPANY' THEN 'TEAMS'
+               WHEN o.type = 'INSTITUTION' THEN 'INSTITUTIONAL'
+               ELSE COALESCE(s.plan_code, 'FREE')
+             END AS plan_code,
+             COALESCE(
+               s.status::text,
+               CASE WHEN o.type IN ('COMPANY', 'INSTITUTION') THEN 'ACTIVE' ELSE 'FREE' END
+             ) AS status,
+             e.capability,
+             e.limit_value,
+             o.type AS organization_type
+        FROM organization o
+        LEFT JOIN effective_subscription s ON TRUE
         LEFT JOIN subscription_entitlements e ON e.subscription_id = s.id
        ORDER BY e.capability ASC NULLS LAST
     `, [organizationId]);
@@ -41,13 +64,13 @@ export class CapabilityService {
     for (const row of result.rows) if (row.capability) capabilities[row.capability] = row.limit_value ?? true;
     return { planCode, status: subscription?.status ?? 'FREE', capabilities };
   }
-  async check(organizationId: string, capability: Capability, usage = 0) {
-    const entitlement = await this.getOrganizationCapabilities(organizationId); const value = entitlement.capabilities[capability];
+  async check(organizationId: string, capability: Capability, usage = 0, execute?: CapabilityQueryExecutor) {
+    const entitlement = await this.getOrganizationCapabilities(organizationId, execute); const value = entitlement.capabilities[capability];
     const allowed = typeof value === 'number' ? usage < value : value === true;
     return { allowed, capability, limit: typeof value === 'number' ? value : null, usage, planCode: entitlement.planCode, status: entitlement.status };
   }
-  async require(organizationId: string, capability: Capability, usage = 0) {
-    const check = await this.check(organizationId, capability, usage);
+  async require(organizationId: string, capability: Capability, usage = 0, execute?: CapabilityQueryExecutor) {
+    const check = await this.check(organizationId, capability, usage, execute);
     if (!check.allowed) { const err: any = new Error(`La capacidad ${capability} no está disponible en el plan actual.`); err.code = 'CAPABILITY_REQUIRED'; err.details = check; throw err; }
     return check;
   }

@@ -10,14 +10,16 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { apiService } from '@/services/apiService';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { acceptTeamInvitationAndSync } from '@/lib/acceptTeamInvitation';
 import styles from './page.module.css';
 import entrance from '../pageEntrance.module.css';
 
-type Filter = 'todo' | 'sin-leer' | 'menciones' | 'asignaciones';
+type Filter = 'todo' | 'sin-leer' | 'personales' | 'menciones' | 'asignaciones';
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'todo', label: 'Todas' },
   { key: 'sin-leer', label: 'Sin leer' },
+  { key: 'personales', label: 'Personales' },
   { key: 'menciones', label: 'Menciones' },
   { key: 'asignaciones', label: 'Asignaciones' },
 ];
@@ -48,11 +50,12 @@ function extractActor(message: string): string {
 function notificationContent(notification: Notification) {
   const data = (notification.data ?? {}) as Record<string, unknown>;
   const stringValue = (...keys: string[]) => keys.map(key => data[key]).find(value => typeof value === 'string') as string | undefined;
-  const actor = stringValue('creatorName', 'actorName', 'senderName', 'actor') || extractActor(notification.message ?? '') || 'Aether';
+  const actor = stringValue('creatorName', 'actorName', 'senderName', 'inviterName', 'actor') || extractActor(notification.message ?? '') || 'Aether';
   const board = stringValue('boardName', 'board') || '';
   const card = stringValue('cardTitle', 'card') || '';
   const workspace = stringValue('workspaceName', 'workspace') || '';
   const team = stringValue('teamName') || '';
+  const organization = stringValue('organizationName') || '';
   const document = stringValue('documentTitle', 'documentName') || '';
 
   const actions: Record<string, [string, string]> = {
@@ -70,15 +73,17 @@ function notificationContent(notification: Notification) {
     TEAM_INVITE: ['te invitó al equipo', team],
     CALENDAR_EVENT_INVITE: ['te invitó a un evento de calendario:', stringValue('eventTitle') || ''],
     PROJECT_INVITE: ['te invitó al proyecto', stringValue('projectName') || ''],
+    ORGANIZATION_INVITE: ['te invitó a la organización', organization],
     WORKSPACE_REMOVED: ['te retiró de', workspace || board],
     MILESTONE_COMPLETED: ['completó un hito en', stringValue('projectName') || ''],
     MILESTONE_MISSED: ['tiene un hito vencido en', stringValue('projectName') || ''],
   };
   const [action, target] = actions[notification.type] ?? [notification.title || 'tienes una nueva actividad', ''];
-  return { actor, action, target, context: board || workspace || team || '' };
+  return { actor, action, target, context: organization || board || workspace || team || '' };
 }
 
 function category(notification: Notification) {
+  if (notification.type === 'ORGANIZATION_INVITE') return { label: 'Organización', icon: Users };
   if (notification.type.includes('MENTION')) return { label: 'Mención', icon: AtSign };
   if (notification.type.includes('COMMENT')) return { label: 'Comentario', icon: MessageCircle };
   if (notification.type.includes('ASSIGNED')) return { label: 'Asignación', icon: ListChecks };
@@ -89,17 +94,23 @@ function category(notification: Notification) {
 
 function matchesFilter(notification: Notification, filter: Filter): boolean {
   if (filter === 'sin-leer') return !notification.read;
+  if (filter === 'personales') {
+    return notification.type.includes('INVITE') || notification.type === 'CALENDAR_EVENT_INVITE' || notification.type === 'WORKSPACE_REMOVED';
+  }
   if (filter === 'menciones') return notification.type === 'COMMENT_MENTION' || notification.type === 'DOCUMENT_MENTION';
   if (filter === 'asignaciones') return notification.type === 'CARD_ASSIGNED';
   return true;
 }
 
-function NotificationRow({ notification, onOpen, onRead, onResolve, onArchive }: {
+function NotificationRow({ notification, onOpen, onRead, onResolve, onArchive, onAccept, accepting, acceptError }: {
   notification: Notification;
   onOpen: () => void;
   onRead: () => void;
   onResolve: () => void;
   onArchive: () => void;
+  onAccept?: () => void;
+  accepting?: boolean;
+  acceptError?: string;
 }) {
   const { actor, action, target, context } = notificationContent(notification);
   const { label, icon: CategoryIcon } = category(notification);
@@ -121,10 +132,16 @@ function NotificationRow({ notification, onOpen, onRead, onResolve, onArchive }:
             {context && <span className={styles.context}>{context}</span>}
             <time dateTime={notification.createdAt}>{relativeTime(notification.createdAt)}</time>
           </span>
+          {acceptError && <span className={styles.acceptError} role="alert">{acceptError}</span>}
         </span>
         <ArrowUpRight className={styles.openIcon} size={17} aria-hidden="true" />
       </button>
       <div className={styles.actions}>
+        {notification.type === 'TEAM_INVITE' && notification.data?.invitationId && onAccept && (
+          <button type="button" className={styles.acceptInvite} onClick={onAccept} disabled={accepting}>
+            {accepting ? 'Aceptando…' : 'Aceptar'}
+          </button>
+        )}
         {!notification.read && (
           <button type="button" className={styles.actionButton} onClick={onRead} title="Marcar como leída" aria-label="Marcar como leída"><Check size={16} /></button>
         )}
@@ -141,6 +158,8 @@ export default function NotificationsPage() {
   const setActiveWorkspaceId = useActiveWorkspaceStore(state => state.setActiveWorkspaceId);
   const fetchWorkspaces = useWorkspaceStore(state => state.fetchWorkspaces);
   const [filter, setFilter] = useState<Filter>('todo');
+  const [acceptingNotificationId, setAcceptingNotificationId] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<{ id: string; message: string } | null>(null);
 
   useEffect(() => { loadNotifications(); }, [loadNotifications]);
 
@@ -151,6 +170,7 @@ export default function NotificationsPage() {
   const emptyTitle: Record<Filter, string> = {
     todo: 'Todo al día',
     'sin-leer': 'No hay notificaciones sin leer',
+    personales: 'No hay avisos personales',
     menciones: 'No hay menciones',
     asignaciones: 'No hay asignaciones',
   };
@@ -162,12 +182,19 @@ export default function NotificationsPage() {
     const projectId = typeof data.projectId === 'string' ? data.projectId : null;
     const boardId = typeof data.boardId === 'string' ? data.boardId : null;
 
-    if (workspaceId) {
+    if (workspaceId && notification.type !== 'TEAM_INVITE') {
       setActiveWorkspaceId(workspaceId);
       fetchWorkspaces().catch(() => {});
     }
 
-    if (notification.type === 'CALENDAR_EVENT_INVITE') {
+    if (notification.type === 'ORGANIZATION_INVITE') {
+      const invitationId = typeof data.invitationId === 'string' ? data.invitationId : null;
+      router.push(invitationId
+        ? `/organization-invitation?invitationId=${encodeURIComponent(invitationId)}`
+        : '/dashboard/organizations');
+    } else if (notification.type === 'TEAM_INVITE') {
+      setFilter('personales');
+    } else if (notification.type === 'CALENDAR_EVENT_INVITE') {
       const date = typeof data.eventStartTime === 'string' ? `&at=${encodeURIComponent(data.eventStartTime)}` : '';
       window.dispatchEvent(new CustomEvent('aether:calendar-invite', { detail: data.eventStartTime ?? '' }));
       router.push(`/dashboard/calendar?view=agenda${date}`);
@@ -188,6 +215,28 @@ export default function NotificationsPage() {
     }
   }
 
+  async function handleAcceptTeamInvite(notification: Notification) {
+    const invitationId = notification.data?.invitationId;
+    if (!invitationId || acceptingNotificationId) return;
+    setAcceptingNotificationId(notification.id);
+    setAcceptError(null);
+    try {
+      const accepted = await acceptTeamInvitationAndSync(invitationId, {
+        teamId: notification.data?.teamId,
+        workspaceId: notification.data?.workspaceId,
+      });
+      await resolveNotification(notification.id);
+      router.push(`/dashboard/teams/${accepted.teamId}`);
+    } catch (error) {
+      setAcceptError({
+        id: notification.id,
+        message: error instanceof Error ? error.message : 'No se pudo aceptar la invitación.',
+      });
+    } finally {
+      setAcceptingNotificationId(null);
+    }
+  }
+
   function renderSection(title: string, items: Notification[]) {
     if (items.length === 0) return null;
     return (
@@ -202,6 +251,9 @@ export default function NotificationsPage() {
               onRead={() => markAsRead(notification.id)}
               onResolve={() => resolveNotification(notification.id)}
               onArchive={() => archiveNotification(notification.id)}
+              onAccept={() => void handleAcceptTeamInvite(notification)}
+              accepting={acceptingNotificationId === notification.id}
+              acceptError={acceptError?.id === notification.id ? acceptError.message : ''}
             />
           ))}
         </div>
@@ -216,7 +268,7 @@ export default function NotificationsPage() {
         <div className={styles.headerText}>
           <span className={styles.eyebrow}>Avisos y novedades</span>
           <h1>Notificaciones</h1>
-          <p>Revisa menciones, asignaciones y otros avisos que requieren tu atención.</p>
+          <p>Revisa invitaciones, eventos de calendario, menciones y asignaciones.</p>
         </div>
         <div className={styles.unreadSummary} aria-label={`${unreadCount} ${unreadCount === 1 ? 'notificación' : 'notificaciones'} sin leer`}>
           <strong>{unreadCount}</strong><span>sin leer</span>
@@ -228,7 +280,9 @@ export default function NotificationsPage() {
           <div className={styles.filters} aria-label="Filtrar notificaciones">
             {FILTERS.map(({ key, label }) => (
               <button key={key} type="button" className={`${styles.filter} ${filter === key ? styles.filterActive : ''}`} aria-pressed={filter === key} onClick={() => setFilter(key)}>
-                {label}{key === 'sin-leer' && unreadCount > 0 && <span className={styles.filterCount}>{unreadCount}</span>}
+                {label}
+                {key === 'sin-leer' && unreadCount > 0 && <span className={styles.filterCount}>{unreadCount}</span>}
+                {key === 'personales' && notifications.filter(item => matchesFilter(item, 'personales')).length > 0 && <span className={styles.filterCount}>{notifications.filter(item => matchesFilter(item, 'personales')).length}</span>}
               </button>
             ))}
           </div>
@@ -243,7 +297,11 @@ export default function NotificationsPage() {
           <div className={styles.empty}>
             <div className={styles.emptyIcon}><BellRing size={27} strokeWidth={1.6} aria-hidden="true" /></div>
             <h2>{emptyTitle[filter]}</h2>
-            <p>{filter === 'todo' ? 'Cuando tengas novedades, aparecerán aquí.' : 'Prueba otro filtro para ver el resto de tu actividad.'}</p>
+            <p>{filter === 'todo'
+              ? 'Cuando tengas novedades, aparecerán aquí.'
+              : filter === 'personales'
+                ? 'Las invitaciones y los avisos de tu agenda aparecerán aquí.'
+                : 'Prueba otro filtro para ver el resto de tu actividad.'}</p>
             {filter !== 'todo' && <button type="button" onClick={() => setFilter('todo')}>Ver todas las notificaciones</button>}
           </div>
         ) : (

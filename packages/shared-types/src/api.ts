@@ -94,6 +94,9 @@ export interface OrganizationSummary {
   role: 'OWNER' | 'BILLING_ADMIN' | 'ADMIN' | 'MEMBER';
   workspaceCount: number;
   memberCount: number;
+  /** Present on organization listings used for deletion safeguards. */
+  portfolioCount?: number;
+  networkCount?: number;
   subscription?: {
     planCode: string;
     status: string;

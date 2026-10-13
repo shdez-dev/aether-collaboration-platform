@@ -19,6 +19,9 @@ const RATE_LIMIT_MAX_REQUESTS = parseInt(
 export const apiLimiter = rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,
   max: RATE_LIMIT_MAX_REQUESTS,
+  // Local navigation and hot reload can generate many legitimate API calls.
+  // Keep this abuse limit enabled in deployed environments.
+  skip: () => isDevelopment,
   message: {
     success: false,
     error: {

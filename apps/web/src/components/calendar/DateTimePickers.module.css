@@ -5,6 +5,10 @@
 .trigger:hover, .triggerOpen { border-color: var(--c-accent-text); background: var(--c-surface); }
 .trigger:focus-visible, .calendar button:focus-visible, .clock button:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
 .triggerOpen { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent-text) 12%, transparent); }
+.compactTrigger { height: 35px; gap: 7px; padding: 0 8px; font-size: 10px; }
+.compactTrigger svg:first-child { width: 14px; height: 14px; }
+.compactTrigger span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.compactTrigger .chevron { flex: none; }
 .chevron { color: var(--c-text4); transition: transform 160ms ease; }
 .triggerOpen .chevron { transform: rotate(180deg); }
 .calendar, .clock { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; border: 1px solid var(--c-border2); border-radius: 14px; background: var(--c-surface); box-shadow: 0 18px 48px rgba(25, 17, 38, .18); color: var(--c-text); animation: appear 150ms ease both; }

@@ -2,16 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, CircleDashed, ClipboardList, Search, Target } from 'lucide-react';
+import { AlertCircle, ArrowRight, CalendarDays, CheckCircle2, ChevronRight, CircleDashed, ClipboardList, FileText, Search, Target, Trash2 } from 'lucide-react';
 import { useProjectStore, type Project, type ProjectMaturityStage, type ProjectWorkflowStage } from '@/stores/projectStore';
 import { useBoardStore } from '@/stores/boardStore';
 import { useTeamStore } from '@/stores/teamStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { canManageOrganizationRole, supportsOrganizationProjectPlanning, supportsOrganizationTeams } from '@/lib/workspaceFeatures';
+import { useAuthStore } from '@/stores/authStore';
 import CreateProjectModal from '@/components/CreateProjectModal';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import { apiService } from '@/services/apiService';
 import { C } from '@/lib/colors';
+import { clearProjectCreationDraft, PROJECT_CREATION_DRAFT_MAX_AGE, readProjectCreationDraft, type ProjectCreationDraft } from '@/lib/projectCreationDraft';
 import entrance from '../pageEntrance.module.css';
 
 const SORA = "'Sora', system-ui, sans-serif";
@@ -340,11 +343,13 @@ function ProjectCard({ project, onClick, onAdvance }: { project: Project; onClic
 function PortfolioList({
   projects,
   hasProjects,
+  canCreateProject,
   onProjectClick,
   onCreateProject,
 }: {
   projects: Project[];
   hasProjects: boolean;
+  canCreateProject: boolean;
   onProjectClick: (project: Project) => void;
   onCreateProject: () => void;
 }) {
@@ -364,7 +369,7 @@ function PortfolioList({
               : 'Reúne una idea, un objetivo y sus próximos pasos en un mismo lugar.'}
           </p>
         </div>
-        {!hasProjects && (
+        {!hasProjects && canCreateProject && (
           <button
             type="button"
             onClick={onCreateProject}
@@ -494,7 +499,8 @@ export default function ProjectsPage() {
   const { fetchProjectsByWorkspace, updateProject, transitionWorkflow, createMilestone } = useProjectStore();
   const { createBoard } = useBoardStore();
   const { teams, fetchTeams } = useTeamStore();
-  const { activeWorkspaceId } = useActiveWorkspaceStore();
+  const { activeWorkspaceId, addSidebarProject } = useActiveWorkspaceStore();
+  const currentUserId = useAuthStore((state) => state.user?.id ?? '');
   const { workspaces, fetchWorkspaces, currentProjectStandard, projectStandardHistory, fetchProjectStandard, fetchProjectStandardHistory } = useWorkspaceStore();
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -505,6 +511,7 @@ export default function ProjectsPage() {
   const [focusMode, setFocusMode] = useState<FocusMode>('all');
   const [viewMode] = useState<ViewMode>('portfolio');
   const [showCreate, setShowCreate] = useState(false);
+  const [projectDraft, setProjectDraft] = useState<ProjectCreationDraft | null>(null);
   const [busyActionByProject, setBusyActionByProject] = useState<Record<string, string | null>>({});
   const [teamPickerProjectId, setTeamPickerProjectId] = useState<string | null>(null);
   const [selectedTeamByProject, setSelectedTeamByProject] = useState<Record<string, string>>({});
@@ -512,6 +519,36 @@ export default function ProjectsPage() {
   useEffect(() => {
     if (!workspaces.length) fetchWorkspaces();
   }, [workspaces.length, fetchWorkspaces]);
+
+  useEffect(() => {
+    const syncDraft = () => {
+      if (!currentUserId) {
+        setProjectDraft(null);
+        return;
+      }
+      const draft = readProjectCreationDraft();
+      if (!draft) {
+        setProjectDraft(null);
+        return;
+      }
+      if (draft.userId !== currentUserId || Date.now() - draft.savedAt > PROJECT_CREATION_DRAFT_MAX_AGE) {
+        clearProjectCreationDraft();
+        setProjectDraft(null);
+        return;
+      }
+      setProjectDraft(draft.workspaceId === activeWorkspaceId ? draft : null);
+    };
+
+    syncDraft();
+    window.addEventListener('focus', syncDraft);
+    window.addEventListener('pageshow', syncDraft);
+    document.addEventListener('visibilitychange', syncDraft);
+    return () => {
+      window.removeEventListener('focus', syncDraft);
+      window.removeEventListener('pageshow', syncDraft);
+      document.removeEventListener('visibilitychange', syncDraft);
+    };
+  }, [activeWorkspaceId, currentUserId]);
 
   useEffect(() => {
     if (activeWorkspaceId) fetchTeams(activeWorkspaceId);
@@ -539,6 +576,9 @@ export default function ProjectsPage() {
   }, [activeWorkspaceId, fetchProjectsByWorkspace]);
 
   const workspace = workspaces.find((item) => item.id === activeWorkspaceId);
+  const canCreateProject = canManageOrganizationRole(workspace?.organization?.role);
+  const canUseTeams = supportsOrganizationTeams(workspace);
+  const canUseProjectPlanning = supportsOrganizationProjectPlanning(workspace);
   // El modo es el contrato de contexto; el estándar solo conserva sub-plantillas
   // (por ejemplo marketing/construcción) dentro de un workspace TEAM.
   const workspaceExperience = workspace?.mode === 'PERSONAL'
@@ -689,16 +729,16 @@ export default function ProjectsPage() {
         count: projects.filter((project) => hasChecklistGap(project, 'board')).length,
         tone: '#8D84B0',
       },
-      {
+      ...(canUseProjectPlanning ? [{
         key: 'milestone',
         label: 'Sin hito inicial',
         count: projects.filter((project) => hasChecklistGap(project, 'milestone')).length,
         tone: '#9271BD',
-      },
+      }] : []),
     ].sort((a, b) => b.count - a.count);
 
     return { stageRows, alerts };
-  }, [projects]);
+  }, [canUseProjectPlanning, projects]);
 
   const spotlight = useMemo(() => {
     const mentorNeeded = projects
@@ -872,7 +912,14 @@ export default function ProjectsPage() {
   }, [workspaceExperience]);
 
   function handleProjectCreated(project: Project) {
-    setProjects((prev) => [project, ...prev]);
+    setProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
+    addSidebarProject({
+      id: project.id,
+      name: project.name,
+      color: project.color ?? null,
+      status: project.status ?? 'ACTIVE',
+      workspaceId: project.workspaceId,
+    });
     setShowCreate(false);
     router.push(`/dashboard/projects/${project.id}`);
   }
@@ -1025,7 +1072,7 @@ export default function ProjectsPage() {
               </button>
             )}
 
-            <button
+            {canCreateProject && <button
               onClick={() => setShowCreate(true)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '8px',
@@ -1036,9 +1083,43 @@ export default function ProjectsPage() {
             >
               <CircleDashed style={{ width: '14px', height: '14px' }} />
               Nuevo proyecto
-            </button>
+            </button>}
           </div>
         </div>
+
+        {projectDraft && (
+          <section aria-labelledby="project-draft-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', marginBottom: '22px', padding: '16px 18px', border: '1px solid color-mix(in srgb, var(--c-accent-text) 36%, var(--c-border))', borderRadius: '12px', background: 'color-mix(in srgb, var(--c-accent-text) 7%, var(--c-surface))' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '13px', minWidth: 0, flex: '1 1 340px' }}>
+              <span style={{ display: 'grid', placeItems: 'center', width: '40px', height: '40px', flexShrink: 0, borderRadius: '11px', border: '1px solid color-mix(in srgb, var(--c-accent-text) 24%, transparent)', background: 'color-mix(in srgb, var(--c-accent-text) 12%, var(--c-surface))', color: 'var(--c-accent-text)' }}>
+                <FileText size={18} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '3px' }}>
+                  <span style={{ color: 'var(--c-accent-text)', fontSize: '10px', fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase' }}>Borrador pendiente — Paso 4 de 4</span>
+                  <span style={{ color: 'var(--c-text4)', fontSize: '10.5px' }}>Guardado en esta sesión</span>
+                </div>
+                <h2 id="project-draft-title" style={{ margin: 0, overflow: 'hidden', color: 'var(--c-text)', fontFamily: SORA, fontSize: '15px', fontWeight: 700, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {projectDraft.proposal.title || 'Proyecto sin nombre'}
+                </h2>
+                <p style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', margin: '4px 0 0', color: 'var(--c-text2)', fontSize: '12px', lineHeight: 1.5 }}>
+                  {projectDraft.proposal.summary || projectDraft.proposal.problemStatement || 'Tu propuesta quedó guardada mientras creabas un equipo. Puedes retomarla para revisar participantes y enfoque.'}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginTop: '7px', color: 'var(--c-text3)', fontSize: '11px' }}>
+                  <span>{workspace?.name ?? 'Espacio actual'}</span>
+                  {canUseProjectPlanning && <><span aria-hidden="true">—</span><span>Enfoque {projectDraft.methodology === 'SCRUM' ? 'Scrum' : 'Flexible'}</span></>}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto', marginLeft: 'auto' }}>
+              {canCreateProject && <button type="button" onClick={() => setShowCreate(true)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', minHeight: '38px', padding: '0 13px', border: 0, borderRadius: '8px', background: '#7452A6', color: '#FFFFFF', fontFamily: SORA, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                Continuar borrador <ArrowRight size={14} />
+              </button>}
+              <button type="button" aria-label="Descartar borrador" title="Descartar borrador" onClick={() => { clearProjectCreationDraft(activeWorkspaceId ?? undefined); setProjectDraft(null); }} style={{ display: 'grid', placeItems: 'center', width: '38px', height: '38px', border: '1px solid var(--c-border)', borderRadius: '8px', background: 'transparent', color: 'var(--c-text3)', cursor: 'pointer' }}>
+                <Trash2 size={15} />
+              </button>
+            </div>
+          </section>
+        )}
 
         {isInstitutionalExperience && viewMode === 'pipeline' && (
           <details style={{ marginBottom: '18px', borderRadius: '10px', border: '1px solid rgba(97,71,130,0.08)', background: 'rgba(97,71,130,0.02)', padding: '0 16px' }}>
@@ -1317,8 +1398,9 @@ export default function ProjectsPage() {
               <PortfolioList
                 projects={portfolioProjects}
                 hasProjects={projects.length > 0}
+                canCreateProject={canCreateProject}
                 onProjectClick={(project) => router.push(`/dashboard/projects/${project.id}`)}
-                onCreateProject={() => setShowCreate(true)}
+                onCreateProject={() => { if (canCreateProject) setShowCreate(true); }}
               />
             </section>
           </>
@@ -1559,7 +1641,7 @@ export default function ProjectsPage() {
                       {busyActionByProject[project.id] === 'board' ? 'Creando tablero…' : 'Crear tablero base'}
                     </button>
 
-                    <button
+                    {canUseProjectPlanning && <button
                       onClick={() => handleCreateInitialMilestone(project)}
                       disabled={busyActionByProject[project.id] !== null || !hasChecklistGap(project, 'milestone')}
                       style={{
@@ -1572,9 +1654,9 @@ export default function ProjectsPage() {
                       }}
                     >
                       {busyActionByProject[project.id] === 'milestone' ? 'Creando hito…' : 'Crear hito inicial'}
-                    </button>
+                    </button>}
 
-                    <button
+                    {canUseTeams && <button
                       onClick={() => {
                         setTeamPickerProjectId((current) => current === project.id ? null : project.id);
                         const projectTeams = teams.filter((team) => team.workspaceId === project.workspaceId);
@@ -1593,10 +1675,10 @@ export default function ProjectsPage() {
                       }}
                     >
                       {busyActionByProject[project.id] === 'team' ? 'Asignando…' : teams.length === 0 ? 'Sin equipos disponibles' : 'Asignar equipo base'}
-                    </button>
+                    </button>}
                   </div>
 
-                  {teamPickerProjectId === project.id && teams.some((team) => team.workspaceId === project.workspaceId) && (
+                  {canUseTeams && teamPickerProjectId === project.id && teams.some((team) => team.workspaceId === project.workspaceId) && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(97,71,130,0.07)', background: 'rgba(97,71,130,0.03)' }}>
                       <select
                         value={selectedTeamByProject[project.id] ?? ''}
@@ -1661,7 +1743,7 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {showCreate && (
+      {showCreate && canCreateProject && (
         <CreateProjectModal
           onClose={() => setShowCreate(false)}
           onCreated={handleProjectCreated}

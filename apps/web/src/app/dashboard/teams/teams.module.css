@@ -10,7 +10,7 @@
 .detailHeader { animation: fadeIn .25s ease both; }
 .headerInner { width: 100%; max-width: 1100px; margin-left: auto; margin-right: auto; }
 .heroRow { min-height: 112px; }
-.heroActions { padding: 10px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-bg2); }
+.heroActions { width: min(360px, 100%); min-width: 0; padding: 10px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-bg2); }
 .projectCount { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--c-border); border-radius: 999px; background: var(--c-bg2); color: var(--c-text3); font-size: 11px; }
 .detailContent { gap: 28px; }
 .detailContent > section { padding: 0 0 28px; border-bottom: 1px solid var(--c-border); animation: riseIn .35s ease both; }
@@ -18,7 +18,40 @@
 .detailContent > section > div:first-child { color: var(--c-text2); }
 .memberCard { border-radius: 12px; box-shadow: 0 1px 2px rgba(31, 20, 44, .03); }
 .memberCard:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(31, 20, 44, .07); }
-.roleMenu { animation: riseIn .18s ease both; }
+.memberCardRoleOpen { z-index: 12; }
+.memberRoleBlock, .memberRoleStatic { position: relative; display: grid; gap: 6px; min-width: 0; }
+.memberRoleLabel { color: var(--c-text4); font-size: 10px; font-weight: 650; letter-spacing: .045em; }
+.roleTrigger { display: flex; width: 100%; min-height: 46px; align-items: center; gap: 9px; padding: 6px 9px; border: 1px solid var(--c-border); border-radius: 9px; background: var(--c-bg2); color: var(--c-text); text-align: left; cursor: pointer; }
+.roleTrigger:hover:not(:disabled), .roleTriggerOpen { border-color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 7%, var(--c-bg2)); }
+.roleTrigger:disabled { cursor: wait; opacity: .8; }
+.roleTriggerIcon, .roleStaticIcon { display: grid; width: 29px; height: 29px; flex: none; place-items: center; border: 1px solid color-mix(in srgb, var(--c-accent) 24%, var(--c-border)); border-radius: 8px; background: color-mix(in srgb, var(--c-accent) 10%, var(--c-surface)); color: var(--c-accent-text); }
+.roleTriggerCopy { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.roleTriggerCopy strong { overflow: hidden; color: var(--c-text); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.roleTriggerCopy small { color: var(--c-text4); font-size: 10px; }
+.roleChevron { flex: none; color: var(--c-text4); transition: transform .18s ease, color .18s ease; }
+.roleChevronOpen { transform: rotate(180deg); color: var(--c-accent-text); }
+.roleMenu { position: absolute; z-index: 30; top: calc(100% + 7px); right: 0; width: min(292px, calc(100vw - 48px)); padding: 6px; border: 1px solid var(--c-border2); border-radius: 12px; background: var(--c-surface); box-shadow: 0 16px 36px rgba(19, 10, 30, .32); animation: riseIn .18s ease both; }
+.roleMenuHeader { display: grid; gap: 3px; padding: 8px 9px 10px; border-bottom: 1px solid var(--c-border); }
+.roleMenuHeader span { color: var(--c-text); font-size: 11px; font-weight: 700; }
+.roleMenuHeader small { color: var(--c-text4); font-size: 10px; line-height: 1.4; }
+.roleOption { display: flex; width: 100%; align-items: flex-start; gap: 9px; margin-top: 4px; padding: 9px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--c-text2); text-align: left; cursor: pointer; transition: background .16s ease, border-color .16s ease, transform .16s ease; }
+.roleOption:hover:not(:disabled), .roleOption:focus-visible { border-color: var(--c-border2); background: var(--c-hover); }
+.roleOption:active:not(:disabled) { transform: scale(.99); }
+.roleOption:disabled:not(.roleOptionSelected) { cursor: wait; opacity: .55; }
+.roleOptionSelected { border-color: color-mix(in srgb, var(--c-accent) 34%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 9%, var(--c-surface)); cursor: default; }
+.roleOptionIcon { display: grid; width: 29px; height: 29px; flex: none; place-items: center; border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-bg2); color: var(--c-accent-text); }
+.roleOptionCopy { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.roleOptionCopy strong { display: flex; align-items: center; gap: 7px; color: var(--c-text); font-size: 11px; font-weight: 650; }
+.roleOptionCopy strong span { padding: 2px 5px; border-radius: 5px; background: color-mix(in srgb, var(--c-accent) 12%, var(--c-surface)); color: var(--c-accent-text); font-size: 9px; font-weight: 600; }
+.roleOptionCopy small { color: var(--c-text4); font-size: 10px; line-height: 1.45; }
+.roleOptionCheck { flex: none; margin-top: 6px; color: var(--c-accent-text); }
+.roleMenuError { margin: 5px 2px 2px; padding: 8px 9px; border: 1px solid color-mix(in srgb, var(--c-red) 26%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--c-red) 8%, var(--c-surface)); color: var(--c-red); font-size: 10px; line-height: 1.4; }
+.roleSpinner { animation: spin .7s linear infinite; }
+.memberRoleStaticValue { display: flex; min-height: 46px; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 9px; border: 1px solid var(--c-border); border-radius: 9px; background: var(--c-bg2); }
+.roleStaticIcon { width: 27px; height: 27px; }
+.roleStaticName { color: var(--c-text); font-size: 12px; font-weight: 650; }
+.roleOwnerTag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border: 1px solid color-mix(in srgb, var(--c-accent) 28%, var(--c-border)); border-radius: 999px; background: color-mix(in srgb, var(--c-accent) 10%, var(--c-surface)); color: var(--c-accent-text); font-size: 9px; font-weight: 650; }
+.roleLocked { margin-left: auto; color: var(--c-text4); font-size: 9px; }
 .textAction { display: inline-flex; align-items: center; gap: 5px; padding: 7px 10px; border: 1px solid var(--c-border2); border-radius: 8px; background: var(--c-surface); color: var(--c-accent-text); font-size: 12px; font-weight: 600; cursor: pointer; }
 .textAction:hover { background: var(--c-hover); }
 .projectGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
@@ -57,4 +90,126 @@
 .detailContent :global(details[open]) :global(summary)::before { transform: rotate(90deg); }
 @keyframes riseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .page button, .detailPage button, .teamCard, .workspaceGroup, .modal, .detailHeader, .detailContent > section, .memberCard, .roleMenu, .projectLink, .projectRemoveSpinner, .projectModalOverlay, .projectModal, .projectOption { transition: none !important; animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .page button, .detailPage button, .teamCard, .workspaceGroup, .modal, .detailHeader, .detailContent > section, .memberCard, .roleMenu, .roleChevron, .roleSpinner, .roleOption, .projectLink, .projectRemoveSpinner, .projectModalOverlay, .projectModal, .projectOption { transition: none !important; animation: none !important; } }
+
+/* Team detail: make each job legible without changing the dashboard theme. */
+.detailContent { gap: 0; }
+.detailContent > section { padding-bottom: 20px; animation: none; }
+.controlHint { color: var(--c-text4); font-size: 10px; line-height: 1.35; }
+.coordinationField { display: grid; gap: 6px; min-width: 0; }
+.coordinationLabel { color: var(--c-text4); font-size: 10px; font-weight: 650; letter-spacing: .08em; line-height: 1.25; text-transform: uppercase; }
+.coordinationInputRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.coordinationSelect { flex: 1; min-width: 0; }
+.coordinationSettings { display: grid; width: 36px; height: 36px; flex: none; place-items: center; border: 1px solid var(--c-border); border-radius: 8px; background: transparent; color: var(--c-text3); cursor: pointer; }
+.coordinationSettings:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
+.teamNav { display: flex; gap: 5px; padding: 0 28px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--c-border2) transparent; }
+.teamNavItem { position: relative; display: inline-flex; min-height: 46px; flex: none; align-items: center; gap: 8px; padding: 0 13px; border: 0; border-radius: 8px 8px 0 0; background: transparent; color: var(--c-text3); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.teamNavItem::after { position: absolute; right: 12px; bottom: 0; left: 12px; height: 2px; border-radius: 2px 2px 0 0; background: transparent; content: ''; transform: scaleX(.45); transition: background .18s ease, transform .18s ease; }
+.teamNavItem:hover { background: var(--c-hover); color: var(--c-text); }
+.teamNavItemActive { background: color-mix(in srgb, var(--c-accent) 9%, transparent); color: var(--c-accent-text); }
+.teamNavItemActive::after { background: var(--c-accent-text); transform: scaleX(1); }
+.teamNavItem:focus-visible, .overviewActions button:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: -2px; }
+.navCount { display: inline-grid; min-width: 19px; height: 19px; place-items: center; padding: 0 5px; border: 1px solid var(--c-border); border-radius: 999px; background: var(--c-bg2); color: var(--c-text3); font-size: 10px; font-variant-numeric: tabular-nums; }
+.viewIntro { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 18px; padding: 0 0 19px; }
+.viewIntro h2 { margin: 0; color: var(--c-text); font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+.viewIntro p { margin: 5px 0 0; color: var(--c-text3); font-size: 12px; line-height: 1.5; }
+.viewPanel { display: flex; width: 100%; min-width: 0; flex-direction: column; gap: 24px; animation: sectionSwitch .2s cubic-bezier(.2,.8,.2,1) both; }
+.viewPanel > section { padding: 0 0 23px; border-bottom: 1px solid var(--c-border); }
+.viewPanel > section:last-child { padding-bottom: 0; border-bottom: 0; }
+.viewPanel > section > div:first-child { color: var(--c-text2); }
+.viewPanel > section.overviewStart { display: grid; width: 100%; min-width: 0; box-sizing: border-box; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px 26px; padding: 20px; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-surface); }
+.overviewLead { display: flex; grid-column: 1; grid-row: 1; align-items: flex-start; gap: 12px; min-width: 0; }
+.overviewMark { display: grid; width: 38px; height: 38px; flex: none; place-items: center; border: 1px solid color-mix(in srgb, var(--c-accent) 28%, var(--c-border)); border-radius: 11px; background: color-mix(in srgb, var(--c-accent) 11%, var(--c-surface)); color: var(--c-accent-text); }
+.overviewLead h3 { margin: 1px 0 5px; color: var(--c-text); font-size: 14px; font-weight: 700; }
+.overviewLead p { max-width: 58ch; margin: 0; color: var(--c-text3); font-size: 12px; line-height: 1.65; }
+.overviewFacts { display: grid; grid-column: 2; grid-row: 1 / span 2; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: center; gap: 9px; min-width: 0; }
+.overviewFact { display: flex; min-width: 0; min-height: 72px; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--c-border); border-radius: 11px; background: var(--c-bg2); transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+.overviewFact:hover { transform: translateY(-2px); border-color: var(--c-border2); background: var(--c-hover); }
+.overviewFactIcon { display: grid; width: 32px; height: 32px; flex: none; place-items: center; border: 1px solid color-mix(in srgb, var(--c-accent) 25%, var(--c-border)); border-radius: 9px; background: color-mix(in srgb, var(--c-accent) 10%, var(--c-surface)); color: var(--c-accent-text); }
+.overviewFactCopy { display: grid; gap: 2px; min-width: 0; }
+.overviewFactCopy strong { overflow: hidden; color: var(--c-text); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.overviewFactCopy strong small { color: var(--c-text4); font-size: 11px; font-weight: 600; }
+.overviewFactCopy > small { color: var(--c-text4); font-size: 10px; line-height: 1.35; }
+.overviewActions { display: flex; grid-column: 1; grid-row: 2; flex-wrap: wrap; gap: 8px; margin-left: 50px; padding-top: 2px; }
+.overviewActions button { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-bg2); color: var(--c-text2); font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease; }
+.overviewActions button:hover { border-color: var(--c-border2); background: var(--c-hover); color: var(--c-text); transform: translateY(-1px); }
+.overviewActions button > span { color: var(--c-text4); font-weight: 400; }
+.todaySection > div:first-child { margin-bottom: 8px; }
+.todaySection > div:first-child > div:first-child { color: var(--c-text); font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.standupGrid { display: grid; grid-template-columns: repeat(var(--standup-columns, 4), minmax(0, 1fr)); align-items: stretch; gap: 10px; }
+.standupCard { min-width: 0; min-height: 100px; padding: 13px; border: 1px solid var(--c-border); border-radius: 11px; background: var(--c-surface); }
+.standupNameRow { display: flex; align-items: flex-start; flex-direction: column; gap: 4px; min-width: 0; }
+.standupName { max-width: 100%; overflow-wrap: anywhere; font-size: 12px; font-weight: 650; line-height: 1.35; }
+.standupStatus { display: inline-flex; align-items: center; max-width: 100%; padding: 2px 6px; border-radius: 5px; font-size: 9px; line-height: 1.25; white-space: normal; }
+.roleGuide { margin: 0 0 14px; padding: 0 !important; overflow: hidden; border: 1px solid var(--c-border) !important; border-radius: 12px !important; background: var(--c-surface) !important; transition: border-color .18s ease, background .18s ease; }
+.roleGuide[open] { border-color: var(--c-border2) !important; }
+.roleGuideSummary { display: flex; min-height: 58px; align-items: center; gap: 10px; padding: 10px 14px; color: var(--c-text2); cursor: pointer; list-style: none; user-select: none; transition: background-color .18s ease; }
+.roleGuideSummary::-webkit-details-marker { display: none; }
+.roleGuideSummary::before { color: var(--c-accent-text); font-size: 17px; transition: color .18s ease; }
+.roleGuideSummary:hover { background: color-mix(in srgb, var(--c-accent) 4%, var(--c-surface)); }
+.roleGuideSummary:hover::before { color: var(--c-text); }
+.roleGuideSummary:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: -3px; }
+.roleGuideSummaryCopy { display: grid; flex: 1; gap: 3px; }
+.roleGuideSummaryCopy strong { color: var(--c-text); font-size: 12px; font-weight: 700; transition: color .18s ease; }
+.roleGuideSummary:hover .roleGuideSummaryCopy strong { color: var(--c-accent-text); }
+.roleGuideSummaryCopy small { color: var(--c-text4); font-size: 10px; font-weight: 400; }
+.roleGuideSummary::after { padding: 4px 7px; border: 1px solid var(--c-border); border-radius: 6px; background: var(--c-bg2); color: var(--c-text4); content: 'Ver roles'; font-size: 10px; font-weight: 550; transition: border-color .18s ease, background-color .18s ease, color .18s ease; }
+.roleGuideSummary:hover::after { border-color: color-mix(in srgb, var(--c-accent) 28%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 9%, var(--c-bg2)); color: var(--c-accent-text); }
+.roleGuide[open] .roleGuideSummary::after { content: 'Ocultar'; }
+.roleGuideGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; padding: 0 12px 12px; animation: riseIn .2s ease both; }
+.roleGuideCard { display: grid; align-content: start; gap: 7px; min-width: 0; padding: 12px; border: 1px solid var(--c-border); border-radius: 9px; background: var(--c-bg2); }
+.roleGuideCard strong { color: var(--c-text); font-size: 11px; font-weight: 700; }
+.roleGuideCard span { color: var(--c-text3); font-size: 10.5px; line-height: 1.55; }
+.memberTools { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
+.memberTools > p { flex: 1; margin: 0; color: var(--c-text4); font-size: 11px; }
+.memberSearch { display: flex; width: min(320px, 100%); min-height: 37px; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--c-border2); border-radius: 9px; background: var(--c-bg2); color: var(--c-text4); transition: border-color .18s ease, box-shadow .18s ease; }
+.memberSearch:focus-within { border-color: var(--c-accent-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 12%, transparent); }
+.memberSearch input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--c-text); font: inherit; font-size: 11.5px; }
+.memberSearch input::placeholder { color: var(--c-text4); }
+.memberSearch button { display: grid; width: 22px; height: 22px; flex: none; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--c-text4); cursor: pointer; }
+.memberSearch button:hover { background: var(--c-hover); color: var(--c-text); }
+.memberCount { min-width: 48px; color: var(--c-text4); font-size: 10.5px; text-align: right; font-variant-numeric: tabular-nums; }
+.peopleEmpty { display: flex; min-height: 100px; align-items: center; gap: 13px; padding: 18px; border: 1px dashed var(--c-border2); border-radius: 11px; color: var(--c-text4); }
+.peopleEmpty > div { flex: 1; min-width: 0; }
+.peopleEmpty strong { color: var(--c-text2); font-size: 12px; }
+.peopleEmpty p { margin: 4px 0 0; color: var(--c-text4); font-size: 11px; line-height: 1.5; }
+.addPersonCard { display: flex; min-height: 120px; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--c-border2); border-radius: 11px; background: transparent; color: var(--c-text3); font: inherit; font-size: 12px; cursor: pointer; transition: background .18s ease, border-color .18s ease, color .18s ease; }
+.addPersonCard:hover { border-color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 8%, transparent); color: var(--c-accent-text); }
+.projectView { display: flex; flex-direction: column; gap: 24px; }
+.projectView > section { padding-bottom: 22px; border-bottom: 1px solid var(--c-border); }
+.projectView > section:last-child { padding-bottom: 0; border-bottom: 0; }
+.activitySection { min-width: 0; }
+@keyframes sectionSwitch { from { opacity: .65; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 900px) {
+  .viewPanel > section.overviewStart { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px; }
+  .overviewLead, .overviewFacts, .overviewActions { grid-column: auto; grid-row: auto; }
+  .overviewFacts { min-height: auto; }
+  .overviewActions { margin-left: 50px; padding-top: 0; }
+  .roleGuideGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .heroActions { width: 100%; }
+  .teamNav { padding: 0 14px; }
+  .detailContent { padding: 20px 16px !important; }
+  .viewIntro { align-items: flex-start; }
+  .overviewActions { gap: 7px; }
+  .overviewActions button { flex-wrap: wrap; }
+  .controlHint { max-width: none; }
+  .memberTools { align-items: stretch; flex-direction: column; gap: 7px; }
+  .memberSearch { width: 100%; }
+  .memberCount { text-align: left; }
+  .peopleEmpty { align-items: flex-start; flex-wrap: wrap; }
+}
+@media (max-width: 520px) {
+  .overviewFacts { grid-template-columns: minmax(0, 1fr); }
+  .overviewFact { min-height: 58px; }
+  .roleGuideGrid { grid-template-columns: minmax(0, 1fr); }
+  .roleGuideSummary { padding-inline: 11px; }
+}
+@media (max-width: 1100px) {
+  .standupGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .standupGrid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .viewPanel, .teamNavItem::after, .overviewActions button, .overviewFact, .roleGuideGrid, .roleGuideSummary, .roleGuideSummary::before, .roleGuideSummaryCopy strong, .roleGuideSummary::after { transition: none !important; animation: none !important; } }

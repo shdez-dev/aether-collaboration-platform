@@ -36,7 +36,7 @@ export class DocumentCommentRepository {
     parentId?: string | null;
   }): Promise<DocumentCommentRow> {
     const result = await query<DocumentCommentRow>(
-      `INSERT INTO document_comments (document_id, content, position, created_by, parent_id)
+      `INSERT INTO document_comments (document_id, content, position, user_id, parent_id)
        VALUES ($1, $2, $3::jsonb, $4, $5)
        RETURNING
          id,
@@ -44,7 +44,7 @@ export class DocumentCommentRepository {
          content,
          position,
          resolved,
-         created_by    AS "createdBy",
+         user_id       AS "createdBy",
          parent_id     AS "parentId",
          created_at    AS "createdAt",
          updated_at    AS "updatedAt"`,
@@ -71,7 +71,7 @@ export class DocumentCommentRepository {
          dc.content,
          dc.position,
          dc.resolved,
-         dc.created_by   AS "createdBy",
+         dc.user_id      AS "createdBy",
          dc.parent_id    AS "parentId",
          dc.created_at   AS "createdAt",
          dc.updated_at   AS "updatedAt",
@@ -82,7 +82,7 @@ export class DocumentCommentRepository {
            'avatar', u.avatar
          ) AS user
        FROM document_comments dc
-       INNER JOIN users u ON dc.created_by = u.id
+       INNER JOIN users u ON dc.user_id = u.id
        WHERE dc.document_id = $1
        ORDER BY dc.created_at ASC`,
       [documentId]
@@ -122,7 +122,7 @@ export class DocumentCommentRepository {
          dc.content,
          dc.position,
          dc.resolved,
-         dc.created_by   AS "createdBy",
+         dc.user_id      AS "createdBy",
          dc.parent_id    AS "parentId",
          dc.created_at   AS "createdAt",
          dc.updated_at   AS "updatedAt",
@@ -133,7 +133,7 @@ export class DocumentCommentRepository {
            'avatar', u.avatar
          ) AS user
        FROM document_comments dc
-       INNER JOIN users u ON dc.created_by = u.id
+       INNER JOIN users u ON dc.user_id = u.id
        WHERE dc.id = $1`,
       [commentId]
     );
@@ -154,7 +154,7 @@ export class DocumentCommentRepository {
          content,
          position,
          resolved,
-         created_by    AS "createdBy",
+         user_id       AS "createdBy",
          parent_id     AS "parentId",
          created_at    AS "createdAt",
          updated_at    AS "updatedAt"`,
@@ -177,7 +177,7 @@ export class DocumentCommentRepository {
          content,
          position,
          resolved,
-         created_by    AS "createdBy",
+         user_id       AS "createdBy",
          parent_id     AS "parentId",
          created_at    AS "createdAt",
          updated_at    AS "updatedAt"`,
@@ -199,7 +199,7 @@ export class DocumentCommentRepository {
    */
   async isAuthor(commentId: string, userId: string): Promise<boolean> {
     const result = await query(
-      'SELECT 1 FROM document_comments WHERE id = $1 AND created_by = $2',
+      'SELECT 1 FROM document_comments WHERE id = $1 AND user_id = $2',
       [commentId, userId]
     );
     return result.rows.length > 0;

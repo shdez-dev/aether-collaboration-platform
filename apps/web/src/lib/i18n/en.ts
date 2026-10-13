@@ -1029,7 +1029,7 @@ export const en = {
     "Aether's activity feed is your team's memory. Queryable, filterable and accessible via API. Perfect for async standups and sprint reviews.",
 
   home_cta_title: 'Built by developers, for developers.',
-  home_cta_sub: 'Start free. Unlimited workspaces for up to 5 people, no credit card required.',
+  home_cta_sub: 'Start free with one personal workspace, no credit card required.',
   home_cta_primary: 'Create account →',
   home_cta_secondary: 'Sign in',
 

@@ -7,6 +7,7 @@ import { documentService, DocumentTextLimitError } from '../services/DocumentSer
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
 import { requireProjectAccess } from '../middleware/project';
+import { OrganizationStorageLimitError } from '../services/OrganizationStorageService';
 
 const router = Router();
 
@@ -108,6 +109,16 @@ router.put('/documents/:id/yjs-state', async (req, res) => {
   } catch (error) {
     if (error instanceof DocumentTextLimitError) {
       return res.status(400).json({ success: false, error: { code: 'DOCUMENT_TEXT_LIMIT', message: error.message } });
+    }
+    if (error instanceof OrganizationStorageLimitError) {
+      return res.status(413).json({
+        success: false,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: { usedBytes: error.usedBytes.toString(), limitBytes: error.limitBytes.toString() },
+        },
+      });
     }
     return res.status(500).json({
       success: false,

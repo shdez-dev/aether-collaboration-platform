@@ -95,6 +95,9 @@ export interface Project {
   color?: string;
   status: ProjectStatus;
   maturityStage: ProjectMaturityStage;
+  methodology?: 'FLEXIBLE' | 'SCRUM';
+  productGoal?: string | null;
+  methodologyAssignments?: Array<{ userId: string; name: string; email: string; role: 'PRODUCT_OWNER' | 'SCRUM_MASTER' | 'DEVELOPER' }>;
   problemStatement?: string | null;
   impactedPeople?: string | null;
   problemImpact?: string | null;
@@ -166,6 +169,11 @@ interface CreateProjectData {
   startDate?: string;
   endDate?: string;
   boardIds?: string[];
+  methodology?: 'FLEXIBLE' | 'SCRUM';
+  teamIds?: string[];
+  memberIds?: string[];
+  productOwnerId?: string | null;
+  scrumMasterId?: string | null;
 }
 
 interface UpdateProjectData {
@@ -175,6 +183,7 @@ interface UpdateProjectData {
   color?: string | null;
   status?: ProjectStatus;
   maturityStage?: ProjectMaturityStage;
+  productGoal?: string | null;
   problemStatement?: string | null;
   impactedPeople?: string | null;
   problemImpact?: string | null;

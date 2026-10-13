@@ -2,7 +2,9 @@
 
 import React, { Component, ReactNode } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { BrandMark } from '@/components/brand/BrandMark';
+import styles from './ErrorBoundary.module.css';
 
 interface Props {
   children: ReactNode;
@@ -32,6 +34,10 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  handleReload = () => {
+    window.location.reload();
+  };
+
   render() {
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) {
@@ -39,52 +45,52 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-lg p-8 text-center">
-            <div className="mb-6 flex justify-center">
-              <div className="bg-red-500/10 p-4 rounded-full">
-                <AlertTriangle className="w-12 h-12 text-red-500" />
-              </div>
+        <main className={styles.screen}>
+          <section className={styles.shell} aria-labelledby="error-title" role="alert">
+            <div className={styles.brand} aria-label="Aether">
+              <BrandMark size={30} tone="adaptive" />
+              <span>AETHER</span>
             </div>
 
-            <h1 className="text-2xl font-bold text-white mb-3">Algo salió mal</h1>
-
-            <p className="text-neutral-400 mb-6">
-              Ocurrió un error inesperado. Puedes intentar recargar la página o volver al inicio.
-            </p>
-
-            {process.env.NODE_ENV === 'development' && (
-              <div className="bg-neutral-950 border border-neutral-800 rounded p-4 mb-6 text-left">
-                <p className="text-xs font-mono text-red-400 break-all">
-                  {this.state.error.message}
+            <div className={styles.card}>
+              <div className={styles.cardGlow} aria-hidden="true" />
+              <div className={styles.content}>
+                <div className={styles.iconWrap} aria-hidden="true">
+                  <AlertTriangle size={27} strokeWidth={1.8} />
+                </div>
+                <p className={styles.eyebrow}>ALGO NO SALIÓ COMO ESPERÁBAMOS</p>
+                <h1 id="error-title" className={styles.title}>No pudimos cargar esta vista</h1>
+                <p className={styles.description}>
+                  Hubo un problema inesperado. Puedes volver a intentarlo o regresar al inicio de Aether.
                 </p>
-                {this.state.error.stack && (
-                  <pre className="text-xs font-mono text-neutral-500 mt-2 overflow-x-auto">
-                    {this.state.error.stack.slice(0, 500)}
-                  </pre>
+
+                <div className={styles.actions}>
+                  <button type="button" onClick={this.handleReload} className={styles.primaryAction}>
+                    <RefreshCw size={16} aria-hidden="true" />
+                    Recargar página
+                  </button>
+                  <Link href="/dashboard" className={styles.secondaryAction}>
+                    <ArrowLeft size={16} aria-hidden="true" />
+                    Ir al inicio
+                  </Link>
+                </div>
+
+                {process.env.NODE_ENV === 'development' && (
+                  <details className={styles.debugDetails}>
+                    <summary>Ver detalles técnicos</summary>
+                    <div className={styles.debugContent}>
+                      <p>{this.state.error.message}</p>
+                      {this.state.error.stack && <pre>{this.state.error.stack.slice(0, 1200)}</pre>}
+                    </div>
+                  </details>
                 )}
               </div>
-            )}
-
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={this.handleReset}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Reintentar
-              </button>
-
-              <Link
-                href="/"
-                className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
-              >
-                <Home className="w-4 h-4" />
-                Ir al inicio
-              </Link>
+              <footer className={styles.cardFooter}>
+                Si el problema continúa, vuelve a cargar la página en unos segundos.
+              </footer>
             </div>
-          </div>
-        </div>
+          </section>
+        </main>
       );
     }
 

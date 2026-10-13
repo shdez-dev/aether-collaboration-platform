@@ -44,6 +44,9 @@ export default function FirstWorkspaceOnboarding({
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
   const [organizationsLoading, setOrganizationsLoading] = useState(true);
+  const [organizationCreationPermissions, setOrganizationCreationPermissions] = useState<OrganizationType[]>(['COMPANY']);
+  const [permissionsLoading, setPermissionsLoading] = useState(true);
+  const [permissionsError, setPermissionsError] = useState('');
   const [organizationName, setOrganizationName] = useState('');
   const [organizationType, setOrganizationType] = useState<OrganizationType>('COMPANY');
   const [inviteCode, setInviteCode] = useState('');
@@ -92,6 +95,24 @@ export default function FirstWorkspaceOnboarding({
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    apiService.get<{ types: OrganizationType[] }>('/api/organizations/creation-permissions', true)
+      .then((response) => {
+        if (!active) return;
+        if (!response.success || !response.data?.types) {
+          setPermissionsError(response.error?.message ?? 'No se pudieron consultar tus permisos.');
+          return;
+        }
+        setOrganizationCreationPermissions(['COMPANY', ...response.data.types.filter((type) => type !== 'COMPANY')]);
+      })
+      .catch(() => {
+        if (active) setPermissionsError('No se pudieron consultar tus permisos. Comprueba tu conexión e inténtalo de nuevo.');
+      })
+      .finally(() => { if (active) setPermissionsLoading(false); });
+    return () => { active = false; };
+  }, []);
+
   const beginWorkspace = (organization: Organization) => {
     setSelectedOrganization(organization);
     setWorkspaceName('');
@@ -102,6 +123,10 @@ export default function FirstWorkspaceOnboarding({
 
   const createOrganization = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (organizationType !== 'COMPANY' && (permissionsLoading || !organizationCreationPermissions.includes(organizationType))) {
+      setError('Administración debe habilitar este tipo de organización antes de crearla.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -133,7 +158,7 @@ export default function FirstWorkspaceOnboarding({
     setNotice('');
     try {
       const token = invitationToken(inviteCode);
-      const response = await apiService.post<{ message: string; organizationId: string }>(
+      const response = await apiService.post<{ message: string; organizationId: string; workspaceId: string | null }>(
         `/api/organizations/invitations/${encodeURIComponent(token)}/accept`,
         {},
         true,
@@ -145,6 +170,12 @@ export default function FirstWorkspaceOnboarding({
       const joined = updatedOrganizations.find((organization) => organization.id === response.data?.organizationId);
       if (!joined) throw new Error('La invitación se aceptó, pero no pudimos cargar la organización. Actualiza e inténtalo de nuevo.');
       window.dispatchEvent(new Event('aether:organizations-changed'));
+      if (response.data.workspaceId) {
+        setActiveWorkspaceId(response.data.workspaceId);
+        onWorkspaceCreated(response.data.workspaceId);
+        router.replace('/dashboard');
+        return;
+      }
       if (joined.role === 'OWNER' || joined.role === 'ADMIN') {
         setSelectedOrganization(joined);
         setStep('workspace');
@@ -342,18 +373,29 @@ export default function FirstWorkspaceOnboarding({
             </label>
             <fieldset className={styles.typeField}>
               <legend>Tipo de organización</legend>
+              <p className={styles.permissionHelp}>
+                {permissionsLoading
+                  ? 'Consultando los tipos habilitados para tu cuenta…'
+                  : organizationCreationPermissions.length > 0
+                    ? 'Puedes crear equipos de trabajo directamente. Las instituciones y redes requieren autorización administrativa.'
+                    : 'No pudimos confirmar qué tipos puedes crear. Revisa tu conexión e inténtalo de nuevo.'}
+              </p>
               <div className={styles.typeGrid}>
-                {organizationTypes.map((type) => (
-                  <button key={type.value} type="button" className={`${styles.typeCard} ${organizationType === type.value ? styles.typeCardSelected : ''}`} aria-pressed={organizationType === type.value} onClick={() => setOrganizationType(type.value)}>
+                {organizationTypes.map((type) => {
+                  const permitted = type.value === 'COMPANY' || organizationCreationPermissions.includes(type.value);
+                  const checkingPermission = type.value !== 'COMPANY' && permissionsLoading;
+                  return <button key={type.value} type="button" className={`${styles.typeCard} ${organizationType === type.value ? styles.typeCardSelected : ''} ${!permitted ? styles.typeCardDisabled : ''}`} aria-pressed={organizationType === type.value} aria-disabled={!permitted || checkingPermission} disabled={!permitted || checkingPermission} onClick={() => setOrganizationType(type.value)}>
                     <span className={styles.typeCheck}>{organizationType === type.value ? <Check size={14} /> : null}</span>
                     <strong>{type.title}</strong><small>{type.description}</small>
+                    <small className={styles.typeStatus}>{type.value === 'COMPANY' ? 'Disponible' : permissionsLoading ? 'Consultando permiso' : permitted ? 'Disponible' : 'Requiere autorización'}</small>
                   </button>
-                ))}
+                })}
               </div>
             </fieldset>
+            {permissionsError && <p className={styles.error} role="alert">{permissionsError} Los equipos de trabajo siguen disponibles.</p>}
             <div className={styles.actions}>
               <button className={styles.backButton} type="button" onClick={goBack}><ArrowLeft size={16} /> Volver</button>
-              <button className={styles.primaryButton} type="submit" disabled={busy || !organizationName.trim()}>{busy ? 'Creando…' : 'Continuar'} <ArrowRight size={17} /></button>
+              <button className={styles.primaryButton} type="submit" disabled={busy || (organizationType !== 'COMPANY' && (permissionsLoading || !!permissionsError || !organizationCreationPermissions.includes(organizationType))) || !organizationName.trim()}>{busy ? 'Creando…' : 'Continuar'} <ArrowRight size={17} /></button>
             </div>
           </form>
         )}

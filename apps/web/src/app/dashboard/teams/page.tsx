@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTeamStore, type Team } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { canManageOrganizationRole, supportsOrganizationTeams } from '@/lib/workspaceFeatures';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { C } from '@/lib/colors';
@@ -73,10 +74,9 @@ function TeamCard({ team, onOpen }: { team: Team; onOpen: () => void }) {
   );
 }
 
-function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, onCreate }: {
+function CreateTeamModal({ workspaceId, workspaceLabel, onClose, onCreate }: {
   workspaceId: string;
-  workspaces: Array<{ id: string; name: string; archived?: boolean }>;
-  onWorkspaceChange: (workspaceId: string) => void;
+  workspaceLabel: string;
   onClose: () => void;
   onCreate: (data: { workspaceId: string; name: string; description?: string; color: string }) => Promise<void>;
 }) {
@@ -85,8 +85,6 @@ function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, 
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const availableWorkspaces = workspaces.filter((workspace) => !workspace.archived);
-
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim() || name.trim().length > 80 || !workspaceId || description.trim().length > MAX_TEAM_DESCRIPTION_LENGTH) return;
@@ -114,7 +112,9 @@ function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase' }}>Espacio de trabajo</span>
-            <ProjectOptionSelect label="Espacio de trabajo" value={workspaceId} onChange={onWorkspaceChange} options={[{ value: '', label: availableWorkspaces.length ? 'Selecciona un espacio de trabajo' : 'No tienes espacios disponibles' }, ...availableWorkspaces.map((workspace) => ({ value: workspace.id, label: workspace.name }))]} disabled={!availableWorkspaces.length} />
+            <div style={{ display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(97,71,130,.1)', background: 'var(--c-surface2)', color: workspaceId ? 'var(--c-text)' : 'var(--c-text3)', fontFamily: MANROPE, fontSize: '13px' }}>
+              {workspaceId ? workspaceLabel : 'Activa un espacio de trabajo desde el menú lateral.'}
+            </div>
           </div>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase' }}>Nombre</span>
@@ -144,23 +144,56 @@ function CreateTeamModal({ workspaceId, workspaces, onWorkspaceChange, onClose, 
 export default function TeamsPage() {
   const router = useRouter();
   const { teams, isLoading, fetchTeams, createTeam } = useTeamStore();
-  const { currentWorkspace, workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const { workspaces, fetchWorkspaces } = useWorkspaceStore();
   const { activeWorkspaceId, setActiveWorkspaceId } = useActiveWorkspaceStore();
   const [showCreate, setShowCreate] = useState(false);
+  const creationLinkHandled = useRef(false);
+  const filterOrganizationRef = useRef('');
   const [workspaceFilter, setWorkspaceFilter] = useState('ALL');
-  const workspaceId = activeWorkspaceId ?? currentWorkspace?.id ?? '';
-  const activeWorkspaces = workspaces.filter((workspace) => !workspace.archived);
-  const knownWorkspaceIds = new Set(workspaces.map((workspace) => workspace.id));
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId && !workspace.archived);
+  const organizationId = activeWorkspace?.organizationId ?? '';
+  const canUseTeams = supportsOrganizationTeams(activeWorkspace);
+  const canCreateTeam = canUseTeams && canManageOrganizationRole(activeWorkspace?.organization?.role);
+  const personalWorkspaceContext = Boolean(activeWorkspace && !canUseTeams);
+  const workspaceId = activeWorkspace?.id ?? '';
+  const activeWorkspaces = workspaces.filter((workspace) => !workspace.archived && workspace.organizationId === organizationId && supportsOrganizationTeams(workspace));
+  const organizationWorkspaceIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
+  const organizationTeams = teams.filter((team) => team.workspaceId && organizationWorkspaceIds.has(team.workspaceId));
   const filteredWorkspaces = activeWorkspaces.filter((workspace) => workspaceFilter === 'ALL' || workspace.id === workspaceFilter);
-  const visibleWorkspaces = filteredWorkspaces.filter((workspace) => workspaceFilter !== 'ALL' || teams.some((team) => team.workspaceId === workspace.id));
-  const legacyTeams = teams.filter((team) => !team.workspaceId || !knownWorkspaceIds.has(team.workspaceId));
-  const activeCardCount = teams.reduce((total, team) => total + (team.activeCards ?? 0), 0);
+  const visibleWorkspaces = filteredWorkspaces.filter((workspace) => workspaceFilter !== 'ALL' || organizationTeams.some((team) => team.workspaceId === workspace.id));
+  const activeCardCount = organizationTeams.reduce((total, team) => total + (team.activeCards ?? 0), 0);
+
+  useEffect(() => {
+    if (filterOrganizationRef.current && filterOrganizationRef.current !== organizationId) setWorkspaceFilter('ALL');
+    if (organizationId) filterOrganizationRef.current = organizationId;
+  }, [organizationId]);
 
   useEffect(() => {
     if (!workspaces.length) fetchWorkspaces();
   }, [workspaces.length, fetchWorkspaces]);
 
-  const loadTeams = useCallback(() => fetchTeams(), [fetchTeams]);
+  useEffect(() => {
+    if (personalWorkspaceContext) router.replace('/dashboard');
+  }, [personalWorkspaceContext, router]);
+
+  useEffect(() => {
+    if (creationLinkHandled.current || !workspaces.length) return;
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('create') !== '1') { creationLinkHandled.current = true; return; }
+    const requestedWorkspaceId = query.get('workspaceId');
+    const requestedWorkspace = workspaces.find((workspace) => workspace.id === requestedWorkspaceId && !workspace.archived);
+    if (requestedWorkspace) {
+      setActiveWorkspaceId(requestedWorkspace.id);
+      setWorkspaceFilter(requestedWorkspace.id);
+      if (supportsOrganizationTeams(requestedWorkspace) && canManageOrganizationRole(requestedWorkspace.organization?.role)) setShowCreate(true);
+    } else if (canCreateTeam) {
+      setShowCreate(true);
+    }
+    creationLinkHandled.current = true;
+    window.history.replaceState(window.history.state, '', window.location.pathname);
+  }, [canCreateTeam, workspaces, setActiveWorkspaceId]);
+
+  const loadTeams = useCallback(() => { if (canUseTeams) void fetchTeams(); }, [canUseTeams, fetchTeams]);
   useEffect(() => { loadTeams(); }, [loadTeams]);
 
   useEffect(() => {
@@ -171,15 +204,20 @@ export default function TeamsPage() {
 
   function selectFilter(id: string) {
     setWorkspaceFilter(id);
-    if (id !== 'ALL') setActiveWorkspaceId(id);
   }
 
   async function handleCreate(data: { workspaceId: string; name: string; description?: string; color: string }) {
+    const targetWorkspace = workspaces.find((workspace) => workspace.id === data.workspaceId && !workspace.archived);
+    if (!supportsOrganizationTeams(targetWorkspace) || !canManageOrganizationRole(targetWorkspace?.organization?.role)) {
+      throw new Error('Solo el propietario o un administrador de la organización puede crear equipos.');
+    }
     setActiveWorkspaceId(data.workspaceId);
     const team = await createTeam(data);
     markStepDone('team');
     router.push(`/dashboard/teams/${team.id}`);
   }
+
+  if (personalWorkspaceContext) return null;
 
   return (
     <div className={styles.page} style={{ minHeight: '100%', padding: '0 clamp(20px, 4vw, 48px) 48px', background: C.bg }}>
@@ -190,12 +228,12 @@ export default function TeamsPage() {
             <h1 style={{ margin: 0, color: 'var(--c-text)', fontFamily: SORA, fontSize: 'clamp(1.7rem, 3vw, 2.2rem)', fontWeight: 700, letterSpacing: '-.02em' }}>Equipos</h1>
             <p style={{ margin: '7px 0 0', color: 'var(--c-text2)', fontFamily: MANROPE, fontSize: '14px' }}>Personas, proyectos y trabajo activo en un solo lugar.</p>
           </div>
-          <button type="button" onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 16px', borderRadius: '8px', border: 0, background: '#7452A6', color: '#FFFFFF', cursor: 'pointer', fontFamily: SORA, fontSize: '14px', fontWeight: 650 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>Nuevo equipo</button>
+          {canCreateTeam && <button type="button" onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 16px', borderRadius: '8px', border: 0, background: '#7452A6', color: '#FFFFFF', cursor: 'pointer', fontFamily: SORA, fontSize: '14px', fontWeight: 650 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>Nuevo equipo</button>}
         </header>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginTop: '24px' }}>
           {[
-            { label: 'Equipos', value: teams.length, color: 'var(--c-accent-text)' },
+            { label: 'Equipos', value: organizationTeams.length, color: 'var(--c-accent-text)' },
             { label: 'Espacios de trabajo', value: activeWorkspaces.length, color: '#548B73' },
             { label: 'Tarjetas activas', value: activeCardCount, color: '#8D84B0' },
           ].map((metric) => (
@@ -209,7 +247,7 @@ export default function TeamsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '24px 0 14px', padding: '12px 14px', border: '1px solid rgba(97,71,130,.07)', borderRadius: '11px', background: 'rgba(97,71,130,.018)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--c-text2)', fontFamily: MANROPE, fontSize: '12px' }}>
             <span>Espacio de trabajo</span>
-            <div style={{ minWidth: '240px' }}><ProjectOptionSelect label="Filtrar por espacio de trabajo" value={workspaceFilter} onChange={selectFilter} options={[{ value: 'ALL', label: `Todos los espacios (${teams.length} equipos)` }, ...activeWorkspaces.map((workspace) => { const count = teams.filter((team) => team.workspaceId === workspace.id).length; return { value: workspace.id, label: `${workspace.name} (${count} ${count === 1 ? 'equipo' : 'equipos'})` }; })]} /></div>
+            <div style={{ minWidth: '240px' }}><ProjectOptionSelect label="Filtrar por espacio de trabajo" value={workspaceFilter} onChange={selectFilter} options={[{ value: 'ALL', label: `Todos los espacios (${organizationTeams.length} equipos)` }, ...activeWorkspaces.map((workspace) => { const count = organizationTeams.filter((team) => team.workspaceId === workspace.id).length; return { value: workspace.id, label: `${workspace.name} (${count} ${count === 1 ? 'equipo' : 'equipos'})` }; })]} /></div>
           </div>
           {workspaceFilter !== 'ALL' && <button type="button" onClick={() => selectFilter('ALL')} style={{ padding: '7px 0', border: 0, background: 'transparent', color: 'var(--c-accent-text)', cursor: 'pointer', fontFamily: MANROPE, fontSize: '12.5px', fontWeight: 600 }}>Ver todos</button>}
         </div>
@@ -219,7 +257,7 @@ export default function TeamsPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             {visibleWorkspaces.map((workspace) => {
-              const workspaceTeams = teams.filter((team) => team.workspaceId === workspace.id);
+              const workspaceTeams = organizationTeams.filter((team) => team.workspaceId === workspace.id);
               return (
                 <section key={workspace.id} className={styles.workspaceGroup}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 16px', borderBottom: '1px solid rgba(97,71,130,.07)' }}>
@@ -227,19 +265,18 @@ export default function TeamsPage() {
                       <span style={{ width: '10px', height: '10px', flexShrink: 0, borderRadius: '50%', background: workspace.color ?? '#7452A6', boxShadow: `0 0 0 4px ${workspace.color ?? '#7452A6'}22` }} />
                       <div style={{ minWidth: 0 }}><div style={{ overflow: 'hidden', color: 'var(--c-text)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: SORA, fontSize: '14px', fontWeight: 600 }}>{workspace.name}</div><div style={{ marginTop: '2px', color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '12px' }}>{workspaceTeams.length} {workspaceTeams.length === 1 ? 'equipo' : 'equipos'}</div></div>
                     </div>
-                    <button type="button" onClick={() => { setActiveWorkspaceId(workspace.id); setShowCreate(true); }} style={{ flexShrink: 0, padding: '6px 9px', borderRadius: '7px', border: '1px solid rgba(97,71,130,.11)', background: 'transparent', color: 'var(--c-text2)', cursor: 'pointer', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600 }}>+ Equipo</button>
+                    {canManageOrganizationRole(workspace.organization?.role) && <button type="button" onClick={() => { setActiveWorkspaceId(workspace.id); setShowCreate(true); }} style={{ flexShrink: 0, padding: '6px 9px', borderRadius: '7px', border: '1px solid rgba(97,71,130,.11)', background: 'transparent', color: 'var(--c-text2)', cursor: 'pointer', fontFamily: MANROPE, fontSize: '12px', fontWeight: 600 }}>+ Equipo</button>}
                   </div>
                   {workspaceTeams.length ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', padding: '12px' }}>{workspaceTeams.map((team) => <TeamCard key={team.id} team={team} onOpen={() => router.push(`/dashboard/teams/${team.id}`)} />)}</div> : <div style={{ padding: '22px 16px', color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: '13px' }}>Aún no hay equipos en este espacio.</div>}
                 </section>
               );
             })}
-            {workspaceFilter === 'ALL' && legacyTeams.length > 0 && <section style={{ padding: '14px', border: '1px dashed rgba(97,71,130,.13)', borderRadius: '11px' }}><div style={{ marginBottom: '10px', color: 'var(--c-text2)', fontFamily: SORA, fontSize: '13px' }}>Equipos sin espacio asignado</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>{legacyTeams.map((team) => <TeamCard key={team.id} team={team} onOpen={() => router.push(`/dashboard/teams/${team.id}`)} />)}</div></section>}
-            {visibleWorkspaces.length === 0 && legacyTeams.length === 0 && <div style={{ display: 'grid', justifyItems: 'center', gap: '10px', padding: '48px 20px', textAlign: 'center', border: '1px dashed rgba(97,71,130,.12)', borderRadius: '14px', color: 'var(--c-text2)', fontFamily: MANROPE }}><div style={{ color: 'var(--c-text)', fontFamily: SORA, fontSize: '15px', fontWeight: 600 }}>{workspaceFilter === 'ALL' ? 'Todavía no hay equipos' : 'No hay equipos en este espacio'}</div><span style={{ maxWidth: '360px', fontSize: '13px', lineHeight: 1.6 }}>{workspaceFilter === 'ALL' ? 'Crea un equipo para reunir personas y organizar el trabajo de tus proyectos.' : 'Puedes crear un equipo directamente en este espacio de trabajo.'}</span><button type="button" onClick={() => setShowCreate(true)} style={{ marginTop: '4px', padding: '9px 14px', border: 0, borderRadius: '8px', background: '#7452A6', color: '#FFFFFF', fontFamily: SORA, fontSize: '12px', fontWeight: 650, cursor: 'pointer' }}>Crear equipo</button></div>}
+            {visibleWorkspaces.length === 0 && <div style={{ display: 'grid', justifyItems: 'center', gap: '10px', padding: '48px 20px', textAlign: 'center', border: '1px dashed rgba(97,71,130,.12)', borderRadius: '14px', color: 'var(--c-text2)', fontFamily: MANROPE }}><div style={{ color: 'var(--c-text)', fontFamily: SORA, fontSize: '15px', fontWeight: 600 }}>{workspaceFilter === 'ALL' ? 'Todavía no hay equipos en esta organización' : 'No hay equipos en este espacio'}</div><span style={{ maxWidth: '360px', fontSize: '13px', lineHeight: 1.6 }}>{canCreateTeam ? 'Crea un equipo para reunir personas y organizar el trabajo de tus proyectos.' : 'Solo el propietario o un administrador de la organización puede crear equipos.'}</span>{canCreateTeam && <button type="button" onClick={() => setShowCreate(true)} style={{ marginTop: '4px', padding: '9px 14px', border: 0, borderRadius: '8px', background: '#7452A6', color: '#FFFFFF', fontFamily: SORA, fontSize: '12px', fontWeight: 650, cursor: 'pointer' }}>Crear equipo</button>}</div>}
           </div>
         )}
       </div>
 
-      {showCreate && <CreateTeamModal workspaceId={workspaceId} workspaces={workspaces} onWorkspaceChange={setActiveWorkspaceId} onClose={() => setShowCreate(false)} onCreate={handleCreate} />}
+      {showCreate && canCreateTeam && <CreateTeamModal workspaceId={workspaceId} workspaceLabel={`${activeWorkspace?.organization?.name ? `${activeWorkspace.organization.name} / ` : ''}${activeWorkspace?.name ?? ''}`} onClose={() => setShowCreate(false)} onCreate={handleCreate} />}
     </div>
   );
 }

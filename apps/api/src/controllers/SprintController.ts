@@ -8,7 +8,11 @@ import { eventStore } from '../services/EventStoreService';
 import { pool } from '../lib/db';
 import { canContributeToProjectBoundResource, canManageProjectBoundResource } from '../middleware/project';
 
-async function resolveSprintContext(boardId: string): Promise<{ workspaceId: string; projectId: string | null; boardName: string }> {
+async function resolveSprintContext(boardId: string | null, projectId?: string | null): Promise<{ workspaceId: string; projectId: string | null; boardName: string }> {
+  if (!boardId && projectId) {
+    const project = await pool.query('SELECT workspace_id FROM projects WHERE id = $1', [projectId]);
+    return { workspaceId: project.rows[0]?.workspace_id ?? '', projectId, boardName: '' };
+  }
   const r = await pool.query(
     `SELECT b.workspace_id, b.name AS board_name, pb.project_id
      FROM boards b
@@ -108,6 +112,14 @@ export class SprintController {
           .status(400)
           .json({ success: false, error: { code: 'VALIDATION_ERROR', details: v.error.errors } });
 
+      const linkedScrum = await pool.query(
+        `SELECT p.id FROM project_boards pb JOIN projects p ON p.id = pb.project_id
+         WHERE pb.board_id = $1 AND p.methodology = 'SCRUM' LIMIT 1`, [boardId],
+      );
+      if (linkedScrum.rows.length) return res.status(409).json({ success: false, error: {
+        code: 'PROJECT_BACKLOG_REQUIRED', message: 'Planifica los sprints desde el Backlog del proyecto Scrum',
+      } });
+
       const sprint = await SprintService.createSprint(boardId, userId, v.data);
 
       const [actorName, ctx] = await Promise.all([getActorName(userId), resolveSprintContext(boardId)]);
@@ -135,6 +147,11 @@ export class SprintController {
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
 
+      const projectSprint = await pool.query('SELECT project_id FROM board_sprints WHERE id = $1', [sprintId]);
+      if (projectSprint.rows[0]?.project_id) return res.status(409).json({ success: false, error: {
+        code: 'PROJECT_BACKLOG_REQUIRED', message: 'Gestiona este sprint desde el Backlog del proyecto',
+      } });
+
       const v = updateSprintSchema.safeParse(req.body);
       if (!v.success)
         return res
@@ -146,7 +163,7 @@ export class SprintController {
       if (v.data.status === 'ACTIVE' || v.data.status === 'COMPLETED') {
         const userId = req.user?.id;
         if (userId) {
-          const [actorName, ctx] = await Promise.all([getActorName(userId), resolveSprintContext(sprint.boardId)]);
+          const [actorName, ctx] = await Promise.all([getActorName(userId), resolveSprintContext(sprint.boardId, sprint.projectId)]);
           const eventType = v.data.status === 'ACTIVE' ? 'sprint.started' : 'sprint.completed';
           await eventStore.emit({
             type: eventType,
@@ -175,6 +192,10 @@ export class SprintController {
         return res
           .status(403)
           .json({ success: false, error: { code: 'INSUFFICIENT_PERMISSIONS' } });
+      const projectSprint = await pool.query('SELECT project_id FROM board_sprints WHERE id = $1', [sprintId]);
+      if (projectSprint.rows[0]?.project_id) return res.status(409).json({ success: false, error: {
+        code: 'PROJECT_BACKLOG_REQUIRED', message: 'Gestiona este sprint desde el Backlog del proyecto',
+      } });
       await SprintService.deleteSprint(sprintId);
       return res.json({ success: true, data: { message: 'Sprint eliminado' } });
     } catch (e: any) {

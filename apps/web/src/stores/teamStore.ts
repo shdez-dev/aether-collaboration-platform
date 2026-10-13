@@ -43,6 +43,7 @@ export interface Team {
   workspaceName?: string | null;
   viewerRole?: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER' | null;
   canManage?: boolean;
+  canManageAdminRoles?: boolean;
   members?: TeamMember[];
   sampleMembers?: { id: string; name: string }[];
 }
@@ -117,6 +118,8 @@ interface TeamState {
 
 // ==================== STORE ====================
 
+let teamDetailRequestId = 0;
+
 export const useTeamStore = create<TeamState>()(
   persist(
     (set, get) => ({
@@ -146,16 +149,31 @@ export const useTeamStore = create<TeamState>()(
       // ── Fetch by id ─────────────────────────────────────────────────────────
 
       fetchTeamById: async (id: string) => {
-        set({ isLoading: true, error: null, currentTeam: null });
+        const requestId = ++teamDetailRequestId;
+        const existingTeam = get().currentTeam;
+        const hasCurrentTeam = existingTeam?.id === id;
+        set({
+          isLoading: !hasCurrentTeam,
+          error: null,
+          currentTeam: hasCurrentTeam ? existingTeam : null,
+        });
         try {
           const response = await apiService.get<{ team: Team }>(`/api/teams/${id}`, true);
+          if (requestId !== teamDetailRequestId) return;
           if (!response.success || !response.data) {
-            set({ error: response.error?.message || 'Equipo no encontrado', isLoading: false });
+            set({
+              error: get().currentTeam?.id === id ? null : response.error?.message || 'Equipo no encontrado',
+              isLoading: false,
+            });
             return;
           }
           set({ currentTeam: response.data.team, isLoading: false });
         } catch (error: any) {
-          set({ error: error.message || 'Error desconocido', isLoading: false });
+          if (requestId !== teamDetailRequestId) return;
+          set({
+            error: get().currentTeam?.id === id ? null : error.message || 'Error desconocido',
+            isLoading: false,
+          });
         }
       },
 

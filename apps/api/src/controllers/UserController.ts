@@ -1386,46 +1386,6 @@ class UserController {
     }
   }
 
-  /** GET /api/users/me/team-standups — standups de hoy de los compañeros de equipo */
-  async getTeamStandups(req: Request, res: Response) {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) return res.status(401).json({ success: false, error: { message: 'No autenticado' } });
-
-      const result = await pool.query(
-        `SELECT
-           s.id, s.user_id, s.today_items, s.blockers, s.published_at,
-           u.name AS user_name, u.avatar AS user_avatar
-         FROM standups s
-         JOIN users u ON u.id = s.user_id
-         WHERE s.date = CURRENT_DATE
-           AND s.published_at IS NOT NULL
-           AND s.user_id IN (
-             SELECT DISTINCT tm2.user_id
-             FROM team_members tm1
-             JOIN team_members tm2 ON tm2.team_id = tm1.team_id AND tm2.user_id != tm1.user_id
-             WHERE tm1.user_id = $1
-           )
-         ORDER BY s.published_at DESC`,
-        [userId]
-      );
-
-      const standups = result.rows.map((r) => ({
-        id:          r.id,
-        userId:      r.user_id,
-        userName:    r.user_name,
-        userAvatar:  r.user_avatar ?? null,
-        todayItems:  r.today_items ?? [],
-        blockers:    r.blockers ?? [],
-        publishedAt: new Date(r.published_at).toISOString(),
-      }));
-
-      return res.json({ success: true, data: { standups } });
-    } catch (error) {
-      console.error('[UserController.getTeamStandups]', error);
-      return res.status(500).json({ success: false, error: { message: 'Error al obtener standups del equipo' } });
-    }
-  }
 }
 
 export const userController = new UserController();

@@ -5,6 +5,7 @@ import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { supportsOrganizationProjectPlanning } from '@/lib/workspaceFeatures';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useRealtimeBoard } from '@/hooks/useRealTimeBoard';
 import { useRealtimeToast } from '@/hooks/useRealtimeToast';
@@ -28,7 +29,7 @@ import { BoardTableView } from '@/components/BoardTableView';
 import { C } from '@/lib/colors';
 import { useBoardCursors } from '@/hooks/useBoardCursors';
 import { RemoteCursors } from '@/components/realtime/RemoteCursors';
-import { SprintBanner } from '@/components/SprintBanner';
+import type { ProjectSprint } from '@/components/ProjectSprintPlanner';
 
 const SORA  = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
@@ -36,9 +37,12 @@ const MANROPE = "'Manrope', system-ui, sans-serif";
 interface InlineBoardViewProps {
   boardId: string;
   onBack: () => void;
+  projectId?: string;
+  methodology?: 'FLEXIBLE' | 'SCRUM';
+  onOpenBacklog?: () => void;
 }
 
-export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
+export function InlineBoardView({ boardId, onBack, projectId, methodology, onOpenBacklog }: InlineBoardViewProps) {
   const t = es;
 
   const {
@@ -54,6 +58,7 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
   const { cards, setCards, moveCard, setCurrentWorkspaceId, clearAllCards } = useCardStore();
   const { preferences, loadPreferences, updatePreferences }     = usePreferencesStore();
   const { currentWorkspace, fetchWorkspaceById, fetchMembers }  = useWorkspaceStore();
+  const canUseProjectPlanning = supportsOrganizationProjectPlanning(currentWorkspace);
 
   const userRole    = currentWorkspace?.userRole;
   const canEditBoard = userRole === 'ADMIN' || userRole === 'OWNER';
@@ -67,6 +72,9 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
   const [search,           setSearch]           = useState('');
   const [showFilters,      setShowFilters]      = useState(false);
   const [showEditBoard,    setShowEditBoard]    = useState(false);
+  const [projectSprints,   setProjectSprints]   = useState<ProjectSprint[]>([]);
+  const [sprintFilter,     setSprintFilter]     = useState<'active' | 'all'>('active');
+  const activeSprint = projectSprints.find((sprint) => sprint.status === 'ACTIVE');
 
   const [kanbanEl, setKanbanEl] = useState<HTMLDivElement | null>(null);
   const kanbanCallbackRef       = useCallback((el: HTMLDivElement | null) => setKanbanEl(el), []);
@@ -142,13 +150,16 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
   }, [filters, search]);
 
   const filteredCardsByList = useMemo((): Record<string, Card[]> | null => {
-    if (!applyFilters) return null;
+    const sprintIds = canUseProjectPlanning && methodology === 'SCRUM' && sprintFilter === 'active' && activeSprint
+      ? new Set(activeSprint.cards.map((card) => card.id)) : null;
+    if (!applyFilters && !sprintIds) return null;
     const result: Record<string, Card[]> = {};
     for (const [listId, listCards] of Object.entries(cards)) {
-      result[listId] = applyFilters(listCards as Card[]);
+      const boardCards = applyFilters ? applyFilters(listCards as Card[]) : listCards as Card[];
+      result[listId] = sprintIds ? boardCards.filter((card) => sprintIds.has(card.id)) : boardCards;
     }
     return result;
-  }, [applyFilters, cards]);
+  }, [applyFilters, cards, canUseProjectPlanning, methodology, sprintFilter, activeSprint]);
 
   const totalCards    = useMemo(() => Object.values(cards).reduce((s, lc) => s + lc.length, 0), [cards]);
   const filteredTotal = useMemo(() => filteredCardsByList
@@ -237,6 +248,18 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
 
   // ── Effects ───────────────────────────────────────────────────────────────────
   useEffect(() => { loadPreferences(); }, [loadPreferences]);
+
+  useEffect(() => {
+    if (!canUseProjectPlanning || methodology !== 'SCRUM' || !projectId) { setProjectSprints([]); return; }
+    let mounted = true;
+    const load = async () => {
+      const result = await apiService.get<{ sprints: ProjectSprint[] }>(`/api/projects/${projectId}/sprints`, true);
+      if (mounted && result.success && result.data) setProjectSprints(result.data.sprints);
+    };
+    void load();
+    const interval = window.setInterval(() => { void load(); }, 15000);
+    return () => { mounted = false; window.clearInterval(interval); };
+  }, [canUseProjectPlanning, projectId, methodology]);
 
   useEffect(() => {
     if (preferences && !viewInitialized) {
@@ -497,10 +520,15 @@ export function InlineBoardView({ boardId, onBack }: InlineBoardViewProps) {
         </div>
       )}
 
-      {/* ── Sprint banner ────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: '18px', overflow: 'hidden', border: '1px solid rgba(97,71,130,0.08)', borderRadius: '10px' }}>
-        <SprintBanner boardId={boardId} canEdit={canEditBoard} />
-      </div>
+      {canUseProjectPlanning && methodology === 'SCRUM' && <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 18, padding: '10px 12px', border: `1px solid ${C.border}`, borderRadius: 9, background: C.surface, fontSize: 12 }}>
+        <strong style={{ color: C.text }}>{activeSprint?.name ?? 'Sin sprint activo'}</strong>
+        {activeSprint && <span style={{ color: C.text3 }}>{activeSprint.cards.filter((card) => card.completed).length}/{activeSprint.cards.length} tarjetas</span>}
+        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+          <button type="button" disabled={!activeSprint} aria-pressed={sprintFilter === 'active'} onClick={() => setSprintFilter('active')} style={{ border: `1px solid ${sprintFilter === 'active' ? C.accent : C.border}`, borderRadius: 6, background: sprintFilter === 'active' ? 'rgba(125,82,177,.16)' : 'transparent', color: C.text, padding: '5px 8px', cursor: activeSprint ? 'pointer' : 'not-allowed' }}>Sprint activo</button>
+          <button type="button" aria-pressed={sprintFilter === 'all'} onClick={() => setSprintFilter('all')} style={{ border: `1px solid ${sprintFilter === 'all' ? C.accent : C.border}`, borderRadius: 6, background: sprintFilter === 'all' ? 'rgba(125,82,177,.16)' : 'transparent', color: C.text, padding: '5px 8px', cursor: 'pointer' }}>Todas</button>
+          {onOpenBacklog && <button type="button" onClick={onOpenBacklog} style={{ border: 0, background: 'transparent', color: C.accent, padding: '5px 8px', cursor: 'pointer' }}>Ir al backlog</button>}
+        </div>
+      </div>}
 
       {/* ── Board content ───────────────────────────────────────────────── */}
       {currentView === 'table' ? (

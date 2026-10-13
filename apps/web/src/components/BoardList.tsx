@@ -12,9 +12,10 @@ import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from './Card';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus, Trash2, Pencil, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Pencil, GripVertical, Inbox } from 'lucide-react';
 import { es } from '@/lib/i18n';
 import { C } from '@/lib/colors';
+import composerStyles from './CardComposer.module.css';
 
 
 interface List {
@@ -47,6 +48,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
   const [isAddingCard, setIsAddingCard]     = useState(false);
   const [cardTitle, setCardTitle]           = useState('');
   const [isCreatingCard, setIsCreatingCard] = useState(false);
+  const [cardCreateError, setCardCreateError] = useState('');
 
   const t = es;
 
@@ -92,6 +94,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
   const handleCreateCard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canEdit || !cardTitle.trim()) return;
+    setCardCreateError('');
     setIsCreatingCard(true);
     try {
       const r = await apiService.post<{ card: any }>(`/api/lists/${list.id}/cards`, { title: cardTitle.trim() }, true);
@@ -101,7 +104,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
       setSelectedCard(r.data!.card);
       setCardTitle(''); setIsAddingCard(false);
     } catch (err: any) {
-      alert(`Error al crear la tarjeta: ${err.message}`);
+      setCardCreateError(err?.message || 'No se pudo crear la tarjeta. Inténtalo de nuevo.');
     } finally { setIsCreatingCard(false); }
   };
 
@@ -112,26 +115,27 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
 
   return (
     <>
-      <div ref={setSortableNodeRef} style={{ ...style, width: '272px', flexShrink: 0 }}>
+      <div ref={setSortableNodeRef} style={{ ...style, width: 'min(304px, calc(100vw - 48px))', flexShrink: 0 }}>
         <div
           style={{
             background: C.bg2,
             border: `1px solid ${isOver ? C.accent : C.border}`,
-            borderRadius: '10px',
+            borderRadius: '12px',
             display: 'flex',
             flexDirection: 'column',
+            minHeight: '252px',
             transition: 'border-color 0.15s',
-            boxShadow: isOver ? `0 0 0 1px ${C.accent}33` : 'none',
           }}
         >
           {/* ── Header ─────────────────────────────────────── */}
           <div
             style={{
-              padding: '10px 10px 10px 8px',
+              padding: '12px 12px 12px 9px',
               borderBottom: `1px solid ${C.border}`,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '8px',
+              minHeight: '56px',
               flexShrink: 0,
             }}
           >
@@ -141,17 +145,17 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
               {...(canEdit ? listeners : {})}
               style={{
                 cursor: canEdit ? 'grab' : 'default',
-                color: C.text4,
+                color: C.text3,
                 display: 'flex',
                 alignItems: 'center',
                 flexShrink: 0,
-                padding: '2px',
-                borderRadius: '4px',
+                padding: '5px',
+                borderRadius: '6px',
               }}
               onMouseEnter={(e) => { if (canEdit) (e.currentTarget.style.color = C.text3); }}
               onMouseLeave={(e) => { if (canEdit) (e.currentTarget.style.color = C.text4); }}
             >
-              <GripVertical size={14} />
+              <GripVertical size={15} />
             </div>
 
             {/* Name */}
@@ -174,7 +178,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
             ) : (
               <span
                 style={{
-                  flex: 1, fontSize: '13px', fontWeight: 600, color: C.text,
+                  flex: 1, fontSize: '13px', fontWeight: 650, fontFamily: "'Sora', system-ui, sans-serif", color: C.text,
                   cursor: canEdit ? 'text' : 'default', overflow: 'hidden',
                   textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}
@@ -187,9 +191,9 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
             {/* Count badge */}
             <span
               style={{
-                fontSize: '10.5px', fontWeight: 600, color: C.text4,
-                background: C.hover, border: `1px solid ${C.border2}`,
-                borderRadius: '4px', padding: '1px 5px', flexShrink: 0,
+                fontSize: '11px', fontWeight: 700, color: C.text2,
+                background: C.surface, border: `1px solid ${C.border}`,
+                borderRadius: '7px', padding: '3px 8px', flexShrink: 0,
               }}
             >
               {isFiltered ? `${listCards.length}/${allListCards.length}` : allListCards.length}
@@ -200,8 +204,10 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); setIsMenuOpen((v) => !v); }}
+                  aria-label={`Opciones de la lista ${list.name}`}
+                  aria-expanded={isMenuOpen}
                   style={{
-                    width: '24px', height: '24px', borderRadius: '5px',
+                    width: '28px', height: '28px', borderRadius: '7px',
                     color: C.text4, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: 'transparent',
                   }}
@@ -252,9 +258,9 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
           <div
             ref={setDroppableNodeRef}
             style={{
-              padding: '8px',
-              minHeight: '80px',
-              maxHeight: '56vh',
+              padding: '10px',
+              minHeight: '150px',
+              maxHeight: 'min(64vh, 680px)',
               overflowY: 'auto',
               overflowX: 'hidden',
               scrollbarWidth: 'thin',
@@ -262,21 +268,14 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
             }}
           >
             <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {listCards.length > 0 ? (
                   listCards.map((card) => <Card key={card.id} card={card} boardId={list.boardId} />)
                 ) : (
-                  <div
-                    style={{
-                      textAlign: 'center', padding: '24px 12px',
-                      fontSize: '12px',
-                      color: isOver ? C.accent : C.text4,
-                      border: `1px dashed ${isOver ? C.accent : C.border}`,
-                      borderRadius: '6px',
-                      transition: 'border-color 0.15s, color 0.15s',
-                    }}
-                  >
-                    {isOver ? 'Soltar aquí' : isFiltered ? 'Sin resultados' : 'Sin tarjetas'}
+                  <div style={{ minHeight: '130px', display: 'grid', placeContent: 'center', justifyItems: 'center', gap: '7px', textAlign: 'center', padding: '18px', borderRadius: '9px', background: isOver ? `color-mix(in srgb, ${C.accent} 10%, ${C.surface})` : C.surface, color: isOver ? C.accent : C.text3, transition: 'background-color 0.15s, color 0.15s' }}>
+                    <Inbox size={20} strokeWidth={1.5} aria-hidden="true" />
+                    <span style={{ fontSize: '12px', fontWeight: 650 }}>{isOver ? 'Suelta la tarjeta aquí' : isFiltered ? 'Sin resultados para estos filtros' : 'Aún no hay tarjetas'}</span>
+                    {!isOver && !isFiltered && canEdit && <span style={{ fontSize: '11px', color: C.text3 }}>Añade la primera tarjeta para empezar.</span>}
                   </div>
                 )}
               </div>
@@ -285,61 +284,57 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
 
           {/* ── Add card ───────────────────────────────────── */}
           {canEdit && (
-            <div style={{ padding: '0 8px 8px', flexShrink: 0 }}>
+            <div style={{ padding: '0 10px 10px', flexShrink: 0 }}>
               {isAddingCard ? (
-                <form onSubmit={handleCreateCard} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <form onSubmit={handleCreateCard} className={composerStyles.composer}>
+                  <div className={composerStyles.heading}>
+                    <label htmlFor={`new-card-${list.id}`}>Nueva tarjeta</label>
+                    <span>{cardTitle.length}/255</span>
+                  </div>
                   <textarea
+                    id={`new-card-${list.id}`}
                     value={cardTitle}
-                    onChange={(e) => setCardTitle(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Escape') { setCardTitle(''); setIsAddingCard(false); } }}
-                    placeholder={t.card_placeholder_description}
+                    maxLength={255}
+                    onChange={(e) => { setCardTitle(e.target.value); if (cardCreateError) setCardCreateError(''); }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setCardTitle(''); setCardCreateError(''); setIsAddingCard(false); } if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }}
+                    placeholder="¿Qué hay que hacer?"
                     autoFocus
                     rows={2}
                     disabled={isCreatingCard}
-                    style={{
-                      width: '100%', background: C.surface, border: `1px solid ${C.accent}`,
-                      borderRadius: '6px', padding: '7px 9px', fontSize: '12.5px',
-                      color: C.text, outline: 'none', resize: 'none',
-                    }}
+                    className={composerStyles.input}
                   />
-                  <div style={{ display: 'flex', gap: '5px' }}>
+                  {cardCreateError && <p role="alert" className={composerStyles.error}>{cardCreateError}</p>}
+                  <div className={composerStyles.actions}>
                     <button
                       type="submit"
                       disabled={!cardTitle.trim() || isCreatingCard}
-                      style={{
-                        flex: 1, padding: '5px 0', borderRadius: '5px', fontSize: '12px', fontWeight: 500,
-                        background: C.accent, color: '#fff', opacity: !cardTitle.trim() ? 0.5 : 1,
-                        cursor: !cardTitle.trim() ? 'not-allowed' : 'pointer',
-                      }}
+                      className={composerStyles.submit}
                     >
-                      {isCreatingCard ? t.btn_creating : t.checklist_btn_add}
+                      <Plus size={14} /> {isCreatingCard ? t.btn_creating : 'Crear tarjeta'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setCardTitle(''); setIsAddingCard(false); }}
+                      onClick={() => { setCardTitle(''); setCardCreateError(''); setIsAddingCard(false); }}
                       disabled={isCreatingCard}
-                      style={{
-                        padding: '5px 10px', borderRadius: '5px', fontSize: '12px',
-                        background: C.hover, border: `1px solid ${C.border2}`, color: C.text2,
-                      }}
+                      className={composerStyles.cancel}
                     >
-                      ✕
+                      Cancelar
                     </button>
                   </div>
                 </form>
               ) : (
                 <button
                   onClick={() => setIsAddingCard(true)}
-                  className="flex items-center gap-1.5 w-full transition-colors"
+                  className="flex items-center gap-2 w-full transition-colors"
                   style={{
-                    padding: '6px 8px', borderRadius: '6px', fontSize: '12px',
-                    color: C.text4, background: 'transparent',
-                    border: `1px dashed ${C.border}`,
+                    minHeight: '38px', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 650,
+                    color: C.text2, background: C.surface,
+                    border: `1px solid ${C.border}`,
                   }}
                   onMouseEnter={(e) => { (e.currentTarget.style.borderColor = C.accent); (e.currentTarget.style.color = C.accent); }}
-                  onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border); (e.currentTarget.style.color = C.text4); }}
+                  onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border); (e.currentTarget.style.color = C.text2); }}
                 >
-                  <Plus size={12} /> {t.addcard_btn}
+                  <Plus size={14} /> Añadir tarjeta
                 </button>
               )}
             </div>

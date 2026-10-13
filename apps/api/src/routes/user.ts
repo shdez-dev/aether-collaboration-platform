@@ -114,7 +114,6 @@ router.get('/me/agenda', (req, res) => userController.getAgenda(req, res));
  */
 router.get('/me/github/prs',    (req, res) => userController.getGithubPRs(req, res));
 router.get('/me/teammates',     (req, res) => userController.getTeammates(req, res));
-router.get('/me/team-standups', (req, res) => userController.getTeamStandups(req, res));
 
 /**
  * GET /api/users/me/standup?workspaceId=xxx

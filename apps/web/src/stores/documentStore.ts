@@ -265,12 +265,14 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       updatePermission: async (documentId, userId, permission) => {
-        await apiService.put(
+        const response = await apiService.put(
           `/api/documents/${documentId}/permissions`,
           { userId, permission },
           true
         );
-        await get().fetchDocumentById(documentId);
+        if (!response.success) {
+          throw new Error(response.error?.message || 'No se pudo actualizar el permiso');
+        }
       },
 
       getDocumentMembers: async (documentId: string) => {
@@ -278,6 +280,9 @@ export const useDocumentStore = create<DocumentState>()(
           `/api/documents/${documentId}/members`,
           true
         );
+        if (!response.success) {
+          throw new Error(response.error?.message || 'No se pudieron cargar las personas');
+        }
         return response.data?.members || [];
       },
 

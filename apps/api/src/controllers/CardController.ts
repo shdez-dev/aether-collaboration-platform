@@ -13,6 +13,8 @@ import { canContributeToProjectBoundResource, canManageProjectBoundResource } fr
 const createCardSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().max(3000).optional(),
+  acceptanceCriteria: z.string().max(10000).optional(),
+  storyPoints: z.number().int().refine((value) => [1, 2, 3, 5, 8, 13, 21].includes(value)).optional(),
   startDate: z.string().datetime().optional(),
   dueDate: z.string().datetime().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
@@ -21,6 +23,8 @@ const createCardSchema = z.object({
 const updateCardSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().max(3000).optional().or(z.null()),
+  acceptanceCriteria: z.string().max(10000).optional().or(z.null()),
+  storyPoints: z.number().int().refine((value) => [1, 2, 3, 5, 8, 13, 21].includes(value)).optional().or(z.null()),
   startDate: z.string().datetime().optional().or(z.null()),
   dueDate: z.string().datetime().optional().or(z.null()),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional().or(z.null()),

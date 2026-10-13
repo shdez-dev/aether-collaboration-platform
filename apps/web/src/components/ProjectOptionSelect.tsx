@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
+import type { ReactNode } from 'react';
 import styles from './ProjectOptionSelect.module.css';
 
-interface Option { value: string; label: string }
+interface Option { value: string; label: string; icon?: ReactNode }
 
 interface Props {
+  id?: string;
   label: string;
   value: string;
   options: Option[];
@@ -17,7 +19,7 @@ interface Props {
   placeholder?: string;
 }
 
-export function ProjectOptionSelect({ label, value, options, onChange, disabled = false, menuZIndex, placeholder = 'Seleccionar' }: Props) {
+export function ProjectOptionSelect({ id, label, value, options, onChange, disabled = false, menuZIndex, placeholder = 'Seleccionar' }: Props) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
@@ -73,20 +75,26 @@ export function ProjectOptionSelect({ label, value, options, onChange, disabled 
 
   return (
     <div className={styles.root} onKeyDown={onKeyDown}>
-      <button ref={trigger} type="button" disabled={disabled} aria-label={label} aria-haspopup="listbox" aria-expanded={open} className={`${styles.trigger} ${open ? styles.open : ''}`} onClick={event => {
+      <button id={id} ref={trigger} type="button" disabled={disabled} aria-label={label} aria-haspopup="listbox" aria-expanded={open} className={`${styles.trigger} ${open ? styles.open : ''}`} onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect();
         const menuHeight = Math.min(options.length * 37 + 10, 250);
         const top = window.innerHeight - rect.bottom < menuHeight + 10 && rect.top > menuHeight + 10 ? rect.top - menuHeight - 6 : rect.bottom + 6;
         setPosition({ top: Math.max(10, Math.min(top, window.innerHeight - menuHeight - 10)), left: rect.left, width: rect.width });
         setOpen(previous => !previous);
       }}>
-        <span>{options[selectedIndex]?.label ?? placeholder}</span>
+        <span className={styles.triggerValue}>
+          {options[selectedIndex]?.icon && <span className={styles.optionIcon}>{options[selectedIndex].icon}</span>}
+          <span className={styles.optionLabel}>{options[selectedIndex]?.label ?? placeholder}</span>
+        </span>
         <ChevronDown size={15} aria-hidden="true" />
       </button>
       {open && createPortal(
-        <div ref={menu} role="listbox" aria-label={label} className={styles.menu} style={{ top: position.top, left: position.left, width: position.width, zIndex: menuZIndex }}>
+        <div ref={menu} role="listbox" aria-label={label} onKeyDown={onKeyDown} className={styles.menu} style={{ top: position.top, left: position.left, width: position.width, zIndex: menuZIndex }}>
           {options.map((option, index) => <button key={option.value} ref={element => { optionButtons.current[index] = element; }} type="button" role="option" aria-selected={option.value === value} className={`${styles.option} ${option.value === value ? styles.selected : ''}`} onClick={() => choose(option.value)}>
-            <span>{option.label}</span>
+            <span className={styles.optionContent}>
+              {option.icon && <span className={styles.optionIcon}>{option.icon}</span>}
+              <span className={styles.optionLabel}>{option.label}</span>
+            </span>
             {option.value === value && <Check size={14} aria-hidden="true" />}
           </button>)}
         </div>, document.body

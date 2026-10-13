@@ -29,42 +29,48 @@ export default function AddListButton({ boardId }: AddListButtonProps) {
 
   if (!isCreating) {
     return (
-      <div style={{ width: '220px', flexShrink: 0 }}>
+      <div style={{ width: 'min(304px, calc(100vw - 48px))', flexShrink: 0 }}>
         <button
           onClick={() => setIsCreating(true)}
-          className="flex items-center gap-2 w-full transition-colors"
+          className="flex items-center gap-3 w-full text-left transition-colors"
           style={{
-            padding: '10px 14px', borderRadius: '10px', fontSize: '13px',
-            color: C.text4, background: 'rgba(97,71,130,0.03)',
-            border: `1px dashed ${C.border}`,
+            minHeight: '76px', padding: '14px', borderRadius: '12px',
+            color: C.text2, background: C.bg2,
+            border: `1px dashed ${C.border2}`,
           }}
           onMouseEnter={(e) => {
             (e.currentTarget.style.borderColor = C.accent);
             (e.currentTarget.style.color = C.accent);
-            (e.currentTarget.style.background = `rgba(59,130,246,0.06)`);
+            (e.currentTarget.style.background = C.surface);
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget.style.borderColor = C.border);
-            (e.currentTarget.style.color = C.text4);
-            (e.currentTarget.style.background = 'rgba(97,71,130,0.03)');
+            (e.currentTarget.style.borderColor = C.border2);
+            (e.currentTarget.style.color = C.text2);
+            (e.currentTarget.style.background = C.bg2);
           }}
         >
-          <Plus size={14} /> {t.addlist_btn}
+          <span style={{ width: '30px', height: '30px', flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: '8px', background: C.surface }}><Plus size={16} /></span>
+          <span style={{ display: 'grid', gap: '3px' }}>
+            <strong style={{ fontSize: '12.5px', fontWeight: 700 }}>Añadir lista</strong>
+            <small style={{ fontSize: '11px', color: C.text3 }}>Define otra etapa del flujo.</small>
+          </span>
         </button>
       </div>
     );
   }
 
   return (
-    <div style={{ width: '272px', flexShrink: 0 }}>
+    <div style={{ width: 'min(304px, calc(100vw - 48px))', flexShrink: 0 }}>
       <div
         style={{
           background: C.bg2, border: `1px solid ${C.accent}`,
-          borderRadius: '10px', padding: '12px',
+          borderRadius: '12px', padding: '14px',
         }}
       >
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label htmlFor="new-board-list-name" style={{ fontSize: '12px', fontWeight: 700, color: C.text }}>Nueva lista</label>
           <input
+            id="new-board-list-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}

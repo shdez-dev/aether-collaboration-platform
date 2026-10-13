@@ -7,43 +7,37 @@ jest.mock('@/services/apiService', () => ({ apiService: { get: jest.fn(), post: 
 describe('CreateOrganizationModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (apiService.get as jest.Mock).mockImplementation(async (url: string) => url === '/api/organizations/creation-permissions'
+      ? { success: true, data: { types: [] } }
+      : { success: true, data: { organizations: [] } });
     (apiService.post as jest.Mock).mockResolvedValue({
       success: true,
       data: { organization: { id: 'org-new', name: 'Equipo Aurora', type: 'COMPANY' } },
     });
   });
 
-  it('creates the selected organization and continues through the parent flow', async () => {
-    const onCreated = jest.fn();
-    const onClose = jest.fn();
-    render(<CreateOrganizationModal isOpen onCreated={onCreated} onClose={onClose} />);
+  it('keeps special organization types unavailable without explicit permission', () => {
+    render(<CreateOrganizationModal isOpen onCreated={jest.fn()} onClose={jest.fn()} />);
 
-    fireEvent.change(screen.getByLabelText('Nombre de la organización'), { target: { value: 'Equipo Aurora' } });
-    fireEvent.click(screen.getByRole('button', { name: /Institución/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Crear organización/ }));
-
-    await waitFor(() => expect(apiService.post).toHaveBeenCalledWith(
-      '/api/organizations',
-      { name: 'Equipo Aurora', type: 'INSTITUTION' },
-      true,
-    ));
-    expect(onCreated).toHaveBeenCalledWith({ id: 'org-new', name: 'Equipo Aurora', type: 'COMPANY' });
-    expect(onClose).toHaveBeenCalled();
+    expect((screen.getByRole('button', { name: /Equipo o empresa/ }) as HTMLButtonElement).disabled).toBe(false);
+    for (const label of [/Institución/, /Red de colaboración/]) {
+      expect((screen.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(true);
+    }
+    expect((screen.getByRole('button', { name: /Crear organización/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(apiService.post).not.toHaveBeenCalled();
   });
 
   it('makes the existing personal organization available without creating a duplicate', async () => {
     const personalOrganization = { id: 'org-personal', name: 'Sebastian - Aether', type: 'PERSONAL' };
-    (apiService.get as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { organizations: [personalOrganization] },
-    });
+    (apiService.get as jest.Mock).mockImplementation(async (url: string) => url === '/api/organizations/creation-permissions'
+      ? { success: true, data: { types: [] } }
+      : { success: true, data: { organizations: [personalOrganization] } });
     const onCreated = jest.fn();
     const onClose = jest.fn();
     render(<CreateOrganizationModal isOpen onCreated={onCreated} onClose={onClose} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Personal/ }));
-    expect(screen.getByText(/Tu organización personal ya está vinculada/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Usar organización personal/ }));
+    expect(screen.getByText(/Tu espacio personal ya existe/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Usar espacio personal/ }));
 
     await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/api/organizations', true));
     expect(apiService.post).not.toHaveBeenCalled();

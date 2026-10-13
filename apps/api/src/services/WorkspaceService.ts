@@ -246,6 +246,8 @@ export class WorkspaceService {
         w.*,
         (SELECT json_build_object('id', o.id, 'name', o.name, 'type', o.type)
            FROM organizations o WHERE o.id = w.organization_id) AS organization_summary,
+        (SELECT om.role FROM organization_members om
+          WHERE om.organization_id = w.organization_id AND om.user_id = $1) AS organization_role,
         (SELECT json_build_object('initiativeTeamId', wis.initiative_team_id, 'activeStandardId', wis.active_standard_id, 'intakeEnabled', wis.intake_enabled)
            FROM workspace_institutional_settings wis WHERE wis.workspace_id = w.id) AS institutional_settings,
         wm.role as user_role,
@@ -283,6 +285,8 @@ export class WorkspaceService {
         w.*,
         (SELECT json_build_object('id', o.id, 'name', o.name, 'type', o.type)
            FROM organizations o WHERE o.id = w.organization_id) AS organization_summary,
+        (SELECT om.role FROM organization_members om
+          WHERE om.organization_id = w.organization_id AND om.user_id = $2) AS organization_role,
         (SELECT json_build_object('initiativeTeamId', wis.initiative_team_id, 'activeStandardId', wis.active_standard_id, 'intakeEnabled', wis.intake_enabled)
            FROM workspace_institutional_settings wis WHERE wis.workspace_id = w.id) AS institutional_settings,
         wm.role as user_role,

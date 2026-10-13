@@ -62,7 +62,7 @@ export const es = {
 
   home_cta_title: 'Construido por developers, para developers.',
   home_cta_sub:
-    'Empieza gratis. Workspaces ilimitados hasta 5 personas, sin tarjeta de crédito.',
+    'Empieza gratis con un espacio de trabajo personal, sin tarjeta de crédito.',
   home_cta_primary: 'Crear cuenta →',
   home_cta_secondary: 'Iniciar sesión',
 

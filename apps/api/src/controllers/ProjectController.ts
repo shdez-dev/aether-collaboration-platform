@@ -29,6 +29,11 @@ const createProjectSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   boardIds: z.array(z.string().uuid()).optional(),
+  methodology: z.enum(['FLEXIBLE', 'SCRUM']).default('FLEXIBLE'),
+  teamIds: z.array(z.string().uuid()).max(30).default([]),
+  memberIds: z.array(z.string().uuid()).max(100).default([]),
+  productOwnerId: z.string().uuid().nullable().optional(),
+  scrumMasterId: z.string().uuid().nullable().optional(),
 });
 
 const updateProjectSchema = z.object({
@@ -38,6 +43,7 @@ const updateProjectSchema = z.object({
   color: z.string().max(50).optional().nullable(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
   maturityStage: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
+  productGoal: z.string().max(8000).optional().nullable(),
   problemStatement: z.string().max(8000).optional().nullable(),
   impactedPeople: z.string().max(8000).optional().nullable(),
   problemImpact: z.string().max(8000).optional().nullable(),
@@ -112,6 +118,8 @@ function fmtProject(row: any) {
     color: row.color,
     status: row.status,
     maturityStage: row.maturity_stage ?? 'IDEA',
+    methodology: row.methodology ?? 'FLEXIBLE',
+    productGoal: row.product_goal ?? null,
     problemStatement: row.problem_statement,
     impactedPeople: row.impacted_people,
     problemImpact: row.problem_impact,
@@ -482,6 +490,23 @@ async function hydrateProject(projectRow: any, relations?: { boards: any[]; mile
     computeFormalization(projectRow, rel, standard.definition),
     computeCoverage(projectRow, rel, standard.definition),
   ]);
+  const methodologyAssignments = projectRow.methodology === 'SCRUM'
+    ? await pool.query(
+      `WITH participants AS (
+         SELECT owner_id AS user_id FROM projects WHERE id = $1
+         UNION SELECT user_id FROM project_members WHERE project_id = $1
+         UNION SELECT tm.user_id FROM team_members tm
+           JOIN project_teams pt ON pt.team_id = tm.team_id WHERE pt.project_id = $1
+       )
+       SELECT participants.user_id, u.name, u.email, COALESCE(a.role, 'DEVELOPER') AS role
+         FROM participants
+         JOIN users u ON u.id = participants.user_id
+         JOIN workspace_members wm ON wm.workspace_id = $2 AND wm.user_id = participants.user_id
+         LEFT JOIN project_methodology_assignments a ON a.project_id = $1 AND a.user_id = participants.user_id
+        ORDER BY CASE COALESCE(a.role, 'DEVELOPER') WHEN 'PRODUCT_OWNER' THEN 1 WHEN 'SCRUM_MASTER' THEN 2 ELSE 3 END, u.name`,
+      [projectRow.id, projectRow.workspace_id],
+    ).then((result) => result.rows.map((row) => ({ userId: row.user_id, name: row.name, email: row.email, role: row.role })))
+    : [];
 
   const workflowHistory = includeWorkflowHistory
     ? await pool.query(
@@ -506,6 +531,7 @@ async function hydrateProject(projectRow: any, relations?: { boards: any[]; mile
   return {
     ...fmtProject(projectRow),
     ...rel,
+    methodologyAssignments,
     formalization,
     coverage,
     ...(workflowHistory ? { workflowHistory } : {}),
@@ -618,19 +644,52 @@ class ProjectController {
   }
 
   /** POST /api/workspaces/:wsId/projects */
+  async getParticipants(req: Request, res: Response) {
+    try {
+      const workspaceId = req.params.id;
+      const actorId = req.user!.id;
+      const [membersResult, teamsResult] = await Promise.all([
+        pool.query(
+          `SELECT u.id, u.name, u.email, wm.role
+             FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+            WHERE wm.workspace_id = $1 ORDER BY u.name`, [workspaceId],
+        ),
+        pool.query(
+          `SELECT t.id, t.name, t.color, COALESCE(json_agg(json_build_object('id', u.id, 'name', u.name, 'email', u.email) ORDER BY u.name) FILTER (WHERE u.id IS NOT NULL), '[]') AS members
+             FROM teams t
+             LEFT JOIN team_members tm ON tm.team_id = t.id
+             LEFT JOIN workspace_members wm ON wm.workspace_id = t.workspace_id AND wm.user_id = tm.user_id
+             LEFT JOIN users u ON u.id = wm.user_id
+            WHERE t.workspace_id = $1
+              AND (t.created_by = $2 OR EXISTS (SELECT 1 FROM team_members own_tm WHERE own_tm.team_id = t.id AND own_tm.user_id = $2)
+                OR EXISTS (SELECT 1 FROM workspace_members own_wm WHERE own_wm.workspace_id = $1 AND own_wm.user_id = $2 AND own_wm.role IN ('OWNER', 'ADMIN')))
+            GROUP BY t.id ORDER BY t.name`, [workspaceId, actorId],
+        ),
+      ]);
+      res.json({ success: true, data: { members: membersResult.rows, teams: teamsResult.rows } });
+    } catch (error) {
+      console.error('[ProjectController.getParticipants]', error);
+      res.status(500).json({ success: false, error: { message: 'No se pudieron cargar los participantes' } });
+    }
+  }
+
   async create(req: Request, res: Response) {
     try {
       const { wsId } = req.params;
       const userId = (req as any).user.id;
       const workspaceContext = await pool.query(
-        `SELECT o.type AS organization_type
+        `SELECT o.type AS organization_type, om.role AS organization_role
          FROM workspaces w
          JOIN organizations o ON o.id = w.organization_id
+         LEFT JOIN organization_members om ON om.organization_id = o.id AND om.user_id = $2
          WHERE w.id = $1`,
-        [wsId]
+        [wsId, userId]
       );
       if (!workspaceContext.rows.length) {
         return res.status(404).json({ success: false, error: { code: 'WORKSPACE_NOT_FOUND', message: 'Espacio de trabajo no encontrado' } });
+      }
+      if (!['OWNER', 'ADMIN'].includes(workspaceContext.rows[0].organization_role)) {
+        return res.status(403).json({ success: false, error: { code: 'ORGANIZATION_MANAGER_REQUIRED', message: 'Solo el propietario o un administrador de la organización puede crear proyectos.' } });
       }
       if (workspaceContext.rows[0].organization_type === 'INSTITUTION') {
         return res.status(409).json({ success: false, error: { code: 'INSTITUTIONAL_INTAKE_REQUIRED', message: 'En organizaciones institucionales los proyectos se crean desde una iniciativa aprobada' } });
@@ -639,8 +698,40 @@ class ProjectController {
       if (!body.success) {
         return res.status(400).json({ success: false, error: { message: 'Datos inválidos', details: body.error.flatten() } });
       }
-      const { boardIds = [], ...data } = body.data;
+      const { boardIds = [], teamIds, memberIds, methodology, productOwnerId, scrumMasterId, ...data } = body.data;
       const uniqueBoardIds = [...new Set(boardIds)];
+      const uniqueTeamIds = [...new Set(teamIds)];
+      const uniqueMemberIds = [...new Set(memberIds)];
+      if (workspaceContext.rows[0].organization_type === 'PERSONAL' && (methodology !== 'FLEXIBLE' || uniqueTeamIds.length > 0 || uniqueMemberIds.length > 0)) {
+        return res.status(409).json({ success: false, error: { code: 'ORGANIZATION_COLLABORATION_REQUIRED', message: 'La metodología Scrum, los equipos y los miembros de proyecto están disponibles en organizaciones.' } });
+      }
+      const [teamsResult, membersResult] = await Promise.all([
+        uniqueTeamIds.length ? pool.query(
+          `SELECT t.id FROM teams t WHERE t.workspace_id = $1 AND t.id = ANY($2::uuid[])
+             AND (t.created_by = $3 OR EXISTS (SELECT 1 FROM team_members tm WHERE tm.team_id = t.id AND tm.user_id = $3)
+               OR EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = $1 AND wm.user_id = $3 AND wm.role IN ('OWNER', 'ADMIN')))`,
+          [wsId, uniqueTeamIds, userId],
+        ) : Promise.resolve({ rows: [] }),
+        pool.query('SELECT user_id FROM workspace_members WHERE workspace_id = $1', [wsId]),
+      ]);
+      if (teamsResult.rows.length !== uniqueTeamIds.length) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_PROJECT_TEAMS', message: 'Selecciona equipos disponibles en este espacio de trabajo.' } });
+      }
+      const workspaceMemberIds = new Set<string>(membersResult.rows.map((row) => row.user_id));
+      if (uniqueMemberIds.some((id) => !workspaceMemberIds.has(id))) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_PROJECT_MEMBERS', message: 'Las personas seleccionadas deben pertenecer al espacio de trabajo.' } });
+      }
+      const teamMembersResult = uniqueTeamIds.length ? await pool.query(
+        `SELECT DISTINCT tm.user_id FROM team_members tm WHERE tm.team_id = ANY($1::uuid[])`, [uniqueTeamIds],
+      ) : { rows: [] };
+      const participantIds = new Set<string>([userId, ...uniqueMemberIds, ...teamMembersResult.rows.map((row) => row.user_id)]);
+      if ([...participantIds].some((id) => !workspaceMemberIds.has(id))) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_TEAM_MEMBERS', message: 'Todos los integrantes de los equipos deben pertenecer al espacio de trabajo.' } });
+      }
+      if (methodology === 'SCRUM' && (participantIds.size < 3 || !productOwnerId || !scrumMasterId || productOwnerId === scrumMasterId
+        || !participantIds.has(productOwnerId) || !participantIds.has(scrumMasterId))) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_SCRUM_ROLES', message: 'Scrum necesita Product Owner, Scrum Master y al menos una persona Developer.' } });
+      }
       if (uniqueBoardIds.length) {
         const boards = await pool.query(
           `SELECT id FROM boards WHERE workspace_id = $1 AND id = ANY($2::uuid[])`,
@@ -679,22 +770,43 @@ class ProjectController {
         await client.query('BEGIN');
         const result = await client.query(
           `INSERT INTO projects (
-             id, workspace_id, name, description, icon, color, status, maturity_stage,
+             id, workspace_id, name, description, icon, color, status, maturity_stage, methodology,
              problem_statement, impacted_people, problem_impact, impacted_count,
              expected_outcome, proposed_solution, differentiation,
              next_step, start_date, end_date, owner_id,
              applied_standard_id, applied_standard_version, standard_applied_at, updated_at
            )
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $21, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            RETURNING *`,
           [wsId, data.name, data.description ?? null, data.icon ?? null, data.color ?? null,
            data.status ?? 'PLANNING', data.maturityStage ?? 'IDEA', data.problemStatement ?? null,
            data.impactedPeople, data.problemImpact, data.impactedCount, data.expectedOutcome,
            data.proposedSolution, data.differentiation, data.nextStep ?? null,
            data.startDate ?? null, data.endDate ?? null, userId,
-           workspaceStandard.id, workspaceStandard.version]
+           workspaceStandard.id, workspaceStandard.version, methodology]
         );
         const project = result.rows[0];
+        for (const teamId of uniqueTeamIds) {
+          await client.query(
+            `INSERT INTO project_teams (id, project_id, team_id, assigned_by) VALUES (gen_random_uuid(), $1, $2, $3)`,
+            [project.id, teamId, userId],
+          );
+        }
+        for (const memberId of uniqueMemberIds) {
+          if (memberId !== userId) await client.query(
+            `INSERT INTO project_members (id, project_id, user_id, role, added_by) VALUES (gen_random_uuid(), $1, $2, 'MEMBER', $3) ON CONFLICT (project_id, user_id) DO NOTHING`,
+            [project.id, memberId, userId],
+          );
+        }
+        if (methodology === 'SCRUM') {
+          for (const participantId of participantIds) {
+            const role = participantId === productOwnerId ? 'PRODUCT_OWNER' : participantId === scrumMasterId ? 'SCRUM_MASTER' : 'DEVELOPER';
+            await client.query(
+              `INSERT INTO project_methodology_assignments (id, project_id, user_id, role) VALUES (gen_random_uuid(), $1, $2, $3)`,
+              [project.id, participantId, role],
+            );
+          }
+        }
         for (const bId of uniqueBoardIds) {
           await client.query(
             `INSERT INTO project_boards (id, project_id, board_id) VALUES (gen_random_uuid(), $1, $2) ON CONFLICT DO NOTHING`,
@@ -785,6 +897,7 @@ class ProjectController {
       if (data.color       !== undefined) { fields.push(`color = $${idx++}`);       values.push(data.color); }
       if (data.status      !== undefined) { fields.push(`status = $${idx++}`);      values.push(data.status); }
       if (data.maturityStage !== undefined) { fields.push(`maturity_stage = $${idx++}`); values.push(data.maturityStage); }
+      if (data.productGoal !== undefined) { fields.push(`product_goal = $${idx++}`); values.push(data.productGoal); }
       if (data.problemStatement !== undefined) { fields.push(`problem_statement = $${idx++}`); values.push(data.problemStatement); }
       if (data.impactedPeople !== undefined) { fields.push(`impacted_people = $${idx++}`); values.push(data.impactedPeople); }
       if (data.problemImpact !== undefined) { fields.push(`problem_impact = $${idx++}`); values.push(data.problemImpact); }
@@ -809,6 +922,7 @@ class ProjectController {
         color: data.color !== undefined ? data.color : currentProject.color,
         status: data.status !== undefined ? data.status : currentProject.status,
         maturity_stage: data.maturityStage !== undefined ? data.maturityStage : currentProject.maturity_stage,
+        product_goal: data.productGoal !== undefined ? data.productGoal : currentProject.product_goal,
         problem_statement: data.problemStatement !== undefined ? data.problemStatement : currentProject.problem_statement,
         impacted_people: data.impactedPeople !== undefined ? data.impactedPeople : currentProject.impacted_people,
         problem_impact: data.problemImpact !== undefined ? data.problemImpact : currentProject.problem_impact,
@@ -841,7 +955,7 @@ class ProjectController {
         const statusChanged = oldStatus && data.status && oldStatus !== data.status;
         const projectFieldColumns: Record<string, string> = {
           name: 'name', description: 'description', icon: 'icon', color: 'color',
-          maturityStage: 'maturity_stage', problemStatement: 'problem_statement',
+          maturityStage: 'maturity_stage', productGoal: 'product_goal', problemStatement: 'problem_statement',
           impactedPeople: 'impacted_people', problemImpact: 'problem_impact',
           impactedCount: 'impacted_count', expectedOutcome: 'expected_outcome',
           proposedSolution: 'proposed_solution', differentiation: 'differentiation',
@@ -1334,6 +1448,7 @@ class ProjectController {
                 u.name AS lead_name, u.avatar AS lead_avatar
          FROM project_teams pt
          JOIN teams t ON t.id = pt.team_id
+         JOIN projects p ON p.id = pt.project_id AND p.workspace_id = t.workspace_id
          LEFT JOIN team_members tm ON tm.team_id = t.id
          LEFT JOIN users u ON u.id = t.lead_id
          WHERE pt.project_id = $1
@@ -1368,6 +1483,7 @@ class ProjectController {
                 u.id, u.name, u.email, u.avatar, tm.role
            FROM project_teams pt
            JOIN teams t ON t.id = pt.team_id
+           JOIN projects p ON p.id = pt.project_id AND p.workspace_id = t.workspace_id
            JOIN team_members tm ON tm.team_id = t.id
            JOIN users u ON u.id = tm.user_id
            JOIN workspace_members wm ON wm.workspace_id = t.workspace_id AND wm.user_id = u.id
@@ -1473,7 +1589,9 @@ class ProjectController {
       try {
         const info = await pool.query(
           `SELECT p.name AS project_name, p.workspace_id, t.name AS team_name
-           FROM projects p, teams t WHERE p.id = $1 AND t.id = $2`, [id, teamId]
+           FROM projects p
+           JOIN teams t ON t.id = $2 AND t.workspace_id = p.workspace_id
+          WHERE p.id = $1`, [id, teamId]
         );
         const actorInfo = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
         if (info.rows[0]) {

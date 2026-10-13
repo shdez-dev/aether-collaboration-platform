@@ -18,6 +18,7 @@ jest.mock('../../websocket/RealtimeGateway', () => ({ getRealtimeGateway: jest.f
 jest.mock('../../lib/redis', () => ({ checkRedisHealth: jest.fn() }));
 
 const app = express();
+app.use(express.json());
 app.use('/api/admin', adminRouter);
 
 describe('rutas de administración global', () => {
@@ -86,5 +87,61 @@ describe('rutas de administración global', () => {
     expect(response.body.data.users[0]).toMatchObject({ online: true, organizations: 1, workspaces: 2 });
     expect(response.body.data.users[0]).not.toHaveProperty('password');
     expect(response.body.data.total).toBe(1);
+  });
+
+  it('protege los cambios de plan y los avisos globales', async () => {
+    process.env.PLATFORM_ADMIN_USER_ID = 'admin-id';
+    const userId = '11111111-1111-4111-8111-111111111111';
+    const requestId = '22222222-2222-4222-8222-222222222222';
+    const plan = await request(app).patch(`/api/admin/users/${userId}/plan`).set('x-test-user', 'ordinary-user').send({ planCode: 'TEAMS' });
+    const announcement = await request(app).post('/api/admin/announcements').set('x-test-user', 'ordinary-user').send({ requestId, title: 'Aviso', message: 'Este es un mensaje administrativo.' });
+    expect(plan.status).toBe(403);
+    expect(announcement.status).toBe(403);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('guarda un aviso para todas las cuentas y solo lo emite en vivo a las conectadas', async () => {
+    process.env.PLATFORM_ADMIN_USER_ID = 'admin-id';
+    const sendToUser = jest.fn();
+    (getRealtimeGateway as jest.Mock).mockReturnValue({ getOnlineUserIds: () => new Set(['user-1']), sendToUser });
+    (query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ id: 'notice-1', user_id: 'user-1' }, { id: 'notice-2', user_id: 'user-2' }] })
+      .mockResolvedValueOnce({ rows: [{ count: 2 }] });
+    const requestId = '22222222-2222-4222-8222-222222222222';
+    const response = await request(app).post('/api/admin/announcements').set('x-test-user', 'admin-id')
+      .send({ requestId, title: 'Mantenimiento', message: 'El servicio tendrá una pausa breve.' });
+    expect(response.status).toBe(201);
+    expect(response.body.data.recipients).toBe(2);
+    expect((query as jest.Mock).mock.calls[0][0]).toContain('ON CONFLICT (user_id, dedupe_key)');
+    expect((query as jest.Mock).mock.calls[0][1]).toEqual(['Mantenimiento', 'El servicio tendrá una pausa breve.', requestId, 'admin-id', `admin-announcement:${requestId}`]);
+    expect(sendToUser).toHaveBeenCalledTimes(1);
+    expect(sendToUser.mock.calls[0][0]).toBe('user-1');
+  });
+
+  it('aplica un plan administrativo a la organización personal', async () => {
+    process.env.PLATFORM_ADMIN_USER_ID = 'admin-id';
+    const userId = '11111111-1111-4111-8111-111111111111';
+    (query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ id: 'personal-org-id' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ plan_code: 'TEAMS', provider: 'platform-admin' }] });
+    const response = await request(app).patch(`/api/admin/users/${userId}/plan`).set('x-test-user', 'admin-id').send({ planCode: 'TEAMS' });
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ planCode: 'TEAMS', source: 'ADMIN' });
+    expect((query as jest.Mock).mock.calls[1][0]).toContain('ON CONFLICT (provider_subscription_id)');
+    expect((query as jest.Mock).mock.calls[1][1]).toEqual(['personal-org-id', 'TEAMS']);
+  });
+
+  it('restaura el plan del proveedor al quitar la asignación administrativa', async () => {
+    process.env.PLATFORM_ADMIN_USER_ID = 'admin-id';
+    const userId = '11111111-1111-4111-8111-111111111111';
+    (query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ id: 'personal-org-id' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ plan_code: 'PORTFOLIO', provider: 'configured-provider' }] });
+    const response = await request(app).patch(`/api/admin/users/${userId}/plan`).set('x-test-user', 'admin-id').send({ planCode: 'AUTO' });
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ planCode: 'PORTFOLIO', source: 'AUTOMATIC' });
+    expect((query as jest.Mock).mock.calls[1][0]).toContain("status = 'CANCELED'");
   });
 });

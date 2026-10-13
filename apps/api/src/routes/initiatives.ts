@@ -15,12 +15,14 @@ router.post('/', action((req, res) => initiativeController.create(req, res)));
 router.post('/request', action((req, res) => initiativeController.create(req, res)));
 router.get('/reports', action((req, res) => initiativeController.reports(req, res)));
 router.get('/settings/:workspaceId', action((req, res) => initiativeController.getSettings(req, res)));
+router.get('/intake/:workspaceId', action((req, res) => initiativeController.getIntake(req, res)));
 router.put('/settings/:workspaceId', action((req, res) => initiativeController.updateSettings(req, res)));
 router.get('/:id', action((req, res) => initiativeController.getById(req, res)));
 router.patch('/:id', action((req, res) => initiativeController.update(req, res)));
 router.post('/:id/participants', action((req, res) => initiativeController.addParticipant(req, res)));
 router.delete('/:id/participants/:userId', action((req, res) => initiativeController.removeParticipant(req, res)));
 router.post('/:id/transition', action((req, res) => initiativeController.transition(req, res)));
+router.post('/:id/withdraw', action((req, res) => initiativeController.withdraw(req, res)));
 router.post('/:id/convert', action((req, res) => initiativeController.convert(req, res)));
 
 export default router;

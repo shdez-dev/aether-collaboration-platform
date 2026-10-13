@@ -1,13 +1,16 @@
 // apps/web/src/components/comments/CommentForm.tsx
 'use client';
 
-import { useState, useRef, KeyboardEvent, useEffect } from 'react';
+import { useState, useRef, KeyboardEvent, useEffect, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { FileText, Send, X } from 'lucide-react';
 import { DocumentReferencePicker, type SelectedDocumentReference } from './DocumentReferencePicker';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceMembers } from '@/hooks/useWorkspaceMembers';
 import { es } from '@/lib/i18n';
 import { C } from '@/lib/colors';
+import { CommentAvatar } from './CommentAvatar';
+import styles from './CommentForm.module.css';
 
 interface CommentFormProps {
   onSubmit: (content: string, mentions?: string[], documentReference?: Pick<SelectedDocumentReference, 'documentId' | 'from' | 'to' | 'quote'>) => Promise<void>;
@@ -26,14 +29,30 @@ interface CommentFormProps {
 
 export type MentionCandidate = { id: string; name: string; email: string; avatar?: string | null };
 
-const AVATAR_PALETTE = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#fb923c'];
-function hashColor(str: string) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
-}
-function initials(name: string) {
-  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+function caretCoordinates(textarea: HTMLTextAreaElement, position: number) {
+  const mirror = document.createElement('div');
+  const computed = getComputedStyle(textarea);
+  const rect = textarea.getBoundingClientRect();
+  const properties = [
+    'font-family', 'font-size', 'font-weight', 'font-style', 'letter-spacing',
+    'line-height', 'text-transform', 'text-indent', 'text-align', 'tab-size',
+    'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+    'box-sizing', 'word-break', 'overflow-wrap',
+  ];
+  for (const property of properties) mirror.style.setProperty(property, computed.getPropertyValue(property));
+  Object.assign(mirror.style, {
+    position: 'fixed', left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`,
+    whiteSpace: 'pre-wrap', visibility: 'hidden', pointerEvents: 'none', overflow: 'hidden',
+  });
+  mirror.append(document.createTextNode(textarea.value.slice(0, position)));
+  const marker = document.createElement('span');
+  marker.textContent = '\u200b';
+  mirror.append(marker);
+  document.body.append(mirror);
+  const markerRect = marker.getBoundingClientRect();
+  mirror.remove();
+  return { left: markerRect.left - textarea.scrollLeft, top: markerRect.top - textarea.scrollTop, bottom: markerRect.bottom - textarea.scrollTop };
 }
 
 export function CommentForm({
@@ -49,12 +68,15 @@ export function CommentForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStart, setMentionStart] = useState(0);
+  const [caretIndex, setCaretIndex] = useState(0);
   const [activeIndex, setActiveIndex]   = useState(0);
+  const [popupPosition, setPopupPosition] = useState<{ top: number; left: number } | null>(null);
   const [submitError, setSubmitError] = useState('');
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
   const [documentReference, setDocumentReference] = useState<SelectedDocumentReference | null>(null);
   const mentionIdsRef = useRef<Map<string, string>>(new Map());
   const textareaRef   = useRef<HTMLTextAreaElement>(null);
+  const mentionListId = useId();
   const { user }      = useAuthStore();
   const { members: workspaceMembers } = useWorkspaceMembers(mentionCandidates ? undefined : workspaceId);
   const members = mentionCandidates ?? workspaceMembers;
@@ -67,7 +89,7 @@ export function CommentForm({
     }
   }, [isEditing, initialMentions, initialValue, members]);
 
-  useEffect(() => { setActiveIndex(0); }, [mentionQuery]);
+  useEffect(() => { setActiveIndex(0); }, [mentionQuery, members]);
 
   // Auto-resize
   useEffect(() => {
@@ -83,6 +105,33 @@ export function CommentForm({
         m.email.toLowerCase().includes(mentionQuery.toLowerCase())
       ).slice(0, 6)
     : [];
+
+  useEffect(() => {
+    if (mentionQuery === null) { setPopupPosition(null); return; }
+    const updatePosition = () => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const caret = caretCoordinates(textarea, caretIndex);
+      const width = 280;
+      const height = filtered.length ? Math.min(filtered.length * 48 + 12, 312) : 54;
+      const below = window.innerHeight - caret.bottom;
+      const top = below < height + 12 && caret.top > height
+        ? caret.top - height - 8
+        : caret.bottom + 8;
+      setPopupPosition({
+        top: Math.max(8, Math.min(top, window.innerHeight - height - 8)),
+        left: Math.max(8, Math.min(caret.left, window.innerWidth - width - 8)),
+      });
+    };
+    const frame = requestAnimationFrame(updatePosition);
+    document.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [mentionQuery, caretIndex, content, filtered.length]);
 
   const insertMention = (member: MentionCandidate) => {
     const el = textareaRef.current;
@@ -102,12 +151,9 @@ export function CommentForm({
     }, 0);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const v = e.target.value;
-    setContent(v);
-    setSubmitError('');
-    const cursor = e.target.selectionStart ?? 0;
-    const before = v.slice(0, cursor);
+  const syncMentionAtCursor = (value: string, cursor: number) => {
+    setCaretIndex(cursor);
+    const before = value.slice(0, cursor);
     const at = before.lastIndexOf('@');
     const query = at >= 0 ? before.slice(at + 1) : '';
     if (at >= 0 && (at === 0 || /\s/.test(before[at - 1])) && !/[\]\n]/.test(query) && query.length <= 40) {
@@ -116,15 +162,22 @@ export function CommentForm({
     } else setMentionQuery(null);
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const v = e.target.value;
+    setContent(v);
+    setSubmitError('');
+    syncMentionAtCursor(v, e.target.selectionStart ?? 0);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSubmit(); return; }
     if (mentionQuery !== null && filtered.length > 0) {
       if (e.key === 'ArrowDown')  { e.preventDefault(); setActiveIndex((i) => (i + 1) % filtered.length); return; }
       if (e.key === 'ArrowUp')    { e.preventDefault(); setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length); return; }
-      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filtered[activeIndex]); return; }
-      if (e.key === 'Escape')     { e.preventDefault(); setMentionQuery(null); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filtered[Math.min(activeIndex, filtered.length - 1)]); return; }
     }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSubmit(); return; }
-    if (e.key === 'Escape' && isEditing && onCancel)    { e.preventDefault(); onCancel(); }
+    if (e.key === 'Escape' && mentionQuery !== null) { e.preventDefault(); e.stopPropagation(); setMentionQuery(null); return; }
+    if (e.key === 'Escape' && isEditing && onCancel) { e.preventDefault(); e.stopPropagation(); onCancel(); }
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -163,18 +216,12 @@ export function CommentForm({
   const isEmpty = !content.trim();
 
   return (
+    <>
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
         {/* User avatar */}
         {!isEditing && user && (
-          <div style={{
-            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-            background: hashColor(user.name),
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '10px', fontWeight: 700, color: '#fff',
-          }}>
-            {initials(user.name)}
-          </div>
+          <CommentAvatar name={user.name} avatar={user.avatar} size={28} />
         )}
 
         {/* Textarea + mention dropdown */}
@@ -189,6 +236,12 @@ export function CommentForm({
               maxLength={2000}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
+              onSelect={(e) => syncMentionAtCursor(e.currentTarget.value, e.currentTarget.selectionStart ?? 0)}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={mentionQuery !== null && filtered.length > 0}
+              aria-controls={mentionQuery !== null && filtered.length > 0 ? mentionListId : undefined}
+              aria-activedescendant={mentionQuery !== null && filtered.length > 0 ? `${mentionListId}-${filtered[Math.min(activeIndex, filtered.length - 1)].id}` : undefined}
               placeholder={resolvedPlaceholder}
               disabled={loading}
               autoFocus={autoFocus}
@@ -203,74 +256,7 @@ export function CommentForm({
           </div>
           <div style={{ textAlign: 'right', fontSize: '10.5px', color: content.length > 2000 ? C.red : C.text4 }}>{content.length}/2000</div>
 
-          {/* Mention dropdown */}
-          {filtered.length > 0 && (
-            <div
-              onMouseDown={(e) => e.preventDefault()}
-              style={{
-                position: 'absolute', top: '100%', left: 0, marginTop: '6px',
-                width: '240px', background: C.surface, border: `1px solid ${C.border2}`,
-                borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                zIndex: 9999, overflow: 'hidden', padding: '4px 0',
-              }}
-            >
-              <p style={{ padding: '4px 12px', fontSize: '10px', color: C.text4, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
-                {t.comments_mention_header}
-              </p>
-              {filtered.map((m, idx) => (
-                <button
-                  key={m.id} type="button"
-                  onMouseDown={(e) => { e.preventDefault(); insertMention(m); }}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '7px 12px', background: idx === activeIndex ? `${C.accent}18` : 'transparent',
-                    border: 'none', cursor: 'pointer', textAlign: 'left',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = idx === activeIndex ? `${C.accent}18` : 'transparent')}
-                >
-                  <div style={{
-                    width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
-                    background: hashColor(m.name),
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '9px', fontWeight: 700, color: '#fff',
-                  }}>
-                    {initials(m.name)}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 500, color: idx === activeIndex ? C.accent : C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
-                    <div style={{ fontSize: '10.5px', color: C.text4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-          {mentionQuery !== null && filtered.length === 0 && (
-            <div role="status" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, padding: '9px 12px', borderRadius: 8, background: C.surface, border: `1px solid ${C.border}`, color: C.text3, fontSize: 11.5, zIndex: 9999 }}>
-              No hay personas que coincidan.
-            </div>
-          )}
-
-          {/* Hint */}
-          <p style={{ marginTop: '4px', fontSize: '10.5px', color: C.text4, lineHeight: 1.5 }}>
-            <button type="button" onClick={() => {
-              const el = textareaRef.current;
-              const cursor = el?.selectionStart ?? content.length;
-              const next = `${content.slice(0, cursor)}@${content.slice(cursor)}`;
-              if (next.length > 2000) return;
-              setContent(next); setMentionStart(cursor); setMentionQuery('');
-              setTimeout(() => { el?.focus(); el?.setSelectionRange(cursor + 1, cursor + 1); }, 0);
-            }} style={{ padding: '1px 5px', borderRadius: 4, border: `1px solid ${C.border2}`, background: C.hover, color: C.text2, cursor: 'pointer', fontSize: 11 }}>@ Mencionar</button>{' '}
-            {t.comments_hint_mention}
-            {' | '}
-            <kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Ctrl</kbd>
-            {'+'}
-            <kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Enter</kbd>{' '}
-            {t.comments_hint_send}
-            {isEditing && (
-              <>{' | '}<kbd style={{ borderRadius: '3px', border: `1px solid ${C.border2}`, background: C.hover, padding: '0 4px', fontSize: '10px' }}>Esc</kbd>{' '}{t.comments_hint_cancel}</>
-            )}
-          </p>
+          <p className={styles.hint}>Escribe <kbd>@</kbd> para mencionar a alguien <span aria-hidden="true">—</span> <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para enviar</p>
           {!isEditing && cardId && (
             <div style={{ marginTop: 8 }}>
               {documentReference ? (
@@ -320,5 +306,36 @@ export function CommentForm({
         </button>
       </div>
     </form>
+    {mentionQuery !== null && popupPosition && typeof document !== 'undefined' && createPortal(
+      <div
+        id={filtered.length > 0 ? mentionListId : undefined}
+        role={filtered.length > 0 ? 'listbox' : 'status'}
+        aria-label={filtered.length > 0 ? 'Personas del proyecto' : undefined}
+        className={styles.mentionMenu}
+        style={{ top: popupPosition.top, left: popupPosition.left }}
+        onMouseDown={(event) => event.preventDefault()}
+      >
+        {filtered.length > 0 ? filtered.map((member, index) => (
+          <button
+            id={`${mentionListId}-${member.id}`}
+            key={member.id}
+            type="button"
+            role="option"
+            aria-selected={index === activeIndex}
+            className={styles.mentionOption}
+            onMouseEnter={() => setActiveIndex(index)}
+            onMouseDown={(event) => { event.preventDefault(); insertMention(member); }}
+          >
+            <CommentAvatar name={member.name} avatar={member.avatar} size={28} />
+            <span className={styles.mentionIdentity}>
+              <strong>{member.name}</strong>
+              <small>{member.email}</small>
+            </span>
+          </button>
+        )) : <span className={styles.mentionEmpty}>No hay personas que coincidan</span>}
+      </div>,
+      document.body,
+    )}
+    </>
   );
 }

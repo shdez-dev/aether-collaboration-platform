@@ -4,10 +4,18 @@ import { organizationController } from '../controllers/OrganizationController';
 
 const router = Router();
 router.use(authenticateJWT);
+router.get('/invitations/preview', (req, res) => organizationController.previewInvitation(req, res));
+router.post('/invitations/by-id/:invitationId/accept', (req, res) => organizationController.acceptInvitationById(req, res));
 router.post('/invitations/:token/accept', (req, res) => organizationController.acceptInvitation(req, res));
+router.get('/creation-permissions', (req, res) => organizationController.getCreationPermissions(req, res));
 router.post('/', (req, res) => organizationController.create(req, res));
 router.get('/', (req, res) => organizationController.list(req, res));
 router.get('/:id/members', (req, res) => organizationController.getMembers(req, res));
+router.get('/:id/institutional-settings', (req, res) => organizationController.getInstitutionalSettings(req, res));
+router.get('/:id/institutional-settings/history', (req, res) => organizationController.getInstitutionalSettingsHistory(req, res));
+router.put('/:id/institutional-settings', (req, res) => organizationController.updateInstitutionalSettings(req, res));
+router.get('/:id/team-settings', (req, res) => organizationController.getTeamSettings(req, res));
+router.put('/:id/team-settings', (req, res) => organizationController.updateTeamSettings(req, res));
 router.patch('/:id/members/:userId', (req, res) => organizationController.updateMember(req, res));
 router.delete('/:id/members/:userId', (req, res) => organizationController.removeMember(req, res));
 router.post('/:id/invitations', (req, res) => organizationController.inviteMember(req, res));

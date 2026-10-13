@@ -47,6 +47,10 @@ export type ProjectActivityEntry = {
 export type ProjectBacklogCard = {
   id: string;
   title: string;
+  description: string | null;
+  acceptanceCriteria: string | null;
+  storyPoints: number | null;
+  epicId: string | null;
   priority: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   completed: boolean;
   dueDate: string | null;
@@ -54,6 +58,19 @@ export type ProjectBacklogCard = {
   boardName: string;
   listId: string;
   listName: string;
+  sprintId?: string | null;
+  sprintName?: string | null;
+  sprintStatus?: 'PLANNED' | 'ACTIVE' | null;
+};
+
+export type ProjectEpic = {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 async function requireData<T>(request: Promise<{ success: boolean; data?: T; error?: { message?: string } }>): Promise<T> {
@@ -74,6 +91,21 @@ export const projectApi = {
   },
   async getBacklog(projectId: string): Promise<ProjectBacklogCard[]> {
     return (await requireData(apiService.get<{ cards: ProjectBacklogCard[] }>(`/api/projects/${projectId}/backlog`, true))).cards;
+  },
+  async getEpics(projectId: string): Promise<ProjectEpic[]> {
+    return (await requireData(apiService.get<{ epics: ProjectEpic[] }>(`/api/projects/${projectId}/epics`, true))).epics;
+  },
+  async createEpic(projectId: string, data: { name: string; description?: string }): Promise<ProjectEpic> {
+    return (await requireData(apiService.post<{ epic: ProjectEpic }>(`/api/projects/${projectId}/epics`, data, true))).epic;
+  },
+  async updateEpic(projectId: string, epicId: string, data: Partial<Pick<ProjectEpic, 'name' | 'description'>>): Promise<ProjectEpic> {
+    return (await requireData(apiService.patch<{ epic: ProjectEpic }>(`/api/projects/${projectId}/epics/${epicId}`, data, true))).epic;
+  },
+  async deleteEpic(projectId: string, epicId: string): Promise<void> {
+    await requireData(apiService.delete(`/api/projects/${projectId}/epics/${epicId}`, true));
+  },
+  async setCardEpic(projectId: string, cardId: string, epicId: string | null): Promise<void> {
+    await requireData(apiService.put(`/api/projects/${projectId}/cards/${cardId}/epic`, { epicId }, true));
   },
   async getTeamMembers(projectId: string): Promise<ProjectTeamMember[]> {
     return (await requireData(apiService.get<{ members: ProjectTeamMember[] }>(`/api/projects/${projectId}/team-members`, true))).members;

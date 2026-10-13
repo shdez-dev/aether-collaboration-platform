@@ -160,7 +160,7 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
   const { projects, fetchProjects } = useProjectStore();
-  const { setActiveWorkspaceId } = useActiveWorkspaceStore();
+  const { activeWorkspaceId, setActiveWorkspaceId } = useActiveWorkspaceStore();
   useT(); // keep i18n initialised
 
   const [cards, setCards] = useState<{ overdue: UserCard[]; today: UserCard[]; upcoming: UserCard[] }>({
@@ -174,7 +174,7 @@ export default function DashboardPage() {
   const quickRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const firstWsId = workspaces[0]?.id ?? null;
+  const standupWorkspaceId = workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.id ?? workspaces[0]?.id ?? null;
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
@@ -215,14 +215,14 @@ export default function DashboardPage() {
     try { localStorage.setItem(TODO_LS_KEY, JSON.stringify(items)); } catch {}
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      if (!firstWsId) return;
+      if (!standupWorkspaceId) return;
       const pending = items.filter(i => !i.completed);
       apiService.put('/api/users/me/standup', {
-        workspaceId: firstWsId,
+        workspaceId: standupWorkspaceId,
         todayItems: pending.map(i => ({ id: i.id, text: i.text })),
         yesterdayItems: [], blockers: [],
       }, true).then(res => {
-        if (res.success && pending.length > 0) apiService.post('/api/users/me/standup/publish', { workspaceId: firstWsId }, true);
+        if (res.success && pending.length > 0) apiService.post('/api/users/me/standup/publish', { workspaceId: standupWorkspaceId }, true);
       }).catch(() => {});
     }, 1500);
   }

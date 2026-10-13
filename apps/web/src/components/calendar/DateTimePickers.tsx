@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
 import styles from './DateTimePickers.module.css';
 import { availableEndHours, availableEndMinutes, timeForSelectedHour } from './calendarTime';
@@ -15,15 +17,21 @@ function parseDate(value: string) {
   return year && month && day ? new Date(year, month - 1, day) : null;
 }
 
-function useOutsideClose(ref: React.RefObject<HTMLDivElement | null>, close: () => void, open: boolean) {
+function useOutsideClose(
+  ref: RefObject<HTMLDivElement | null>,
+  close: () => void,
+  open: boolean,
+  floatingRef?: RefObject<HTMLDivElement | null>,
+) {
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) close();
+      const target = event.target as Node;
+      if (!ref.current?.contains(target) && !floatingRef?.current?.contains(target)) close();
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [ref, close, open]);
+  }, [ref, floatingRef, close, open]);
 }
 
 interface DatePickerProps {
@@ -32,16 +40,55 @@ interface DatePickerProps {
   min?: string;
   label: string;
   align?: 'left' | 'right';
+  compact?: boolean;
+  portal?: boolean;
 }
 
-export function CalendarDatePicker({ value, onChange, min, label, align = 'left' }: DatePickerProps) {
+export function CalendarDatePicker({ value, onChange, min, label, align = 'left', compact = false, portal = false }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  const [floatingPosition, setFloatingPosition] = useState<{ top: number; left: number } | null>(null);
   const [view, setView] = useState(() => {
     const selected = parseDate(value) ?? new Date();
     return new Date(selected.getFullYear(), selected.getMonth(), 1);
   });
   const root = useRef<HTMLDivElement>(null);
-  useOutsideClose(root, () => setOpen(false), open);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const closeCalendar = useCallback(() => setOpen(false), []);
+  useOutsideClose(root, closeCalendar, open, portal ? calendarRef : undefined);
+
+  const positionCalendar = useCallback(() => {
+    const anchor = root.current;
+    const calendar = calendarRef.current;
+    if (!anchor || !calendar) return;
+    const anchorRect = anchor.getBoundingClientRect();
+    const calendarRect = calendar.getBoundingClientRect();
+    const edge = 10;
+    const gap = 8;
+    const left = Math.max(edge, Math.min(anchorRect.left, window.innerWidth - calendarRect.width - edge));
+    const roomBelow = window.innerHeight - anchorRect.bottom - edge;
+    const top = roomBelow >= calendarRect.height || anchorRect.top < calendarRect.height + edge
+      ? Math.min(anchorRect.bottom + gap, window.innerHeight - calendarRect.height - edge)
+      : Math.max(edge, anchorRect.top - calendarRect.height - gap);
+    setFloatingPosition(current => current?.top === top && current.left === left ? current : { top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open || !portal) {
+      setFloatingPosition(null);
+      return;
+    }
+    positionCalendar();
+    calendarRef.current
+      ?.querySelector<HTMLButtonElement>('[aria-pressed="true"]:not(:disabled)')
+      ?.focus({ preventScroll: true });
+    window.addEventListener('resize', positionCalendar);
+    document.addEventListener('scroll', positionCalendar, true);
+    return () => {
+      window.removeEventListener('resize', positionCalendar);
+      document.removeEventListener('scroll', positionCalendar, true);
+    };
+  }, [open, portal, positionCalendar]);
 
   const selected = parseDate(value);
   const today = toISO(new Date());
@@ -56,11 +103,23 @@ export function CalendarDatePicker({ value, onChange, min, label, align = 'left'
     setView(current => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   }
 
+  function handlePickerKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape' && open) {
+      event.stopPropagation();
+      setOpen(false);
+      window.requestAnimationFrame(() => triggerRef.current?.focus());
+    }
+  }
+
+  function chooseDate(iso: string) {
+    onChange(iso);
+    setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }
+
   return (
-    <div ref={root} className={styles.picker} onKeyDown={event => {
-      if (event.key === 'Escape' && open) { event.stopPropagation(); setOpen(false); }
-    }}>
-      <button type="button" className={`${styles.trigger} ${open ? styles.triggerOpen : ''}`} aria-label={`${label}: ${selected ? selected.toLocaleDateString('es-CL') : 'sin fecha'}`} aria-expanded={open} aria-haspopup="dialog" onClick={() => {
+    <div ref={root} className={styles.picker} onKeyDown={handlePickerKeyDown}>
+      <button ref={triggerRef} type="button" className={`${styles.trigger} ${compact ? styles.compactTrigger : ''} ${open ? styles.triggerOpen : ''}`} aria-label={`${label}: ${selected ? selected.toLocaleDateString('es-CL') : 'sin fecha'}`} aria-expanded={open} aria-haspopup="dialog" onClick={() => {
         if (!open) {
           const next = parseDate(value) ?? new Date();
           setView(new Date(next.getFullYear(), next.getMonth(), 1));
@@ -68,11 +127,26 @@ export function CalendarDatePicker({ value, onChange, min, label, align = 'left'
         setOpen(!open);
       }}>
         <CalendarDays size={16} aria-hidden="true" />
-        <span>{selected ? selected.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Elegir fecha'}</span>
+        <span>{selected ? selected.toLocaleDateString('es-CL', { day: '2-digit', month: compact ? 'short' : '2-digit', year: 'numeric' }) : 'Elegir fecha'}</span>
         <ChevronDown size={14} className={styles.chevron} aria-hidden="true" />
       </button>
-      {open && (
-        <div className={`${styles.calendar} ${align === 'right' ? styles.alignRight : ''}`} role="dialog" aria-label={`Seleccionar ${label.toLowerCase()}`}>
+      {open && typeof document !== 'undefined' && (() => {
+        const calendar = (
+        <div
+          ref={calendarRef}
+          className={`${styles.calendar} ${!portal && align === 'right' ? styles.alignRight : ''}`}
+          role="dialog"
+          aria-label={`Seleccionar ${label.toLowerCase()}`}
+          onKeyDown={handlePickerKeyDown}
+          style={portal ? {
+            position: 'fixed',
+            top: floatingPosition?.top ?? 0,
+            left: floatingPosition?.left ?? 0,
+            right: 'auto',
+            zIndex: 1200,
+            visibility: floatingPosition ? 'visible' : 'hidden',
+          } : undefined}
+        >
           <div className={styles.calendarHeader}>
             <strong>{MONTHS[view.getMonth()]} {view.getFullYear()}</strong>
             <div className={styles.navigation}>
@@ -83,15 +157,17 @@ export function CalendarDatePicker({ value, onChange, min, label, align = 'left'
           <div className={styles.days}>
             {WEEKDAYS.map(day => <span key={day} className={styles.weekday}>{day}</span>)}
             {cells.map(({ date, iso, inMonth }) => (
-              <button key={iso} type="button" disabled={!!min && iso < min} className={`${styles.day} ${inMonth ? '' : styles.otherMonth} ${iso === value ? styles.selectedDay : ''} ${iso === today ? styles.today : ''}`} aria-label={date.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })} aria-pressed={iso === value} onClick={() => { onChange(iso); setOpen(false); }}>{date.getDate()}</button>
+              <button key={iso} type="button" disabled={!!min && iso < min} className={`${styles.day} ${inMonth ? '' : styles.otherMonth} ${iso === value ? styles.selectedDay : ''} ${iso === today ? styles.today : ''}`} aria-label={date.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })} aria-pressed={iso === value} onClick={() => chooseDate(iso)}>{date.getDate()}</button>
             ))}
           </div>
           <div className={styles.calendarFooter}>
             <span>{selected?.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }) ?? 'Selecciona un día'}</span>
-            <button type="button" disabled={!!min && today < min} onClick={() => { onChange(today); setOpen(false); }}>Hoy</button>
+            <button type="button" disabled={!!min && today < min} onClick={() => chooseDate(today)}>Hoy</button>
           </div>
         </div>
-      )}
+        );
+        return portal ? createPortal(calendar, document.body) : calendar;
+      })()}
     </div>
   );
 }

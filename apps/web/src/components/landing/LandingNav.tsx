@@ -11,11 +11,8 @@ export function LandingNav() {
     <nav className="home-nav" aria-label="Navegación principal">
       <Link href="/" className="home-brand" aria-label="AETHER, inicio">
         <BrandMark size={40} tone="light" />
+        <span>AETHER</span>
       </Link>
-      <div className="home-nav-center">
-        <a href="#recorrido">Cómo funciona</a>
-        <a href="#plataforma">La plataforma</a>
-      </div>
       <div className="home-nav-end">
         {!isAuthenticated && <Link href="/login" className="home-nav-login">Entrar</Link>}
         <Link href={isAuthenticated ? '/dashboard' : '/register'} className="home-nav-action">

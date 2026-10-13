@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { supportsOrganizationProjectPlanning } from '@/lib/workspaceFeatures';
 import { useProjectStore } from '@/stores/projectStore';
 import { apiService } from '@/services/apiService';
 import { usePreferencesStore } from '@/stores/preferencesStore';
@@ -61,7 +62,7 @@ import { BoardTableView } from '@/components/BoardTableView';
 import { C } from '@/lib/colors';
 import { useBoardCursors } from '@/hooks/useBoardCursors';
 import { RemoteCursors } from '@/components/realtime/RemoteCursors';
-import { SprintBanner } from '@/components/SprintBanner';
+import type { ProjectSprint } from '@/components/ProjectSprintPlanner';
 
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ export default function BoardPage() {
 
   const { currentWorkspace, fetchWorkspaceById, fetchMembers, currentMembers } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
+  const canUseProjectPlanning = supportsOrganizationProjectPlanning(currentWorkspace);
 
   const canEditBoard  = userRole === 'ADMIN' || userRole === 'OWNER';
   const canMoveCards  = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
@@ -108,7 +110,10 @@ export default function BoardPage() {
   const { preferences, loadPreferences, updatePreferences } = usePreferencesStore();
 
   const { fetchProjectsByWorkspace } = useProjectStore();
-  const [parentProject, setParentProject] = useState<{ id: string; name: string; color?: string | null } | null>(null);
+  const [parentProject, setParentProject] = useState<{ id: string; name: string; color?: string | null; methodology?: 'SCRUM' | 'FLEXIBLE' } | null>(null);
+  const [projectSprints, setProjectSprints] = useState<ProjectSprint[]>([]);
+  const [sprintFilter, setSprintFilter] = useState<'all' | 'active'>('active');
+  const activeProjectSprint = projectSprints.find((sprint) => sprint.status === 'ACTIVE');
 
   const [activeId,    setActiveId]    = useState<string | null>(null);
   const [activeType,  setActiveType]  = useState<'list' | 'card' | null>(null);
@@ -191,13 +196,16 @@ export default function BoardPage() {
   }, [filters]);
 
   const filteredCardsByList = useMemo((): Record<string, Card[]> | null => {
-    if (!applyFilters) return null;
+    const sprintIds = canUseProjectPlanning && parentProject?.methodology === 'SCRUM' && sprintFilter === 'active' && activeProjectSprint
+      ? new Set(activeProjectSprint?.cards.map((card) => card.id) ?? []) : null;
+    if (!applyFilters && !sprintIds) return null;
     const result: Record<string, Card[]> = {};
     for (const [listId, listCards] of Object.entries(cards)) {
-      result[listId] = applyFilters(listCards as Card[]);
+      const boardCards = applyFilters ? applyFilters(listCards as Card[]) : listCards as Card[];
+      result[listId] = sprintIds ? boardCards.filter((card) => sprintIds.has(card.id)) : boardCards;
     }
     return result;
-  }, [applyFilters, cards]);
+  }, [applyFilters, cards, activeProjectSprint, canUseProjectPlanning, parentProject?.methodology, sprintFilter]);
 
   const totalCards = useMemo(
     () => Object.values(cards).reduce((sum, lc) => sum + lc.length, 0),
@@ -242,9 +250,21 @@ export default function BoardPage() {
     if (!workspaceId || !boardId) return;
     fetchProjectsByWorkspace(workspaceId).then((projects) => {
       const found = projects.find((p) => p.boards?.some((b) => b.id === boardId));
-      setParentProject(found ? { id: found.id, name: found.name, color: found.color } : null);
+      setParentProject(found ? { id: found.id, name: found.name, color: found.color, methodology: found.methodology } : null);
     });
   }, [workspaceId, boardId, fetchProjectsByWorkspace]);
+
+  useEffect(() => {
+    if (!canUseProjectPlanning || !parentProject || parentProject.methodology !== 'SCRUM') { setProjectSprints([]); return; }
+    let mounted = true;
+    const load = async () => {
+      const result = await apiService.get<{ sprints: ProjectSprint[] }>(`/api/projects/${parentProject.id}/sprints`, true);
+      if (mounted && result.success && result.data) setProjectSprints(result.data.sprints);
+    };
+    void load();
+    const interval = window.setInterval(() => { void load(); }, 15000);
+    return () => { mounted = false; window.clearInterval(interval); };
+  }, [canUseProjectPlanning, parentProject?.id, parentProject?.methodology]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -524,7 +544,15 @@ export default function BoardPage() {
       </header>
 
       {/* ── Sprint banner ───────────────────────────────────────────── */}
-      <SprintBanner boardId={boardId} canEdit={canEditBoard} />
+      {canUseProjectPlanning && parentProject?.methodology === 'SCRUM' ? <div style={{ display: 'flex', alignItems: 'center', gap: 11, flexWrap: 'wrap', padding: '10px 24px', background: C.surface, borderBottom: `1px solid ${C.border}`, fontSize: 12 }}>
+        <strong style={{ color: C.text }}>{activeProjectSprint ? activeProjectSprint.name : 'Sin sprint activo'}</strong>
+        {activeProjectSprint && <span style={{ color: C.text3 }}>{activeProjectSprint.cards.filter((card) => card.completed).length}/{activeProjectSprint.cards.length} tarjetas — {new Date(`${activeProjectSprint.startDate.slice(0, 10)}T12:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}–{new Date(`${activeProjectSprint.endDate.slice(0, 10)}T12:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button type="button" aria-pressed={sprintFilter === 'active'} disabled={!activeProjectSprint} onClick={() => setSprintFilter('active')} style={{ border: `1px solid ${sprintFilter === 'active' ? C.accent : C.border}`, background: sprintFilter === 'active' ? 'rgba(125,82,177,.16)' : 'transparent', color: C.text, padding: '6px 10px', borderRadius: 7, cursor: activeProjectSprint ? 'pointer' : 'not-allowed', opacity: activeProjectSprint ? 1 : .55 }}>Sprint activo</button>
+          <button type="button" aria-pressed={sprintFilter === 'all'} onClick={() => setSprintFilter('all')} style={{ border: `1px solid ${sprintFilter === 'all' ? C.accent : C.border}`, background: sprintFilter === 'all' ? 'rgba(125,82,177,.16)' : 'transparent', color: C.text, padding: '6px 10px', borderRadius: 7, cursor: 'pointer' }}>Todas</button>
+          <button type="button" onClick={() => router.push(`/dashboard/projects/${parentProject.id}?tab=backlog`)} style={{ border: `1px solid ${C.border}`, background: 'transparent', color: C.accent, padding: '6px 10px', borderRadius: 7, cursor: 'pointer' }}>Planificar en Backlog →</button>
+        </div>
+      </div> : null}
 
       {/* ── Main area: board + sidebar ──────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -543,7 +571,7 @@ export default function BoardPage() {
             /* ── Kanban ──────────────────────────────────────────────── */
             <div ref={kanbanCallbackRef} style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', position: 'relative' }}>
               <RemoteCursors cursors={remoteCursors} />
-              <div style={{ height: '100%', padding: '16px 20px' }}>
+              <div style={{ height: '100%', padding: '20px 24px' }}>
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCorners}
@@ -552,7 +580,7 @@ export default function BoardPage() {
                   onDragCancel={handleDragCancel}
                   modifiers={[restrictToWindowEdges]}
                 >
-                  <div style={{ display: 'flex', gap: '12px', minWidth: 'min-content', height: '100%', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: '16px', minWidth: 'min-content', height: '100%', alignItems: 'flex-start' }}>
                     <SortableContext
                       items={lists.map((list: List) => list.id)}
                       strategy={horizontalListSortingStrategy}
@@ -572,7 +600,7 @@ export default function BoardPage() {
 
                   <DragOverlay>
                     {activeList ? (
-                      <div style={{ width: '272px', opacity: 0.85, transform: 'rotate(2deg)' }}>
+                      <div style={{ width: '304px', opacity: 0.85, transform: 'rotate(2deg)' }}>
                         <div style={{
                           background: C.bg2, border: `1px solid ${C.accent}`,
                           borderRadius: '10px', padding: '12px 14px',
@@ -583,7 +611,7 @@ export default function BoardPage() {
                         </div>
                       </div>
                     ) : activeCard ? (
-                      <div style={{ width: '272px', opacity: 0.9, transform: 'rotate(2deg)' }}>
+                      <div style={{ width: '304px', opacity: 0.9, transform: 'rotate(2deg)' }}>
                         <div style={{
                           background: C.surface, border: `1px solid ${C.accent}`,
                           borderRadius: '8px', padding: '10px 11px',

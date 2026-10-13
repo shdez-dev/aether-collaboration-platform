@@ -3,6 +3,13 @@ import { pool } from '../../lib/db';
 import { documentService, DocumentTextLimitError } from '../DocumentService';
 
 jest.mock('../../lib/db');
+jest.mock('../OrganizationStorageService', () => ({
+  organizationStorageService: {
+    lockForDocument: jest.fn().mockResolvedValue('org-1'),
+    getUsage: jest.fn().mockResolvedValue({ usedBytes: 0n, limitBytes: null }),
+    assertWithinLimit: jest.fn(),
+  },
+}));
 
 function stateWithText(text: string): Uint8Array {
   const doc = new Y.Doc();

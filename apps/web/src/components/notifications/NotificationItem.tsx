@@ -10,6 +10,7 @@ import { C } from '@/lib/colors';
 import { apiService } from '@/services/apiService';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { acceptTeamInvitationAndSync } from '@/lib/acceptTeamInvitation';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -22,6 +23,10 @@ interface NotificationItemProps {
 }
 
 const TYPE_META: Record<string, { color: string; icon: React.ReactNode }> = {
+  ADMIN_ANNOUNCEMENT: {
+    color: '#7452A6',
+    icon: <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12"><path d="M2 5h2l6-3v10l-6-3H2zM4 9l1 3h2" /><path d="M12 5v4" /></svg>,
+  },
   CALENDAR_EVENT_INVITE: {
     color: '#7452A6',
     icon: <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12"><rect x="1.5" y="3" width="11" height="9" rx="1.5" /><path d="M1.5 5.5h11M4 1v3M10 1v3" /></svg>,
@@ -165,6 +170,7 @@ export function NotificationItem({
   const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
   const [isLoading, setIsLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [acceptError, setAcceptError] = useState('');
 
   const meta = TYPE_META[notification.type] ?? DEFAULT_META;
 
@@ -187,7 +193,7 @@ export function NotificationItem({
     // Switch the active workspace so the project/board opens in the right context.
     // For a freshly-invited user the workspace list is stale (loaded before they
     // were added), so refresh it to make the new workspace appear in the switcher.
-    if (data.workspaceId) {
+    if (data.workspaceId && notification.type !== 'TEAM_INVITE') {
       setActiveWorkspaceId(data.workspaceId);
       fetchWorkspaces().catch(() => {});
     }
@@ -198,7 +204,10 @@ export function NotificationItem({
       router.push(`/dashboard/calendar?view=agenda${date}`); onClose?.();
     } else if (projectTypes.includes(notification.type) && data.projectId) {
       router.push(`/dashboard/projects/${data.projectId}`); onClose?.();
-    } else if (notification.type === 'TEAM_INVITE' || (notification.type as string) === 'TEAM_MEMBER_ADDED' || (notification.type as string) === 'TEAM_MEMBER_REMOVED') {
+    } else if (notification.type === 'TEAM_INVITE' && data.invitationId) {
+      router.push('/dashboard/notifications');
+      onClose?.();
+    } else if ((notification.type as string) === 'TEAM_MEMBER_ADDED' || (notification.type as string) === 'TEAM_MEMBER_REMOVED') {
       if (data.teamId) { router.push(`/dashboard/teams/${data.teamId}`); } else { router.push('/dashboard'); }
       onClose?.();
     } else if (notification.type === 'WORKSPACE_INVITE' || notification.type === 'WORKSPACE_REMOVED') {
@@ -221,6 +230,27 @@ export function NotificationItem({
       onClose?.();
     } else {
       router.push('/dashboard'); onClose?.();
+    }
+  };
+
+  const handleAcceptTeamInvite = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const invitationId = notification.data?.invitationId;
+    if (!invitationId || isLoading) return;
+    setIsLoading(true);
+    setAcceptError('');
+    try {
+      const accepted = await acceptTeamInvitationAndSync(invitationId, {
+        teamId: notification.data?.teamId,
+        workspaceId: notification.data?.workspaceId,
+      });
+      if (onResolve) await onResolve(notification.id);
+      router.push(`/dashboard/teams/${accepted.teamId}`);
+      onClose?.();
+    } catch (error) {
+      setAcceptError(error instanceof Error ? error.message : 'No se pudo aceptar la invitación.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -311,6 +341,23 @@ export function NotificationItem({
         }}>
           {getRelativeTime()}
         </span>
+        {notification.type === 'TEAM_INVITE' && notification.data?.invitationId && (
+          <button
+            type="button"
+            onClick={handleAcceptTeamInvite}
+            disabled={isLoading}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              marginTop: '7px', padding: '5px 9px', borderRadius: '7px',
+              border: `1px solid ${C.accent}55`, background: `${C.accent}14`,
+              color: C.accent, font: '700 11px/1.2 Manrope, system-ui, sans-serif',
+              cursor: isLoading ? 'wait' : 'pointer', opacity: isLoading ? 0.65 : 1,
+            }}
+          >
+            {isLoading ? 'Aceptando…' : 'Aceptar invitación'}
+          </button>
+        )}
+        {acceptError && <span role="alert" style={{ display: 'block', marginTop: '5px', color: C.red, fontSize: '11px', lineHeight: 1.35 }}>{acceptError}</span>}
       </div>
 
       {/* Actions */}

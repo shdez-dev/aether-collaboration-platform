@@ -4,6 +4,7 @@
 import { Card as CardType } from '@aether/types';
 import { useCardStore } from '@/stores/cardStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { supportsOrganizationProjectPlanning } from '@/lib/workspaceFeatures';
 import { apiService } from '@/services/apiService';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -32,7 +33,9 @@ export function Card({ card, boardId }: CardProps) {
   const t = es;
   const updateCard     = useCardStore((s) => s.updateCard);
   const setSelectedCard = useCardStore((s) => s.setSelectedCard);
-  const userRole       = useWorkspaceStore((s) => s.currentWorkspace?.userRole);
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const userRole       = currentWorkspace?.userRole;
+  const canUseProjectPlanning = supportsOrganizationProjectPlanning(currentWorkspace);
 
   const PRIORITY = {
     LOW:    { label: t.card_priority_low,    ...PRIORITY_COLORS.LOW    },
@@ -356,7 +359,7 @@ export function Card({ card, boardId }: CardProps) {
         )}
 
         {/* Sprint badge (when assigned, not hovering) */}
-        {cardSprintId && !isHovered && !showSprintMenu && (
+        {canUseProjectPlanning && cardSprintId && !isHovered && !showSprintMenu && (
           <span
             title={currentSprint ? `Sprint: ${currentSprint.name}` : 'En sprint'}
             style={{
@@ -371,7 +374,7 @@ export function Card({ card, boardId }: CardProps) {
         )}
 
         {/* Sprint quick-assign button (hover only) */}
-        {(isHovered || showSprintMenu) && boardId && (
+        {canUseProjectPlanning && (isHovered || showSprintMenu) && boardId && (
           <button
             ref={sprintBtnRef}
             onClick={openSprintMenu}
@@ -391,7 +394,7 @@ export function Card({ card, boardId }: CardProps) {
         )}
 
         {/* Sprint popover — rendered fixed to escape overflow clipping */}
-        {showSprintMenu && menuPos && (
+        {canUseProjectPlanning && showSprintMenu && menuPos && (
           <>
             {/* Invisible backdrop to close on outside click */}
             <div

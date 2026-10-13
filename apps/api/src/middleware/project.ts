@@ -75,6 +75,14 @@ export const requireProjectEditor = requireProjectAccess('MANAGE');
 type ProjectBoundResource = 'board' | 'list' | 'card' | 'comment' | 'sprint' | 'milestone';
 
 async function resolveProjectBoundResource(resource: ProjectBoundResource, resourceId: string) {
+  if (resource === 'sprint') {
+    const sprint = await pool.query(
+      `SELECT p.workspace_id, ARRAY[p.id]::uuid[] AS project_ids
+       FROM board_sprints s JOIN projects p ON p.id = s.project_id WHERE s.id = $1`,
+      [resourceId],
+    );
+    if (sprint.rows[0]) return sprint.rows[0] as { workspace_id: string; project_ids: string[] };
+  }
   const source = {
     board: { from: 'FROM boards b', where: 'b.id = $1' },
     list: { from: 'FROM lists l JOIN boards b ON b.id = l.board_id', where: 'l.id = $1' },

@@ -13,6 +13,7 @@ import type {
 } from '@aether/types';
 import { documentTemplateService, type TemplateCategory } from './DocumentTemplateService';
 import { projectAuthorizationService } from './ProjectAuthorizationService';
+import { organizationStorageService } from './OrganizationStorageService';
 
 export const DOCUMENT_TEXT_LIMIT = 100_000;
 export class DocumentTextLimitError extends Error {}
@@ -149,6 +150,8 @@ export class DocumentService {
 
     try {
       await client.query('BEGIN');
+      const organizationId = await organizationStorageService.lockForWorkspace(client, workspaceId);
+      const storageBefore = await organizationStorageService.getUsage(organizationId, (text, params) => client.query(text, params));
 
       if (data.projectId) {
         const projectResult = await client.query(
@@ -202,6 +205,8 @@ export class DocumentService {
        VALUES ($1, $2, $3)`,
         [document.id, userId, 'EDIT']
       );
+
+      await organizationStorageService.assertWithinLimit(organizationId, client, storageBefore.usedBytes);
 
       await client.query('COMMIT');
 
@@ -429,6 +434,8 @@ export class DocumentService {
 
     try {
       await client.query('BEGIN');
+      const organizationId = await organizationStorageService.lockForDocument(client, documentId);
+      const storageBefore = await organizationStorageService.getUsage(organizationId, (text, params) => client.query(text, params));
 
       // Fetch estado anterior del título para delta
       const beforeDocResult = await client.query('SELECT title FROM documents WHERE id = $1', [documentId]);
@@ -464,6 +471,7 @@ export class DocumentService {
         values
       );
 
+      await organizationStorageService.assertWithinLimit(organizationId, client, storageBefore.usedBytes);
       const document = this.formatDocument(result.rows[0]);
 
       await client.query('COMMIT');
@@ -554,6 +562,8 @@ export class DocumentService {
 
     try {
       await client.query('BEGIN');
+      const organizationId = await organizationStorageService.lockForDocument(client, documentId);
+      const storageBefore = await organizationStorageService.getUsage(organizationId, (text, params) => client.query(text, params));
 
       // Leer el estado actual antes de sobrescribir (con FOR UPDATE para evitar
       // race conditions entre guardados concurrentes del mismo documento)
@@ -596,6 +606,7 @@ export class DocumentService {
         [Buffer.from(yjsState), plainText, documentId]
       );
 
+      await organizationStorageService.assertWithinLimit(organizationId, client, storageBefore.usedBytes);
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -632,6 +643,8 @@ export class DocumentService {
 
     try {
       await client.query('BEGIN');
+      const organizationId = await organizationStorageService.lockForDocument(client, documentId);
+      const storageBefore = await organizationStorageService.getUsage(organizationId, (text, params) => client.query(text, params));
 
       const yjsState = await this.getYjsState(documentId);
 
@@ -648,6 +661,7 @@ export class DocumentService {
 
       const version = this.formatVersion(result.rows[0]);
 
+      await organizationStorageService.assertWithinLimit(organizationId, client, storageBefore.usedBytes);
       await client.query('COMMIT');
 
       const docResult = await client.query(`SELECT workspace_id FROM documents WHERE id = $1`, [
@@ -695,6 +709,8 @@ export class DocumentService {
 
     try {
       await client.query('BEGIN');
+      const organizationId = await organizationStorageService.lockForDocument(client, documentId);
+      const storageBefore = await organizationStorageService.getUsage(organizationId, (text, params) => client.query(text, params));
 
       const versionResult = await client.query(
         `SELECT yjs_state FROM document_versions WHERE id = $1 AND document_id = $2`,
@@ -729,6 +745,7 @@ export class DocumentService {
         [Buffer.from(yjsState), plainText, documentId]
       );
 
+      await organizationStorageService.assertWithinLimit(organizationId, client, storageBefore.usedBytes);
       const docResult = await client.query(`SELECT * FROM documents WHERE id = $1`, [documentId]);
       const document = this.formatDocument(docResult.rows[0]);
 
@@ -876,8 +893,14 @@ export class DocumentService {
     if (document.project_id) {
       const access = await projectAuthorizationService.can(document.project_id, userId, 'READ');
       if (!access) return null;
-      if (explicit_permission) return explicit_permission as DocumentPermission;
-      if (created_by === userId || access.level !== 'READ') return 'EDIT';
+      if (created_by === userId || access.level === 'MANAGE') return 'EDIT';
+      if (explicit_permission) {
+        // Document-level permissions can narrow project access, but cannot
+        // elevate a read-only project participant to editing the document.
+        if (explicit_permission === 'EDIT' && access.level === 'READ') return 'VIEW';
+        return explicit_permission as DocumentPermission;
+      }
+      if (access.level === 'CONTRIBUTE') return 'EDIT';
       return 'VIEW';
     }
 
@@ -925,12 +948,19 @@ export class DocumentService {
       );
 
       await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
 
+    // A notification failure must not make the client report that a committed
+    // permission change was rejected. The database write is authoritative.
+    try {
       const workspaceId = await this.getDocumentWorkspace(documentId);
-
       const actorPermResult = await pool.query('SELECT name FROM users WHERE id = $1', [updatedBy]);
       const actorPermName = actorPermResult.rows[0]?.name ?? '';
-
       await eventStore.emit({
         type: 'document.permission.changed',
         actor: { id: updatedBy, name: actorPermName },
@@ -939,27 +969,54 @@ export class DocumentService {
         payload: { permission },
         targetUserId,
       });
-
-      // Broadcast real-time permission update via WebSocket
-      const { getYjsGateway } = require('../websocket/Yjsgateway');
-      try {
-        const gateway = getYjsGateway();
-
-        // Calculate effective permission for the target user
-        const effectivePermission = await this.getEffectiveUserPermission(documentId, targetUserId);
-
-        gateway.broadcastToUserInDocument(targetUserId, 'document:permission:changed', {
-          documentId,
-          permission: effectivePermission,
-          updatedBy,
-        });
-      } catch (wsError) {}
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    } catch (eventError) {
+      console.error('Failed to emit document permission update event', eventError);
     }
+
+    try {
+      const { getYjsGateway } = require('../websocket/Yjsgateway');
+      const gateway = getYjsGateway();
+      const effectivePermission = await this.getEffectiveUserPermission(documentId, targetUserId);
+      gateway.broadcastToUserInDocument(targetUserId, 'document:permission:changed', {
+        documentId,
+        permission: effectivePermission,
+        updatedBy,
+      });
+    } catch (wsError) {
+      console.error('Failed to broadcast document permission update', wsError);
+    }
+  }
+
+  /** Validate that the target can receive the requested document permission. */
+  async getPermissionAssignmentError(
+    documentId: string,
+    targetUserId: string,
+    permission: DocumentPermission,
+  ): Promise<string | null> {
+    const result = await pool.query(
+      `SELECT d.created_by, d.project_id, wm.role AS workspace_role
+       FROM documents d
+       LEFT JOIN workspace_members wm ON wm.workspace_id = d.workspace_id AND wm.user_id = $2
+       WHERE d.id = $1`,
+      [documentId, targetUserId],
+    );
+    const target = result.rows[0];
+    if (!target) return 'No se encontró el documento.';
+    if (!target.workspace_role) return 'La persona ya no pertenece a este espacio de trabajo.';
+    if (target.created_by === targetUserId || target.workspace_role === 'OWNER') {
+      return 'El permiso del creador y del propietario no se puede cambiar.';
+    }
+
+    if (target.project_id) {
+      const access = await projectAuthorizationService.can(target.project_id, targetUserId, 'READ');
+      if (!access) return 'La persona no tiene acceso a este proyecto.';
+      if (access.level === 'MANAGE') return 'El permiso de una persona administradora del proyecto no se puede cambiar.';
+      if (permission === 'EDIT' && access.level === 'READ') {
+        return 'Para editar este documento, la persona necesita acceso de colaboración al proyecto.';
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -999,6 +1056,7 @@ export class DocumentService {
       documentPermission: DocumentPermission | null;
       effectivePermission: DocumentPermission;
       isCreator: boolean;
+      projectAccessLevel?: 'READ' | 'CONTRIBUTE' | 'MANAGE';
     }>
   > {
     const result = await pool.query(
@@ -1009,7 +1067,8 @@ export class DocumentService {
         u.avatar,
         wm.role as workspace_role,
         dp.permission as document_permission,
-        d.created_by
+        d.created_by,
+        d.project_id
        FROM documents d
        INNER JOIN workspace_members wm ON d.workspace_id = wm.workspace_id
        INNER JOIN users u ON wm.user_id = u.id
@@ -1026,12 +1085,25 @@ export class DocumentService {
       [documentId]
     );
 
-    return result.rows.map((row) => {
+    const membersWithAccess = await Promise.all(result.rows.map(async (row) => ({
+      row,
+      projectAccess: row.project_id
+        ? await projectAuthorizationService.can(row.project_id, row.user_id, 'READ')
+        : null,
+    })));
+
+    return membersWithAccess
+      .filter(({ row, projectAccess }) => !row.project_id || projectAccess)
+      .map(({ row, projectAccess }) => {
       const isCreator = row.created_by === row.user_id;
       const isOwner = row.workspace_role === 'OWNER';
 
       let effectivePermission: DocumentPermission = 'VIEW';
-      if (isOwner || isCreator) {
+      if (isOwner || isCreator || projectAccess?.level === 'MANAGE') {
+        effectivePermission = 'EDIT';
+      } else if (projectAccess?.level === 'READ') {
+        effectivePermission = row.document_permission === 'COMMENT' ? 'COMMENT' : 'VIEW';
+      } else if (projectAccess?.level === 'CONTRIBUTE' && !row.document_permission) {
         effectivePermission = 'EDIT';
       } else if (row.document_permission) {
         effectivePermission = row.document_permission;
@@ -1046,6 +1118,7 @@ export class DocumentService {
         documentPermission: row.document_permission,
         effectivePermission,
         isCreator,
+        ...(projectAccess ? { projectAccessLevel: projectAccess.level } : {}),
       };
     });
   }

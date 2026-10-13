@@ -3,6 +3,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import * as Y from 'yjs';
 import { documentService, DOCUMENT_TEXT_LIMIT } from '../services/DocumentService';
+import { OrganizationStorageLimitError } from '../services/OrganizationStorageService';
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -302,6 +303,15 @@ export class YjsGateway {
         size: state.length,
       });
     } catch (error) {
+      if (error instanceof OrganizationStorageLimitError) {
+        this.io.to(`document:${documentId}`).emit('document:save-error', {
+          documentId,
+          code: error.code,
+          error: error.message,
+          details: { usedBytes: error.usedBytes.toString(), limitBytes: error.limitBytes.toString() },
+        });
+        return;
+      }
       if (attempt < this.MAX_SAVE_RETRIES) {
         const delay = this.RETRY_DELAY_MS * attempt;
         await new Promise((resolve) => setTimeout(resolve, delay));

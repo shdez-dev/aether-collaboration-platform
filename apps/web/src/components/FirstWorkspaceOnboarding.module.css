@@ -56,11 +56,15 @@
 .field input:focus, .field textarea:focus { border-color: rgba(116,82,166,.72); box-shadow: 0 0 0 3px rgba(116,82,166,.12); }
 .typeField { min-width: 0; margin: 0; padding: 0; border: 0; }
 .typeField legend { margin-bottom: 9px; color: #b8b0a3; font-size: 12px; font-weight: 700; }
+.permissionHelp { margin: -2px 0 10px; color: var(--c-text3); font-size: 11px; line-height: 1.5; }
 .typeGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .typeCard { position: relative; display: grid; align-content: start; gap: 8px; min-height: 120px; padding: 15px; border: 1px solid rgba(97,71,130,.1); border-radius: 9px; color: var(--c-text2); background: var(--c-surface2); text-align: left; cursor: pointer; transition: .16s ease; }
 .typeCard strong { color: var(--c-text2); font-size: 12px; }
 .typeCard small { font-size: 10px; line-height: 1.5; }
 .typeCardSelected { border-color: #7452A6; background: rgba(116,82,166,.08); box-shadow: 0 0 0 1px rgba(116,82,166,.16) inset; }
+.typeCardDisabled { opacity: .68; cursor: not-allowed; }
+.typeCardDisabled:hover { transform: none; }
+.typeStatus { color: var(--c-text3); font-size: 9px; font-weight: 700; }
 .typeCheck { position: absolute; top: 10px; right: 10px; display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; color: #17120f; background: #9271BD; }
 
 .selectedOrganization { display: flex; align-items: center; gap: 12px; padding: 13px; border: 1px solid rgba(116,82,166,.2); border-radius: 9px; background: rgba(116,82,166,.05); }

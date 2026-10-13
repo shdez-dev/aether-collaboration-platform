@@ -72,11 +72,13 @@ export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
             `/api/workspaces/${workspaceId}/projects`,
             true
           );
-          if (r.success && r.data) {
+          if (r.success && r.data && get().activeWorkspaceId === workspaceId) {
             set({ sidebarProjects: r.data.projects });
           }
         } catch { /* silent */ }
-        finally { set({ projectsLoading: false }); }
+        finally {
+          if (get().activeWorkspaceId === workspaceId) set({ projectsLoading: false });
+        }
       },
 
       addSidebarBoard: (board) => {
@@ -95,9 +97,7 @@ export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
 
       addSidebarProject: (project) => {
         set((state) => ({
-          sidebarProjects: state.sidebarProjects.some((p) => p.id === project.id)
-            ? state.sidebarProjects
-            : [...state.sidebarProjects, project],
+          sidebarProjects: [project, ...state.sidebarProjects.filter((item) => item.id !== project.id)],
         }));
       },
 

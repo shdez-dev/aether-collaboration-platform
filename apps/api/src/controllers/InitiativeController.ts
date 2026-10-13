@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { getClient, pool } from '../lib/db';
+import { getInstitutionalSettingsForInitiative, getInstitutionalSettingsForWorkspace } from '../services/InstitutionalSettingsService';
+import type { InstitutionalSettings } from '../services/InstitutionalSettingsService';
 
 const stages = ['SUBMITTED', 'TRIAGE', 'DIAGNOSIS', 'VALIDATION', 'APPROVED', 'DECLINED', 'PAUSED', 'ARCHIVED'] as const;
 type InitiativeStage = (typeof stages)[number];
@@ -8,6 +10,11 @@ const participantRoles = ['REQUESTER', 'TRIAGE_COORDINATOR', 'MENTOR', 'EVALUATO
 const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 const decisionStages = new Set<InitiativeStage>(['APPROVED', 'DECLINED', 'PAUSED', 'ARCHIVED']);
 const triageAssessmentStatuses = ['PASS', 'FAIL', 'NOT_APPLICABLE'] as const;
+const initiativeConversionInput = z.object({
+  methodology: z.enum(['FLEXIBLE', 'SCRUM']).default('FLEXIBLE'),
+  productOwnerId: z.string().uuid().nullable().optional(),
+  scrumMasterId: z.string().uuid().nullable().optional(),
+});
 const coreProposalFields = ['title', 'description', 'problemStatement', 'impactedPeople', 'problemImpact', 'impactedCount', 'expectedOutcome', 'proposedSolution', 'differentiation'] as const;
 const configurableInitiativeFields = [...coreProposalFields, 'proposedNextStep', 'evidence', 'attachments'] as const;
 const allowedTransitions: Record<string, InitiativeStage[]> = {
@@ -56,7 +63,7 @@ function missingRequiredFields(data: Record<string, any>, requiredFields: unknow
 }
 
 function isCoordinator(row: any) {
-  return Boolean(row?.internal_member) && Boolean(row?.explicit_coordinator || row?.team_coordinator);
+  return Boolean(row?.internal_member) && Boolean(row?.explicit_coordinator || row?.team_coordinator || ['OWNER', 'ADMIN'].includes(row?.workspace_role));
 }
 
 function canonicalAuditValue(value: unknown): unknown {
@@ -136,13 +143,16 @@ async function membership(workspaceId: string, userId: string) {
 
 async function institutionalAccess(workspaceId: string, userId: string) {
   const { rows } = await pool.query(
-    `SELECT wm.role, o.type AS organization_type,
-      EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = wm.workspace_id AND tm.user_id = wm.user_id AND tm.role = 'ADMIN') AS coordinator
-     FROM workspace_members wm JOIN workspaces w ON w.id = wm.workspace_id JOIN organizations o ON o.id = w.organization_id WHERE wm.workspace_id = $1 AND wm.user_id = $2`,
+    `SELECT wm.role AS workspace_role, om.role AS organization_role, o.type AS organization_type,
+      EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = w.id AND tm.user_id = $2 AND tm.role = 'ADMIN') AS coordinator
+     FROM workspaces w JOIN organizations o ON o.id = w.organization_id
+     LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $2
+     LEFT JOIN organization_members om ON om.organization_id = o.id AND om.user_id = $2
+     WHERE w.id = $1 AND (wm.user_id IS NOT NULL OR om.user_id IS NOT NULL)`,
     [workspaceId, userId]
   );
   if (!rows[0]) return null;
-  return { isInstitutional: rows[0].organization_type === 'INSTITUTION', isAdmin: ['OWNER', 'ADMIN'].includes(rows[0].role), isCoordinator: Boolean(rows[0].coordinator) };
+  return { isInstitutional: rows[0].organization_type === 'INSTITUTION', isAdmin: ['OWNER', 'ADMIN'].includes(rows[0].workspace_role) || ['OWNER', 'ADMIN'].includes(rows[0].organization_role), isCoordinator: Boolean(rows[0].coordinator) };
 }
 
 async function access(initiativeId: string, userId: string) {
@@ -158,13 +168,14 @@ async function access(initiativeId: string, userId: string) {
   if (!rows[0]) return null;
   const row = rows[0];
   if (row.organization_type !== 'INSTITUTION') return null;
+  const policy = await getInstitutionalSettingsForWorkspace(row.workspace_id);
   return {
     ...row,
     isRequester: Boolean(row.internal_member) && row.submitted_by === userId,
     isParticipant: Boolean(row.internal_member) && Boolean(row.participant),
     isCoordinator: isCoordinator(row),
     isAdmin: Boolean(row.internal_member) && ['OWNER', 'ADMIN'].includes(row.workspace_role),
-    isExternal: row.external_access,
+    isExternal: policy.privacy.allowExternalInitiativeAccess && row.external_access,
   };
 }
 
@@ -176,7 +187,70 @@ async function assertWorkspaceUser(workspaceId: string, userId: string) {
 function error(res: Response, status: number, code: string, message: string) { return res.status(status).json({ success: false, error: { code, message } }); }
 function userId(req: Request) { return req.user?.id; }
 
+function scheduledReview(days: number, policy: InstitutionalSettings): Date {
+  const date = new Date();
+  let remaining = days;
+  while (remaining > 0) {
+    date.setUTCDate(date.getUTCDate() + 1);
+    const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: policy.profile.timezone }).format(date));
+    if (policy.profile.businessDays.includes(weekday)) remaining--;
+  }
+  return date;
+}
+
 export class InitiativeController {
+  async getIntake(req: Request, res: Response) {
+    const actorId = userId(req); if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
+    const workspaceId = req.params.workspaceId;
+    const member = await membership(workspaceId, actorId);
+    if (!member) return error(res, 403, 'FORBIDDEN', 'Workspace access required');
+    if (member.organization_type !== 'INSTITUTION') return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Institutional workspace required');
+    const policy = await getInstitutionalSettingsForWorkspace(workspaceId);
+    const [setting, openResult, reviewerResult] = await Promise.all([
+      pool.query(`SELECT COALESCE(s.intake_enabled, true) AS intake_enabled, COALESCE(s.triage_criteria, '[]'::jsonb) AS triage_criteria, COALESCE(s.review_cadence_days, 7) AS review_cadence_days FROM workspaces w LEFT JOIN workspace_institutional_settings s ON s.workspace_id = w.id WHERE w.id = $1`, [workspaceId]),
+      policy.requester.maxOpenInitiatives > 0
+        ? pool.query(`SELECT COUNT(*)::int AS count FROM initiatives i LEFT JOIN projects p ON p.source_initiative_id = i.id WHERE i.workspace_id = $1 AND i.submitted_by = $2 AND i.stage NOT IN ('DECLINED', 'ARCHIVED') AND p.id IS NULL`, [workspaceId, actorId])
+        : Promise.resolve({ rows: [{ count: 0 }] }),
+      pool.query(`SELECT EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id AND tm.user_id = $2 AND tm.role = 'ADMIN' WHERE s.workspace_id = $1) OR EXISTS(SELECT 1 FROM initiatives i JOIN initiative_participants ip ON ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role IN ('TRIAGE_COORDINATOR', 'MENTOR', 'EVALUATOR') WHERE i.workspace_id = $1) AS is_reviewer`, [workspaceId, actorId]),
+    ]);
+    const program = setting.rows[0];
+    const openInitiativesCount = Number(openResult.rows[0]?.count ?? 0);
+    const limitReached = policy.requester.maxOpenInitiatives > 0 && openInitiativesCount >= policy.requester.maxOpenInitiatives;
+    const receptionAvailable = policy.requester.canSubmit && !policy.operations.intakePaused && Boolean(program?.intake_enabled);
+    const enabled = receptionAvailable && !limitReached;
+    const reason = enabled ? null : limitReached
+      ? `Ya alcanzaste el límite de ${policy.requester.maxOpenInitiatives} iniciativas abiertas en este espacio.`
+      : !policy.requester.canSubmit || policy.operations.intakePaused || !program?.intake_enabled
+        ? 'La recepción de iniciativas está cerrada en este espacio.'
+        : 'No se pudo comprobar la recepción de iniciativas.';
+    return res.json({ success: true, data: {
+      enabled, requesterLabel: policy.requester.label, reason,
+      isReviewer: ['OWNER', 'ADMIN'].includes(member.role) || Boolean(reviewerResult.rows[0]?.is_reviewer),
+      openInitiativesCount, maxOpenInitiatives: policy.requester.maxOpenInitiatives, limitReached,
+      requesterRules: {
+        canSubmit: policy.requester.canSubmit,
+        canEditAfterSubmission: policy.requester.canEditAfterSubmission,
+        canAttach: policy.requester.canAttach,
+        canInviteCollaborators: policy.requester.canInviteCollaborators,
+        canWithdraw: policy.requester.canWithdraw,
+        decisionVisibility: policy.requester.decisionVisibility,
+        isDefaultWorkspace: policy.requester.defaultWorkspaceId === workspaceId,
+        hasDefaultWorkspace: Boolean(policy.requester.defaultWorkspaceId),
+      },
+      governanceRules: {
+        mentorRequiredForValidation: policy.governance.mentorRequiredForValidation,
+        separateApproverFromRequester: policy.governance.separateApproverFromRequester,
+        coordinatorCanApprove: policy.governance.coordinatorCanApprove,
+        leadRequiredForConversion: policy.governance.leadRequiredForConversion,
+      },
+      privacyRules: { allowExternalInitiativeAccess: policy.privacy.allowExternalInitiativeAccess },
+      communicationRules: { notifyOnSubmission: policy.communication.notifyOnSubmission, notifyOnDecision: policy.communication.notifyOnDecision },
+      businessDays: policy.profile.businessDays,
+      timezone: policy.profile.timezone,
+      triageCriteria: Array.isArray(program?.triage_criteria) ? program.triage_criteria : [],
+      reviewCadenceDays: Number(program?.review_cadence_days ?? 7),
+    } });
+  }
   async list(req: Request, res: Response) {
     const actorId = userId(req); const workspaceId = req.query.workspaceId as string; const stage = req.query.stage as string | undefined;
     if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
@@ -204,7 +278,13 @@ export class InitiativeController {
     const result = await pool.query(`${initiativeSelect} WHERE ${where} ORDER BY i.priority = 'URGENT' DESC, i.next_review_at ASC NULLS LAST, i.created_at DESC, i.id DESC LIMIT $${params.length}`, params);
     const hasMore = result.rows.length > limitResult.data;
     const rows = hasMore ? result.rows.slice(0, limitResult.data) : result.rows;
-    return res.json({ success: true, data: { initiatives: rows.map(format), nextCursor: hasMore && rows.length ? encodeTriageCursor(rows[rows.length - 1]) : null } });
+    const policy = await getInstitutionalSettingsForWorkspace(workspaceId);
+    const initiatives = rows.map((row) => {
+      const item = format(row);
+      if (policy.requester.decisionVisibility === 'STATUS' && row.submitted_by === actorId && !['OWNER', 'ADMIN'].includes(member.role)) item.decisionReason = null;
+      return item;
+    });
+    return res.json({ success: true, data: { initiatives, nextCursor: hasMore && rows.length ? encodeTriageCursor(rows[rows.length - 1]) : null } });
   }
 
   async getById(req: Request, res: Response) {
@@ -220,6 +300,10 @@ export class InitiativeController {
       externalOnly ? Promise.resolve({ rows: [] }) : pool.query(`SELECT h.*, u.name AS actor_name FROM initiative_content_history h LEFT JOIN users u ON u.id = h.actor_id WHERE h.initiative_id = $1 ORDER BY h.created_at DESC, h.id DESC`, [req.params.id]),
     ]);
     const formatted = format(initiative.rows[0]);
+    const policy = await getInstitutionalSettingsForInitiative(req.params.id);
+    const requesterOnly = gate.isRequester && !gate.isCoordinator && !gate.isAdmin;
+    const hideDecisionReason = requesterOnly && policy.requester.decisionVisibility === 'STATUS';
+    if (hideDecisionReason) formatted.decisionReason = null;
     const safeInitiative = externalOnly ? {
       id: formatted.id, title: formatted.title, description: formatted.description,
       problemStatement: formatted.problemStatement, impactedPeople: formatted.impactedPeople,
@@ -234,12 +318,29 @@ export class InitiativeController {
       initiative: safeInitiative,
       access: {
         canRead: true,
-        canEdit: !externalOnly && (gate.isCoordinator || (gate.isRequester && ['SUBMITTED', 'TRIAGE'].includes(gate.stage))),
+        canEdit: !externalOnly && (gate.isCoordinator || (gate.isRequester && policy.requester.canEditAfterSubmission && ['SUBMITTED', 'TRIAGE'].includes(gate.stage))),
         canManage: !externalOnly && gate.isCoordinator,
+        canInviteCollaborators: !externalOnly && !gate.isCoordinator && gate.isRequester && policy.requester.canInviteCollaborators && ['SUBMITTED', 'TRIAGE', 'DIAGNOSIS'].includes(gate.stage),
+        canWithdraw: !externalOnly && gate.isRequester && policy.requester.canWithdraw && ['SUBMITTED', 'TRIAGE', 'DIAGNOSIS', 'VALIDATION', 'PAUSED'].includes(gate.stage),
+        canAttach: !externalOnly && (gate.isCoordinator || policy.requester.canAttach),
+        requesterLabel: policy.requester.label,
+        organizationRules: externalOnly ? null : {
+          canEditAfterSubmission: policy.requester.canEditAfterSubmission,
+          canAttach: policy.requester.canAttach,
+          canInviteCollaborators: policy.requester.canInviteCollaborators,
+          canWithdraw: policy.requester.canWithdraw,
+          decisionVisibility: policy.requester.decisionVisibility,
+          mentorRequiredForValidation: policy.governance.mentorRequiredForValidation,
+          separateApproverFromRequester: policy.governance.separateApproverFromRequester,
+          coordinatorCanApprove: policy.governance.coordinatorCanApprove,
+          leadRequiredForConversion: policy.governance.leadRequiredForConversion,
+        },
+        locale: policy.profile.locale,
+        timezone: policy.profile.timezone,
         isExternal: externalOnly,
       },
       participants: externalOnly ? [] : participants.rows.map((r: any) => ({ id: r.id, role: r.role, assignedAt: r.assigned_at, user: { id: r.user_id, name: r.name, email: r.email, avatar: r.avatar } })),
-      history: externalOnly ? [] : history.rows.map((r: any) => ({ id: r.id, fromStage: r.from_stage, toStage: r.to_stage, decision: r.decision, reason: r.reason, triageAssessment: r.triage_assessment, nextReviewAt: r.next_review_at, actorId: r.actor_id, actorName: r.actor_name, createdAt: r.created_at })),
+      history: externalOnly ? [] : history.rows.map((r: any) => ({ id: r.id, fromStage: r.from_stage, toStage: r.to_stage, decision: r.decision, reason: hideDecisionReason ? null : r.reason, triageAssessment: hideDecisionReason ? [] : r.triage_assessment, nextReviewAt: r.next_review_at, actorId: r.actor_id, actorName: r.actor_name, createdAt: r.created_at })),
       assignmentHistory: externalOnly ? [] : assignmentHistory.rows.map((r: any) => ({ id: r.id, subjectUserId: r.subject_user_id, subjectName: r.subject_name, role: r.role, action: r.action, actorId: r.actor_id, actorName: r.actor_name, reason: r.reason, createdAt: r.created_at })),
       contentHistory: contentHistory.rows.map((r: any) => ({ id: r.id, actorId: r.actor_id, actorName: r.actor_name, changes: r.changes, createdAt: r.created_at })),
     } });
@@ -269,17 +370,41 @@ export class InitiativeController {
       const setting = settings.rows[0];
       if (!setting?.member) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'Workspace access required'); }
       if (setting.organization_type !== 'INSTITUTION') { await client.query('ROLLBACK'); return error(res, 409, 'INSTITUTIONAL_CONTEXT_REQUIRED', 'Initiatives are available only in institutional organizations'); }
+      const policy = await getInstitutionalSettingsForWorkspace(data.workspaceId);
+      if (policy.operations.intakePaused || !policy.requester.canSubmit) { await client.query('ROLLBACK'); return error(res, 409, 'INTAKE_DISABLED', 'Initiative intake is paused by the institution'); }
+      if (!policy.requester.canAttach && ((data.evidence?.length ?? 0) || (data.attachments?.length ?? 0))) { await client.query('ROLLBACK'); return error(res, 403, 'ATTACHMENTS_DISABLED', 'The institution does not allow attachments at submission'); }
       if (!setting.intake_enabled) { await client.query('ROLLBACK'); return error(res, 409, 'INTAKE_DISABLED', 'Initiative intake is currently disabled for this workspace'); }
+      if (policy.requester.maxOpenInitiatives > 0) {
+        const open = await client.query(
+          `SELECT COUNT(*)::int AS count FROM initiatives i LEFT JOIN projects p ON p.source_initiative_id = i.id
+            WHERE i.workspace_id = $1 AND i.submitted_by = $2
+              AND i.stage NOT IN ('DECLINED', 'ARCHIVED') AND p.id IS NULL`,
+          [data.workspaceId, actorId],
+        );
+        if (open.rows[0].count >= policy.requester.maxOpenInitiatives) {
+          await client.query('ROLLBACK');
+          return error(res, 409, 'OPEN_INITIATIVE_LIMIT', 'You have reached the active initiative limit for this program');
+        }
+      }
       // The nine proposal fields are required at submission. Workspace-specific
       // operational requirements (evidence, attachments, next step) are checked
       // later, before formalization, so requesters can submit an initial proposal.
       const missing = missingRequiredFields(data, []);
       if (missing.length) { await client.query('ROLLBACK'); return error(res, 400, 'REQUIRED_INITIATIVE_FIELDS', `Complete the required fields: ${missing.join(', ')}`); }
-      const result = await client.query(`INSERT INTO initiatives (id, workspace_id, submitted_by, title, description, problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome, proposed_solution, differentiation, proposed_next_step, priority, evidence, attachments, next_review_at, triage_criteria_snapshot) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15::jsonb, COALESCE($16, CURRENT_TIMESTAMP + ($17 * INTERVAL '1 day')), $18::jsonb) RETURNING *`, [data.workspaceId, actorId, data.title, data.description, data.problemStatement, data.impactedPeople, data.problemImpact, data.impactedCount, data.expectedOutcome, data.proposedSolution, data.differentiation, data.proposedNextStep ?? null, data.priority ?? 'MEDIUM', JSON.stringify(data.evidence ?? []), JSON.stringify(data.attachments ?? []), data.nextReviewAt ?? null, setting.review_cadence_days, JSON.stringify(setting.triage_criteria)]);
+      const result = await client.query(`INSERT INTO initiatives (id, workspace_id, submitted_by, title, description, problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome, proposed_solution, differentiation, proposed_next_step, priority, evidence, attachments, next_review_at, triage_criteria_snapshot) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15::jsonb, $16, $17::jsonb) RETURNING *`, [data.workspaceId, actorId, data.title, data.description, data.problemStatement, data.impactedPeople, data.problemImpact, data.impactedCount, data.expectedOutcome, data.proposedSolution, data.differentiation, data.proposedNextStep ?? null, data.priority ?? 'MEDIUM', JSON.stringify(data.evidence ?? []), JSON.stringify(data.attachments ?? []), data.nextReviewAt ?? scheduledReview(setting.review_cadence_days, policy), JSON.stringify(setting.triage_criteria)]);
       const initiative = result.rows[0];
       await client.query(`INSERT INTO initiative_participants (id, initiative_id, user_id, role, assigned_by) VALUES (gen_random_uuid(), $1, $2, 'REQUESTER', $2) ON CONFLICT DO NOTHING`, [initiative.id, actorId]);
       await client.query(`INSERT INTO initiative_assignment_history (id, initiative_id, subject_user_id, role, action, actor_id, reason) VALUES (gen_random_uuid(), $1, $2, 'REQUESTER', 'ASSIGNED', $2, 'Initiative submitted')`, [initiative.id, actorId]);
       await client.query(`INSERT INTO initiative_workflow_history (id, initiative_id, to_stage, reason, actor_id) VALUES (gen_random_uuid(), $1, 'SUBMITTED', 'Iniciativa recibida', $2)`, [initiative.id, actorId]);
+      if (policy.communication.notifyOnSubmission) await client.query(
+        `INSERT INTO notifications (id, user_id, type, title, message, data, dedupe_key)
+         SELECT gen_random_uuid(), recipients.user_id, 'INITIATIVE_SUBMITTED', 'Nueva iniciativa recibida', $4,
+                jsonb_build_object('initiativeId', $1::text, 'workspaceId', $2::text), 'initiative-submitted:' || $1::text
+         FROM (SELECT wm.user_id FROM workspace_members wm WHERE wm.workspace_id = $2 AND wm.role IN ('OWNER', 'ADMIN')
+               UNION SELECT tm.user_id FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id AND tm.role = 'ADMIN' WHERE s.workspace_id = $2) recipients
+         WHERE recipients.user_id <> $3 AND COALESCE((SELECT in_app_notifications FROM user_preferences WHERE user_id = recipients.user_id), TRUE)
+         ON CONFLICT (user_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
+        [initiative.id, data.workspaceId, actorId, `«${data.title}» fue enviada para revisión.`]);
       await client.query('COMMIT');
       return res.status(201).json({ success: true, data: { initiative: format(initiative) } });
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
@@ -289,6 +414,9 @@ export class InitiativeController {
     const actorId = userId(req); if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
     const parsed = updateInput.safeParse(req.body); if (!parsed.success) return error(res, 400, 'VALIDATION_ERROR', 'Invalid initiative data');
     const gate = await access(req.params.id, actorId); if (!gate) return error(res, 404, 'NOT_FOUND', 'Initiative not found');
+    const policy = await getInstitutionalSettingsForInitiative(req.params.id);
+    if (gate.isRequester && !gate.isCoordinator && !policy.requester.canEditAfterSubmission) return error(res, 403, 'REQUESTER_EDIT_DISABLED', 'The institution has closed editing after submission');
+    if (gate.isRequester && !gate.isCoordinator && !policy.requester.canAttach && (parsed.data.evidence !== undefined || parsed.data.attachments !== undefined)) return error(res, 403, 'ATTACHMENTS_DISABLED', 'The institution does not allow attachments');
     if (!gate.isCoordinator && !(gate.isRequester && ['SUBMITTED', 'TRIAGE'].includes(gate.stage))) return error(res, 403, 'FORBIDDEN', 'Only the requester before evaluation or a triage coordinator can edit this initiative');
     const data = parsed.data; const fields: string[] = []; const values: any[] = [];
     const dbFields: Record<string, string> = { title: 'title', description: 'description', problemStatement: 'problem_statement', impactedPeople: 'impacted_people', problemImpact: 'problem_impact', impactedCount: 'impacted_count', expectedOutcome: 'expected_outcome', proposedSolution: 'proposed_solution', differentiation: 'differentiation', proposedNextStep: 'proposed_next_step', priority: 'priority', evidence: 'evidence', attachments: 'attachments', nextReviewAt: 'next_review_at' };
@@ -302,11 +430,12 @@ export class InitiativeController {
          FROM initiatives i
          JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2
          WHERE i.id = $1 AND (
-           (i.submitted_by = $2 AND i.stage IN ('SUBMITTED', 'TRIAGE'))
+           (i.submitted_by = $2 AND i.stage IN ('SUBMITTED', 'TRIAGE') AND $3::boolean)
            OR EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role = 'TRIAGE_COORDINATOR')
            OR EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = i.workspace_id AND tm.user_id = $2 AND tm.role = 'ADMIN')
+           OR wm.role IN ('OWNER', 'ADMIN')
          ) FOR UPDATE OF i FOR KEY SHARE OF wm`,
-        [req.params.id, actorId]
+        [req.params.id, actorId, policy.requester.canEditAfterSubmission]
       );
       if (!currentAccess.rows[0]) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'Current initiative access is required'); }
       const changes: Record<string, { from: unknown; to: unknown }> = {};
@@ -328,7 +457,10 @@ export class InitiativeController {
   async addParticipant(req: Request, res: Response) {
     const actorId = userId(req); if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
     const parsed = participantInput.safeParse(req.body); if (!parsed.success) return error(res, 400, 'VALIDATION_ERROR', 'Invalid participant');
-    const gate = await access(req.params.id, actorId); if (!gate || !gate.isCoordinator) return error(res, 403, 'FORBIDDEN', 'A triage coordinator is required');
+    const gate = await access(req.params.id, actorId); if (!gate) return error(res, 404, 'NOT_FOUND', 'Initiative not found');
+    const policy = await getInstitutionalSettingsForInitiative(req.params.id);
+    const requesterCollaborator = gate.isRequester && policy.requester.canInviteCollaborators && parsed.data.role === 'COLLABORATOR' && ['SUBMITTED', 'TRIAGE', 'DIAGNOSIS'].includes(gate.stage);
+    if (!gate.isCoordinator && !requesterCollaborator) return error(res, 403, 'FORBIDDEN', 'Participant assignment is not allowed');
     if (!(await assertWorkspaceUser(gate.workspace_id, parsed.data.userId))) return error(res, 400, 'VALIDATION_ERROR', 'Participant must belong to the workspace');
     const client = await getClient();
     try {
@@ -340,8 +472,10 @@ export class InitiativeController {
          WHERE i.id = $1 AND (
            EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role = 'TRIAGE_COORDINATOR')
            OR EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = i.workspace_id AND tm.user_id = $2 AND tm.role = 'ADMIN')
+           OR wm.role IN ('OWNER', 'ADMIN')
+           OR (i.submitted_by = $2 AND i.stage IN ('SUBMITTED', 'TRIAGE', 'DIAGNOSIS') AND $3::boolean)
          ) FOR UPDATE OF i FOR KEY SHARE OF wm`,
-        [req.params.id, actorId]
+        [req.params.id, actorId, requesterCollaborator]
       );
       if (!coordinator.rows[0]) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'A triage coordinator with current workspace access is required'); }
       const targetMembership = await client.query(`SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 FOR KEY SHARE`, [coordinator.rows[0].workspace_id, parsed.data.userId]);
@@ -370,6 +504,7 @@ export class InitiativeController {
          WHERE i.id = $1 AND (
            EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role = 'TRIAGE_COORDINATOR')
            OR EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = i.workspace_id AND tm.user_id = $2 AND tm.role = 'ADMIN')
+           OR wm.role IN ('OWNER', 'ADMIN')
          ) FOR UPDATE OF i FOR KEY SHARE OF wm`,
         [req.params.id, actorId]
       );
@@ -404,7 +539,7 @@ export class InitiativeController {
     try {
       await client.query('BEGIN');
       const locked = await client.query(
-        `SELECT i.*, wm.user_id IS NOT NULL AS internal_member,
+        `SELECT i.*, wm.role AS workspace_role, wm.user_id IS NOT NULL AS internal_member,
           EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role = 'TRIAGE_COORDINATOR') AS explicit_coordinator,
           EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = i.workspace_id AND tm.user_id = $2 AND tm.role = 'ADMIN') AS team_coordinator,
           COALESCE(s.review_cadence_days, 7) AS review_cadence_days
@@ -416,7 +551,11 @@ export class InitiativeController {
       );
       const initiative = locked.rows[0];
       if (!initiative) { await client.query('ROLLBACK'); return error(res, 404, 'NOT_FOUND', 'Initiative not found'); }
+      const policy = await getInstitutionalSettingsForWorkspace(initiative.workspace_id);
       if (!isCoordinator(initiative)) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'Only a triage coordinator can change the institutional flow'); }
+      if (parsed.data.stage === 'VALIDATION' && policy.governance.mentorRequiredForValidation && !initiative.mentor_id) { await client.query('ROLLBACK'); return error(res, 409, 'MENTOR_REQUIRED', 'Assign a mentor before evaluation'); }
+      if (['APPROVED', 'DECLINED'].includes(parsed.data.stage) && policy.governance.separateApproverFromRequester && initiative.submitted_by === actorId) { await client.query('ROLLBACK'); return error(res, 403, 'INDEPENDENT_DECISION_REQUIRED', 'The requester cannot decide on their own initiative'); }
+      if (['APPROVED', 'DECLINED'].includes(parsed.data.stage) && !policy.governance.coordinatorCanApprove && !['OWNER', 'ADMIN'].includes(initiative.workspace_role)) { await client.query('ROLLBACK'); return error(res, 403, 'APPROVER_REQUIRED', 'A workspace administrator must record the decision'); }
       if (parsed.data.stage === initiative.stage) { await client.query('ROLLBACK'); return error(res, 409, 'NO_STAGE_CHANGE', 'Select a different stage to register a transition'); }
       if (!allowedTransitions[initiative.stage]?.includes(parsed.data.stage)) { await client.query('ROLLBACK'); return error(res, 409, 'INVALID_TRANSITION', `The transition from ${initiative.stage} to ${parsed.data.stage} is not allowed`); }
       if (decisionStages.has(parsed.data.stage) && (!parsed.data.decision || !parsed.data.reason)) { await client.query('ROLLBACK'); return error(res, 400, 'DECISION_REASON_REQUIRED', 'This decision requires both a decision and a reason'); }
@@ -430,36 +569,69 @@ export class InitiativeController {
          SET stage = $2,
              decision = CASE WHEN $2 IN ('APPROVED', 'DECLINED', 'PAUSED', 'ARCHIVED') THEN $3 ELSE NULL END,
              decision_reason = CASE WHEN $2 IN ('APPROVED', 'DECLINED', 'PAUSED', 'ARCHIVED') THEN $4 ELSE NULL END,
-             next_review_at = COALESCE($5, CASE WHEN $2 IN ('APPROVED', 'DECLINED', 'ARCHIVED') THEN NULL ELSE CURRENT_TIMESTAMP + ($7 * INTERVAL '1 day') END),
+             next_review_at = $5,
              triage_owner_id = COALESCE(triage_owner_id, $6), triage_assessment = $9::jsonb, updated_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND stage = $8 RETURNING *`,
-        [req.params.id, parsed.data.stage, parsed.data.decision ?? null, parsed.data.reason ?? null, parsed.data.nextReviewAt ?? null, actorId, initiative.review_cadence_days, initiative.stage, JSON.stringify(assessment)]
+        [req.params.id, parsed.data.stage, parsed.data.decision ?? null, parsed.data.reason ?? null, ['APPROVED', 'DECLINED', 'ARCHIVED'].includes(parsed.data.stage) ? null : (parsed.data.nextReviewAt ?? scheduledReview(initiative.review_cadence_days, policy)), actorId, initiative.review_cadence_days, initiative.stage, JSON.stringify(assessment)]
       );
       if (!result.rows[0]) { await client.query('ROLLBACK'); return error(res, 409, 'STALE_INITIATIVE', 'The initiative changed before this decision could be saved'); }
       await client.query(`INSERT INTO initiative_workflow_history (id, initiative_id, from_stage, to_stage, decision, reason, actor_id, triage_assessment, next_review_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7::jsonb, $8)`, [req.params.id, initiative.stage, parsed.data.stage, parsed.data.decision ?? null, parsed.data.reason ?? null, actorId, JSON.stringify(assessment), result.rows[0].next_review_at]);
+      if (decisionStages.has(parsed.data.stage) && policy.communication.notifyOnDecision && initiative.submitted_by !== actorId) await client.query(
+        `INSERT INTO notifications (id, user_id, type, title, message, data, dedupe_key)
+         SELECT gen_random_uuid(), $2, 'INITIATIVE_DECISION', 'Actualización de tu iniciativa', $4,
+                jsonb_build_object('initiativeId', $1::text), 'initiative-decision:' || $1::text || ':' || $3::text
+         WHERE COALESCE((SELECT in_app_notifications FROM user_preferences WHERE user_id = $2), TRUE)
+         ON CONFLICT (user_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
+        [req.params.id, initiative.submitted_by, parsed.data.stage, policy.requester.decisionVisibility === 'REASON' && parsed.data.reason ? parsed.data.reason : `Tu iniciativa pasó a ${parsed.data.stage}.`]);
       await client.query('COMMIT'); return res.json({ success: true, data: { initiative: format(result.rows[0]) } });
+    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+  }
+
+  async withdraw(req: Request, res: Response) {
+    const actorId = userId(req); if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const locked = await client.query(`SELECT i.* FROM initiatives i JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2 WHERE i.id = $1 AND i.submitted_by = $2 FOR UPDATE OF i FOR KEY SHARE OF wm`, [req.params.id, actorId]);
+      const initiative = locked.rows[0];
+      if (!initiative) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'Only the current requester can withdraw this initiative'); }
+      const policy = await getInstitutionalSettingsForWorkspace(initiative.workspace_id);
+      if (!policy.requester.canWithdraw) { await client.query('ROLLBACK'); return error(res, 403, 'WITHDRAW_DISABLED', 'Withdrawal is disabled by the institution'); }
+      if (!['SUBMITTED', 'TRIAGE', 'DIAGNOSIS', 'VALIDATION', 'PAUSED'].includes(initiative.stage)) { await client.query('ROLLBACK'); return error(res, 409, 'INVALID_TRANSITION', 'This initiative can no longer be withdrawn'); }
+      const updated = await client.query(`UPDATE initiatives SET stage = 'ARCHIVED', decision = 'WITHDRAWN', decision_reason = 'Retirada por la persona solicitante', next_review_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`, [req.params.id]);
+      await client.query(`INSERT INTO initiative_workflow_history (id, initiative_id, from_stage, to_stage, decision, reason, actor_id) VALUES (gen_random_uuid(), $1, $2, 'ARCHIVED', 'WITHDRAWN', 'Retirada por la persona solicitante', $3)`, [req.params.id, initiative.stage, actorId]);
+      await client.query('COMMIT');
+      return res.json({ success: true, data: { initiative: format(updated.rows[0]) } });
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
   }
 
   async convert(req: Request, res: Response) {
     const actorId = userId(req); if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
+    const conversion = initiativeConversionInput.safeParse(req.body ?? {});
+    if (!conversion.success) return error(res, 400, 'VALIDATION_ERROR', 'Invalid project methodology or Scrum assignments');
+    const { methodology, productOwnerId, scrumMasterId } = conversion.data;
     const client = await getClient();
     try {
       await client.query('BEGIN');
       const locked = await client.query(
-        `SELECT i.*, wm.user_id IS NOT NULL AS internal_member,
+        `SELECT i.*, wm.role AS workspace_role, wm.user_id IS NOT NULL AS internal_member,
+          om.role AS organization_role,
           EXISTS(SELECT 1 FROM initiative_participants ip WHERE ip.initiative_id = i.id AND ip.user_id = $2 AND ip.role = 'TRIAGE_COORDINATOR') AS explicit_coordinator,
           EXISTS(SELECT 1 FROM workspace_institutional_settings s JOIN team_members tm ON tm.team_id = s.initiative_team_id WHERE s.workspace_id = i.workspace_id AND tm.user_id = $2 AND tm.role = 'ADMIN') AS team_coordinator,
           COALESCE(s.required_initiative_fields, '["title", "description", "problemStatement", "impactedPeople", "problemImpact", "impactedCount", "expectedOutcome", "proposedSolution", "differentiation"]'::jsonb) AS required_initiative_fields,
           s.active_standard_id
          FROM initiatives i
          JOIN workspace_members wm ON wm.workspace_id = i.workspace_id AND wm.user_id = $2
+         JOIN workspaces w ON w.id = i.workspace_id
+         LEFT JOIN organization_members om ON om.organization_id = w.organization_id AND om.user_id = $2
          LEFT JOIN workspace_institutional_settings s ON s.workspace_id = i.workspace_id
          WHERE i.id = $1 FOR UPDATE OF i FOR KEY SHARE OF wm`,
         [req.params.id, actorId]
       );
       const i = locked.rows[0];
       if (!i) { await client.query('ROLLBACK'); return error(res, 404, 'NOT_FOUND', 'Initiative not found'); }
+      if (!['OWNER', 'ADMIN'].includes(i.organization_role)) { await client.query('ROLLBACK'); return error(res, 403, 'ORGANIZATION_MANAGER_REQUIRED', 'Solo el propietario o un administrador de la organización puede crear proyectos.'); }
+      const policy = await getInstitutionalSettingsForWorkspace(i.workspace_id);
       if (!isCoordinator(i)) { await client.query('ROLLBACK'); return error(res, 403, 'FORBIDDEN', 'A triage coordinator is required'); }
       if (i.stage !== 'APPROVED') { await client.query('ROLLBACK'); return error(res, 409, 'INVALID_TRANSITION', 'Only approved initiatives can become projects'); }
       const missing = missingRequiredFields({ title: i.title, description: i.description, problemStatement: i.problem_statement, impactedPeople: i.impacted_people, problemImpact: i.problem_impact, impactedCount: i.impacted_count, expectedOutcome: i.expected_outcome, proposedSolution: i.proposed_solution, differentiation: i.differentiation, proposedNextStep: i.proposed_next_step, evidence: i.evidence, attachments: i.attachments }, i.required_initiative_fields);
@@ -468,11 +640,26 @@ export class InitiativeController {
       if (assessmentError) { await client.query('ROLLBACK'); return error(res, 409, 'TRIAGE_CRITERIA_INCOMPLETE', assessmentError); }
       const existing = await client.query(`SELECT id FROM projects WHERE source_initiative_id = $1`, [i.id]); if (existing.rows[0]) { await client.query('ROLLBACK'); return res.json({ success: true, data: { projectId: existing.rows[0].id, alreadyConverted: true } }); }
       const lead = await client.query(`SELECT ip.user_id FROM initiative_participants ip JOIN workspace_members wm ON wm.workspace_id = $2 AND wm.user_id = ip.user_id WHERE ip.initiative_id = $1 AND ip.role = 'PROJECT_LEAD' ORDER BY ip.assigned_at LIMIT 1`, [i.id, i.workspace_id]);
+      if (policy.governance.leadRequiredForConversion && !lead.rows[0]) { await client.query('ROLLBACK'); return error(res, 409, 'PROJECT_LEAD_REQUIRED', 'Assign a project lead before conversion'); }
       const validTriageOwner = i.triage_owner_id ? await client.query(`SELECT user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, [i.workspace_id, i.triage_owner_id]) : { rows: [] };
       const ownerId = lead.rows[0]?.user_id ?? validTriageOwner.rows[0]?.user_id ?? actorId;
+      if (methodology === 'SCRUM') {
+        if (!productOwnerId || !scrumMasterId || productOwnerId === scrumMasterId) {
+          await client.query('ROLLBACK');
+          return error(res, 400, 'INVALID_SCRUM_ROLES', 'Selecciona un Product Owner y un Scrum Master distintos.');
+        }
+        const selectedMembers = await client.query(
+          `SELECT user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = ANY($2::uuid[])`,
+          [i.workspace_id, [productOwnerId, scrumMasterId]],
+        );
+        if (selectedMembers.rowCount !== 2) {
+          await client.query('ROLLBACK');
+          return error(res, 400, 'INVALID_SCRUM_ROLES', 'Los roles de Scrum deben asignarse a personas de esta organización.');
+        }
+      }
       const standard = await client.query(`SELECT id, version FROM workspace_project_standards WHERE workspace_id = $2 AND is_active = true AND ($1::uuid IS NULL OR id = $1) ORDER BY version DESC, updated_at DESC LIMIT 1`, [i.active_standard_id, i.workspace_id]);
       if (!standard.rows[0]) { await client.query('ROLLBACK'); return error(res, 409, 'FORMALIZATION_STANDARD_REQUIRED', 'Select an active institutional standard before formalizing an initiative'); }
-      const project = await client.query(`INSERT INTO projects (id, workspace_id, source_initiative_id, name, description, status, maturity_stage, problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome, proposed_solution, differentiation, next_step, owner_id, formalized_at, applied_standard_id, applied_standard_version, standard_applied_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, 'PLANNING', 'FORMALIZED', $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, $14, $15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`, [i.workspace_id, i.id, i.title, i.description, i.problem_statement, i.impacted_people, i.problem_impact, i.impacted_count, i.expected_outcome, i.proposed_solution, i.differentiation, i.proposed_next_step, ownerId, standard.rows[0].id, standard.rows[0].version]);
+      const project = await client.query(`INSERT INTO projects (id, workspace_id, source_initiative_id, name, description, status, maturity_stage, problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome, proposed_solution, differentiation, next_step, owner_id, formalized_at, applied_standard_id, applied_standard_version, standard_applied_at, methodology, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, 'PLANNING', 'FORMALIZED', $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, $14, $15, CURRENT_TIMESTAMP, $16, CURRENT_TIMESTAMP) RETURNING id`, [i.workspace_id, i.id, i.title, i.description, i.problem_statement, i.impacted_people, i.problem_impact, i.impacted_count, i.expected_outcome, i.proposed_solution, i.differentiation, i.proposed_next_step, ownerId, standard.rows[0].id, standard.rows[0].version, methodology]);
       const projectId = project.rows[0].id;
     const board = await client.query(`INSERT INTO boards (id, workspace_id, name, description, position, created_by, color) VALUES (gen_random_uuid(), $1, $2, $3, COALESCE((SELECT MAX(position) + 1 FROM boards WHERE workspace_id = $1), 0), $4, '#F2571E') RETURNING id`, [i.workspace_id, `Ejecución - ${i.title}`, 'Tablero inicial creado desde una iniciativa aprobada.', actorId]);
       await client.query(`INSERT INTO project_boards (id, project_id, board_id) VALUES (gen_random_uuid(), $1, $2)`, [projectId, board.rows[0].id]);
@@ -480,6 +667,31 @@ export class InitiativeController {
       await client.query(`INSERT INTO project_teams (id, project_id, team_id, assigned_by) SELECT gen_random_uuid(), $1, s.initiative_team_id, $2 FROM workspace_institutional_settings s JOIN teams t ON t.id = s.initiative_team_id AND t.workspace_id = s.workspace_id WHERE s.workspace_id = $3 AND s.initiative_team_id IS NOT NULL ON CONFLICT DO NOTHING`, [projectId, actorId, i.workspace_id]);
       await client.query(`INSERT INTO project_role_assignments (id, project_id, user_id, role, is_primary, assigned_by) SELECT gen_random_uuid(), $1, ip.user_id, CASE ip.role WHEN 'REQUESTER' THEN 'REQUESTER'::"ProjectOperationalRole" WHEN 'TRIAGE_COORDINATOR' THEN 'TRIAGE_COORDINATOR'::"ProjectOperationalRole" WHEN 'MENTOR' THEN 'MENTOR'::"ProjectOperationalRole" WHEN 'EVALUATOR' THEN 'EVALUATOR'::"ProjectOperationalRole" WHEN 'PROJECT_LEAD' THEN 'PROJECT_LEAD'::"ProjectOperationalRole" WHEN 'COLLABORATOR' THEN 'COLLABORATOR'::"ProjectOperationalRole" ELSE 'COLLABORATOR'::"ProjectOperationalRole" END, ip.role = 'PROJECT_LEAD', $2 FROM initiative_participants ip JOIN workspace_members wm ON wm.workspace_id = $4 AND wm.user_id = ip.user_id WHERE ip.initiative_id = $3 ON CONFLICT DO NOTHING`, [projectId, actorId, i.id, i.workspace_id]);
       await client.query(`INSERT INTO project_role_assignments (id, project_id, user_id, role, is_primary, assigned_by) SELECT gen_random_uuid(), $1, $2, 'PROJECT_LEAD', true, $3 WHERE NOT EXISTS (SELECT 1 FROM project_role_assignments WHERE project_id = $1 AND role = 'PROJECT_LEAD') ON CONFLICT DO NOTHING`, [projectId, ownerId, actorId]);
+      if (methodology === 'SCRUM') {
+        for (const participantId of [productOwnerId!, scrumMasterId!]) {
+          if (participantId !== ownerId) {
+            await client.query(`INSERT INTO project_members (id, project_id, user_id, role, added_by) VALUES (gen_random_uuid(), $1, $2, 'MEMBER', $3) ON CONFLICT (project_id, user_id) DO NOTHING`, [projectId, participantId, actorId]);
+          }
+        }
+        const projectParticipants = await client.query(
+          `SELECT DISTINCT candidates.user_id FROM (
+             SELECT owner_id AS user_id FROM projects WHERE id = $1
+             UNION SELECT pm.user_id FROM project_members pm WHERE pm.project_id = $1
+             UNION SELECT ip.user_id FROM initiative_participants ip JOIN workspace_members wm ON wm.workspace_id = $3 AND wm.user_id = ip.user_id WHERE ip.initiative_id = $2
+             UNION SELECT tm.user_id FROM project_teams pt JOIN team_members tm ON tm.team_id = pt.team_id WHERE pt.project_id = $1
+           ) candidates`,
+          [projectId, i.id, i.workspace_id],
+        );
+        const participantIds = new Set<string>(projectParticipants.rows.map((row) => row.user_id));
+        if (participantIds.size < 3 || !participantIds.has(productOwnerId!) || !participantIds.has(scrumMasterId!)) {
+          await client.query('ROLLBACK');
+          return error(res, 409, 'INVALID_SCRUM_ROSTER', 'Scrum necesita Product Owner, Scrum Master y al menos una tercera persona del proyecto o del equipo institucional.');
+        }
+        for (const participantId of participantIds) {
+          const role = participantId === productOwnerId ? 'PRODUCT_OWNER' : participantId === scrumMasterId ? 'SCRUM_MASTER' : 'DEVELOPER';
+          await client.query(`INSERT INTO project_methodology_assignments (id, project_id, user_id, role) VALUES (gen_random_uuid(), $1, $2, $3)`, [projectId, participantId, role]);
+        }
+      }
       await client.query(`INSERT INTO initiative_workflow_history (id, initiative_id, from_stage, to_stage, decision, reason, actor_id) VALUES (gen_random_uuid(), $1, 'APPROVED', 'APPROVED', 'FORMALIZED', 'Iniciativa convertida en proyecto: ' || $2, $3)`, [i.id, projectId, actorId]);
       await client.query('COMMIT'); return res.status(201).json({ success: true, data: { projectId, boardId: board.rows[0].id } });
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }

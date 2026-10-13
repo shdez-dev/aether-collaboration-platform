@@ -3,7 +3,7 @@
 
 import React, { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
-  MessageSquare, X, Check, RotateCcw, Pencil, Trash2, Send,
+  MessageSquare, X, RotateCcw, Pencil, Trash2, Send,
   ChevronDown, ChevronRight, Reply,
 } from 'lucide-react';
 import {
@@ -235,26 +235,37 @@ interface CommentFormProps {
 function CommentForm({ onSubmit, onCancel, placeholder, submitLabel = 'Comentar', autoFocus, initialValue = '', members = [], t: translations }: CommentFormProps) {
   const [content,    setContent]    = useState(initialValue);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const mentionIdsRef = useRef<Set<string>>(new Set());
 
   const handle = async () => {
     const text = content.trim();
-    if (!text) return;
+    if (!text || submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await onSubmit(text, Array.from(mentionIdsRef.current));
       setContent('');
       mentionIdsRef.current = new Set();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'No se pudo guardar el comentario. Inténtalo de nuevo.');
     } finally { setSubmitting(false); }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <MentionTextarea
-        value={content} onChange={setContent} onSubmit={handle}
+        value={content}
+        onChange={(value) => { setContent(value); if (submitError) setSubmitError(null); }}
+        onSubmit={handle}
         onMentionSelected={(id) => mentionIdsRef.current.add(id)}
         placeholder={placeholder} autoFocus={autoFocus} members={members}
       />
+      {submitError && (
+        <p role="alert" style={{ margin: 0, color: C.red, fontSize: '11.5px', lineHeight: 1.45 }}>
+          {submitError}
+        </p>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
         <span style={{ fontSize: '11px', color: C.text4 }}>⌘↵ enviar | @mencionar</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -389,7 +400,7 @@ function CommentThread({ comment, isActive, currentUserId, members, onFocus, doc
 
               {/* Acciones */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-                {comment.resolved ? (
+                {comment.resolved && (
                   <>
                     <span style={{
                       display: 'flex', alignItems: 'center', gap: '3px',
@@ -397,16 +408,12 @@ function CommentThread({ comment, isActive, currentUserId, members, onFocus, doc
                       padding: '2px 7px', borderRadius: '100px',
                       background: `${C.green}15`, border: `1px solid ${C.green}30`,
                     }}>
-                      <Check style={{ width: '10px', height: '10px' }} /> Resuelto
+                      Resuelto
                     </span>
                     <IconBtn onClick={(e) => { e.stopPropagation(); resolveComment(comment.id, false); }} title="Reabrir">
                       <RotateCcw style={{ width: '11px', height: '11px' }} />
                     </IconBtn>
                   </>
-                ) : (
-                  <IconBtn onClick={(e) => { e.stopPropagation(); resolveComment(comment.id, true); }} title="Marcar resuelto" green>
-                    <Check style={{ width: '12px', height: '12px' }} />
-                  </IconBtn>
                 )}
                 {isOwn && (
                   <>
@@ -601,13 +608,13 @@ export function CommentGutterIndicators({ comments, activeCommentId, editorEl, s
 
 export interface DocumentCommentsSidebarProps {
   documentId: string;
-  canEdit: boolean;
+  canComment: boolean;
   members?: { id: string; name: string; avatar?: string | null }[];
   onCommentFocus?: (commentId: string, position: { from: number; to: number }) => void;
   selectedText?: string;
 }
 
-export function DocumentCommentsSidebar({ documentId, canEdit, members = [], onCommentFocus, selectedText = '' }: DocumentCommentsSidebarProps) {
+export function DocumentCommentsSidebar({ documentId, canComment, members = [], onCommentFocus, selectedText = '' }: DocumentCommentsSidebarProps) {
   const t = useT();
   const { fetchComments, setActiveComment, setSidebarOpen, setPendingSelection } = useDocumentCommentStore();
   const comments        = useDocumentCommentStore(selectDocumentComments(documentId));
@@ -629,7 +636,7 @@ export function DocumentCommentsSidebar({ documentId, canEdit, members = [], onC
   if (!sidebarOpen) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', background: C.surface }}>
+      <div className="doc-comments-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', background: C.surface }}>
 
       {/* Header */}
       <div style={{
@@ -639,7 +646,7 @@ export function DocumentCommentsSidebar({ documentId, canEdit, members = [], onC
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
           <MessageSquare style={{ width: '13px', height: '13px', color: C.accent, flexShrink: 0 }} />
-          <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>Comentarios</span>
+          <span style={{ fontSize: '13px', fontWeight: 650, color: C.text, fontFamily: "'Sora', system-ui, sans-serif" }}>Comentarios</span>
           {openComments.length > 0 && (
             <span style={{
               fontSize: '10.5px', fontWeight: 700, padding: '1px 6px', borderRadius: '100px',
@@ -657,7 +664,7 @@ export function DocumentCommentsSidebar({ documentId, canEdit, members = [], onC
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
         {/* Nuevo comentario */}
-        {pendingSelection && canEdit && (
+        {pendingSelection && canComment && (
           <NewCommentPanel
             documentId={documentId} position={pendingSelection}
             selectedText={selectedText} members={members}
@@ -667,16 +674,14 @@ export function DocumentCommentsSidebar({ documentId, canEdit, members = [], onC
 
         {/* Empty */}
         {visibleComments.length === 0 && !pendingSelection && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px', textAlign: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px', height: '36px', borderRadius: '9px',
-              background: C.hover, border: `1px solid ${C.border2}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <MessageSquare style={{ width: '16px', height: '16px', color: C.text4 }} />
+          <div className="doc-comments-empty" role="status">
+            <div className="doc-comments-empty-icon">
+              <MessageSquare aria-hidden="true" />
             </div>
-            <p style={{ fontSize: '12px', color: C.text4, lineHeight: 1.6 }}>
-              {canEdit ? 'Selecciona texto en el documento\npara añadir un comentario' : 'Sin comentarios aún'}
+            <h3>{canComment ? 'Comenta sobre una idea' : 'Sin comentarios todavía'}</h3>
+            <p>{canComment
+              ? 'Selecciona una frase del documento para iniciar una conversación en contexto.'
+              : 'Cuando el equipo añada comentarios, aparecerán aquí.'}
             </p>
           </div>
         )}

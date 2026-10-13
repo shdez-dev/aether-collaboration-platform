@@ -44,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     pathname === '/forgot-password' ||
     pathname?.startsWith('/legal/') ||
     pathname?.startsWith('/verify-email') ||
+    pathname === '/organization-invitation' ||
     pathname?.startsWith('/dashboard');
 
   return (

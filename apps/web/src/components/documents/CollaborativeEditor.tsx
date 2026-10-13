@@ -47,6 +47,7 @@ import {
   Save,
   Check,
   Eye,
+  FileText,
   Highlighter,
   Table as TableIcon,
   Link as LinkIcon,
@@ -638,6 +639,7 @@ interface CollaborativeEditorProps {
   workspaceId: string;
   currentUser: { id: string; name: string; color: string };
   canEdit: boolean;
+  canComment: boolean;
 }
 
 // ── Icon wrapper for responsive sizing ────────────────────────────────────────
@@ -686,7 +688,7 @@ function ToolbarButton({
 }
 
 function Divider({ label }: { label: string }) {
-  return <div className="doc-format-divider" style={{ borderTop: `1px solid ${C.border}`, margin: '11px 0 7px', paddingTop: '10px', color: C.text4, fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</div>;
+  return <div className="doc-format-divider" style={{ borderTop: `1px solid ${C.border}`, margin: '11px 0 7px', paddingTop: '10px', color: C.text4, fontSize: '10px', fontWeight: 700 }}>{label}</div>;
 }
 
 // ── Highlight colour picker button ────────────────────────────────────────────
@@ -1428,7 +1430,7 @@ function EditorToolbar({
   return (
     <aside className="doc-format-panel" aria-label="Herramientas de formato" style={{ background: C.surface, borderRight: `1px solid ${C.border}`, flexShrink: 0 }}>
       <div className="doc-format-panel-inner" style={{ fontFamily: MANROPE }}>
-        <div className="doc-format-heading" style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 3 }}>Formato</div>
+        <div className="doc-format-heading" style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 3 }}>Formato</div>
         <div className="doc-format-subheading" style={{ fontSize: 11, color: C.text4, marginBottom: 12 }}>Herramientas del documento</div>
         {/* History */}
         <ToolbarButton
@@ -1630,6 +1632,7 @@ export default function CollaborativeEditor({
   workspaceId,
   currentUser,
   canEdit,
+  canComment,
 }: CollaborativeEditorProps) {
   const t = useT();
   const [yjsDoc] = useState(() => new Y.Doc());
@@ -1972,9 +1975,10 @@ export default function CollaborativeEditor({
     };
     socketService.on('document:saved', handleSaved);
 
-    const handleSaveError = (data: { documentId: string; error: string }) => {
+    const handleSaveError = (data: { documentId: string; error: string; code?: string }) => {
       if (data.documentId === documentId) {
         setIsSavingToServer(false);
+        if (data.code === 'ORGANIZATION_STORAGE_LIMIT_REACHED') setLimitMessage(data.error);
       }
     };
     socketService.on('document:save-error', handleSaveError);
@@ -2240,15 +2244,22 @@ export default function CollaborativeEditor({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
+    <div className="doc-editor-root" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
 
-      <div role={limitMessage ? 'alert' : undefined} style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '5px 16px', color: limitMessage || characterCount >= 80_000 ? C.amber : C.text4, fontSize: 11 }}>
-        {limitMessage || (characterCount >= 80_000 ? 'El documento se acerca al límite.' : '')}
-        <span>{characterCount.toLocaleString('es-CL')}/100.000</span>
+      <div role={limitMessage ? 'alert' : undefined} className="doc-editor-status">
+        {(limitMessage || characterCount >= 80_000) && (
+          <span className="doc-editor-limit-message">
+            {limitMessage || 'El documento se acerca al límite.'}
+          </span>
+        )}
+        <span className="doc-character-count" aria-label={`${characterCount.toLocaleString('es-CL')} de 100.000 caracteres`}>
+          <FileText aria-hidden="true" />
+          <span>{characterCount.toLocaleString('es-CL')} / 100.000 caracteres</span>
+        </span>
       </div>
 
       {/* Bubble menu — appears on text selection */}
-      {canEdit && (
+      {canComment && (
         <BubbleMenu
           editor={editor}
           tippyOptions={{ duration: 100 }}
@@ -2267,6 +2278,8 @@ export default function CollaborativeEditor({
               backdropFilter: 'blur(12px)',
             }}
           >
+          {canEdit && (
+            <>
           {[
             { cmd: () => editor.chain().focus().toggleBold().run(),      active: editor.isActive('bold'),      icon: <Bold style={{ width: '13px', height: '13px' }} />,          title: 'Negrita' },
             { cmd: () => editor.chain().focus().toggleItalic().run(),    active: editor.isActive('italic'),    icon: <Italic style={{ width: '13px', height: '13px' }} />,        title: 'Cursiva' },
@@ -2385,14 +2398,20 @@ export default function CollaborativeEditor({
             </BubbleBtn>
           )}
 
-          <div style={{ width: '1px', height: '16px', background: C.border2, margin: '0 2px' }} />
+            </>
+          )}
 
-          <BubbleBtn
-            onMouseDown={(e) => { e.preventDefault(); const { from, to } = editor.state.selection; if (from === to) return; setPendingSelection({ from, to }); setSidebarOpen(true); setTimeout(() => editor.commands.focus(), 0); }}
-            title="Comentar selección"
-          >
-            <MessageSquare style={{ width: '13px', height: '13px' }} />
-          </BubbleBtn>
+          {canComment && (
+            <>
+              {canEdit && <div style={{ width: '1px', height: '16px', background: C.border2, margin: '0 2px' }} />}
+              <BubbleBtn
+                onMouseDown={(e) => { e.preventDefault(); const { from, to } = editor.state.selection; if (from === to) return; setPendingSelection({ from, to }); setSidebarOpen(true); setTimeout(() => editor.commands.focus(), 0); }}
+                title="Comentar selección"
+              >
+                <MessageSquare style={{ width: '13px', height: '13px' }} />
+              </BubbleBtn>
+            </>
+          )}
           </div>
         </BubbleMenu>
       )}
@@ -2406,7 +2425,13 @@ export default function CollaborativeEditor({
             isSaving={isSaving}
             isSavingToServer={isSavingToServer}
             lastSaveTime={lastSavedAt}
-            onToggleComments={() => setSidebarOpen(!commentSidebarOpen)}
+            onToggleComments={() => {
+              if (!commentSidebarOpen && canComment) {
+                const { from, to } = editor.state.selection;
+                if (from !== to) setPendingSelection({ from, to });
+              }
+              setSidebarOpen(!commentSidebarOpen);
+            }}
             commentsOpen={commentSidebarOpen}
             t={t}
           />
@@ -2552,7 +2577,7 @@ export default function CollaborativeEditor({
         >
           <DocumentCommentsSidebar
             documentId={documentId}
-            canEdit={canEdit}
+            canComment={canComment}
             selectedText={selectedText}
             members={workspaceMembers}
             onCommentFocus={(commentId, position) => {

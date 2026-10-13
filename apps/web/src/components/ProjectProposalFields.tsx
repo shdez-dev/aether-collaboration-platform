@@ -1,6 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
+import styles from './ProjectProposalFields.module.css';
 
 export type ProposalStep = 0 | 1 | 2;
 
@@ -39,8 +40,8 @@ type ProposalField = { key: ProposalKey; label: string; hint: string; placeholde
 
 const fieldsByStep: Record<ProposalStep, ProposalField[]> = {
   0: [
-    { key: 'title', label: 'Nombre del proyecto', hint: 'Un nombre breve y fácil de reconocer.', placeholder: 'Ej. Mejorar la atención de clientes', type: 'text' },
-    { key: 'summary', label: 'Resumen del proyecto', hint: 'En pocas líneas, explica qué oportunidad estás explorando.', placeholder: 'Resume la oportunidad o idea que quieres impulsar.' },
+    { key: 'title', label: 'Nombre de la iniciativa', hint: 'Un nombre breve y fácil de reconocer.', placeholder: 'Ej. Mejorar la atención de clientes', type: 'text' },
+    { key: 'summary', label: 'Resumen de la iniciativa', hint: 'En pocas líneas, explica qué oportunidad estás explorando.', placeholder: 'Resume la oportunidad o idea que quieres impulsar.' },
     { key: 'problemStatement', label: 'Problemática identificada', hint: 'Describe la necesidad y la situación actual, no la solución.', placeholder: '¿Qué está ocurriendo y por qué hace falta mejorarlo?' },
   ],
   1: [
@@ -67,15 +68,15 @@ export function ProjectProposalFields({
   accent?: string;
 }) {
   return (
-    <div style={{ display: 'grid', gap: 17 }}>
+    <div className={styles.fields} style={{ '--project-field-accent': accent } as CSSProperties}>
       {fieldsByStep[step].map((field) => {
         const fieldId = `proposal-${field.key}`;
         return (
-          <label key={field.key} htmlFor={fieldId} style={{ display: 'grid', gap: 7, minWidth: 0 }}>
-            <span style={{ color: '#D8D1C5', fontSize: 12, fontWeight: 700, fontFamily: "'Manrope', system-ui, sans-serif" }}>
+          <label key={field.key} htmlFor={fieldId} className={styles.field}>
+            <span className={styles.label}>
               {field.label} <span style={{ color: accent }}>*</span>
             </span>
-            <small style={{ color: '#969184', fontSize: 11.5, lineHeight: 1.45, fontWeight: 400 }}>{field.hint}</small>
+            <small className={styles.hint}>{field.hint}</small>
             {field.type === 'number' ? (
               <input
                 id={fieldId}
@@ -88,7 +89,7 @@ export function ProjectProposalFields({
                 value={values[field.key]}
                 onChange={(event) => onChange(field.key, event.target.value)}
                 placeholder={field.placeholder}
-                style={inputStyle(accent)}
+                className={styles.control}
               />
             ) : field.key === 'title' ? (
               <input
@@ -100,7 +101,7 @@ export function ProjectProposalFields({
                 value={values[field.key]}
                 onChange={(event) => onChange(field.key, event.target.value)}
                 placeholder={field.placeholder}
-                style={inputStyle(accent)}
+                className={styles.control}
               />
             ) : (
               <textarea
@@ -112,26 +113,13 @@ export function ProjectProposalFields({
                 value={values[field.key]}
                 onChange={(event) => onChange(field.key, event.target.value)}
                 placeholder={field.placeholder}
-                style={textareaStyle(accent)}
+                className={`${styles.control} ${styles.textarea}`}
               />
             )}
-            {field.type !== 'number' && <small style={{ justifySelf: 'end', color: '#969184', fontSize: 11 }}>{values[field.key].length}/{field.key === 'title' ? 120 : field.key === 'summary' ? 1000 : 8000}</small>}
+            {field.type !== 'number' && <small className={styles.counter}>{values[field.key].length}/{field.key === 'title' ? 120 : field.key === 'summary' ? 1000 : 8000}</small>}
           </label>
         );
       })}
     </div>
   );
-}
-
-function inputStyle(accent: string): CSSProperties {
-  return {
-    width: '100%', minHeight: 44, boxSizing: 'border-box', padding: '10px 12px',
-    borderRadius: 9, border: '1px solid rgba(97,71,130,0.11)',
-    background: 'var(--c-surface)', color: 'var(--c-text)', fontSize: 13,
-    fontFamily: "'Manrope', system-ui, sans-serif", outlineColor: accent,
-  };
-}
-
-function textareaStyle(accent: string): CSSProperties {
-  return { ...inputStyle(accent), minHeight: 88, resize: 'vertical', lineHeight: 1.55 };
 }

@@ -211,12 +211,15 @@ model User {
   teamInvitationsSent          TeamInvitation[]      @relation("TeamInvitedBy")
   projectMemberships           ProjectMember[]       @relation("ProjectMemberUser")
   projectMembershipsAdded      ProjectMember[]       @relation("ProjectMemberAdder")
+  projectMethodologyAssignments ProjectMethodologyAssignment[]
   calendarEventsCreated        CalendarEvent[]       @relation("CalendarEventCreator")
   calendarEventAttendances     CalendarEventAttendee[] @relation("CalendarEventAttendeeUser")
   calendarInvitationsReceived  CalendarEventInvitation[] @relation("CalendarInvitationRecipient")
   calendarInvitationsSent      CalendarEventInvitation[] @relation("CalendarInvitationSender")
   ownedOrganizations           Organization[]        @relation("OrganizationOwner")
   organizationMemberships      OrganizationMember[]
+  organizationCreationGrants    UserOrganizationCreationGrant[] @relation("OrganizationCreationGrantRecipient")
+  organizationCreationGrantsIssued UserOrganizationCreationGrant[] @relation("OrganizationCreationGrantIssuer")
   organizationInvitationsSent  OrganizationInvitation[] @relation("OrganizationInvitationInviter")
   organizationInvitationsAccepted OrganizationInvitation[] @relation("OrganizationInvitationAccepter")
   organizationAccessRevocations OrganizationAccessRevocation[] @relation("OrganizationAccessRevokedUser")
@@ -566,6 +569,8 @@ model Card {
   startDate   DateTime? @map("start_date")
   dueDate     DateTime? @map("due_date")
   priority    String?   @db.VarChar(20)
+  acceptanceCriteria String? @map("acceptance_criteria")
+  storyPoints Int? @map("story_points")
   estimatedMinutes Int? @map("estimated_minutes")
   completed   Boolean   @default(false)
   completedAt DateTime? @map("completed_at")
@@ -582,6 +587,7 @@ model Card {
   blocking       CardDependency[]   @relation("BlockingCard")
   blocked        CardDependency[]   @relation("BlockedCard")
   sprintCards    SprintCard[]
+  projectEpicCards ProjectEpicCard[]
 
   @@index([listId])
   @@index([completed])
@@ -757,6 +763,9 @@ model DocumentComment {
   documentId String   @map("document_id") @db.Uuid
   userId     String   @map("user_id") @db.Uuid
   content    String
+  position   Json     @default("{\"from\":0,\"to\":0}")
+  resolved   Boolean  @default(false)
+  parentId   String?  @map("parent_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -786,7 +795,8 @@ model DocumentVersion {
 
 model BoardSprint {
   id        String   @id @default(uuid()) @db.Uuid
-  boardId   String   @map("board_id") @db.Uuid
+  boardId   String?  @map("board_id") @db.Uuid
+  projectId String?  @map("project_id") @db.Uuid
   name      String   @db.VarChar(255)
   goal      String?
   startDate DateTime @map("start_date") @db.Date
@@ -797,11 +807,13 @@ model BoardSprint {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  board      Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board      Board?           @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  project    Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   cards      SprintCard[]
   milestones BoardMilestone[]
 
   @@index([boardId])
+  @@index([projectId, status])
   @@map("board_sprints")
 }
 
@@ -946,6 +958,8 @@ model Project {
   color       String?
   status      String    @default("PLANNING") @db.VarChar(20)
   maturityStage String  @default("IDEA") @map("maturity_stage") @db.VarChar(20)
+  methodology String @default("FLEXIBLE") @db.VarChar(20)
+  productGoal String? @map("product_goal")
   problemStatement String? @map("problem_statement")
   impactedPeople String? @map("impacted_people")
   problemImpact String? @map("problem_impact")
@@ -974,9 +988,12 @@ model Project {
 
   workspace      Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   boards         ProjectBoard[]
+  sprints        BoardSprint[]
+  epics          ProjectEpic[]
   milestones     ProjectMilestone[]
   teams          ProjectTeam[]
   directMembers  ProjectMember[]
+  methodologyAssignments ProjectMethodologyAssignment[]
   documents      Document[]
   workflowHistory ProjectWorkflowHistory[]
   sourceInitiative Initiative? @relation("InitiativeFormalizedProject", fields: [sourceInitiativeId], references: [id], onDelete: SetNull)
@@ -988,6 +1005,39 @@ model Project {
   @@index([workspaceId])
   @@index([ownerId])
   @@map("projects")
+}
+
+model ProjectEpic {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  name        String   @db.VarChar(120)
+  description String?  @db.VarChar(1000)
+  position    Int      @default(0)
+  createdBy   String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  epicCards ProjectEpicCard[]
+
+  @@unique([projectId, name])
+  @@unique([projectId, id])
+  @@index([projectId, position])
+  @@map("project_epics")
+}
+
+model ProjectEpicCard {
+  projectId String   @map("project_id") @db.Uuid
+  epicId    String   @map("epic_id") @db.Uuid
+  cardId    String   @map("card_id") @db.Uuid
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  epic ProjectEpic @relation(fields: [projectId, epicId], references: [projectId, id], onDelete: Cascade)
+  card Card        @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, cardId])
+  @@index([epicId])
+  @@map("project_epic_cards")
 }
 
 model ProjectWorkflowHistory {
@@ -1077,6 +1127,21 @@ model ProjectMember {
   @@unique([projectId, userId])
   @@index([projectId])
   @@map("project_members")
+}
+
+model ProjectMethodologyAssignment {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  role String @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_methodology_assignments")
 }
 
 // ── Calendar Event ───────────────────────────────────────────────────────────
@@ -1178,6 +1243,9 @@ model Organization {
   memberCapacities OrganizationMemberCapacity[]
   projectCapacityAllocations ProjectCapacityAllocation[]
   portfolioExportAudits PortfolioExportAudit[]
+  institutionalSettings InstitutionalOrganizationSettings?
+  institutionalSettingsHistory InstitutionalOrganizationSettingsHistory[]
+  teamSettings TeamOrganizationSettings?
 
   @@index([ownerUserId])
   @@map("organizations")
@@ -1196,6 +1264,56 @@ model OrganizationMember {
   @@unique([organizationId, userId])
   @@index([userId])
   @@map("organization_members")
+}
+
+model InstitutionalOrganizationSettings {
+  organizationId String @id @map("organization_id") @db.Uuid
+  settings Json @default("{}")
+  updatedById String? @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("institutional_organization_settings")
+}
+
+model TeamOrganizationSettings {
+  organizationId String @id @map("organization_id") @db.Uuid
+  settings Json @default("{}")
+  updatedById String? @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("team_organization_settings")
+}
+
+model InstitutionalOrganizationSettingsHistory {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  actorId String? @map("actor_id") @db.Uuid
+  previousSettings Json @map("previous_settings")
+  newSettings Json @map("new_settings")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("institutional_organization_settings_history")
+}
+
+model UserOrganizationCreationGrant {
+  userId           String           @map("user_id") @db.Uuid
+  organizationType OrganizationType @map("organization_type")
+  grantedById      String?          @map("granted_by") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamp(3)
+
+  user      User  @relation("OrganizationCreationGrantRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy User? @relation("OrganizationCreationGrantIssuer", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, organizationType])
+  @@index([grantedById])
+  @@map("user_organization_creation_grants")
 }
 
 model OrganizationInvitation {

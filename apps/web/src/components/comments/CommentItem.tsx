@@ -10,6 +10,7 @@ import type { CommentWithUser } from '@aether/types';
 import { es } from '@/lib/i18n';
 import { formatRelative } from '@/lib/utils/date';
 import { C } from '@/lib/colors';
+import { CommentAvatar } from './CommentAvatar';
 
 interface CommentItemProps {
   comment: CommentWithUser;
@@ -17,16 +18,6 @@ interface CommentItemProps {
   onDelete?: (commentId: string) => Promise<void>;
   showActions?: boolean;
   mentionCandidates?: MentionCandidate[];
-}
-
-const AVATAR_PALETTE = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#fb923c','#84cc16'];
-function hashColor(str: string) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
-}
-function initials(name: string) {
-  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
 export function CommentItem({ comment, onUpdate, onDelete, showActions = true, mentionCandidates = [] }: CommentItemProps) {
@@ -107,14 +98,7 @@ export function CommentItem({ comment, onUpdate, onDelete, showActions = true, m
       }}
     >
       {/* Avatar */}
-      <div style={{
-        width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
-        background: hashColor(comment.user.name),
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '11px', fontWeight: 700, color: '#fff',
-      }}>
-        {initials(comment.user.name)}
-      </div>
+      <CommentAvatar name={comment.user.name} avatar={comment.user.avatar} size={30} />
 
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>

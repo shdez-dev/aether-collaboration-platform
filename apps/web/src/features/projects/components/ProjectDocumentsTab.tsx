@@ -14,13 +14,71 @@ type Props = {
   onOpen: (documentId: string) => void;
 };
 
+function tiptapJsonText(value: unknown): string {
+  if (Array.isArray(value)) return value.map(tiptapJsonText).filter(Boolean).join(' ');
+  if (!value || typeof value !== 'object') return '';
+
+  const node = value as { type?: unknown; text?: unknown; content?: unknown };
+  if (node.type === 'text' && typeof node.text === 'string') return node.text;
+  if (node.type === 'hardBreak') return ' ';
+  return tiptapJsonText(node.content);
+}
+
+function decodeHtmlEntities(value: string) {
+  return value.replace(/&(?:amp|lt|gt|quot|apos|nbsp|#\d+|#x[\da-f]+);/gi, (entity) => {
+    const lower = entity.toLowerCase();
+    const named: Record<string, string> = {
+      '&amp;': '&',
+      '&lt;': '<',
+      '&gt;': '>',
+      '&quot;': '"',
+      '&apos;': "'",
+      '&nbsp;': ' ',
+    };
+    if (named[lower]) return named[lower];
+
+    const code = lower.startsWith('&#x')
+      ? Number.parseInt(lower.slice(3, -1), 16)
+      : Number.parseInt(lower.slice(2, -1), 10);
+    try {
+      return Number.isFinite(code) ? String.fromCodePoint(code) : entity;
+    } catch {
+      return '�';
+    }
+  });
+}
+
+function documentText(content: string) {
+  const source = (content ?? '').trim();
+  if (!source) return '';
+
+  try {
+    const parsed: unknown = JSON.parse(source);
+    if (parsed && typeof parsed === 'object') {
+      const text = tiptapJsonText(parsed);
+      if (text) return text.replace(/\s+/g, ' ').trim();
+    }
+  } catch {
+    // Older documents are stored as HTML, so continue with the HTML path.
+  }
+
+  return decodeHtmlEntities(
+    source
+      .replace(/<!--([\s\S]*?)-->/g, ' ')
+      .replace(/<br\s*\/?\s*>/gi, ' ')
+      .replace(/<\/(?:p|h[1-6]|li|div|blockquote|pre|tr|table)\s*>/gi, ' ')
+      .replace(/<[^>]*>/g, ' '),
+  ).replace(/\s+/g, ' ').trim();
+}
+
 function snippet(content: string) {
-  const text = (content ?? '').replace(/\s+/g, ' ').trim();
+  const text = documentText(content);
   return text.length > 120 ? `${text.slice(0, 120)}…` : text || 'Documento vacío';
 }
 
 function wordCount(content: string) {
-  const count = (content ?? '').trim() ? (content.trim().match(/\S+/g)?.length ?? 0) : 0;
+  const text = documentText(content);
+  const count = text ? (text.match(/\S+/g)?.length ?? 0) : 0;
   return `${count.toLocaleString('es-ES')} ${count === 1 ? 'palabra' : 'palabras'}`;
 }
 

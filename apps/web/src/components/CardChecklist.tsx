@@ -8,6 +8,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useCardStore } from '@/stores/cardStore';
 import { apiService } from '@/services/apiService';
 import type { ChecklistItem } from '@aether/types';
+import styles from './CardChecklist.module.css';
 
 interface CardChecklistProps {
   cardId: string;
@@ -31,6 +32,7 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
   const [newTitle, setNewTitle] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [showInput, setShowInput] = useState(false);
+  const [addError, setAddError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Editar ítem inline
@@ -111,6 +113,7 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
 
   const handleAdd = async () => {
     if (!newTitle.trim() || newTitle.trim().length > 120 || isAdding) return;
+    setAddError('');
     setIsAdding(true);
 
     try {
@@ -125,7 +128,7 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
       // Mantiene el input abierto para añadir más
       inputRef.current?.focus();
     } catch {
-      // silencioso
+      setAddError('No se pudo añadir la subtarea. Inténtalo de nuevo.');
     } finally {
       setIsAdding(false);
     }
@@ -241,12 +244,10 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
         </div>
         {canEdit && (
           <button
-            onClick={() => setShowInput((v) => !v)}
-            className={`flex items-center gap-1 px-2 py-1 text-xs border transition-colors ${
-              showInput
-                ? 'border-accent text-accent bg-accent/10'
-                : 'border-border text-text-muted hover:border-accent hover:text-accent'
-            }`}
+            type="button"
+            onClick={() => { setShowInput((v) => !v); setAddError(''); }}
+            aria-expanded={showInput}
+            className={styles.openButton}
           >
             <Plus className="w-3 h-3" />
             {t.checklist_btn_add}
@@ -374,35 +375,41 @@ export function CardChecklist({ cardId, onProgressChange }: CardChecklistProps) 
 
         {/* Input para nueva subtarea */}
         {showInput && canEdit && (
-          <div className="flex items-center gap-2 px-2 py-1.5 border border-accent/40 bg-accent/5">
-            <Plus className="w-4 h-4 text-accent flex-shrink-0" />
+          <div className={styles.composer}>
+            <label className={styles.composerLabel} htmlFor={`new-subtask-${cardId}`}>Nueva subtarea</label>
             <input
+              id={`new-subtask-${cardId}`}
               ref={inputRef}
               value={newTitle}
               maxLength={120}
-              onChange={(e) => setNewTitle(e.target.value)}
+              onChange={(e) => { setNewTitle(e.target.value); if (addError) setAddError(''); }}
               onKeyDown={handleAddKeyDown}
               placeholder={t.checklist_input_placeholder}
               disabled={isAdding}
-              className="flex-1 min-w-0 text-sm bg-transparent focus:outline-none font-mono text-text-primary placeholder-text-muted"
+              className={styles.composerInput}
             />
-            <span className="text-[10px] text-text-muted flex-shrink-0">{newTitle.length}/120</span>
-            <button
-              onClick={handleAdd}
-              disabled={!newTitle.trim() || isAdding}
-              className="px-2 py-0.5 text-xs bg-accent text-white disabled:opacity-40 hover:bg-accent/80 transition-colors"
-            >
-              {isAdding ? '...' : t.checklist_btn_add}
-            </button>
-            <button
-              onClick={() => {
-                setShowInput(false);
-                setNewTitle('');
-              }}
-              className="p-0.5 text-text-muted hover:text-text-primary"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            {addError && <p role="alert" className={styles.error}>{addError}</p>}
+            <div className={styles.composerFooter}>
+              <span className={styles.helper}>Enter para añadir <span aria-hidden="true">—</span> {newTitle.length}/120</span>
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  onClick={() => { setShowInput(false); setNewTitle(''); setAddError(''); }}
+                  className={styles.cancelButton}
+                  disabled={isAdding}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={!newTitle.trim() || isAdding}
+                  className={styles.addButton}
+                >
+                  <Plus size={14} /> {isAdding ? 'Añadiendo…' : 'Añadir subtarea'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

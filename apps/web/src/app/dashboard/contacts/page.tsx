@@ -585,7 +585,7 @@ export default function ContactsPage() {
                   <span className={styles.rowText}>
                     <strong>{person.name}</strong>
                     <span className={styles.rowPreview}>
-                      {presenceLabel(presence.statusFor(person.id))} · {person.position || person.email || 'Contacto de Aether'}
+                      {presenceLabel(presence.statusFor(person.id))} — {person.position || person.email || 'Contacto de Aether'}
                     </span>
                   </span>
                   {favorites.some((p) => p.id === person.id) && (

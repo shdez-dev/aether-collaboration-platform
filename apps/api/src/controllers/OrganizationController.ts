@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { organizationService, OrganizationServiceError } from '../services/OrganizationService';
+import { getInstitutionalSettingsHistory, institutionalSettingsSchema, loadInstitutionalSettingsForMember, saveInstitutionalSettings } from '../services/InstitutionalSettingsService';
+import { loadTeamOrganizationSettingsForMember, saveTeamOrganizationSettings, teamOrganizationSettingsSchema } from '../services/TeamOrganizationSettingsService';
 
 const updateOrganizationSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -31,6 +33,55 @@ function serviceError(res: Response, error: unknown, fallback: string) {
 }
 
 class OrganizationController {
+  async getInstitutionalSettings(req: Request, res: Response) {
+    const actorId = req.user?.id;
+    if (!actorId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const data = await loadInstitutionalSettingsForMember(req.params.id, actorId);
+      return res.json({ success: true, data });
+    } catch (error) { return serviceError(res, error, 'Failed to load institutional settings'); }
+  }
+
+  async updateInstitutionalSettings(req: Request, res: Response) {
+    const actorId = req.user?.id;
+    if (!actorId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    const parsed = institutionalSettingsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid institutional settings', details: parsed.error.flatten() } });
+    try {
+      const settings = await saveInstitutionalSettings(req.params.id, actorId, parsed.data);
+      return res.json({ success: true, data: { settings } });
+    } catch (error) { return serviceError(res, error, 'Failed to save institutional settings'); }
+  }
+
+  async getTeamSettings(req: Request, res: Response) {
+    const actorId = req.user?.id;
+    if (!actorId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const data = await loadTeamOrganizationSettingsForMember(req.params.id, actorId);
+      return res.json({ success: true, data });
+    } catch (error) { return serviceError(res, error, 'Failed to load team settings'); }
+  }
+
+  async updateTeamSettings(req: Request, res: Response) {
+    const actorId = req.user?.id;
+    if (!actorId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    const parsed = teamOrganizationSettingsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid team settings', details: parsed.error.flatten() } });
+    try {
+      const settings = await saveTeamOrganizationSettings(req.params.id, actorId, parsed.data);
+      return res.json({ success: true, data: { settings } });
+    } catch (error) { return serviceError(res, error, 'Failed to save team settings'); }
+  }
+
+  async getInstitutionalSettingsHistory(req: Request, res: Response) {
+    const actorId = req.user?.id;
+    if (!actorId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const history = await getInstitutionalSettingsHistory(req.params.id, actorId);
+      return res.json({ success: true, data: { history } });
+    } catch (error) { return serviceError(res, error, 'Failed to load institutional settings history'); }
+  }
+
   async create(req: Request, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
@@ -40,7 +91,18 @@ class OrganizationController {
       const organization = await organizationService.createForUser(userId, validation.data);
       return res.status(201).json({ success: true, data: { organization } });
     } catch (error: any) {
-      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: error?.message ?? 'Failed to create organization' } });
+      return serviceError(res, error, 'Failed to create organization');
+    }
+  }
+
+  async getCreationPermissions(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const types = await organizationService.getCreationPermissions(userId);
+      return res.json({ success: true, data: { types } });
+    } catch (error) {
+      return serviceError(res, error, 'Failed to load organization creation permissions');
     }
   }
 
@@ -160,8 +222,45 @@ class OrganizationController {
     if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     if (!/^[a-f0-9]{64}$/i.test(req.params.token)) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid invitation token' } });
     try {
-      const organizationId = await organizationService.acceptInvitation(req.params.token, userId);
-      return res.json({ success: true, data: { message: 'Invitation accepted', organizationId } });
+      const { organizationId, workspaceId } = await organizationService.acceptInvitation(req.params.token, userId);
+      return res.json({ success: true, data: { message: 'Invitation accepted', organizationId, workspaceId } });
+    } catch (error) {
+      return serviceError(res, error, 'Failed to accept organization invitation');
+    }
+  }
+
+  async previewInvitation(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    const token = typeof req.query.token === 'string' ? req.query.token : '';
+    const invitationId = typeof req.query.invitationId === 'string' ? req.query.invitationId : '';
+    if (Boolean(token) === Boolean(invitationId)) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Provide one invitation reference' } });
+    }
+    if (token && !/^[a-f0-9]{64}$/i.test(token)) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid invitation token' } });
+    }
+    if (invitationId && !z.string().uuid().safeParse(invitationId).success) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid invitation id' } });
+    }
+    try {
+      const invitation = await organizationService.getInvitationPreview(token || invitationId, userId, token ? 'token' : 'id');
+      res.set('Cache-Control', 'no-store');
+      return res.json({ success: true, data: { invitation } });
+    } catch (error) {
+      return serviceError(res, error, 'Failed to load organization invitation');
+    }
+  }
+
+  async acceptInvitationById(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    if (!z.string().uuid().safeParse(req.params.invitationId).success) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid invitation id' } });
+    }
+    try {
+      const { organizationId, workspaceId } = await organizationService.acceptInvitationById(req.params.invitationId, userId);
+      return res.json({ success: true, data: { message: 'Invitation accepted', organizationId, workspaceId } });
     } catch (error) {
       return serviceError(res, error, 'Failed to accept organization invitation');
     }

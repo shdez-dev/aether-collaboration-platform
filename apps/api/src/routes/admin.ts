@@ -1,11 +1,27 @@
 import { Router, type Request, type Response } from 'express';
+import { randomUUID } from 'crypto';
+import type { PoolClient } from 'pg';
+import { z } from 'zod';
 import { authenticateJWT } from '../middleware/auth';
-import { query } from '../lib/db';
+import { pool, query } from '../lib/db';
 import { getRealtimeGateway } from '../websocket/RealtimeGateway';
 import { checkRedisHealth } from '../lib/redis';
 
 const router = Router();
 router.use(authenticateJWT);
+
+const announcementSchema = z.object({
+  requestId: z.string().uuid(),
+  title: z.string().trim().min(3).max(120),
+  message: z.string().trim().min(10).max(2000),
+});
+const planChangeSchema = z.object({ planCode: z.enum(['AUTO', 'FREE', 'TEAMS', 'PORTFOLIO', 'INSTITUTIONAL', 'NETWORK']) });
+const organizationCreationTypes = ['INSTITUTION', 'NETWORK_OPERATOR'] as const;
+const organizationCreationPermissionsSchema = z.object({
+  types: z.array(z.enum(organizationCreationTypes)).max(organizationCreationTypes.length)
+    .refine((types) => new Set(types).size === types.length, 'Organization types must be unique'),
+});
+const uuidSchema = z.string().uuid();
 
 // Un único identificador estable, configurado solo en el servidor. Sin valor
 // por defecto: una instalación sin administrador explícito no expone datos.
@@ -96,8 +112,30 @@ router.get('/users', async (req, res, next) => {
       query(`SELECT u.id, u.name, u.email, u.email_verified, u.created_at,
         (SELECT COUNT(*)::int FROM organization_members om WHERE om.user_id = u.id) AS organizations,
         (SELECT COUNT(*)::int FROM workspace_members wm WHERE wm.user_id = u.id) AS workspaces,
-        (SELECT MAX(ual.created_at) FROM user_activity_log ual WHERE ual.user_id = u.id) AS last_activity_at
-        FROM users u ${where}
+        (SELECT MAX(ual.created_at) FROM user_activity_log ual WHERE ual.user_id = u.id) AS last_activity_at,
+        personal_org.id AS personal_organization_id,
+        COALESCE(personal_plan.plan_code, 'FREE') AS personal_plan,
+        CASE WHEN personal_plan.provider = 'platform-admin' THEN 'ADMIN' ELSE 'AUTOMATIC' END AS personal_plan_source,
+        COALESCE((SELECT array_agg(g.organization_type::text ORDER BY g.organization_type::text)
+          FROM user_organization_creation_grants g
+          WHERE g.user_id = u.id AND g.organization_type <> 'COMPANY'), ARRAY[]::text[]) AS organization_creation_types
+        FROM users u
+        LEFT JOIN LATERAL (
+          SELECT o.id FROM organizations o
+          WHERE o.owner_user_id = u.id AND o.type = 'PERSONAL'
+          ORDER BY o.created_at ASC LIMIT 1
+        ) personal_org ON true
+        LEFT JOIN LATERAL (
+          SELECT s.plan_code, s.provider FROM subscriptions s
+          WHERE s.organization_id = personal_org.id
+            AND s.status IN ('ACTIVE', 'TRIALING', 'PAST_DUE')
+            AND (s.current_period_end IS NULL OR s.current_period_end > CURRENT_TIMESTAMP)
+          ORDER BY CASE WHEN s.provider = 'platform-admin' THEN 0 ELSE 1 END,
+            CASE s.status WHEN 'ACTIVE' THEN 1 WHEN 'TRIALING' THEN 2 ELSE 3 END,
+            s.updated_at DESC, s.created_at DESC, s.id DESC
+          LIMIT 1
+        ) personal_plan ON true
+        ${where}
         ORDER BY u.created_at DESC LIMIT $${onlineFilter ? 3 : 2} OFFSET $${onlineFilter ? 4 : 3}`, params),
       query<{ total: number }>(`SELECT COUNT(*)::int AS total FROM users u ${where}`, onlineFilter ? params.slice(0, 2) : params.slice(0, 1)),
     ]);
@@ -106,10 +144,126 @@ router.get('/users', async (req, res, next) => {
         id: row.id, name: row.name, email: row.email, emailVerified: row.email_verified,
         createdAt: row.created_at, lastActivityAt: row.last_activity_at,
         organizations: row.organizations, workspaces: row.workspaces,
+        personalOrganizationId: row.personal_organization_id,
+        personalPlan: row.personal_plan,
+        personalPlanSource: row.personal_plan_source,
+        organizationCreationTypes: row.organization_creation_types ?? [],
         online: onlineIds.includes(row.id),
       })),
       page, pageSize: limit, total: count.rows[0]?.total ?? 0,
     } });
+  } catch (error) { next(error); }
+});
+
+router.patch('/users/:userId/plan', async (req, res, next) => {
+  const userId = uuidSchema.safeParse(req.params.userId);
+  const input = planChangeSchema.safeParse(req.body);
+  if (!userId.success || !input.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Usuario o plan inválido' } });
+  try {
+    const personal = await query<{ id: string }>(
+      `SELECT id FROM organizations WHERE owner_user_id = $1 AND type = 'PERSONAL' ORDER BY created_at ASC LIMIT 1`,
+      [userId.data],
+    );
+    const organizationId = personal.rows[0]?.id;
+    if (!organizationId) return res.status(404).json({ success: false, error: { code: 'PERSONAL_ORGANIZATION_NOT_FOUND', message: 'La cuenta no tiene una organización personal' } });
+
+    if (input.data.planCode === 'AUTO') {
+      await query(`UPDATE subscriptions SET status = 'CANCELED', updated_at = CURRENT_TIMESTAMP
+        WHERE provider_subscription_id = 'platform-admin:' || $1`, [organizationId]);
+    } else {
+      await query(`INSERT INTO subscriptions (id, organization_id, plan_code, status, provider, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at)
+        VALUES (uuid_generate_v4(), $1, $2, 'ACTIVE', 'platform-admin', 'platform-admin:' || $1, NULL, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (provider_subscription_id)
+        DO UPDATE SET plan_code = EXCLUDED.plan_code, status = 'ACTIVE', current_period_end = NULL,
+          cancel_at_period_end = FALSE, updated_at = CURRENT_TIMESTAMP`, [organizationId, input.data.planCode]);
+    }
+    const effective = await query<{ plan_code: string; provider: string | null }>(`SELECT plan_code, provider FROM subscriptions
+      WHERE organization_id = $1 AND status IN ('ACTIVE', 'TRIALING', 'PAST_DUE')
+        AND (current_period_end IS NULL OR current_period_end > CURRENT_TIMESTAMP)
+      ORDER BY CASE WHEN provider = 'platform-admin' THEN 0 ELSE 1 END,
+        CASE status WHEN 'ACTIVE' THEN 1 WHEN 'TRIALING' THEN 2 ELSE 3 END,
+        updated_at DESC, created_at DESC, id DESC LIMIT 1`, [organizationId]);
+    const plan = effective.rows[0];
+    return res.json({ success: true, data: {
+      personalOrganizationId: organizationId,
+      planCode: plan?.plan_code ?? 'FREE',
+      source: plan?.provider === 'platform-admin' ? 'ADMIN' : 'AUTOMATIC',
+    } });
+  } catch (error) { next(error); }
+});
+
+router.patch('/users/:userId/organization-creation-permissions', async (req, res, next) => {
+  const userId = uuidSchema.safeParse(req.params.userId);
+  const input = organizationCreationPermissionsSchema.safeParse(req.body);
+  if (!userId.success || !input.success) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Usuario o tipos de organización inválidos' } });
+  }
+
+  let client: PoolClient | undefined;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const target = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId.data]);
+    if (!target.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'No encontramos esa cuenta' } });
+    }
+
+    await client.query('DELETE FROM user_organization_creation_grants WHERE user_id = $1', [userId.data]);
+    if (input.data.types.length > 0) {
+      await client.query(
+        `INSERT INTO user_organization_creation_grants (user_id, organization_type, granted_by)
+         SELECT $1, organization_type::"OrganizationType", $3
+           FROM unnest($2::text[]) AS requested(organization_type)`,
+        [userId.data, input.data.types, req.user!.id],
+      );
+    }
+    await client.query('COMMIT');
+    return res.json({ success: true, data: { types: input.data.types } });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => undefined);
+    return next(error);
+  } finally {
+    client?.release();
+  }
+});
+
+router.post('/announcements', async (req, res, next) => {
+  const input = announcementSchema.safeParse(req.body);
+  if (!input.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Escribe un título y un mensaje válidos' } });
+  const { requestId, title, message } = input.data;
+  const authorId = req.user!.id;
+  const dedupeKey = `admin-announcement:${requestId}`;
+  try {
+    const inserted = await query<{ id: string; user_id: string }>(
+      `INSERT INTO notifications (id, user_id, type, title, message, data, dedupe_key, read, created_at)
+       SELECT uuid_generate_v4(), u.id, 'ADMIN_ANNOUNCEMENT', $1, $2,
+         jsonb_build_object('announcementId', $3::text, 'authorId', $4::text), $5, FALSE, CURRENT_TIMESTAMP
+       FROM users u
+       ON CONFLICT (user_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+       RETURNING id, user_id`,
+      [title, message, requestId, authorId, dedupeKey],
+    );
+    const delivered = await query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM notifications WHERE dedupe_key = $1`, [dedupeKey],
+    );
+    try {
+      const gateway = getRealtimeGateway();
+      const online = gateway.getOnlineUserIds();
+      for (const row of inserted.rows) {
+        if (!online.has(row.user_id)) continue;
+        gateway.sendToUser(row.user_id, {
+          eventId: randomUUID(), type: 'notification.created', timestamp: Date.now(), version: 1,
+          actor: { id: authorId, name: 'Administración de Aether' },
+          subject: { type: 'notification', id: row.id, name: title },
+          context: { workspaceId: '' }, vectorClock: {},
+          payload: { notificationId: row.id, userId: row.user_id, type: 'ADMIN_ANNOUNCEMENT', title, message, data: { announcementId: requestId, authorId } },
+        } as any);
+      }
+    } catch {
+      // Las notificaciones ya quedaron guardadas; la entrega en vivo es opcional.
+    }
+    return res.status(201).json({ success: true, data: { requestId, recipients: delivered.rows[0]?.count ?? inserted.rows.length } });
   } catch (error) { next(error); }
 });
 
@@ -247,11 +401,11 @@ router.get('/subscriptions', async (req, res, next) => {
 
 router.get('/system', async (_req, res) => {
   const [database, redis] = await Promise.all([
-    query('SELECT 1').then(() => true).catch(() => false),
+    query<{ count: number }>('SELECT COUNT(*)::int AS count FROM users').then((result) => result.rows[0]?.count ?? 0).catch(() => null),
     checkRedisHealth(),
   ]);
   res.json({ success: true, data: {
-    database, redis, api: true, uptimeSeconds: Math.floor(process.uptime()),
+    database: database !== null, users: database ?? 0, redis, api: true, uptimeSeconds: Math.floor(process.uptime()),
     memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
     environment: process.env.NODE_ENV ?? 'development', checkedAt: new Date().toISOString(),
   } });

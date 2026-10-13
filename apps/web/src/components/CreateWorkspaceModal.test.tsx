@@ -26,7 +26,7 @@ describe('CreateWorkspaceModal', () => {
     mockCreateWorkspace.mockResolvedValue({ id: 'workspace-new', organizationId: 'org-other' });
   });
 
-  it('allows changing the preselected organization and derives its workspace structure', async () => {
+  it('allows creating a team workspace in an institution organization on the current plan', async () => {
     const onCreated = jest.fn();
     render(<CreateWorkspaceModal isOpen initialOrganizationId="org-current" onClose={jest.fn()} onCreated={onCreated} />);
 
@@ -40,17 +40,19 @@ describe('CreateWorkspaceModal', () => {
     expect(screen.queryByText(/^ICONO:|^COLOR:/)).toBeNull();
 
     fireEvent.change(organizationSelect, { target: { value: 'org-other' } });
-    expect(await screen.findByText('Espacio institucional')).toBeTruthy();
+    expect(await screen.findByText(/El tipo Institución no activa por sí solo/)).toBeTruthy();
+    expect((screen.getByRole('radio', { name: /Espacio de equipo/ }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('radio', { name: /Espacio institucional/ }) as HTMLInputElement).disabled).toBe(true);
     fireEvent.change(screen.getByLabelText(/Nombre del espacio de trabajo/), { target: { value: 'Programas' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear espacio de trabajo' }));
 
     await waitFor(() => expect(mockCreateWorkspace).toHaveBeenCalledWith({
       name: 'Programas',
       description: undefined,
-      icon: 'Building2',
-      color: '#f97316',
+      icon: 'Users',
+      color: '#10b981',
       organizationId: 'org-other',
-      workspaceTemplateId: 'institutional',
+      workspaceTemplateId: 'team',
     }));
     expect(onCreated).toHaveBeenCalledWith({ id: 'workspace-new', organizationId: 'org-other' });
   });

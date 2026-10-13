@@ -153,6 +153,7 @@ class DocumentCommentController {
 
       return res.status(201).json({ success: true, data: { comment: commentWithUser } });
     } catch (error) {
+      console.error('[DocumentCommentController.create] Failed to create document comment', error);
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al crear comentario' },

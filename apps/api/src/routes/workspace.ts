@@ -267,6 +267,10 @@ router.delete('/:id/github', checkWorkspaceMembership, requireAdmin, (req, res) 
   workspaceGithubController.disconnect(req, res)
 );
 
+router.get('/:id/project-participants', checkWorkspaceMembership, (req, res) =>
+  projectController.getParticipants(req, res)
+);
+
 /**
  * GET /api/workspaces/:id/projects
  * Listar proyectos del workspace

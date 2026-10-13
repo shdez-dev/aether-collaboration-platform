@@ -9,6 +9,19 @@ import { WorkspaceRequest } from '../middleware/workspace';
 import { pool } from '../lib/db';
 import { projectDocumentService } from '../modules/projects/ProjectDocumentService';
 import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
+import { OrganizationStorageLimitError } from '../services/OrganizationStorageService';
+
+function storageLimitResponse(res: Response, error: unknown) {
+  if (!(error instanceof OrganizationStorageLimitError)) return null;
+  return res.status(413).json({
+    success: false,
+    error: {
+      code: error.code,
+      message: error.message,
+      details: { usedBytes: error.usedBytes.toString(), limitBytes: error.limitBytes.toString() },
+    },
+  });
+}
 
 /**
  * Validation schemas
@@ -94,6 +107,8 @@ class DocumentController {
         data: { document },
       });
     } catch (error) {
+      const storageError = storageLimitResponse(res, error);
+      if (storageError) return storageError;
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al crear documento' },
@@ -206,7 +221,11 @@ class DocumentController {
         success: true,
         // Permission entries identify internal users. Readers only need their
         // effective permission; management views receive the full roster.
-        data: { document: canManage ? document : { ...document, permissions: [] } },
+        data: {
+          document: canManage
+            ? { ...document, canManage: true }
+            : { ...document, permissions: [], canManage: false },
+        },
       });
     } catch (error) {
       return res.status(500).json({
@@ -268,6 +287,8 @@ class DocumentController {
         data: { document },
       });
     } catch (error) {
+      const storageError = storageLimitResponse(res, error);
+      if (storageError) return storageError;
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Error al actualizar documento' },
@@ -314,6 +335,8 @@ class DocumentController {
         data: { message: 'Documento eliminado exitosamente' },
       });
     } catch (error: any) {
+      const storageError = storageLimitResponse(res, error);
+      if (storageError) return storageError;
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },
@@ -440,6 +463,8 @@ class DocumentController {
         data: { document },
       });
     } catch (error: any) {
+      const storageError = storageLimitResponse(res, error);
+      if (storageError) return storageError;
       if (error instanceof DocumentTextLimitError) {
         return res.status(400).json({ success: false, error: { code: 'DOCUMENT_TEXT_LIMIT', message: error.message } });
       }
@@ -481,7 +506,7 @@ class DocumentController {
           error: {
             code: 'INSUFFICIENT_PERMISSIONS',
             message:
-              'Solo el creador del documento o el propietario del workspace pueden modificar permisos',
+              'Solo el creador del documento o una persona administradora del espacio o proyecto puede modificar permisos.',
           },
         });
       }
@@ -495,6 +520,18 @@ class DocumentController {
             message: 'Datos inválidos',
             details: validation.error.errors,
           },
+        });
+      }
+
+      const targetError = await documentService.getPermissionAssignmentError(
+        id,
+        validation.data.userId,
+        validation.data.permission,
+      );
+      if (targetError) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_PERMISSION_TARGET', message: targetError },
         });
       }
 

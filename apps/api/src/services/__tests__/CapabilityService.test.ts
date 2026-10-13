@@ -33,6 +33,7 @@ describe('CapabilityService', () => {
     expect(query).toContain('LIMIT 1');
     expect(query).toContain('e.subscription_id = s.id');
     expect(query).toContain('s.current_period_end > CURRENT_TIMESTAMP');
+    expect(query).toContain("s.provider = 'platform-admin'");
   });
 
   it('falls back to Free when no subscription is currently effective', async () => {

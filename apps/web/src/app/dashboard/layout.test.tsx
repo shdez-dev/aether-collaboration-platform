@@ -68,7 +68,7 @@ describe('sidebar compacto', () => {
     expect(window.localStorage.getItem('aether:sidebar-compact')).toBe('true');
     expect(screen.getByRole('link', { name: 'Proyecto: Proyecto Alfa' }).getAttribute('href')).toBe('/dashboard/projects/project-1');
     expect(screen.getByRole('link', { name: 'Mi perfil' }).getAttribute('href')).toBe('/dashboard/profile');
-    expect(screen.getByRole('link', { name: 'Ajustes' }).getAttribute('href')).toBe('/dashboard/settings');
+    expect(document.querySelector('.dsh-compact-settings-link')?.getAttribute('href')).toBe('/dashboard/settings');
 
     unmount();
     render(<DashboardLayout><div>Contenido</div></DashboardLayout>);

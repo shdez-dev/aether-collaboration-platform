@@ -1,6 +1,7 @@
 import { notificationRepository } from '../repositories/NotificationRepository';
 import { eventStore } from './EventStoreService';
 import type { Notification } from '@aether/types';
+import { query } from '../lib/db';
 
 type NotificationInput = {
   userId: string;
@@ -66,7 +67,60 @@ export class NotificationService {
     userId: string,
     options: { onlyUnread?: boolean; includeArchived?: boolean; includeResolved?: boolean; limit?: number } = {},
   ): Promise<Notification[]> {
+    await this.syncPendingOrganizationInvitations(userId);
     return notificationRepository.findByUserId(userId, options);
+  }
+
+  private async syncPendingOrganizationInvitations(userId: string): Promise<void> {
+    try {
+      const result = await query(
+        `SELECT oi.id AS "invitationId", oi.organization_id AS "organizationId",
+                o.name AS "organizationName", oi.role, oi.invited_by AS "inviterId",
+                COALESCE(inviter.name, 'Una organización de Aether') AS "inviterName"
+           FROM organization_invitations oi
+           JOIN organizations o ON o.id = oi.organization_id
+           JOIN users invitee ON invitee.id = $1 AND lower(invitee.email) = lower(oi.email)
+           LEFT JOIN users inviter ON inviter.id = oi.invited_by
+          WHERE oi.accepted_at IS NULL AND oi.revoked_at IS NULL
+            AND oi.expires_at > CURRENT_TIMESTAMP
+          ORDER BY oi.created_at DESC
+          LIMIT 100`,
+        [userId],
+      );
+
+      await Promise.all(result.rows.map((invitation: any) => this.createOrganizationInviteNotification({
+        userId,
+        invitationId: invitation.invitationId,
+        organizationId: invitation.organizationId,
+        organizationName: invitation.organizationName,
+        role: invitation.role,
+        inviterId: invitation.inviterId,
+        inviterName: invitation.inviterName,
+      })));
+    } catch (error) {
+      console.error('[NotificationService] could not sync organization invitations:', error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  async createOrganizationInviteNotification(data: {
+    userId: string; invitationId: string; organizationId: string; organizationName: string;
+    role: string; inviterId: string; inviterName: string;
+  }): Promise<Notification | null> {
+    return this.deliver({
+      userId: data.userId,
+      type: 'ORGANIZATION_INVITE',
+      title: 'Invitación a una organización',
+      message: `${data.inviterName} te invitó a unirte a «${data.organizationName}».`,
+      data: {
+        invitationId: data.invitationId,
+        organizationId: data.organizationId,
+        organizationName: data.organizationName,
+        role: data.role,
+        inviterId: data.inviterId,
+        inviterName: data.inviterName,
+      },
+      dedupeKey: `organization-invite:${data.invitationId}`,
+    }, { id: data.inviterId, name: data.inviterName });
   }
 
   async markAsRead(notificationId: string, userId: string): Promise<void> {
@@ -154,11 +208,11 @@ export class NotificationService {
     }, { id: data.inviterId, name: data.inviterName });
   }
 
-  async createTeamInviteNotification(data: { userId: string; teamId: string; teamName: string; inviterId: string; inviterName: string; invitationId: string }): Promise<Notification | null> {
+  async createTeamInviteNotification(data: { userId: string; teamId: string; teamName: string; workspaceId?: string; inviterId: string; inviterName: string; invitationId: string }): Promise<Notification | null> {
     return this.deliver({
       userId: data.userId, type: 'TEAM_INVITE', title: 'Invitación a equipo',
       message: `${data.inviterName} te ha invitado a unirte al equipo "${data.teamName}"`, dedupeKey: `team-invite:${data.invitationId}`,
-      data: { invitationId: data.invitationId, teamId: data.teamId, teamName: data.teamName, inviterId: data.inviterId, inviterName: data.inviterName },
+      data: { invitationId: data.invitationId, teamId: data.teamId, teamName: data.teamName, workspaceId: data.workspaceId, inviterId: data.inviterId, inviterName: data.inviterName },
     }, { id: data.inviterId, name: data.inviterName });
   }
 

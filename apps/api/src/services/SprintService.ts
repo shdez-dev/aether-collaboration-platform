@@ -3,11 +3,13 @@
 import { pool } from '../lib/db';
 import type { Sprint, Milestone } from '@aether/types';
 import { eventStore } from './EventStoreService';
+import { projectAuthorizationService } from './ProjectAuthorizationService';
 
 function mapSprint(row: any): Sprint {
   return {
     id: row.id,
     boardId: row.board_id,
+    projectId: row.project_id ?? null,
     name: row.name,
     goal: row.goal ?? undefined,
     startDate: row.start_date,
@@ -50,11 +52,12 @@ export class SprintService {
           )
           FROM sprint_cards sc
           JOIN cards c ON sc.card_id = c.id
-          WHERE sc.sprint_id = s.id
+          JOIN lists l ON l.id = c.list_id
+          WHERE sc.sprint_id = s.id AND l.board_id = $1
           ), '[]'::json
         ) as cards
        FROM board_sprints s
-       WHERE s.board_id = $1
+       WHERE s.board_id = $1 OR s.project_id IN (SELECT project_id FROM project_boards WHERE board_id = $1)
        ORDER BY s.position ASC, s.start_date ASC`,
       [boardId]
     );
@@ -150,28 +153,48 @@ export class SprintService {
   // ── Cards de un sprint ────────────────────────────────────────────────────
 
   static async addCardToSprint(sprintId: string, cardId: string, userId: string, socketId?: string): Promise<void> {
-    const inserted = await pool.query(
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const scope = await client.query('SELECT project_id FROM board_sprints WHERE id = $1', [sprintId]);
+      if (scope.rows[0]?.project_id) {
+        const boardIds = await projectAuthorizationService.getVisibleBoardIds(scope.rows[0].project_id, userId);
+        const cardBoard = await client.query('SELECT l.board_id FROM cards c JOIN lists l ON l.id = c.list_id WHERE c.id = $1', [cardId]);
+        if (!boardIds.includes(cardBoard.rows[0]?.board_id)) throw new Error('Card must belong to a visible project board');
+        await client.query('SELECT id FROM projects WHERE id = $1 FOR UPDATE', [scope.rows[0].project_id]);
+        await client.query(`DELETE FROM sprint_cards sc USING board_sprints s
+          WHERE sc.sprint_id = s.id AND s.project_id = $1 AND s.id <> $2
+          AND s.status IN ('PLANNED', 'ACTIVE') AND sc.card_id = $3`, [scope.rows[0].project_id, sprintId, cardId]);
+      }
+      const inserted = await client.query(
       `INSERT INTO sprint_cards (sprint_id, card_id, added_by)
        SELECT s.id, c.id, $3
        FROM board_sprints s
        JOIN cards c ON c.id = $2
        JOIN lists l ON l.id = c.list_id
-       WHERE s.id = $1 AND l.board_id = s.board_id
+       WHERE s.id = $1 AND s.status <> 'COMPLETED'
+         AND (l.board_id = s.board_id OR EXISTS (
+           SELECT 1 FROM project_boards pb WHERE pb.project_id = s.project_id AND pb.board_id = l.board_id))
        ON CONFLICT (sprint_id, card_id) DO NOTHING
        RETURNING sprint_id`,
       [sprintId, cardId, userId]
     );
-    if (inserted.rows.length === 0) {
-      const validScope = await pool.query(
+      if (inserted.rows.length === 0) {
+        const validScope = await client.query(
         `SELECT 1
          FROM board_sprints s
          JOIN cards c ON c.id = $2
          JOIN lists l ON l.id = c.list_id
-         WHERE s.id = $1 AND l.board_id = s.board_id`,
+         WHERE s.id = $1 AND s.status <> 'COMPLETED'
+           AND (l.board_id = s.board_id OR EXISTS (
+             SELECT 1 FROM project_boards pb WHERE pb.project_id = s.project_id AND pb.board_id = l.board_id))`,
         [sprintId, cardId]
       );
-      if (!validScope.rows[0]) throw new Error('Card must belong to the sprint board');
-    }
+        if (!validScope.rows[0]) throw new Error('Card must belong to the sprint project');
+      }
+      await client.query('COMMIT');
+    } catch (error) { await client.query('ROLLBACK'); throw error; }
+    finally { client.release(); }
 
     try {
       const [actorResult, cardResult, sprintResult] = await Promise.all([
@@ -179,9 +202,10 @@ export class SprintService {
         pool.query('SELECT title FROM cards WHERE id = $1', [cardId]),
         pool.query(
           `SELECT s.id, s.name, s.board_id,
-                  b.workspace_id
+                  COALESCE(b.workspace_id, p.workspace_id) AS workspace_id
            FROM board_sprints s
-           JOIN boards b ON b.id = s.board_id
+           LEFT JOIN boards b ON b.id = s.board_id
+           LEFT JOIN projects p ON p.id = s.project_id
            WHERE s.id = $1`,
           [sprintId]
         ),
@@ -214,17 +238,20 @@ export class SprintService {
          AND s.id = sc.sprint_id
          AND c.id = sc.card_id
          AND l.id = c.list_id
-         AND l.board_id = s.board_id
+         AND s.status <> 'COMPLETED'
+         AND (l.board_id = s.board_id OR EXISTS (
+           SELECT 1 FROM project_boards pb WHERE pb.project_id = s.project_id AND pb.board_id = l.board_id))
        RETURNING sc.sprint_id`,
       [sprintId, cardId]
     );
     if (removed.rows.length === 0) {
       const validScope = await pool.query(
         `SELECT 1 FROM board_sprints s JOIN cards c ON c.id = $2 JOIN lists l ON l.id = c.list_id
-         WHERE s.id = $1 AND l.board_id = s.board_id`,
+         WHERE s.id = $1 AND s.status <> 'COMPLETED' AND (l.board_id = s.board_id OR EXISTS (
+           SELECT 1 FROM project_boards pb WHERE pb.project_id = s.project_id AND pb.board_id = l.board_id))`,
         [sprintId, cardId]
       );
-      if (!validScope.rows[0]) throw new Error('Card must belong to the sprint board');
+      if (!validScope.rows[0]) throw new Error('Card must belong to the sprint project');
     }
 
     if (!userId) return;
@@ -234,9 +261,10 @@ export class SprintService {
         pool.query('SELECT title FROM cards WHERE id = $1', [cardId]),
         pool.query(
           `SELECT s.id, s.name, s.board_id,
-                  b.workspace_id
+                  COALESCE(b.workspace_id, p.workspace_id) AS workspace_id
            FROM board_sprints s
-           JOIN boards b ON b.id = s.board_id
+           LEFT JOIN boards b ON b.id = s.board_id
+           LEFT JOIN projects p ON p.id = s.project_id
            WHERE s.id = $1`,
           [sprintId]
         ),

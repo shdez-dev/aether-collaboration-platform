@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, Check, ClipboardList, LoaderCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ClipboardList, LoaderCircle, ShieldCheck } from 'lucide-react';
 import { ProjectProposalFields, EMPTY_PROJECT_PROPOSAL, PROPOSAL_STEPS, type ProjectProposalAnswers, type ProposalStep } from '@/components/ProjectProposalFields';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
-import { useInitiativeStore } from '@/stores/initiativeStore';
+import { InitiativeIntakeInfo, normalizeInitiativeIntake, useInitiativeStore } from '@/stores/initiativeStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { apiService } from '@/services/apiService';
 
 const accent = '#7452A6';
 
@@ -25,14 +26,37 @@ export default function NewInstitutionalInitiativePage() {
   const [step, setStep] = useState<ProposalStep>(0);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [intake, setIntake] = useState<InitiativeIntakeInfo | null>(null);
+
+  useEffect(() => {
+    if (!selectedWorkspaceId) { setIntake(null); return; }
+    let active = true;
+    setIntake(null);
+    void apiService.get<InitiativeIntakeInfo>(`/api/initiatives/intake/${selectedWorkspaceId}`, true).then((response) => {
+      if (active) setIntake(response.success && response.data ? normalizeInitiativeIntake(response.data) : null);
+    });
+    return () => { active = false; };
+  }, [selectedWorkspaceId]);
 
   useEffect(() => {
     let cancelled = false;
     void fetchWorkspaces().then(() => {
       if (cancelled) return;
       const available = useWorkspaceStore.getState().workspaces.filter((workspace) => !workspace.archived && workspace.organization?.type === 'INSTITUTION');
-      const initial = available.find((workspace) => workspace.id === activeWorkspaceId) ?? (available.length === 1 ? available[0] : null);
-      setSelectedWorkspaceId(initial?.id ?? '');
+      const active = available.find((workspace) => workspace.id === activeWorkspaceId) ?? null;
+      const organizationWorkspace = active ?? available[0] ?? null;
+      if (!organizationWorkspace) { setSelectedWorkspaceId(''); return; }
+      const organizationWorkspaces = available.filter((workspace) => workspace.organizationId === organizationWorkspace.organizationId);
+      return apiService.get<{ settings: { requester: { defaultWorkspaceId: string | null } } }>(`/api/organizations/${organizationWorkspace.organizationId}/institutional-settings`, true).then((response) => {
+        if (cancelled) return;
+        const defaultWorkspace = response.data?.settings.requester.defaultWorkspaceId
+          ? organizationWorkspaces.find((workspace) => workspace.id === response.data?.settings.requester.defaultWorkspaceId)
+          : null;
+        const initial = defaultWorkspace ?? active ?? (organizationWorkspaces.length === 1 ? organizationWorkspaces[0] : null);
+        setSelectedWorkspaceId(initial?.id ?? '');
+      }).catch(() => {
+        if (!cancelled) setSelectedWorkspaceId(active?.id ?? (organizationWorkspaces.length === 1 ? organizationWorkspaces[0].id : ''));
+      });
     }).finally(() => {
       if (!cancelled) setWorkspaceLoading(false);
     });
@@ -56,6 +80,7 @@ export default function NewInstitutionalInitiativePage() {
       setFormError('Selecciona un espacio de una organización institucional para recibir esta iniciativa.');
       return;
     }
+    if (!intake?.enabled) { setFormError(intake?.reason ?? 'Comprueba si la recepción está abierta antes de continuar.'); return; }
 
     setSaving(true);
     setFormError('');
@@ -89,7 +114,7 @@ export default function NewInstitutionalInitiativePage() {
 
         <header style={header}>
           <p style={eyebrow}>PROPUESTA INSTITUCIONAL</p>
-          <h1 style={title}>Nueva iniciativa</h1>
+          <h1 style={title}>Proponer una iniciativa</h1>
           <p style={subtitle}>Cuéntanos qué necesidad existe, a quién afecta y qué valor esperas generar.</p>
         </header>
 
@@ -105,6 +130,18 @@ export default function NewInstitutionalInitiativePage() {
               {institutionalWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
             </select>
           </div>
+          {intake && !intake.enabled && <p role="status" style={{ color: 'var(--c-red)', fontSize: 13, margin: '0 0 14px' }}>{intake.reason}</p>}
+          {intake && <details style={policySummary}>
+            <summary style={policySummaryTitle}><ShieldCheck size={15} /> Reglas de participación y evaluación <span style={requesterPill}>{intake.requesterLabel}</span></summary>
+            <ul style={policyList}>
+              <li>{intake.maxOpenInitiatives > 0 ? `Tienes ${intake.openInitiativesCount} de ${intake.maxOpenInitiatives} iniciativas abiertas.` : 'No hay un límite de iniciativas abiertas por persona.'}</li>
+              <li>{intake.requesterRules.isDefaultWorkspace ? 'Este es el espacio predeterminado para recibir propuestas.' : intake.requesterRules.hasDefaultWorkspace ? 'La organización tiene otro espacio predeterminado para recibir propuestas.' : 'La organización no ha definido un espacio predeterminado.'}</li>
+              <li>{intake.requesterRules.canEditAfterSubmission ? 'Podrás editar la propuesta durante las primeras etapas.' : 'La propuesta ya no podrá editarse después del envío.'}</li>
+              <li>{intake.requesterRules.canAttach ? 'Puedes agregar evidencia o adjuntos.' : 'La organización no permite adjuntar evidencia en esta propuesta.'}</li>
+              <li>{intake.governanceRules.mentorRequiredForValidation ? 'Se asignará mentoría antes de pasar a validación.' : 'La mentoría puede asignarse según la necesidad del caso.'}</li>
+              <li>{intake.requesterRules.decisionVisibility === 'REASON' ? 'La decisión incluirá su motivo.' : 'Verás el estado de la decisión.'}</li>
+            </ul>
+          </details>}
           <section style={questionnaire}>
             <p style={stepLabel}>PASO {String(step + 1).padStart(2, '0')} DE 03</p>
             <h2 style={sectionTitle}>{PROPOSAL_STEPS[step].title}</h2>
@@ -118,7 +155,7 @@ export default function NewInstitutionalInitiativePage() {
             <div style={{ display: 'flex', gap: 9 }}>
               {step > 0 && <button type="button" onClick={() => setStep((current) => (current - 1) as ProposalStep)} disabled={saving} style={secondaryButton}><ArrowLeft size={14} /> Anterior</button>}
               {step === 0 && <Link href="/dashboard/initiatives" style={secondaryButton}>Cancelar</Link>}
-              <button type="submit" disabled={saving || !selectedWorkspaceId} style={{ ...primaryButton, opacity: saving || !selectedWorkspaceId ? .55 : 1 }}>
+              <button type="submit" disabled={saving || !selectedWorkspaceId || !intake?.enabled} style={{ ...primaryButton, opacity: saving || !selectedWorkspaceId || !intake?.enabled ? .55 : 1 }}>
                 {saving ? <><LoaderCircle className="animate-spin" size={15} /> Enviando…</> : step === 2 ? <>Enviar a evaluación <ArrowRight size={15} /></> : <>Continuar <ArrowRight size={15} /></>}
               </button>
             </div>
@@ -145,6 +182,10 @@ const workspacePicker = { display: 'grid', gap: 7, padding: '18px clamp(18px, 4v
 const workspaceLabel = { color: 'var(--c-text2)', fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' as const };
 const workspaceSelect = { minHeight: 42, boxSizing: 'border-box' as const, padding: '0 12px', border: '1px solid rgba(97,71,130,0.11)', borderRadius: 9, background: 'var(--c-surface)', color: 'var(--c-text)', colorScheme: 'light' as const, fontFamily: "'Manrope', system-ui, sans-serif", fontSize: 12.5 };
 const questionnaire = { padding: '24px clamp(18px, 4vw, 34px) 28px' } as const;
+const policySummary = { margin: '0 clamp(18px, 4vw, 34px) 3px', padding: '11px 13px', border: '1px solid var(--c-border2)', borderRadius: 9, background: 'var(--c-bg2)', color: 'var(--c-text2)', fontSize: 11 } as const;
+const policySummaryTitle = { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--c-text)', fontWeight: 800, cursor: 'pointer', listStyle: 'none' } as const;
+const requesterPill = { marginLeft: 'auto', padding: '4px 7px', border: '1px solid var(--c-border2)', borderRadius: 99, color: 'var(--c-accent-text)', fontSize: 10 } as const;
+const policyList = { display: 'grid', gap: 6, margin: '10px 0 0', paddingLeft: 23, color: 'var(--c-text3)', lineHeight: 1.45 } as const;
 const stepLabel = { margin: 0, color: accent, fontSize: 10, fontWeight: 800, letterSpacing: '0.1em' } as const;
 const sectionTitle = { margin: '7px 0 0', fontFamily: "'Sora', system-ui, sans-serif", fontSize: 21, letterSpacing: '-0.03em' } as const;
 const sectionCopy = { margin: '5px 0 0', color: 'var(--c-text2)', fontSize: 12.5 } as const;

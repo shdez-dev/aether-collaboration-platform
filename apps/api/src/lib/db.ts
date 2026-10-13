@@ -1,10 +1,18 @@
 // apps/api/src/lib/db.ts
 
-import { Pool, QueryResult, QueryResultRow } from 'pg';
+import { Pool, QueryResult, QueryResultRow, types } from 'pg';
 import { getDatabaseSslConfig } from './databaseSsl';
+
+// PostgreSQL TIMESTAMP columns in this schema contain UTC clock values. pg's
+// default parser treats them as local server time, shifting them by the server
+// timezone (three hours in America/Santiago) before they reach the client.
+types.setTypeParser(types.builtins.TIMESTAMP, (value: string) =>
+  new Date(`${value.replace(' ', 'T')}Z`)
+);
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  options: '-c timezone=UTC',
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,

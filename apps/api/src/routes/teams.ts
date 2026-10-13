@@ -29,6 +29,7 @@ router.get('/:id/workspaces', requireTeamAccess(), (req, res) => teamController.
 
 // ── Actividad ──────────────────────────────────────────────────────────────────
 router.get('/:id/activity', requireTeamAccess(), (req, res) => teamController.getActivity(req, res));
+router.get('/:id/standups', requireTeamAccess(), (req, res) => teamController.getTodayStandups(req, res));
 
 // ── Miembros ───────────────────────────────────────────────────────────────────
 router.get('/:id/members',             requireTeamAccess(), (req, res) => teamController.getMembers(req, res));

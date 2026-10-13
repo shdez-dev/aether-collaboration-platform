@@ -1,0 +1,2 @@
+ALTER TABLE "projects"
+ADD COLUMN "product_goal" TEXT;

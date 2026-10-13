@@ -22,6 +22,7 @@ export class ProjectAuthorizationService {
     const result = await pool.query(
       `SELECT
          p.workspace_id,
+         o.type AS organization_type,
          (p.owner_id = $2 AND EXISTS (
            SELECT 1 FROM workspace_members wm
            WHERE wm.workspace_id = p.workspace_id AND wm.user_id = $2
@@ -87,6 +88,8 @@ export class ProjectAuthorizationService {
            LIMIT 1
          ), '') AS external_permission
        FROM projects p
+       JOIN workspaces w ON w.id = p.workspace_id
+       JOIN organizations o ON o.id = w.organization_id
        WHERE p.id = $1`,
       [projectId, userId],
     );
@@ -94,16 +97,17 @@ export class ProjectAuthorizationService {
     const row = result.rows[0];
     if (!row) return null;
 
-    const isExternal = Boolean(row.external_permission);
-    const canManage = Boolean(
-      row.is_project_owner || row.is_workspace_admin || row.is_direct_manager || row.is_project_lead,
-    );
-    const canContribute = canManage || Boolean(
+    const isPersonalOrganization = row.organization_type === 'PERSONAL';
+    const isExternal = !isPersonalOrganization && Boolean(row.external_permission);
+    const canManage = Boolean(row.is_project_owner || (!isPersonalOrganization && (
+      row.is_workspace_admin || row.is_direct_manager || row.is_project_lead
+    )));
+    const canContribute = canManage || (!isPersonalOrganization && Boolean(
       row.is_direct_contributor || row.is_team_contributor || row.is_operational_contributor || row.external_permission === 'EDIT',
-    );
-    const canRead = canContribute || Boolean(
+    ));
+    const canRead = canContribute || (!isPersonalOrganization && Boolean(
       row.is_direct_member || row.is_team_member || row.has_operational_role || isExternal,
-    );
+    ));
 
     if (!canRead) return null;
     return {
@@ -127,36 +131,38 @@ export class ProjectAuthorizationService {
     const result = await pool.query(
       `SELECT p.id
        FROM projects p
+       JOIN workspaces w ON w.id = p.workspace_id
+       JOIN organizations o ON o.id = w.organization_id
        WHERE ($2::uuid IS NULL OR p.workspace_id = $2::uuid)
          AND (
            (p.owner_id = $1 AND EXISTS (
              SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = p.workspace_id AND wm.user_id = $1
            ))
-           OR EXISTS (
+           OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM workspace_members wm
              WHERE wm.workspace_id = p.workspace_id AND wm.user_id = $1 AND wm.role IN ('OWNER', 'ADMIN')
-           )
-           OR EXISTS (
+           ))
+           OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM project_members pm
              JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = pm.user_id
              WHERE pm.project_id = p.id AND pm.user_id = $1
-           )
-           OR EXISTS (
+           ))
+           OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM project_teams pt
              JOIN team_members tm ON tm.team_id = pt.team_id
              JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = tm.user_id
              WHERE pt.project_id = p.id AND tm.user_id = $1
-           )
-           OR EXISTS (
+           ))
+           OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM project_role_assignments pra
              JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = pra.user_id
              WHERE pra.project_id = p.id AND pra.user_id = $1 AND pra.ended_at IS NULL
-           )
-           OR EXISTS (
+           ))
+           OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM network_access_grants g
              WHERE g.resource_type = 'PROJECT' AND g.resource_id = p.id AND g.user_id = $1
                AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)
-           )
+           ))
          )`,
       [userId, workspaceId ?? null],
     );

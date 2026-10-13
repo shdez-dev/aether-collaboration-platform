@@ -214,6 +214,8 @@ export class CardService {
     data: {
       title: string;
       description?: string;
+      acceptanceCriteria?: string;
+      storyPoints?: number;
       startDate?: string;
       dueDate?: string;
       priority?: 'LOW' | 'MEDIUM' | 'HIGH';
@@ -232,11 +234,11 @@ export class CardService {
       const newPosition = maxPosResult.rows[0].max_pos + 1;
 
       const result = await client.query(
-        `INSERT INTO cards (id, list_id, title, description, position, start_date, due_date, priority, created_by, updated_at)
-         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+        `INSERT INTO cards (id, list_id, title, description, acceptance_criteria, story_points, position, start_date, due_date, priority, created_by, updated_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
          RETURNING *`,
-        [listId, data.title, data.description || null, newPosition,
-         data.startDate || null, data.dueDate || null, data.priority || null, userId]
+        [listId, data.title, data.description || null, data.acceptanceCriteria || null, data.storyPoints ?? null,
+         newPosition, data.startDate || null, data.dueDate || null, data.priority || null, userId]
       );
 
       const card = this.mapCard(result.rows[0]);
@@ -277,6 +279,8 @@ export class CardService {
     data: {
       title?: string;
       description?: string | null;
+      acceptanceCriteria?: string | null;
+      storyPoints?: number | null;
       startDate?: string | null;
       dueDate?: string | null;
       priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
@@ -331,6 +335,8 @@ export class CardService {
 
       if (data.title !== undefined)       { updates.push(`title = $${paramCount++}`);       values.push(data.title); }
       if (data.description !== undefined) { updates.push(`description = $${paramCount++}`); values.push(data.description); }
+      if (data.acceptanceCriteria !== undefined) { updates.push(`acceptance_criteria = $${paramCount++}`); values.push(data.acceptanceCriteria); }
+      if (data.storyPoints !== undefined) { updates.push(`story_points = $${paramCount++}`); values.push(data.storyPoints); }
       if (data.startDate !== undefined)   { updates.push(`start_date = $${paramCount++}`);  values.push(data.startDate); }
       if (data.dueDate !== undefined)     { updates.push(`due_date = $${paramCount++}`);    values.push(data.dueDate); }
       if (data.priority !== undefined)    { updates.push(`priority = $${paramCount++}`);     values.push(data.priority); }
@@ -952,6 +958,8 @@ export class CardService {
       listId:               row.list_id,
       title:                row.title,
       description:          row.description,
+      acceptanceCriteria:   row.acceptance_criteria ?? null,
+      storyPoints:          row.story_points ?? null,
       position:             row.position,
       startDate:            row.start_date,
       dueDate:              row.due_date,

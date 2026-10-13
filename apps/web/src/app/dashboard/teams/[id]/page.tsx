@@ -1,18 +1,23 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useTeamStore, type Team, type TeamMember, type TeamActivity, type TeamInvitation } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { supportsOrganizationTeams } from '@/lib/workspaceFeatures';
 import { useAuthStore } from '@/stores/authStore';
 import { es } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
+import { socketService } from '@/services/socketService';
+import { acceptTeamInvitationAndSync } from '@/lib/acceptTeamInvitation';
 import {
   ArrowLeft, Users, MoreHorizontal, Plus, Trash2, Crown,
   AlertTriangle, CheckCircle2, Clock, ExternalLink, FolderKanban, Check, X,
+  Activity, LayoutDashboard, Search, ChevronDown, Eye, LoaderCircle, ShieldCheck, UserRound,
 } from 'lucide-react';
 import { C } from '@/lib/colors';
+import { getAvatarUrl } from '@/lib/utils/avatar';
 import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import styles from '../teams.module.css';
 
@@ -66,17 +71,24 @@ function hashColor(str: string | null | undefined): string {
   return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
 }
 
-function Avatar({ name, size = 32, color }: { name: string | null | undefined; size?: number; color?: string }) {
+function Avatar({ name, avatar, size = 32, color }: { name: string | null | undefined; avatar?: string | null; size?: number; color?: string }) {
+  const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
   const bg = color ?? hashColor(name ?? '?');
+  const avatarUrl = getAvatarUrl(avatar);
+  const displayAvatarUrl = avatarUrl && failedAvatar !== avatarUrl ? avatarUrl : null;
+
   return (
     <div
       className="flex-shrink-0 flex items-center justify-center rounded-full font-semibold text-white"
       style={{
         width: size, height: size, background: bg,
         fontSize: size < 28 ? '10px' : size < 36 ? '12px' : '14px',
+        overflow: 'hidden',
       }}
     >
-      {getInitial(name)}
+      {displayAvatarUrl
+        ? <img src={displayAvatarUrl} alt="" aria-hidden="true" onError={() => setFailedAvatar(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : getInitial(name)}
     </div>
   );
 }
@@ -90,6 +102,8 @@ interface ActiveWorkspace {
   projectCount: number;
   activeCards: number;
 }
+
+type TeamSection = 'overview' | 'members' | 'projects' | 'activity';
 
 // ── Add Member Modal ──────────────────────────────────────────────────────────
 
@@ -205,9 +219,10 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
 const COLOR_OPTIONS = ['#7452A6', '#548B73', '#8076A7', '#A97556', '#8262B2', '#AA895E', '#8D84B0', '#B85C5C'];
 const MAX_TEAM_DESCRIPTION_LENGTH = 120;
 
-function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
+function SettingsModal({ team, members, canDelete, onClose, onUpdated, onDeleted }: {
   team: Team;
   members: TeamMember[];
+  canDelete: boolean;
   onClose: () => void;
   onUpdated: () => void;
   onDeleted: () => void;
@@ -332,8 +347,8 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
           </div>
         </form>
 
-        {/* Danger zone */}
-        <div className="px-5 pb-5 flex flex-col gap-3">
+        {/* Danger zone: the creator and workspace administrators own deletion. */}
+        {canDelete && <div className="px-5 pb-5 flex flex-col gap-3">
           <div className="h-px" style={{ background: C.border }} />
           <div className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: C.red }}>Zona de peligro</div>
           {!confirmDelete ? (
@@ -362,7 +377,7 @@ function SettingsModal({ team, members, onClose, onUpdated, onDeleted }: {
               </div>
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -378,6 +393,18 @@ function roleLabel(role: string, t: ReturnType<typeof import('@/lib/i18n').useT>
   return t.teams_role_member;
 }
 
+function roleDescription(role: string): string {
+  if (role === 'ADMIN') return 'Gestiona miembros, invitaciones y configuración del equipo; no administra permisos de proyectos.';
+  if (role === 'VIEWER') return 'Consulta los proyectos asignados al equipo sin modificarlos.';
+  return 'Colabora en los proyectos asignados al equipo.';
+}
+
+function roleIcon(role: string) {
+  if (role === 'ADMIN') return ShieldCheck;
+  if (role === 'VIEWER') return Eye;
+  return UserRound;
+}
+
 function MemberCard({
   member,
   teamColor,
@@ -385,6 +412,7 @@ function MemberCard({
   canRemove,
   allowedRoles,
   creatorId,
+  roleLockReason,
   onRemove,
   onChangeRole,
 }: {
@@ -394,21 +422,63 @@ function MemberCard({
   canRemove: boolean;
   allowedRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'>;
   creatorId: string;
+  roleLockReason: string;
   onRemove: (userId: string) => void;
-  onChangeRole: (userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') => void;
+  onChangeRole: (userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') => Promise<void>;
 }) {
   const t = es;
   const [hov, setHov] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
+  const [savingRole, setSavingRole] = useState(false);
+  const [roleError, setRoleError] = useState('');
+  const roleControlRef = useRef<HTMLDivElement>(null);
+  const roleTriggerRef = useRef<HTMLButtonElement>(null);
   const isAdmin = member.role === 'ADMIN';
   const isCreator = member.id === creatorId;
   const hasOverdue = member.workload.overdueCards > 0;
+  const RoleIcon = roleIcon(member.role);
+
+  useEffect(() => {
+    if (!roleOpen) return;
+    roleControlRef.current?.querySelector<HTMLButtonElement>('[role="radio"][aria-checked="true"]')?.focus();
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!roleControlRef.current?.contains(event.target as Node)) setRoleOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setRoleOpen(false);
+      roleTriggerRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [roleOpen]);
+
+  async function selectRole(role: 'ADMIN' | 'MEMBER' | 'VIEWER') {
+    if (role === member.role || savingRole) return;
+    setSavingRole(true);
+    setRoleError('');
+    try {
+      await onChangeRole(member.id, role);
+      const shouldRestoreFocus = roleControlRef.current?.contains(document.activeElement) ?? false;
+      setRoleOpen(false);
+      if (shouldRestoreFocus) roleTriggerRef.current?.focus();
+    } catch (error) {
+      setRoleError(error instanceof Error ? error.message : 'No se pudo guardar el rol. Inténtalo de nuevo.');
+    } finally {
+      setSavingRole(false);
+    }
+  }
 
   return (
     <div
       onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => { setHov(false); setRoleOpen(false); }}
-      className={`${styles.memberCard} flex flex-col gap-3 p-4 relative transition-all`}
+      onMouseLeave={() => setHov(false)}
+      className={`${styles.memberCard} ${roleOpen ? styles.memberCardRoleOpen : ''} flex flex-col gap-3 p-4 relative transition-all`}
       style={{
         background: hov ? C.hover : C.surface,
         border: `1px solid ${hov ? C.border2 : C.border}`,
@@ -430,67 +500,94 @@ function MemberCard({
 
       {/* Avatar + name */}
       <div className="flex items-center gap-3">
-        <Avatar name={member.name} size={36} color={hashColor(member.id)} />
+        <Avatar name={member.name} avatar={member.avatar} size={36} color={hashColor(member.id)} />
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-medium truncate" style={{ color: C.text }}>{member.name}</div>
           <div className="text-[11px] truncate" style={{ color: C.text3 }}>{member.email}</div>
         </div>
       </div>
 
-      {/* Role badge / selector */}
-      <div className="flex items-center gap-2" style={{ position: 'relative' }}>
-        <div
-          className="flex items-center gap-1 px-2 py-[2px] rounded-full text-[11px] font-medium"
-          style={isAdmin
-            ? { background: `${teamColor}22`, color: teamColor, border: `1px solid ${teamColor}44` }
-            : member.role === 'VIEWER'
-              ? { background: C.bg, color: C.text4, border: `1px solid ${C.border}` }
-              : { background: C.bg, color: C.text3, border: `1px solid ${C.border}` }
-          }
-        >
-          {isAdmin && <Crown size={10} />}
-          {roleLabel(member.role, t)}
-          {isCreator && <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '2px' }}>-</span>}
-        </div>
-
-        {/* Dropdown para cambiar rol — solo si canManage y no es el creador */}
-        {canChangeRole && !isCreator && (
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setRoleOpen((v) => !v)}
-              className="text-[11px] transition-colors"
-              style={{ color: C.text4 }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+      {/* Explicit role control: current value and available actions are visible. */}
+      {canChangeRole && !isCreator ? (
+        <div ref={roleControlRef} className={styles.memberRoleBlock}>
+          <span className={styles.memberRoleLabel}>Rol en este equipo</span>
+          <button
+            ref={roleTriggerRef}
+            type="button"
+            className={`${styles.roleTrigger} ${roleOpen ? styles.roleTriggerOpen : ''}`}
+            onClick={() => { setRoleError(''); setRoleOpen((open) => !open); }}
+            aria-label={`Cambiar rol de ${member.name}. Actualmente: ${roleLabel(member.role, t)}`}
+            aria-haspopup="listbox"
+            aria-expanded={roleOpen}
+            disabled={savingRole}
+          >
+            <span className={styles.roleTriggerIcon} style={{ color: isAdmin ? teamColor : undefined }}>
+              {savingRole ? <LoaderCircle size={15} className={styles.roleSpinner} /> : <RoleIcon size={15} />}
+            </span>
+            <span className={styles.roleTriggerCopy}>
+              <strong>{savingRole ? 'Guardando…' : roleLabel(member.role, t)}</strong>
+              <small>{savingRole ? 'Aplicando cambio' : 'Cambiar rol'}</small>
+            </span>
+            <ChevronDown size={15} className={`${styles.roleChevron} ${roleOpen ? styles.roleChevronOpen : ''}`} />
+          </button>
+          {roleOpen && (
+            <div
+              className={styles.roleMenu}
+              role="listbox"
+              aria-label={`Roles disponibles para ${member.name}`}
+              onKeyDown={(event) => {
+                if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+                const options = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)'));
+                const index = options.indexOf(document.activeElement as HTMLButtonElement);
+                const nextIndex = event.key === 'Home' ? 0
+                  : event.key === 'End' ? options.length - 1
+                    : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+                event.preventDefault();
+                options[nextIndex]?.focus();
+                options[nextIndex]?.click();
+              }}
             >
-              ▾
-            </button>
-            {roleOpen && (
-              <div className={styles.roleMenu} style={{
-                position: 'absolute', top: '100%', left: 0, zIndex: 20, marginTop: '4px',
-                background: C.surface, border: `1px solid ${C.border2}`, borderRadius: '8px',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '110px', overflow: 'hidden',
-              }}>
-                {allowedRoles.filter((r) => r !== member.role).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => { onChangeRole(member.id, r); setRoleOpen(false); }}
-                    style={{
-                      width: '100%', textAlign: 'left', padding: '8px 12px',
-                      fontSize: '12px', color: C.text2, background: 'none', border: 'none',
-                      cursor: 'pointer', display: 'block',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = C.hover)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-                  >
-                    {roleLabel(r, t)}
-                  </button>
-                ))}
+              <div className={styles.roleMenuHeader}>
+                <span>Cambiar rol</span>
+                <small>Elige qué puede hacer en el equipo</small>
               </div>
-            )}
+              {allowedRoles.map((role) => {
+                const OptionIcon = roleIcon(role);
+                const selected = role === member.role;
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    className={`${styles.roleOption} ${selected ? styles.roleOptionSelected : ''}`}
+                    onClick={() => void selectRole(role)}
+                    disabled={savingRole}
+                  >
+                    <span className={styles.roleOptionIcon}><OptionIcon size={16} /></span>
+                    <span className={styles.roleOptionCopy}>
+                      <strong>{roleLabel(role, t)}{selected && <span>Actual</span>}</strong>
+                      <small>{roleDescription(role)}</small>
+                    </span>
+                    {selected && <Check size={16} className={styles.roleOptionCheck} />}
+                  </button>
+                );
+              })}
+              {roleError && <p className={styles.roleMenuError} role="alert">{roleError}</p>}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className={styles.memberRoleStatic}>
+          <span className={styles.memberRoleLabel}>Rol en este equipo</span>
+          <div className={styles.memberRoleStaticValue}>
+            <span className={styles.roleStaticIcon} style={isAdmin ? { color: teamColor } : undefined}><RoleIcon size={14} /></span>
+            <span className={styles.roleStaticName}>{roleLabel(member.role, t)}</span>
+            {isCreator && <span className={styles.roleOwnerTag}><Crown size={11} /> Propietario</span>}
+            {!isCreator && roleLockReason && <span className={styles.roleLocked}>{roleLockReason}</span>}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Workload */}
       <div className="flex flex-col gap-1 text-[12px]" style={{ color: C.text3 }}>
@@ -533,10 +630,11 @@ interface AssignedProject extends ProjectOption {
   assignedAt: string;
 }
 
-function AssignProjectModal({ teamId, teamColor, workspaceId, assignedProjects, assignedLoading, assignedError, onRetry, onClose, onAssigned }: {
+function AssignProjectModal({ teamId, teamColor, workspaceId, workspaceName, assignedProjects, assignedLoading, assignedError, onRetry, onClose, onAssigned }: {
   teamId: string;
   teamColor: string;
   workspaceId: string | null | undefined;
+  workspaceName: string;
   assignedProjects: AssignedProject[];
   assignedLoading: boolean;
   assignedError: string;
@@ -603,7 +701,7 @@ function AssignProjectModal({ teamId, teamColor, workspaceId, assignedProjects, 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className={styles.projectModalIcon} style={{ color: teamColor }}><FolderKanban size={17} /></span>
-            <span style={{ display: 'grid', gap: 3 }}><strong style={{ fontSize: '14px', color: C.text }}>{t.teams_assign_project_title}</strong><small style={{ fontSize: '11px', color: C.text3 }}>{assignedProjects.length} vinculados. Selecciona otro proyecto para añadirlo.</small></span>
+            <span style={{ display: 'grid', gap: 3 }}><strong style={{ fontSize: '14px', color: C.text }}>{t.teams_assign_project_title}</strong><small style={{ fontSize: '11px', color: C.text3 }}>{assignedProjects.length} vinculados en {workspaceName || 'este espacio'}. Solo se muestran proyectos de aquí.</small></span>
           </div>
           <button
             aria-label="Cerrar asignación de proyecto"
@@ -692,12 +790,16 @@ export default function TeamDetailPage() {
   const params = useParams();
   const router = useRouter();
   const teamId = params.id as string;
+  const currentUser = useAuthStore((s) => s.user);
 
-  const { currentTeam, isLoading, error, fetchTeamById, updateTeam, removeMember, changeMemberRole, pendingTeamInvitations, loadPendingTeamInvitations, acceptTeamInvitation, rejectTeamInvitation } = useTeamStore();
+  const { currentTeam, isLoading, error, fetchTeamById, updateTeam, removeMember, changeMemberRole, pendingTeamInvitations, loadPendingTeamInvitations, rejectTeamInvitation } = useTeamStore();
   const { workspaces, fetchWorkspaces } = useWorkspaceStore();
+  const teamWorkspace = workspaces.find((workspace) => workspace.id === currentTeam?.workspaceId);
+  const belongsToPersonalWorkspace = Boolean(teamWorkspace && !supportsOrganizationTeams(teamWorkspace));
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [memberSearch, setMemberSearch] = useState('');
 
   const [activity, setActivity] = useState<TeamActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -717,6 +819,7 @@ export default function TeamDetailPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAssignProject, setShowAssignProject] = useState(false);
   const [invActionLoading, setInvActionLoading] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<TeamSection>('overview');
 
   // Standup
   interface TeamStandup { id: string; userId: string; userName: string; userAvatar: string | null; todayItems: { id: string; text: string }[]; blockers: { id: string; text: string }[]; publishedAt: string }
@@ -747,6 +850,10 @@ export default function TeamDetailPage() {
   useEffect(() => {
     if (workspaces.length === 0) fetchWorkspaces();
   }, [fetchWorkspaces]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (belongsToPersonalWorkspace) router.replace('/dashboard');
+  }, [belongsToPersonalWorkspace, router]);
 
   // Load members
   const loadMembers = useCallback(async () => {
@@ -799,17 +906,43 @@ export default function TeamDetailPage() {
   }, [teamId]);
 
   useEffect(() => {
+    const workspaceId = currentTeam?.workspaceId;
+    if (!workspaceId) return;
+
+    const joinWorkspace = () => socketService.joinWorkspace(workspaceId);
+
+    socketService.onConnect(joinWorkspace);
+    return () => {
+      socketService.offConnect(joinWorkspace);
+      socketService.leaveWorkspace(workspaceId);
+    };
+  }, [currentTeam?.workspaceId]);
+
+  useEffect(() => {
     loadMembers();
     loadWorkspaces();
     loadAssignedProjects();
     loadPendingTeamInvitations();
   }, [loadMembers, loadWorkspaces, loadAssignedProjects, loadPendingTeamInvitations]);
 
+  useEffect(() => {
+    const handleTeamMembershipEvent = (event: any) => {
+      if (!['team.member.added', 'team.member.removed', 'team.member.role-changed'].includes(event?.type)) return;
+      if (event?.payload?.teamId !== teamId) return;
+      // The accepting user's handler refreshes its own view after the API succeeds.
+      if (event?.type === 'team.member.added' && event?.payload?.acceptedInvitation && event?.actor?.id === currentUser?.id) return;
+      void Promise.all([loadMembers(), fetchTeamById(teamId), loadWorkspaces()]);
+    };
+
+    socketService.onEvent(handleTeamMembershipEvent);
+    return () => socketService.off('event', handleTeamMembershipEvent);
+  }, [currentUser?.id, fetchTeamById, loadMembers, loadWorkspaces, teamId]);
+
   // Load team standups (published today by teammates)
   useEffect(() => {
     if (!teamId) return;
     setStandupsLoading(true);
-    apiService.get<{ standups: TeamStandup[] }>('/api/users/me/team-standups', true)
+    apiService.get<{ standups: TeamStandup[] }>(`/api/teams/${teamId}/standups`, true)
       .then(r => { if (r.success && r.data) setTeamStandups(r.data.standups); })
       .finally(() => setStandupsLoading(false));
   }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -823,8 +956,11 @@ export default function TeamDetailPage() {
   async function handleAcceptTeamInvitation(id: string) {
     setInvActionLoading(id);
     try {
-      await acceptTeamInvitation(id);
-      await loadMembers();
+      const accepted = await acceptTeamInvitationAndSync(id, {
+        teamId,
+        workspaceId: currentTeam?.workspaceId,
+      });
+      await Promise.all([loadMembers(), fetchTeamById(accepted.teamId), loadWorkspaces()]);
     } catch (err: any) {
       alert(err.message || 'Error al aceptar invitación');
     } finally {
@@ -853,22 +989,31 @@ export default function TeamDetailPage() {
   }
 
   async function handleChangeRole(userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') {
-    try {
-      await changeMemberRole(teamId, userId, newRole);
-      setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, role: newRole } : m));
-    } catch (err: any) {
-      alert(err.message || 'Error al cambiar rol');
-    }
+    await changeMemberRole(teamId, userId, newRole);
+    setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, role: newRole } : m));
   }
 
-  const currentUser = useAuthStore((s) => s.user);
   const teamColor = currentTeam?.color || '#7452A6';
   const leadMember = members.find((m) => m.id === currentTeam?.leadId) || members.find((m) => m.role === 'ADMIN');
   const isTeamOwner = currentUser != null && currentTeam?.createdBy === currentUser.id;
   const currentMemberRole = members.find((member) => member.id === currentUser?.id)?.role;
   const isTeamAdmin = currentMemberRole === 'ADMIN';
-  const isOwnerOrAdmin = isTeamOwner || isTeamAdmin;
-  const inviteRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'> = isTeamOwner ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+  const isOwnerOrAdmin = currentTeam?.canManage ?? (isTeamOwner || isTeamAdmin);
+  const canManageAdminRoles = currentTeam?.canManageAdminRoles ?? isTeamOwner;
+  const inviteRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'> = canManageAdminRoles ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+  const teamSections = [
+    { id: 'overview' as const, label: 'Resumen', description: 'Qué está pasando hoy y cómo orientarte.', Icon: LayoutDashboard },
+    { id: 'members' as const, label: 'Personas', description: 'Quién forma parte del equipo y qué puede hacer.', Icon: Users, count: members.length },
+    { id: 'projects' as const, label: 'Proyectos', description: 'En qué proyectos y espacios trabaja el equipo.', Icon: FolderKanban, count: assignedProjects.length },
+    { id: 'activity' as const, label: 'Actividad', description: 'Cambios recientes realizados por las personas del equipo.', Icon: Activity },
+  ];
+  const activeSectionInfo = teamSections.find((section) => section.id === activeSection) ?? teamSections[0];
+  const todayStandupCount = new Set(teamStandups.map((standup) => standup.userId)).size;
+  const filteredMembers = members.filter((member) => `${member.name} ${member.email}`.toLowerCase().includes(memberSearch.trim().toLowerCase()));
+
+  useEffect(() => {
+    if (!isOwnerOrAdmin && activeSection === 'activity') setActiveSection('overview');
+  }, [activeSection, isOwnerOrAdmin]);
 
   async function handleRemoveProject() {
     const project = projectPendingRemoval;
@@ -889,13 +1034,22 @@ export default function TeamDetailPage() {
   }
 
   function canManageMember(member: TeamMember) {
-    if (!currentUser || member.id === currentTeam?.createdBy || member.id === currentUser.id) return false;
-    return isTeamOwner || (isTeamAdmin && member.role !== 'ADMIN');
+    if (!isOwnerOrAdmin || !currentUser || member.id === currentTeam?.createdBy || member.id === currentUser.id) return false;
+    return canManageAdminRoles || (isTeamAdmin && member.role !== 'ADMIN');
   }
 
   function allowedRolesFor(member: TeamMember): Array<'ADMIN' | 'MEMBER' | 'VIEWER'> {
     if (!canManageMember(member)) return [];
-    return isTeamOwner ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+    return canManageAdminRoles ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+  }
+
+  function roleLockReasonFor(member: TeamMember): string {
+    if (member.id === currentUser?.id) return 'No puedes cambiar tu propio rol';
+    if (!isOwnerOrAdmin) return 'Solo un administrador puede cambiar roles';
+    if (isTeamAdmin && !canManageAdminRoles && member.role === 'ADMIN') {
+      return 'Solo el propietario puede cambiar roles de administrador';
+    }
+    return '';
   }
 
   if (isLoading) {
@@ -906,10 +1060,21 @@ export default function TeamDetailPage() {
     );
   }
 
+  if (belongsToPersonalWorkspace) return null;
+
   if (error || !currentTeam) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4" style={{ background: C.bg }}>
         <div className="text-[14px]" style={{ color: C.text3 }}>{error || t.teams_not_found}</div>
+        {error && (
+          <button
+            onClick={() => void fetchTeamById(teamId)}
+            className="text-[13px]"
+            style={{ color: C.accent }}
+          >
+            Reintentar
+          </button>
+        )}
         <button
           onClick={() => router.push('/dashboard/teams')}
           className="flex items-center gap-2 text-[13px]"
@@ -971,46 +1136,83 @@ export default function TeamDetailPage() {
               {leadMember && (
                 <div className="flex items-center gap-1.5 text-[12px]" style={{ color: C.text3 }}>
                   <span style={{ color: C.text4 }}>Coordinación:</span>
-                  <Avatar name={leadMember.name} size={18} color={teamColor} />
+                  <Avatar name={leadMember.name} avatar={leadMember.avatar ?? currentTeam.leadAvatar} size={20} color={teamColor} />
                   <span>{leadMember.name}</span>
                 </div>
               )}
             </div>
           </div>
 
-          <div className={`${styles.heroActions} flex flex-wrap items-end justify-end gap-2 flex-shrink-0`}>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.text4 }}>Responsable del equipo</label>
-              <div style={{ minWidth: '220px' }}><ProjectOptionSelect label="Responsable del equipo" value={leadId} onChange={handleLeadChange} disabled={!isOwnerOrAdmin} options={[{ value: '', label: 'Sin responsable asignado' }, ...members.map((member) => ({ value: member.id, label: `${member.name} | ${roleLabel(member.role, es)}` }))]} /></div>
+          <div className={styles.heroActions}>
+            <div className={styles.coordinationField}>
+              <label className={styles.coordinationLabel}>Coordinación del equipo</label>
+              <div className={styles.coordinationInputRow}>
+                <div className={styles.coordinationSelect}>
+                  <ProjectOptionSelect
+                    label="Coordinación del equipo"
+                    value={leadId}
+                    onChange={handleLeadChange}
+                    disabled={!isOwnerOrAdmin}
+                    options={[
+                      { value: '', label: 'Sin responsable asignado' },
+                      ...members.map((member) => ({
+                        value: member.id,
+                        label: `${member.name} | ${roleLabel(member.role, es)}`,
+                        icon: <Avatar name={member.name} avatar={member.avatar} size={24} color={hashColor(member.id)} />,
+                      })),
+                    ]}
+                  />
+                </div>
+                {isOwnerOrAdmin && <button
+                  type="button"
+                  aria-label="Configuración del equipo"
+                  title="Configuración del equipo"
+                  onClick={() => setShowSettings(true)}
+                  className={styles.coordinationSettings}
+                  onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
+                  onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
+                >
+                  <MoreHorizontal size={15} />
+                </button>}
+              </div>
+              <span className={styles.controlHint}>Define quién coordina; no cambia los permisos.</span>
             </div>
-            {isOwnerOrAdmin && <>
-              <button
-                onClick={() => { void loadAssignedProjects(); setShowAssignProject(true); }}
-                className="flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-medium transition-all"
-                style={{ height: '36px', padding: '0 12px', color: C.text2, border: `1px solid ${C.border2}`, background: C.surface }}
-                onMouseEnter={(e) => { (e.currentTarget.style.borderColor = teamColor); (e.currentTarget.style.color = teamColor); (e.currentTarget.style.background = `${teamColor}10`); }}
-                onMouseLeave={(e) => { (e.currentTarget.style.borderColor = C.border2); (e.currentTarget.style.color = C.text2); (e.currentTarget.style.background = C.surface); }}
-              >
-                <FolderKanban size={13} /> {t.teams_assign_project}
-              </button>
-              <button
-                onClick={() => setShowSettings(true)}
-                className="flex-shrink-0 flex items-center justify-center rounded-[8px] transition-colors"
-                style={{ width: '36px', height: '36px', color: C.text3, border: `1px solid ${C.border}` }}
-                onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-                onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text3); }}
-              >
-                <MoreHorizontal size={15} />
-              </button>
-            </>}
           </div>
         </div>
+
+        <nav className={`${styles.headerInner} ${styles.teamNav}`} aria-label="Secciones del equipo">
+          {teamSections.filter((section) => section.id !== 'activity' || isOwnerOrAdmin).map(({ id, label, Icon, count }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={activeSection === id}
+              className={`${styles.teamNavItem} ${activeSection === id ? styles.teamNavItemActive : ''}`}
+              onClick={() => setActiveSection(id)}
+            >
+              <Icon size={15} aria-hidden="true" />
+              <span>{label}</span>
+              {typeof count === 'number' && <span className={styles.navCount}>{count}</span>}
+            </button>
+          ))}
+        </nav>
 
       </div>
 
       {/* ── BODY (scrollable) ── */}
       <div className="flex-1 overflow-auto">
-        <div className={`${styles.detailContent} max-w-[1100px] mx-auto px-7 py-8 flex flex-col gap-10`}>
+        <div className={`${styles.detailContent} max-w-[1180px] mx-auto px-7 py-7 flex flex-col`}>
+          <div className={styles.viewIntro}>
+            <div>
+              <h2>{activeSectionInfo.label}</h2>
+              <p>{activeSectionInfo.description}</p>
+            </div>
+            {activeSection === 'members' && isOwnerOrAdmin && (
+              <button type="button" className={styles.textAction} onClick={() => setShowAddMember(true)}><Plus size={14} /> Añadir persona</button>
+            )}
+            {activeSection === 'projects' && isOwnerOrAdmin && (
+              <button type="button" className={styles.textAction} onClick={() => { void loadAssignedProjects(); setShowAssignProject(true); }}><Plus size={14} /> Asignar proyecto</button>
+            )}
+          </div>
 
           {/* ── INVITACIONES PENDIENTES (propias de este equipo) ── */}
           {pendingTeamInvitations.filter((inv) => inv.team.id === teamId).length > 0 && (
@@ -1078,11 +1280,42 @@ export default function TeamDetailPage() {
             </section>
           )}
 
+          <div key={activeSection} className={styles.viewPanel} id={`team-section-${activeSection}`}>
+            {activeSection === 'overview' && (
+              <section className={styles.overviewStart} aria-label="Resumen del equipo">
+                <div className={styles.overviewLead}>
+                  <span className={styles.overviewMark}><Users size={18} aria-hidden="true" /></span>
+                  <div>
+                    <h3>Un lugar para coordinar el trabajo</h3>
+                    <p>Este equipo conecta personas con sus proyectos. Aquí puedes revisar qué se comparte hoy, ver quién participa y dónde trabaja.</p>
+                  </div>
+                </div>
+                <div className={styles.overviewActions}>
+                  <button type="button" onClick={() => setActiveSection('members')}><Users size={14} /> Ver personas <span>y sus roles</span></button>
+                  <button type="button" onClick={() => setActiveSection('projects')}><FolderKanban size={14} /> Ver proyectos <span>y espacios</span></button>
+                </div>
+                <div className={styles.overviewFacts} aria-label="Datos del equipo">
+                  <div className={styles.overviewFact}>
+                    <span className={styles.overviewFactIcon}><Users size={15} aria-hidden="true" /></span>
+                    <span className={styles.overviewFactCopy}><strong>{members.length}</strong><small>personas</small></span>
+                  </div>
+                  <div className={styles.overviewFact}>
+                    <span className={styles.overviewFactIcon}><FolderKanban size={15} aria-hidden="true" /></span>
+                    <span className={styles.overviewFactCopy}><strong>{assignedProjects.length}</strong><small>proyectos</small></span>
+                  </div>
+                  <div className={styles.overviewFact}>
+                    <span className={styles.overviewFactIcon}><Activity size={15} aria-hidden="true" /></span>
+                    <span className={styles.overviewFactCopy}><strong>{todayStandupCount}<small>/{members.length}</small></strong><small>compartieron hoy</small></span>
+                  </div>
+                </div>
+              </section>
+            )}
+
           {/* ── HOY EN EL EQUIPO ── */}
-          <section>
+          {activeSection === 'overview' && <section className={styles.todaySection}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.text4 }}>
+                <div className="text-[14px] font-semibold" style={{ color: C.text }}>
                   Hoy en el equipo
                 </div>
                 <span className="text-[10px] px-2 py-[1px] rounded-full" style={{ background: 'rgba(118,168,120,0.15)', color: '#548B73', border: '1px solid rgba(118,168,120,0.3)' }}>
@@ -1090,32 +1323,35 @@ export default function TeamDetailPage() {
                 </span>
               </div>
             </div>
+            <p className="text-[11px] -mt-2 mb-3" style={{ color: C.text4 }}>
+              Avances que los miembros publicaron hoy desde Inicio para este espacio de trabajo.
+            </p>
 
             {standupsLoading ? (
               <div className="flex justify-center py-6">
                 <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
               </div>
             ) : members.length === 0 ? null : (
-              <div className="flex flex-col gap-2">
+              <div className={styles.standupGrid} style={{ '--standup-columns': Math.min(Math.max(members.length, 1), 4) } as React.CSSProperties}>
                 {members.map((m) => {
                   const standup = teamStandups.find(s => s.userId === m.id || s.userId === m.memberId);
                   return (
                     <div
                       key={m.id}
-                      className="rounded-[8px] px-4 py-3"
+                      className={styles.standupCard}
                       style={{ background: C.surface, border: `1px solid ${C.border}` }}
                     >
                       <div className="flex items-start gap-3">
-                        <Avatar name={m.name} size={30} color={hashColor(m.id)} />
+                        <Avatar name={m.name} avatar={m.avatar} size={30} color={hashColor(m.id)} />
                         <div className="flex flex-col gap-1 flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-medium" style={{ color: C.text }}>{m.name}</span>
+                          <div className={styles.standupNameRow}>
+                            <span className={styles.standupName} style={{ color: C.text }}>{m.name}</span>
                             {standup ? (
-                              <span className="text-[10px] px-1.5 py-[1px] rounded" style={{ background: 'rgba(118,168,120,0.14)', color: '#548B73', border: '1px solid rgba(118,168,120,0.28)' }}>
+                              <span className={styles.standupStatus} style={{ background: 'rgba(118,168,120,0.14)', color: '#548B73', border: '1px solid rgba(118,168,120,0.28)' }}>
                                 publicó hoy
                               </span>
                             ) : (
-                              <span className="text-[10px] px-1.5 py-[1px] rounded" style={{ background: 'rgba(97,71,130,0.05)', color: C.text4, border: `1px solid ${C.border}` }}>
+                              <span className={styles.standupStatus} style={{ background: 'rgba(97,71,130,0.05)', color: C.text4, border: `1px solid ${C.border}` }}>
                                 sin actualización
                               </span>
                             )}
@@ -1141,7 +1377,7 @@ export default function TeamDetailPage() {
                               <span className="text-[10.5px] font-semibold" style={{ color: '#B45C72' }}>Bloqueantes:</span>
                               {standup.blockers.map((b) => (
                                 <span key={b.id} className="text-[11.5px]" style={{ color: '#B45C72', opacity: 0.85 }}>
-                                  ⚠ {b.text}
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={12} aria-hidden="true" />{b.text}</span>
                                 </span>
                               ))}
                             </div>
@@ -1153,55 +1389,63 @@ export default function TeamDetailPage() {
                 })}
               </div>
             )}
-          </section>
+          </section>}
 
           {/* ── MIEMBROS ── */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.text4 }}>
-                {t.teams_section_members}
-              </div>
-              {isOwnerOrAdmin && <button
-                onClick={() => setShowAddMember(true)}
-                className="flex items-center gap-1.5 rounded-[6px] text-[12px] transition-colors"
-                style={{ height: '28px', padding: '0 10px', color: C.text2, border: `1px solid ${C.border}` }}
-                onMouseEnter={(e) => { (e.currentTarget.style.background = C.hover); (e.currentTarget.style.color = C.text); }}
-                onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); (e.currentTarget.style.color = C.text2); }}
-              >
-                <Plus size={12} /> {t.teams_add_member}
-              </button>}
-            </div>
-
-            <details style={{ margin: '-4px 0 14px', color: C.text3 }}>
-              <summary style={{ cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>Cómo funcionan los roles</summary>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginTop: '9px' }}>
+          {activeSection === 'members' && <section className={styles.membersSection}>
+            <details className={styles.roleGuide}>
+              <summary className={styles.roleGuideSummary}>
+                <span className={styles.roleGuideSummaryCopy}>
+                  <strong>Qué puede hacer cada rol</strong>
+                  <small>Permisos y responsabilidades dentro del equipo</small>
+                </span>
+              </summary>
+              <div className={styles.roleGuideGrid}>
                 {[
-                  ['Responsable', 'Configura el equipo, administra admins y puede eliminarlo.'],
-                  ['Administrador', 'Invita y gestiona miembros u observadores.'],
-                  ['Miembro', 'Participa y trabaja en los proyectos del equipo.'],
-                  ['Observador', 'Puede consultar el trabajo sin administrar el equipo.'],
+                  ['Propietario', 'El creador conserva el control del equipo y puede eliminarlo. Los administradores del espacio también pueden gestionarlo.'],
+                  ['Administrador', 'Gestiona invitaciones, miembros y configuración del equipo. En los proyectos asignados puede colaborar, pero ese rol no le da permisos de administración del proyecto.'],
+                  ['Miembro', 'Colabora en los proyectos asignados al equipo.'],
+                  ['Observador', 'Consulta los proyectos asignados sin modificarlos.'],
                 ].map(([role, description]) => (
-                  <div key={role} style={{ padding: '8px 9px', borderRadius: '6px', background: C.bg2, border: `1px solid ${C.border}`, fontSize: '11.5px', lineHeight: 1.35 }}><strong style={{ color: C.text2 }}>{role}.</strong> {description}</div>
+                  <div key={role} className={styles.roleGuideCard}>
+                    <strong>{role}</strong>
+                    <span>{description}</span>
+                  </div>
                 ))}
               </div>
             </details>
+
+            <div className={styles.memberTools}>
+              <p>Busca a alguien y revisa el rol que tiene en este equipo.</p>
+              <label className={styles.memberSearch}>
+                <Search size={15} aria-hidden="true" />
+                <span className="sr-only">Buscar personas del equipo</span>
+                <input value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Buscar por nombre o correo" />
+                {memberSearch && <button type="button" aria-label="Limpiar búsqueda" onClick={() => setMemberSearch('')}><X size={14} /></button>}
+              </label>
+              <span className={styles.memberCount}>{filteredMembers.length} de {members.length}</span>
+            </div>
 
             {membersLoading ? (
               <div className="py-8 flex justify-center">
                 <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: C.border2, borderTopColor: C.accent }} />
               </div>
-            ) : members.length === 0 ? (
-              <div
-                className={`flex flex-col items-center justify-center py-10 rounded-[8px] gap-3 transition-colors ${isOwnerOrAdmin ? 'cursor-pointer' : ''}`}
-                style={{ border: `1px dashed ${C.border2}`, color: C.text4 }}
-                onClick={() => { if (isOwnerOrAdmin) setShowAddMember(true); }}
-              >
-                <Users size={24} />
-                <div className="text-[13px]">{t.teams_no_members}</div>
+            ) : members.length === 0 || filteredMembers.length === 0 ? (
+              <div className={styles.peopleEmpty}>
+                <Users size={22} aria-hidden="true" />
+                <div>
+                  <strong>{members.length === 0 ? 'Este equipo aún no tiene personas' : 'No encontramos coincidencias'}</strong>
+                  <p>{members.length === 0 ? 'Invita a alguien de tu organización para empezar a colaborar.' : 'Prueba con otro nombre o correo.'}</p>
+                </div>
+                {members.length === 0 && isOwnerOrAdmin ? (
+                  <button type="button" className={styles.textAction} onClick={() => setShowAddMember(true)}><Plus size={14} /> Invitar persona</button>
+                ) : members.length > 0 ? (
+                  <button type="button" className={styles.textAction} onClick={() => setMemberSearch('')}>Limpiar búsqueda</button>
+                ) : null}
               </div>
             ) : (
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
-                {members.map((m) => (
+                {filteredMembers.map((m) => (
                   <MemberCard
                     key={m.id}
                     member={m}
@@ -1210,29 +1454,25 @@ export default function TeamDetailPage() {
                     canRemove={canManageMember(m)}
                     allowedRoles={allowedRolesFor(m)}
                     creatorId={currentTeam?.createdBy ?? ''}
+                    roleLockReason={roleLockReasonFor(m)}
                     onRemove={handleRemoveMember}
                     onChangeRole={handleChangeRole}
                   />
                 ))}
                 {/* Add button as last card */}
-                {isOwnerOrAdmin && <div
+                {isOwnerOrAdmin && <button type="button"
                   onClick={() => setShowAddMember(true)}
-                  className="rounded-[8px] flex items-center justify-center gap-2 cursor-pointer transition-colors text-[13px]"
-                  style={{ border: `1px dashed ${C.border2}`, color: C.text4, minHeight: '120px' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.accent; (e.currentTarget as HTMLElement).style.color = C.accent; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border2; (e.currentTarget as HTMLElement).style.color = C.text4; }}
-                >
-                  <Plus size={14} /> {t.teams_add_member}
-                </div>}
+                  className={styles.addPersonCard}
+                ><Plus size={15} /> {t.teams_add_member}</button>}
               </div>
             )}
-          </section>
+          </section>}
 
           {/* ── PROYECTOS VINCULADOS ── */}
+          {activeSection === 'projects' && <div className={styles.projectView}>
           <section>
             <div className="flex items-center justify-between mb-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.text4 }}>Proyectos asignados</div>
-              {isOwnerOrAdmin && <button type="button" className={styles.textAction} onClick={() => { void loadAssignedProjects(); setShowAssignProject(true); }}><Plus size={13} /> Asignar proyecto</button>}
+              <div className="text-[14px] font-semibold" style={{ color: C.text }}>Proyectos asignados</div>
             </div>
             {assignedLoading ? (
               <div className={styles.projectEmpty}>Cargando proyectos…</div>
@@ -1297,11 +1537,13 @@ export default function TeamDetailPage() {
             </section>
           )}
 
+          </div>}
+
           {/* ── ACTIVIDAD RECIENTE — solo visible para el creador y admins ── */}
-          {isOwnerOrAdmin && <section>
+          {activeSection === 'activity' && isOwnerOrAdmin && <section className={styles.activitySection}>
             {/* Header + filtros */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.text4 }}>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: C.text }}>
                 {t.teams_section_activity}
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -1461,6 +1703,7 @@ export default function TeamDetailPage() {
           </section>}
 
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          </div>
         </div>
       </div>
 
@@ -1474,10 +1717,12 @@ export default function TeamDetailPage() {
         />
       )}
 
+
       {showSettings && (
         <SettingsModal
           team={currentTeam}
           members={members}
+          canDelete={canManageAdminRoles}
           onClose={() => setShowSettings(false)}
           onUpdated={() => fetchTeamById(teamId)}
           onDeleted={() => router.push('/dashboard/teams')}
@@ -1489,6 +1734,7 @@ export default function TeamDetailPage() {
           teamId={teamId}
           teamColor={teamColor}
           workspaceId={currentTeam?.workspaceId}
+          workspaceName={teamWorkspace?.name ?? currentTeam?.workspaceName ?? ''}
           assignedProjects={assignedProjects}
           assignedLoading={assignedLoading}
           assignedError={assignedError}

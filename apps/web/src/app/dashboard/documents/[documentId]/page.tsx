@@ -6,7 +6,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useAuthStore } from '@/stores/authStore';
-import { getAvatarUrl } from '@/lib/utils/avatar';
 import { socketService } from '@/services/socketService';
 import { useToast } from '@/hooks/use-toast';
 import { useT } from '@/lib/i18n';
@@ -17,11 +16,10 @@ import {
   MoreVertical,
   Trash2,
   Share2,
-  Download,
-  FileText,
 } from 'lucide-react';
 import { recordRecentDoc } from '@/lib/utils/recentDocs';
 import { C } from '@/lib/colors';
+import DocumentShareModal, { type DocumentShareMember, type DocumentSharePermission } from '@/components/documents/DocumentShareModal';
 
 const CollaborativeEditor = lazy(() => import('@/components/documents/CollaborativeEditor'));
 
@@ -56,7 +54,7 @@ export default function DocumentEditorPage() {
 
   // El workspace se deriva del propio documento (ruta plana /dashboard/documents/[documentId])
   const workspaceId  = currentDocument?.workspaceId ?? '';
-  const { user, accessToken } = useAuthStore();
+  const { user } = useAuthStore();
   const { toast } = useToast();
 
   const [title,             setTitle]             = useState('');
@@ -66,11 +64,9 @@ export default function DocumentEditorPage() {
   const [showDeleteModal,   setShowDeleteModal]   = useState(false);
   const [isDeleting,        setIsDeleting]        = useState(false);
   const [showShareModal,    setShowShareModal]     = useState(false);
-  const [members,           setMembers]           = useState<any[]>([]);
+  const [members,           setMembers]           = useState<DocumentShareMember[]>([]);
   const [loadingMembers,    setLoadingMembers]    = useState(false);
   const [updatingPermission,setUpdatingPermission]= useState<string | null>(null);
-  const [showExportMenu,    setShowExportMenu]    = useState(false);
-  const [isExporting,       setIsExporting]       = useState(false);
 
   // Fetch once on mount — do NOT include workspaceId here; it's derived from
   // currentDocument and starts as '' which would retrigger this effect and
@@ -136,18 +132,25 @@ export default function DocumentEditorPage() {
     setShowShareModal(true);
     setLoadingMembers(true);
     try { setMembers(await getDocumentMembers(documentId)); }
-    catch {}
+    catch {
+      setMembers([]);
+      toast({ title: 'No se pudieron cargar los permisos', description: 'Inténtalo de nuevo en unos segundos.', variant: 'destructive' });
+    }
     finally { setLoadingMembers(false); }
   };
 
-  const handlePermissionChange = async (userId: string, permission: string) => {
+  const handlePermissionChange = async (userId: string, permission: DocumentSharePermission) => {
     setUpdatingPermission(userId);
     try {
-      await updatePermission(documentId, userId, permission as any);
-      setMembers(await getDocumentMembers(documentId));
+      await updatePermission(documentId, userId, permission);
       toast({ title: 'Permisos actualizados', description: 'Los permisos han sido modificados correctamente' });
-    } catch {
-      toast({ title: 'Error al actualizar permisos', description: 'No se pudo modificar los permisos.', variant: 'destructive' });
+      try {
+        setMembers(await getDocumentMembers(documentId));
+      } catch {
+        toast({ title: 'Permiso guardado', description: 'La lista no se pudo actualizar. Cierra y vuelve a abrir el modal para verla al día.' });
+      }
+    } catch (error) {
+      toast({ title: 'Error al actualizar permisos', description: error instanceof Error ? error.message : 'No se pudieron modificar los permisos.', variant: 'destructive' });
     } finally { setUpdatingPermission(null); }
   };
 
@@ -169,39 +172,6 @@ export default function DocumentEditorPage() {
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-  const handleExport = async (format: 'pdf' | 'html' | 'markdown') => {
-    if (!currentDocument) return;
-    setIsExporting(true);
-    setShowExportMenu(false);
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${apiUrl}/api/documents/${documentId}/export?format=${format}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!response.ok) {
-        let msg = 'No se pudo exportar el documento.';
-        try {
-          if (response.status === 403) msg = 'Sin permiso para exportar este documento.';
-          else if (response.status === 404) msg = 'El documento no tiene contenido para exportar.';
-          else { const d = await response.json(); if (d?.error?.message) msg = d.error.message; }
-        } catch {}
-        throw new Error(msg);
-      }
-      const blob = await response.blob();
-      const url  = window.URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      const ext  = { pdf: 'pdf', html: 'html', markdown: 'md' }[format];
-      const safe = currentDocument.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      a.download = `${safe}_${new Date().toISOString().split('T')[0]}.${ext}`;
-      document.body.appendChild(a); a.click();
-      window.URL.revokeObjectURL(url); document.body.removeChild(a);
-      toast({ title: '✅ Documento exportado', description: `Exportado en formato ${format.toUpperCase()}` });
-    } catch (error: any) {
-      toast({ title: 'Error al exportar', description: error?.message || 'No se pudo exportar.', variant: 'destructive' });
-    } finally { setIsExporting(false); }
-  };
 
   const documentReady = !isLoading && currentDocument?.id === documentId && user;
 
@@ -245,27 +215,30 @@ export default function DocumentEditorPage() {
 
   const userPermission = currentDocument.userPermission || 'VIEW';
   const canEdit        = userPermission === 'EDIT';
+  const canComment     = userPermission === 'COMMENT' || canEdit;
   const isCreator      = currentDocument.creator?.id === user.id;
+  const canManage      = Boolean(currentDocument.canManage || isCreator);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg }}>
+    <div className="doc-document-page" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg }}>
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <header
-        className="doc-header-enter"
+        className="doc-header-enter doc-document-header"
         style={{
           flexShrink: 0, background: C.surface,
           borderBottom: `1px solid ${C.border}`,
           padding: '0 20px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', height: '54px' }}>
+        <div className="doc-header-mainline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', height: '62px' }}>
           {/* Left: back + title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
             <SmallBackBtn onClick={handleBack} label={t.btn_back} />
             <div style={{ width: '1px', height: '18px', background: C.border2, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <input
+                className="doc-title-input"
                 type="text"
                 value={title}
                 maxLength={Math.max(180, currentDocument.title.length)}
@@ -276,13 +249,13 @@ export default function DocumentEditorPage() {
                 placeholder="Título del documento"
                 style={{
                   width: '100%', background: 'transparent', border: 'none', outline: 'none',
-                  fontSize: '14.5px', fontWeight: 600, color: C.text,
+                  fontSize: '16px', fontWeight: 650, color: C.text,
                   fontFamily: SORA,
                   cursor: !canEdit ? 'default' : 'text',
                   transition: 'color 0.12s',
                 }}
               />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '1px' }}>
+              <div className="doc-document-meta" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Clock style={{ width: '10px', height: '10px', color: C.text4 }} />
                   <span style={{ fontSize: '10.5px', color: C.text4, fontFamily: MANROPE }}>
@@ -291,17 +264,17 @@ export default function DocumentEditorPage() {
                 </div>
                 <span style={{ fontSize: '10px', color: title.length > 180 ? C.red : C.text4, fontFamily: MANROPE }}>{title.length}/180</span>
                 <span style={{ fontSize: '10.5px', color: C.text4, fontFamily: MANROPE }}>
-                  - {currentDocument.creator?.name}
+                  Por {currentDocument.creator?.name}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Right: active users + badges + menu */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <div className="doc-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             {/* Active users with avatars */}
             {activeUsers.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <div className="doc-active-users" style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <div style={{ display: 'flex' }}>
                   {activeUsers.slice(0, 4).map((u: any, i: number) => (
                     <div
@@ -336,7 +309,7 @@ export default function DocumentEditorPage() {
                     </div>
                   )}
                 </div>
-                <span style={{
+                <span className="doc-active-status" style={{
                   display: 'flex', alignItems: 'center', gap: '5px',
                   fontSize: '11.5px', color: '#9FC59A', fontFamily: MANROPE,
                   background: 'rgba(118,168,120,0.1)', padding: '2px 8px', borderRadius: '6px',
@@ -358,13 +331,13 @@ export default function DocumentEditorPage() {
             )}
 
             {/* Options menu */}
-            {isCreator && (
+            {canManage && (
               <div style={{ position: 'relative' }}>
-                <OptionsBtn active={showOptionsMenu} onClick={() => { setShowOptionsMenu(!showOptionsMenu); setShowExportMenu(false); }} />
+                <OptionsBtn active={showOptionsMenu} onClick={() => setShowOptionsMenu(!showOptionsMenu)} />
 
                 {showOptionsMenu && (
                   <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => { setShowOptionsMenu(false); setShowExportMenu(false); }} />
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowOptionsMenu(false)} />
                     <div style={{
                       position: 'absolute', right: 0, top: 'calc(100% + 6px)',
                       width: '180px', background: C.surface, border: `1px solid ${C.border2}`,
@@ -373,38 +346,6 @@ export default function DocumentEditorPage() {
                       padding: '4px',
                     }}>
                       <MenuItem icon={<Share2 style={{ width: '13px', height: '13px' }} />} label="Compartir" onClick={handleShareClick} />
-
-                      {/* Export submenu */}
-                      <div style={{ position: 'relative' }}>
-                        <MenuItem
-                          icon={<Download style={{ width: '13px', height: '13px' }} />}
-                          label="Exportar"
-                          disabled={isExporting}
-                          suffix={<span style={{ marginLeft: 'auto', color: C.text4, fontSize: '11px' }}>›</span>}
-                          onClick={() => setShowExportMenu(!showExportMenu)}
-                        />
-                        {showExportMenu && (
-                          <>
-                            <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowExportMenu(false)} />
-                            <div style={{
-                              position: 'absolute', right: 'calc(100% + 4px)', top: 0,
-                              width: '130px', background: C.surface, border: `1px solid ${C.border2}`,
-                              borderRadius: '9px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                              overflow: 'hidden', zIndex: 30, padding: '4px',
-                            }}>
-                              {(['pdf', 'html', 'markdown'] as const).map((fmt) => (
-                                <MenuItem
-                                  key={fmt}
-                                  icon={<FileText style={{ width: '13px', height: '13px' }} />}
-                                  label={fmt.toUpperCase()}
-                                  disabled={isExporting}
-                                  onClick={() => handleExport(fmt)}
-                                />
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
 
                       <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
                       <MenuItem
@@ -420,14 +361,14 @@ export default function DocumentEditorPage() {
             )}
           </div>
         </div>
-        <div style={{ padding: '0 0 9px 48px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input aria-label="Descripción del documento" value={description} maxLength={Math.max(300, (currentDocument.description ?? '').length)} onChange={(e) => setDescription(e.target.value)} onBlur={handleDescriptionBlur} disabled={!canEdit} placeholder="Añadir descripción del documento…" style={{ flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: C.text3, fontSize: 11.5 }} />
+        <div className="doc-description-row" style={{ padding: '0 0 10px 48px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input className="doc-description-input" aria-label="Descripción del documento" value={description} maxLength={Math.max(300, (currentDocument.description ?? '').length)} onChange={(e) => setDescription(e.target.value)} onBlur={handleDescriptionBlur} disabled={!canEdit} placeholder="Añadir descripción del documento…" style={{ flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: C.text3, fontSize: 11.5 }} />
           <small style={{ color: description.length > 300 ? C.red : C.text4, fontSize: 10 }}>{description.length}/300</small>
         </div>
       </header>
 
       {/* ── Editor ────────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div className="doc-editor-stage" style={{ flex: 1, overflow: 'hidden' }}>
         <Suspense fallback={
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <div style={{ textAlign: 'center' }}>
@@ -446,152 +387,22 @@ export default function DocumentEditorPage() {
             workspaceId={workspaceId}
             currentUser={{ id: user.id, name: user.name, color: getUserColor(user.id) }}
             canEdit={canEdit}
+            canComment={canComment}
           />
         </Suspense>
       </div>
 
       {/* ── Modal: Compartir ───────────────────────────────────────────────── */}
       {showShareModal && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 50,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
-            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
-          }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowShareModal(false); }}
-        >
-          <div
-            style={{
-              width: '100%', maxWidth: '560px', maxHeight: '80vh',
-              display: 'flex', flexDirection: 'column',
-              background: 'var(--c-surface)', border: `1px solid ${C.border}`,
-              borderRadius: '12px', boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
-              overflow: 'hidden',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 16px', borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '28px', height: '28px', borderRadius: '7px',
-                  background: `${C.accent}18`, border: `1px solid ${C.accent}33`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Share2 style={{ width: '13px', height: '13px', color: C.accent }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: C.text }}>Compartir documento</div>
-                  <div style={{ fontSize: '11.5px', color: C.text4 }}>Gestiona quién puede ver y editar este documento</div>
-                </div>
-              </div>
-              <ModalCloseBtn onClick={() => setShowShareModal(false)} />
-            </div>
-
-            {/* Body */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
-              {loadingMembers ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
-                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: `2px solid ${C.accent}`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {members.map((member) => {
-                    const isOwner   = member.workspaceRole === 'OWNER';
-                    const isCreator = member.isCreator;
-                    const isLocked  = isOwner || isCreator;
-                    const av        = getAvatarUrl(member.avatar);
-
-                    return (
-                      <div
-                        key={member.userId}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '12px',
-                          padding: '10px 12px', borderRadius: '8px',
-                          background: C.surface, border: `1px solid ${C.border}`,
-                        }}
-                      >
-                        {/* Avatar */}
-                        <div style={{
-                          width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
-                          background: `${C.accent}22`, color: C.accent,
-                          fontSize: '13px', fontWeight: 700,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          overflow: 'hidden',
-                        }}>
-                          {av ? (
-                            <img src={av} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} crossOrigin="anonymous" />
-                          ) : (
-                            member.name.charAt(0).toUpperCase()
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {member.name}
-                            </span>
-                            {isCreator && (
-                              <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: `${C.accent}18`, color: C.accent, border: `1px solid ${C.accent}33`, flexShrink: 0 }}>
-                                Creador
-                              </span>
-                            )}
-                            {isOwner && (
-                              <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}33`, flexShrink: 0 }}>
-                                Propietario
-                              </span>
-                            )}
-                          </div>
-                          <span style={{ fontSize: '11.5px', color: C.text4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                            {member.email}
-                          </span>
-                        </div>
-
-                        {/* Permission select */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <select
-                            value={member.effectivePermission}
-                            onChange={(e) => handlePermissionChange(member.userId, e.target.value)}
-                            disabled={isLocked || updatingPermission === member.userId}
-                            style={{
-                              padding: '5px 8px', borderRadius: '6px', fontSize: '12px',
-                              background: C.bg2, border: `1px solid ${C.border2}`, color: C.text2,
-                              cursor: isLocked ? 'not-allowed' : 'pointer', outline: 'none',
-                              opacity: isLocked ? 0.5 : 1,
-                            }}
-                          >
-                            <option value="VIEW">Ver</option>
-                            <option value="COMMENT">Comentar</option>
-                            <option value="EDIT">Editar</option>
-                          </select>
-                          {updatingPermission === member.userId && (
-                            <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: `2px solid ${C.accent}`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${C.border}`, background: 'var(--c-surface2)', display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowShareModal(false)}
-                style={{
-                  padding: '7px 18px', borderRadius: '7px', fontSize: '13px', fontWeight: 500,
-                  background: C.accent, color: '#fff', border: 'none', cursor: 'pointer',
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
+        <DocumentShareModal
+          members={members}
+          loading={loadingMembers}
+          projectScoped={Boolean(currentDocument.projectId)}
+          updatingUserId={updatingPermission}
+          onPermissionChange={handlePermissionChange}
+          onClose={() => setShowShareModal(false)}
+        />
       )}
-
       {/* ── Modal: Eliminar ────────────────────────────────────────────────── */}
       {showDeleteModal && (
         <div
@@ -715,27 +526,6 @@ function OptionsBtn({ active, onClick }: { active: boolean; onClick: () => void 
       }}
     >
       <MoreVertical style={{ width: '15px', height: '15px' }} />
-    </button>
-  );
-}
-
-function ModalCloseBtn({ onClick }: { onClick: () => void }) {
-  const [h, setH] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      style={{
-        width: '26px', height: '26px', borderRadius: '6px',
-        background: h ? C.hover : 'transparent', border: 'none',
-        color: h ? C.text2 : C.text4, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" width="11" height="11">
-        <path d="M1 1l10 10M11 1L1 11" />
-      </svg>
     </button>
   );
 }

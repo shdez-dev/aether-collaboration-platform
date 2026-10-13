@@ -40,7 +40,7 @@ interface DocumentCommentActions {
     position: DocumentCommentPosition,
     parentId?: string | null,
     mentions?: string[]
-  ) => Promise<DocumentCommentData | null>;
+  ) => Promise<DocumentCommentData>;
   editComment: (commentId: string, content: string) => Promise<void>;
   removeComment: (commentId: string, documentId: string) => Promise<void>;
   resolveComment: (commentId: string, resolved: boolean) => Promise<void>;
@@ -142,7 +142,7 @@ export const useDocumentCommentStore = create<DocumentCommentState & DocumentCom
       // ── Add comment ────────────────────────────────────────────────────────
       addComment: async (documentId, content, position, parentId, mentions) => {
         const user = useAuthStore.getState().user;
-        if (!user) return null;
+        if (!user) throw new Error('Tu sesión no está disponible. Vuelve a iniciar sesión e inténtalo otra vez.');
 
         // Optimistic
         const optimistic: DocumentCommentData = {
@@ -192,7 +192,7 @@ export const useDocumentCommentStore = create<DocumentCommentState & DocumentCom
               [documentId]: removeFromList(s.commentsByDocument[documentId] ?? [], optimistic.id),
             },
           }));
-          return null;
+          throw err instanceof Error ? err : new Error('No se pudo guardar el comentario. Inténtalo de nuevo.');
         }
       },
 
