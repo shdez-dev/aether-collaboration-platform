@@ -8,7 +8,7 @@ on:
 
 env:
   PNPM_VERSION: 8
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
   # ===========================================================================
@@ -253,6 +253,9 @@ jobs:
       - name: Run pnpm audit
         run: pnpm audit --audit-level=moderate
         continue-on-error: true
+
+      - name: Verify braces security patch
+        run: pnpm check:braces-patch
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.20.0

@@ -558,9 +558,10 @@ export class DocumentExportService {
       const page = await browser.newPage();
 
       await page.setContent(html, {
-        waitUntil: 'networkidle0',
+        waitUntil: 'load',
         timeout: 30000,
       });
+      await page.waitForNetworkIdle({ timeout: 30000 });
 
       const pdf = await page.pdf({
         format: 'A4',

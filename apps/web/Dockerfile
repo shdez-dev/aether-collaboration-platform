@@ -4,7 +4,7 @@
 # ============================================
 
 # Stage 1: Dependencies
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # Activate the repository's package manager without using npm.
@@ -19,7 +19,7 @@ COPY packages/shared-types/package.json ./packages/shared-types/
 RUN pnpm install --frozen-lockfile
 
 # Stage 2: Builder
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Activate the repository's package manager without using npm.
@@ -50,7 +50,7 @@ RUN echo "Building with NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}"
 RUN pnpm --filter @aether/web build
 
 # Stage 3: Production
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 # Activate the repository's package manager without using npm.

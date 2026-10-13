@@ -1,8 +1,6 @@
 // apps/api/jest.setup.ts
 // Setup global mocks and test environment
 
-import Redis from 'ioredis-mock';
-
 // Mock uuid to avoid ESM issues
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid-v4'),
@@ -11,11 +9,42 @@ jest.mock('uuid', () => ({
 
 // Mock Redis
 jest.mock('./src/lib/redis', () => {
-  const redisMock = new Redis();
+  const createClient = () => {
+    const pipeline = {
+      sadd: jest.fn().mockReturnThis(),
+      srem: jest.fn().mockReturnThis(),
+      hset: jest.fn().mockReturnThis(),
+      hdel: jest.fn().mockReturnThis(),
+      del: jest.fn().mockReturnThis(),
+      expire: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue([]),
+    };
+    return {
+      connect: jest.fn().mockResolvedValue(undefined),
+      quit: jest.fn().mockResolvedValue(undefined),
+      ping: jest.fn().mockResolvedValue('PONG'),
+      publish: jest.fn().mockResolvedValue(0),
+      subscribe: jest.fn().mockResolvedValue(1),
+      on: jest.fn(),
+      pipeline: jest.fn(() => pipeline),
+      keys: jest.fn().mockResolvedValue([]),
+      smembers: jest.fn().mockResolvedValue([]),
+      scard: jest.fn().mockResolvedValue(0),
+      sismember: jest.fn().mockResolvedValue(0),
+      hgetall: jest.fn().mockResolvedValue({}),
+      hlen: jest.fn().mockResolvedValue(0),
+      hset: jest.fn().mockResolvedValue(0),
+      hdel: jest.fn().mockResolvedValue(0),
+      expire: jest.fn().mockResolvedValue(1),
+      del: jest.fn().mockResolvedValue(0),
+      exists: jest.fn().mockResolvedValue(0),
+      srem: jest.fn().mockResolvedValue(0),
+    };
+  };
   return {
-    redisPubClient: redisMock,
-    redisSubClient: redisMock.duplicate(),
-    redisClient: redisMock,
+    redisPubClient: createClient(),
+    redisSubClient: createClient(),
+    redisClient: createClient(),
   };
 });
 

@@ -1,21 +1,18 @@
 // apps/web/src/components/documents/CollaborativeEditor.tsx
 'use client';
 
-import { useEditor, EditorContent, BubbleMenu, Extension } from '@tiptap/react';
+import { useEditor, EditorContent, Extension } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
-import Placeholder from '@tiptap/extension-placeholder';
+import CollaborationCaret from '@tiptap/extension-collaboration-caret';
+import { Placeholder } from '@tiptap/extensions';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
+import { TaskList, TaskItem } from '@tiptap/extension-list';
 import Highlight from '@tiptap/extension-highlight';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import Table from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableCell from '@tiptap/extension-table-cell';
-import TableHeader from '@tiptap/extension-table-header';
+import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
 import { common, createLowlight } from 'lowlight';
 import * as Y from 'yjs';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -1805,15 +1802,17 @@ export default function CollaborativeEditor({
   const extensions = useMemo(
     () => [
       StarterKit.configure({
-        history: false,
+        undoRedo: false,
         codeBlock: false, // replaced by CodeBlockLowlight
+        link: false, // configured separately to keep click behavior
+        underline: false, // provided by the standalone extension
         bulletList: { keepMarks: true, keepAttributes: false },
         orderedList: { keepMarks: true, keepAttributes: false },
       }),
       Collaboration.configure({ document: yjsDoc }),
       ...(provider
         ? [
-            CollaborationCursor.configure({
+            CollaborationCaret.configure({
               provider,
               user: { name: currentUser.name, color: currentUser.color },
             }),
@@ -1841,6 +1840,7 @@ export default function CollaborativeEditor({
   const editor = useEditor(
     {
       immediatelyRender: false,
+      shouldRerenderOnTransaction: true,
       extensions,
       editable: canEdit,
       editorProps: {
@@ -2262,7 +2262,7 @@ export default function CollaborativeEditor({
       {canComment && (
         <BubbleMenu
           editor={editor}
-          tippyOptions={{ duration: 100 }}
+          options={{ offset: 6, placement: 'top' }}
           shouldShow={({ from, to }) => {
             if (bubbleLinkModeRef.current) return true;
             return from !== to;

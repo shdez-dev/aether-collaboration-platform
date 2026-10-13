@@ -1,0 +1,5 @@
+# CVE-2026-93687 / GHSA-vfj7-8cjw-p6xm has no upstream patched release.
+# patches/braces@3.0.3.patch adds an AST depth limit. CI verifies the installed
+# package rejects deeply nested patterns before this Trivy exclusion applies.
+CVE-2026-93687
+GHSA-vfj7-8cjw-p6xm
