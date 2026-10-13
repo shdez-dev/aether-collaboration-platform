@@ -46,11 +46,12 @@ function requirePlatformAdmin(req: Request, res: Response, next: () => void) {
   next();
 }
 
-router.use(requirePlatformAdmin);
-
-router.get('/access', (_req, res) => {
-  res.json({ success: true, data: { platformAdmin: true } });
+router.get('/access', (req, res) => {
+  const userId = (req as Request & { user?: { id: string } }).user?.id;
+  res.json({ success: true, data: { platformAdmin: Boolean(userId && isPlatformAdmin(userId)) } });
 });
+
+router.use(requirePlatformAdmin);
 
 router.get('/overview', async (_req, res, next) => {
   try {

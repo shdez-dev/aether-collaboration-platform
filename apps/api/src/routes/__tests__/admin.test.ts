@@ -58,12 +58,14 @@ describe('rutas de administración global', () => {
     expect(response.body.data.onlineScope).toBe('current_instance');
   });
 
-  it('admite exactamente una cuenta y no listas de identificadores', async () => {
+  it('informa si una cuenta es administradora sin rechazar las cuentas normales', async () => {
     process.env.PLATFORM_ADMIN_USER_ID = 'admin-id';
     const denied = await request(app).get('/api/admin/access').set('x-test-user', 'another-id');
     const allowed = await request(app).get('/api/admin/access').set('x-test-user', 'admin-id');
-    expect(denied.status).toBe(403);
+    expect(denied.status).toBe(200);
+    expect(denied.body.data.platformAdmin).toBe(false);
     expect(allowed.status).toBe(200);
+    expect(allowed.body.data.platformAdmin).toBe(true);
   });
 
   it('protege también las listas globales y el estado del sistema', async () => {
