@@ -5,6 +5,7 @@ REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP_ENV="/srv/aether/secrets/aether-platform.env"
 BREVO_ENV="/srv/aether/secrets/brevo.env"
 DEPLOY_LOCK="/home/athe/.cache/aether-platform/deploy.lock"
+DEPLOYED_REVISION="/home/athe/.cache/aether-platform/deployed-revision"
 BRANCH="main"
 APP_URL="https://minecraft-rpi.taile4f8be.ts.net"
 
@@ -37,10 +38,13 @@ if [[ "$mode" == "--update" ]]; then
   git -C "$REPO_ROOT" fetch --quiet origin "$BRANCH"
   target="$(git -C "$REPO_ROOT" rev-parse FETCH_HEAD)"
   current="$(git -C "$REPO_ROOT" rev-parse HEAD)"
-  if [[ "$current" == "$target" ]]; then
+  deployed="$(cat "$DEPLOYED_REVISION" 2>/dev/null || true)"
+  if [[ "$current" == "$target" && "$deployed" == "$target" ]]; then
     exit 0
   fi
-  git -C "$REPO_ROOT" merge --ff-only "$target"
+  if [[ "$current" != "$target" ]]; then
+    git -C "$REPO_ROOT" merge --ff-only "$target"
+  fi
 fi
 
 if [[ ! -s "$APP_ENV" ]]; then
@@ -84,5 +88,8 @@ sudo -n install -m 0644 "$REPO_ROOT/infra/raspberry-pi/aether-platform-deploy.se
 sudo -n install -m 0644 "$REPO_ROOT/infra/raspberry-pi/aether-platform-deploy.timer" /etc/systemd/system/aether-platform-deploy.timer
 sudo -n systemctl daemon-reload
 sudo -n systemctl enable --now aether-platform-deploy.timer
+
+git -C "$REPO_ROOT" rev-parse HEAD > "$DEPLOYED_REVISION.tmp"
+mv -f "$DEPLOYED_REVISION.tmp" "$DEPLOYED_REVISION"
 
 echo "Despliegue solicitado. Revisa el estado con: sudo docker compose --project-name aether-platform ps"
