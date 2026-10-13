@@ -110,13 +110,22 @@ export default function ChatDock({ userId }: { userId?: string }) {
       }
     };
     const onRead = () => { void refresh(); };
-    const onConnect = () => { void refresh(); };
+    const onConnect = () => {
+      void refresh();
+      if (activeRef.current) void loadMessages(activeRef.current.conversationId);
+    };
     socketService.on('chat:message', onChange);
     socketService.on('chat:request', onChange);
     socketService.on('chat:request-updated', onChange);
     socketService.on('chat:read', onRead);
     socketService.onConnect(onConnect);
+    const fallbackPoll = window.setInterval(() => {
+      if (document.hidden || socketService.isConnected()) return;
+      void refresh();
+      if (activeRef.current) void loadMessages(activeRef.current.conversationId);
+    }, 10000);
     return () => {
+      window.clearInterval(fallbackPoll);
       socketService.off('chat:message', onChange);
       socketService.off('chat:request', onChange);
       socketService.off('chat:request-updated', onChange);

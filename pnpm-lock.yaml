@@ -108,9 +108,6 @@ importers:
       express:
         specifier: ^4.18.2
         version: 4.22.1
-      express-rate-limit:
-        specifier: ^8.2.2
-        version: 8.5.2(express@4.22.1)
       groq-sdk:
         specifier: ^1.1.2
         version: 1.1.2
@@ -6781,16 +6778,6 @@ packages:
       jest-util: 30.2.0
     dev: true
 
-  /express-rate-limit@8.5.2(express@4.22.1):
-    resolution: {integrity: sha512-5Kb34ipNX694DH48vN9irak1Qx30nb0PLYHXfJgw4YEjiC3ZEmZJhwOp+VfiCYwFzvFTdB9QkArYS5kXa2cx2A==}
-    engines: {node: '>= 16'}
-    peerDependencies:
-      express: '>= 4.11'
-    dependencies:
-      express: 4.22.1
-      ip-address: 10.7.1
-    dev: false
-
   /express@4.22.1:
     resolution: {integrity: sha512-F2X8g9P1X7uCPZMA3MVf9wcTqlyNp7IhH5qPCI0izhaOIYXaW9L535tGA3qmjRzpH+bZczqq7hVKxTR4NWnu+g==}
     engines: {node: '>= 0.10.0'}
@@ -7443,11 +7430,6 @@ packages:
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
-    dev: false
-
-  /ip-address@10.7.1:
-    resolution: {integrity: sha512-4OUAqU9Z1i3vCnS05hzGiFnEMDpQ+62pAD/MVQOp83fYyNC8GleCqaS0QikQBmcWCrKFiUs/B8ztRRiYOAXuCA==}
-    engines: {node: '>= 12'}
     dev: false
 
   /ipaddr.js@1.9.1:

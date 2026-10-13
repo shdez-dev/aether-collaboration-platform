@@ -16,8 +16,6 @@ import type { Event } from '@aether/types';
  */
 class SocketService {
   private socket: Socket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 10;
   private reconnectDelay = 1000;
 
   // Eventos emitidos mientras el socket no estaba conectado
@@ -77,7 +75,9 @@ class SocketService {
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: this.reconnectDelay,
-      reconnectionAttempts: this.maxReconnectAttempts,
+      // A Raspberry or its reverse proxy can briefly lose connectivity. Keep
+      // retrying so chat and presence recover without a page reload.
+      reconnectionAttempts: Infinity,
       // Tiempo máximo esperando antes de considerar timeout de conexión
       timeout: 20000,
     });
@@ -92,7 +92,6 @@ class SocketService {
 
     this.socket.on('connect', () => {
       this.isConnecting = false;
-      this.reconnectAttempts = 0;
       // Primero emitir la cola de eventos generales
       this.flushEventQueue();
       // Luego notificar a los suscriptores (incluido el CollaborativeEditor)
@@ -109,11 +108,9 @@ class SocketService {
 
     this.socket.on('connect_error', () => {
       this.isConnecting = false;
-      this.reconnectAttempts++;
     });
 
     this.socket.on('reconnect', () => {
-      this.reconnectAttempts = 0;
       this.flushEventQueue();
       this.notifyConnectListeners();
     });

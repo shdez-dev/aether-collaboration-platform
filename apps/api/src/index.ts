@@ -34,14 +34,6 @@ import adminRoutes from './routes/admin';
 import chatRoutes from './routes/chat';
 import { documentCommentController } from './controllers/DocumentCommentController';
 
-// Import middleware
-import {
-  apiLimiter,
-  authLimiter,
-  registerLimiter,
-  passwordResetLimiter,
-} from './middleware/rateLimiter';
-
 // Import config
 import { validateEnv } from './config/env';
 
@@ -183,19 +175,6 @@ app.get('/api', (req, res) => {
     docs: '/api/docs',
   });
 });
-
-// ============================================================================
-// RATE LIMITING
-// ============================================================================
-
-// Apply general rate limiting to all API routes
-app.use('/api', apiLimiter);
-
-// Apply stricter rate limiting to auth endpoints
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', registerLimiter);
-app.use('/api/auth/forgot-password', passwordResetLimiter);
-app.use('/api/auth/reset-password', passwordResetLimiter);
 
 // ============================================================================
 // API ROUTES

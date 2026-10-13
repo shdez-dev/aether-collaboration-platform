@@ -177,13 +177,23 @@ export default function ContactsPage() {
     socketService.on('chat:request', onChange);
     socketService.on('chat:request-updated', onChange);
     socketService.on('chat:read', onRead);
-    socketService.onConnect(onRead);
+    const onConnect = () => {
+      void refresh();
+      if (activeConversation.current) void loadMessages(activeConversation.current);
+    };
+    socketService.onConnect(onConnect);
+    const fallbackPoll = window.setInterval(() => {
+      if (document.hidden || socketService.isConnected()) return;
+      void refresh();
+      if (activeConversation.current) void loadMessages(activeConversation.current);
+    }, 10000);
     return () => {
+      window.clearInterval(fallbackPoll);
       socketService.off('chat:message', onChange);
       socketService.off('chat:request', onChange);
       socketService.off('chat:request-updated', onChange);
       socketService.off('chat:read', onRead);
-      socketService.offConnect(onRead);
+      socketService.offConnect(onConnect);
     };
   }, [refresh, loadMessages]);
 
