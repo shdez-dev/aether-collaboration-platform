@@ -123,9 +123,9 @@ export default function BoardPage() {
   const [recentActivity, setRecentActivity] = useState<ActivityLogEntry[]>([]);
 
   // Cursor presence — callback ref para evitar el ref trap
-  const [kanbanEl, setKanbanEl] = useState<HTMLDivElement | null>(null);
-  const kanbanCallbackRef = useCallback((el: HTMLDivElement | null) => setKanbanEl(el), []);
-  const { cursors: remoteCursors } = useBoardCursors(boardId, kanbanEl);
+  const [boardSurfaceEl, setBoardSurfaceEl] = useState<HTMLDivElement | null>(null);
+  const boardSurfaceCallbackRef = useCallback((el: HTMLDivElement | null) => setBoardSurfaceEl(el), []);
+  const { cursors: remoteCursors } = useBoardCursors(boardId, boardSurfaceEl);
 
   const handleViewChange = async (view: BoardView) => {
     setCurrentView(view);
@@ -412,7 +412,8 @@ export default function BoardPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
+    <div ref={boardSurfaceCallbackRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
+      <RemoteCursors cursors={remoteCursors} />
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header style={{ borderBottom: `1px solid ${C.border}`, background: C.bg2, flexShrink: 0 }}>
@@ -569,8 +570,7 @@ export default function BoardPage() {
             </div>
           ) : (
             /* ── Kanban ──────────────────────────────────────────────── */
-            <div ref={kanbanCallbackRef} style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', position: 'relative' }}>
-              <RemoteCursors cursors={remoteCursors} />
+            <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
               <div style={{ height: '100%', padding: '20px 24px' }}>
                 <DndContext
                   sensors={sensors}

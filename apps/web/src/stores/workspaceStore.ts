@@ -74,6 +74,8 @@ export interface WorkspaceProjectStandard {
 
 export interface WorkspaceProjectStandardHistoryEntry extends WorkspaceProjectStandard {}
 
+let workspaceListRequestId = 0;
+
 interface WorkspaceMember {
   id: string;
   workspaceId: string;
@@ -186,6 +188,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       // ==================== FETCH WORKSPACES ====================
       fetchWorkspaces: async (includeArchived = false) => {
+        const requestId = ++workspaceListRequestId;
         set({ isLoading: true, error: null });
 
         try {
@@ -193,6 +196,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             `/api/workspaces${includeArchived ? '?archived=true' : ''}`,
             true
           );
+
+          if (requestId !== workspaceListRequestId) return;
 
           if (!response.success || !response.data) {
             set({
@@ -207,6 +212,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             isLoading: false,
           });
         } catch (error) {
+          if (requestId !== workspaceListRequestId) return;
           set({
             error: 'Error al cargar workspaces',
             isLoading: false,
@@ -832,6 +838,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       reset: () => {
+        workspaceListRequestId += 1;
         set({
           workspaces: [],
           currentWorkspace: null,

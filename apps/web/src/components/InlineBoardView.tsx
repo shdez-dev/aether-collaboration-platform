@@ -76,9 +76,9 @@ export function InlineBoardView({ boardId, onBack, projectId, methodology, onOpe
   const [sprintFilter,     setSprintFilter]     = useState<'active' | 'all'>('active');
   const activeSprint = projectSprints.find((sprint) => sprint.status === 'ACTIVE');
 
-  const [kanbanEl, setKanbanEl] = useState<HTMLDivElement | null>(null);
-  const kanbanCallbackRef       = useCallback((el: HTMLDivElement | null) => setKanbanEl(el), []);
-  const { cursors: remoteCursors } = useBoardCursors(boardId, kanbanEl);
+  const [boardSurfaceEl, setBoardSurfaceEl] = useState<HTMLDivElement | null>(null);
+  const boardSurfaceCallbackRef = useCallback((el: HTMLDivElement | null) => setBoardSurfaceEl(el), []);
+  const { cursors: remoteCursors } = useBoardCursors(boardId, boardSurfaceEl);
 
   const handleViewChange = async (view: 'kanban' | 'table') => {
     setCurrentView(view);
@@ -312,7 +312,7 @@ export function InlineBoardView({ boardId, onBack, projectId, methodology, onOpe
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <>
-    <div style={{ animation: 'boardRise .45s cubic-bezier(.4,0,.2,1) backwards' }}>
+    <div ref={boardSurfaceCallbackRef} style={{ position: 'relative', animation: 'boardRise .45s cubic-bezier(.4,0,.2,1) backwards' }}>
       <style>{`
         @keyframes boardRise { 0% { opacity:0; transform:translateY(14px); } 100% { opacity:1; transform:translateY(0); } }
         .ibv-scroll { scrollbar-width: thin; scrollbar-color: rgba(97,71,130,0.15) transparent; }
@@ -322,6 +322,7 @@ export function InlineBoardView({ boardId, onBack, projectId, methodology, onOpe
         .ibv-scroll::-webkit-scrollbar-thumb:hover { background: rgba(97,71,130,0.28); border: 2px solid transparent; background-clip: padding-box; }
         .ibv-search::placeholder { color: var(--c-text3); }
       `}</style>
+      <RemoteCursors cursors={remoteCursors} />
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{
@@ -544,8 +545,7 @@ export function InlineBoardView({ boardId, onBack, projectId, methodology, onOpe
         </div>
       ) : (
         /* ── Kanban ──────────────────────────────────────────────────────── */
-        <div ref={kanbanCallbackRef} className="ibv-scroll" style={{ overflowX: 'auto', overflowY: 'visible', position: 'relative', paddingBottom: '16px' }}>
-          <RemoteCursors cursors={remoteCursors} />
+        <div className="ibv-scroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: '16px' }}>
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}

@@ -21,6 +21,9 @@ export interface SidebarProject {
   workspaceId: string;
 }
 
+let sidebarBoardsRequestId = 0;
+let sidebarProjectsRequestId = 0;
+
 interface ActiveWorkspaceState {
   activeWorkspaceId: string | null;
   sidebarBoards: SidebarBoard[];
@@ -48,36 +51,54 @@ export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
 
       setActiveWorkspaceId: (id) => {
         if (get().activeWorkspaceId === id) return;
-        set({ activeWorkspaceId: id, sidebarBoards: [], sidebarProjects: [] });
+        sidebarBoardsRequestId += 1;
+        sidebarProjectsRequestId += 1;
+        set({
+          activeWorkspaceId: id,
+          sidebarBoards: [],
+          sidebarProjects: [],
+          boardsLoading: false,
+          projectsLoading: false,
+        });
       },
 
       fetchSidebarBoards: async (workspaceId) => {
+        if (get().activeWorkspaceId !== workspaceId) return;
+        const requestId = ++sidebarBoardsRequestId;
         set({ boardsLoading: true });
         try {
           const r = await apiService.get<{ boards: SidebarBoard[] }>(
             `/api/workspaces/${workspaceId}/boards`,
             true
           );
-          if (r.success && r.data) {
+          if (requestId === sidebarBoardsRequestId && get().activeWorkspaceId === workspaceId && r.success && r.data) {
             set({ sidebarBoards: r.data.boards.filter((b) => !b.archived) });
           }
         } catch { /* silent */ }
-        finally { set({ boardsLoading: false }); }
+        finally {
+          if (requestId === sidebarBoardsRequestId && get().activeWorkspaceId === workspaceId) {
+            set({ boardsLoading: false });
+          }
+        }
       },
 
       fetchSidebarProjects: async (workspaceId) => {
+        if (get().activeWorkspaceId !== workspaceId) return;
+        const requestId = ++sidebarProjectsRequestId;
         set({ projectsLoading: true });
         try {
           const r = await apiService.get<{ projects: SidebarProject[] }>(
             `/api/workspaces/${workspaceId}/projects`,
             true
           );
-          if (r.success && r.data && get().activeWorkspaceId === workspaceId) {
+          if (requestId === sidebarProjectsRequestId && r.success && r.data && get().activeWorkspaceId === workspaceId) {
             set({ sidebarProjects: r.data.projects });
           }
         } catch { /* silent */ }
         finally {
-          if (get().activeWorkspaceId === workspaceId) set({ projectsLoading: false });
+          if (requestId === sidebarProjectsRequestId && get().activeWorkspaceId === workspaceId) {
+            set({ projectsLoading: false });
+          }
         }
       },
 

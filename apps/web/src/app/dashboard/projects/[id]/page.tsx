@@ -5134,8 +5134,13 @@ export default function ProjectDetailPage() {
       switch (ev.type) {
         case 'project.updated':
         case 'project.status.changed':
+        case 'project.workflow.changed':
           fetchProjectById(projectId);
           fetchStats(projectId);
+          break;
+
+        case 'project.deleted':
+          router.replace('/dashboard/projects');
           break;
 
         case 'project.milestone.created':
@@ -5183,7 +5188,7 @@ export default function ProjectDetailPage() {
       socketService.off('event', handleEvent);
       socketService.leaveWorkspace(wsId, roomOwner);
     };
-  }, [currentProject?.workspaceId, projectId, fetchProjectById, fetchStats]);
+  }, [currentProject?.workspaceId, projectId, fetchProjectById, fetchStats, router]);
 
   async function handleAssignTeam(teamId: string) {
     await projectApi.assignTeam(projectId, teamId);

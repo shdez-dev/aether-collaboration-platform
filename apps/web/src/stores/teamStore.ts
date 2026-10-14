@@ -119,6 +119,7 @@ interface TeamState {
 // ==================== STORE ====================
 
 let teamDetailRequestId = 0;
+let teamListRequestId = 0;
 
 export const useTeamStore = create<TeamState>()(
   persist(
@@ -132,16 +133,19 @@ export const useTeamStore = create<TeamState>()(
       // ── Fetch all ───────────────────────────────────────────────────────────
 
       fetchTeams: async (workspaceId?: string) => {
+        const requestId = ++teamListRequestId;
         set({ isLoading: true, error: null });
         try {
           const query = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
           const response = await apiService.get<{ teams: Team[] }>(`/api/teams${query}`, true);
+          if (requestId !== teamListRequestId) return;
           if (!response.success || !response.data) {
             set({ error: response.error?.message || 'Error al obtener equipos', isLoading: false });
             return;
           }
           set({ teams: response.data.teams, isLoading: false });
         } catch (error: any) {
+          if (requestId !== teamListRequestId) return;
           set({ error: error.message || 'Error desconocido', isLoading: false });
         }
       },
@@ -315,7 +319,11 @@ export const useTeamStore = create<TeamState>()(
 
       clearError: () => set({ error: null }),
 
-      reset: () => set({ teams: [], currentTeam: null, pendingTeamInvitations: [], isLoading: false, error: null }),
+      reset: () => {
+        teamListRequestId += 1;
+        teamDetailRequestId += 1;
+        set({ teams: [], currentTeam: null, pendingTeamInvitations: [], isLoading: false, error: null });
+      },
     }),
     {
       name: 'aether-team-store',
