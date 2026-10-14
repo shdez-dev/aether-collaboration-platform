@@ -73,6 +73,7 @@ const lowlight = createLowlight(common);
 
 const SORA    = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
+const BUBBLE_MENU_OPTIONS = { offset: 6, placement: 'top' } as const;
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -1651,6 +1652,10 @@ export default function CollaborativeEditor({
   const [bubbleLinkValue, setBubbleLinkValue] = useState('');
   const bubbleLinkModeRef = useRef(false); // ref for shouldShow closure
   const bubbleLinkInputRef = useRef<HTMLInputElement>(null);
+  const shouldShowBubbleMenu = useCallback(
+    ({ from, to }: { from: number; to: number }) => bubbleLinkModeRef.current || from !== to,
+    []
+  );
 
   const setBubbleLinkMode = (v: boolean) => {
     bubbleLinkModeRef.current = v;
@@ -2271,11 +2276,8 @@ export default function CollaborativeEditor({
       {canComment && (
         <BubbleMenu
           editor={editor}
-          options={{ offset: 6, placement: 'top' }}
-          shouldShow={({ from, to }) => {
-            if (bubbleLinkModeRef.current) return true;
-            return from !== to;
-          }}
+          options={BUBBLE_MENU_OPTIONS}
+          shouldShow={shouldShowBubbleMenu}
         >
           <div
             style={{
