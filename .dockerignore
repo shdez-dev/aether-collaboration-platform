@@ -25,12 +25,8 @@ build
 *.tsbuildinfo
 
 # Environment files
-.env
-.env.local
-.env.development
-.env.test
-.env.production
-.env*.local
+.env*
+**/.env*
 
 # IDE
 .idea
