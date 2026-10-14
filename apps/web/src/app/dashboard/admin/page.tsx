@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, Building2, CircleHelp, CreditCard, Database, FileText, FolderKanban, Landmark, LayoutDashboard, Layers3, Mail, Network, RefreshCw, Search, Send, Server, ShieldCheck, Users, X } from 'lucide-react';
 import { apiService } from '@/services/apiService';
+import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 import styles from './page.module.css';
 
 type Tab = 'resumen' | 'usuarios' | 'organizaciones' | 'espacios' | 'proyectos' | 'invitaciones' | 'planes' | 'actividad' | 'sistema';
@@ -84,7 +85,9 @@ function plural(value: number, singular: string, pluralForm: string) { return `$
 function actionLabel(type: string) { return ACTIVITY_LABELS[type] ?? `Evento: ${type}`; }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<Tab>('resumen');
+  const [tab, setTab] = useRouteSectionState<Tab>(
+    'tab', 'resumen', ['resumen', 'usuarios', 'organizaciones', 'espacios', 'proyectos', 'invitaciones', 'planes', 'actividad', 'sistema'],
+  );
   const [overview, setOverview] = useState<Overview | null>(null);
   const [listing, setListing] = useState<Listing | null>(null);
   const [system, setSystem] = useState<AdminSystem | null>(null);

@@ -21,6 +21,7 @@ import {
 import { apiService } from '@/services/apiService';
 import { socketService } from '@/services/socketService';
 import { useAuthStore } from '@/stores/authStore';
+import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 import { PresenceAvatar, PresencePicker, presenceLabel, usePresence, type PresenceStatus } from '@/components/chat/presence';
 import styles from './ContactsMessenger.module.css';
 
@@ -77,7 +78,7 @@ export default function ContactsPage() {
   const user = useAuthStore((state) => state.user);
   const userId = user?.id;
   const presence = usePresence(userId);
-  const [tab, setTab] = useState<Tab>('chats');
+  const [tab, setTab] = useRouteSectionState<Tab>('tab', 'chats', ['chats', 'people', 'requests']);
   const [query, setQuery] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
   const [favorites, setFavorites] = useState<Person[]>([]);

@@ -21,6 +21,7 @@ import { useTeamStore } from '@/stores/teamStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import type { Document } from '@aether/types';
 import { apiService } from '@/services/apiService';
+import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 import {
   projectApi,
   type ProjectActivityEntry as ActivityEntry,
@@ -4645,9 +4646,12 @@ export default function ProjectDetailPage() {
   const [assignedTeams, setAssignedTeams] = useState<AssignedTeam[]>([]);
   const [boardToRemove, setBoardToRemove] = useState<{ id: string; name: string } | null>(null);
   const [removingBoard, setRemovingBoard] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'boards' | 'backlog' | 'schedule' | 'docs' | 'members' | 'activity'
-  >('overview');
+  const [activeTab, setActiveTab] = useRouteSectionState(
+    'tab',
+    'overview',
+    ['overview', 'boards', 'backlog', 'schedule', 'docs', 'members', 'activity'] as const,
+    projectId,
+  );
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [ganttRefreshTick, setGanttRefreshTick] = useState(0);
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -4718,12 +4722,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (currentProject && !canUseProjectPlanning && activeTab === 'schedule')
       setActiveTab('overview');
-  }, [activeTab, canUseProjectPlanning, currentProject]);
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('tab') === 'backlog')
-      setActiveTab('backlog');
-  }, []);
+  }, [activeTab, canUseProjectPlanning, currentProject, setActiveTab]);
 
   useEffect(() => {
     if (canUseTeams && currentProject?.workspaceId) fetchTeams(currentProject.workspaceId);
@@ -4802,7 +4801,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (currentProject && !canManageProjectMembers && activeTab === 'members')
       setActiveTab('overview');
-  }, [activeTab, canManageProjectMembers, currentProject]);
+  }, [activeTab, canManageProjectMembers, currentProject, setActiveTab]);
 
   // Actividad real del proyecto desde el event store — se refresca al entrar al tab
   useEffect(() => {

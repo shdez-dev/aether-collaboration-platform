@@ -6,6 +6,7 @@ import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, PanelLeft, Plus
 import { apiService } from '@/services/apiService';
 import { socketService } from '@/services/socketService';
 import { useAuthStore } from '@/stores/authStore';
+import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 import { useCalendarEventStore, type CalendarEvent } from '@/stores/calendarEventStore';
 import CreateEventModal from '@/components/calendar/CreateEventModal';
 import { addDays, clippedMinutes, dateKey, HOUR_HEIGHT, layoutTimedSegments, monthDays, overlapsDay, startOfDay, startOfWeek } from './calendarMath';
@@ -237,8 +238,9 @@ function ItemDetail({ item, userId, closing, onClose, onEdit, onDelete }: { item
 export default function CalendarPage() {
   const userId = useAuthStore((state) => state.user?.id);
   const { events, loading, error, fetchEvents, deleteEvent } = useCalendarEventStore();
-  const [view, setView] = useState<View>('week');
+  const [view, setView] = useRouteSectionState<View>('view', 'week', ['day', 'week', 'month', 'agenda']);
   const [date, setDate] = useState(() => startOfDay(new Date()));
+  const [calendarRouteLoaded, setCalendarRouteLoaded] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
   const [cards, setCards] = useState<AssignedCard[]>([]);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
@@ -266,7 +268,7 @@ export default function CalendarPage() {
     };
     window.addEventListener('aether:calendar-invite', showInvite);
     return () => window.removeEventListener('aether:calendar-invite', showInvite);
-  }, []);
+  }, [setView]);
 
   useEffect(() => {
     const refreshCalendar = () => {
@@ -293,15 +295,23 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    if (window.innerWidth <= 650) setView('day');
     const params = new URLSearchParams(window.location.search);
-    if (params.get('view') === 'agenda') setView('agenda');
+    const requestedView = params.get('view');
+    if (window.innerWidth <= 650 && !['day', 'week', 'month', 'agenda'].includes(requestedView ?? '')) setView('day');
     const requestedDate = params.get('at');
     if (requestedDate) {
       const parsed = new Date(requestedDate);
       if (!Number.isNaN(parsed.getTime())) setDate(startOfDay(parsed));
     }
-  }, []);
+    setCalendarRouteLoaded(true);
+  }, [setView]);
+
+  useEffect(() => {
+    if (!calendarRouteLoaded) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('at', date.toISOString());
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [calendarRouteLoaded, date]);
 
   const visibleDays = useMemo(() => view === 'month' ? monthDays(date) : view === 'week' ? Array.from({ length: 7 }, (_, index) => addDays(startOfWeek(date), index)) : view === 'agenda' ? Array.from({ length: 30 }, (_, index) => addDays(date, index)) : [startOfDay(date)], [date, view]);
   const from = visibleDays[0].toISOString();
@@ -390,7 +400,7 @@ export default function CalendarPage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [date, navigate, detailItem, createContext, editingEvent, closeDetail]);
+  }, [date, navigate, detailItem, createContext, editingEvent, closeDetail, setView]);
 
   return <div className={styles.root}>
     <button type="button" className={`${styles.sideBackdrop} ${sideOpen ? styles.sideBackdropOpen : ''}`} aria-label="Cerrar calendarios" aria-hidden={!sideOpen} tabIndex={sideOpen ? 0 : -1} onClick={() => setSideOpen(false)} />

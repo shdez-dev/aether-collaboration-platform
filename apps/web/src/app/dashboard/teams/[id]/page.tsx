@@ -7,6 +7,7 @@ import { useTeamStore, type Team, type TeamMember, type TeamActivity, type TeamI
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { supportsOrganizationTeams } from '@/lib/workspaceFeatures';
 import { useAuthStore } from '@/stores/authStore';
+import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 import { es } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
 import { socketService } from '@/services/socketService';
@@ -941,7 +942,9 @@ export default function TeamDetailPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAssignProject, setShowAssignProject] = useState(false);
   const [invActionLoading, setInvActionLoading] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<TeamSection>('overview');
+  const [activeSection, setActiveSection] = useRouteSectionState<TeamSection>(
+    'section', 'overview', ['overview', 'members', 'projects', 'activity'], teamId,
+  );
 
   // Standup
   interface TeamStandup { id: string; userId: string; userName: string; userAvatar: string | null; todayItems: { id: string; text: string }[]; blockers: { id: string; text: string }[]; publishedAt: string }
@@ -1136,7 +1139,7 @@ export default function TeamDetailPage() {
 
   useEffect(() => {
     if (!isOwnerOrAdmin && activeSection === 'activity') setActiveSection('overview');
-  }, [activeSection, isOwnerOrAdmin]);
+  }, [activeSection, isOwnerOrAdmin, setActiveSection]);
 
   async function handleRemoveProject() {
     const project = projectPendingRemoval;

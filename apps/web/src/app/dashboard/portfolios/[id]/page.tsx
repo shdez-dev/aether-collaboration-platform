@@ -26,6 +26,7 @@ import {
   PortfolioRole,
   usePortfolioStore,
 } from '@/stores/portfolioStore';
+import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 
 type Tab = 'summary' | 'projects' | 'alerts' | 'capacity' | 'members';
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -65,7 +66,7 @@ export default function PortfolioDetailPage() {
     error,
     actionError,
   } = store;
-  const [tab, setTab] = useState<Tab>('summary');
+  const [tab, setTab] = useRouteSectionState<Tab>('tab', 'summary', tabs.map((item) => item.id), id);
   const [filters, setFilters] = useState<PortfolioFilters>(emptyFilters);
   const [filterOpen, setFilterOpen] = useState(false);
   const [candidateQuery, setCandidateQuery] = useState('');
