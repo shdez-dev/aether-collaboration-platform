@@ -199,6 +199,17 @@ export default function DocumentEditorPage() {
             <span style={{ color: C.red, fontSize: '18px', fontWeight: 700 }}>!</span>
           </div>
           <p style={{ fontSize: '13px', color: C.text3, marginBottom: '16px' }}>{documentError}</p>
+          <button
+            type="button"
+            onClick={() => { void fetchDocumentById(documentId); }}
+            style={{
+              marginRight: '8px', padding: '8px 14px', border: 0, borderRadius: '8px',
+              background: C.accent, color: '#fff', fontSize: '13px', fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Reintentar
+          </button>
           <SmallBackBtn onClick={handleBack} label={t.btn_back} />
         </div>
       </div>

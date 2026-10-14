@@ -70,6 +70,12 @@ interface UpdateDocumentData {
   content?: string;
 }
 
+const DOCUMENT_FETCH_TIMEOUT_MS = 20_000;
+const DOCUMENT_FETCH_MAX_ATTEMPTS = 2;
+const DOCUMENT_FETCH_RETRY_DELAY_MS = 600;
+let documentFetchRequestId = 0;
+let activeDocumentFetchController: AbortController | null = null;
+
 export const useDocumentStore = create<DocumentState>()(
   persist(
     (set, get) => ({
@@ -98,6 +104,9 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       leaveDocument: (documentId: string) => {
+        documentFetchRequestId += 1;
+        activeDocumentFetchController?.abort();
+        activeDocumentFetchController = null;
         socketService.leaveDocument(documentId);
         get().destroyYjsDoc();
         set({ activeUsers: [] });
@@ -156,24 +165,61 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       fetchDocumentById: async (documentId: string) => {
+        activeDocumentFetchController?.abort();
+        const requestId = ++documentFetchRequestId;
         // Clear stale document so the page doesn't render the wrong one while loading
         set({ isLoading: true, error: null, currentDocument: null });
-        try {
-          const response = await apiService.get<{ document: DocumentWithDetails }>(
-            `/api/documents/${documentId}`,
-            true
-          );
-          if (response.success && response.data) {
-            set({ currentDocument: response.data.document, isLoading: false });
-            get().initYjsDoc();
-          } else {
-            set({
-              error: response.error?.message || 'Error al cargar el documento',
-              isLoading: false,
-            });
+        for (let attempt = 0; attempt < DOCUMENT_FETCH_MAX_ATTEMPTS; attempt += 1) {
+          const controller = new AbortController();
+          activeDocumentFetchController = controller;
+          const timeoutId = setTimeout(() => controller.abort(), DOCUMENT_FETCH_TIMEOUT_MS);
+
+          try {
+            const response = await apiService.get<{ document: DocumentWithDetails }>(
+              `/api/documents/${documentId}`,
+              true,
+              { signal: controller.signal }
+            );
+
+            if (requestId !== documentFetchRequestId) return;
+
+            if (response.success && response.data) {
+              set({ currentDocument: response.data.document, isLoading: false, error: null });
+              get().initYjsDoc();
+              return;
+            }
+
+            const errorCode = response.error?.code;
+            const canRetry = errorCode === 'NETWORK_ERROR' || errorCode === 'REQUEST_TIMEOUT';
+            if (!canRetry || attempt === DOCUMENT_FETCH_MAX_ATTEMPTS - 1) {
+              set({
+                error: canRetry
+                  ? 'La conexión tardó demasiado en cargar el documento. Inténtalo de nuevo.'
+                  : response.error?.message || 'Error al cargar el documento',
+                isLoading: false,
+              });
+              return;
+            }
+          } catch (error) {
+            if (requestId !== documentFetchRequestId) return;
+            if (attempt === DOCUMENT_FETCH_MAX_ATTEMPTS - 1) {
+              set({
+                error: error instanceof Error ? error.message : 'Error de conexión al cargar el documento',
+                isLoading: false,
+              });
+              return;
+            }
+          } finally {
+            clearTimeout(timeoutId);
+            if (activeDocumentFetchController === controller) activeDocumentFetchController = null;
           }
-        } catch {
-          set({ error: 'Error de conexión al cargar el documento', isLoading: false });
+
+          await new Promise((resolve) => setTimeout(resolve, DOCUMENT_FETCH_RETRY_DELAY_MS));
+          if (requestId !== documentFetchRequestId) return;
+        }
+
+        if (requestId === documentFetchRequestId) {
+          set({ error: 'No se pudo cargar el documento. Inténtalo de nuevo.', isLoading: false });
         }
       },
 
@@ -304,6 +350,9 @@ export const useDocumentStore = create<DocumentState>()(
       clearError: () => set({ error: null }),
 
       reset: () => {
+        documentFetchRequestId += 1;
+        activeDocumentFetchController?.abort();
+        activeDocumentFetchController = null;
         set({
           documents: [],
           currentDocument: null,

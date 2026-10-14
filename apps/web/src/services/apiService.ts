@@ -48,7 +48,7 @@ const processQueue = (error: any = null, token: string | null = null) => {
 /**
  * Intenta renovar el access token usando el refresh token
  */
-async function refreshAccessToken(refreshToken: string): Promise<RefreshResponse | null> {
+async function refreshAccessToken(refreshToken: string, signal?: AbortSignal): Promise<RefreshResponse | null> {
   try {
     const response = await fetch(`${API_URL}/api/auth/refresh`, {
       method: 'POST',
@@ -56,6 +56,7 @@ async function refreshAccessToken(refreshToken: string): Promise<RefreshResponse
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ refreshToken }),
+      signal,
     });
 
     const data: ApiResponse<RefreshResponse> = await response.json();
@@ -66,6 +67,7 @@ async function refreshAccessToken(refreshToken: string): Promise<RefreshResponse
 
     return data.data;
   } catch (error) {
+    if (signal?.aborted) throw error;
     return null;
   }
 }
@@ -134,9 +136,19 @@ export const apiService = {
         isRefreshing = true;
 
         try {
-          const refreshData = await refreshAccessToken(authData.state.refreshToken);
+          const refreshData = await refreshAccessToken(authData.state.refreshToken, options.signal ?? undefined);
 
           if (!refreshData) {
+            if (options.signal?.aborted) {
+              return {
+                success: false,
+                error: {
+                  code: 'REQUEST_TIMEOUT',
+                  message: 'El servidor tardó demasiado en responder. Inténtalo de nuevo.',
+                },
+              };
+            }
+
             // Refresh token inválido, limpiar autenticación
             processQueue(new Error('Session expired'), null);
             isRefreshing = false;
@@ -220,8 +232,10 @@ export const apiService = {
       return {
         success: false,
         error: {
-          code: 'NETWORK_ERROR',
-          message: 'Error de conexión. Verifica que el servidor esté corriendo.',
+          code: options.signal?.aborted ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
+          message: options.signal?.aborted
+            ? 'El servidor tardó demasiado en responder. Inténtalo de nuevo.'
+            : 'Error de conexión. Verifica que el servidor esté corriendo.',
         },
       };
     }
@@ -230,8 +244,12 @@ export const apiService = {
   /**
    * Petición GET
    */
-  async get<T>(endpoint: string, useAuth: boolean = false): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET' }, useAuth);
+  async get<T>(
+    endpoint: string,
+    useAuth: boolean = false,
+    options: Omit<RequestInit, 'method'> = {}
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...options, method: 'GET' }, useAuth);
   },
 
   /**
