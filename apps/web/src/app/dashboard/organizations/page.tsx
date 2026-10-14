@@ -200,14 +200,15 @@ export default function OrganizationsPage() {
       const query = new URLSearchParams(window.location.search);
       const queryOrganizationId = query.get('organizationId');
       const requestedView = query.get('view');
-      const preferred = available.find((organization) => organization.id === activeWorkspaceOrganizationId)
-        ?? available.find((organization) => organization.id === queryOrganizationId)
+      const preferred = available.find((organization) => organization.id === queryOrganizationId)
+        ?? available.find((organization) => organization.id === activeWorkspaceOrganizationId)
         ?? available.find((organization) => organization.id === currentWorkspaceOrganizationId && organization.type !== 'PERSONAL')
         ?? available.find((organization) => organization.type !== 'PERSONAL')
         ?? available.find((organization) => organization.id === currentWorkspaceOrganizationId)
         ?? available[0];
       setOrganizationId(preferred?.id || '');
       setView(requestedView === 'settings' && (preferred?.type === 'INSTITUTION' || preferred?.type === 'COMPANY') ? 'settings' : 'people');
+      if (preferred) window.dispatchEvent(new CustomEvent('aether:select-organization', { detail: preferred.id }));
       setLoadError('');
     }).catch(() => {
       if (active) setLoadError('No se pudieron cargar las organizaciones. Revisa tu conexión.');
@@ -419,23 +420,23 @@ export default function OrganizationsPage() {
     setAssigning(true);
     setAssignError('');
     try {
-      const invited: string[] = [];
+      const assigned: string[] = [];
       const failed: string[] = [];
       for (const workspaceId of assignWorkspaceIds) {
         const workspace = assignableWorkspaces.find((item) => item.id === workspaceId);
         try {
-          const response = await apiService.post(`/api/workspaces/${workspaceId}/invite`, { email: memberToAssign.email, role: assignRole }, true);
-          if (!response.success) throw new Error(response.error?.message || 'No se pudo enviar la invitación.');
-          invited.push(workspace?.name ?? 'espacio');
+          const response = await apiService.post(`/api/workspaces/${workspaceId}/members`, { userId: memberToAssign.userId, role: assignRole }, true);
+          if (!response.success) throw new Error(response.error?.message || 'No se pudo asignar el espacio.');
+          assigned.push(workspace?.name ?? 'espacio');
         } catch (error) {
-          failed.push(`${workspace?.name ?? 'Espacio'}: ${error instanceof Error ? error.message : 'no se pudo enviar la invitación'}`);
+          failed.push(`${workspace?.name ?? 'Espacio'}: ${error instanceof Error ? error.message : 'no se pudo asignar'}`);
         }
       }
-      if (invited.length === assignWorkspaceIds.length) {
-        toast.success(`Invitación enviada a ${memberToAssign.name} en ${invited.length} ${invited.length === 1 ? 'espacio' : 'espacios'}.`);
+      if (assigned.length === assignWorkspaceIds.length) {
+        toast.success(`Acceso asignado a ${memberToAssign.name} en ${assigned.length} ${assigned.length === 1 ? 'espacio' : 'espacios'}.`);
         setMemberToAssign(null);
-      } else if (invited.length > 0) {
-        toast.warning(`Invitación enviada a ${memberToAssign.name} en ${invited.length} de ${assignWorkspaceIds.length} espacios. ${failed.join(' · ')}`);
+      } else if (assigned.length > 0) {
+        toast.warning(`Acceso asignado a ${memberToAssign.name} en ${assigned.length} de ${assignWorkspaceIds.length} espacios. ${failed.join(' · ')}`);
         setMemberToAssign(null);
       } else {
         setAssignError(failed.join(' · ') || 'No se pudo asignar ningún espacio.');
@@ -840,11 +841,11 @@ export default function OrganizationsPage() {
       {memberToAssign && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !assigning) setMemberToAssign(null); }}>
         <form onSubmit={(event) => void assignWorkspace(event)} className={styles.modal} style={modal}>
           <div style={modalHeader}><div><p style={eyebrow}>ACCESO A ESPACIO</p><h2 style={modalTitle}>Asignar a {memberToAssign.name}</h2></div><button type="button" aria-label="Cerrar asignación" onClick={() => setMemberToAssign(null)} disabled={assigning} style={iconButton}><X size={17} /></button></div>
-          <p style={modalCopy}>Esta persona ya pertenece a la organización. Recibirá una invitación por cada espacio seleccionado y tendrá que aceptarla para acceder.</p>
+          <p style={modalCopy}>Esta persona ya pertenece a la organización. Al asignarla, obtendrá acceso inmediato a los espacios seleccionados.</p>
           <div style={field}><span>Espacios de trabajo</span><MultiSelectDropdown label="Espacios de trabajo" value={assignWorkspaceIds} onChange={setAssignWorkspaceIds} options={assignableWorkspaces.map((workspace) => ({ value: workspace.id, label: workspace.name }))} disabled={assigning} /></div>
           <div className={styles.selectField} style={field}><span>Rol en el espacio</span><ProjectOptionSelect label="Rol en el espacio" value={assignRole} onChange={(value) => setAssignRole(value as 'MEMBER' | 'VIEWER')} disabled={assigning} options={[{ value: 'MEMBER', label: 'Miembro' }, { value: 'VIEWER', label: 'Observador' }]} /></div>
           {assignError && <p role="alert" style={errorBanner}>{assignError}</p>}
-          <div style={actions}><button type="button" onClick={() => setMemberToAssign(null)} disabled={assigning} style={secondaryButton}>Cancelar</button><button type="submit" disabled={assigning || assignWorkspaceIds.length === 0} style={primaryButton}>{assigning ? 'Enviando…' : `Enviar a ${assignWorkspaceIds.length || ''} ${assignWorkspaceIds.length === 1 ? 'espacio' : 'espacios'}`}</button></div>
+          <div style={actions}><button type="button" onClick={() => setMemberToAssign(null)} disabled={assigning} style={secondaryButton}>Cancelar</button><button type="submit" disabled={assigning || assignWorkspaceIds.length === 0} style={primaryButton}>{assigning ? 'Asignando…' : `Asignar a ${assignWorkspaceIds.length || ''} ${assignWorkspaceIds.length === 1 ? 'espacio' : 'espacios'}`}</button></div>
         </form>
       </div>, document.body)}
       {organizationDeleteOpen && selectedOrganization && canDeleteOrganization && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !deletingOrganization) setOrganizationDeleteOpen(false); }}>

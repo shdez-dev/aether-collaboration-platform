@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Notification } from '@aether/types';
-import { Archive, ArrowUpRight, AtSign, Bell, BellRing, CalendarClock, Check, CheckCheck, ListChecks, MessageCircle, Users } from 'lucide-react';
+import { ArrowUpRight, AtSign, Bell, BellRing, CalendarClock, ListChecks, MessageCircle, Trash2, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -102,12 +102,10 @@ function matchesFilter(notification: Notification, filter: Filter): boolean {
   return true;
 }
 
-function NotificationRow({ notification, onOpen, onRead, onResolve, onArchive, onAccept, accepting, acceptError }: {
+function NotificationRow({ notification, onOpen, onDelete, onAccept, accepting, acceptError }: {
   notification: Notification;
   onOpen: () => void;
-  onRead: () => void;
-  onResolve: () => void;
-  onArchive: () => void;
+  onDelete: () => void;
   onAccept?: () => void;
   accepting?: boolean;
   acceptError?: string;
@@ -142,11 +140,12 @@ function NotificationRow({ notification, onOpen, onRead, onResolve, onArchive, o
             {accepting ? 'Aceptando…' : 'Aceptar'}
           </button>
         )}
-        {!notification.read && (
-          <button type="button" className={styles.actionButton} onClick={onRead} title="Marcar como leída" aria-label="Marcar como leída"><Check size={16} /></button>
+        {notification.type === 'WORKSPACE_INVITE' && notification.data?.invitationId && onAccept && (
+          <button type="button" className={styles.acceptInvite} onClick={onAccept} disabled={accepting}>
+            {accepting ? 'Aceptando…' : 'Aceptar acceso'}
+          </button>
         )}
-        <button type="button" className={styles.actionButton} onClick={onResolve} title="Resolver" aria-label="Resolver"><CheckCheck size={16} /></button>
-        <button type="button" className={styles.actionButton} onClick={onArchive} title="Archivar" aria-label="Archivar"><Archive size={16} /></button>
+        <button type="button" className={styles.actionButton} onClick={onDelete} title="Eliminar notificación" aria-label="Eliminar notificación"><Trash2 size={16} /></button>
       </div>
     </article>
   );
@@ -154,9 +153,10 @@ function NotificationRow({ notification, onOpen, onRead, onResolve, onArchive, o
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const { notifications, isLoading, loadNotifications, markAsRead, markAllAsRead, archiveNotification, resolveNotification } = useNotifications();
+  const { notifications, isLoading, loadNotifications, markAsRead, deleteNotification, resolveNotification } = useNotifications();
   const setActiveWorkspaceId = useActiveWorkspaceStore(state => state.setActiveWorkspaceId);
   const fetchWorkspaces = useWorkspaceStore(state => state.fetchWorkspaces);
+  const acceptWorkspaceInvitation = useWorkspaceStore(state => state.acceptWorkspaceInvitation);
   const [filter, setFilter] = useState<Filter>('todo');
   const [acceptingNotificationId, setAcceptingNotificationId] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<{ id: string; message: string } | null>(null);
@@ -182,7 +182,7 @@ export default function NotificationsPage() {
     const projectId = typeof data.projectId === 'string' ? data.projectId : null;
     const boardId = typeof data.boardId === 'string' ? data.boardId : null;
 
-    if (workspaceId && notification.type !== 'TEAM_INVITE') {
+    if (workspaceId && notification.type !== 'TEAM_INVITE' && notification.type !== 'WORKSPACE_INVITE') {
       setActiveWorkspaceId(workspaceId);
       fetchWorkspaces().catch(() => {});
     }
@@ -194,13 +194,15 @@ export default function NotificationsPage() {
         : '/dashboard/organizations');
     } else if (notification.type === 'TEAM_INVITE') {
       setFilter('personales');
+    } else if (notification.type === 'WORKSPACE_INVITE') {
+      setFilter('personales');
     } else if (notification.type === 'CALENDAR_EVENT_INVITE') {
       const date = typeof data.eventStartTime === 'string' ? `&at=${encodeURIComponent(data.eventStartTime)}` : '';
       window.dispatchEvent(new CustomEvent('aether:calendar-invite', { detail: data.eventStartTime ?? '' }));
       router.push(`/dashboard/calendar?view=agenda${date}`);
     } else if (['PROJECT_INVITE', 'MILESTONE_COMPLETED', 'MILESTONE_MISSED', 'PROJECT_STATUS_CHANGED'].includes(notification.type) && projectId) {
       router.push(`/dashboard/projects/${projectId}`);
-    } else if (notification.type === 'WORKSPACE_INVITE' || notification.type === 'WORKSPACE_REMOVED') {
+    } else if (notification.type === 'WORKSPACE_REMOVED') {
       router.push('/dashboard');
     } else if (boardId) {
       try {
@@ -237,6 +239,28 @@ export default function NotificationsPage() {
     }
   }
 
+  async function handleAcceptWorkspaceInvite(notification: Notification) {
+    const invitationId = notification.data?.invitationId;
+    const workspaceId = notification.data?.workspaceId;
+    if (!invitationId || !workspaceId || acceptingNotificationId) return;
+    setAcceptingNotificationId(notification.id);
+    setAcceptError(null);
+    try {
+      await acceptWorkspaceInvitation(invitationId);
+      await fetchWorkspaces();
+      setActiveWorkspaceId(workspaceId);
+      await resolveNotification(notification.id);
+      router.push('/dashboard');
+    } catch (error) {
+      setAcceptError({
+        id: notification.id,
+        message: error instanceof Error ? error.message : 'No se pudo aceptar el acceso al espacio.',
+      });
+    } finally {
+      setAcceptingNotificationId(null);
+    }
+  }
+
   function renderSection(title: string, items: Notification[]) {
     if (items.length === 0) return null;
     return (
@@ -248,10 +272,10 @@ export default function NotificationsPage() {
               key={notification.id}
               notification={notification}
               onOpen={() => handleOpen(notification)}
-              onRead={() => markAsRead(notification.id)}
-              onResolve={() => resolveNotification(notification.id)}
-              onArchive={() => archiveNotification(notification.id)}
-              onAccept={() => void handleAcceptTeamInvite(notification)}
+              onDelete={() => void deleteNotification(notification.id)}
+              onAccept={() => notification.type === 'WORKSPACE_INVITE'
+                ? void handleAcceptWorkspaceInvite(notification)
+                : void handleAcceptTeamInvite(notification)}
               accepting={acceptingNotificationId === notification.id}
               acceptError={acceptError?.id === notification.id ? acceptError.message : ''}
             />
@@ -286,9 +310,6 @@ export default function NotificationsPage() {
               </button>
             ))}
           </div>
-          {unreadCount > 0 && (
-            <button type="button" className={styles.markAll} onClick={() => markAllAsRead()}><CheckCheck size={16} aria-hidden="true" />Marcar todas como leídas</button>
-          )}
         </div>
 
         {isLoading ? (

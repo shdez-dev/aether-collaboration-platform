@@ -68,7 +68,30 @@ export class NotificationService {
     options: { onlyUnread?: boolean; includeArchived?: boolean; includeResolved?: boolean; limit?: number } = {},
   ): Promise<Notification[]> {
     await this.syncPendingOrganizationInvitations(userId);
-    return notificationRepository.findByUserId(userId, options);
+    const notifications = await notificationRepository.findByUserId(userId, options);
+    const missingCalendarActors = notifications
+      .filter((notification) => notification.type === 'CALENDAR_EVENT_INVITE')
+      .filter((notification) => {
+        const data = notification.data as Record<string, unknown> | null;
+        return typeof data?.creatorId === 'string'
+          && (typeof data.creatorName !== 'string' || !data.creatorName.trim() || data.creatorName === 'Usuario');
+      })
+      .map((notification) => (notification.data as Record<string, unknown>).creatorId as string);
+
+    if (missingCalendarActors.length === 0) return notifications;
+    try {
+      const actors = await query('SELECT id, name FROM users WHERE id = ANY($1::uuid[])', [missingCalendarActors]);
+      const names = new Map<string, string>(actors.rows.map((actor: any) => [String(actor.id), String(actor.name)] as [string, string]));
+      return notifications.map((notification) => {
+        if (notification.type !== 'CALENDAR_EVENT_INVITE') return notification;
+        const data = (notification.data ?? {}) as Record<string, unknown>;
+        const name = typeof data.creatorId === 'string' ? names.get(data.creatorId) : undefined;
+        if (!name) return notification;
+        return { ...notification, data: { ...data, creatorName: name } };
+      });
+    } catch {
+      return notifications;
+    }
   }
 
   private async syncPendingOrganizationInvitations(userId: string): Promise<void> {

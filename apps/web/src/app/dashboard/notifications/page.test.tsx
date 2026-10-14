@@ -4,8 +4,7 @@ import NotificationsPage from './page';
 const mockPush = jest.fn();
 const mockLoad = jest.fn();
 const mockRead = jest.fn();
-const mockReadAll = jest.fn();
-const mockArchive = jest.fn();
+const mockDelete = jest.fn();
 const mockResolve = jest.fn();
 const mockSetWorkspace = jest.fn();
 const mockFetchWorkspaces = jest.fn().mockResolvedValue(undefined);
@@ -18,8 +17,7 @@ jest.mock('@/hooks/useNotifications', () => ({
     isLoading: false,
     loadNotifications: mockLoad,
     markAsRead: mockRead,
-    markAllAsRead: mockReadAll,
-    archiveNotification: mockArchive,
+    deleteNotification: mockDelete,
     resolveNotification: mockResolve,
   }),
 }));
@@ -35,16 +33,16 @@ describe('Notificaciones', () => {
     ];
   });
 
-  it('organiza notificaciones y mantiene accesibles las acciones de cada fila', () => {
+  it('organiza notificaciones y deja eliminar cada fila como única acción visible', () => {
     render(<NotificationsPage />);
 
     expect(screen.getByRole('heading', { name: 'Notificaciones' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Hoy' })).toBeTruthy();
     expect(screen.getByLabelText('1 notificación sin leer')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar como leída' }));
-    expect(mockRead).toHaveBeenCalledWith('n1');
-    fireEvent.click(screen.getAllByRole('button', { name: 'Archivar' })[0]);
-    expect(mockArchive).toHaveBeenCalledWith('n1');
+    expect(screen.queryByRole('button', { name: 'Marcar como leída' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Archivar' })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar notificación' })[0]);
+    expect(mockDelete).toHaveBeenCalledWith('n1');
   });
 
   it('filtra menciones y conserva la navegación al abrir una notificación', async () => {

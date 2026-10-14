@@ -164,13 +164,13 @@ describe('invitaciones de organización', () => {
     } finally { confirmation.mockRestore(); }
   });
 
-  it('permite asignar una persona a varios espacios con invitación', async () => {
+  it('asigna directamente a un miembro existente a sus espacios', async () => {
     (apiService.post as jest.Mock).mockResolvedValue({ success: true });
     render(<OrganizationsPage />);
     await userEvent.click(await screen.findByRole('button', { name: 'Acciones de Bob' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Asignar espacio' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Enviar a 1 espacio' }));
-    await waitFor(() => expect(apiService.post).toHaveBeenCalledWith('/api/workspaces/ws-1/invite', { email: 'bob@example.com', role: 'MEMBER' }, true));
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar a 1 espacio' }));
+    await waitFor(() => expect(apiService.post).toHaveBeenCalledWith('/api/workspaces/ws-1/members', { userId: 'bob-1', role: 'MEMBER' }, true));
   });
 
   it('permite al propietario cambiar el rol desde la fila de la persona', async () => {

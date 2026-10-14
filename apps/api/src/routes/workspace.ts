@@ -104,6 +104,14 @@ router.post('/:id/invite', checkWorkspaceMembership, requireAdmin, (req, res) =>
 );
 
 /**
+ * POST /api/workspaces/:id/members
+ * Assign an existing organization member directly to this workspace.
+ */
+router.post('/:id/members', checkWorkspaceMembership, requireAdmin, (req, res) =>
+  workspaceController.addOrganizationMember(req, res)
+);
+
+/**
  * POST /api/workspaces/:id/invite-multiple
  * Invitar múltiples miembros al workspace
  * Permisos: ADMIN o OWNER

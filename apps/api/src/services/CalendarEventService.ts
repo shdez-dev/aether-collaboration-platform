@@ -100,6 +100,12 @@ class CalendarEventService {
     try {
       await client.query('BEGIN');
 
+      // JWTs intentionally contain only the stable user id and email. Resolve
+      // the display name from the account so event notifications do not fall
+      // back to the generic "Usuario" label.
+      const creatorResult = await client.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const creatorName = creatorResult.rows[0]?.name?.trim() || userName?.trim() || 'Alguien';
+
       const inviteeIds = [...new Set(input.inviteeIds ?? [])].filter(id => id !== userId);
       if (inviteeIds.length && input.type !== 'personal') {
         const error = new Error('Las invitaciones individuales están disponibles en eventos personales');
@@ -194,7 +200,7 @@ class CalendarEventService {
           startTime:    new Date(event.start_time),
           type:         input.type,
           creatorId:    userId,
-          creatorName:  userName,
+          creatorName,
           attendeeIds:  otherMembers,
           workspaceId:  input.workspaceId,
           teamId:       input.teamId,
@@ -202,7 +208,7 @@ class CalendarEventService {
       }
 
       if (inviteeIds.length) {
-        await this._notifyIndividualInvitees(event, userId, userName, inviteeIds);
+        await this._notifyIndividualInvitees(event, userId, creatorName, inviteeIds);
       }
 
       return mapEvent(event, attendees, invitees);

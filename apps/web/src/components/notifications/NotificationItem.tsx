@@ -16,7 +16,6 @@ interface NotificationItemProps {
   notification: Notification;
   onMarkAsRead?: (id: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
-  onArchive?: (id: string) => Promise<void>;
   onResolve?: (id: string) => Promise<void>;
   onClose?: () => void;
   hasBorder?: boolean;
@@ -159,7 +158,6 @@ export function NotificationItem({
   notification,
   onMarkAsRead,
   onDelete,
-  onArchive,
   onResolve,
   onClose,
   hasBorder = false,
@@ -168,6 +166,7 @@ export function NotificationItem({
   const router = useRouter();
   const setActiveWorkspaceId = useActiveWorkspaceStore((s) => s.setActiveWorkspaceId);
   const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
+  const acceptWorkspaceInvitation = useWorkspaceStore((s) => s.acceptWorkspaceInvitation);
   const [isLoading, setIsLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [acceptError, setAcceptError] = useState('');
@@ -193,7 +192,7 @@ export function NotificationItem({
     // Switch the active workspace so the project/board opens in the right context.
     // For a freshly-invited user the workspace list is stale (loaded before they
     // were added), so refresh it to make the new workspace appear in the switcher.
-    if (data.workspaceId && notification.type !== 'TEAM_INVITE') {
+    if (data.workspaceId && notification.type !== 'TEAM_INVITE' && notification.type !== 'WORKSPACE_INVITE') {
       setActiveWorkspaceId(data.workspaceId);
       fetchWorkspaces().catch(() => {});
     }
@@ -205,6 +204,9 @@ export function NotificationItem({
     } else if (projectTypes.includes(notification.type) && data.projectId) {
       router.push(`/dashboard/projects/${data.projectId}`); onClose?.();
     } else if (notification.type === 'TEAM_INVITE' && data.invitationId) {
+      router.push('/dashboard/notifications');
+      onClose?.();
+    } else if (notification.type === 'WORKSPACE_INVITE' && data.invitationId) {
       router.push('/dashboard/notifications');
       onClose?.();
     } else if ((notification.type as string) === 'TEAM_MEMBER_ADDED' || (notification.type as string) === 'TEAM_MEMBER_REMOVED') {
@@ -254,11 +256,25 @@ export function NotificationItem({
     }
   };
 
-  const handleMarkAsRead = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!onMarkAsRead || notification.read) return;
+  const handleAcceptWorkspaceInvite = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const invitationId = notification.data?.invitationId;
+    const workspaceId = notification.data?.workspaceId;
+    if (!invitationId || !workspaceId || isLoading) return;
     setIsLoading(true);
-    try { await onMarkAsRead(notification.id); } catch {} finally { setIsLoading(false); }
+    setAcceptError('');
+    try {
+      await acceptWorkspaceInvitation(invitationId);
+      await fetchWorkspaces();
+      setActiveWorkspaceId(workspaceId);
+      if (onResolve) await onResolve(notification.id);
+      router.push('/dashboard');
+      onClose?.();
+    } catch (error) {
+      setAcceptError(error instanceof Error ? error.message : 'No se pudo aceptar el acceso al espacio.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDelete = async (e: React.MouseEvent) => {
@@ -270,20 +286,6 @@ export function NotificationItem({
   const displayMessage = notification.type === 'CALENDAR_EVENT_INVITE'
     ? `Invitación para un evento en el calendario. Abre tu agenda para aceptar o rechazar.`
     : notification.message;
-
-  const handleArchive = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!onArchive) return;
-    setIsLoading(true);
-    try { await onArchive(notification.id); } finally { setIsLoading(false); }
-  };
-
-  const handleResolve = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!onResolve) return;
-    setIsLoading(true);
-    try { await onResolve(notification.id); } finally { setIsLoading(false); }
-  };
 
   return (
     <div
@@ -357,39 +359,28 @@ export function NotificationItem({
             {isLoading ? 'Aceptando…' : 'Aceptar invitación'}
           </button>
         )}
+        {notification.type === 'WORKSPACE_INVITE' && notification.data?.invitationId && (
+          <button
+            type="button"
+            onClick={handleAcceptWorkspaceInvite}
+            disabled={isLoading}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              marginTop: '7px', padding: '5px 9px', borderRadius: '7px',
+              border: `1px solid ${C.accent}55`, background: `${C.accent}14`,
+              color: C.accent, font: '700 11px/1.2 Manrope, system-ui, sans-serif',
+              cursor: isLoading ? 'wait' : 'pointer', opacity: isLoading ? 0.65 : 1,
+            }}
+          >
+            {isLoading ? 'Aceptando…' : 'Aceptar acceso'}
+          </button>
+        )}
         {acceptError && <span role="alert" style={{ display: 'block', marginTop: '5px', color: C.red, fontSize: '11px', lineHeight: 1.35 }}>{acceptError}</span>}
       </div>
 
       {/* Actions */}
       {hovered && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flexShrink: 0 }}>
-          {!notification.read && onMarkAsRead && (
-            <button
-              onClick={handleMarkAsRead}
-              title={t.notifications_btn_mark_read}
-              style={{
-                width: '22px', height: '22px', borderRadius: '4px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'none', border: 'none', cursor: 'pointer', color: C.text3,
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = `${C.green}20`; e.currentTarget.style.color = C.green; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; }}
-            >
-              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10">
-                <path d="M2 6l2.5 2.5 5.5-5" />
-              </svg>
-            </button>
-          )}
-          {onResolve && (
-            <button onClick={handleResolve} title="Resolver" style={{ width: '22px', height: '22px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: C.text3 }}>
-              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" width="10" height="10"><path d="M2 6l2.5 2.5 5.5-5" /></svg>
-            </button>
-          )}
-          {onArchive && (
-            <button onClick={handleArchive} title="Archivar" style={{ width: '22px', height: '22px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: C.text3 }}>
-              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10"><path d="M2 3h8v7H2zM4 1h4" /></svg>
-            </button>
-          )}
           {onDelete && (
             <button
               onClick={handleDelete}

@@ -36,6 +36,11 @@ const inviteMemberSchema = z.object({
   role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
 });
 
+const addOrganizationMemberSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
+});
+
 const inviteMultipleMembersSchema = z.object({
   emails: z.array(z.string().email()).min(1).max(4),
   role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
@@ -623,6 +628,16 @@ class WorkspaceController {
         });
       }
 
+      if (error.message === 'Invite this person to the organization before granting workspace access') {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: 'ORGANIZATION_MEMBERSHIP_REQUIRED',
+            message: 'Añade primero a esta persona a la organización antes de darle acceso al espacio.',
+          },
+        });
+      }
+
       return res.status(500).json({
         success: false,
         error: {
@@ -630,6 +645,33 @@ class WorkspaceController {
           message: 'Failed to invite member',
         },
       });
+    }
+  }
+
+  async addOrganizationMember(req: WorkspaceRequest, res: Response) {
+    const actorId = req.user?.id;
+    const workspaceId = req.params.id;
+    const parsed = addOrganizationMemberSchema.safeParse(req.body);
+    if (!actorId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid member assignment' } });
+
+    try {
+      const result = await workspaceService.addOrganizationMember(workspaceId, actorId, parsed.data.userId, parsed.data.role as WorkspaceRole);
+      return res.status(result.alreadyMember ? 200 : 201).json({ success: true, data: result });
+    } catch (error: any) {
+      const messages: Record<string, { status: number; code: string; message: string }> = {
+        'Workspace not found': { status: 404, code: 'WORKSPACE_NOT_FOUND', message: 'El espacio de trabajo ya no está disponible.' },
+        'Workspace administration is required': { status: 403, code: 'FORBIDDEN', message: 'Necesitas permisos de administración en este espacio.' },
+        'Member is not part of this organization': { status: 409, code: 'ORGANIZATION_MEMBERSHIP_REQUIRED', message: 'Añade primero a esta persona a la organización.' },
+        'Member limit reached': { status: 403, code: 'MEMBER_LIMIT_REACHED', message: 'Este espacio alcanzó el límite de 5 miembros.' },
+      };
+      const mapped = messages[error?.message];
+      if (mapped) return res.status(mapped.status).json({ success: false, error: { code: mapped.code, message: mapped.message } });
+      if (error?.message?.startsWith('Organization access has been revoked')) {
+        return res.status(409).json({ success: false, error: { code: 'ORGANIZATION_ACCESS_REVOKED', message: error.message } });
+      }
+      console.error('[WorkspaceController.addOrganizationMember]', error);
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to assign organization member to workspace.' } });
     }
   }
 
@@ -658,7 +700,13 @@ class WorkspaceController {
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Invitation not found or already processed' } });
       }
       if (error.message === 'Member limit reached') {
-        return res.status(403).json({ success: false, error: { code: 'MEMBER_LIMIT_REACHED', message: 'Workspace has reached the maximum of 5 members' } });
+        return res.status(403).json({ success: false, error: { code: 'MEMBER_LIMIT_REACHED', message: 'Este espacio alcanzó el límite de 5 miembros.' } });
+      }
+      if (error.message === 'Organization membership is required before accepting workspace access') {
+        return res.status(409).json({ success: false, error: { code: 'ORGANIZATION_MEMBERSHIP_REQUIRED', message: 'Primero debes aceptar la invitación a la organización.' } });
+      }
+      if (error.message?.startsWith('Organization access has been revoked')) {
+        return res.status(409).json({ success: false, error: { code: 'ORGANIZATION_ACCESS_REVOKED', message: 'El acceso a la organización fue revocado. Pide que te inviten de nuevo.' } });
       }
       return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to accept invitation' } });
     }

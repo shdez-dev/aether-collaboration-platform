@@ -552,14 +552,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!activeOrganizationId || !workspaceBootstrapLoaded) return;
     try { window.localStorage.setItem(`aether:active-org:${user?.id ?? ''}`, activeOrganizationId); } catch { /* Storage can be unavailable. */ }
-    const selectedWorkspace = workspaces.find((workspace) => !workspace.archived && workspace.id === activeWorkspaceId);
-    if (selectedWorkspace && selectedWorkspace.organizationId !== activeOrganizationId) {
-      setActiveOrganizationId(selectedWorkspace.organizationId);
+    const routeWorkspaceId = pathname?.match(/\/dashboard\/workspaces\/([^/?]+)/)?.[1];
+    const routeWorkspace = routeWorkspaceId ? workspaces.find((workspace) => !workspace.archived && workspace.id === routeWorkspaceId) : undefined;
+    if (routeWorkspace && routeWorkspace.organizationId !== activeOrganizationId) {
+      setActiveOrganizationId(routeWorkspace.organizationId);
       return;
     }
     const matching = workspaces.filter((workspace) => !workspace.archived && workspace.organizationId === activeOrganizationId);
     if (!matching.some((workspace) => workspace.id === activeWorkspaceId)) setActiveWorkspaceId(matching[0]?.id ?? null);
-  }, [activeOrganizationId, activeWorkspaceId, setActiveWorkspaceId, workspaceBootstrapLoaded, workspaces, user?.id]);
+  }, [activeOrganizationId, activeWorkspaceId, pathname, setActiveWorkspaceId, workspaceBootstrapLoaded, workspaces, user?.id]);
 
   const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId) ?? null;
   const activeWorkspace = workspaces.find((workspace) => !workspace.archived && workspace.id === activeWorkspaceId && workspace.organizationId === activeOrganizationId);
@@ -568,10 +569,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     && (!organizationsLoaded || (organizations.length > 0 && !activeOrganizationId));
   const needsFirstWorkspace = workspaceBootstrapLoaded && organizationsLoaded && !workspaceError && !organizationsError
     && !workspaces.some((workspace) => !workspace.archived) && organizations.length === 0;
-
-  useEffect(() => {
-    if (!activeOrganizationId && workspaces.length > 0 && !activeWorkspaceId && !organizationsLoaded) setActiveWorkspaceId(workspaces[0].id);
-  }, [workspaces, activeWorkspaceId, activeOrganizationId, organizationsLoaded, setActiveWorkspaceId]);
 
   useEffect(() => {
     const match = pathname?.match(/\/dashboard\/workspaces\/([^\/\?]+)/);
@@ -615,22 +612,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const handleSelectOrganization = useCallback((id: string) => {
     setActiveOrganizationId(id);
+    try { if (user?.id) window.localStorage.setItem(`aether:active-org:${user.id}`, id); } catch { /* Keep the in-memory selection. */ }
     const workspace = workspaces.find((item) => !item.archived && item.organizationId === id);
     setActiveWorkspaceId(workspace?.id ?? null);
     router.push('/dashboard');
-  }, [setActiveWorkspaceId, router, workspaces]);
+  }, [setActiveWorkspaceId, router, user?.id, workspaces]);
 
   useEffect(() => {
     const select = (event: Event) => {
       const id = (event as CustomEvent<string>).detail;
       if (!id) return;
       setActiveOrganizationId(id);
+      try { if (user?.id) window.localStorage.setItem(`aether:active-org:${user.id}`, id); } catch { /* Keep the in-memory selection. */ }
       const workspace = workspaces.find((item) => !item.archived && item.organizationId === id);
       setActiveWorkspaceId(workspace?.id ?? null);
     };
     window.addEventListener('aether:select-organization', select);
     return () => window.removeEventListener('aether:select-organization', select);
-  }, [setActiveWorkspaceId, workspaces]);
+  }, [setActiveWorkspaceId, user?.id, workspaces]);
 
   const handleLogout = async () => { await logout(); router.push('/login'); };
 

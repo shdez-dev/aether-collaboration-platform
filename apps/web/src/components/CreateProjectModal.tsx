@@ -248,7 +248,6 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
       <div
         className="create-project-overlay"
-        onClick={handleClose}
         style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(5,8,15,0.68)', backdropFilter: 'blur(5px)', animation: `${closing ? 'createProjectOverlayOut' : 'createProjectOverlayIn'} 180ms ease both` }}
       >
         <section

@@ -608,6 +608,107 @@ export class WorkspaceService {
     }
   }
 
+  /**
+   * Grant an existing organization member access to a workspace immediately.
+   * This is used by organization managers assigning an already-admitted member;
+   * unlike inviteMember, it does not create a second invitation to accept.
+   */
+  async addOrganizationMember(
+    workspaceId: string,
+    actorId: string,
+    memberId: string,
+    role: WorkspaceRole,
+  ): Promise<{ alreadyMember: boolean }> {
+    const client = await pool.connect();
+    let workspaceName = '';
+    let actorName = '';
+    let memberName = '';
+    try {
+      await client.query('BEGIN');
+      const workspaceResult = await client.query(
+        `SELECT id, organization_id, name FROM workspaces WHERE id = $1 AND archived = FALSE FOR UPDATE`,
+        [workspaceId],
+      );
+      const workspace = workspaceResult.rows[0];
+      if (!workspace) throw new Error('Workspace not found');
+      workspaceName = workspace.name;
+
+      const actorResult = await client.query(
+        `SELECT u.name, wm.role FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+          WHERE wm.workspace_id = $1 AND wm.user_id = $2`,
+        [workspaceId, actorId],
+      );
+      if (!actorResult.rows[0] || !['OWNER', 'ADMIN'].includes(actorResult.rows[0].role)) {
+        throw new Error('Workspace administration is required');
+      }
+      actorName = actorResult.rows[0].name;
+
+      const memberResult = await client.query(
+        `SELECT u.name FROM organization_members om JOIN users u ON u.id = om.user_id
+          WHERE om.organization_id = $1 AND om.user_id = $2`,
+        [workspace.organization_id, memberId],
+      );
+      if (!memberResult.rows[0]) throw new Error('Member is not part of this organization');
+      memberName = memberResult.rows[0].name;
+
+      const revoked = await client.query(
+        `SELECT 1 FROM organization_access_revocations WHERE organization_id = $1 AND user_id = $2`,
+        [workspace.organization_id, memberId],
+      );
+      if (revoked.rows[0]) throw new Error('Organization access has been revoked. Invite this person to the organization again.');
+
+      const existing = await client.query(
+        `SELECT id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+        [workspaceId, memberId],
+      );
+      if (existing.rows[0]) {
+        await client.query(
+          `UPDATE workspace_invitations SET status = 'ACCEPTED'
+            WHERE workspace_id = $1 AND invited_user_id = $2 AND status = 'PENDING'`,
+          [workspaceId, memberId],
+        );
+        await client.query('COMMIT');
+        return { alreadyMember: true };
+      }
+
+      const memberCount = await client.query(
+        `SELECT COUNT(*) FROM workspace_members WHERE workspace_id = $1`,
+        [workspaceId],
+      );
+      if (parseInt(memberCount.rows[0].count, 10) >= 5) throw new Error('Member limit reached');
+
+      await client.query(
+        `INSERT INTO workspace_members (id, workspace_id, user_id, role)
+         VALUES (uuid_generate_v4(), $1, $2, $3)
+         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+        [workspaceId, memberId, role],
+      );
+      await client.query(
+        `UPDATE workspace_invitations SET status = 'ACCEPTED'
+          WHERE workspace_id = $1 AND invited_user_id = $2 AND status = 'PENDING'`,
+        [workspaceId, memberId],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    try {
+      await eventStore.emit({
+        type: 'workspace.member.joined',
+        actor: { id: actorId, name: actorName },
+        subject: { type: 'member', id: memberId, name: memberName },
+        context: { workspaceId },
+        payload: { role },
+        targetUserId: memberId,
+      });
+    } catch { /* Membership is committed; realtime activity is best effort. */ }
+    return { alreadyMember: false };
+  }
+
   async getPendingWorkspaceInvitations(userId: string): Promise<any[]> {
     const result = await pool.query(
       `SELECT wi.id, wi.role, wi.created_at,
@@ -641,7 +742,7 @@ export class WorkspaceService {
       await client.query('BEGIN');
 
       const invResult = await client.query(
-        `SELECT * FROM workspace_invitations WHERE id = $1 AND invited_user_id = $2 AND status = 'PENDING'`,
+        `SELECT * FROM workspace_invitations WHERE id = $1 AND invited_user_id = $2 AND status = 'PENDING' FOR UPDATE`,
         [invitationId, userId]
       );
       if (invResult.rows.length === 0) {

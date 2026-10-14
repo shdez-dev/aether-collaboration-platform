@@ -21,9 +21,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
     isLoading,
     loadNotifications,
     markAsRead,
-    markAllAsRead,
     deleteNotification,
-    archiveNotification,
     resolveNotification,
   } = useNotifications();
 
@@ -63,20 +61,6 @@ export function NotificationList({ onClose }: NotificationListProps) {
             </span>
           )}
         </div>
-        {hasUnread && (
-          <button
-            onClick={markAllAsRead}
-            style={{
-              fontSize: '11.5px', color: C.text3,
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: '3px 6px', borderRadius: '4px',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.text3; }}
-          >
-            {t.notifications_btn_mark_all}
-          </button>
-        )}
       </div>
 
       {/* Body */}
@@ -108,7 +92,6 @@ export function NotificationList({ onClose }: NotificationListProps) {
                 notification={n}
                 onMarkAsRead={markAsRead}
                 onDelete={deleteNotification}
-                onArchive={archiveNotification}
                 onResolve={resolveNotification}
                 onClose={onClose}
                 hasBorder={i < notifications.length - 1}
