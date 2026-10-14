@@ -1,4 +1,25 @@
 .page, .detailPage { color: var(--c-text); }
+.addMemberLayout { display: grid; flex: 1; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); min-height: 0; overflow: auto; }
+.organizationMembersPanel { display: flex; min-height: 0; flex-direction: column; gap: 13px; padding: 22px; border-left: 1px solid var(--c-border); background: var(--c-bg2); }
+.organizationMembersHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.organizationMembersHeading h3 { margin: 0; color: var(--c-text); font-size: 13px; font-weight: 650; }
+.organizationMembersHeading p { margin: 5px 0 0; color: var(--c-text4); font-size: 11px; line-height: 1.5; }
+.organizationMembersHeading > span { flex: none; padding: 3px 8px; border: 1px solid var(--c-border); border-radius: 999px; color: var(--c-text3); font-size: 10px; font-weight: 600; }
+.organizationMemberSearch { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--c-border2); border-radius: 8px; background: var(--c-surface); color: var(--c-text4); }
+.organizationMemberSearch:focus-within { border-color: var(--c-accent-text); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 14%, transparent); }
+.organizationMemberSearch input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--c-text); font: inherit; font-size: 11px; }
+.organizationMemberSearch input::placeholder { color: var(--c-text4); }
+.organizationMemberList { display: flex; min-height: 110px; max-height: 330px; flex-direction: column; overflow: auto; border-top: 1px solid var(--c-border); }
+.organizationMemberRow { display: flex; min-width: 0; align-items: center; gap: 9px; padding: 10px 0; border-bottom: 1px solid var(--c-border); }
+.organizationMemberCopy { display: grid; flex: 1; min-width: 0; gap: 3px; }
+.organizationMemberCopy strong, .organizationMemberCopy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.organizationMemberCopy strong { color: var(--c-text); font-size: 11px; font-weight: 650; }
+.organizationMemberCopy span { color: var(--c-text4); font-size: 10px; }
+.organizationMemberInvite { flex: none; min-height: 30px; padding: 0 10px; border: 1px solid var(--c-border2); border-radius: 7px; background: var(--c-surface); color: var(--c-accent-text); font-size: 10px; font-weight: 650; cursor: pointer; }
+.organizationMemberInvite:hover:not(:disabled) { border-color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 8%, var(--c-surface)); }
+.organizationMemberInvite:disabled { color: var(--c-text4); cursor: default; opacity: .76; }
+.organizationMembersMessage { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 90px; margin: 0; color: var(--c-text4); font-size: 11px; text-align: center; }
+.organizationMembersError { margin: 0; padding: 10px; border: 1px solid color-mix(in srgb, var(--c-red) 28%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--c-red) 8%, var(--c-surface)); color: var(--c-red); font-size: 11px; line-height: 1.45; }
 .page button, .detailPage button { transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s cubic-bezier(.2,.8,.2,1); }
 .page button:focus-visible, .detailPage button:focus-visible, .detailPage a:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 3px; }
 .metric { border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); }
@@ -188,6 +209,9 @@
   .roleGuideGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 767px) {
+  .addMemberLayout { grid-template-columns: minmax(0, 1fr); }
+  .organizationMembersPanel { min-height: 250px; border-top: 1px solid var(--c-border); border-left: 0; }
+  .organizationMemberList { max-height: 240px; }
   .heroActions { width: 100%; }
   .teamNav { padding: 0 14px; }
   .detailContent { padding: 20px 16px !important; }

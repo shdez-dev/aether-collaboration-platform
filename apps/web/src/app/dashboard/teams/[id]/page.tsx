@@ -107,8 +107,24 @@ type TeamSection = 'overview' | 'members' | 'projects' | 'activity';
 
 // ── Add Member Modal ──────────────────────────────────────────────────────────
 
-function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
+interface OrganizationMemberOption {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+  role: string;
+}
+
+function normalizeMemberSearch(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+}
+
+function AddMemberModal({ teamId, organizationId, currentUserId, existingMemberIds, allowedRoles, onClose, onAdded }: {
   teamId: string;
+  organizationId?: string;
+  currentUserId?: string;
+  existingMemberIds: string[];
   allowedRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'>;
   onClose: () => void;
   onAdded: () => void;
@@ -117,8 +133,60 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
   const { addMember } = useTeamStore();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'ADMIN' | 'MEMBER' | 'VIEWER'>('MEMBER');
+  const [organizationMembers, setOrganizationMembers] = useState<OrganizationMemberOption[]>([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState('');
+  const [invitedMemberIds, setInvitedMemberIds] = useState<Set<string>>(() => new Set());
+  const [invitingMemberId, setInvitingMemberId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!organizationId) {
+      setOrganizationMembers([]);
+      setMembersLoading(false);
+      setMembersError('No se pudo identificar la organización de este equipo. Recarga la página e inténtalo de nuevo.');
+      return;
+    }
+    let active = true;
+    setMembersLoading(true);
+    setMembersError('');
+    void apiService.get<{ members: OrganizationMemberOption[] }>(`/api/organizations/${organizationId}/members`, true)
+      .then((response) => {
+        if (!active) return;
+        if (!response.success || !response.data) throw new Error(response.error?.message || 'No se pudo cargar la organización.');
+        setOrganizationMembers(response.data.members ?? []);
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setOrganizationMembers([]);
+        setMembersError(cause instanceof Error ? cause.message : 'No se pudieron cargar los miembros de la organización.');
+      })
+      .finally(() => { if (active) setMembersLoading(false); });
+    return () => { active = false; };
+  }, [organizationId]);
+
+  const normalizedQuery = normalizeMemberSearch(memberSearch);
+  const filteredOrganizationMembers = organizationMembers.filter((member) => {
+    if (member.userId === currentUserId) return false;
+    if (!normalizedQuery) return true;
+    return normalizeMemberSearch(`${member.name} ${member.email}`).includes(normalizedQuery);
+  });
+
+  async function inviteOrganizationMember(member: OrganizationMemberOption) {
+    setError(null);
+    setInvitingMemberId(member.userId);
+    try {
+      await addMember(teamId, member.email, role);
+      setInvitedMemberIds((previous) => new Set(previous).add(member.userId));
+      onAdded();
+    } catch (cause: any) {
+      setError(cause?.message || 'No se pudo enviar la invitación.');
+    } finally {
+      setInvitingMemberId(null);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -147,7 +215,7 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
         aria-modal="true"
         aria-labelledby="add-team-member-title"
         className="overflow-hidden rounded-[16px] shadow-2xl"
-        style={{ background: C.surface, border: `1px solid ${C.border2}`, width: '440px', maxWidth: 'calc(100vw - 32px)' }}
+        style={{ background: C.surface, border: `1px solid ${C.border2}`, width: '880px', maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column' }}
       >
         <div className="flex items-start justify-between gap-4 px-6 py-5" style={{ borderBottom: `1px solid ${C.border}` }}>
           <div className="flex items-start gap-3">
@@ -159,56 +227,110 @@ function AddMemberModal({ teamId, allowedRoles, onClose, onAdded }: {
           </div>
           <button type="button" aria-label="Cerrar" onClick={onClose} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px]" style={{ color: C.text3, border: `1px solid ${C.border}` }}>×</button>
         </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium" style={{ color: C.text2 }}>Correo electrónico</label>
-            <input
-              autoFocus
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t.teams_add_member_placeholder}
-              className="rounded-[8px] px-3 text-[13px] outline-none"
-              style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '42px' }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
-              onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-medium" style={{ color: C.text2 }}>Rol dentro del equipo</span>
-            <ProjectOptionSelect label="Rol dentro del equipo" value={role} onChange={(value) => setRole(value as 'ADMIN' | 'MEMBER' | 'VIEWER')} options={allowedRoles.map((option) => ({ value: option, label: roleLabel(option, t) }))} />
-          </div>
-          <div className="rounded-[9px] px-3 py-2.5 text-[11.5px] leading-5" style={{ background: C.bg2, border: `1px solid ${C.border}`, color: C.text3 }}>
-            La persona debe pertenecer a la organización. Al aceptar la invitación, obtendrá acceso al espacio de trabajo y al equipo.
-          </div>
-          {error && (
-            <div className="text-[12px] px-3 py-2 rounded-[6px]" style={{ background: 'rgba(239,68,68,0.1)', color: C.red }}>
-              {error}
+        <div className={styles.addMemberLayout}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="team-member-email" className="text-[12px] font-medium" style={{ color: C.text2 }}>Correo electrónico</label>
+              <input
+                id="team-member-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t.teams_add_member_placeholder}
+                className="rounded-[8px] px-3 text-[13px] outline-none"
+                style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, height: '42px' }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
+                onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+              />
             </div>
-          )}
-          <div className="flex items-center justify-end gap-2 border-t pt-4" style={{ borderColor: C.border }}>
-            <button
-              type="button" onClick={onClose}
-              className="px-4 rounded-[8px] text-[13px]"
-              style={{ height: '38px', color: C.text2, border: `1px solid ${C.border2}` }}
-            >
-              {t.teams_create_btn_cancel}
-            </button>
-            <button
-              type="submit"
-              disabled={!email.trim() || loading}
-              className="px-4 rounded-[8px] text-[13px] font-medium"
-              style={{
-                height: '38px',
-                background: !email.trim() || loading ? C.border2 : C.accent,
-                color: !email.trim() || loading ? C.text4 : '#fff',
-                cursor: !email.trim() || loading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {loading ? t.teams_add_member_adding : t.teams_add_member_btn}
-            </button>
-          </div>
-        </form>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[12px] font-medium" style={{ color: C.text2 }}>Rol dentro del equipo</span>
+              <ProjectOptionSelect label="Rol dentro del equipo" value={role} onChange={(value) => setRole(value as 'ADMIN' | 'MEMBER' | 'VIEWER')} options={allowedRoles.map((option) => ({ value: option, label: roleLabel(option, t) }))} />
+            </div>
+            <div className="rounded-[9px] px-3 py-2.5 text-[11.5px] leading-5" style={{ background: C.bg2, border: `1px solid ${C.border}`, color: C.text3 }}>
+              La persona debe pertenecer a la organización. Al aceptar la invitación, obtendrá acceso al espacio de trabajo y al equipo.
+            </div>
+            {error && (
+              <div role="alert" className="text-[12px] px-3 py-2 rounded-[6px]" style={{ background: 'rgba(239,68,68,0.1)', color: C.red }}>
+                {error}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2 border-t pt-4" style={{ borderColor: C.border, marginTop: 'auto' }}>
+              <button
+                type="button" onClick={onClose}
+                className="px-4 rounded-[8px] text-[13px]"
+                style={{ height: '38px', color: C.text2, border: `1px solid ${C.border2}` }}
+              >
+                {t.teams_create_btn_cancel}
+              </button>
+              <button
+                type="submit"
+                disabled={!email.trim() || loading || invitingMemberId !== null}
+                className="px-4 rounded-[8px] text-[13px] font-medium"
+                style={{
+                  height: '38px',
+                  background: !email.trim() || loading || invitingMemberId !== null ? C.border2 : C.accent,
+                  color: !email.trim() || loading || invitingMemberId !== null ? C.text4 : '#fff',
+                  cursor: !email.trim() || loading || invitingMemberId !== null ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {loading ? t.teams_add_member_adding : t.teams_add_member_btn}
+              </button>
+            </div>
+          </form>
+
+          <aside className={styles.organizationMembersPanel} aria-label="Miembros de la organización">
+            <div className={styles.organizationMembersHeading}>
+              <div>
+                <h3>Personas de la organización</h3>
+                <p>Invita a alguien que ya forma parte de esta organización.</p>
+              </div>
+              <span>{organizationMembers.length}</span>
+            </div>
+            <label className={styles.organizationMemberSearch}>
+              <Search size={15} aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Buscar miembros de la organización por nombre o correo"
+                placeholder="Buscar por nombre o correo"
+                value={memberSearch}
+                onChange={(event) => setMemberSearch(event.target.value)}
+              />
+            </label>
+            <div className={styles.organizationMemberList}>
+              {membersLoading ? (
+                <p className={styles.organizationMembersMessage}><LoaderCircle size={15} className="animate-spin" /> Cargando miembros…</p>
+              ) : membersError ? (
+                <p role="alert" className={styles.organizationMembersError}>{membersError}</p>
+              ) : filteredOrganizationMembers.length === 0 ? (
+                <p className={styles.organizationMembersMessage}>
+                  {normalizedQuery ? 'No encontramos miembros con ese nombre o correo.' : 'No hay otras personas en la organización.'}
+                </p>
+              ) : filteredOrganizationMembers.map((member) => {
+                const alreadyInTeam = existingMemberIds.includes(member.userId);
+                const alreadyInvited = invitedMemberIds.has(member.userId);
+                const isInviting = invitingMemberId === member.userId;
+                return (
+                  <div className={styles.organizationMemberRow} key={member.userId}>
+                    <Avatar name={member.name} avatar={member.avatar} size={36} />
+                    <div className={styles.organizationMemberCopy}>
+                      <strong>{member.name}</strong>
+                      <span>{member.email}</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={alreadyInTeam || alreadyInvited || invitingMemberId !== null || loading}
+                      onClick={() => void inviteOrganizationMember(member)}
+                      className={styles.organizationMemberInvite}
+                    >
+                      {alreadyInTeam ? 'En el equipo' : alreadyInvited ? 'Enviada' : isInviting ? 'Enviando…' : 'Invitar'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );
@@ -1711,6 +1833,9 @@ export default function TeamDetailPage() {
       {showAddMember && (
         <AddMemberModal
           teamId={teamId}
+          organizationId={teamWorkspace?.organizationId}
+          currentUserId={currentUser?.id}
+          existingMemberIds={members.map((member) => member.id)}
           allowedRoles={inviteRoles}
           onClose={() => setShowAddMember(false)}
           onAdded={loadMembers}

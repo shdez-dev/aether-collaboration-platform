@@ -13,6 +13,7 @@ interface AuthenticatedSocket extends Socket {
 
 export class YjsGateway {
   private docs = new Map<string, Y.Doc>();
+  private documentLoads = new Map<string, Promise<Y.Doc>>();
   private io: SocketIOServer;
 
   // Guardado con debounce después de cada cambio
@@ -63,22 +64,9 @@ export class YjsGateway {
           }
           this.socketToDocuments.get(socket.id)!.add(documentId);
 
-          // Obtener o crear documento Yjs en memoria
-          let doc = this.docs.get(documentId);
-
-          if (!doc) {
-            doc = new Y.Doc();
-            this.docs.set(documentId, doc);
-
-            // Cargar estado desde DB
-            const yjsState = await documentService.getYjsState(documentId);
-
-            if (yjsState && yjsState.length > 0) {
-              // Marcar como 'load' para que el auto-save del cliente no reaccione
-              // a esta carga inicial y genere un guardado redundante
-              Y.applyUpdate(doc, yjsState, 'load');
-            }
-          }
+          // Esperar la carga compartida antes de enviar el estado inicial. Si el
+          // primer socket aún lee la DB, un segundo join no debe recibir un Y.Doc vacío.
+          const doc = await this.getOrLoadDocument(documentId);
 
           // Enviar estado completo al cliente que se acaba de unir
           const stateVector = Y.encodeStateAsUpdate(doc);
@@ -116,15 +104,9 @@ export class YjsGateway {
             return;
           }
           await this.ensureSocketDocumentMembership(socket, documentId);
-
-          const doc = this.docs.get(documentId);
-          if (doc) {
-            const stateVector = Y.encodeStateAsUpdate(doc);
-            socket.emit('document:sync', { documentId, update: Array.from(stateVector) });
-          } else {
-            // El doc no está en memoria (servidor reiniciado) — pedir al cliente que haga join
-            socket.emit('document:reload', { documentId });
-          }
+          const doc = await this.getOrLoadDocument(documentId);
+          const stateVector = Y.encodeStateAsUpdate(doc);
+          socket.emit('document:sync', { documentId, update: Array.from(stateVector) });
         } catch (error) {
           console.error('[document] request-sync failed', { documentId: data?.documentId, error });
           socket.emit('document:save-error', { documentId: data?.documentId, error: 'No se pudo sincronizar el documento' });
@@ -150,24 +132,16 @@ export class YjsGateway {
 
           let doc = this.docs.get(documentId);
           if (!doc) {
-            // El documento no está en memoria — puede pasar si el servidor se reinició
-            // sin que el cliente lo supiera. Intentar recargar desde DB antes de pedir
-            // al cliente que vuelva a hacer join, para no perder el update recibido.
+            // El proceso pudo reiniciarse antes de que llegara un update. Cargar
+            // una sola instancia desde DB antes de aplicar el cambio.
             try {
-              const yjsState = await documentService.getYjsState(documentId);
-              doc = new Y.Doc();
-              if (yjsState && yjsState.length > 0) {
-                Y.applyUpdate(doc, yjsState, 'load');
-              }
-              this.docs.set(documentId, doc);
-
-              // Registrar el socket en este documento si no lo estaba
+              doc = await this.getOrLoadDocument(documentId);
               if (!this.socketToDocuments.has(socket.id)) {
                 this.socketToDocuments.set(socket.id, new Set());
               }
               this.socketToDocuments.get(socket.id)!.add(documentId);
               await socket.join(`document:${documentId}`);
-            } catch (reloadError) {
+            } catch {
               socket.emit('document:reload', { documentId });
               return;
             }
@@ -460,6 +434,34 @@ export class YjsGateway {
 
   private isSocketInDocument(socket: Socket, documentId: string): boolean {
     return socket.rooms.has(`document:${documentId}`);
+  }
+
+  private async getOrLoadDocument(documentId: string): Promise<Y.Doc> {
+    const existing = this.docs.get(documentId);
+    if (existing) return existing;
+
+    const pending = this.documentLoads.get(documentId);
+    if (pending) return pending;
+
+    const load = (async () => {
+      const doc = new Y.Doc();
+      try {
+        const yjsState = await documentService.getYjsState(documentId);
+        if (yjsState && yjsState.length > 0) Y.applyUpdate(doc, yjsState, 'load');
+        this.docs.set(documentId, doc);
+        return doc;
+      } catch (error) {
+        doc.destroy();
+        throw error;
+      }
+    })();
+    this.documentLoads.set(documentId, load);
+
+    try {
+      return await load;
+    } finally {
+      if (this.documentLoads.get(documentId) === load) this.documentLoads.delete(documentId);
+    }
   }
 
   private async ensureSocketDocumentMembership(socket: Socket, documentId: string): Promise<void> {

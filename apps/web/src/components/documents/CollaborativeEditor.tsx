@@ -1705,6 +1705,10 @@ export default function CollaborativeEditor({
     // `joinedOnce` distingue la primera conexión de reconexiones posteriores.
     let isMounted = true;
     let joinedOnce = false;
+    // Si el socket aún no conectó, doJoinAndWaitSync deja document:join en cola.
+    // El primer evento connect ya vacía esa cola, así que no debemos emitir un
+    // segundo join como si fuera una reconexión.
+    let awaitingFirstConnection = !socketService.isConnected();
     let syncTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     // ── Función principal: join + espera del document:sync ────────────────────
@@ -1771,6 +1775,10 @@ export default function CollaborativeEditor({
     // el join inicial (que ya hace doJoinAndWaitSync() al final de este efecto).
     const handleSocketReconnect = () => {
       if (!isMounted || !joinedOnce) return;
+      if (awaitingFirstConnection) {
+        awaitingFirstConnection = false;
+        return;
+      }
       // Re-join silencioso: el servidor perdió el room pero no ocultamos el editor
       // para evitar que React desmonte EditorContent mientras ProseMirror sigue vivo.
       initialSyncReceivedRef.current = false;
