@@ -1,3 +1,5 @@
+import { buildFrontendUrl } from '../utils/frontendUrl';
+
 type TransactionalEmail = {
   preview: string;
   category: string;
@@ -18,7 +20,7 @@ function escapeHtml(value: string): string {
 /** Table layout and inline colors keep transactional emails readable in clients without CSS support. */
 function renderTransactionalEmail(email: TransactionalEmail): string {
   const actionUrl = escapeHtml(email.actionUrl);
-  const brandIconUrl = escapeHtml(new URL('/icon-192.png', process.env.FRONTEND_URL || 'https://aether-web.up.railway.app').toString());
+  const brandIconUrl = escapeHtml(buildFrontendUrl('/icon-192.png'));
   const paragraphs = email.paragraphs.map((paragraph) =>
     `<p style="margin:0 0 15px;color:#D2C4E0;font-family:'Manrope','Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.7;">${escapeHtml(paragraph)}</p>`,
   ).join('');

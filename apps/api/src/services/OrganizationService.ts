@@ -7,6 +7,7 @@ import type { CapabilityQueryExecutor } from './CapabilityService';
 import { emailService } from './EmailService';
 import { renderOrganizationInvitationEmail } from './emailTemplates';
 import { notificationService } from './NotificationService';
+import { buildFrontendUrl } from '../utils/frontendUrl';
 
 export interface OrganizationDetails extends OrganizationSummary {
   billingEmail: string | null;
@@ -452,8 +453,7 @@ class OrganizationService {
       client.release();
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
-    const invitationLink = `${frontendUrl}/organization-invitation?token=${token}`;
+    const invitationLink = buildFrontendUrl('/organization-invitation', { token });
     try {
       const invitee = await pool.query('SELECT id FROM users WHERE lower(email) = $1 LIMIT 1', [email]);
       if (invitee.rows[0]?.id) {
@@ -512,10 +512,9 @@ class OrganizationService {
         [invitationId, tokenHash]
       );
       await client.query('COMMIT');
-      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
       return {
         code: token,
-        link: `${frontendUrl}/organization-invitation?token=${token}`,
+        link: buildFrontendUrl('/organization-invitation', { token }),
         email: invitation.rows[0].email,
         expiresAt: updated.rows[0].expires_at,
         emailStatus: 'not_sent',

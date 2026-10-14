@@ -11,6 +11,7 @@ import { pool } from '../lib/db';
 import { emailService } from '../services/EmailService';
 import { RefreshTokenService } from '../services/RefreshTokenService';
 import { passwordSchema } from '../schemas/password';
+import { buildFrontendUrl } from '../utils/frontendUrl';
 
 // Hash usado para nunca almacenar tokens de reset/verificación en claro en la BD.
 function hashToken(token: string): string {
@@ -119,8 +120,7 @@ export class AuthController {
         throw registrationError;
       }
 
-      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
-      const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
+      const verificationLink = buildFrontendUrl('/verify-email', { token: verificationToken });
 
       // Liberar conexión antes de enviar el email
       client.release();
@@ -570,8 +570,7 @@ export class AuthController {
       );
 
       // Send verification email
-      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
-      const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
+      const verificationLink = buildFrontendUrl('/verify-email', { token });
 
       await emailService.sendVerificationEmail(user.email, {
         userName: user.name,
@@ -639,8 +638,7 @@ export class AuthController {
         [hashToken(token), expires, user.id]
       );
 
-      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
-      const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
+      const verificationLink = buildFrontendUrl('/verify-email', { token });
 
       await emailService.sendVerificationEmail(user.email, {
         userName: user.name,
@@ -812,8 +810,7 @@ export class AuthController {
       );
 
       // Send password reset email
-      const frontendUrl = process.env.FRONTEND_URL || 'https://aether-web.up.railway.app';
-      const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+      const resetLink = buildFrontendUrl('/reset-password', { token });
 
       await emailService.sendPasswordResetEmail(user.email, {
         userName: user.name,
