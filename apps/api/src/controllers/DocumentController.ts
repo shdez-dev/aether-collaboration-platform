@@ -50,6 +50,10 @@ const updatePermissionSchema = z.object({
   permission: z.enum(['VIEW', 'COMMENT', 'EDIT']),
 });
 
+const createVersionSchema = z.object({
+  description: z.string().max(300).optional(),
+});
+
 class DocumentController {
   /**
    * POST /api/workspaces/:workspaceId/documents
@@ -352,7 +356,6 @@ class DocumentController {
     try {
       const userId = req.user?.id;
       const { id } = req.params;
-      const { description } = req.body;
 
       if (!userId) {
         return res.status(401).json({
@@ -370,7 +373,22 @@ class DocumentController {
         });
       }
 
-      const version = await documentService.createVersion(id, userId, { description });
+      if ((await documentService.getEffectiveUserPermission(id, userId)) !== 'EDIT') {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'INSUFFICIENT_PERMISSIONS', message: 'No tienes permiso de edición' },
+        });
+      }
+
+      const validation = createVersionSchema.safeParse(req.body ?? {});
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Descripción inválida' },
+        });
+      }
+
+      const version = await documentService.createVersion(id, userId, validation.data);
 
       return res.status(201).json({
         success: true,
@@ -409,11 +427,19 @@ class DocumentController {
         });
       }
 
-      const versions = await documentService.getVersions(id);
+      const pagination = z.object({
+        limit: z.coerce.number().int().min(1).max(100).default(50),
+        offset: z.coerce.number().int().min(0).default(0),
+      }).safeParse(req.query);
+      if (!pagination.success) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Paginación inválida' } });
+      }
+      const { limit, offset } = pagination.data;
+      const versions = await documentService.getVersions(id, limit, offset);
 
       return res.json({
         success: true,
-        data: { versions },
+        data: { versions, limit, offset },
       });
     } catch (error) {
       return res.status(500).json({

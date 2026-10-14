@@ -1,6 +1,6 @@
 // apps/api/src/routes/documents.ts
 
-import { Router } from 'express';
+import { Router, raw } from 'express';
 import { documentController } from '../controllers/DocumentController';
 import { documentCommentController } from '../controllers/DocumentCommentController';
 import { documentService, DocumentTextLimitError } from '../services/DocumentService';
@@ -63,11 +63,10 @@ router.get('/documents/:id/members', (req, res) => documentController.getDocumen
 router.get('/documents/:id/export', (req, res) => documentController.exportDocument(req, res));
 
 // SAVE YJS STATE - Auto-guardado
-router.put('/documents/:id/yjs-state', async (req, res) => {
+router.put('/documents/:id/yjs-state', raw({ type: 'application/octet-stream', limit: '8mb' }), async (req, res) => {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
-    const { yjsState } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -76,10 +75,10 @@ router.put('/documents/:id/yjs-state', async (req, res) => {
       });
     }
 
-    if (!yjsState || !Array.isArray(yjsState)) {
+    if (!Buffer.isBuffer(req.body) || req.body.length <= 2) {
       return res.status(400).json({
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'yjsState inválido' },
+        error: { code: 'VALIDATION_ERROR', message: 'Estado binario Yjs inválido' },
       });
     }
 
@@ -99,7 +98,7 @@ router.put('/documents/:id/yjs-state', async (req, res) => {
       });
     }
 
-    const yjsBuffer = new Uint8Array(yjsState);
+    const yjsBuffer = new Uint8Array(req.body);
     await documentService.updateYjsState(id, yjsBuffer);
 
     return res.json({

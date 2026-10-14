@@ -40,3 +40,45 @@ describe('límite de contenido de documentos', () => {
     expect(client.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE documents'), expect.anything());
   });
 });
+
+describe('guardado concurrente de documentos', () => {
+  it('fusiona cambios de dos clientes con el estado persistido', async () => {
+    const base = stateWithText('Inicio');
+    const first = new Y.Doc();
+    const second = new Y.Doc();
+    Y.applyUpdate(first, base);
+    Y.applyUpdate(second, base);
+    const firstText = (first.getXmlFragment('prosemirror').get(0) as Y.XmlElement).get(0) as Y.XmlText;
+    const secondText = (second.getXmlFragment('prosemirror').get(0) as Y.XmlElement).get(0) as Y.XmlText;
+    firstText.insert(0, 'A');
+    secondText.insert(6, 'B');
+
+    let persisted: Uint8Array = base;
+    const client = {
+      query: jest.fn(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('SELECT id, content, yjs_state')) {
+          return { rows: [{ id: 'doc-1', content: 'Inicio', yjs_state: persisted }] };
+        }
+        if (sql.includes('UPDATE documents')) persisted = params?.[0] as Uint8Array;
+        return { rows: [] };
+      }),
+      release: jest.fn(),
+    };
+    (pool.connect as jest.Mock).mockResolvedValue(client);
+
+    await documentService.updateYjsState('doc-1', Y.encodeStateAsUpdate(first));
+    await documentService.updateYjsState('doc-1', Y.encodeStateAsUpdate(second));
+
+    const merged = new Y.Doc();
+    Y.applyUpdate(merged, persisted);
+    const paragraph = merged.getXmlFragment('prosemirror').get(0) as Y.XmlElement;
+    expect((paragraph.get(0) as Y.XmlText).toString()).toBe('AInicioB');
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('FOR UPDATE'),
+      ['doc-1']
+    );
+    first.destroy();
+    second.destroy();
+    merged.destroy();
+  });
+});

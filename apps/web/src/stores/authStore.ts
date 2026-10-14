@@ -443,29 +443,31 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
 
         try {
-          const response = await apiService.put<{ message: string }>(
+          const response = await apiService.put<{ message: string; accessToken: string; refreshToken: string }>(
             '/api/users/me/password',
             { currentPassword, newPassword },
             true
           );
 
-          if (!response.success) {
-            set({
-              isLoading: false,
-              error: response.error?.message || 'Error al cambiar contraseña',
-            });
-            return;
+          if (!response.success || !response.data?.accessToken || !response.data.refreshToken) {
+            throw new Error(response.error?.message || 'Error al cambiar contraseña');
           }
 
           set({
             isLoading: false,
             error: null,
+            accessToken: response.data.accessToken,
+            refreshToken: response.data.refreshToken,
           });
+          socketService.updateToken(response.data.accessToken);
+          scheduleProactiveRefresh(response.data.accessToken, response.data.refreshToken);
         } catch (error) {
+          const message = error instanceof Error ? error.message : 'Error inesperado al cambiar contraseña';
           set({
             isLoading: false,
-            error: 'Error inesperado al cambiar contraseña',
+            error: message,
           });
+          throw error;
         }
       },
     }),

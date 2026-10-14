@@ -425,14 +425,15 @@ export default function ProfilePage() {
   async function handlePwSave(e: React.FormEvent) {
     e.preventDefault();
     if (pw.next !== pw.conf) { toast({ title: t.error_title, description: t.profile_toast_passwords_no_match, variant: 'destructive' }); return; }
-    if (pw.next.length < 6)  { toast({ title: t.error_title, description: t.profile_toast_password_too_short, variant: 'destructive' }); return; }
+    if (pw.next.length < 8)  { toast({ title: t.error_title, description: t.profile_toast_password_too_short, variant: 'destructive' }); return; }
+    if (pw.next.length > 128 || !/[A-Za-z]/.test(pw.next) || !/\d/.test(pw.next)) { toast({ title: t.error_title, description: t.profile_toast_password_invalid, variant: 'destructive' }); return; }
     setIsChgPw(true);
     try {
       await changePassword(pw.cur, pw.next);
       toast({ title: t.profile_toast_password_title, description: t.profile_toast_password_desc });
       setPw({ cur: '', next: '', conf: '' });
-    } catch {
-      toast({ title: t.error_title, description: t.profile_toast_password_error, variant: 'destructive' });
+    } catch (error) {
+      toast({ title: t.error_title, description: error instanceof Error ? error.message : t.profile_toast_password_error, variant: 'destructive' });
     } finally {
       setIsChgPw(false);
     }

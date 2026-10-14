@@ -10,21 +10,12 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '.
 import { pool } from '../lib/db';
 import { emailService } from '../services/EmailService';
 import { RefreshTokenService } from '../services/RefreshTokenService';
+import { passwordSchema } from '../schemas/password';
 
 // Hash usado para nunca almacenar tokens de reset/verificación en claro en la BD.
 function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
-
-// Política de contraseña: longitud mínima razonable + al menos una letra y un dígito,
-// con tope superior para evitar abuso de coste de bcrypt.
-const passwordSchema = z
-  .string()
-  .min(8, 'Password debe tener mínimo 8 caracteres')
-  .max(128, 'Password no puede superar 128 caracteres')
-  .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), {
-    message: 'Password debe incluir al menos una letra y un número',
-  });
 
 // Esquemas de validación con Zod
 const registerSchema = z.object({

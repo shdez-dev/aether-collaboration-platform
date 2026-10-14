@@ -125,7 +125,10 @@ export class YjsGateway {
             // El doc no está en memoria (servidor reiniciado) — pedir al cliente que haga join
             socket.emit('document:reload', { documentId });
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error('[document] request-sync failed', { documentId: data?.documentId, error });
+          socket.emit('document:save-error', { documentId: data?.documentId, error: 'No se pudo sincronizar el documento' });
+        }
       });
 
       // ================================================================
@@ -197,19 +200,32 @@ export class YjsGateway {
 
           // Programar guardado a DB con debounce
           this.scheduleSave(documentId, doc);
-        } catch (error) {}
+        } catch (error) {
+          console.error('[document] update failed', { documentId: data?.documentId, error });
+          socket.emit('document:save-error', { documentId: data?.documentId, error: 'No se pudo sincronizar el cambio' });
+        }
       });
 
       // ================================================================
       // AWARENESS UPDATE (cursores y presencia)
       // ================================================================
       socket.on('document:awareness:update', async (data: { documentId: string; update: number[] }) => {
-        const hasAccess = await documentService.checkDocumentAccess(data.documentId, authSocket.userId);
-        if (!hasAccess || !this.isSocketInDocument(socket, data.documentId)) {
-          socket.emit('error', { message: 'No access to document' });
-          return;
+        try {
+          if (typeof data?.documentId !== 'string' ||
+              !Array.isArray(data.update) || data.update.length > 16_384 ||
+              !data.update.every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255)) {
+            socket.emit('error', { message: 'Invalid awareness update' });
+            return;
+          }
+          const hasAccess = await documentService.checkDocumentAccess(data.documentId, authSocket.userId);
+          if (!hasAccess || !this.isSocketInDocument(socket, data.documentId)) {
+            socket.emit('error', { message: 'No access to document' });
+            return;
+          }
+          socket.to(`document:${data.documentId}`).emit('document:awareness:update', data);
+        } catch {
+          socket.emit('error', { message: 'Failed to update document presence' });
         }
-        socket.to(`document:${data.documentId}`).emit('document:awareness:update', data);
       });
 
       // ================================================================
@@ -234,7 +250,9 @@ export class YjsGateway {
           if (!room || room.size === 0) {
             await this.saveAndCleanup(documentId);
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error('[document] leave failed', { documentId: data?.documentId, error });
+        }
       });
 
       // ================================================================
@@ -259,7 +277,12 @@ export class YjsGateway {
           // Comprobar si quedan otros sockets en este documento
           const room = this.io.sockets.adapter.rooms.get(`document:${documentId}`);
           if (!room || room.size === 0) {
-            await this.saveAndCleanup(documentId);
+            try {
+              await this.saveAndCleanup(documentId);
+            } catch {
+              const doc = this.docs.get(documentId);
+              if (doc) this.scheduleSave(documentId, doc);
+            }
           }
         }
       });
@@ -409,6 +432,20 @@ export class YjsGateway {
 
   public getDocument(documentId: string): Y.Doc | undefined {
     return this.docs.get(documentId);
+  }
+
+  public replaceDocument(documentId: string, state: Uint8Array): void {
+    const pendingSave = this.saveTimers.get(documentId);
+    if (pendingSave) clearTimeout(pendingSave);
+    this.saveTimers.delete(documentId);
+    this.docs.get(documentId)?.destroy();
+    const restored = new Y.Doc();
+    Y.applyUpdate(restored, state);
+    this.docs.set(documentId, restored);
+    this.broadcastToDocument(documentId, 'document:force-reload', {
+      documentId,
+      reason: 'Version restored',
+    });
   }
 
   public broadcastToDocument(documentId: string, event: string, data: any) {

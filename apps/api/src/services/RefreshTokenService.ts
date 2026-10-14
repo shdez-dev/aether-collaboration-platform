@@ -62,10 +62,13 @@ export class RefreshTokenService {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
-        `UPDATE refresh_tokens SET revoked = TRUE, replaced_by = $2 WHERE token_hash = $1`,
-        [hashToken(oldToken), hashToken(newToken)]
+      const rotated = await client.query(
+        `UPDATE refresh_tokens SET revoked = TRUE, replaced_by = $3
+         WHERE token_hash = $1 AND user_id = $2 AND revoked = FALSE AND expires_at > NOW()
+         RETURNING token_hash`,
+        [hashToken(oldToken), userId, hashToken(newToken)]
       );
+      if (rotated.rowCount !== 1) throw new Error('Refresh token already revoked');
       await client.query(
         `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
          VALUES ($1, $2, $3)
@@ -82,8 +85,8 @@ export class RefreshTokenService {
   }
 
   /** Revoca todos los refresh tokens activos de un usuario (logout / respuesta a reuso). */
-  static async revokeAllForUser(userId: string): Promise<void> {
-    await pool.query(
+  static async revokeAllForUser(userId: string, client?: Pick<PoolClient, 'query'>): Promise<void> {
+    await (client ?? pool).query(
       `UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE`,
       [userId]
     );

@@ -1,6 +1,5 @@
 // apps/web/src/hooks/useDocumentAutoSave.ts
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type React from 'react';
 import { Editor } from '@tiptap/react';
 import * as Y from 'yjs';
 
@@ -10,12 +9,6 @@ interface UseDocumentAutoSaveOptions {
   editor: Editor | null;
   enabled: boolean;
   onSave: (documentId: string, state: Uint8Array) => Promise<void>;
-  /**
-   * Snapshot del último estado completo recibido del servidor (document:sync).
-   * Se usa como fallback en el cleanup del desmontaje si el yjsDoc local
-   * está vacío o no fue inicializado correctamente.
-   */
-  lastServerSnapshotRef?: React.MutableRefObject<Uint8Array | null>;
 }
 
 /**
@@ -34,7 +27,6 @@ export function useDocumentAutoSave({
   editor,
   enabled,
   onSave,
-  lastServerSnapshotRef,
 }: UseDocumentAutoSaveOptions) {
   const isSavingRef = useRef(false);
   const pendingSaveRef = useRef(false);
@@ -48,8 +40,6 @@ export function useDocumentAutoSave({
   const documentIdRef = useRef(documentId);
   const onSaveRef = useRef(onSave);
   const enabledRef = useRef(enabled);
-  // Ref al ref del snapshot del servidor — doble-ref para evitar stale closure
-  const snapshotRefRef = useRef(lastServerSnapshotRef);
 
   // Mantener los refs actualizados en cada render
   useEffect(() => {
@@ -64,9 +54,6 @@ export function useDocumentAutoSave({
   useEffect(() => {
     enabledRef.current = enabled;
   }, [enabled]);
-  useEffect(() => {
-    snapshotRefRef.current = lastServerSnapshotRef;
-  }, [lastServerSnapshotRef]);
 
   const doSave = useCallback(async () => {
     if (!enabledRef.current || isSavingRef.current) {
@@ -169,25 +156,9 @@ export function useDocumentAutoSave({
 
       if (!enabledRef.current) return;
 
-      let stateToSave: Uint8Array | null = null;
-
       const currentState = Y.encodeStateAsUpdate(yjsDocRef.current);
-
-      if (currentState.length > 2) {
-        // Estado local válido — usarlo directamente
-        stateToSave = currentState;
-      } else {
-        // Estado local vacío o inválido — intentar con el último snapshot del servidor
-        // (fallback para el caso en que la inicialización del doc falló parcialmente)
-        const snapshot = snapshotRefRef.current?.current;
-        if (snapshot && snapshot.length > 2) {
-          stateToSave = snapshot;
-        } else {
-          return;
-        }
-      }
-
-      onSaveRef.current(documentIdRef.current, stateToSave).catch(() => {});
+      if (currentState.length <= 2) return;
+      onSaveRef.current(documentIdRef.current, currentState).catch(() => {});
     };
     // deps vacío intencional: el cleanup solo se registra una vez al montar.
     // Los valores actuales se leen desde los refs, no desde el closure.

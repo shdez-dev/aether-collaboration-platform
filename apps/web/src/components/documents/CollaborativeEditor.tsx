@@ -1636,6 +1636,7 @@ export default function CollaborativeEditor({
   const { saveYjsState } = useDocumentStore();
   const isJoinedRef = useRef(false);
   const [isDocumentReady, setIsDocumentReady] = useState(false);
+  const [isSyncCurrent, setIsSyncCurrent] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [characterCount, setCharacterCount] = useState(0);
   const [limitMessage, setLimitMessage] = useState('');
@@ -1655,11 +1656,6 @@ export default function CollaborativeEditor({
     bubbleLinkModeRef.current = v;
     setBubbleLinkModeState(v);
   };
-
-  // Snapshot del último estado completo recibido del servidor via document:sync.
-  // Usado como fallback de guardado en el desmontaje si el yjsDoc local está vacío
-  // (por ejemplo, si la inicialización falló parcialmente o hubo un race condition).
-  const lastServerSnapshotRef = useRef<Uint8Array | null>(null);
 
   // ── Comment sidebar state ─────────────────────────────────────────────────
   const {
@@ -1708,6 +1704,7 @@ export default function CollaborativeEditor({
     // Se llama al montar (primera vez) y en cada reconexión del socket.
     const doJoinAndWaitSync = () => {
       if (!isMounted) return;
+      setIsSyncCurrent(false);
 
       // Cancelar timeout anterior si se está reintentando
       if (syncTimeoutId) {
@@ -1725,16 +1722,14 @@ export default function CollaborativeEditor({
       // Timeout de seguridad: si el document:sync no llega en 8s, pedir
       // el estado de nuevo al servidor (document:request-sync) sin hacer re-join.
       // Esto cubre el caso donde el sync inicial se perdió por un cambio de
-      // transporte (polling → websocket). Si tras 5s más sigue sin llegar,
-      // abrir el editor de todas formas para no bloquear al usuario.
+      // transporte (polling → websocket). Sin respuesta, mantener la edición
+      // bloqueada: guardar un Y.Doc sin sincronizar puede pisar contenido.
       syncTimeoutId = setTimeout(() => {
         if (!isMounted || initialSyncReceivedRef.current) return;
         socketService.emit('document:request-sync', { documentId });
         syncTimeoutId = setTimeout(() => {
           if (!isMounted || initialSyncReceivedRef.current) return;
-          initialSyncReceivedRef.current = true;
-          setIsDocumentReady(true);
-          setSyncError(null);
+          setSyncError('No se pudo sincronizar el documento. Comprueba la conexión e inténtalo de nuevo.');
         }, 5000);
       }, 8000);
     };
@@ -1751,9 +1746,11 @@ export default function CollaborativeEditor({
       try {
         const update = new Uint8Array(data.update);
         Y.applyUpdate(yjsDoc, update, 'server');
-        lastServerSnapshotRef.current = update;
+        const localChanges = Y.encodeStateAsUpdate(yjsDoc, Y.encodeStateVectorFromUpdate(update));
+        if (localChanges.length > 2) socketService.sendYjsUpdate(documentId, localChanges);
         initialSyncReceivedRef.current = true;
         setIsDocumentReady(true);
+        setIsSyncCurrent(true);
         setSyncError(null);
       } catch {
         setSyncError('Error al cargar el contenido del documento');
@@ -1773,9 +1770,15 @@ export default function CollaborativeEditor({
       doJoinAndWaitSync();
     };
 
+    const handleSocketDisconnect = () => {
+      if (!isMounted) return;
+      setIsSyncCurrent(false);
+    };
+
     // Registrar listeners ANTES de hacer join para no perder document:sync
     socketService.onYjsSync(handleInitialSync);
     socketService.onConnect(handleSocketReconnect);
+    socketService.on('disconnect', handleSocketDisconnect);
 
     // Join inicial — ocurre inmediatamente si el socket está conectado,
     // o se encola si el socket aún está en fase de handshake
@@ -1789,6 +1792,7 @@ export default function CollaborativeEditor({
       }
       socketService.off('document:sync', handleInitialSync);
       socketService.offConnect(handleSocketReconnect);
+      socketService.off('disconnect', handleSocketDisconnect);
       socketService.leaveDocument(documentId);
       isJoinedRef.current = false;
       initialSyncReceivedRef.current = false;
@@ -1842,7 +1846,7 @@ export default function CollaborativeEditor({
       immediatelyRender: false,
       shouldRerenderOnTransaction: true,
       extensions,
-      editable: canEdit,
+      editable: false,
       editorProps: {
         attributes: { class: 'focus:outline-none' },
         handleTextInput(view, from, to, text) {
@@ -1928,17 +1932,17 @@ export default function CollaborativeEditor({
   useEffect(() => {
     if (!editor) return;
     setIsTransitioning(true);
-    const t1 = setTimeout(() => editor.setEditable(canEdit), 150);
+    if (!isSyncCurrent) editor.setEditable(false);
+    const t1 = setTimeout(() => editor.setEditable(canEdit && isSyncCurrent), isSyncCurrent ? 150 : 0);
     const t2 = setTimeout(() => setIsTransitioning(false), 450);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [editor, canEdit]);
+  }, [editor, canEdit, isSyncCurrent]);
 
   const { saveNow, isSaving, lastSavedAt } = useDocumentAutoSave({
     documentId,
     yjsDoc,
     editor,
-    enabled: canEdit && isDocumentReady,
-    lastServerSnapshotRef,
+    enabled: canEdit && isDocumentReady && isSyncCurrent,
     onSave: async (docId, state) => {
       try { await saveYjsState(docId, state); setLimitMessage(''); }
       catch (error) { setLimitMessage(error instanceof Error ? error.message : 'No se pudo guardar el documento'); throw error; }
@@ -1989,6 +1993,7 @@ export default function CollaborativeEditor({
     const handleReload = (data: { documentId: string }) => {
       if (data.documentId === documentId) {
         initialSyncReceivedRef.current = false;
+        setIsSyncCurrent(false);
 
         // Listener para recibir el nuevo sync
         const handleRejoin = (syncData: { documentId: string; update: number[] }) => {
@@ -1996,7 +2001,6 @@ export default function CollaborativeEditor({
           try {
             const update = new Uint8Array(syncData.update);
             Y.applyUpdate(yjsDoc, update, 'server');
-            lastServerSnapshotRef.current = update;
             initialSyncReceivedRef.current = true;
           } catch (err) {
             // state re-apply failed after reload — doc remains in last known state
@@ -2246,11 +2250,14 @@ export default function CollaborativeEditor({
   return (
     <div className="doc-editor-root" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
 
-      <div role={limitMessage ? 'alert' : undefined} className="doc-editor-status">
-        {(limitMessage || characterCount >= 80_000) && (
+      <div role={limitMessage || syncError ? 'alert' : undefined} className="doc-editor-status">
+        {(limitMessage || syncError || !isSyncCurrent || characterCount >= 80_000) && (
           <span className="doc-editor-limit-message">
-            {limitMessage || 'El documento se acerca al límite.'}
+            {limitMessage || syncError || (!isSyncCurrent ? 'Reconectando el documento; edición pausada.' : 'El documento se acerca al límite.')}
           </span>
+        )}
+        {syncError && (
+          <button type="button" onClick={() => window.location.reload()}>Reintentar</button>
         )}
         <span className="doc-character-count" aria-label={`${characterCount.toLocaleString('es-CL')} de 100.000 caracteres`}>
           <FileText aria-hidden="true" />

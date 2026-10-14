@@ -32,8 +32,13 @@ export const redisClient = new Redis(REDIS_URL, {
 redisClient.on('connect', () => {
 });
 
-redisClient.on('error', (err) => {
-});
+let lastRedisErrorLog = 0;
+const logRedisError = (err: Error) => {
+  if (Date.now() - lastRedisErrorLog < 30_000) return;
+  lastRedisErrorLog = Date.now();
+  console.error('[redis] connection error:', err.message);
+};
+redisClient.on('error', logRedisError);
 
 redisClient.on('close', () => {
 });
@@ -44,6 +49,8 @@ redisClient.on('close', () => {
  */
 export const redisPubClient = new Redis(REDIS_URL, { lazyConnect: true });
 export const redisSubClient = new Redis(REDIS_URL, { lazyConnect: true });
+redisPubClient.on('error', logRedisError);
+redisSubClient.on('error', logRedisError);
 
 redisPubClient.on('connect', () => {
 });

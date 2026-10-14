@@ -251,8 +251,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run pnpm audit
-        run: pnpm audit --audit-level=moderate
-        continue-on-error: true
+        run: |
+          pnpm audit --json > pnpm-audit.json || true
+          node scripts/enforce-audit.cjs pnpm-audit.json
 
       - name: Verify braces security patch
         run: pnpm check:braces-patch

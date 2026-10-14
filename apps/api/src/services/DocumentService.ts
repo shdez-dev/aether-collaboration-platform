@@ -252,7 +252,8 @@ export class DocumentService {
 
     let query = `
       SELECT 
-        d.*,
+        d.id, d.workspace_id, d.project_id, d.title, d.description,
+        d.content, d.created_by, d.created_at, d.updated_at,
         json_build_object(
           'id', u.id,
           'name', u.name,
@@ -543,9 +544,8 @@ export class DocumentService {
    * Update Yjs state of document
    * ✅ GUARDA ESTADO COMPLETO Y EXTRAE TEXTO PLANO
    *
-   * IMPORTANTE: El estado que llega aquí ya está completo y actualizado,
-   * viene del documento Yjs en memoria del YjsGateway que ya tiene todos
-   * los cambios aplicados. NO necesitamos hacer merge con DB.
+   * Los snapshots pueden venir de varios clientes o del gateway. Se fusionan
+   * dentro del bloqueo de fila para no reemplazar cambios de otro cliente.
    *
    * Lanza una excepción en todos los casos de rechazo para que el llamador
    * (YjsGateway) pueda reintentar o notificar al cliente correctamente.
@@ -576,24 +576,16 @@ export class DocumentService {
         throw new Error(`Document not found: ${documentId}`);
       }
 
-      const currentBytes = current.rows[0].current_bytes ?? 0;
-
-      // PROTECCIÓN ADICIONAL: si el estado actual es considerablemente mayor y el nuevo
-      // es sospechosamente pequeño (menos del 10% del tamaño actual), rechazarlo.
-      // Esto indica un bug de serialización o una race condition, NO que el usuario
-      // haya borrado contenido (borrar mucho texto aún deja un estado > 10% del original
-      // porque Yjs conserva el historial CRDT).
-      // Se lanza un error para que el llamador pueda reintentar con el estado correcto.
-      if (currentBytes > 100 && yjsState.length < currentBytes * 0.1) {
-        const msg = `Rejected suspicious state shrinkage: ${currentBytes} → ${yjsState.length} bytes for document ${documentId}`;
-        await client.query('ROLLBACK');
-        throw new Error(msg);
-      }
-
-      const plainText = this.extractTextFromYjs(yjsState);
-      const nextLength = this.getVisibleTextLength(yjsState);
+      const persistedState = current.rows[0].yjs_state
+        ? new Uint8Array(current.rows[0].yjs_state)
+        : null;
+      const mergedState = persistedState && persistedState.length > 2
+        ? Y.mergeUpdates([persistedState, yjsState])
+        : yjsState;
+      const plainText = this.extractTextFromYjs(mergedState);
+      const nextLength = this.getVisibleTextLength(mergedState);
       const previousLength = current.rows[0].yjs_state
-        ? this.getVisibleTextLength(new Uint8Array(current.rows[0].yjs_state))
+        ? this.getVisibleTextLength(persistedState!)
         : (current.rows[0].content ?? '').length;
       if (nextLength > DOCUMENT_TEXT_LIMIT && nextLength > previousLength) {
         throw new DocumentTextLimitError(`El documento no puede superar ${DOCUMENT_TEXT_LIMIT.toLocaleString('es-CL')} caracteres de texto.`);
@@ -603,7 +595,7 @@ export class DocumentService {
         `UPDATE documents 
          SET yjs_state = $1, content = $2, updated_at = CURRENT_TIMESTAMP 
          WHERE id = $3`,
-        [Buffer.from(yjsState), plainText, documentId]
+        [Buffer.from(mergedState), plainText, documentId]
       );
 
       await organizationStorageService.assertWithinLimit(organizationId, client, storageBefore.usedBytes);
@@ -692,13 +684,21 @@ export class DocumentService {
   /**
    * Get versions of a document
    */
-  async getVersions(documentId: string): Promise<DocumentVersion[]> {
+  async getVersions(documentId: string, limit = 50, offset = 0): Promise<Omit<DocumentVersion, 'yjsState'>[]> {
     const result = await pool.query(
-      `SELECT * FROM document_versions WHERE document_id = $1 ORDER BY created_at DESC`,
-      [documentId]
+      `SELECT id, document_id, metadata, created_by, created_at
+       FROM document_versions WHERE document_id = $1 ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [documentId, limit, offset]
     );
 
-    return result.rows.map(this.formatVersion);
+    return result.rows.map((row) => ({
+      id: row.id,
+      documentId: row.document_id,
+      metadata: row.metadata,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+    }));
   }
 
   /**
@@ -765,22 +765,7 @@ export class DocumentService {
       // CRÍTICO: Forzar recarga del documento en memoria si hay usuarios conectados
       // Esto evita que se pierdan datos cuando se restaura una versión
       const yjsGateway = (global as any).yjsGateway;
-      if (yjsGateway) {
-        const doc = yjsGateway.getDocument(documentId);
-        if (doc) {
-          // Hay usuarios conectados, actualizar su documento en memoria
-          doc.destroy();
-          const newDoc = new Y.Doc();
-          Y.applyUpdate(newDoc, yjsState);
-          (yjsGateway as any).docs.set(documentId, newDoc);
-
-          // Notificar a todos los usuarios que deben recargar
-          yjsGateway.broadcastToDocument(documentId, 'document:force-reload', {
-            documentId,
-            reason: 'Version restored',
-          });
-        }
-      }
+      if (yjsGateway?.getDocument(documentId)) yjsGateway.replaceDocument(documentId, yjsState);
 
       return document;
     } catch (error) {

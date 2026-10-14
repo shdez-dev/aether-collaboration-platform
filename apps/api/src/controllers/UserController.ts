@@ -4,10 +4,14 @@ import { Request, Response } from 'express';
 import { pool } from '../lib/db';
 import { userActivityService } from '../services/UserActivityService';
 import { storageService } from '../services/StorageService';
-import path from 'path';
+import { verifiedAvatarExtension } from '../middleware/avatarFile';
 import bcrypt from 'bcrypt';
 import { decryptSecret, encryptSecret } from '../utils/secrets';
 import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
+import { passwordSchema } from '../schemas/password';
+import { RefreshTokenService } from '../services/RefreshTokenService';
+import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
+import type { UserId } from '@aether/types';
 
 class UserController {
   /**
@@ -521,19 +525,19 @@ class UserController {
         });
       }
 
-      // Validar longitud de nueva contraseña
-      if (newPassword.length < 6) {
+      const parsedPassword = passwordSchema.safeParse(newPassword);
+      if (!parsedPassword.success) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_PASSWORD',
-            message: 'New password must be at least 6 characters long',
+            message: parsedPassword.error.issues[0]?.message || 'Contraseña inválida',
           },
         });
       }
 
       // Obtener contraseña actual del usuario
-      const userResult = await pool.query('SELECT password FROM users WHERE id = $1', [userId]);
+      const userResult = await pool.query('SELECT password, email FROM users WHERE id = $1', [userId]);
 
       if (userResult.rows.length === 0) {
         return res.status(404).json({
@@ -561,18 +565,33 @@ class UserController {
       }
 
       // Hash de la nueva contraseña
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      // Actualizar contraseña
-      await pool.query(
-        'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [hashedPassword, userId]
-      );
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      const tokenPayload = { userId: userId as UserId, email: user.email };
+      const accessToken = generateAccessToken(tokenPayload);
+      const refreshToken = generateRefreshToken(tokenPayload);
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          [hashedPassword, userId]
+        );
+        await RefreshTokenService.revokeAllForUser(userId, client);
+        await RefreshTokenService.issue(userId, refreshToken, client);
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
 
       return res.json({
         success: true,
         data: {
           message: 'Password changed successfully',
+          accessToken,
+          refreshToken,
         },
       });
     } catch (error) {
@@ -614,8 +633,14 @@ class UserController {
         });
       }
 
-      // Subir a Cloudflare R2
-      const ext = path.extname(req.file.originalname) || '.jpg';
+      const ext = verifiedAvatarExtension(req.file.mimetype, req.file.buffer);
+      if (!ext) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_FILE', message: 'El archivo no es una imagen válida.' },
+        });
+      }
+
       const key = `avatars/${userId}-${Date.now()}${ext}`;
       const avatarUrl = await storageService.upload(key, req.file.buffer, req.file.mimetype);
 

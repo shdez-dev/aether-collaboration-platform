@@ -46,9 +46,6 @@ WORKDIR /app
 # Prisma needs OpenSSL to select the correct Alpine engine binary.
 RUN apk add --no-cache openssl
 
-# Activate the repository's package manager without using npm.
-RUN corepack enable && corepack prepare pnpm@8.12.0 --activate
-
 # Set environment
 ENV NODE_ENV=production
 
@@ -62,9 +59,10 @@ COPY patches ./patches
 COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 
-# Prisma CLI is needed at startup to apply the committed schema migrations.
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-RUN pnpm install --frozen-lockfile --prod=false
+# Reuse the dependency stage instead of downloading the same workspace a
+# second time on the Raspberry. Prisma CLI remains available for migrations.
+COPY --from=deps --chown=aether:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=aether:nodejs /app/apps/api/node_modules ./apps/api/node_modules
 # Reuse Chromium downloaded in the dependency stage and make it available to
 # the non-root runtime user used by the API container.
 COPY --from=deps --chown=aether:nodejs /root/.cache/puppeteer /home/aether/.cache/puppeteer

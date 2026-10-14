@@ -22,7 +22,9 @@ export const pool = new Pool({
 // Test de conexión
 pool.on('connect', () => {});
 
-pool.on('error', (err) => {});
+pool.on('error', (err) => {
+  console.error('[database] idle client error:', err);
+});
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

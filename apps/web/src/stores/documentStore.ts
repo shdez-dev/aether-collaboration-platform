@@ -217,9 +217,13 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       saveYjsState: async (documentId: string, yjsState: Uint8Array) => {
-        const response = await apiService.put(
+        const response = await apiService.request(
           `/api/documents/${documentId}/yjs-state`,
-          { yjsState: Array.from(yjsState) },
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: new Blob([Uint8Array.from(yjsState)]),
+          },
           true
         );
         if (!response.success) throw new Error(response.error?.message || 'No se pudo guardar el documento');

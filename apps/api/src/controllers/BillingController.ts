@@ -43,6 +43,41 @@ export class BillingController {
     });
   }
   async checkout(req:Request,res:Response){const userId=req.user?.id;const p=z.object({planCode:z.enum(['TEAMS','PORTFOLIO','INSTITUTIONAL','NETWORK'])}).safeParse(req.body);if(!userId)return fail(res,401,'UNAUTHORIZED','Authentication required');if(!p.success)return fail(res,400,'VALIDATION_ERROR','Invalid plan');if(!(await admin(req.params.organizationId,userId)))return fail(res,403,'FORBIDDEN','Billing administration is required');const base=process.env.BILLING_CHECKOUT_URL;if(!base)return fail(res,503,'BILLING_UNAVAILABLE','No payment provider is configured');return res.json({success:true,data:{checkoutUrl:`${base}?organization=${encodeURIComponent(req.params.organizationId)}&plan=${p.data.planCode}`}})}
-  async webhook(req:Request,res:Response){const secret=process.env.BILLING_WEBHOOK_SECRET;if(!secret)return fail(res,503,'BILLING_UNAVAILABLE','Billing webhook is not configured');const sig=String(req.headers['x-billing-signature']??'');const body=JSON.stringify(req.body);const expected=createHmac('sha256',secret).update(body).digest('hex');if(sig.length!==expected.length||!timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))return fail(res,401,'INVALID_SIGNATURE','Invalid webhook signature');const event=z.object({id:z.string().min(1),organizationId:z.string().uuid(),planCode:z.enum(['FREE','TEAMS','PORTFOLIO','INSTITUTIONAL','NETWORK']),status:z.enum(['TRIALING','ACTIVE','PAST_DUE','PAUSED','CANCELED','EXPIRED']),providerCustomerId:z.string().optional(),providerSubscriptionId:z.string().optional(),periodEnd:z.string().datetime().optional().nullable()}).safeParse(req.body);if(!event.success)return fail(res,400,'VALIDATION_ERROR','Invalid billing event');const e=event.data;await pool.query(`INSERT INTO subscriptions(id,organization_id,plan_code,status,provider,provider_customer_id,provider_subscription_id,current_period_end,updated_at) VALUES(gen_random_uuid(),$1,$2,$3::"SubscriptionStatus",'configured-provider',$4,$5,$6,CURRENT_TIMESTAMP) ON CONFLICT(provider_subscription_id) DO UPDATE SET plan_code=EXCLUDED.plan_code,status=EXCLUDED.status,current_period_end=EXCLUDED.current_period_end,updated_at=CURRENT_TIMESTAMP`,[e.organizationId,e.planCode,e.status,e.providerCustomerId??null,e.providerSubscriptionId??`event:${e.id}`,e.periodEnd??null]);return res.json({success:true});}
+  async webhook(req: Request, res: Response) {
+    const secret = process.env.BILLING_WEBHOOK_SECRET;
+    if (!secret) return fail(res, 503, 'BILLING_UNAVAILABLE', 'Billing webhook is not configured');
+    if (!Buffer.isBuffer(req.body)) return fail(res, 400, 'VALIDATION_ERROR', 'Raw webhook body required');
+    const signature = String(req.headers['x-billing-signature'] ?? '');
+    const expected = createHmac('sha256', secret).update(req.body).digest('hex');
+    if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+      return fail(res, 401, 'INVALID_SIGNATURE', 'Invalid webhook signature');
+    }
+    let payload: unknown;
+    try {
+      payload = JSON.parse(req.body.toString('utf8'));
+    } catch {
+      return fail(res, 400, 'VALIDATION_ERROR', 'Invalid webhook JSON');
+    }
+    const event = z.object({
+      id: z.string().min(1),
+      organizationId: z.string().uuid(),
+      planCode: z.enum(['FREE', 'TEAMS', 'PORTFOLIO', 'INSTITUTIONAL', 'NETWORK']),
+      status: z.enum(['TRIALING', 'ACTIVE', 'PAST_DUE', 'PAUSED', 'CANCELED', 'EXPIRED']),
+      providerCustomerId: z.string().optional(),
+      providerSubscriptionId: z.string().optional(),
+      periodEnd: z.string().datetime().optional().nullable(),
+    }).safeParse(payload);
+    if (!event.success) return fail(res, 400, 'VALIDATION_ERROR', 'Invalid billing event');
+    const value = event.data;
+    await pool.query(
+      `INSERT INTO subscriptions(id,organization_id,plan_code,status,provider,provider_customer_id,provider_subscription_id,current_period_end,updated_at)
+       VALUES(gen_random_uuid(),$1,$2,$3::"SubscriptionStatus",'configured-provider',$4,$5,$6,CURRENT_TIMESTAMP)
+       ON CONFLICT(provider_subscription_id) DO UPDATE SET plan_code=EXCLUDED.plan_code,status=EXCLUDED.status,
+         current_period_end=EXCLUDED.current_period_end,updated_at=CURRENT_TIMESTAMP`,
+      [value.organizationId, value.planCode, value.status, value.providerCustomerId ?? null,
+        value.providerSubscriptionId ?? `event:${value.id}`, value.periodEnd ?? null]
+    );
+    return res.json({ success: true });
+  }
 }
 export const billingController=new BillingController();

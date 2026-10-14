@@ -2,6 +2,7 @@
 
 import multer from 'multer';
 import { Request, Response, NextFunction } from 'express';
+import { verifiedAvatarExtension } from './avatarFile';
 
 // Usar memoria en vez de disco — el buffer se sube directamente a R2
 const storage = multer.memoryStorage();
@@ -41,6 +42,12 @@ export const uploadAvatar = (req: Request, res: Response, next: NextFunction) =>
       return res.status(400).json({
         success: false,
         error: { code: 'INVALID_FILE', message: err.message },
+      });
+    }
+    if (req.file && !verifiedAvatarExtension(req.file.mimetype, req.file.buffer)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_FILE', message: 'El archivo no es una imagen válida.' },
       });
     }
     next();

@@ -133,6 +133,7 @@ app.use(
 
 // GitHub webhooks need raw body for HMAC verification — must come BEFORE express.json()
 app.use('/api/webhooks/github', express.raw({ type: 'application/json' }), githubWebhookRoutes);
+app.use('/api/billing/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -222,11 +223,13 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   process.stderr.write(`error: ${req.method} ${req.path} — ${err.stack || err.message}\n`);
 
   const isProduction = env.NODE_ENV === 'production';
-  res.status(500).json({
+  const isTooLarge = (err as Error & { status?: number }).status === 413;
+  res.status(isTooLarge ? 413 : 500).json({
     success: false,
     error: {
-      code: 'INTERNAL_ERROR',
-      message: isProduction ? 'Internal server error' : err.message || 'Internal server error',
+      code: isTooLarge ? 'PAYLOAD_TOO_LARGE' : 'INTERNAL_ERROR',
+      message: isTooLarge ? 'El documento supera el tamaño permitido para guardarlo' :
+        (isProduction ? 'Internal server error' : err.message || 'Internal server error'),
     },
   });
 });
