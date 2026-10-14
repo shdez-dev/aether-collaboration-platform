@@ -94,6 +94,10 @@ const TYPE_META: Record<string, { color: string; icon: React.ReactNode }> = {
       </svg>
     ),
   },
+  WORKSPACE_ASSIGNED: {
+    color: '#7452A6',
+    icon: <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12"><path d="M2 7h10M8 4l3 3-3 3" /></svg>,
+  },
   TEAM_INVITE: {
     color: '#06b6d4',
     icon: (
@@ -189,6 +193,14 @@ export function NotificationItem({
     const data = (notification.data ?? {}) as any;
     const projectTypes = ['PROJECT_INVITE', 'MILESTONE_COMPLETED', 'MILESTONE_MISSED', 'PROJECT_STATUS_CHANGED'];
 
+    if (notification.type === 'WORKSPACE_ASSIGNED' && data.workspaceId) {
+      await fetchWorkspaces();
+      if (data.organizationId) window.dispatchEvent(new CustomEvent('aether:select-organization', { detail: data.organizationId }));
+      setActiveWorkspaceId(data.workspaceId);
+      router.push('/dashboard'); onClose?.();
+      return;
+    }
+
     // Switch the active workspace so the project/board opens in the right context.
     // For a freshly-invited user the workspace list is stale (loaded before they
     // were added), so refresh it to make the new workspace appear in the switcher.
@@ -212,7 +224,7 @@ export function NotificationItem({
     } else if ((notification.type as string) === 'TEAM_MEMBER_ADDED' || (notification.type as string) === 'TEAM_MEMBER_REMOVED') {
       if (data.teamId) { router.push(`/dashboard/teams/${data.teamId}`); } else { router.push('/dashboard'); }
       onClose?.();
-    } else if (notification.type === 'WORKSPACE_INVITE' || notification.type === 'WORKSPACE_REMOVED') {
+    } else if (notification.type === 'WORKSPACE_INVITE' || notification.type === 'WORKSPACE_ASSIGNED' || notification.type === 'WORKSPACE_REMOVED') {
       router.push('/dashboard'); onClose?.();
     } else if (data.boardId) {
       // Resolve board → parent project, then navigate to project page

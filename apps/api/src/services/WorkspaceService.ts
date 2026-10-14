@@ -621,8 +621,10 @@ export class WorkspaceService {
   ): Promise<{ alreadyMember: boolean }> {
     const client = await pool.connect();
     let workspaceName = '';
+    let organizationId = '';
     let actorName = '';
     let memberName = '';
+    let assignmentId = '';
     try {
       await client.query('BEGIN');
       const workspaceResult = await client.query(
@@ -632,14 +634,15 @@ export class WorkspaceService {
       const workspace = workspaceResult.rows[0];
       if (!workspace) throw new Error('Workspace not found');
       workspaceName = workspace.name;
+      organizationId = workspace.organization_id;
 
       const actorResult = await client.query(
-        `SELECT u.name, wm.role FROM workspace_members wm JOIN users u ON u.id = wm.user_id
-          WHERE wm.workspace_id = $1 AND wm.user_id = $2`,
-        [workspaceId, actorId],
+        `SELECT u.name, om.role FROM organization_members om JOIN users u ON u.id = om.user_id
+          WHERE om.organization_id = $1 AND om.user_id = $2`,
+        [workspace.organization_id, actorId],
       );
       if (!actorResult.rows[0] || !['OWNER', 'ADMIN'].includes(actorResult.rows[0].role)) {
-        throw new Error('Workspace administration is required');
+        throw new Error('Organization administration is required');
       }
       actorName = actorResult.rows[0].name;
 
@@ -677,12 +680,13 @@ export class WorkspaceService {
       );
       if (parseInt(memberCount.rows[0].count, 10) >= 5) throw new Error('Member limit reached');
 
-      await client.query(
+      const assignment = await client.query(
         `INSERT INTO workspace_members (id, workspace_id, user_id, role)
          VALUES (uuid_generate_v4(), $1, $2, $3)
-         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+         ON CONFLICT (workspace_id, user_id) DO NOTHING RETURNING id`,
         [workspaceId, memberId, role],
       );
+      assignmentId = assignment.rows[0]?.id ?? '';
       await client.query(
         `UPDATE workspace_invitations SET status = 'ACCEPTED'
           WHERE workspace_id = $1 AND invited_user_id = $2 AND status = 'PENDING'`,
@@ -706,6 +710,14 @@ export class WorkspaceService {
         targetUserId: memberId,
       });
     } catch { /* Membership is committed; realtime activity is best effort. */ }
+    try {
+      const { notificationService } = await import('./NotificationService');
+      await notificationService.createWorkspaceAssignedNotification({
+        userId: memberId, workspaceId, workspaceName, organizationId, actorId, actorName, assignmentId,
+      });
+    } catch (error) {
+      console.error('[WorkspaceService.addOrganizationMember] notification failed:', error);
+    }
     return { alreadyMember: false };
   }
 

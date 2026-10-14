@@ -11,6 +11,7 @@ router.get('/creation-permissions', (req, res) => organizationController.getCrea
 router.post('/', (req, res) => organizationController.create(req, res));
 router.get('/', (req, res) => organizationController.list(req, res));
 router.get('/:id/members', (req, res) => organizationController.getMembers(req, res));
+router.get('/:id/contacts', (req, res) => organizationController.getInvitableContacts(req, res));
 router.get('/:id/institutional-settings', (req, res) => organizationController.getInstitutionalSettings(req, res));
 router.get('/:id/institutional-settings/history', (req, res) => organizationController.getInstitutionalSettingsHistory(req, res));
 router.put('/:id/institutional-settings', (req, res) => organizationController.updateInstitutionalSettings(req, res));

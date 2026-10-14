@@ -107,7 +107,7 @@ router.post('/:id/invite', checkWorkspaceMembership, requireAdmin, (req, res) =>
  * POST /api/workspaces/:id/members
  * Assign an existing organization member directly to this workspace.
  */
-router.post('/:id/members', checkWorkspaceMembership, requireAdmin, (req, res) =>
+router.post('/:id/members', (req, res) =>
   workspaceController.addOrganizationMember(req, res)
 );
 

@@ -231,6 +231,15 @@ export class NotificationService {
     }, { id: data.inviterId, name: data.inviterName });
   }
 
+  async createWorkspaceAssignedNotification(data: { userId: string; workspaceId: string; workspaceName: string; organizationId: string; actorId: string; actorName: string; assignmentId: string }): Promise<Notification | null> {
+    return this.deliver({
+      userId: data.userId, type: 'WORKSPACE_ASSIGNED', title: 'Te asignaron un espacio de trabajo',
+      message: `${data.actorName} te asignó al espacio «${data.workspaceName}».`,
+      dedupeKey: `workspace-assigned:${data.assignmentId}`,
+      data: { workspaceId: data.workspaceId, workspaceName: data.workspaceName, organizationId: data.organizationId, assignerId: data.actorId, assignerName: data.actorName },
+    }, { id: data.actorId, name: data.actorName });
+  }
+
   async createTeamInviteNotification(data: { userId: string; teamId: string; teamName: string; workspaceId?: string; inviterId: string; inviterName: string; invitationId: string }): Promise<Notification | null> {
     return this.deliver({
       userId: data.userId, type: 'TEAM_INVITE', title: 'Invitación a equipo',

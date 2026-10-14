@@ -42,6 +42,20 @@ describe('NotificationService', () => {
     expect(notificationRepository.createOnce).not.toHaveBeenCalled();
   });
 
+  it('notifies a direct workspace assignment without an invitation', async () => {
+    (notificationRepository.upsertActive as jest.Mock).mockResolvedValue(null);
+    await service.createWorkspaceAssignedNotification({
+      userId: 'member-1', workspaceId: 'ws-1', workspaceName: 'Proyecto Aether', organizationId: 'org-1',
+      actorId: 'admin-1', actorName: 'Ana', assignmentId: 'assignment-1',
+    });
+    expect(notificationRepository.upsertActive).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'member-1', type: 'WORKSPACE_ASSIGNED',
+      message: 'Ana te asignó al espacio «Proyecto Aether».',
+      dedupeKey: 'workspace-assigned:assignment-1',
+      data: expect.objectContaining({ workspaceId: 'ws-1' }),
+    }));
+  });
+
   it('passes lifecycle filters to the repository', async () => {
     (notificationRepository.findByUserId as jest.Mock).mockResolvedValue([]);
     await service.getNotifications('user', { onlyUnread: true, includeArchived: true });

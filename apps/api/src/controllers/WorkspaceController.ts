@@ -661,7 +661,7 @@ class WorkspaceController {
     } catch (error: any) {
       const messages: Record<string, { status: number; code: string; message: string }> = {
         'Workspace not found': { status: 404, code: 'WORKSPACE_NOT_FOUND', message: 'El espacio de trabajo ya no está disponible.' },
-        'Workspace administration is required': { status: 403, code: 'FORBIDDEN', message: 'Necesitas permisos de administración en este espacio.' },
+        'Organization administration is required': { status: 403, code: 'FORBIDDEN', message: 'Necesitas permisos de administración en esta organización.' },
         'Member is not part of this organization': { status: 409, code: 'ORGANIZATION_MEMBERSHIP_REQUIRED', message: 'Añade primero a esta persona a la organización.' },
         'Member limit reached': { status: 403, code: 'MEMBER_LIMIT_REACHED', message: 'Este espacio alcanzó el límite de 5 miembros.' },
       };

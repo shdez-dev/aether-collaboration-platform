@@ -53,6 +53,26 @@ describe('invitaciones de organización', () => {
     expect(screen.getByText(/No se pudo enviar el correo/i)).toBeTruthy();
   });
 
+  it('permite elegir un contacto y muestra la foto de miembros cuando existe', async () => {
+    const originalGet = (apiService.get as jest.Mock).getMockImplementation()!;
+    (apiService.get as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === '/api/organizations/org-1/contacts') return { success: true, data: { contacts: [
+        { id: 'carol-1', name: 'Carol', email: 'carol@example.com', avatar: null },
+      ] } };
+      if (url === '/api/organizations/org-1/members') return { success: true, data: { members: [
+        { id: 'member-2', userId: 'bob-1', name: 'Bob', email: 'bob@example.com', avatar: 'https://example.com/bob.png', role: 'MEMBER', joinedAt: '2026-10-09T12:00:00.000Z' },
+      ] } };
+      return originalGet(url);
+    });
+    render(<OrganizationsPage />);
+    expect(await screen.findByText('Bob')).toBeTruthy();
+    expect(document.querySelector('img[src="https://example.com/bob.png"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /invitar persona/i }));
+    const contact = await screen.findByRole('button', { name: /Carol carol@example.com/i });
+    fireEvent.click(contact);
+    expect((screen.getByPlaceholderText('nombre@empresa.com') as HTMLInputElement).value).toBe('carol@example.com');
+  });
+
   it('usa la organización activa del sidebar sin repetir su selector', async () => {
     render(<OrganizationsPage />);
     expect(await screen.findByRole('heading', { name: 'Acme' })).toBeTruthy();
@@ -171,6 +191,23 @@ describe('invitaciones de organización', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Asignar espacio' }));
     fireEvent.click(screen.getByRole('button', { name: 'Asignar a 1 espacio' }));
     await waitFor(() => expect(apiService.post).toHaveBeenCalledWith('/api/workspaces/ws-1/members', { userId: 'bob-1', role: 'MEMBER' }, true));
+  });
+
+  it('permite asignar un espacio de la organización aunque el administrador no sea miembro de él', async () => {
+    const originalGet = (apiService.get as jest.Mock).getMockImplementation()!;
+    (apiService.get as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === '/api/organizations/org-1') return { success: true, data: { organization: {
+        id: 'org-1', workspaces: [{ id: 'ws-2', name: 'Proyecto Aether', mode: 'TEAM', archived: false }],
+      } } };
+      return originalGet(url);
+    });
+    (apiService.post as jest.Mock).mockResolvedValue({ success: true });
+    render(<OrganizationsPage />);
+    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/api/organizations/org-1', true));
+    await userEvent.click(await screen.findByRole('button', { name: 'Acciones de Bob' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Asignar espacio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar a 1 espacio' }));
+    await waitFor(() => expect(apiService.post).toHaveBeenCalledWith('/api/workspaces/ws-2/members', { userId: 'bob-1', role: 'MEMBER' }, true));
   });
 
   it('permite al propietario cambiar el rol desde la fila de la persona', async () => {

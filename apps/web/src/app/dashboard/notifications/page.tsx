@@ -50,7 +50,7 @@ function extractActor(message: string): string {
 function notificationContent(notification: Notification) {
   const data = (notification.data ?? {}) as Record<string, unknown>;
   const stringValue = (...keys: string[]) => keys.map(key => data[key]).find(value => typeof value === 'string') as string | undefined;
-  const actor = stringValue('creatorName', 'actorName', 'senderName', 'inviterName', 'actor') || extractActor(notification.message ?? '') || 'Aether';
+  const actor = stringValue('creatorName', 'actorName', 'assignerName', 'senderName', 'inviterName', 'actor') || extractActor(notification.message ?? '') || 'Aether';
   const board = stringValue('boardName', 'board') || '';
   const card = stringValue('cardTitle', 'card') || '';
   const workspace = stringValue('workspaceName', 'workspace') || '';
@@ -70,6 +70,7 @@ function notificationContent(notification: Notification) {
     CARD_OVERDUE: ['está vencida:', card],
     BOARD_INVITE: ['te invitó al tablero', board],
     WORKSPACE_INVITE: ['te invitó al espacio', workspace || board],
+    WORKSPACE_ASSIGNED: ['te asignó al espacio', workspace],
     TEAM_INVITE: ['te invitó al equipo', team],
     CALENDAR_EVENT_INVITE: ['te invitó a un evento de calendario:', stringValue('eventTitle') || ''],
     PROJECT_INVITE: ['te invitó al proyecto', stringValue('projectName') || ''],
@@ -98,7 +99,7 @@ function matchesFilter(notification: Notification, filter: Filter): boolean {
     return notification.type.includes('INVITE') || notification.type === 'CALENDAR_EVENT_INVITE' || notification.type === 'WORKSPACE_REMOVED';
   }
   if (filter === 'menciones') return notification.type === 'COMMENT_MENTION' || notification.type === 'DOCUMENT_MENTION';
-  if (filter === 'asignaciones') return notification.type === 'CARD_ASSIGNED';
+  if (filter === 'asignaciones') return notification.type === 'CARD_ASSIGNED' || notification.type === 'WORKSPACE_ASSIGNED';
   return true;
 }
 
@@ -181,6 +182,14 @@ export default function NotificationsPage() {
     const workspaceId = typeof data.workspaceId === 'string' ? data.workspaceId : null;
     const projectId = typeof data.projectId === 'string' ? data.projectId : null;
     const boardId = typeof data.boardId === 'string' ? data.boardId : null;
+
+    if (notification.type === 'WORKSPACE_ASSIGNED' && workspaceId) {
+      await fetchWorkspaces();
+      if (typeof data.organizationId === 'string') window.dispatchEvent(new CustomEvent('aether:select-organization', { detail: data.organizationId }));
+      setActiveWorkspaceId(workspaceId);
+      router.push('/dashboard');
+      return;
+    }
 
     if (workspaceId && notification.type !== 'TEAM_INVITE' && notification.type !== 'WORKSPACE_INVITE') {
       setActiveWorkspaceId(workspaceId);

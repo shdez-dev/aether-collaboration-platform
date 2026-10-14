@@ -169,6 +169,17 @@ class OrganizationController {
     }
   }
 
+  async getInvitableContacts(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const contacts = await organizationService.getInvitableContacts(req.params.id, userId);
+      return res.json({ success: true, data: { contacts } });
+    } catch (error) {
+      return serviceError(res, error, 'Failed to fetch contacts');
+    }
+  }
+
   async getPendingInvitations(req: Request, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });

@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DashboardLayout from './layout';
 import { apiService } from '@/services/apiService';
+import { socketService } from '@/services/socketService';
 
 const router = { push: jest.fn(), replace: jest.fn() };
 let mockPathname = '/dashboard/projects/project-1';
@@ -57,6 +58,18 @@ describe('sidebar compacto', () => {
     workspaceState.workspaces = [{ id: 'workspace-1', mode: 'TEAM', organization: { type: 'COMPANY' } }];
     activeWorkspaceState.activeWorkspaceId = 'workspace-1';
     (apiService.get as jest.Mock).mockResolvedValue({ success: true, data: { platformAdmin: false, organizations: [] } });
+  });
+
+  it('refresca los espacios al recibir una asignación para el usuario activo', async () => {
+    render(<DashboardLayout><div>Contenido</div></DashboardLayout>);
+    await waitFor(() => expect((socketService.on as jest.Mock).mock.calls.some(([event]) => event === 'event')).toBe(true));
+    const before = fetchWorkspaces.mock.calls.length;
+    act(() => {
+      for (const [event, handler] of (socketService.on as jest.Mock).mock.calls) {
+        if (event === 'event') handler({ type: 'workspace.member.joined', subject: { id: 'user-1' }, payload: { workspaceId: 'workspace-2' } });
+      }
+    });
+    expect(fetchWorkspaces.mock.calls.length).toBe(before + 1);
   });
 
   it('minimiza, conserva accesos por icono y recuerda la preferencia', async () => {

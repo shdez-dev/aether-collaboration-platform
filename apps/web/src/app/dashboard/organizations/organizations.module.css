@@ -12,6 +12,17 @@
 .overlay { animation: overlayEnter .22s ease both; }
 .modal { animation: modalEnter .28s cubic-bezier(.2,.8,.2,1) both; }
 .selectField { min-width: 0; }
+.contactPicker { display: grid; gap: 8px; margin: 2px 0 14px; color: var(--c-text2); font-size: 12px; }
+.contactPicker > strong { color: var(--c-text); font-size: 12px; }
+.contactPicker > p { margin: 0; line-height: 1.5; }
+.contactList { display: grid; max-height: 160px; overflow-y: auto; border: 1px solid var(--c-border2); border-radius: 10px; background: var(--c-surface2); }
+.contactOption { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; border: 0; border-bottom: 1px solid var(--c-border2); background: transparent; color: var(--c-text); text-align: left; cursor: pointer; }
+.contactOption:last-child { border-bottom: 0; }
+.contactOption:hover, .contactOption[aria-pressed="true"] { background: color-mix(in srgb, var(--c-accent) 10%, var(--c-surface)); }
+.contactOption > span:last-child { display: grid; min-width: 0; gap: 2px; }
+.contactOption strong, .contactOption small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contactOption small { color: var(--c-text2); }
+.contactOption:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: -2px; }
 .selectField :global(button[aria-haspopup="listbox"]) { height: 44px; width: 100%; border-radius: 10px; background: var(--c-surface2); font-size: 13px; letter-spacing: 0; text-transform: none; }
 .organizationViewStage { position: relative; display: grid; min-width: 0; }
 .organizationViewPanel { grid-area: 1 / 1; min-width: 0; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(9px); transition: opacity .24s ease, transform .28s cubic-bezier(.2,.8,.2,1), visibility 0s linear .28s; }

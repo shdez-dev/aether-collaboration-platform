@@ -24,6 +24,13 @@ export interface OrganizationMemberDetails {
   joinedAt: Date;
 }
 
+export interface InvitableContact {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+}
+
 export interface OrganizationInvitationDetails {
   id: string;
   email: string;
@@ -330,6 +337,21 @@ class OrganizationService {
     }));
   }
 
+  async getInvitableContacts(organizationId: string, userId: string): Promise<InvitableContact[]> {
+    await this.requireMembership(organizationId, userId);
+    const result = await pool.query(
+      `SELECT u.id, u.name, u.email, u.avatar
+         FROM direct_connections dc
+         JOIN users u ON u.id = CASE WHEN dc.user_a_id = $1 THEN dc.user_b_id ELSE dc.user_a_id END
+        WHERE (dc.user_a_id = $1 OR dc.user_b_id = $1)
+          AND dc.status = 'ACCEPTED'
+          AND NOT EXISTS (SELECT 1 FROM organization_members om WHERE om.organization_id = $2 AND om.user_id = u.id)
+        ORDER BY lower(u.name), u.id LIMIT 200`,
+      [userId, organizationId],
+    );
+    return result.rows.map((row) => ({ id: row.id, name: row.name, email: row.email, avatar: row.avatar ?? null }));
+  }
+
   async getPendingInvitations(organizationId: string, userId: string): Promise<OrganizationInvitationDetails[]> {
     await this.requireRole(organizationId, userId, ['OWNER', 'ADMIN']);
     const result = await pool.query(
@@ -613,6 +635,8 @@ class OrganizationService {
         [row.organization_id, userId, row.role]
       );
       let assignedWorkspaceId: string | null = null;
+      let assignedWorkspaceName = '';
+      let assignedMembershipId = '';
       if (row.type === 'INSTITUTION' && row.role === 'MEMBER') {
         const policy = await client.query(
           'SELECT settings FROM institutional_organization_settings WHERE organization_id = $1',
@@ -621,7 +645,7 @@ class OrganizationService {
         const defaultWorkspaceId = policy.rows[0]?.settings?.requester?.defaultWorkspaceId;
         if (defaultWorkspaceId) {
           const workspace = await client.query(
-            `SELECT id FROM workspaces
+            `SELECT id, name FROM workspaces
               WHERE id = $1 AND organization_id = $2 AND operating_mode = 'INSTITUTIONAL' AND archived = FALSE
               FOR SHARE`,
             [defaultWorkspaceId, row.organization_id],
@@ -629,15 +653,17 @@ class OrganizationService {
           if (!workspace.rows[0]) {
             throw new OrganizationServiceError('DEFAULT_WORKSPACE_UNAVAILABLE', 'El espacio predeterminado de solicitantes ya no está disponible. Contacta a la institución.', 409);
           }
-          await client.query(
+          const assignment = await client.query(
             `INSERT INTO workspace_members (id, workspace_id, user_id, role)
              VALUES (uuid_generate_v4(), $1, $2, 'MEMBER')
-             ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+             ON CONFLICT (workspace_id, user_id) DO NOTHING RETURNING id`,
             [defaultWorkspaceId, userId],
           );
           assignedWorkspaceId = defaultWorkspaceId;
+          assignedWorkspaceName = workspace.rows[0].name;
+          assignedMembershipId = assignment.rows[0]?.id ?? '';
         }
-      } else if (row.type === 'COMPANY' && row.role === 'MEMBER') {
+      } else if (row.type === 'COMPANY' && row.role !== 'BILLING_ADMIN') {
         const policy = await client.query(
           'SELECT settings FROM team_organization_settings WHERE organization_id = $1',
           [row.organization_id],
@@ -645,7 +671,7 @@ class OrganizationService {
         const defaultWorkspaceId = policy.rows[0]?.settings?.membership?.defaultWorkspaceId;
         if (defaultWorkspaceId) {
           const workspace = await client.query(
-            `SELECT id FROM workspaces
+            `SELECT id, name FROM workspaces
               WHERE id = $1 AND organization_id = $2 AND operating_mode = 'TEAM' AND archived = FALSE
               FOR SHARE`,
             [defaultWorkspaceId, row.organization_id],
@@ -653,13 +679,15 @@ class OrganizationService {
           if (!workspace.rows[0]) {
             throw new OrganizationServiceError('DEFAULT_WORKSPACE_UNAVAILABLE', 'El espacio de equipo predeterminado ya no está disponible. Contacta a la organización.', 409);
           }
-          await client.query(
+          const assignment = await client.query(
             `INSERT INTO workspace_members (id, workspace_id, user_id, role)
              VALUES (uuid_generate_v4(), $1, $2, 'MEMBER')
-             ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+             ON CONFLICT (workspace_id, user_id) DO NOTHING RETURNING id`,
             [defaultWorkspaceId, userId],
           );
           assignedWorkspaceId = defaultWorkspaceId;
+          assignedWorkspaceName = workspace.rows[0].name;
+          assignedMembershipId = assignment.rows[0]?.id ?? '';
         }
       }
       await client.query(
@@ -669,6 +697,19 @@ class OrganizationService {
         [row.id, userId]
       );
       await client.query('COMMIT');
+      if (assignedWorkspaceId && assignedMembershipId) {
+        try {
+          const inviter = await pool.query('SELECT name FROM users WHERE id = $1', [row.invited_by]);
+          await notificationService.createWorkspaceAssignedNotification({
+            userId, workspaceId: assignedWorkspaceId, workspaceName: assignedWorkspaceName,
+            organizationId: row.organization_id,
+            actorId: row.invited_by, actorName: inviter.rows[0]?.name ?? 'Tu organización',
+            assignmentId: assignedMembershipId,
+          });
+        } catch (error) {
+          console.error('[OrganizationService.acceptInvitation] assignment notification failed:', error);
+        }
+      }
       return { organizationId: row.organization_id, workspaceId: assignedWorkspaceId };
     } catch (error) {
       await client.query('ROLLBACK');

@@ -538,6 +538,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [refreshOrganizations, fetchWorkspaces]);
 
   useEffect(() => {
+    const onMembership = (event: any) => {
+      if (event?.type === 'workspace.member.joined' && event.subject?.id === user?.id) {
+        void fetchWorkspaces();
+      }
+    };
+    socketService.on('event', onMembership);
+    return () => socketService.off('event', onMembership);
+  }, [fetchWorkspaces, user?.id]);
+
+  useEffect(() => {
     if (!organizationsLoaded || organizations.length === 0) return;
     if (activeOrganizationId && organizations.some((organization) => organization.id === activeOrganizationId)) return;
     let storedId: string | null = null;

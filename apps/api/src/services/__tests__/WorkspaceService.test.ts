@@ -3,10 +3,12 @@
 import { WorkspaceService } from '../WorkspaceService';
 import { pool } from '../../lib/db';
 import { eventStore } from '../EventStoreService';
+import { notificationService } from '../NotificationService';
 
 jest.mock('../../lib/db');
 jest.mock('../EventStoreService');
 jest.mock('../EmailService');
+jest.mock('../NotificationService', () => ({ notificationService: { createWorkspaceAssignedNotification: jest.fn().mockResolvedValue(null) } }));
 
 describe('WorkspaceService', () => {
   let workspaceService: WorkspaceService;
@@ -25,6 +27,40 @@ describe('WorkspaceService', () => {
     (pool.connect as jest.Mock) = jest.fn().mockResolvedValue(mockClient);
     (pool.query as jest.Mock) = jest.fn().mockResolvedValue({ rows: [] });
     (eventStore.emit as jest.Mock) = jest.fn().mockResolvedValue({});
+  });
+
+  describe('addOrganizationMember', () => {
+    it('grants access directly to an organization admin and notifies the member', async () => {
+      mockClient.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM workspaces WHERE id')) return { rows: [{ id: 'ws-1', organization_id: 'org-1', name: 'Proyecto Aether' }] };
+        if (sql.includes('SELECT u.name, om.role FROM organization_members')) {
+          return { rows: [{ name: 'Alice', role: 'ADMIN' }] };
+        }
+        if (sql.includes('FROM organization_members om JOIN users u')) return { rows: [{ name: 'Bob' }] };
+        if (sql.includes('SELECT COUNT(*) FROM workspace_members')) return { rows: [{ count: '1' }] };
+        if (sql.includes('FROM workspace_members WHERE')) return { rows: [] };
+        if (sql.includes('INSERT INTO workspace_members')) return { rows: [{ id: 'assignment-1' }] };
+        return { rows: [] };
+      });
+      const result = await workspaceService.addOrganizationMember('ws-1', 'alice-1', 'bob-1', 'MEMBER');
+      expect(result).toEqual({ alreadyMember: false });
+      expect(mockClient.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO workspace_members'), ['ws-1', 'bob-1', 'MEMBER']);
+      expect(mockClient.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO workspace_invitations'), expect.anything());
+      expect(eventStore.emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'workspace.member.joined', targetUserId: 'bob-1' }));
+      expect(notificationService.createWorkspaceAssignedNotification).toHaveBeenCalledWith(expect.objectContaining({ userId: 'bob-1', workspaceId: 'ws-1', actorName: 'Alice', assignmentId: 'assignment-1' }));
+    });
+
+    it('rejects a regular organization member before granting workspace access', async () => {
+      mockClient.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM workspaces WHERE id')) return { rows: [{ id: 'ws-1', organization_id: 'org-1', name: 'Proyecto Aether' }] };
+        if (sql.includes('SELECT u.name, om.role FROM organization_members')) return { rows: [{ name: 'Other', role: 'MEMBER' }] };
+        return { rows: [] };
+      });
+      await expect(workspaceService.addOrganizationMember('ws-1', 'other-1', 'bob-1', 'MEMBER'))
+        .rejects.toThrow('Organization administration is required');
+      expect(mockClient.query.mock.calls.some((call: unknown[]) => String(call[0]).includes('INSERT INTO workspace_members'))).toBe(false);
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+    });
   });
 
   describe('createWorkspace', () => {

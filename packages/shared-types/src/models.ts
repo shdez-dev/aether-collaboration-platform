@@ -898,6 +898,7 @@ export type NotificationType =
   | 'CARD_OVERDUE'
   | 'BOARD_INVITE'
   | 'WORKSPACE_INVITE'
+  | 'WORKSPACE_ASSIGNED'
   | 'WORKSPACE_REMOVED'
   | 'TEAM_INVITE'
   | 'DOCUMENT_MENTION'
@@ -961,6 +962,7 @@ export interface NotificationData {
   boardName?: string;
   workspaceId?: string;
   workspaceName?: string;
+  organizationId?: string;
   teamId?: string;
   teamName?: string;
   invitedBy?: string;

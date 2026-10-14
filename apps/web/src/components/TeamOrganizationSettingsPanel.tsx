@@ -136,7 +136,7 @@ export function TeamOrganizationSettingsPanel({
                       ...workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
                     ]}
                   />
-                  <small>Se asigna al aceptar una invitación de Miembro. Puedes cambiarlo después.</small>
+                  <small>Se asigna automáticamente al aceptar la invitación a la organización (excepto al rol de facturación). Puedes cambiarlo después.</small>
                 </label>
                 <div className={styles.domainField}>
                   <div className={styles.domainLabel}><strong>Dominios de correo permitidos</strong><span>{settings.membership.allowedEmailDomains.length ? `${settings.membership.allowedEmailDomains.length}/30` : 'Opcional'}</span></div>

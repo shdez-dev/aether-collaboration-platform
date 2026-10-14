@@ -6,6 +6,7 @@ import { Building2, BriefcaseBusiness, ChevronLeft, ChevronRight, Clock3, Copy, 
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { toast } from 'sonner';
 import { apiService } from '@/services/apiService';
+import { getAvatarUrl } from '@/lib/utils/avatar';
 import { getDisplayOrganizationName } from '@/lib/organizationName';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
@@ -40,6 +41,8 @@ type OrganizationMember = {
   role: OrganizationRole;
   joinedAt: string;
 };
+
+type InvitableContact = { id: string; name: string; email: string; avatar: string | null };
 
 type OrganizationInvitation = {
   id: string;
@@ -128,6 +131,14 @@ function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
 
+function MemberAvatar({ name, photo }: { name: string; photo?: string | null }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const url = getAvatarUrl(photo);
+  return <span style={{ ...avatar, overflow: 'hidden' }}>
+    {url && !imageFailed ? <img src={url} alt="" onError={() => setImageFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(name)}
+  </span>;
+}
+
 const MEMBERS_PER_PAGE = 10;
 
 function normalizeSearch(value: string) {
@@ -147,6 +158,7 @@ export default function OrganizationsPage() {
   const [organizationId, setOrganizationId] = useState('');
   const [view, setView] = useState<'people' | 'settings'>('people');
   const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [organizationWorkspaces, setOrganizationWorkspaces] = useState<{ organizationId: string; items: Array<{ id: string; name: string; mode: string; archived: boolean }> } | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
   const [memberPage, setMemberPage] = useState(1);
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([]);
@@ -160,6 +172,9 @@ export default function OrganizationsPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<InviteRole>('MEMBER');
+  const [contacts, setContacts] = useState<InvitableContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsError, setContactsError] = useState('');
   const [sending, setSending] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState('');
   const [generatedInvitation, setGeneratedInvitation] = useState<GeneratedInvitation | null>(null);
@@ -232,6 +247,30 @@ export default function OrganizationsPage() {
         : isManager
   ));
   useEffect(() => {
+    if (!selectedOrganization || !isManager) { setOrganizationWorkspaces(null); return; }
+    let active = true;
+    const targetOrganizationId = selectedOrganization.id;
+    void apiService.get<{ organization: Organization }>(`/api/organizations/${selectedOrganization.id}`, true)
+      .then((response) => { if (active) setOrganizationWorkspaces({ organizationId: targetOrganizationId, items: response.success ? response.data?.organization?.workspaces ?? [] : [] }); })
+      .catch(() => { if (active) setOrganizationWorkspaces({ organizationId: targetOrganizationId, items: [] }); });
+    return () => { active = false; };
+  }, [selectedOrganization?.id, isManager]);
+  useEffect(() => {
+    if (!inviteOpen || !selectedOrganization || !canInvite) return;
+    let active = true;
+    setContactsLoading(true);
+    setContactsError('');
+    void apiService.get<{ contacts: InvitableContact[] }>(`/api/organizations/${selectedOrganization.id}/contacts`, true)
+      .then((response) => {
+        if (!active) return;
+        if (response.success && response.data) setContacts(response.data.contacts ?? []);
+        else { setContacts([]); setContactsError('No se pudieron cargar tus contactos. Puedes invitar por correo.'); }
+      })
+      .catch(() => { if (active) { setContacts([]); setContactsError('No se pudieron cargar tus contactos. Puedes invitar por correo.'); } })
+      .finally(() => { if (active) setContactsLoading(false); });
+    return () => { active = false; };
+  }, [inviteOpen, selectedOrganization?.id, canInvite]);
+  useEffect(() => {
     setInvitationAuthority(null);
     setTeamInvitationAuthority(null);
     setOrganizationDeleteOpen(false);
@@ -245,8 +284,10 @@ export default function OrganizationsPage() {
     else url.searchParams.delete('view');
     window.history.replaceState(null, '', url);
   }
-  const assignableWorkspaces = (workspaces ?? []).filter((workspace) => workspace.organizationId === selectedOrganization?.id
-    && !workspace.archived && (workspace.userRole === 'OWNER' || workspace.userRole === 'ADMIN'));
+  const knownOrganizationWorkspaces = organizationWorkspaces && organizationWorkspaces.organizationId === selectedOrganization?.id ? organizationWorkspaces.items : [];
+  const assignableWorkspaces = knownOrganizationWorkspaces.length > 0
+    ? knownOrganizationWorkspaces.filter((workspace) => !workspace.archived)
+    : (workspaces ?? []).filter((workspace) => workspace.organizationId === selectedOrganization?.id && !workspace.archived);
   const personalWorkspaces = useMemo(
     () => (workspaces ?? []).filter((workspace) => workspace.organizationId === selectedOrganization?.id && !workspace.archived),
     [workspaces, selectedOrganization?.id],
@@ -665,7 +706,7 @@ export default function OrganizationsPage() {
           <section className={styles.notice} style={notice}>
               <Mail size={18} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <span>Invita por correo o comparte el enlace generado. Al aceptar, las personas con rol Miembro entran al espacio predeterminado si está configurado; también puedes gestionar sus espacios desde «Acciones».</span>
+                <span>Invita por correo o elige un contacto. Al aceptar, las personas entran al espacio predeterminado si está configurado (excepto el rol de facturación). También puedes asignar espacios directamente desde «Acciones».</span>
               </div>
           </section>
 
@@ -696,7 +737,7 @@ export default function OrganizationsPage() {
                       const canChangeRole = selectedOrganization.role === 'OWNER' && member.userId !== currentUserId && member.role !== 'OWNER';
                       return <article key={member.userId} className={styles.memberRow}>
                         <div className={styles.memberIdentity}>
-                          <span style={avatar}>{initials(member.name)}</span>
+                          <MemberAvatar name={member.name} photo={member.avatar} />
                           <span className={styles.memberIdentityText}><strong>{member.name}</strong><small>{member.email}</small></span>
                         </div>
                         <span className={styles.memberRole}>{roleLabel[member.role]}</span>
@@ -781,6 +822,15 @@ export default function OrganizationsPage() {
           <div style={modalHeader}><div><p style={eyebrow}>INVITAR A LA ORGANIZACIÓN</p><h2 style={modalTitle}>Añadir una persona</h2></div><button type="button" aria-label="Cerrar" onClick={() => setInviteOpen(false)} style={iconButton}><X size={17} /></button></div>
           <p style={modalCopy}>Generaremos un código y un enlace para compartir. También intentaremos enviarlos por correo. Caducan en siete días.</p>
           <label style={field}>Correo electrónico<input autoFocus required type="email" maxLength={255} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nombre@empresa.com" style={input} /></label>
+          <div className={styles.contactPicker}>
+            <strong>O elige uno de tus contactos</strong>
+            {contactsLoading ? <p>Cargando contactos…</p> : contactsError ? <p role="status">{contactsError}</p> : contacts.length === 0 ? <p>No tienes contactos disponibles para invitar a esta organización.</p> : <div className={styles.contactList}>
+              {contacts.map((contact) => <button key={contact.id} type="button" aria-pressed={email.toLowerCase() === contact.email.toLowerCase()} onClick={() => setEmail(contact.email)} className={styles.contactOption}>
+                <MemberAvatar name={contact.name} photo={contact.avatar} />
+                <span><strong>{contact.name}</strong><small>{contact.email}</small></span>
+              </button>)}
+            </div>}
+          </div>
           <div className={styles.selectField} style={field}><span>Rol en la organización</span><ProjectOptionSelect label="Rol en la organización" value={inviteRole} onChange={(value) => setInviteRole(value as InviteRole)} menuZIndex={100} options={[{ value: 'MEMBER', label: 'Miembro' }, ...(selectedOrganization.role === 'OWNER' ? [{ value: 'ADMIN', label: 'Administrador' }, { value: 'BILLING_ADMIN', label: 'Administrador de facturación' }] : [])]} /></div>
           {inviteRole === 'BILLING_ADMIN' ? (
             <p style={roleHint}>Puede actualizar el correo de facturación y consultar plan/uso. La contratación depende de configurar pagos, y propietario y administradores también conservan acceso a plan/uso. No gestiona miembros ni espacios; en el piloto gratuito puedes dejarlo sin asignar.</p>
