@@ -76,7 +76,7 @@ COPY --from=builder --chown=aether:nodejs /app/apps/api/prisma ./apps/api/prisma
 
 # Create uploads directory
 RUN mkdir -p /app/apps/api/public/uploads/avatars && \
-    chown -R aether:nodejs /app
+    chown -R aether:nodejs /app/apps/api/public/uploads
 
 # Switch to non-root user
 USER aether
