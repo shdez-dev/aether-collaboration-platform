@@ -652,7 +652,15 @@ class ProjectController {
         pool.query(
           `SELECT u.id, u.name, u.email, wm.role
              FROM workspace_members wm JOIN users u ON u.id = wm.user_id
-            WHERE wm.workspace_id = $1 ORDER BY u.name`, [workspaceId],
+            WHERE wm.workspace_id = $1
+              AND NOT EXISTS (
+                SELECT 1
+                  FROM team_members tm
+                  JOIN teams member_team ON member_team.id = tm.team_id
+                 WHERE member_team.workspace_id = wm.workspace_id
+                   AND tm.user_id = wm.user_id
+              )
+            ORDER BY u.name`, [workspaceId],
         ),
         pool.query(
           `SELECT t.id, t.name, t.color, COALESCE(json_agg(json_build_object('id', u.id, 'name', u.name, 'email', u.email) ORDER BY u.name) FILTER (WHERE u.id IS NOT NULL), '[]') AS members

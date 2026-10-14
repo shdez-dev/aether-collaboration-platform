@@ -5415,21 +5415,6 @@ export default function ProjectDetailPage() {
                     </span>
                   </div>
 
-                  {/* Description */}
-                  {project.description && (
-                    <p
-                      style={{
-                        margin: '8px 0 0',
-                        fontSize: '1rem',
-                        color: 'var(--c-text2)',
-                        maxWidth: '620px',
-                        lineHeight: 1.55,
-                        fontFamily: "'Manrope', system-ui, sans-serif",
-                      }}
-                    >
-                      {project.description}
-                    </p>
-                  )}
                 </div>
 
                 {/* Actions */}

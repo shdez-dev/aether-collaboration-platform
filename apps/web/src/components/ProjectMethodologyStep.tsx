@@ -85,13 +85,13 @@ export function ProjectMethodologyStep({
       </section>}
 
       {supportsMembers && <section className={styles.section} aria-labelledby="project-people-title">
-        <div className={styles.sectionHeader}><div><h4 id="project-people-title">Personas individuales</h4><p>Puedes incluir a alguien aunque no pertenezca a un equipo seleccionado.</p></div></div>
+        <div className={styles.sectionHeader}><div><h4 id="project-people-title">Personas individuales</h4><p>Personas del espacio que todavía no pertenecen a un equipo.</p></div></div>
         <label className={styles.search}><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre o correo" aria-label="Buscar personas del espacio" /></label>
         <div className={styles.memberList}>{filteredMembers.length ? filteredMembers.map((person) => <label key={person.id} className={styles.memberRow}>
           <input type="checkbox" checked={memberIds.includes(person.id)} onChange={(event) => onMemberIdsChange(event.target.checked ? [...memberIds, person.id] : memberIds.filter((id) => id !== person.id))} />
           <span><strong>{person.name}</strong><small>{person.email}</small></span>
           <span className={styles.checkbox}>{memberIds.includes(person.id) && <Check size={12} />}</span>
-        </label>) : <p className={styles.empty}>{search ? 'No hay coincidencias.' : 'No hay otras personas en este espacio.'}</p>}</div>
+        </label>) : <p className={styles.empty}>{search ? 'No hay coincidencias.' : 'Todas las personas del espacio ya pertenecen a un equipo.'}</p>}</div>
       </section>}
 
       {supportsMethodology && methodology === 'SCRUM' && <section className={`${styles.section} ${styles.scrumSection}`} aria-labelledby="scrum-roles-title">
