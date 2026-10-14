@@ -360,6 +360,19 @@ class CalendarEventService {
     return mapEvent(result.rows[0], attendees, invitees);
   }
 
+  /** User IDs allowed to see this event, including pending invitees. */
+  async getRealtimeRecipientIds(eventId: string): Promise<string[]> {
+    const result = await pool.query(
+      `SELECT created_by AS user_id FROM calendar_events WHERE id = $1
+       UNION
+       SELECT user_id FROM calendar_event_attendees WHERE event_id = $1
+       UNION
+       SELECT user_id FROM calendar_event_invitations WHERE event_id = $1`,
+      [eventId],
+    );
+    return result.rows.map((row: { user_id: string }) => row.user_id);
+  }
+
   // ── Actualizar evento ────────────────────────────────────────────────────────
   async update(eventId: string, userId: string, input: UpdateCalendarEventInput): Promise<CalendarEvent | null> {
     // Solo el creador puede editar

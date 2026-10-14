@@ -38,6 +38,11 @@ describe('EventStoreService', () => {
       broadcastToBoard:       jest.fn(),
       broadcastToBoardExcept: jest.fn(),
       broadcastToWorkspace:   jest.fn(),
+      broadcastToProject:     jest.fn(),
+      broadcastToDocument:    jest.fn(),
+      invalidateWorkspace:    jest.fn(),
+      revalidateUserRooms:    jest.fn(),
+      revalidateProjectRooms: jest.fn(),
       sendToUser:             jest.fn(),
     };
 
@@ -117,6 +122,79 @@ describe('EventStoreService', () => {
         'user-target',
         expect.objectContaining({ type: 'card.member.assigned' })
       );
+    });
+
+    it('routes project-scoped events to authorized project rooms and sends only a workspace invalidation', async () => {
+      const event = await eventStore.emit({
+        type: 'project.member.added',
+        actor: BASE_PARAMS.actor,
+        subject: { type: 'project', id: 'project-123', name: 'Private project' },
+        context: { workspaceId: 'ws-001' },
+        payload: { projectId: 'project-123', projectName: 'Private project' },
+      });
+
+      expect(mockGateway.broadcastToProject).toHaveBeenCalledWith('project-123', event);
+      expect(mockGateway.invalidateWorkspace).toHaveBeenCalledWith('ws-001', 'projects');
+      expect(mockGateway.broadcastToWorkspace).not.toHaveBeenCalled();
+    });
+
+    it('broadcasts general workspace events with a data-free full-refresh hint', async () => {
+      const event = await eventStore.emit({
+        type: 'workspace.updated',
+        actor: BASE_PARAMS.actor,
+        subject: { type: 'workspace', id: 'ws-001', name: 'Workspace' },
+        context: { workspaceId: 'ws-001' },
+        payload: { changed: true },
+      });
+
+      expect(mockGateway.broadcastToWorkspace).toHaveBeenCalledWith('ws-001', event);
+      expect(mockGateway.invalidateWorkspace).toHaveBeenCalledWith('ws-001', 'all');
+    });
+
+    it('routes document metadata events only to the authorized document room and invalidates the workspace list', async () => {
+      const event = await eventStore.emit({
+        type: 'document.updated',
+        actor: BASE_PARAMS.actor,
+        subject: { type: 'document', id: 'document-123', name: 'Private document' },
+        context: { workspaceId: 'ws-001', documentId: 'document-123' },
+        payload: { changes: { title: 'New title' } },
+      });
+
+      expect(mockGateway.broadcastToDocument).toHaveBeenCalledWith('document-123', event);
+      expect(mockGateway.invalidateWorkspace).toHaveBeenCalledWith('ws-001', 'documents');
+      expect(mockGateway.broadcastToWorkspace).not.toHaveBeenCalled();
+    });
+
+    it('revokes a removed project member before sending the event to any shared room', async () => {
+      const order: string[] = [];
+      mockGateway.revalidateUserRooms.mockImplementation(async () => { order.push('revalidate'); });
+      mockGateway.broadcastToProject.mockImplementation(() => { order.push('project'); });
+      mockGateway.sendToUser.mockImplementation(() => { order.push('user'); });
+
+      await eventStore.emit({
+        type: 'project.member.removed',
+        actor: BASE_PARAMS.actor,
+        subject: { type: 'project', id: 'project-123', name: 'Project' },
+        context: { workspaceId: 'ws-001' },
+        payload: { projectId: 'project-123', memberId: 'removed-user' },
+        targetUserId: 'removed-user',
+      });
+
+      expect(mockGateway.revalidateUserRooms).toHaveBeenCalledWith('removed-user');
+      expect(order.indexOf('revalidate')).toBeLessThan(order.indexOf('project'));
+      expect(order.indexOf('revalidate')).toBeLessThan(order.indexOf('user'));
+    });
+
+    it('closes project rooms after a project is deleted', async () => {
+      await eventStore.emit({
+        type: 'project.deleted',
+        actor: BASE_PARAMS.actor,
+        subject: { type: 'project', id: 'project-123', name: 'Project' },
+        context: { workspaceId: 'ws-001' },
+        payload: {},
+      });
+
+      expect(mockGateway.revalidateProjectRooms).toHaveBeenCalledWith('project-123');
     });
 
     it('should increment vector clock per user on successive emits', async () => {

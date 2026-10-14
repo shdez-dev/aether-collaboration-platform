@@ -215,6 +215,55 @@ export class RealtimeGateway {
       });
 
       // ========================================================================
+      // JOIN PROJECT (project scope is narrower than workspace scope)
+      // ========================================================================
+      socket.on('join:project', async (data: { projectId: string }) => {
+        const projectId = data?.projectId;
+        if (!projectId) return;
+        try {
+          const access = await projectAuthorizationService.getAccess(projectId, authSocket.userId);
+          if (!access) {
+            socket.emit('error', { message: 'No access to this project' });
+            return;
+          }
+          await socket.join(`project:${projectId}`);
+          socket.emit('joined:project', { projectId });
+        } catch {
+          socket.emit('error', { message: 'Failed to join project' });
+        }
+      });
+
+      socket.on('leave:project', async (data: { projectId: string }) => {
+        if (data?.projectId) await socket.leave(`project:${data.projectId}`);
+      });
+
+      // ========================================================================
+      // JOIN ORGANIZATION (only current organization members)
+      // ========================================================================
+      socket.on('join:organization', async (data: { organizationId: string }) => {
+        const organizationId = data?.organizationId;
+        if (!organizationId) return;
+        try {
+          const membership = await query(
+            'SELECT 1 FROM organization_members WHERE organization_id = $1 AND user_id = $2',
+            [organizationId, authSocket.userId],
+          );
+          if (!membership.rows.length) {
+            socket.emit('error', { message: 'No access to this organization' });
+            return;
+          }
+          await socket.join(`organization:${organizationId}`);
+          socket.emit('joined:organization', { organizationId });
+        } catch {
+          socket.emit('error', { message: 'Failed to join organization' });
+        }
+      });
+
+      socket.on('leave:organization', async (data: { organizationId: string }) => {
+        if (data?.organizationId) await socket.leave(`organization:${data.organizationId}`);
+      });
+
+      // ========================================================================
       // LEAVE WORKSPACE
       // ========================================================================
       socket.on('leave:workspace', async (data: { workspaceId: string }) => {
@@ -346,6 +395,104 @@ export class RealtimeGateway {
    */
   public broadcastToWorkspace(workspaceId: string, event: Event): void {
     this.io.to(`workspace:${workspaceId}`).emit('event', event);
+  }
+
+  /** Deliver project events only to sockets that passed project authorization. */
+  public broadcastToProject(projectId: string, event: Event): void {
+    this.io.to(`project:${projectId}`).emit('event', event);
+  }
+
+  /** Document rooms are authorized by YjsGateway before the socket joins. */
+  public broadcastToDocument(documentId: string, event: Event): void {
+    this.io.to(`document:${documentId}`).emit('event', event);
+  }
+
+  /**
+   * Send a content-change hint without names, IDs, or document data. Clients
+   * refetch through the API, which applies the current resource permissions.
+   */
+  public invalidateWorkspace(workspaceId: string, resource: 'boards' | 'projects' | 'documents' | 'workspace' | 'all'): void {
+    this.io.to(`workspace:${workspaceId}`).emit('workspace:invalidate', {
+      workspaceId,
+      resource,
+      timestamp: Date.now(),
+    });
+  }
+
+  /** Generic organization refresh hint; no member or invitation data is sent. */
+  public invalidateOrganization(organizationId: string, resource: 'members' | 'invitations' | 'settings' | 'all'): void {
+    this.io.to(`organization:${organizationId}`).emit('organization:invalidate', {
+      organizationId,
+      resource,
+      timestamp: Date.now(),
+    });
+  }
+
+  public invalidateOrganizationUser(userId: string, organizationId: string): void {
+    this.io.to(`user:${userId}`).emit('organization:invalidate', {
+      organizationId,
+      resource: 'all',
+      userScoped: true,
+      timestamp: Date.now(),
+    });
+  }
+
+  /** Refresh the authenticated user's calendar after a shared event changes. */
+  public invalidateCalendarUser(userId: string): void {
+    this.io.to(`user:${userId}`).emit('calendar:invalidate', { timestamp: Date.now() });
+  }
+
+  public async revalidateOrganizationRooms(organizationId: string): Promise<void> {
+    const room = `organization:${organizationId}`;
+    const sockets = Array.from(this.io.sockets.sockets.values()).filter((socket) => socket.rooms.has(room));
+    for (const socket of sockets) {
+      const userId = (socket as AuthenticatedSocket).userId;
+      await socket.leave(room);
+      await this.revalidateUserRooms(userId);
+    }
+  }
+
+  public async revalidateProjectRooms(projectId: string): Promise<void> {
+    const room = `project:${projectId}`;
+    const sockets = Array.from(this.io.sockets.sockets.values()).filter((socket) => socket.rooms.has(room));
+    for (const socket of sockets) {
+      await this.revalidateUserRooms((socket as AuthenticatedSocket).userId);
+    }
+  }
+
+  /** Re-check live rooms after a membership/role change to prevent stale access. */
+  public async revalidateUserRooms(userId: string): Promise<void> {
+    const sockets = Array.from(this.io.sockets.sockets.values()).filter(
+      (socket) => (socket as AuthenticatedSocket).userId === userId,
+    );
+
+    for (const socket of sockets) {
+      const rooms = Array.from(socket.rooms);
+      for (const room of rooms) {
+        if (room.startsWith('workspace:')) {
+          const workspaceId = room.slice('workspace:'.length);
+          if (!await this.checkWorkspaceAccess(userId, workspaceId)) await socket.leave(room);
+        } else if (room.startsWith('project:')) {
+          const projectId = room.slice('project:'.length);
+          if (!await projectAuthorizationService.getAccess(projectId, userId)) await socket.leave(room);
+        } else if (room.startsWith('board:')) {
+          const boardId = room.slice('board:'.length);
+          if (!await this.checkBoardAccess(userId, boardId)) {
+            await socket.leave(room);
+            await this.presenceService.leaveBoard(boardId, userId);
+            const activeUsers = await this.presenceService.getActiveUsers(boardId);
+            this.io.to(room).emit('presence:users', { boardId, users: activeUsers });
+          }
+        } else if (room.startsWith('organization:')) {
+          const organizationId = room.slice('organization:'.length);
+          const membership = await query(
+            'SELECT 1 FROM organization_members WHERE organization_id = $1 AND user_id = $2',
+            [organizationId, userId],
+          );
+          if (!membership.rows.length) await socket.leave(room);
+        }
+      }
+    }
   }
 
   /**

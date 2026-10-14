@@ -1771,6 +1771,24 @@ class ProjectController {
       if (!result.rows.length) {
         return res.status(404).json({ success: false, error: { message: 'Miembro no encontrado' } });
       }
+      try {
+        const actorId = (req as any).user?.id as string;
+        const info = await pool.query(
+          `SELECT p.name AS project_name, p.workspace_id, u.name AS member_name
+           FROM projects p JOIN users u ON u.id = $2 WHERE p.id = $1`,
+          [id, userId],
+        );
+        const actor = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        if (info.rows[0]) {
+          await eventStore.emit({
+            type: 'project.member.role-changed',
+            actor: { id: actorId, name: actor.rows[0]?.name ?? '' },
+            subject: { type: 'member', id: userId, name: info.rows[0].member_name },
+            context: { workspaceId: info.rows[0].workspace_id },
+            payload: { projectId: id, projectName: info.rows[0].project_name, memberId: userId, newRole: role },
+          });
+        }
+      } catch {}
       res.json({ success: true, data: { role } });
     } catch (error) {
       console.error('[ProjectController.updateDirectMemberRole]', error);
@@ -1796,7 +1814,8 @@ class ProjectController {
             actor: { id: actorId, name: actorInfo.rows[0]?.name ?? '' },
             subject: { type: 'project', id, name: info.rows[0].project_name },
             context: { workspaceId: info.rows[0].workspace_id },
-            payload: { projectId: id, projectName: info.rows[0].project_name, memberName: info.rows[0].member_name },
+            payload: { projectId: id, projectName: info.rows[0].project_name, memberId: userId, memberName: info.rows[0].member_name },
+            targetUserId: userId,
           } as any);
         }
       } catch {}

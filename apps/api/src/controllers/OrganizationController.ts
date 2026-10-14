@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { getRealtimeGateway } from '../websocket/RealtimeGateway';
 import { organizationService, OrganizationServiceError } from '../services/OrganizationService';
 import { getInstitutionalSettingsHistory, institutionalSettingsSchema, loadInstitutionalSettingsForMember, saveInstitutionalSettings } from '../services/InstitutionalSettingsService';
 import { loadTeamOrganizationSettingsForMember, saveTeamOrganizationSettings, teamOrganizationSettingsSchema } from '../services/TeamOrganizationSettingsService';
@@ -23,6 +24,27 @@ const inviteOrganizationMemberSchema = z.object({
 const updateOrganizationMemberSchema = z.object({ role: organizationMemberRoleSchema });
 const transferOwnershipSchema = z.object({ userId: z.string().uuid() });
 const deleteOrganizationSchema = z.object({ confirmationName: z.string().min(1).max(255) });
+
+type OrganizationRealtimeResource = 'members' | 'invitations' | 'settings' | 'all';
+
+async function publishOrganizationChange(
+  organizationId: string,
+  resource: OrganizationRealtimeResource,
+  options: { refreshUserIds?: string[]; revokeUserId?: string; deleted?: boolean } = {},
+) {
+  try {
+    const gateway = getRealtimeGateway();
+    gateway.invalidateOrganization(organizationId, resource);
+    options.refreshUserIds?.forEach((userId) => gateway.invalidateOrganizationUser(userId, organizationId));
+    if (options.revokeUserId) {
+      gateway.invalidateOrganizationUser(options.revokeUserId, organizationId);
+      await gateway.revalidateUserRooms(options.revokeUserId);
+    }
+    if (options.deleted) await gateway.revalidateOrganizationRooms(organizationId);
+  } catch {
+    // Persisted organization changes must not fail because realtime is offline.
+  }
+}
 
 function serviceError(res: Response, error: unknown, fallback: string) {
   if (error instanceof OrganizationServiceError) {
@@ -49,6 +71,7 @@ class OrganizationController {
     if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid institutional settings', details: parsed.error.flatten() } });
     try {
       const settings = await saveInstitutionalSettings(req.params.id, actorId, parsed.data);
+      await publishOrganizationChange(req.params.id, 'settings');
       return res.json({ success: true, data: { settings } });
     } catch (error) { return serviceError(res, error, 'Failed to save institutional settings'); }
   }
@@ -69,6 +92,7 @@ class OrganizationController {
     if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid team settings', details: parsed.error.flatten() } });
     try {
       const settings = await saveTeamOrganizationSettings(req.params.id, actorId, parsed.data);
+      await publishOrganizationChange(req.params.id, 'settings');
       return res.json({ success: true, data: { settings } });
     } catch (error) { return serviceError(res, error, 'Failed to save team settings'); }
   }
@@ -137,6 +161,7 @@ class OrganizationController {
     try {
       const organization = await organizationService.update(req.params.id, userId, validation.data);
       if (!organization) return res.status(404).json({ success: false, error: { code: 'ORGANIZATION_NOT_FOUND', message: 'Organization not found or access denied' } });
+      await publishOrganizationChange(req.params.id, 'settings');
       return res.json({ success: true, data: { organization } });
     } catch (error) {
       if (error instanceof OrganizationServiceError) return serviceError(res, error, 'Failed to update organization');
@@ -152,6 +177,7 @@ class OrganizationController {
     if (!validation.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Enter the organization name to confirm deletion', details: validation.error.errors } });
     try {
       await organizationService.deleteOrganization(req.params.id, userId, validation.data.confirmationName);
+      await publishOrganizationChange(req.params.id, 'all', { refreshUserIds: [userId], deleted: true });
       return res.status(204).send();
     } catch (error) {
       return serviceError(res, error, 'Failed to delete organization');
@@ -198,6 +224,7 @@ class OrganizationController {
     if (!validation.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid invitation data', details: validation.error.errors } });
     try {
       const invitation = await organizationService.inviteMember(req.params.id, userId, validation.data);
+      await publishOrganizationChange(req.params.id, 'invitations');
       res.set('Cache-Control', 'no-store');
       return res.status(201).json({ success: true, data: { invitation } });
     } catch (error) {
@@ -210,6 +237,7 @@ class OrganizationController {
     if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     try {
       const invitation = await organizationService.regenerateInvitationCode(req.params.id, req.params.invitationId, userId);
+      await publishOrganizationChange(req.params.id, 'invitations');
       res.set('Cache-Control', 'no-store');
       return res.json({ success: true, data: { invitation } });
     } catch (error) {
@@ -222,6 +250,7 @@ class OrganizationController {
     if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     try {
       await organizationService.revokeInvitation(req.params.id, req.params.invitationId, userId);
+      await publishOrganizationChange(req.params.id, 'invitations');
       return res.status(204).send();
     } catch (error) {
       return serviceError(res, error, 'Failed to revoke organization invitation');
@@ -234,6 +263,7 @@ class OrganizationController {
     if (!/^[a-f0-9]{64}$/i.test(req.params.token)) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid invitation token' } });
     try {
       const { organizationId, workspaceId } = await organizationService.acceptInvitation(req.params.token, userId);
+      await publishOrganizationChange(organizationId, 'all', { refreshUserIds: [userId] });
       return res.json({ success: true, data: { message: 'Invitation accepted', organizationId, workspaceId } });
     } catch (error) {
       return serviceError(res, error, 'Failed to accept organization invitation');
@@ -271,6 +301,7 @@ class OrganizationController {
     }
     try {
       const { organizationId, workspaceId } = await organizationService.acceptInvitationById(req.params.invitationId, userId);
+      await publishOrganizationChange(organizationId, 'all', { refreshUserIds: [userId] });
       return res.json({ success: true, data: { message: 'Invitation accepted', organizationId, workspaceId } });
     } catch (error) {
       return serviceError(res, error, 'Failed to accept organization invitation');
@@ -284,6 +315,7 @@ class OrganizationController {
     if (!validation.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid organization role', details: validation.error.errors } });
     try {
       await organizationService.changeMemberRole(req.params.id, userId, req.params.userId, validation.data.role);
+      await publishOrganizationChange(req.params.id, 'members', { refreshUserIds: [req.params.userId] });
       return res.status(204).send();
     } catch (error) {
       return serviceError(res, error, 'Failed to update organization member');
@@ -295,6 +327,7 @@ class OrganizationController {
     if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     try {
       await organizationService.removeMember(req.params.id, userId, req.params.userId);
+      await publishOrganizationChange(req.params.id, 'members', { revokeUserId: req.params.userId });
       return res.status(204).send();
     } catch (error) {
       return serviceError(res, error, 'Failed to remove organization member');
@@ -308,6 +341,7 @@ class OrganizationController {
     if (!validation.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid ownership transfer data', details: validation.error.errors } });
     try {
       await organizationService.transferOwnership(req.params.id, userId, validation.data.userId);
+      await publishOrganizationChange(req.params.id, 'members', { refreshUserIds: [userId, validation.data.userId] });
       return res.status(204).send();
     } catch (error) {
       return serviceError(res, error, 'Failed to transfer organization ownership');

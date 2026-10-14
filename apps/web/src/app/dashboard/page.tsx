@@ -167,6 +167,7 @@ export default function DashboardPage() {
     overdue: [], today: [], upcoming: [],
   });
   const [cardsLoading, setCardsLoading] = useState(true);
+  const [cardsRefreshKey, setCardsRefreshKey] = useState(0);
   const [togglingCards, setTogglingCards] = useState<Set<string>>(new Set());
 
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
@@ -179,6 +180,22 @@ export default function DashboardPage() {
   // ── Fetch ────────────────────────────────────────────────────────────────────
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
+
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const onWorkspaceInvalidate = (event: Event) => {
+      const update = (event as CustomEvent<{ workspaceId?: string; resource?: string }>).detail;
+      if (!workspaces.some((workspace) => workspace.id === update?.workspaceId)
+        || !['boards', 'all'].includes(update?.resource ?? '')) return;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setCardsRefreshKey((key) => key + 1), 120);
+    };
+    window.addEventListener('aether:realtime:workspace-invalidate', onWorkspaceInvalidate);
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      window.removeEventListener('aether:realtime:workspace-invalidate', onWorkspaceInvalidate);
+    };
+  }, [workspaces]);
 
   useEffect(() => {
     setCardsLoading(true);
@@ -196,7 +213,7 @@ export default function DashboardPage() {
         });
       })
       .finally(() => setCardsLoading(false));
-  }, []);
+  }, [cardsRefreshKey]);
 
   // LocalStorage todos
   useEffect(() => {

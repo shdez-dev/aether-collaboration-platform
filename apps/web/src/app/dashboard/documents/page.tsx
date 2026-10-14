@@ -8,6 +8,7 @@ import { apiService } from '@/services/apiService';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
+import { socketService } from '@/services/socketService';
 import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import styles from './documents.module.css';
 
@@ -153,6 +154,23 @@ export default function DocumentsPage() {
     void load();
     return () => { alive = false; };
   }, [workspaces, reloadKey]);
+
+  useEffect(() => {
+    const owner = 'documents-library';
+    const workspaceIds = workspaces.map((workspace) => workspace.id);
+    workspaceIds.forEach((workspaceId) => socketService.joinWorkspace(workspaceId, owner));
+    const onWorkspaceInvalidate = (update: { workspaceId?: string; resource?: string }) => {
+      if (!update?.workspaceId || !workspaceIds.includes(update.workspaceId)) return;
+      if (update.resource === 'documents' || update.resource === 'all') {
+        setReloadKey((key) => key + 1);
+      }
+    };
+    socketService.on('workspace:invalidate', onWorkspaceInvalidate);
+    return () => {
+      socketService.off('workspace:invalidate', onWorkspaceInvalidate);
+      workspaceIds.forEach((workspaceId) => socketService.leaveWorkspace(workspaceId, owner));
+    };
+  }, [workspaces]);
 
   const workspaceDocs = useMemo(() => documents.filter(document => !document.projectId), [documents]);
   const projectDocs = useMemo(() => documents.filter(document => Boolean(document.projectId)), [documents]);

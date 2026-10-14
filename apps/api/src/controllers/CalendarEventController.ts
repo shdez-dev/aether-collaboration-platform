@@ -3,6 +3,17 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { calendarEventService } from '../services/CalendarEventService';
+import { getRealtimeGateway } from '../websocket/RealtimeGateway';
+
+async function invalidateCalendarEvent(eventId: string, knownRecipients?: string[]) {
+  try {
+    const recipients = knownRecipients ?? await calendarEventService.getRealtimeRecipientIds(eventId);
+    const gateway = getRealtimeGateway();
+    for (const userId of new Set(recipients)) gateway.invalidateCalendarUser(userId);
+  } catch {
+    // A saved calendar change must not fail because realtime is offline.
+  }
+}
 
 // ─── Schemas de validación ─────────────────────────────────────────────────────
 
@@ -60,6 +71,7 @@ class CalendarEventController {
 
     try {
       const event = await calendarEventService.create(userId, userName, parsed.data);
+      await invalidateCalendarEvent(event.id);
       return res.status(201).json({ success: true, data: { event } });
     } catch (error: any) {
       console.error('[CalendarEventController.create]', error);
@@ -89,6 +101,7 @@ class CalendarEventController {
     try {
       const changed = await calendarEventService.respondToInvitation(req.params.id, userId, req.body.response === 'accept');
       if (!changed) return res.status(404).json({ success: false, error: { message: 'Invitación no encontrada o ya respondida' } });
+      await invalidateCalendarEvent(req.params.id);
       return res.json({ success: true });
     } catch (error: any) {
       return res.status(500).json({ success: false, error: { message: error.message } });
@@ -162,6 +175,7 @@ class CalendarEventController {
       if (!event) {
         return res.status(404).json({ success: false, error: { message: 'Evento no encontrado o sin permisos' } });
       }
+      await invalidateCalendarEvent(eventId);
       return res.json({ success: true, data: { event } });
     } catch (error: any) {
       console.error('[CalendarEventController.update]', error);
@@ -179,10 +193,13 @@ class CalendarEventController {
     }
 
     try {
+      let recipients: string[] = [];
+      try { recipients = await calendarEventService.getRealtimeRecipientIds(eventId); } catch { /* Keep deletion independent of realtime lookup. */ }
       const deleted = await calendarEventService.delete(eventId, userId);
       if (!deleted) {
         return res.status(404).json({ success: false, error: { message: 'Evento no encontrado o sin permisos' } });
       }
+      await invalidateCalendarEvent(eventId, recipients);
       return res.json({ success: true, data: { message: 'Evento eliminado' } });
     } catch (error: any) {
       console.error('[CalendarEventController.delete]', error);

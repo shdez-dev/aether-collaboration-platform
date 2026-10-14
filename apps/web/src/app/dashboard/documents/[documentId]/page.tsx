@@ -76,6 +76,17 @@ export default function DocumentEditorPage() {
     return () => { if (documentId) leaveDocument(documentId); };
   }, [documentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const onDocumentEvent = (event: any) => {
+      const eventDocumentId = event?.context?.documentId ?? event?.subject?.id ?? event?.payload?.documentId;
+      if (eventDocumentId !== documentId) return;
+      if (event.type === 'document.updated') useDocumentStore.getState().handleEvent(event);
+      if (event.type === 'document.deleted') router.replace('/dashboard/documents');
+    };
+    socketService.onEvent(onDocumentEvent);
+    return () => socketService.off('event', onDocumentEvent);
+  }, [documentId, router]);
+
   // Record recent doc separately, once workspaceId is resolved from the loaded doc.
   useEffect(() => {
     if (workspaceId && documentId) recordRecentDoc(workspaceId, documentId);

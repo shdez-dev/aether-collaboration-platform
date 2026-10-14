@@ -1031,12 +1031,13 @@ export default function TeamDetailPage() {
     const workspaceId = currentTeam?.workspaceId;
     if (!workspaceId) return;
 
-    const joinWorkspace = () => socketService.joinWorkspace(workspaceId);
+    const roomOwner = `team-page:${teamId}`;
+    const joinWorkspace = () => socketService.joinWorkspace(workspaceId, roomOwner);
 
     socketService.onConnect(joinWorkspace);
     return () => {
       socketService.offConnect(joinWorkspace);
-      socketService.leaveWorkspace(workspaceId);
+      socketService.leaveWorkspace(workspaceId, roomOwner);
     };
   }, [currentTeam?.workspaceId]);
 

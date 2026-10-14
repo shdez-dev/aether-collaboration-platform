@@ -121,7 +121,8 @@ export type ProjectEventType =
   | 'project.team.assigned'
   | 'project.team.removed'
   | 'project.member.added'
-  | 'project.member.removed';
+  | 'project.member.removed'
+  | 'project.member.role-changed';
 
 export type SprintEventType =
   | 'sprint.created'

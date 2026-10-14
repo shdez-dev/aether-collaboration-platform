@@ -11,6 +11,7 @@ import { getDisplayOrganizationName } from '@/lib/organizationName';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useAuthStore } from '@/stores/authStore';
+import { socketService } from '@/services/socketService';
 import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import { MultiSelectDropdown } from '@/components/MultiSelectDropdown';
 import { InstitutionalSettingsPanel } from '@/components/InstitutionalSettingsPanel';
@@ -235,6 +236,22 @@ export default function OrganizationsPage() {
     () => organizations.find((organization) => organization.id === organizationId) ?? null,
     [organizations, organizationId],
   );
+
+  useEffect(() => {
+    if (!selectedOrganization?.id) return;
+    const id = selectedOrganization.id;
+    const owner = `organizations-page:${id}`;
+    socketService.joinOrganization(id, owner);
+    const onOrganizationInvalidate = (update: { organizationId?: string }) => {
+      if (update?.organizationId === id) setRefreshCount((count) => count + 1);
+    };
+    socketService.on('organization:invalidate', onOrganizationInvalidate);
+    return () => {
+      socketService.off('organization:invalidate', onOrganizationInvalidate);
+      socketService.leaveOrganization(id, owner);
+    };
+  }, [selectedOrganization?.id]);
+
   const isManager = canManage(selectedOrganization?.role);
   const isPersonal = selectedOrganization?.type === 'PERSONAL';
   const canDeleteOrganization = selectedOrganization?.type === 'COMPANY' && selectedOrganization.role === 'OWNER';

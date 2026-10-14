@@ -847,6 +847,7 @@ class TeamController {
           case 'project.board.unlinked':      action = 'desvinculó el tablero';        break;
           case 'project.member.added':        action = 'invitó a';                     break;
           case 'project.member.removed':      action = 'quitó a';                      break;
+          case 'project.member.role-changed': action = 'cambió el rol de';              break;
           case 'project.status.changed':      action = `cambió el estado a ${payload.newStatus ?? ''}`; break;
           case 'project.updated':             action = 'editó el proyecto';            break;
         }

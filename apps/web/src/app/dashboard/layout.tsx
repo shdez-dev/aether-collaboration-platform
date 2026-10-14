@@ -539,13 +539,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const onMembership = (event: any) => {
-      if (event?.type === 'workspace.member.joined' && event.subject?.id === user?.id) {
+      if (
+        ['workspace.member.joined', 'workspace.member.removed', 'workspace.member.role-changed'].includes(event?.type)
+        && event.subject?.id === user?.id
+      ) {
         void fetchWorkspaces();
+      }
+      if (event?.context?.workspaceId === activeWorkspaceId) {
+        if (typeof event.type === 'string' && event.type.startsWith('workspace.')) void fetchWorkspaces();
+        window.dispatchEvent(new CustomEvent('aether:realtime:workspace-event', { detail: event }));
       }
     };
     socketService.on('event', onMembership);
     return () => socketService.off('event', onMembership);
-  }, [fetchWorkspaces, user?.id]);
+  }, [activeWorkspaceId, fetchWorkspaces, user?.id]);
 
   useEffect(() => {
     if (!organizationsLoaded || organizations.length === 0) return;
@@ -574,11 +581,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId) ?? null;
   const activeWorkspace = workspaces.find((workspace) => !workspace.archived && workspace.id === activeWorkspaceId && workspace.organizationId === activeOrganizationId);
+  const routeProjectId = pathname?.match(/^\/dashboard\/projects\/([^/?]+)/)?.[1] ?? null;
   const workspaceUnavailable = workspaceBootstrapLoaded && !!activeOrganization && !activeWorkspace;
   const resolvingFirstContext = workspaceBootstrapLoaded && !workspaces.some((workspace) => !workspace.archived)
     && (!organizationsLoaded || (organizations.length > 0 && !activeOrganizationId));
   const needsFirstWorkspace = workspaceBootstrapLoaded && organizationsLoaded && !workspaceError && !organizationsError
     && !workspaces.some((workspace) => !workspace.archived) && organizations.length === 0;
+
+  // Mantener las rooms de todos los espacios accesibles permite que Inicio,
+  // calendario y listas reciban cambios aunque el usuario esté viendo otro espacio.
+  useEffect(() => {
+    const owner = 'dashboard-layout-workspaces';
+    const workspaceIds = workspaces.filter((workspace) => !workspace.archived).map((workspace) => workspace.id);
+    workspaceIds.forEach((workspaceId) => socketService.joinWorkspace(workspaceId, owner));
+    return () => workspaceIds.forEach((workspaceId) => socketService.leaveWorkspace(workspaceId, owner));
+  }, [workspaces]);
+
+  useEffect(() => {
+    if (!activeOrganizationId) return;
+    const owner = 'dashboard-layout';
+    socketService.joinOrganization(activeOrganizationId, owner);
+    return () => socketService.leaveOrganization(activeOrganizationId, owner);
+  }, [activeOrganizationId]);
+
+  // Los eventos de proyecto contienen información privada: el backend verifica
+  // la autorización antes de permitir entrar a esta room de proyecto.
+  useEffect(() => {
+    if (!routeProjectId) return;
+    const owner = `dashboard-project-route:${routeProjectId}`;
+    socketService.joinProject(routeProjectId, owner);
+    return () => socketService.leaveProject(routeProjectId, owner);
+  }, [routeProjectId]);
 
   useEffect(() => {
     const match = pathname?.match(/\/dashboard\/workspaces\/([^\/\?]+)/);
@@ -590,6 +623,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetchSidebarBoards(activeWorkspaceId);
     fetchSidebarProjects(activeWorkspaceId);
   }, [activeWorkspaceId, fetchSidebarBoards, fetchSidebarProjects]);
+
+  useEffect(() => {
+    const handler = (update: { workspaceId?: string; resource?: string }) => {
+      if (!update?.workspaceId) return;
+      if (update.workspaceId === activeWorkspaceId) {
+        if (update.resource === 'projects' || update.resource === 'all') fetchSidebarProjects(activeWorkspaceId);
+        if (update.resource === 'boards' || update.resource === 'all') fetchSidebarBoards(activeWorkspaceId);
+      }
+      window.dispatchEvent(new CustomEvent('aether:realtime:workspace-invalidate', { detail: update }));
+    };
+    socketService.on('workspace:invalidate', handler);
+    return () => socketService.off('workspace:invalidate', handler);
+  }, [activeWorkspaceId, fetchSidebarBoards, fetchSidebarProjects]);
+
+  useEffect(() => {
+    const handler = (update: { organizationId?: string; resource?: string; userScoped?: boolean }) => {
+      if (!update?.organizationId || (!update.userScoped && update.organizationId !== activeOrganizationId)) return;
+      void refreshOrganizations();
+      void fetchWorkspaces();
+      window.dispatchEvent(new CustomEvent('aether:realtime:organization-invalidate', { detail: update }));
+    };
+    socketService.on('organization:invalidate', handler);
+    return () => socketService.off('organization:invalidate', handler);
+  }, [activeOrganizationId, fetchWorkspaces, refreshOrganizations]);
 
   useEffect(() => {
     if (!activeWorkspaceId) return;

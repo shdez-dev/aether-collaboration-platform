@@ -31,6 +31,14 @@ class SocketService {
 
   // Documentos activos: cuando el socket reconecta, los re-joineamos automáticamente
   private activeDocuments = new Map<string, { documentId: string; workspaceId: string }>();
+  private activeBoards = new Set<string>();
+
+  // Rooms persistentes: una ruta puede compartir la suscripción con el layout.
+  // Cada consumidor libera su propia referencia para que un cambio de ruta no
+  // desconecte a los demás consumidores del mismo recurso.
+  private workspaceRoomOwners = new Map<string, Set<string>>();
+  private projectRoomOwners = new Map<string, Set<string>>();
+  private organizationRoomOwners = new Map<string, Set<string>>();
 
   // ─── Conexión ─────────────────────────────────────────────────────────────
 
@@ -94,6 +102,9 @@ class SocketService {
       this.isConnecting = false;
       // Primero emitir la cola de eventos generales
       this.flushEventQueue();
+      // Socket.IO rooms se pierden al reconectar. Restaurar las suscripciones
+      // activas antes de avisar a los componentes que ya pueden sincronizarse.
+      this.rejoinScopedRooms();
       // Luego notificar a los suscriptores (incluido el CollaborativeEditor)
       this.notifyConnectListeners();
     });
@@ -138,6 +149,10 @@ class SocketService {
     this.isConnecting = false;
     this.connectListeners = [];
     this.activeDocuments.clear();
+    this.activeBoards.clear();
+    this.workspaceRoomOwners.clear();
+    this.projectRoomOwners.clear();
+    this.organizationRoomOwners.clear();
   }
 
   // ─── Emit / On / Off ──────────────────────────────────────────────────────
@@ -214,32 +229,87 @@ class SocketService {
 
   // ─── Workspaces ───────────────────────────────────────────────────────────
 
-  joinWorkspace(workspaceId: string): void {
-    if (!this.isConnected()) {
-      this.eventQueue.push({ event: 'join:workspace', data: { workspaceId } });
-      return;
-    }
-    this.socket?.emit('join:workspace', { workspaceId });
+  joinWorkspace(workspaceId: string, owner = 'default'): void {
+    this.retainRoom(this.workspaceRoomOwners, workspaceId, owner, 'join:workspace');
   }
 
-  leaveWorkspace(workspaceId: string): void {
+  leaveWorkspace(workspaceId: string, owner = 'default'): void {
+    this.releaseRoom(this.workspaceRoomOwners, workspaceId, owner, 'leave:workspace');
+  }
+
+  joinProject(projectId: string, owner = 'default'): void {
+    this.retainRoom(this.projectRoomOwners, projectId, owner, 'join:project', 'projectId');
+  }
+
+  leaveProject(projectId: string, owner = 'default'): void {
+    this.releaseRoom(this.projectRoomOwners, projectId, owner, 'leave:project', 'projectId');
+  }
+
+  joinOrganization(organizationId: string, owner = 'default'): void {
+    this.retainRoom(this.organizationRoomOwners, organizationId, owner, 'join:organization', 'organizationId');
+  }
+
+  leaveOrganization(organizationId: string, owner = 'default'): void {
+    this.releaseRoom(this.organizationRoomOwners, organizationId, owner, 'leave:organization', 'organizationId');
+  }
+
+  private retainRoom(
+    rooms: Map<string, Set<string>>,
+    id: string,
+    owner: string,
+    event: string,
+    idKey = 'workspaceId',
+  ): void {
+    if (!id) return;
+    const owners = rooms.get(id) ?? new Set<string>();
+    if (owners.has(owner)) return;
+    const wasEmpty = owners.size === 0;
+    owners.add(owner);
+    rooms.set(id, owners);
+    if (wasEmpty && this.isConnected()) this.socket?.emit(event, { [idKey]: id });
+  }
+
+  private releaseRoom(
+    rooms: Map<string, Set<string>>,
+    id: string,
+    owner: string,
+    event: string,
+    idKey = 'workspaceId',
+  ): void {
+    const owners = rooms.get(id);
+    if (!owners?.delete(owner)) return;
+    if (owners.size > 0) return;
+    rooms.delete(id);
+    if (this.isConnected()) this.socket?.emit(event, { [idKey]: id });
+  }
+
+  private rejoinScopedRooms(): void {
     if (!this.isConnected()) return;
-    this.socket?.emit('leave:workspace', { workspaceId });
+    this.workspaceRoomOwners.forEach((_owners, workspaceId) => {
+      this.socket?.emit('join:workspace', { workspaceId });
+    });
+    this.projectRoomOwners.forEach((_owners, projectId) => {
+      this.socket?.emit('join:project', { projectId });
+    });
+    this.organizationRoomOwners.forEach((_owners, organizationId) => {
+      this.socket?.emit('join:organization', { organizationId });
+    });
+    this.activeBoards.forEach((boardId) => {
+      this.socket?.emit('join:board', { boardId });
+    });
   }
 
   // ─── Boards ───────────────────────────────────────────────────────────────
 
   joinBoard(boardId: string): void {
-    if (!this.isConnected()) {
-      this.eventQueue.push({ event: 'join:board', data: { boardId } });
-      return;
-    }
-    this.socket?.emit('join:board', { boardId });
+    if (!boardId || this.activeBoards.has(boardId)) return;
+    this.activeBoards.add(boardId);
+    if (this.isConnected()) this.socket?.emit('join:board', { boardId });
   }
 
   leaveBoard(boardId: string): void {
-    if (!this.isConnected()) return;
-    this.socket?.emit('leave:board', { boardId });
+    if (!this.activeBoards.delete(boardId)) return;
+    if (this.isConnected()) this.socket?.emit('leave:board', { boardId });
   }
 
   onPresenceUsers(callback: (data: { boardId: string; users: any[] }) => void): void {

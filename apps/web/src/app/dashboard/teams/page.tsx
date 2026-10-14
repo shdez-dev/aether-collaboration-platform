@@ -6,6 +6,7 @@ import { useTeamStore, type Team } from '@/stores/teamStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { canManageOrganizationRole, supportsOrganizationTeams } from '@/lib/workspaceFeatures';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
+import { socketService } from '@/services/socketService';
 import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { C } from '@/lib/colors';
 import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
@@ -195,6 +196,19 @@ export default function TeamsPage() {
 
   const loadTeams = useCallback(() => { if (canUseTeams) void fetchTeams(); }, [canUseTeams, fetchTeams]);
   useEffect(() => { loadTeams(); }, [loadTeams]);
+
+  const watchedWorkspaceIdsKey = activeWorkspaces.map((workspace) => workspace.id).sort().join(',');
+  useEffect(() => {
+    if (!canUseTeams || !watchedWorkspaceIdsKey) return;
+    const watchedWorkspaceIds = new Set(watchedWorkspaceIdsKey.split(','));
+    const onTeamEvent = (event: any) => {
+      if (typeof event?.type !== 'string' || !event.type.startsWith('team.')) return;
+      const eventWorkspaceId = event.context?.workspaceId ?? event.payload?.workspaceId;
+      if (eventWorkspaceId && watchedWorkspaceIds.has(eventWorkspaceId)) void fetchTeams();
+    };
+    socketService.onEvent(onTeamEvent);
+    return () => socketService.off('event', onTeamEvent);
+  }, [canUseTeams, fetchTeams, watchedWorkspaceIdsKey]);
 
   useEffect(() => {
     if (workspaceId && teams.some((team) => team.workspaceId === workspaceId)) {

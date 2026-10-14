@@ -79,3 +79,14 @@ it('shows the creator who was invited and the response status when reading the e
   const event = await calendarEventService.getById('event', 'creator');
   expect(event?.invitees).toEqual([{ id: 'contact', name: 'Contacto', avatar: null, status: 'PENDING' }]);
 });
+
+it('finds only event participants for realtime calendar refreshes', async () => {
+  (poolMock.query as jest.Mock).mockResolvedValue({ rows: [
+    { user_id: 'creator' }, { user_id: 'attendee' }, { user_id: 'pending-invitee' },
+  ] });
+
+  await expect(calendarEventService.getRealtimeRecipientIds('event')).resolves.toEqual([
+    'creator', 'attendee', 'pending-invitee',
+  ]);
+  expect(poolMock.query).toHaveBeenCalledWith(expect.stringContaining('calendar_event_invitations'), ['event']);
+});

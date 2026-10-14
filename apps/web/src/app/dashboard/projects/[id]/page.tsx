@@ -5097,8 +5097,9 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!currentProject?.workspaceId) return;
     const wsId = currentProject.workspaceId;
+    const roomOwner = `project-page:${projectId}`;
 
-    socketService.joinWorkspace(wsId);
+    socketService.joinWorkspace(wsId, roomOwner);
 
     const handleEvent = (ev: any) => {
       const p = ev.payload ?? {};
@@ -5167,6 +5168,8 @@ export default function ProjectDetailPage() {
 
         case 'project.member.added':
         case 'project.member.removed':
+        case 'project.member.role-changed':
+          fetchProjectById(projectId);
           projectApi
             .getDirectMembers(projectId)
             .then((members) => setDirectMembers(members))
@@ -5179,6 +5182,7 @@ export default function ProjectDetailPage() {
 
     return () => {
       socketService.off('event', handleEvent);
+      socketService.leaveWorkspace(wsId, roomOwner);
     };
   }, [currentProject?.workspaceId, projectId, fetchProjectById, fetchStats]);
 

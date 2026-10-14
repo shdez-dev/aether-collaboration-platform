@@ -154,6 +154,21 @@ export class EventStoreService {
       const { getRealtimeGateway } = await import('../websocket/RealtimeGateway');
       const gateway = getRealtimeGateway();
 
+      const projectMemberId = (payload as Record<string, unknown>).memberId;
+      const accessChangedUserId = subject.type === 'member'
+        ? subject.id
+        : typeof projectMemberId === 'string' && ['project.member.removed', 'project.member.role-changed'].includes(type)
+          ? projectMemberId
+          : undefined;
+      if (
+        accessChangedUserId
+        && ['workspace.member.removed', 'workspace.member.role-changed', 'project.member.removed', 'project.member.role-changed', 'team.member.removed', 'team.member.role-changed'].includes(type)
+      ) {
+        // Evict revoked memberships before broadcasting this event to shared
+        // rooms so a removed user cannot receive another private workspace or
+        // project payload after access has already been withdrawn.
+        await gateway.revalidateUserRooms(accessChangedUserId);
+      }
       if (targetUserId) {
         gateway.sendToUser(targetUserId, event);
       }
@@ -166,16 +181,43 @@ export class EventStoreService {
         }
       }
 
-      // A workspace room is membership-scoped, not project-scoped. Never use
-      // it for a project/document event or it would leak private names and
-      // payloads to every workspace member. Targeted/project delivery can be
-      // added later through explicit project rooms.
-      const isProjectScoped = subject.type === 'project'
-        || Boolean((payload as Record<string, unknown>).projectId)
-        || Boolean(context.documentId);
-      if (context.workspaceId && !context.boardId && !isProjectScoped) {
-        gateway.broadcastToWorkspace(context.workspaceId, event);
+      const payloadProjectId = (payload as Record<string, unknown>).projectId;
+      const contextProjectId = (context as typeof context & { projectId?: string }).projectId;
+      const projectId = typeof payloadProjectId === 'string'
+        ? payloadProjectId
+        : typeof contextProjectId === 'string'
+          ? contextProjectId
+          : subject.type === 'project' ? subject.id : undefined;
+      const documentId = context.documentId ?? (subject.type === 'document' ? subject.id : undefined);
+      const isDocumentScoped = Boolean(documentId);
+      const isProjectScoped = subject.type === 'project' || Boolean(projectId) || isDocumentScoped;
+
+      // Project events go only to sockets that joined the authorized project
+      // room. Document events use the similarly authorized document room.
+      if (projectId) {
+        gateway.broadcastToProject(projectId, event);
+        if (type === 'project.deleted' && subject.type === 'project') {
+          await gateway.revalidateProjectRooms(subject.id);
+        }
       }
+      if (documentId) gateway.broadcastToDocument(documentId, event);
+
+      // Board/card data is room-private too. The workspace receives only a
+      // permission-safe hint so summary widgets can refetch their own view.
+      if (context.workspaceId && context.boardId) {
+        gateway.invalidateWorkspace(context.workspaceId, 'boards');
+      }
+
+      // Send a data-free invalidation hint to workspace members so their
+      // permitted project/document lists can refresh without exposing private
+      // resource names or contents to the entire workspace.
+      if (context.workspaceId && !context.boardId && isProjectScoped) {
+        gateway.invalidateWorkspace(context.workspaceId, isDocumentScoped ? 'documents' : 'projects');
+      } else if (context.workspaceId && !context.boardId) {
+        gateway.broadcastToWorkspace(context.workspaceId, event);
+        gateway.invalidateWorkspace(context.workspaceId, 'all');
+      }
+
     } catch {
       // no fallar si WebSocket no está disponible
     }

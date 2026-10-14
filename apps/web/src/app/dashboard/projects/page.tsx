@@ -8,6 +8,7 @@ import { useBoardStore } from '@/stores/boardStore';
 import { useTeamStore } from '@/stores/teamStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { socketService } from '@/services/socketService';
 import { canManageOrganizationRole, supportsOrganizationProjectPlanning, supportsOrganizationTeams } from '@/lib/workspaceFeatures';
 import { useAuthStore } from '@/stores/authStore';
 import CreateProjectModal from '@/components/CreateProjectModal';
@@ -573,6 +574,23 @@ export default function ProjectsPage() {
     fetchProjectsByWorkspace(activeWorkspaceId)
       .then((items) => setProjects(items))
       .finally(() => setLoading(false));
+  }, [activeWorkspaceId, fetchProjectsByWorkspace]);
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const refresh = (update: { workspaceId?: string; resource?: string }) => {
+      if (update?.workspaceId !== activeWorkspaceId || !['projects', 'all'].includes(update.resource ?? '')) return;
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        void fetchProjectsByWorkspace(activeWorkspaceId).then(setProjects);
+      }, 120);
+    };
+    socketService.on('workspace:invalidate', refresh);
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      socketService.off('workspace:invalidate', refresh);
+    };
   }, [activeWorkspaceId, fetchProjectsByWorkspace]);
 
   const workspace = workspaces.find((item) => item.id === activeWorkspaceId);

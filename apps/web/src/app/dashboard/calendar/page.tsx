@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import Link from 'next/link';
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, PanelLeft, Plus, Search, X } from 'lucide-react';
 import { apiService } from '@/services/apiService';
+import { socketService } from '@/services/socketService';
 import { useAuthStore } from '@/stores/authStore';
 import { useCalendarEventStore, type CalendarEvent } from '@/stores/calendarEventStore';
 import CreateEventModal from '@/components/calendar/CreateEventModal';
@@ -240,6 +241,8 @@ export default function CalendarPage() {
   const [date, setDate] = useState(() => startOfDay(new Date()));
   const [sideOpen, setSideOpen] = useState(false);
   const [cards, setCards] = useState<AssignedCard[]>([]);
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+  const [cardsRefreshKey, setCardsRefreshKey] = useState(0);
   const [invitations, setInvitations] = useState<EventInvitation[]>([]);
   const [inviteRefresh, setInviteRefresh] = useState(0);
   const [invitationError, setInvitationError] = useState('');
@@ -266,6 +269,30 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
+    const refreshCalendar = () => {
+      setCalendarRefreshKey((key) => key + 1);
+      setInviteRefresh((key) => key + 1);
+    };
+    socketService.on('calendar:invalidate', refreshCalendar);
+    return () => socketService.off('calendar:invalidate', refreshCalendar);
+  }, []);
+
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const refreshDeadlines = (event: Event) => {
+      const update = (event as CustomEvent<{ resource?: string }>).detail;
+      if (!['boards', 'all'].includes(update?.resource ?? '')) return;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setCardsRefreshKey((key) => key + 1), 120);
+    };
+    window.addEventListener('aether:realtime:workspace-invalidate', refreshDeadlines);
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      window.removeEventListener('aether:realtime:workspace-invalidate', refreshDeadlines);
+    };
+  }, []);
+
+  useEffect(() => {
     if (window.innerWidth <= 650) setView('day');
     const params = new URLSearchParams(window.location.search);
     if (params.get('view') === 'agenda') setView('agenda');
@@ -280,7 +307,7 @@ export default function CalendarPage() {
   const from = visibleDays[0].toISOString();
   const to = addDays(visibleDays[visibleDays.length - 1], 1).toISOString();
 
-  useEffect(() => { void fetchEvents(from, to); }, [fetchEvents, from, to]);
+  useEffect(() => { void fetchEvents(from, to); }, [fetchEvents, from, to, calendarRefreshKey]);
   useEffect(() => {
     if (view !== 'agenda') return;
     let active = true;
@@ -303,7 +330,7 @@ export default function CalendarPage() {
       if (active && response.success && response.data) setCards([...response.data.pending, ...response.data.overdue]);
     });
     return () => { active = false; };
-  }, []);
+  }, [cardsRefreshKey]);
 
   const items = useMemo<CalendarItem[]>(() => {
     const eventItems = events.map((event) => ({

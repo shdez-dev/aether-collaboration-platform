@@ -34,7 +34,12 @@ jest.mock('@/stores/preferencesStore', () => ({ usePreferencesStore: (selector?:
   return selector ? selector(state) : state;
 } }));
 jest.mock('@/services/apiService', () => ({ apiService: { get: jest.fn().mockResolvedValue({ success: true, data: { platformAdmin: false } }) } }));
-jest.mock('@/services/socketService', () => ({ socketService: { on: jest.fn(), off: jest.fn() } }));
+jest.mock('@/services/socketService', () => ({ socketService: {
+  on: jest.fn(), off: jest.fn(),
+  joinWorkspace: jest.fn(), leaveWorkspace: jest.fn(),
+  joinProject: jest.fn(), leaveProject: jest.fn(),
+  joinOrganization: jest.fn(), leaveOrganization: jest.fn(),
+} }));
 jest.mock('@/components/ProtectedRoute', () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 jest.mock('@/components/providers/SocketProvider', () => ({ SocketProvider: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 jest.mock('@/components/WorkspaceContextSwitcher', () => ({ __esModule: true, default: () => <button type="button" aria-label="Cambiar espacio de trabajo" /> }));
