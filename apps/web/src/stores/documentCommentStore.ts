@@ -308,9 +308,11 @@ export const useDocumentCommentStore = create<DocumentCommentState & DocumentCom
 
 // ── Selectors ─────────────────────────────────────────────────────────────────
 
+const EMPTY_DOCUMENT_COMMENTS: DocumentCommentData[] = [];
+
 export const selectDocumentComments =
   (documentId: string) => (s: DocumentCommentState & DocumentCommentActions) =>
-    s.commentsByDocument[documentId] ?? [];
+    s.commentsByDocument[documentId] ?? EMPTY_DOCUMENT_COMMENTS;
 
 export const selectActiveCommentId = (s: DocumentCommentState & DocumentCommentActions) =>
   s.activeCommentId;

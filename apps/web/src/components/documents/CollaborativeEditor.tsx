@@ -1670,10 +1670,12 @@ export default function CollaborativeEditor({
   const commentSidebarOpen = useDocumentCommentStore(selectSidebarOpen);
   const commentsList = useDocumentCommentStore(selectDocumentComments(documentId));
   const activeCommentId = useDocumentCommentStore(selectActiveCommentId);
-  const workspaceMembers = useWorkspaceStore((s) =>
-    s.currentMembers
+  const currentMembers = useWorkspaceStore((s) => s.currentMembers);
+  const workspaceMembers = useMemo(
+    () => currentMembers
       .filter((m) => m.user)
-      .map((m) => ({ id: m.user!.id, name: m.user!.name, avatar: m.user!.avatar ?? null }))
+      .map((m) => ({ id: m.user!.id, name: m.user!.name, avatar: m.user!.avatar ?? null })),
+    [currentMembers]
   );
   const [selectedText, setSelectedText] = useState('');
   const [isSavingToServer, setIsSavingToServer] = useState(false);
