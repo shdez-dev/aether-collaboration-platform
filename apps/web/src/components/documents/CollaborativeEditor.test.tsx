@@ -20,6 +20,7 @@ jest.mock('@/services/socketService', () => {
       onYjsSync: (handler: (data: { documentId: string; update: number[] }) => void) => syncHandlers.add(handler),
       onYjsUpdate: jest.fn(),
       onForceReload: jest.fn(),
+      isConnected: jest.fn(() => true),
       onConnect: jest.fn(),
       offConnect: jest.fn(),
       on: jest.fn(),
