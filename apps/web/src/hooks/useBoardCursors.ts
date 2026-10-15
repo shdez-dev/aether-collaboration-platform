@@ -90,15 +90,22 @@ export function useBoardCursors(
     setCursors(new Map());
   }, [boardId]);
 
-  // ── Emitir posición local del ratón ───────────────────────────────────────
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
+  // ── Emitir posición local del puntero respecto al área completa del board ─
+  const handlePointerMove = useCallback(
+    (e: PointerEvent) => {
       if (!boardId || !el) return;
+      if (e.pointerType === 'touch') return;
+
       const now = Date.now();
       if (now - lastEmitRef.current < 40) return; // throttle 25fps
       lastEmitRef.current = now;
 
       const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      // El listener global también captura el espacio vacío y elementos que
+      // detengan la propagación dentro del tablero; fuera del board no emitimos.
+      if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
+
       const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
       const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
       socketService.emitCursorMove(boardId, x, y);
@@ -106,12 +113,12 @@ export function useBoardCursors(
     [boardId, el]
   );
 
-  // Re-registra el listener cada vez que el elemento cambia (resuelve el ref trap)
+  // El board completo (no cada lista) define el sistema de coordenadas.
   useEffect(() => {
     if (!el || !boardId) return;
-    el.addEventListener('mousemove', handleMouseMove);
-    return () => el.removeEventListener('mousemove', handleMouseMove);
-  }, [el, boardId, handleMouseMove]);
+    window.addEventListener('pointermove', handlePointerMove, { capture: true, passive: true });
+    return () => window.removeEventListener('pointermove', handlePointerMove, true);
+  }, [el, boardId, handlePointerMove]);
 
   return { cursors: Array.from(cursors.values()) };
 }

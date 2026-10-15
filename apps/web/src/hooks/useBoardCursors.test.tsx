@@ -1,4 +1,4 @@
-import { fireEvent, renderHook } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { socketService } from '@/services/socketService';
 import { useBoardCursors } from './useBoardCursors';
 
@@ -17,7 +17,9 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 describe('useBoardCursors', () => {
-  it('emits pointer coordinates relative to the full surface passed to the hook', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('emits pointer coordinates across the entire board surface, including its empty area', () => {
     const boardSurface = document.createElement('section');
     const header = document.createElement('header');
     boardSurface.appendChild(header);
@@ -34,9 +36,31 @@ describe('useBoardCursors', () => {
     });
 
     const { unmount } = renderHook(() => useBoardCursors('board-1', boardSurface));
-    fireEvent.mouseMove(header, { clientX: 320, clientY: 240 });
+    // The pointer may be over empty space rather than a list or card.
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 560, clientY: 400 }));
 
-    expect(socketService.emitCursorMove).toHaveBeenCalledWith('board-1', 50, 50);
+    expect(socketService.emitCursorMove).toHaveBeenCalledWith('board-1', 90, 90);
+    unmount();
+  });
+
+  it('does not emit cursor positions outside the board surface', () => {
+    const boardSurface = document.createElement('section');
+    jest.spyOn(boardSurface, 'getBoundingClientRect').mockReturnValue({
+      x: 20,
+      y: 40,
+      left: 20,
+      top: 40,
+      right: 620,
+      bottom: 440,
+      width: 600,
+      height: 400,
+      toJSON: () => ({}),
+    });
+
+    const { unmount } = renderHook(() => useBoardCursors('board-1', boardSurface));
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 700, clientY: 300 }));
+
+    expect(socketService.emitCursorMove).not.toHaveBeenCalled();
     unmount();
   });
 });

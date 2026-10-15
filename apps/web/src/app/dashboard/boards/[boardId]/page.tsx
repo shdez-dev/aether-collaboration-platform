@@ -412,7 +412,7 @@ export default function BoardPage() {
   }
 
   return (
-    <div ref={boardSurfaceCallbackRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
+    <div ref={boardSurfaceCallbackRef} style={{ position: 'relative', display: 'flex', flex: '1 1 auto', flexDirection: 'column', width: '100%', minWidth: 0, minHeight: 0, background: C.bg }}>
       <RemoteCursors cursors={remoteCursors} />
 
       {/* ── Header ─────────────────────────────────────────────────── */}
