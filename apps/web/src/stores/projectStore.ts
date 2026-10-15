@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiService } from '@/services/apiService';
+import type { ProjectScrumAssignment } from '@/features/projects/api';
 
 // ==================== TYPES ====================
 
@@ -97,7 +98,7 @@ export interface Project {
   maturityStage: ProjectMaturityStage;
   methodology?: 'FLEXIBLE' | 'SCRUM';
   productGoal?: string | null;
-  methodologyAssignments?: Array<{ userId: string; name: string; email: string; role: 'PRODUCT_OWNER' | 'SCRUM_MASTER' | 'DEVELOPER' }>;
+  methodologyAssignments?: ProjectScrumAssignment[];
   problemStatement?: string | null;
   impactedPeople?: string | null;
   problemImpact?: string | null;
@@ -237,6 +238,8 @@ interface ProjectState {
   deleteMilestone: (projectId: string, milestoneId: string) => Promise<void>;
 
   patchBoard: (boardId: string, data: Partial<ProjectBoard>) => void;
+  setMethodologyAssignments: (projectId: string, assignments: ProjectScrumAssignment[]) => void;
+  setProductGoal: (projectId: string, productGoal: string | null) => void;
 
   clearError: () => void;
   reset: () => void;
@@ -506,6 +509,28 @@ export const useProjectStore = create<ProjectState>()(
                 ),
               }
             : null,
+        }));
+      },
+
+      setMethodologyAssignments: (projectId, assignments) => {
+        set((state) => ({
+          projects: state.projects.map((project) => project.id === projectId
+            ? { ...project, methodologyAssignments: assignments }
+            : project),
+          currentProject: state.currentProject?.id === projectId
+            ? { ...state.currentProject, methodologyAssignments: assignments }
+            : state.currentProject,
+        }));
+      },
+
+      setProductGoal: (projectId, productGoal) => {
+        set((state) => ({
+          projects: state.projects.map((project) => project.id === projectId
+            ? { ...project, productGoal }
+            : project),
+          currentProject: state.currentProject?.id === projectId
+            ? { ...state.currentProject, productGoal }
+            : state.currentProject,
         }));
       },
 

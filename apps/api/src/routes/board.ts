@@ -6,7 +6,7 @@ import { listController } from '../controllers/ListController';
 import { SprintController } from '../controllers/SprintController';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
-import { requireProjectBoundResourceAccess } from '../middleware/project';
+import { requireProjectBoundResourceAccess, requireProjectBoundScrumRole } from '../middleware/project';
 
 const router = Router();
 
@@ -161,10 +161,10 @@ router.put('/sprints/:sprintId', requireProjectBoundResourceAccess('MANAGE', 'sp
 router.delete('/sprints/:sprintId', requireProjectBoundResourceAccess('MANAGE', 'sprint'), (req, res) =>
   SprintController.deleteSprint(req, res)
 );
-router.post('/sprints/:sprintId/cards', requireProjectBoundResourceAccess('CONTRIBUTE', 'sprint'), (req, res) =>
+router.post('/sprints/:sprintId/cards', requireProjectBoundResourceAccess('CONTRIBUTE', 'sprint'), requireProjectBoundScrumRole('PRODUCT_OWNER', 'SCRUM_MASTER', 'DEVELOPER'), (req, res) =>
   SprintController.addCardToSprint(req, res)
 );
-router.delete('/sprints/:sprintId/cards/:cardId', requireProjectBoundResourceAccess('CONTRIBUTE', 'sprint'), (req, res) =>
+router.delete('/sprints/:sprintId/cards/:cardId', requireProjectBoundResourceAccess('CONTRIBUTE', 'sprint'), requireProjectBoundScrumRole('PRODUCT_OWNER', 'SCRUM_MASTER', 'DEVELOPER'), (req, res) =>
   SprintController.removeCardFromSprint(req, res)
 );
 

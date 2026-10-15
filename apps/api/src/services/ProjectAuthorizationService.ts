@@ -69,6 +69,27 @@ export class ProjectAuthorizationService {
            WHERE pra.project_id = p.id AND pra.user_id = $2 AND pra.ended_at IS NULL
              AND pra.role IN ('COLLABORATOR', 'MENTOR')
          ) AS is_operational_contributor,
+         EXISTS (
+           SELECT 1 FROM project_methodology_assignments pma
+           JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = pma.user_id
+           WHERE pma.project_id = p.id AND pma.user_id = $2 AND p.methodology = 'SCRUM'
+             AND NOT EXISTS (
+               SELECT 1 FROM organization_access_revocations r
+               WHERE r.organization_id = w.organization_id AND r.user_id = $2
+             )
+             AND (
+               p.owner_id = $2
+               OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = $2)
+               OR EXISTS (
+                 SELECT 1 FROM project_teams pt JOIN team_members tm ON tm.team_id = pt.team_id
+                  WHERE pt.project_id = p.id AND tm.user_id = $2
+               )
+               OR EXISTS (
+                 SELECT 1 FROM project_role_assignments pra
+                  WHERE pra.project_id = p.id AND pra.user_id = $2 AND pra.ended_at IS NULL
+               )
+             )
+         ) AS has_scrum_role,
          COALESCE((
            SELECT g.permission FROM network_access_grants g
            WHERE g.resource_type = 'PROJECT' AND g.resource_id = p.id AND g.user_id = $2
@@ -94,11 +115,20 @@ export class ProjectAuthorizationService {
         ? ['OWNER', 'ADMIN'].includes(row.direct_project_role)
         : row.is_project_lead)
     )));
+    const hasProjectRelationship = Boolean(
+      hasProjectOverride || row.is_team_member || row.has_operational_role,
+    );
+    // Scrum responsibilities are a scoped capability overlay. They let an
+    // assigned Scrum participant contribute to project work, while the
+    // role-specific routes still protect backlog and sprint administration.
+    const canContributeAsScrumParticipant = !isPersonalOrganization
+      && Boolean(row.has_scrum_role)
+      && hasProjectRelationship;
     const canContribute = canManage || (!isPersonalOrganization && Boolean(
       hasProjectOverride
         ? row.direct_project_role === 'MEMBER'
         : row.is_direct_contributor || row.is_team_contributor || row.is_operational_contributor || row.external_permission === 'EDIT',
-    ));
+    )) || canContributeAsScrumParticipant;
     const canRead = canContribute || (!isPersonalOrganization && Boolean(
       hasProjectOverride || row.is_team_member || row.has_operational_role || isExternal,
     ));

@@ -54,13 +54,15 @@ const labels = { ACTIVE: 'En curso', PLANNED: 'Planificado', COMPLETED: 'Complet
 export function ProjectSprintPlanner({
   projectId,
   cards,
-  canEdit,
+  canManage,
+  canPlan,
   onChange,
   draggingCardId,
 }: {
   projectId: string;
   cards: BacklogCandidate[];
-  canEdit: boolean;
+  canManage: boolean;
+  canPlan: boolean;
   onChange: () => void;
   draggingCardId?: string | null;
 }) {
@@ -143,6 +145,7 @@ export function ProjectSprintPlanner({
     setEndDate(sprint.endDate.slice(0, 10));
   }
   async function saveSprint() {
+    if (!canManage) return;
     if (!name.trim() || !startDate || !endDate || startDate > endDate) {
       setError('Escribe un nombre y un rango de fechas válido.');
       return;
@@ -168,7 +171,7 @@ export function ProjectSprintPlanner({
     }
   }
   async function assignCard(cardId: string, sprint: ProjectSprint) {
-    if (!canEdit || busy || sprint.status === 'COMPLETED') return;
+    if (!canPlan || busy || sprint.status === 'COMPLETED') return;
     const card = cards.find((item) => item.id === cardId);
     if (!card || card.completed || card.sprintId === sprint.id) return;
     setBusy(true);
@@ -187,6 +190,7 @@ export function ProjectSprintPlanner({
     }
   }
   async function removeCard(cardId: string, sprint: ProjectSprint) {
+    if (!canPlan || busy || sprint.status === 'COMPLETED') return;
     setBusy(true);
     setError('');
     try {
@@ -204,6 +208,7 @@ export function ProjectSprintPlanner({
     }
   }
   async function changeStatus(sprint: ProjectSprint, status: 'ACTIVE' | 'COMPLETED') {
+    if (!canManage) return;
     setBusy(true);
     setError('');
     try {
@@ -289,7 +294,7 @@ export function ProjectSprintPlanner({
           <h2>Sprints</h2>
           <p>Planifica el trabajo del proyecto.</p>
         </div>
-        {canEdit && (
+        {canManage && (
           <button
             type="button"
             className={styles.primary}
@@ -300,13 +305,13 @@ export function ProjectSprintPlanner({
           </button>
         )}
       </header>
-      {canEdit && (
+      {canPlan && (
         <p className={styles.instruction}>
           <GripVertical size={14} /> Arrastra tarjetas desde el backlog o entre sprints.
         </p>
       )}
       <AnimatePresence initial={false}>
-        {editingId && canEdit && (
+        {editingId && canManage && (
           <motion.div
             key="sprint-editor"
             className={styles.editor}
@@ -402,7 +407,11 @@ export function ProjectSprintPlanner({
           >
             <CalendarDays size={22} />
             <strong>Aún no hay sprints</strong>
-            <span>Crea uno aquí y arrastra las tarjetas que formarán parte del trabajo.</span>
+            <span>{canManage
+              ? 'Crea uno aquí y arrastra las tarjetas que formarán parte del trabajo.'
+              : canPlan
+                ? 'El Scrum Master puede crear el sprint y el equipo ayudará a definir su alcance.'
+                : 'Cuando el Scrum Master planifique un sprint, aparecerá aquí.'}</span>
           </motion.div>
         ) : (
           <motion.div
@@ -414,7 +423,7 @@ export function ProjectSprintPlanner({
             <AnimatePresence initial={false}>
               {ordered.map((sprint) => {
                 const completed = sprint.cards.filter((card) => card.completed).length;
-                const droppable = canEdit && sprint.status !== 'COMPLETED';
+                const droppable = canPlan && sprint.status !== 'COMPLETED';
                 const options = cards.filter(
                   (card) => !card.completed && card.sprintId !== sprint.id
                 );
@@ -539,20 +548,20 @@ export function ProjectSprintPlanner({
                     </motion.div>
                     {droppable && (
                       <div className={styles.sprintActions}>
-                        <button
+                        {canPlan && <button
                           type="button"
                           className={styles.textButton}
                           onClick={() => setPickerId(pickerId === sprint.id ? null : sprint.id)}
                         >
                           <Plus size={13} /> Añadir tarjeta
-                        </button>
-                        <button
+                        </button>}
+                        {canManage && <button
                           type="button"
                           className={styles.textButton}
                           onClick={() => beginEdit(sprint)}
                         >
                           Configurar
-                        </button>
+                        </button>}
                       </div>
                     )}
                     <AnimatePresence initial={false}>
@@ -601,7 +610,7 @@ export function ProjectSprintPlanner({
                         </motion.div>
                       )}
                     </AnimatePresence>
-                    {canEdit && (
+                    {canManage && (
                       <div className={styles.lifecycle}>
                         {sprint.status === 'PLANNED' && (
                           <button

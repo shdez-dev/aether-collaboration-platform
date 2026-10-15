@@ -45,3 +45,27 @@ describe('projectStore updateProject', () => {
     expect(useProjectStore.getState().currentProject?.access).toEqual(readAccess);
   });
 });
+
+describe('projectStore Scrum updates', () => {
+  beforeEach(() => {
+    useProjectStore.setState({ projects: [project], currentProject: project });
+  });
+
+  it('updates Scrum assignments and Product Goal in the current project immediately', () => {
+    const methodologyAssignments = [
+      { userId: 'owner-1', name: 'Sebastian', email: 'sebastian@example.com', role: 'PRODUCT_OWNER' as const },
+    ];
+
+    useProjectStore.getState().setMethodologyAssignments(project.id, methodologyAssignments);
+    useProjectStore.getState().setProductGoal(project.id, 'Mejorar el onboarding');
+
+    expect(useProjectStore.getState().currentProject).toMatchObject({
+      methodologyAssignments,
+      productGoal: 'Mejorar el onboarding',
+    });
+    expect(useProjectStore.getState().projects[0]).toMatchObject({
+      methodologyAssignments,
+      productGoal: 'Mejorar el onboarding',
+    });
+  });
+});

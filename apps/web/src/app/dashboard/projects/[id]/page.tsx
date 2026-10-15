@@ -21,6 +21,7 @@ import { useTeamStore } from '@/stores/teamStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import type { Document } from '@aether/types';
 import { apiService } from '@/services/apiService';
+import { useAuthStore } from '@/stores/authStore';
 import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 import {
   projectApi,
@@ -29,6 +30,7 @@ import {
   type ProjectTeam as AssignedTeam,
   type ProjectTeamMember,
   type ProjectEpic,
+  type ProjectScrumRole,
 } from '@/features/projects/api';
 import { ProjectDocumentsTab } from '@/features/projects/components/ProjectDocumentsTab';
 import { ProjectTeamSelector } from '@/features/projects/components/ProjectTeamSelector';
@@ -4617,6 +4619,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
+  const currentUserId = useAuthStore((state) => state.user?.id ?? '');
 
   const {
     currentProject,
@@ -4627,6 +4630,7 @@ export default function ProjectDetailPage() {
     deleteMilestone,
     removeBoard,
     adoptCurrentStandard,
+    setMethodologyAssignments,
   } = useProjectStore();
   const { workspaces, currentProjectStandard, fetchProjectStandard } = useWorkspaceStore();
   const { teams: allTeams, fetchTeams } = useTeamStore();
@@ -4640,6 +4644,12 @@ export default function ProjectDetailPage() {
   // ── Role-based permissions ─────────────────────────────────────────────────
   // Derived after currentProject loads (workspaceId needed to find the workspace)
   const canEdit = currentProject?.access?.canManage === true;
+  const currentScrumRole = currentProject?.methodologyAssignments?.find(
+    (assignment) => assignment.userId === currentUserId,
+  )?.role;
+  const canManageScrumBacklog = canEdit || currentScrumRole === 'PRODUCT_OWNER';
+  const canManageScrumSprints = canEdit || currentScrumRole === 'SCRUM_MASTER';
+  const canPlanScrumSprint = canEdit || Boolean(currentScrumRole);
   const { documents, fetchProjectDocuments } = useDocumentStore();
 
   const [showConfig, setShowConfig] = useState(false);
@@ -4667,6 +4677,8 @@ export default function ProjectDetailPage() {
   const [addingUserId, setAddingUserId] = useState<string | null>(null);
   const [savingMemberPermissionId, setSavingMemberPermissionId] = useState<string | null>(null);
   const [memberPermissionError, setMemberPermissionError] = useState('');
+  const [savingScrumAssignmentId, setSavingScrumAssignmentId] = useState<string | null>(null);
+  const [scrumAssignmentError, setScrumAssignmentError] = useState('');
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [actCats, setActCats] = useState<Set<ActCategory>>(
@@ -5274,6 +5286,21 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function handleChangeScrumRole(userId: string, role: ProjectScrumRole) {
+    setSavingScrumAssignmentId(userId);
+    setScrumAssignmentError('');
+    try {
+      const assignments = await projectApi.updateScrumAssignment(projectId, userId, role);
+      setMethodologyAssignments(projectId, assignments);
+    } catch (cause) {
+      setScrumAssignmentError(
+        cause instanceof Error ? cause.message : 'No se pudo actualizar la responsabilidad Scrum.',
+      );
+    } finally {
+      setSavingScrumAssignmentId(null);
+    }
+  }
+
   async function handleConfirmRemoveBoard() {
     if (!boardToRemove) return;
     setRemovingBoard(true);
@@ -5823,7 +5850,7 @@ export default function ProjectDetailPage() {
                   <ProjectScrumSummary
                     project={project}
                     stats={stats}
-                    canEdit={canEdit}
+                    canEditProductGoal={canManageScrumBacklog}
                     onOpenBacklog={() => setActiveTab('backlog')}
                     onOpenMembers={() => setActiveTab('members')}
                     onOpenSchedule={() => setActiveTab('schedule')}
@@ -6218,13 +6245,13 @@ export default function ProjectDetailPage() {
                           <strong>Épicas</strong>
                           <span>Organiza el backlog por objetivos de producto.</span>
                         </div>
-                        {canEdit && (
+                        {canManageScrumBacklog && (
                           <button type="button" className={backlogStyles.epicCreateToggle} onClick={() => { setShowCreateEpic((open) => !open); setEpicError(''); }}>
                             <Plus size={15} /> {showCreateEpic ? 'Cerrar' : 'Nueva épica'}
                           </button>
                         )}
                       </div>
-                      {showCreateEpic && canEdit && (
+                      {showCreateEpic && canManageScrumBacklog && (
                         <form className={backlogStyles.epicCreateForm} onSubmit={handleCreateEpic}>
                           <input autoFocus value={newEpicName} onChange={(event) => setNewEpicName(event.target.value)} maxLength={120} placeholder="Nombre de la épica" aria-label="Nombre de la épica" />
                           <input value={newEpicDescription} onChange={(event) => setNewEpicDescription(event.target.value)} maxLength={1000} placeholder="Objetivo o resultado esperado (opcional)" aria-label="Descripción de la épica" />
@@ -6433,7 +6460,7 @@ export default function ProjectDetailPage() {
                               </span>
                               <span className={backlogStyles.boardCount}>{group.cards.length} tarjeta{group.cards.length === 1 ? '' : 's'}</span>
                             </button>
-                            {group.epic && canEdit && (
+                            {group.epic && canManageScrumBacklog && (
                               <div className={backlogStyles.epicActions}>
                                 <button type="button" className={backlogStyles.epicActionButton} aria-label={`Editar ${group.name}`} title="Editar épica" disabled={Boolean(savingEpicId || deletingEpicId)} onClick={() => startEditingEpic(group.epic!)}>
                                   <Pencil size={14} />
@@ -6489,7 +6516,7 @@ export default function ProjectDetailPage() {
                                     priority: card.priority as any, createdBy: '', createdAt: '', updatedAt: '',
                                     dueDate: card.dueDate ?? undefined, ...({ _boardId: card.boardId } as any),
                                   })}>
-                                    {hasSprintPlanning && canEdit && (!card.completed || card.sprintId) && (
+                                    {hasSprintPlanning && canPlanScrumSprint && (!card.completed || card.sprintId) && (
                                       <button type="button" draggable={!card.sprintId} disabled={Boolean(card.sprintId)} className={backlogStyles.dragHandle}
                                         aria-label={card.sprintId ? `${card.title} ya está en ${card.sprintName || 'un sprint'}` : `Arrastrar ${card.title} hacia un sprint`}
                                         title={card.sprintId ? `${card.sprintName || 'Esta tarjeta ya pertenece a un sprint'}. Retírala del sprint para volver a arrastrarla.` : 'Arrastrar al sprint'}
@@ -6501,7 +6528,7 @@ export default function ProjectDetailPage() {
                                     <span className={backlogStyles.cardTitle}>{card.title}</span>
                                     {card.storyPoints != null && <span className={backlogStyles.cardEstimate} title="Puntos de historia">{card.storyPoints} pts</span>}
                                     <span className={backlogStyles.cardList}>{card.boardName} / {card.listName}</span>
-                                    {canEdit && hasSprintPlanning && (
+                                    {canManageScrumBacklog && hasSprintPlanning && (
                                       <select value={card.epicId ?? ''} className={backlogStyles.cardEpicSelect} disabled={updatingEpicCardId === card.id}
                                         aria-label={`Épica de ${card.title}`} title="Asignar épica"
                                         onClick={(event) => event.stopPropagation()}
@@ -6527,7 +6554,8 @@ export default function ProjectDetailPage() {
                   <ProjectSprintPlanner
                     projectId={projectId}
                     cards={backlogCards}
-                    canEdit={canEdit}
+                    canManage={canManageScrumSprints}
+                    canPlan={canPlanScrumSprint}
                     draggingCardId={draggingBacklogCardId}
                     onChange={() => {
                       setBacklogRefreshTick((tick) => tick + 1);
@@ -7212,40 +7240,72 @@ export default function ProjectDetailPage() {
                         Equipo Scrum
                       </h3>
                       <span style={{ color: C.text3, fontSize: 11 }}>
-                        Responsabilidades de este proyecto
+                        Cada responsabilidad habilita acciones propias sin dar administración completa.
                       </span>
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 13 }}>
-                      {(['PRODUCT_OWNER', 'SCRUM_MASTER', 'DEVELOPER'] as const).map((role) => {
-                        const people = (project.methodologyAssignments ?? []).filter(
-                          (person) => person.role === role
-                        );
-                        const label =
-                          role === 'PRODUCT_OWNER'
-                            ? 'Product Owner'
-                            : role === 'SCRUM_MASTER'
-                              ? 'Scrum Master'
-                              : 'Developers';
-                        return (
-                          <div key={role} style={{ minWidth: 145, flex: '1 1 145px' }}>
-                            <strong style={{ display: 'block', color: C.text3, fontSize: 11 }}>
-                              {label}
+                    <p style={{ margin: '5px 0 12px', color: C.text3, fontSize: 11.5 }}>
+                      Product Owner prioriza el backlog y las épicas; Scrum Master gestiona el ciclo de sprint; Developers colaboran en el trabajo del sprint.
+                    </p>
+                    {scrumAssignmentError && (
+                      <p role="alert" style={{ margin: '0 0 10px', color: C.red, fontSize: 12 }}>
+                        {scrumAssignmentError}
+                      </p>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 10 }}>
+                      {(project.methodologyAssignments ?? []).map((person) => (
+                        <div
+                          key={person.userId}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            padding: '8px 10px',
+                            border: `1px solid ${C.border}`,
+                            borderRadius: 8,
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <strong style={{ display: 'block', color: C.text, fontSize: 12.5 }}>
+                              {person.name}
                             </strong>
-                            <span
-                              style={{
-                                display: 'block',
-                                marginTop: 4,
-                                color: C.text,
-                                fontSize: 12.5,
-                              }}
-                            >
-                              {people.length
-                                ? people.map((person) => person.name).join(', ')
-                                : 'Sin asignar'}
+                            <span style={{ display: 'block', color: C.text3, fontSize: 11 }}>
+                              {person.email}
                             </span>
                           </div>
-                        );
-                      })}
+                          {canEdit ? (
+                            <select
+                              aria-label={`Responsabilidad Scrum de ${person.name}`}
+                              value={person.role}
+                              disabled={savingScrumAssignmentId === person.userId}
+                              onChange={(event) => void handleChangeScrumRole(person.userId, event.target.value as ProjectScrumRole)}
+                              style={{
+                                flex: '0 0 180px',
+                                maxWidth: '50%',
+                                padding: '7px 9px',
+                                border: `1px solid ${C.border2}`,
+                                borderRadius: 7,
+                                background: C.bg2,
+                                color: C.text,
+                                fontSize: 11.5,
+                                fontFamily: "'Manrope', system-ui, sans-serif",
+                              }}
+                            >
+                              <option value="PRODUCT_OWNER">Product Owner</option>
+                              <option value="SCRUM_MASTER">Scrum Master</option>
+                              <option value="DEVELOPER">Developer</option>
+                            </select>
+                          ) : (
+                            <span style={{ color: C.text2, fontSize: 11.5 }}>
+                              {person.role === 'PRODUCT_OWNER'
+                                ? 'Product Owner'
+                                : person.role === 'SCRUM_MASTER'
+                                  ? 'Scrum Master'
+                                  : 'Developer'}
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </section>
                 )}

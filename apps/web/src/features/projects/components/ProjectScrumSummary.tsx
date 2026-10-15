@@ -18,6 +18,7 @@ import {
 import type { Project, ProjectMilestone, ProjectStats } from '@/stores/projectStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { apiService } from '@/services/apiService';
+import { projectApi } from '@/features/projects/api';
 import type { ProjectSprint } from '@/components/ProjectSprintPlanner';
 import styles from './ProjectScrumSummary.module.css';
 
@@ -48,19 +49,19 @@ function Avatar({ name }: { name: string }) {
 export function ProjectScrumSummary({
   project,
   stats,
-  canEdit,
+  canEditProductGoal,
   onOpenBacklog,
   onOpenMembers,
   onOpenSchedule,
 }: {
   project: Project;
   stats: ProjectStats | null;
-  canEdit: boolean;
+  canEditProductGoal: boolean;
   onOpenBacklog: () => void;
   onOpenMembers: () => void;
   onOpenSchedule: () => void;
 }) {
-  const updateProject = useProjectStore((state) => state.updateProject);
+  const setProductGoal = useProjectStore((state) => state.setProductGoal);
   const prefersReducedMotion = useReducedMotion() ?? false;
   const [sprints, setSprints] = useState<ProjectSprint[]>([]);
   const [sprintsLoading, setSprintsLoading] = useState(true);
@@ -132,7 +133,9 @@ export function ProjectScrumSummary({
     setSavingGoal(true);
     setGoalError('');
     try {
-      await updateProject(project.id, { productGoal: goalDraft.trim() || null });
+      const productGoal = goalDraft.trim() || null;
+      await projectApi.updateProductGoal(project.id, productGoal);
+      setProductGoal(project.id, productGoal);
       setEditingGoal(false);
     } catch (error) {
       setGoalError(error instanceof Error ? error.message : 'No se pudo guardar el objetivo.');
@@ -191,7 +194,7 @@ export function ProjectScrumSummary({
                 {project.productGoal?.trim() || 'Define el cambio que este proyecto quiere lograr para sus usuarios.'}
               </p>
               <div className={styles.goalActions}>
-                {canEdit && (
+                {canEditProductGoal && (
                   <button type="button" className={styles.quietButton} onClick={() => { setGoalDraft(project.productGoal ?? ''); setEditingGoal(true); }}>
                     <Pencil size={14} /> {project.productGoal?.trim() ? 'Editar objetivo' : 'Definir objetivo'}
                   </button>

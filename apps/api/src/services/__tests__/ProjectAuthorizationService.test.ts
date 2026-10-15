@@ -22,6 +22,7 @@ describe('ProjectAuthorizationService', () => {
       has_operational_role: false,
       is_project_lead: false,
       is_operational_contributor: false,
+      has_scrum_role: false,
       external_permission: '',
       ...overrides,
     };
@@ -63,6 +64,22 @@ describe('ProjectAuthorizationService', () => {
     });
 
     await expect(service.can('project-1', 'user-1', 'CONTRIBUTE')).resolves.toMatchObject({ level: 'CONTRIBUTE' });
+  });
+
+  it('grants only project contribution when an observer has an assigned Scrum responsibility', async () => {
+    (pool.query as jest.Mock).mockResolvedValue({ rows: [accessRow({
+      direct_project_role: 'VIEWER',
+      has_scrum_role: true,
+    })] });
+
+    await expect(service.can('project-1', 'user-1', 'CONTRIBUTE')).resolves.toMatchObject({ level: 'CONTRIBUTE' });
+    await expect(service.can('project-1', 'user-1', 'MANAGE')).resolves.toBeNull();
+  });
+
+  it('does not let a stale Scrum assignment restore access after project membership is gone', async () => {
+    (pool.query as jest.Mock).mockResolvedValue({ rows: [accessRow({ has_scrum_role: true })] });
+
+    await expect(service.can('project-1', 'user-1', 'READ')).resolves.toBeNull();
   });
 
   it('limits an external PROJECT VIEW grant to read access', async () => {

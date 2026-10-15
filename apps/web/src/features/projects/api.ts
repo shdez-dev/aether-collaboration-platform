@@ -28,6 +28,15 @@ export type ProjectTeamMember = {
   teamColor: string | null;
 };
 
+export type ProjectScrumRole = 'PRODUCT_OWNER' | 'SCRUM_MASTER' | 'DEVELOPER';
+
+export type ProjectScrumAssignment = {
+  userId: string;
+  name: string;
+  email: string;
+  role: ProjectScrumRole;
+};
+
 export type ProjectActivityEntry = {
   id: string;
   eventType: string;
@@ -127,5 +136,19 @@ export const projectApi = {
   },
   async resetDirectMemberRole(projectId: string, userId: string): Promise<void> {
     await requireData(apiService.delete(`/api/projects/${projectId}/members/${userId}/role`, true));
+  },
+  async updateScrumAssignment(projectId: string, userId: string, role: ProjectScrumRole): Promise<ProjectScrumAssignment[]> {
+    return (await requireData(apiService.patch<{ assignments: ProjectScrumAssignment[] }>(
+      `/api/projects/${projectId}/scrum-assignments/${userId}`,
+      { role },
+      true,
+    ))).assignments;
+  },
+  async updateProductGoal(projectId: string, productGoal: string | null): Promise<void> {
+    await requireData(apiService.patch(
+      `/api/projects/${projectId}/product-goal`,
+      { productGoal },
+      true,
+    ));
   },
 };

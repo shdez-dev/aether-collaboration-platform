@@ -501,12 +501,19 @@ async function hydrateProject(projectRow: any, relations?: { boards: any[]; mile
          UNION SELECT user_id FROM project_members WHERE project_id = $1
          UNION SELECT tm.user_id FROM team_members tm
            JOIN project_teams pt ON pt.team_id = tm.team_id WHERE pt.project_id = $1
+       UNION SELECT user_id FROM project_role_assignments
+         WHERE project_id = $1 AND ended_at IS NULL
        )
        SELECT participants.user_id, u.name, u.email, COALESCE(a.role, 'DEVELOPER') AS role
          FROM participants
          JOIN users u ON u.id = participants.user_id
          JOIN workspace_members wm ON wm.workspace_id = $2 AND wm.user_id = participants.user_id
          LEFT JOIN project_methodology_assignments a ON a.project_id = $1 AND a.user_id = participants.user_id
+        WHERE NOT EXISTS (
+          SELECT 1 FROM organization_access_revocations r
+          JOIN workspaces w ON w.organization_id = r.organization_id AND w.id = $2
+          WHERE r.user_id = participants.user_id
+        )
         ORDER BY CASE COALESCE(a.role, 'DEVELOPER') WHEN 'PRODUCT_OWNER' THEN 1 WHEN 'SCRUM_MASTER' THEN 2 ELSE 3 END, u.name`,
       [projectRow.id, projectRow.workspace_id],
     ).then((result) => result.rows.map((row) => ({ userId: row.user_id, name: row.name, email: row.email, role: row.role })))

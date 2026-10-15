@@ -6,9 +6,10 @@ import { projectController } from '../controllers/ProjectController';
 import { projectPlanningController } from '../modules/projects/ProjectPlanningController';
 import { projectSprintController } from '../modules/projects/ProjectSprintController';
 import { projectEpicController } from '../modules/projects/ProjectEpicController';
+import { projectMethodologyController } from '../modules/projects/ProjectMethodologyController';
 import { projectActivityController } from '../modules/projects/ProjectActivityController';
 import { authenticateJWT } from '../middleware/auth';
-import { requireProjectEditor, requireProjectMembership } from '../middleware/project';
+import { requireProjectEditor, requireProjectMembership, requireProjectScrumRole } from '../middleware/project';
 
 const router = Router();
 
@@ -91,15 +92,17 @@ router.get('/:id/stats',           (req, res) => projectController.getStats(req,
 router.get('/:id/timeline-cards', requireOrganizationProjectPlanning, (req, res) => projectController.getTimelineCards(req, res));
 router.get('/:id/backlog',         (req, res) => projectPlanningController.getBacklog(req, res));
 router.get('/:id/sprints', requireOrganizationScrumProject, (req, res) => projectSprintController.list(req, res));
-router.post('/:id/sprints', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectSprintController.create(req, res));
-router.patch('/:id/sprints/:sprintId', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectSprintController.update(req, res));
-router.put('/:id/sprints/:sprintId/cards', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectSprintController.setCards(req, res));
-router.delete('/:id/sprints/:sprintId', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectSprintController.remove(req, res));
+router.post('/:id/sprints', requireOrganizationScrumProject, requireProjectScrumRole('SCRUM_MASTER'), (req, res) => projectSprintController.create(req, res));
+router.patch('/:id/sprints/:sprintId', requireOrganizationScrumProject, requireProjectScrumRole('SCRUM_MASTER'), (req, res) => projectSprintController.update(req, res));
+router.put('/:id/sprints/:sprintId/cards', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER', 'SCRUM_MASTER', 'DEVELOPER'), (req, res) => projectSprintController.setCards(req, res));
+router.delete('/:id/sprints/:sprintId', requireOrganizationScrumProject, requireProjectScrumRole('SCRUM_MASTER'), (req, res) => projectSprintController.remove(req, res));
 router.get('/:id/epics', requireOrganizationScrumProject, (req, res) => projectEpicController.list(req, res));
-router.post('/:id/epics', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectEpicController.create(req, res));
-router.patch('/:id/epics/:epicId', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectEpicController.update(req, res));
-router.delete('/:id/epics/:epicId', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectEpicController.remove(req, res));
-router.put('/:id/cards/:cardId/epic', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectEpicController.setCardEpic(req, res));
+router.post('/:id/epics', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER'), (req, res) => projectEpicController.create(req, res));
+router.patch('/:id/epics/:epicId', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER'), (req, res) => projectEpicController.update(req, res));
+router.delete('/:id/epics/:epicId', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER'), (req, res) => projectEpicController.remove(req, res));
+router.put('/:id/cards/:cardId/epic', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER'), (req, res) => projectEpicController.setCardEpic(req, res));
+router.patch('/:id/product-goal', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER'), (req, res) => projectMethodologyController.updateProductGoal(req, res));
+router.patch('/:id/scrum-assignments/:userId', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectMethodologyController.updateScrumAssignment(req, res));
 
 // ── Boards del proyecto ────────────────────────────────────────────────────────
 router.post('/:id/boards', requireProjectEditor, (req, res) => projectController.addBoard(req, res));
