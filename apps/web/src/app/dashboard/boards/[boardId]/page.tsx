@@ -1,8 +1,8 @@
 // apps/web/src/app/dashboard/boards/[boardId]/page.tsx
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -77,8 +77,11 @@ export default function BoardPage() {
   const t = useT();
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const boardId = params.boardId as string;
+  const requestedCardId = searchParams.get('cardId');
+  const openedCardRef = useRef<string | null>(null);
 
   const { currentWorkspace, fetchWorkspaceById, fetchMembers, currentMembers } = useWorkspaceStore();
   const userRole = currentWorkspace?.userRole;
@@ -134,6 +137,17 @@ export default function BoardPage() {
 
   // ── Derived members + labels ──────────────────────────────────────────────
   const allCards = useMemo(() => Object.values(cards).flat() as Card[], [cards]);
+
+  useEffect(() => {
+    if (!requestedCardId || currentBoard?.id !== boardId) return;
+    const requestKey = `${boardId}:${requestedCardId}`;
+    if (openedCardRef.current === requestKey) return;
+    const boardListIds = new Set(lists.map((list) => list.id));
+    const requestedCard = allCards.find((card) => card.id === requestedCardId && boardListIds.has(card.listId));
+    if (!requestedCard) return;
+    openedCardRef.current = requestKey;
+    useCardStore.getState().setSelectedCard(requestedCard);
+  }, [requestedCardId, boardId, currentBoard?.id, lists, allCards]);
 
   const boardMembers = useMemo((): User[] => {
     const seen = new Set<string>();

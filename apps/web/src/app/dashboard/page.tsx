@@ -1,33 +1,27 @@
 // apps/web/src/app/dashboard/page.tsx
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Notification } from '@aether/types';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { apiService } from '@/services/apiService';
+import { socketService } from '@/services/socketService';
 import { useT } from '@/lib/i18n';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
+import { groupMyDayCards, type MyDayCard } from '@/lib/myDay';
 
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface UserCard {
-  id: string;
-  title: string;
-  dueDate: string | null;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | null;
-  completed: boolean;
-  listName: string;
-  boardId: string;
-  boardName: string;
-  workspaceId: string;
-  workspaceName: string;
-}
+type UserCard = MyDayCard;
+type DayFilter = 'today' | 'week' | 'blocked';
 
 interface TodoItem {
   id: string;
@@ -62,29 +56,26 @@ function greetingText(name: string): string {
 
 function formatDueShort(dueDate: string): string {
   const d = new Date(dueDate);
+  if (Number.isNaN(d.getTime())) return '';
   const now = new Date(); now.setHours(0,0,0,0);
-  const diffDays = Math.ceil((d.getTime() - now.getTime()) / 86400000);
+  const diffDays = (Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+    - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000;
   if (diffDays < 0) return `Hace ${Math.abs(diffDays)}d`;
   if (diffDays === 0) return 'Hoy';
   if (diffDays === 1) return 'Mañana';
   return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
 }
 
-function getDayLabel(dateStr: string): string {
-  const d = new Date(dateStr);
-  const days = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
-  return days[d.getDay()];
-}
-
 // ── Task item — matches design exactly ────────────────────────────────────────
 
-function TaskItem({ title, project, dotColor, done, time, isOverdue, onToggle, onClick }: {
+function TaskItem({ title, project, dotColor, done, time, isOverdue, blockerCount = 0, onToggle, onClick }: {
   title: string;
   project?: string;
   dotColor?: string;
   done: boolean;
   time?: string | null;
   isOverdue?: boolean;
+  blockerCount?: number;
   onToggle: () => void;
   onClick?: () => void;
 }) {
@@ -92,24 +83,27 @@ function TaskItem({ title, project, dotColor, done, time, isOverdue, onToggle, o
 
   return (
     <div
-      onClick={onClick ?? onToggle}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: '13px',
-        padding: '13px 14px', borderRadius: '8px', cursor: 'pointer',
+        padding: '8px 14px', borderRadius: '8px',
         background: hov ? 'rgba(97,71,130,0.03)' : 'transparent',
       }}
     >
-      {/* Circle checkbox */}
-      <span
-        onClick={e => { e.stopPropagation(); onToggle(); }}
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={blockerCount > 0 && !done}
+        aria-label={blockerCount > 0 && !done ? `${title}: resuelve los bloqueos antes de completarla` : done ? `Marcar ${title} como pendiente` : `Completar ${title}`}
+        title={blockerCount > 0 && !done ? 'Resuelve las dependencias pendientes para completarla' : undefined}
         style={{
           width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
           background: done ? '#548B73' : 'transparent',
           border: done ? '2px solid #548B73' : '1.8px solid #3F3930',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer',
+          padding: 0, cursor: blockerCount > 0 && !done ? 'not-allowed' : 'pointer',
+          opacity: blockerCount > 0 && !done ? .55 : 1,
         }}
       >
         {done && (
@@ -117,38 +111,39 @@ function TaskItem({ title, project, dotColor, done, time, isOverdue, onToggle, o
             <path d="M5 13l4 4L19 7" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         )}
-      </span>
+      </button>
 
-      {/* Color dot */}
-      <span style={{
-        width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
-        background: dotColor ?? 'var(--c-text4)',
-      }} />
-
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontSize: '14.5px',
-          color: done ? 'var(--c-text4)' : 'var(--c-text2)',
-          textDecoration: done ? 'line-through' : 'none',
-        }}>
-          {title}
-        </div>
-        {project && (
-          <div style={{ fontSize: '12px', color: 'var(--c-text3)', marginTop: '2px' }}>{project}</div>
-        )}
-      </div>
-
-      {/* Time badge */}
-      {time && (
+      <button type="button" onClick={onClick ?? onToggle} style={{
+        display: 'flex', alignItems: 'center', gap: '13px', flex: 1, minWidth: 0,
+        padding: '5px 0', border: 0, background: 'transparent', textAlign: 'left',
+        cursor: 'pointer', fontFamily: MANROPE,
+      }}>
         <span style={{
-          fontSize: '12px', color: isOverdue ? '#B45C72' : 'var(--c-text3)',
-          background: 'rgba(97,71,130,0.05)',
-          padding: '3px 9px', borderRadius: '8px', flexShrink: 0,
-        }}>
-          {time}
+          width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+          background: dotColor ?? 'var(--c-text4)',
+        }} />
+
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{
+            display: 'block', fontSize: '14.5px',
+            color: done ? 'var(--c-text4)' : 'var(--c-text2)',
+            textDecoration: done ? 'line-through' : 'none',
+          }}>{title}</span>
+          {(project || blockerCount > 0) && (
+            <span style={{ display: 'block', fontSize: '12px', color: 'var(--c-text3)', marginTop: '2px' }}>
+              {project}{blockerCount > 0 && <strong style={{ color: '#B45C72', fontWeight: 600 }}> · {blockerCount} {blockerCount === 1 ? 'bloqueo' : 'bloqueos'}</strong>}
+            </span>
+          )}
         </span>
-      )}
+
+        {time && (
+          <span style={{
+            fontSize: '12px', color: isOverdue ? '#B45C72' : 'var(--c-text3)',
+            background: 'rgba(97,71,130,0.05)',
+            padding: '3px 9px', borderRadius: '8px', flexShrink: 0,
+          }}>{time}</span>
+        )}
+      </button>
     </div>
   );
 }
@@ -163,12 +158,17 @@ export default function DashboardPage() {
   const { activeWorkspaceId, setActiveWorkspaceId } = useActiveWorkspaceStore();
   useT(); // keep i18n initialised
 
-  const [cards, setCards] = useState<{ overdue: UserCard[]; today: UserCard[]; upcoming: UserCard[] }>({
-    overdue: [], today: [], upcoming: [],
-  });
+  const [assignedCards, setAssignedCards] = useState<UserCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(true);
+  const [cardsError, setCardsError] = useState('');
   const [cardsRefreshKey, setCardsRefreshKey] = useState(0);
+  const [referenceDate, setReferenceDate] = useState(() => new Date());
+  const [dayFilter, setDayFilter] = useState<DayFilter>('today');
   const [togglingCards, setTogglingCards] = useState<Set<string>>(new Set());
+  const notifications = useNotificationStore((state) => state.notifications);
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
+  const markNotificationAsRead = useNotificationStore((state) => state.markAsRead);
+  const cards = useMemo(() => groupMyDayCards(assignedCards, referenceDate), [assignedCards, referenceDate]);
 
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [quickText, setQuickText] = useState('');
@@ -180,39 +180,60 @@ export default function DashboardPage() {
   // ── Fetch ────────────────────────────────────────────────────────────────────
   useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
+  useEffect(() => { if (user?.id) void fetchNotifications(); }, [fetchNotifications, user?.id]);
 
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const queueRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        setReferenceDate(new Date());
+        setCardsRefreshKey((key) => key + 1);
+      }, 120);
+    };
     const onWorkspaceInvalidate = (event: Event) => {
       const update = (event as CustomEvent<{ workspaceId?: string; resource?: string }>).detail;
       if (!workspaces.some((workspace) => workspace.id === update?.workspaceId)
         || !['boards', 'all'].includes(update?.resource ?? '')) return;
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => setCardsRefreshKey((key) => key + 1), 120);
+      queueRefresh();
     };
+    const onBoardEvent = (event: { type?: string }) => {
+      if (event.type?.startsWith('card.')) queueRefresh();
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === 'visible') queueRefresh(); };
     window.addEventListener('aether:realtime:workspace-invalidate', onWorkspaceInvalidate);
+    window.addEventListener('focus', queueRefresh);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    socketService.on('event', onBoardEvent);
     return () => {
       if (refreshTimer) clearTimeout(refreshTimer);
       window.removeEventListener('aether:realtime:workspace-invalidate', onWorkspaceInvalidate);
+      window.removeEventListener('focus', queueRefresh);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      socketService.off('event', onBoardEvent);
     };
   }, [workspaces]);
 
   useEffect(() => {
+    let active = true;
     setCardsLoading(true);
+    setCardsError('');
     apiService.get<{ pending: UserCard[]; overdue: UserCard[] }>('/api/users/me/cards', true)
       .then(res => {
-        if (!res.success || !res.data) return;
-        const { pending = [], overdue: ov = [] } = res.data;
-        const now = new Date();
-        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
-        const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
-        setCards({
-          overdue: ov,
-          today: pending.filter(c => c.dueDate && new Date(c.dueDate) <= todayEnd),
-          upcoming: pending.filter(c => c.dueDate && new Date(c.dueDate) > todayEnd && new Date(c.dueDate) <= weekEnd),
-        });
+        if (!active) return;
+        if (!res.success || !res.data) {
+          setCardsError(res.error?.message ?? 'No se pudieron cargar tus tareas.');
+          return;
+        }
+        const unique = new Map<string, UserCard>();
+        for (const card of [...(res.data.pending ?? []), ...(res.data.overdue ?? [])]) {
+          unique.set(card.id, { ...card, blockedByPendingCount: card.blockedByPendingCount ?? 0 });
+        }
+        setAssignedCards([...unique.values()]);
       })
-      .finally(() => setCardsLoading(false));
+      .catch(() => { if (active) setCardsError('No se pudieron cargar tus tareas.'); })
+      .finally(() => { if (active) setCardsLoading(false); });
+    return () => { active = false; };
   }, [cardsRefreshKey]);
 
   // LocalStorage todos
@@ -251,25 +272,14 @@ export default function DashboardPage() {
     const newCompleted = !card.completed;
 
     const applyToAll = (completed: boolean) =>
-      setCards(prev => ({
-        overdue: prev.overdue.map(c => c.id === card.id ? { ...c, completed } : c),
-        today:   prev.today.map(c => c.id === card.id ? { ...c, completed } : c),
-        upcoming: prev.upcoming.map(c => c.id === card.id ? { ...c, completed } : c),
-      }));
+      setAssignedCards(prev => prev.map(c => c.id === card.id ? { ...c, completed } : c));
 
     applyToAll(newCompleted);
 
     try {
       const res = await apiService.put(`/api/cards/${card.id}`, { completed: newCompleted }, true);
       if (res.success && newCompleted) {
-        // Remove from lists after brief visual confirmation
-        setTimeout(() => {
-          setCards(prev => ({
-            overdue:  prev.overdue.filter(c => c.id !== card.id),
-            today:    prev.today.filter(c => c.id !== card.id),
-            upcoming: prev.upcoming.filter(c => c.id !== card.id),
-          }));
-        }, 750);
+        setAssignedCards(prev => prev.filter(c => c.id !== card.id));
       } else if (!res.success) {
         applyToAll(card.completed);
       }
@@ -295,8 +305,27 @@ export default function DashboardPage() {
     persistTodos(todoItems.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
   }
 
+  function openCard(card: UserCard) {
+    setActiveWorkspaceId(card.workspaceId);
+    router.push(`/dashboard/boards/${card.boardId}?cardId=${encodeURIComponent(card.id)}`);
+  }
+
+  function openMention(notification: Notification) {
+    if (!notification.read) void markNotificationAsRead(notification.id);
+    if (notification.data?.workspaceId) setActiveWorkspaceId(notification.data.workspaceId);
+    if (notification.type === 'DOCUMENT_MENTION' && notification.data?.documentId) {
+      router.push(`/dashboard/documents/${notification.data.documentId}`);
+    } else if (notification.data?.boardId && notification.data?.cardId) {
+      router.push(`/dashboard/boards/${notification.data.boardId}?cardId=${encodeURIComponent(notification.data.cardId)}`);
+    } else {
+      router.push('/dashboard/notifications');
+    }
+  }
+
   // ── Derived ──────────────────────────────────────────────────────────────────
   const greetMsg = greetingText(user?.name ?? 'equipo');
+  const mentions = notifications.filter((notification) => !notification.read
+    && (notification.type === 'COMMENT_MENTION' || notification.type === 'DOCUMENT_MENTION'));
 
   const recentProjects = [...projects]
     .filter(p => p.status !== 'ARCHIVED')
@@ -305,31 +334,27 @@ export default function DashboardPage() {
 
   const pendingTodos = todoItems.filter(i => !i.completed);
   const doneTodos = todoItems.filter(i => i.completed);
-  const totalToday = cards.today.length + pendingTodos.length;
+  const totalToday = cards.today.length + cards.unscheduled.length + pendingTodos.length;
   const totalOverdue = cards.overdue.length;
+  const todayCount = totalOverdue + totalToday;
+  const weekCards = [...cards.today, ...cards.upcoming];
+  const attentionCards = [
+    ...cards.blocked.map((card) => ({ card, reason: 'Bloqueada' })),
+    ...cards.overdue.filter((card) => !cards.blocked.some((blocked) => blocked.id === card.id))
+      .map((card) => ({ card, reason: 'Vencida' })),
+  ].slice(0, 4);
 
   const summaryText = (() => {
-    if (totalOverdue > 0) return `Tienes ${totalOverdue} ${totalOverdue === 1 ? 'tarea vencida' : 'tareas vencidas'} y ${totalToday} para hoy.`;
-    if (totalToday > 0) return `Tienes ${totalToday} ${totalToday === 1 ? 'tarea pendiente' : 'tareas pendientes'} para hoy.`;
-    return 'Todo al día. ¡Buen trabajo!';
+    const parts = [];
+    if (totalOverdue) parts.push(`${totalOverdue} ${totalOverdue === 1 ? 'tarea vencida' : 'tareas vencidas'}`);
+    if (totalToday) parts.push(`${totalToday} ${totalToday === 1 ? 'pendiente' : 'pendientes'} para hoy`);
+    if (cards.blocked.length) parts.push(`${cards.blocked.length} ${cards.blocked.length === 1 ? 'bloqueo' : 'bloqueos'}`);
+    if (mentions.length) parts.push(`${mentions.length} ${mentions.length === 1 ? 'mención nueva' : 'menciones nuevas'}`);
+    return parts.length ? `${greetMsg} ${parts.join(' · ')}.` : `${greetMsg} Todo al día.`;
   })();
 
-  const pendingLabel = (() => {
-    const n = totalToday + totalOverdue;
-    if (n === 0) return 'Sin pendientes';
-    return `${n} ${n === 1 ? 'tarea' : 'tareas'}`;
-  })();
-
-  // Agenda grouped by day label
-  const agendaByDay: { day: string; color: string; tasks: UserCard[] }[] = [];
-  const dayColors = ['#8076A7', '#548B73', '#A97556', '#8262B2', '#7452A6', '#7D91B1'];
-  const seenDays: Record<string, number> = {};
-  for (const c of cards.upcoming) {
-    if (!c.dueDate) continue;
-    const day = getDayLabel(c.dueDate);
-    if (seenDays[day] === undefined) { seenDays[day] = agendaByDay.length; agendaByDay.push({ day, color: dayColors[agendaByDay.length % dayColors.length], tasks: [] }); }
-    agendaByDay[seenDays[day]].tasks.push(c);
-  }
+  const filterCount = dayFilter === 'today' ? todayCount : dayFilter === 'week' ? weekCards.length : cards.blocked.length;
+  const pendingLabel = filterCount === 0 ? 'Sin pendientes' : `${filterCount} ${filterCount === 1 ? 'tarea' : 'tareas'}`;
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -342,7 +367,7 @@ export default function DashboardPage() {
           fontSize: 'clamp(1.7rem,3vw,2.2rem)',
           letterSpacing: '-0.02em', color: 'var(--c-text)', margin: 0,
         }}>
-          {greetMsg}
+          Mi día
         </h1>
         <p style={{ margin: '8px 0 0', fontSize: '1.05rem', color: totalOverdue > 0 ? '#B45C72' : 'var(--c-text2)' }}>
           {summaryText}
@@ -367,7 +392,7 @@ export default function DashboardPage() {
           maxLength={120}
           onChange={e => setQuickText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') addQuickTask(); }}
-          placeholder="Añade una tarea para hoy y pulsa Enter"
+          placeholder="Añade un pendiente personal para hoy y pulsa Enter"
           style={{
             flex: 1, minWidth: 0, padding: '13px 0',
             border: 'none', background: 'transparent',
@@ -387,49 +412,70 @@ export default function DashboardPage() {
       {/* Two-column layout */}
       <div style={{ display: 'flex', gap: '26px', alignItems: 'flex-start', marginTop: '30px', flexWrap: 'wrap' }}>
 
-        {/* ── Left: Para hoy ─────────────────────────────────────────────── */}
+        {/* ── Left: Mi día ────────────────────────────────────────────────── */}
         <section style={{ flex: '1 1 440px', minWidth: 0 }}>
 
-          {/* Section header — Sora h2, same as design */}
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '14px', gap: '12px' }}>
             <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: 0 }}>
-              Para hoy
+              Tus tareas
             </h2>
             <span style={{ fontSize: '13px', color: 'var(--c-text3)' }}>{pendingLabel}</span>
           </div>
 
+          <div role="group" aria-label="Filtrar tareas" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+            {([
+              ['today', 'Hoy', todayCount],
+              ['week', 'Esta semana', weekCards.length],
+              ['blocked', 'Bloqueado', cards.blocked.length],
+            ] as const).map(([filter, label, count]) => (
+              <button key={filter} type="button" onClick={() => setDayFilter(filter)} aria-pressed={dayFilter === filter}
+                style={{ padding: '7px 11px', borderRadius: '8px', border: dayFilter === filter ? '1px solid rgba(116,82,166,0.35)' : '1px solid rgba(97,71,130,0.1)', background: dayFilter === filter ? 'rgba(116,82,166,0.12)' : 'transparent', color: dayFilter === filter ? 'var(--c-accent-text)' : 'var(--c-text3)', fontFamily: MANROPE, fontSize: '12px', fontWeight: dayFilter === filter ? 700 : 500, cursor: 'pointer' }}>
+                {label} <span style={{ marginLeft: '4px', opacity: .8 }}>{count}</span>
+              </button>
+            ))}
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {/* Overdue */}
-            {cards.overdue.map(c => (
+            {dayFilter === 'today' && cards.overdue.length > 0 && <p style={{ margin: '9px 14px 4px', fontSize: '11px', fontWeight: 700, color: '#B45C72', textTransform: 'uppercase', letterSpacing: '.06em' }}>Vencidas</p>}
+            {dayFilter === 'today' && cards.overdue.map(c => (
               <TaskItem
                 key={c.id}
                 title={c.title}
-                project={`${c.boardName} - ${c.workspaceName}`}
+                project={`${c.boardName} · ${c.workspaceName}`}
                 dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? '#B45C72'}
                 done={c.completed}
                 time={c.dueDate ? formatDueShort(c.dueDate) : undefined}
                 isOverdue
+                blockerCount={c.blockedByPendingCount}
                 onToggle={() => toggleCard(c)}
-                onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
+                onClick={() => openCard(c)}
               />
             ))}
 
-            {/* Today cards */}
-            {cards.today.map(c => (
+            {dayFilter === 'today' && cards.today.length > 0 && <p style={{ margin: '9px 14px 4px', fontSize: '11px', fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Vencen hoy</p>}
+            {dayFilter === 'today' && cards.today.map(c => (
               <TaskItem
                 key={c.id}
                 title={c.title}
-                project={`${c.boardName} - ${c.workspaceName}`}
+                project={`${c.boardName} · ${c.workspaceName}`}
                 dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? hashColor(c.boardId)}
                 done={c.completed}
                 time={c.dueDate ? formatDueShort(c.dueDate) : undefined}
+                blockerCount={c.blockedByPendingCount}
                 onToggle={() => toggleCard(c)}
-                onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
+                onClick={() => openCard(c)}
               />
             ))}
 
-            {/* Quick-add todos */}
-            {pendingTodos.map(item => (
+            {dayFilter === 'today' && cards.unscheduled.length > 0 && <p style={{ margin: '9px 14px 4px', fontSize: '11px', fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Sin fecha</p>}
+            {dayFilter === 'today' && cards.unscheduled.map(c => (
+              <TaskItem key={c.id} title={c.title} project={`${c.boardName} · ${c.workspaceName}`}
+                dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? hashColor(c.boardId)} done={c.completed}
+                blockerCount={c.blockedByPendingCount} onToggle={() => toggleCard(c)} onClick={() => openCard(c)} />
+            ))}
+
+            {dayFilter === 'today' && (pendingTodos.length > 0 || doneTodos.length > 0) && <p style={{ margin: '9px 14px 4px', fontSize: '11px', fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Pendientes personales</p>}
+            {dayFilter === 'today' && pendingTodos.map(item => (
               <TaskItem
                 key={item.id}
                 title={item.text}
@@ -439,8 +485,7 @@ export default function DashboardPage() {
               />
             ))}
 
-            {/* Done todos */}
-            {doneTodos.map(item => (
+            {dayFilter === 'today' && doneTodos.map(item => (
               <TaskItem
                 key={item.id}
                 title={item.text}
@@ -450,8 +495,20 @@ export default function DashboardPage() {
               />
             ))}
 
-            {/* Loading */}
-            {cardsLoading && totalToday === 0 && (
+            {dayFilter === 'week' && weekCards.map(c => (
+              <TaskItem key={c.id} title={c.title} project={`${c.boardName} · ${c.workspaceName}`}
+                dotColor={PRIORITY_COLORS[c.priority ?? ''] ?? hashColor(c.boardId)} done={c.completed}
+                time={c.dueDate ? formatDueShort(c.dueDate) : undefined} blockerCount={c.blockedByPendingCount}
+                onToggle={() => toggleCard(c)} onClick={() => openCard(c)} />
+            ))}
+
+            {dayFilter === 'blocked' && cards.blocked.map(c => (
+              <TaskItem key={c.id} title={c.title} project={`${c.boardName} · ${c.workspaceName}`}
+                dotColor="#B45C72" done={c.completed} time={c.dueDate ? formatDueShort(c.dueDate) : undefined}
+                blockerCount={c.blockedByPendingCount} onToggle={() => toggleCard(c)} onClick={() => openCard(c)} />
+            ))}
+
+            {cardsLoading && assignedCards.length === 0 && (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
                 <div style={{
                   width: '20px', height: '20px', borderRadius: '50%',
@@ -461,13 +518,16 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Empty */}
-            {!cardsLoading && totalToday === 0 && totalOverdue === 0 && todoItems.length === 0 && (
+            {cardsError && <div role="alert" style={{ padding: '12px 14px', color: '#B45C72', fontSize: '13px' }}>
+              {cardsError} <button type="button" onClick={() => setCardsRefreshKey(key => key + 1)} style={{ border: 0, background: 'transparent', color: 'var(--c-accent-text)', fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>
+            </div>}
+
+            {!cardsLoading && !cardsError && filterCount === 0 && (dayFilter !== 'today' || todoItems.length === 0) && (
               <div style={{ padding: '40px 14px', textAlign: 'center' }}>
                 <p style={{ color: 'var(--c-text4)', fontSize: '14px', margin: '0 0 14px' }}>
-                  Sin tareas para hoy
+                  {dayFilter === 'blocked' ? 'No tienes tareas bloqueadas' : dayFilter === 'week' ? 'Sin tareas con fecha esta semana' : 'Sin tareas para hoy'}
                 </p>
-                <button
+                {dayFilter === 'today' && <button
                   onClick={() => quickRef.current?.focus()}
                   style={{
                     background: 'rgba(116,82,166,0.1)', border: '1px solid rgba(116,82,166,0.2)',
@@ -476,7 +536,7 @@ export default function DashboardPage() {
                   }}
                 >
                   + Añadir tarea
-                </button>
+                </button>}
               </div>
             )}
           </div>
@@ -491,13 +551,13 @@ export default function DashboardPage() {
               Necesita tu atención
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              {cards.overdue.length > 0 ? cards.overdue.slice(0, 3).map(c => (
-                <div
-                  key={c.id}
-                  onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '8px', cursor: 'pointer' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.03)')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+              {attentionCards.length > 0 ? attentionCards.map(({ card: c, reason }) => (
+                <button
+                  key={c.id} type="button"
+                  onClick={() => openCard(c)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '8px', cursor: 'pointer', border: 0, width: '100%', background: 'transparent', textAlign: 'left', fontFamily: MANROPE }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(97,71,130,0.03)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <span style={{
                     width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
@@ -508,20 +568,35 @@ export default function DashboardPage() {
                     {c.workspaceName?.[0]?.toUpperCase() ?? '?'}
                   </span>
                   <div style={{ flex: 1, minWidth: 0, fontSize: '13px', color: 'var(--c-text2)', lineHeight: 1.4 }}>
-                    <strong style={{ color: 'var(--c-text)' }}>{c.boardName}</strong>{' '}
-                    tiene una tarea en{' '}
-                    <strong style={{ color: 'var(--c-accent-text)' }}>{c.title}</strong>
+                    <strong style={{ color: 'var(--c-text)' }}>{c.title}</strong>
+                    <span style={{ display: 'block', color: 'var(--c-text3)', fontSize: '11px', marginTop: '2px' }}>{c.boardName}</span>
                   </div>
-                  <span style={{ fontSize: '11px', color: '#81748D', flexShrink: 0 }}>
-                    {c.dueDate ? formatDueShort(c.dueDate) : ''}
+                  <span style={{ fontSize: '11px', color: '#B45C72', flexShrink: 0 }}>
+                    {reason}
                   </span>
-                </div>
+                </button>
               )) : (
                 <div style={{ padding: '16px 12px', fontSize: '13px', color: 'var(--c-text4)' }}>
                   Sin elementos urgentes — <span style={{ color: '#548B73' }}>¡todo bien!</span>
                 </div>
               )}
             </div>
+          </section>
+
+          <section>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '14px' }}>
+              <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: 0 }}>Menciones</h2>
+              <button type="button" onClick={() => router.push('/dashboard/notifications')} style={{ border: 0, background: 'transparent', color: 'var(--c-accent-text)', fontFamily: MANROPE, fontSize: '12px', cursor: 'pointer' }}>Ver todas</button>
+            </div>
+            {mentions.length > 0 ? mentions.slice(0, 4).map(notification => (
+              <button key={notification.id} type="button" onClick={() => openMention(notification)}
+                style={{ display: 'block', width: '100%', padding: '10px 12px', border: 0, borderRadius: '8px', background: 'transparent', textAlign: 'left', cursor: 'pointer', fontFamily: MANROPE }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(97,71,130,0.03)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <strong style={{ display: 'block', color: 'var(--c-text)', fontSize: '13px', fontWeight: 600 }}>{notification.title}</strong>
+                {notification.message && <span style={{ display: 'block', color: 'var(--c-text3)', fontSize: '12px', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{notification.message}</span>}
+              </button>
+            )) : <div style={{ padding: '16px 12px', fontSize: '13px', color: 'var(--c-text4)' }}>Sin menciones nuevas</div>}
           </section>
 
           {/* Continúa donde lo dejaste */}
@@ -589,38 +664,6 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* Tu semana */}
-          {agendaByDay.length > 0 && (
-            <section>
-              <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.05rem', color: 'var(--c-text)', margin: '0 0 14px' }}>
-                Tu semana
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                {agendaByDay.slice(0, 5).flatMap(grp =>
-                  grp.tasks.map(c => (
-                    <div
-                      key={c.id}
-                      onClick={() => router.push(`/dashboard/boards/${c.boardId}`)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer' }}
-                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(97,71,130,0.03)')}
-                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
-                    >
-                      <span style={{ fontFamily: SORA, fontSize: '11px', fontWeight: 700, color: 'var(--c-text3)', width: '34px', flexShrink: 0 }}>
-                        {grp.day}
-                      </span>
-                      <span style={{ width: '3px', height: '26px', borderRadius: '8px', background: grp.color, flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontSize: '13.5px', color: 'var(--c-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.title}
-                      </span>
-                      <span style={{ fontSize: '12px', color: 'var(--c-text3)' }}>
-                        {c.dueDate ? formatDueShort(c.dueDate) : ''}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-          )}
         </aside>
       </div>
 

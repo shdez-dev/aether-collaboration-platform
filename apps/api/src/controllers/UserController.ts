@@ -280,7 +280,13 @@ class UserController {
           b.id as "boardId",
           b.name as "boardName",
           w.id as "workspaceId",
-          w.name as "workspaceName"
+          w.name as "workspaceName",
+          (
+            SELECT COUNT(*)::int
+            FROM card_dependencies cd
+            INNER JOIN cards blocking ON blocking.id = cd.blocking_card_id
+            WHERE cd.blocked_card_id = c.id AND blocking.completed = false
+          ) as "blockedByPendingCount"
         FROM cards c
         INNER JOIN card_members cm ON cm.card_id = c.id
         INNER JOIN lists l ON l.id = c.list_id
@@ -334,6 +340,7 @@ class UserController {
           boardName: row.boardName,
           workspaceId: row.workspaceId,
           workspaceName: row.workspaceName,
+          blockedByPendingCount: row.blockedByPendingCount ?? 0,
         };
 
         // Si está completada, va a "Finalizadas"
