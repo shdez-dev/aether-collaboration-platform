@@ -462,6 +462,12 @@ function describeEvent(ev: ActivityEntry): {
         target: p.memberName ?? '',
         accent: '#548B73',
       };
+    case 'project.member.role-changed':
+      return {
+        verb: p.inherited ? 'restableció el rol del equipo para' : 'cambió el permiso en el proyecto de',
+        target: p.memberName ?? tn,
+        accent: '#8076A7',
+      };
     case 'project.member.removed':
       return {
         verb: `quitó del proyecto «${tn}» a`,
@@ -4634,7 +4640,6 @@ export default function ProjectDetailPage() {
   // ── Role-based permissions ─────────────────────────────────────────────────
   // Derived after currentProject loads (workspaceId needed to find the workspace)
   const canEdit = currentProject?.access?.canManage === true;
-  const isOwner = currentProject?.access?.canManage === true;
   const { documents, fetchProjectDocuments } = useDocumentStore();
 
   const [showConfig, setShowConfig] = useState(false);
@@ -4660,6 +4665,8 @@ export default function ProjectDetailPage() {
   const [inviteSearch, setInviteSearch] = useState('');
   const [inviteResults, setInviteResults] = useState<SearchUser[]>([]);
   const [addingUserId, setAddingUserId] = useState<string | null>(null);
+  const [savingMemberPermissionId, setSavingMemberPermissionId] = useState<string | null>(null);
+  const [memberPermissionError, setMemberPermissionError] = useState('');
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [actCats, setActCats] = useState<Set<ActCategory>>(
@@ -5229,9 +5236,42 @@ export default function ProjectDetailPage() {
     setDirectMembers((prev) => prev.filter((m) => m.id !== userId));
   }
 
-  async function handleChangeDirectMemberRole(userId: string, role: string) {
-    await projectApi.updateDirectMemberRole(projectId, userId, role);
-    setDirectMembers((prev) => prev.map((m) => (m.id === userId ? { ...m, role } : m)));
+  async function handleChangeDirectMemberRole(
+    userId: string,
+    role: string,
+    teamMember?: ProjectMember,
+  ) {
+    setSavingMemberPermissionId(userId);
+    setMemberPermissionError('');
+    try {
+      if (role === 'INHERIT') {
+        await projectApi.resetDirectMemberRole(projectId, userId);
+        setDirectMembers((prev) => prev.filter((member) => member.id !== userId));
+        return;
+      }
+
+      await projectApi.updateDirectMemberRole(projectId, userId, role);
+      setDirectMembers((prev) => {
+        const current = prev.find((member) => member.id === userId);
+        const next: DirectMember = current
+          ? { ...current, role }
+          : {
+              id: userId,
+              name: teamMember?.name ?? '',
+              email: teamMember?.email ?? '',
+              avatar: teamMember?.avatar ?? null,
+              role,
+              addedAt: new Date().toISOString(),
+            };
+        return [...prev.filter((member) => member.id !== userId), next];
+      });
+    } catch (cause) {
+      setMemberPermissionError(
+        cause instanceof Error ? cause.message : 'No se pudo actualizar el permiso del proyecto.',
+      );
+    } finally {
+      setSavingMemberPermissionId(null);
+    }
   }
 
   async function handleConfirmRemoveBoard() {
@@ -7030,8 +7070,14 @@ export default function ProjectDetailPage() {
             const teamMemberIds = new Set(members.map((m) => m.id));
             const directOnlyMembers = directMembers.filter((m) => !teamMemberIds.has(m.id));
             const firstTeamByUser = new Map<string, string>();
+            const inheritedRoleByUser = new Map<string, ProjectMember['role']>();
             members.forEach((m) => {
               if (!firstTeamByUser.has(m.id)) firstTeamByUser.set(m.id, m.teamId);
+              const currentRole = inheritedRoleByUser.get(m.id);
+              const rolePriority = { VIEWER: 0, MEMBER: 1, ADMIN: 2 };
+              if (!currentRole || rolePriority[m.role] > rolePriority[currentRole]) {
+                inheritedRoleByUser.set(m.id, m.role);
+              }
             });
             const filteredResults = inviteResults.filter((u) => !allMemberIds.has(u.id));
             const isEmpty =
@@ -7060,7 +7106,7 @@ export default function ProjectDetailPage() {
                       fontFamily: "'Manrope', system-ui, sans-serif",
                     }}
                   >
-                    Personas con acceso a este proyecto.
+                    Personas con acceso. En miembros de equipos, puedes fijar un permiso solo para este proyecto o volver a heredar el del equipo.
                   </p>
                   {canEdit && (
                     <div
@@ -7128,6 +7174,12 @@ export default function ProjectDetailPage() {
                     </div>
                   )}
                 </div>
+
+                {memberPermissionError && (
+                  <p role="alert" style={{ margin: '-4px 0 14px', color: C.red, fontSize: 12.5 }}>
+                    {memberPermissionError}
+                  </p>
+                )}
 
                 {canUseProjectPlanning && project.methodology === 'SCRUM' && (
                   <section
@@ -7404,8 +7456,14 @@ export default function ProjectDetailPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       {directOnlyMembers.map((m) => {
-                        const roleLbl =
-                          m.role === 'ADMIN' ? 'Admin' : m.role === 'VIEWER' ? 'Lector' : 'Miembro';
+                        const isProjectOwner = project.ownerId === m.id;
+                        const roleLbl = isProjectOwner || m.role === 'OWNER'
+                          ? 'Propietario'
+                          : m.role === 'ADMIN'
+                            ? 'Coordinador'
+                            : m.role === 'VIEWER'
+                              ? 'Observador'
+                              : 'Colaborador';
                         return (
                           <div
                             key={m.id}
@@ -7483,10 +7541,12 @@ export default function ProjectDetailPage() {
                               </div>
                             </div>
                             {/* Role selector — editable by OWNER, read-only badge otherwise */}
-                            {isOwner ? (
+                            {canEdit && !isProjectOwner ? (
                               <select
+                                aria-label={`Permiso de ${m.name} en este proyecto`}
                                 value={m.role}
-                                onChange={(e) => handleChangeDirectMemberRole(m.id, e.target.value)}
+                                disabled={savingMemberPermissionId === m.id}
+                                onChange={(e) => void handleChangeDirectMemberRole(m.id, e.target.value)}
                                 style={{
                                   fontSize: '11px',
                                   fontWeight: 600,
@@ -7500,9 +7560,10 @@ export default function ProjectDetailPage() {
                                   flexShrink: 0,
                                 }}
                               >
-                                <option value="MEMBER">Miembro</option>
-                                <option value="ADMIN">Admin</option>
-                                <option value="VIEWER">Lector</option>
+                                {m.role === 'OWNER' && <option value="OWNER" disabled>Propietario</option>}
+                                <option value="ADMIN">Coordinador</option>
+                                <option value="MEMBER">Colaborador</option>
+                                <option value="VIEWER">Observador</option>
                               </select>
                             ) : (
                               <span
@@ -7519,7 +7580,7 @@ export default function ProjectDetailPage() {
                                 {roleLbl}
                               </span>
                             )}
-                            {canEdit && (
+                            {canEdit && !isProjectOwner && (
                               <button
                                 onClick={() => handleRemoveDirectMember(m.id)}
                                 title="Quitar del proyecto"
@@ -7621,13 +7682,27 @@ export default function ProjectDetailPage() {
                             teamMembers.map((m) => {
                               const direct = directMembers.find((person) => person.id === m.id);
                               const showDirectControls =
-                                direct && firstTeamByUser.get(m.id) === team.id;
+                                firstTeamByUser.get(m.id) === team.id;
+                              const isProjectOwner = project.ownerId === m.id;
                               const roleLbl =
                                 m.role === 'ADMIN'
-                                  ? 'Admin'
+                                  ? 'Coordinador'
                                   : m.role === 'VIEWER'
-                                    ? 'Lector'
-                                    : 'Miembro';
+                                    ? 'Observador'
+                                    : 'Colaborador';
+                              const inheritedRole = inheritedRoleByUser.get(m.id) ?? m.role;
+                              const inheritedRoleLabel = inheritedRole === 'ADMIN'
+                                ? 'Coordinador'
+                                : inheritedRole === 'VIEWER'
+                                  ? 'Observador'
+                                  : 'Colaborador';
+                              const projectRoleLabel = direct?.role === 'ADMIN'
+                                ? 'Coordinador'
+                                : direct?.role === 'VIEWER'
+                                  ? 'Observador'
+                                  : direct?.role === 'OWNER'
+                                    ? 'Propietario'
+                                    : 'Colaborador';
                               return (
                                 <div
                                   key={m.id}
@@ -7695,9 +7770,14 @@ export default function ProjectDetailPage() {
                                       >
                                         {roleLbl} del equipo
                                       </span>
-                                      {showDirectControls && (
+                                      {showDirectControls && direct && (
                                         <span style={{ fontSize: 11, color: C.text3 }}>
-                                          También acceso individual
+                                          Permiso del proyecto: {projectRoleLabel}
+                                        </span>
+                                      )}
+                                      {isProjectOwner && (
+                                        <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>
+                                          Propietario del proyecto
                                         </span>
                                       )}
                                     </div>
@@ -7705,14 +7785,12 @@ export default function ProjectDetailPage() {
                                       {m.email}
                                     </div>
                                   </div>
-                                  {showDirectControls &&
-                                    (isOwner ? (
+                                  {showDirectControls && canEdit && !isProjectOwner ? (
                                       <select
-                                        aria-label={`Rol individual de ${m.name}`}
-                                        value={direct.role}
-                                        onChange={(e) =>
-                                          handleChangeDirectMemberRole(m.id, e.target.value)
-                                        }
+                                        aria-label={`Permiso de ${m.name} en este proyecto`}
+                                        value={direct?.role ?? 'INHERIT'}
+                                        disabled={savingMemberPermissionId === m.id}
+                                        onChange={(e) => void handleChangeDirectMemberRole(m.id, e.target.value, m)}
                                         style={{
                                           fontSize: 11,
                                           color: C.text2,
@@ -7720,39 +7798,16 @@ export default function ProjectDetailPage() {
                                           border: `1px solid ${C.border}`,
                                           padding: '4px 8px',
                                           borderRadius: 8,
+                                          maxWidth: '100%',
                                         }}
                                       >
-                                        <option value="MEMBER">Miembro</option>
-                                        <option value="ADMIN">Admin</option>
-                                        <option value="VIEWER">Lector</option>
+                                        <option value="INHERIT">Heredar del equipo ({inheritedRoleLabel})</option>
+                                        {direct?.role === 'OWNER' && <option value="OWNER" disabled>Propietario</option>}
+                                        <option value="ADMIN">Coordinador del proyecto</option>
+                                        <option value="MEMBER">Colaborador</option>
+                                        <option value="VIEWER">Observador</option>
                                       </select>
-                                    ) : (
-                                      <span style={{ fontSize: 11, color: C.text3 }}>
-                                        Acceso individual:{' '}
-                                        {direct.role === 'ADMIN'
-                                          ? 'Admin'
-                                          : direct.role === 'VIEWER'
-                                            ? 'Lector'
-                                            : 'Miembro'}
-                                      </span>
-                                    ))}
-                                  {showDirectControls && canEdit && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveDirectMember(m.id)}
-                                      title="Quitar acceso individual al proyecto"
-                                      aria-label={`Quitar acceso individual de ${m.name}`}
-                                      style={{
-                                        padding: 5,
-                                        border: 'none',
-                                        background: 'transparent',
-                                        color: C.text3,
-                                        cursor: 'pointer',
-                                      }}
-                                    >
-                                      <X style={{ width: 15, height: 15 }} />
-                                    </button>
-                                  )}
+                                    ) : null}
                                 </div>
                               );
                             })

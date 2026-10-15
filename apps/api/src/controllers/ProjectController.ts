@@ -102,7 +102,11 @@ const updateMilestoneSchema = z.object({
 
 const directProjectMemberSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
+  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
+});
+
+const directProjectMemberRoleSchema = z.object({
+  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
 });
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -1760,39 +1764,104 @@ class ProjectController {
   async updateDirectMemberRole(req: Request, res: Response) {
     try {
       const { id, userId } = req.params;
-      const { role } = req.body;
-      if (!role || !['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'].includes(role)) {
+      const parsed = directProjectMemberRoleSchema.safeParse(req.body);
+      if (!parsed.success) {
         return res.status(400).json({ success: false, error: { message: 'Rol inválido' } });
       }
-      const result = await pool.query(
-        `UPDATE project_members SET role = $1 WHERE project_id = $2 AND user_id = $3 RETURNING *`,
-        [role, id, userId]
+      const { role } = parsed.data;
+      const membership = await pool.query(
+        `SELECT p.workspace_id, u.name AS member_name,
+                EXISTS (
+                  SELECT 1 FROM project_teams pt
+                  JOIN team_members tm ON tm.team_id = pt.team_id
+                  WHERE pt.project_id = p.id AND tm.user_id = u.id
+                ) AS has_team_access,
+                pm.role AS previous_role
+         FROM projects p
+         JOIN users u ON u.id = $2
+         JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = u.id
+         LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = u.id
+         WHERE p.id = $1`,
+        [id, userId],
       );
-      if (!result.rows.length) {
-        return res.status(404).json({ success: false, error: { message: 'Miembro no encontrado' } });
+      if (!membership.rows.length || (!membership.rows[0].previous_role && !membership.rows[0].has_team_access)) {
+        return res.status(404).json({ success: false, error: { message: 'La persona no tiene acceso a este proyecto' } });
       }
+      const result = await pool.query(
+        `INSERT INTO project_members (project_id, user_id, role, added_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role
+         RETURNING role`,
+        [id, userId, role, (req as any).user?.id ?? null],
+      );
       try {
         const actorId = (req as any).user?.id as string;
-        const info = await pool.query(
-          `SELECT p.name AS project_name, p.workspace_id, u.name AS member_name
-           FROM projects p JOIN users u ON u.id = $2 WHERE p.id = $1`,
-          [id, userId],
-        );
+        const info = await pool.query(`SELECT name AS project_name FROM projects WHERE id = $1`, [id]);
         const actor = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
         if (info.rows[0]) {
           await eventStore.emit({
             type: 'project.member.role-changed',
             actor: { id: actorId, name: actor.rows[0]?.name ?? '' },
-            subject: { type: 'member', id: userId, name: info.rows[0].member_name },
-            context: { workspaceId: info.rows[0].workspace_id },
-            payload: { projectId: id, projectName: info.rows[0].project_name, memberId: userId, newRole: role },
+            subject: { type: 'member', id: userId, name: membership.rows[0].member_name },
+            context: { workspaceId: membership.rows[0].workspace_id },
+            payload: { projectId: id, projectName: info.rows[0].project_name, memberId: userId, memberName: membership.rows[0].member_name, previousRole: membership.rows[0].previous_role ?? null, newRole: role, inherited: false },
           });
         }
       } catch {}
-      res.json({ success: true, data: { role } });
+      res.json({ success: true, data: { role: result.rows[0].role } });
     } catch (error) {
       console.error('[ProjectController.updateDirectMemberRole]', error);
       res.status(500).json({ success: false, error: { message: 'Error al actualizar rol' } });
+    }
+  }
+
+  /** DELETE /api/projects/:id/members/:userId/role — restore the assigned team's role. */
+  async resetDirectMemberRole(req: Request, res: Response) {
+    try {
+      const { id, userId } = req.params;
+      const membership = await pool.query(
+        `SELECT p.workspace_id, p.name AS project_name, u.name AS member_name,
+                pm.role AS previous_role,
+                (SELECT tm.role FROM project_teams pt
+                 JOIN team_members tm ON tm.team_id = pt.team_id
+                 WHERE pt.project_id = p.id AND tm.user_id = u.id
+                 ORDER BY CASE tm.role WHEN 'ADMIN' THEN 3 WHEN 'MEMBER' THEN 2 ELSE 1 END DESC
+                 LIMIT 1) AS inherited_role
+         FROM projects p
+         JOIN users u ON u.id = $2
+         JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = u.id
+         JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = u.id
+         WHERE p.id = $1`,
+        [id, userId],
+      );
+      if (!membership.rows.length || !membership.rows[0].inherited_role) {
+        return res.status(404).json({ success: false, error: { message: 'No hay un rol de equipo que restaurar para esta persona' } });
+      }
+
+      await pool.query(`DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`, [id, userId]);
+      try {
+        const actorId = (req as any).user?.id as string;
+        const actor = await pool.query('SELECT name FROM users WHERE id = $1', [actorId]);
+        await eventStore.emit({
+          type: 'project.member.role-changed',
+          actor: { id: actorId, name: actor.rows[0]?.name ?? '' },
+          subject: { type: 'member', id: userId, name: membership.rows[0].member_name },
+          context: { workspaceId: membership.rows[0].workspace_id },
+          payload: {
+            projectId: id,
+            projectName: membership.rows[0].project_name,
+            memberId: userId,
+            memberName: membership.rows[0].member_name,
+            previousRole: membership.rows[0].previous_role,
+            newRole: membership.rows[0].inherited_role,
+            inherited: true,
+          },
+        });
+      } catch {}
+      res.json({ success: true, data: { role: membership.rows[0].inherited_role } });
+    } catch (error) {
+      console.error('[ProjectController.resetDirectMemberRole]', error);
+      res.status(500).json({ success: false, error: { message: 'Error al restaurar el rol del equipo' } });
     }
   }
 

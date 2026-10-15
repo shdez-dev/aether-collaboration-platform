@@ -120,6 +120,7 @@ router.delete('/:id/teams/:teamId', requireProjectEditor, requireOrganizationPro
 router.get('/:id/members', requireOrganizationProjectMembers, (req, res) => projectController.getDirectMembers(req, res));
 router.post('/:id/members', requireProjectEditor, requireOrganizationProjectMembers, (req, res) => projectController.addDirectMember(req, res));
 router.patch('/:id/members/:userId', requireProjectEditor, requireOrganizationProjectMembers, (req, res) => projectController.updateDirectMemberRole(req, res));
+router.delete('/:id/members/:userId/role', requireProjectEditor, requireOrganizationProjectMembers, (req, res) => projectController.resetDirectMemberRole(req, res));
 router.delete('/:id/members/:userId', requireProjectEditor, requireOrganizationProjectMembers, (req, res) => projectController.removeDirectMember(req, res));
 
 // ── Actividad del proyecto ──────────────────────────────────────────────────────

@@ -13,11 +13,10 @@ describe('ProjectAuthorizationService', () => {
   function accessRow(overrides: Record<string, unknown> = {}) {
     return {
       workspace_id: 'workspace-1',
+      organization_type: 'ORGANIZATION',
       is_project_owner: false,
       is_workspace_admin: false,
-      is_direct_member: false,
-      is_direct_manager: false,
-      is_direct_contributor: false,
+      direct_project_role: null,
       is_team_member: false,
       is_team_contributor: false,
       has_operational_role: false,
@@ -35,7 +34,7 @@ describe('ProjectAuthorizationService', () => {
   });
 
   it('allows a direct VIEWER to read but not contribute', async () => {
-    (pool.query as jest.Mock).mockResolvedValue({ rows: [accessRow({ is_direct_member: true })] });
+    (pool.query as jest.Mock).mockResolvedValue({ rows: [accessRow({ direct_project_role: 'VIEWER' })] });
 
     await expect(service.can('project-1', 'user-1', 'READ')).resolves.toMatchObject({ level: 'READ' });
     await expect(service.can('project-1', 'user-1', 'CONTRIBUTE')).resolves.toBeNull();
@@ -43,10 +42,27 @@ describe('ProjectAuthorizationService', () => {
 
   it('allows direct project administrators to manage without a workspace admin role', async () => {
     (pool.query as jest.Mock).mockResolvedValue({
-      rows: [accessRow({ is_direct_member: true, is_direct_manager: true, is_direct_contributor: true })],
+      rows: [accessRow({ direct_project_role: 'ADMIN' })],
     });
 
     await expect(service.can('project-1', 'user-1', 'MANAGE')).resolves.toMatchObject({ level: 'MANAGE' });
+  });
+
+  it('lets an explicit project observer role override contributor access inherited from a team', async () => {
+    (pool.query as jest.Mock).mockResolvedValue({
+      rows: [accessRow({ direct_project_role: 'VIEWER', is_team_member: true, is_team_contributor: true })],
+    });
+
+    await expect(service.can('project-1', 'user-1', 'READ')).resolves.toMatchObject({ level: 'READ' });
+    await expect(service.can('project-1', 'user-1', 'CONTRIBUTE')).resolves.toBeNull();
+  });
+
+  it('uses the explicit project collaborator role instead of the inherited observer role', async () => {
+    (pool.query as jest.Mock).mockResolvedValue({
+      rows: [accessRow({ direct_project_role: 'MEMBER', is_team_member: true })],
+    });
+
+    await expect(service.can('project-1', 'user-1', 'CONTRIBUTE')).resolves.toMatchObject({ level: 'CONTRIBUTE' });
   });
 
   it('limits an external PROJECT VIEW grant to read access', async () => {

@@ -33,23 +33,12 @@ export class ProjectAuthorizationService {
              AND wm.user_id = $2
              AND wm.role IN ('OWNER', 'ADMIN')
          ) AS is_workspace_admin,
-         EXISTS (
-           SELECT 1 FROM project_members pm
+         (
+           SELECT pm.role FROM project_members pm
            JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = pm.user_id
            WHERE pm.project_id = p.id AND pm.user_id = $2
-         ) AS is_direct_member,
-         EXISTS (
-           SELECT 1 FROM project_members pm
-           JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = pm.user_id
-           WHERE pm.project_id = p.id AND pm.user_id = $2
-             AND pm.role IN ('OWNER', 'ADMIN')
-         ) AS is_direct_manager,
-         EXISTS (
-           SELECT 1 FROM project_members pm
-           JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = pm.user_id
-           WHERE pm.project_id = p.id AND pm.user_id = $2
-             AND pm.role IN ('OWNER', 'ADMIN', 'MEMBER')
-         ) AS is_direct_contributor,
+           LIMIT 1
+         ) AS direct_project_role,
          EXISTS (
            SELECT 1 FROM team_members tm
            JOIN project_teams pt ON pt.team_id = tm.team_id
@@ -99,14 +88,19 @@ export class ProjectAuthorizationService {
 
     const isPersonalOrganization = row.organization_type === 'PERSONAL';
     const isExternal = !isPersonalOrganization && Boolean(row.external_permission);
+    const hasProjectOverride = Boolean(row.direct_project_role);
     const canManage = Boolean(row.is_project_owner || (!isPersonalOrganization && (
-      row.is_workspace_admin || row.is_direct_manager || row.is_project_lead
+      row.is_workspace_admin || (hasProjectOverride
+        ? ['OWNER', 'ADMIN'].includes(row.direct_project_role)
+        : row.is_project_lead)
     )));
     const canContribute = canManage || (!isPersonalOrganization && Boolean(
-      row.is_direct_contributor || row.is_team_contributor || row.is_operational_contributor || row.external_permission === 'EDIT',
+      hasProjectOverride
+        ? row.direct_project_role === 'MEMBER'
+        : row.is_direct_contributor || row.is_team_contributor || row.is_operational_contributor || row.external_permission === 'EDIT',
     ));
     const canRead = canContribute || (!isPersonalOrganization && Boolean(
-      row.is_direct_member || row.is_team_member || row.has_operational_role || isExternal,
+      hasProjectOverride || row.is_team_member || row.has_operational_role || isExternal,
     ));
 
     if (!canRead) return null;

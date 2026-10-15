@@ -125,4 +125,7 @@ export const projectApi = {
   async updateDirectMemberRole(projectId: string, userId: string, role: string): Promise<void> {
     await requireData(apiService.patch(`/api/projects/${projectId}/members/${userId}`, { role }, true));
   },
+  async resetDirectMemberRole(projectId: string, userId: string): Promise<void> {
+    await requireData(apiService.delete(`/api/projects/${projectId}/members/${userId}/role`, true));
+  },
 };
