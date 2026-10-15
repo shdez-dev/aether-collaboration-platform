@@ -13,6 +13,8 @@ export type TemplateCategory =
   | 'technical-spec'
   | 'retrospective'
   | 'project-documentation'
+  | 'quick-note'
+  | 'decision-record'
   | 'ai-builder';
 
 export interface DocumentTemplate {
@@ -74,6 +76,20 @@ export class DocumentTemplateService {
         icon: 'Sparkles',
         category: 'AI',
       },
+      {
+        id: 'quick-note',
+        name: 'Nota rápida',
+        description: 'Una nota capturada desde cualquier pantalla',
+        icon: 'FileText',
+        category: 'Collaboration',
+      },
+      {
+        id: 'decision-record',
+        name: 'Registro de decisión',
+        description: 'Decisión, motivo y siguiente paso',
+        icon: 'CheckCircle2',
+        category: 'Collaboration',
+      },
     ];
   }
 
@@ -87,6 +103,8 @@ export class DocumentTemplateService {
       'technical-spec': this.getTechnicalSpecTemplate,
       retrospective: this.getRetrospectiveTemplate,
       'project-documentation': this.getProjectDocumentationTemplate,
+      'quick-note': this.getQuickNoteTemplate,
+      'decision-record': this.getDecisionRecordTemplate,
       'ai-builder': this.getAiBuilderTemplate,
     };
 
@@ -170,6 +188,31 @@ export class DocumentTemplateService {
   }
 
   // ==================== PLANTILLAS ====================
+
+  private textParagraphs(value: string): any[] {
+    return value.split('\n').map((line) => ({
+      type: 'paragraph',
+      content: line ? [{ type: 'text', text: line }] : [],
+    }));
+  }
+
+  private getQuickNoteTemplate(metadata?: { body?: string }): any {
+    return { type: 'doc', content: this.textParagraphs(metadata?.body ?? '') };
+  }
+
+  private getDecisionRecordTemplate(metadata?: { body?: string; nextStep?: string }): any {
+    return {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Motivo y contexto' }] },
+        ...this.textParagraphs(metadata?.body ?? ''),
+        ...(metadata?.nextStep ? [
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Siguiente paso' }] },
+          ...this.textParagraphs(metadata.nextStep),
+        ] : []),
+      ],
+    };
+  }
 
   /**
    * Plantilla: Meeting Notes

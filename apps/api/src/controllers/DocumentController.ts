@@ -35,6 +35,8 @@ const createDocumentSchema = z.object({
   metadata: z
     .object({
       projectType: z.string().optional(),
+      body: z.string().max(5000).optional(),
+      nextStep: z.string().max(1000).optional(),
     })
     .optional(),
 });

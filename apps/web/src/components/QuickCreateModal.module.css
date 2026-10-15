@@ -1,0 +1,165 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(17, 12, 25, .62);
+}
+
+.dialog {
+  width: min(100%, 640px);
+  max-height: min(760px, calc(100dvh - 40px));
+  overflow: auto;
+  border: 1px solid var(--c-border);
+  border-radius: 16px;
+  background: var(--c-bg2);
+  color: var(--c-text);
+  box-shadow: 0 18px 55px rgba(17, 12, 25, .28);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 26px 18px;
+}
+
+.header h2 {
+  margin: 0;
+  font: 700 21px/1.25 'Sora', system-ui, sans-serif;
+  letter-spacing: -.025em;
+}
+
+.header p {
+  margin: 7px 0 0;
+  color: var(--c-text3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text3);
+  cursor: pointer;
+}
+
+.kindGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 26px 22px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.kindButton {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-height: 99px;
+  padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface2);
+  color: var(--c-text2);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.kindButton svg { color: var(--c-accent-text); }
+.kindButton strong { color: var(--c-text); font-size: 13px; }
+.kindButton span { color: var(--c-text3); font-size: 11px; line-height: 1.3; }
+.kindButton:hover { border-color: var(--c-accent); }
+.kindButton.selected { border-color: var(--c-accent); background: var(--c-hover); }
+
+.fields {
+  display: grid;
+  gap: 16px;
+  padding: 22px 26px;
+}
+
+.destinationHeading {
+  margin-top: 3px;
+  padding-top: 17px;
+  border-top: 1px solid var(--c-border);
+  color: var(--c-text);
+  font: 700 13px 'Sora', system-ui, sans-serif;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  color: var(--c-text2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.field span { color: var(--c-text3); font-weight: 400; }
+
+.field input, .field select, .field textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface2);
+  color: var(--c-text);
+  color-scheme: inherit;
+  font: 400 13px/1.5 'Manrope', system-ui, sans-serif;
+}
+
+.field textarea { resize: vertical; min-height: 78px; }
+.hint { margin: -6px 0 0; color: var(--c-text3); font-size: 12px; line-height: 1.5; }
+.field input::placeholder, .field textarea::placeholder { color: var(--c-text3); }
+.field :disabled { opacity: .55; cursor: not-allowed; }
+.twoColumns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.error { margin: 0 26px 14px; color: #B45C72; font-size: 13px; line-height: 1.5; }
+.error button { border: 0; background: transparent; color: var(--c-accent-text); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 16px 26px 22px;
+  border-top: 1px solid var(--c-border);
+}
+
+.cancel, .submit {
+  min-height: 39px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font: 700 12px 'Sora', system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.cancel { border: 1px solid var(--c-border); background: var(--c-surface2); color: var(--c-text2); }
+.submit { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--c-accent); background: var(--c-accent); color: #fff; }
+.submit:disabled, .cancel:disabled, .close:disabled { cursor: not-allowed; opacity: .55; }
+.dialog :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+@media (max-width: 560px) {
+  .backdrop { padding: 10px; align-items: end; }
+  .dialog { max-height: calc(100dvh - 20px); border-radius: 16px 16px 10px 10px; }
+  .header { padding: 19px 18px 15px; }
+  .kindGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 18px 18px; }
+  .kindButton { min-height: 76px; }
+  .fields { padding: 18px; }
+  .twoColumns { grid-template-columns: 1fr; }
+  .footer { padding: 14px 18px 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kindButton { transition: none; }
+}

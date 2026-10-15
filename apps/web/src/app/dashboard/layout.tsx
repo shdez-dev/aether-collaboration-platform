@@ -26,13 +26,15 @@ import EditWorkspaceModal from '@/components/EditWorkspaceModal';
 import WorkspaceContextSwitcher from '@/components/WorkspaceContextSwitcher';
 import CreateBoardModal from '@/components/CreateBoardModal';
 import CreateProjectModal from '@/components/CreateProjectModal';
+import QuickCreateModal from '@/components/QuickCreateModal';
+import CreateEventModal from '@/components/calendar/CreateEventModal';
 import FirstWorkspaceOnboarding from '@/components/FirstWorkspaceOnboarding';
 import OrganizationEmptyState from '@/components/OrganizationEmptyState';
 import { socketService } from '@/services/socketService';
 import { apiService } from '@/services/apiService';
 import { canManageOrganizationRole } from '@/lib/workspaceFeatures';
 import ChatDock from '@/components/chat/ChatDock';
-import { BellRing, FolderKanban, PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react';
+import { BellRing, FolderKanban, PanelLeftClose, PanelLeftOpen, Plus, Settings } from 'lucide-react';
 
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
@@ -90,7 +92,7 @@ function Sidebar({
   pathname, router, user, workspaces, userAvatarUrl,
   onLogout, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onCreateOrganization,
   activeOrganizationId, activeOrganization, onSelectOrganization, workspaceUnavailable,
-  onEditWorkspace, onRefreshWorkspaces, onCreateBoard, onCreateProject, sidebarProjects, projectsLoading, recentProjectIds,
+  onEditWorkspace, onRefreshWorkspaces, onCreateBoard, onCreateProject, onQuickCreate, sidebarProjects, projectsLoading, recentProjectIds,
   compact, onToggleCompact,
 }: {
   pathname: string | null; router: ReturnType<typeof useRouter>;
@@ -102,6 +104,7 @@ function Sidebar({
   onCreateWorkspace: (organizationId?: string) => void; onCreateOrganization: () => void; onEditWorkspace: (ws: any) => void;
   onRefreshWorkspaces: () => Promise<void>;
   onCreateBoard: () => void; onCreateProject: () => void;
+  onQuickCreate: () => void;
   sidebarProjects: any[]; projectsLoading: boolean; recentProjectIds: string[];
   compact: boolean; onToggleCompact: () => void;
 }) {
@@ -204,6 +207,11 @@ function Sidebar({
         onRefresh={onRefreshWorkspaces}
       />
       </div>
+
+      <button type="button" onClick={onQuickCreate} aria-label="Crear tarea, nota, decisión o evento" title="Crear tarea, nota, decisión o evento"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: compact ? 'center' : 'flex-start', gap: '9px', minHeight: '40px', margin: '14px 0 16px', padding: compact ? '9px' : '9px 13px', border: '1px solid var(--c-accent)', borderRadius: '8px', background: 'var(--c-accent)', color: '#fff', font: `700 13px ${SORA}`, cursor: 'pointer' }}>
+        <Plus size={17} aria-hidden="true" /><span style={{ display: compact ? 'none' : 'inline' }}>Crear</span>
+      </button>
 
       {/* Main nav */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -384,7 +392,7 @@ function Sidebar({
 
 // ── Mobile topbar ────────────────────────────────────────────────────────────────
 
-function MobileTopbar({ onMenuClick }: { onMenuClick: () => void }) {
+function MobileTopbar({ onMenuClick, onQuickCreate }: { onMenuClick: () => void; onQuickCreate: () => void }) {
   return (
     <div
       className="dsh-topbar"
@@ -419,6 +427,7 @@ function MobileTopbar({ onMenuClick }: { onMenuClick: () => void }) {
       <Link href="/dashboard" aria-label="AETHER, inicio" style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none', flex: 1 }}>
         <BrandMark size={34} tone="adaptive" />
       </Link>
+      <button type="button" onClick={onQuickCreate} aria-label="Crear tarea, nota, decisión o evento" style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 10px', border: '1px solid var(--c-accent)', borderRadius: '8px', background: 'var(--c-accent)', color: '#fff', font: `700 12px ${SORA}`, cursor: 'pointer' }}><Plus size={16} />Crear</button>
     </div>
   );
 }
@@ -447,6 +456,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickEventOpen, setQuickEventOpen] = useState(false);
   const [sidebarCompact, setSidebarCompact] = useState(false);
   const [workspaceBootstrapLoaded, setWorkspaceBootstrapLoaded] = useState(false);
   const [organizations, setOrganizations] = useState<OrganizationContext[]>([]);
@@ -727,6 +738,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     onRefreshWorkspaces: async () => { await Promise.all([fetchWorkspaces(), refreshOrganizations()]); },
     onCreateBoard: () => setCreateBoardOpen(true),
     onCreateProject: () => setCreateProjectOpen(true),
+    onQuickCreate: () => { setSidebarOpen(false); setQuickCreateOpen(true); },
     sidebarBoards, sidebarProjects, boardsLoading, projectsLoading, recentProjectIds,
     compact: sidebarCompact,
     onToggleCompact: toggleSidebarCompact,
@@ -764,7 +776,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--c-bg)', overflow: 'auto' }}>
 
             {/* Topbar móvil — oculto en desktop por CSS */}
-            <MobileTopbar onMenuClick={() => setSidebarOpen(v => !v)} />
+            <MobileTopbar onMenuClick={() => setSidebarOpen(v => !v)} onQuickCreate={() => setQuickCreateOpen(true)} />
 
             {workspaceUnavailable && (pathname === '/dashboard' || /^\/dashboard\/(?:projects|documents|teams|boards|workspaces|portfolios|initiatives)(?:\/|$)/.test(pathname ?? ''))
               ? <OrganizationEmptyState
@@ -784,6 +796,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <NotificationListener />
         <RealtimeNotificationProvider />
         <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
+        {quickCreateOpen && <QuickCreateModal workspaces={workspaces} activeWorkspaceId={activeWorkspaceId}
+          onClose={() => setQuickCreateOpen(false)}
+          onEvent={() => { setQuickCreateOpen(false); setQuickEventOpen(true); }} />}
+        <CreateEventModal open={quickEventOpen} onClose={() => setQuickEventOpen(false)} />
 
         <CreateWorkspaceModal
           isOpen={createWsOpen}
