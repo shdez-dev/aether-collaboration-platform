@@ -29,7 +29,8 @@ interface CreateProjectModalProps {
 export default function CreateProjectModal({ onClose, onCreated, defaultWorkspaceId }: CreateProjectModalProps) {
   const t = useT();
   const createProject = useProjectStore((state) => state.createProject);
-  const currentUserId = useAuthStore((state) => state.user?.id ?? '');
+  const currentUser = useAuthStore((state) => state.user);
+  const currentUserId = currentUser?.id ?? '';
   const workspaces = useWorkspaceStore((state) => state.workspaces);
   const fetchWorkspaces = useWorkspaceStore((state) => state.fetchWorkspaces);
   const activeWorkspace = workspaces.find((workspace) => workspace.id === defaultWorkspaceId && !workspace.archived);
@@ -304,7 +305,8 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 memberIds={memberIds} onMemberIdsChange={setMemberIds}
                 productOwnerId={productOwnerId} onProductOwnerChange={setProductOwnerId}
                 scrumMasterId={scrumMasterId} onScrumMasterChange={setScrumMasterId}
-                currentUserId={currentUserId} supportsMethodology={canConfigureMethodology} supportsTeams={canSelectTeams} supportsMembers={canConfigureMethodology}
+                currentUserId={currentUserId} currentUser={currentUser ? { id: currentUser.id, name: currentUser.name, email: currentUser.email } : null}
+                supportsMethodology={canConfigureMethodology} supportsTeams={canSelectTeams} supportsMembers={canConfigureMethodology}
                 canCreateTeam={canSelectTeams && canManageOrganizationRole(selectedWorkspace?.organization?.role)}
                 createTeamHref={`/dashboard/teams?create=1&workspaceId=${encodeURIComponent(selectedWorkspaceId)}`} onLeaveForTeams={leaveForTeams}
                 loading={participantsLoading} loadError={participantsError}

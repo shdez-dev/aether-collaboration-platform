@@ -13,6 +13,7 @@ export function ProjectMethodologyStep({
   methodology, onMethodologyChange, teams, members, teamIds, onTeamIdsChange,
   memberIds, onMemberIdsChange, productOwnerId, onProductOwnerChange,
   scrumMasterId, onScrumMasterChange, currentUserId, canCreateTeam,
+  currentUser,
   supportsMethodology, supportsTeams, supportsMembers,
   createTeamHref, onLeaveForTeams, loading, loadError,
   onRetry,
@@ -30,6 +31,7 @@ export function ProjectMethodologyStep({
   scrumMasterId: string;
   onScrumMasterChange: (value: string) => void;
   currentUserId: string;
+  currentUser?: ProjectParticipant | null;
   canCreateTeam: boolean;
   supportsMethodology: boolean;
   supportsTeams: boolean;
@@ -46,7 +48,20 @@ export function ProjectMethodologyStep({
     ...memberIds,
     ...teams.filter((team) => teamIds.includes(team.id)).flatMap((team) => team.members.map((person) => person.id)),
   ]), [currentUserId, memberIds, teams, teamIds]);
-  const participants = members.filter((person) => participantIds.has(person.id));
+  const participants = useMemo(() => {
+    const peopleById = new Map<string, ProjectParticipant>();
+    if (currentUser?.id === currentUserId && currentUserId) peopleById.set(currentUserId, currentUser);
+    for (const person of members) {
+      if (participantIds.has(person.id)) peopleById.set(person.id, person);
+    }
+    for (const team of teams) {
+      if (!teamIds.includes(team.id)) continue;
+      for (const person of team.members) {
+        if (participantIds.has(person.id)) peopleById.set(person.id, person);
+      }
+    }
+    return [...peopleById.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }, [currentUser, currentUserId, members, participantIds, teamIds, teams]);
   const developers = participants.filter((person) => person.id !== productOwnerId && person.id !== scrumMasterId);
   const filteredMembers = members.filter((person) => person.id !== currentUserId
     && `${person.name} ${person.email}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
