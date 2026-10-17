@@ -12,7 +12,7 @@ Las descripciones de los hallazgos conservan la evidencia del estado auditado. D
 | --- | --- |
 | A-01 | Mitigado: la edición y el guardado esperan sync; los estados Yjs se fusionan bajo bloqueo de fila. Una prueba unitaria verifica cambios de dos clientes. Falta recorrido multiusuario y de restauración bajo carga; un guardado que ya estaba en vuelo durante la restauración aún requiere protección adicional. |
 | A-02 | Corregido en código: respaldo HTTP binario con límite de 8 MB y respuesta 413 explícita. Falta comprobar documento grande en ejecución. |
-| A-03 | Pendiente por decisión previa del usuario: no reintroducir un límite global que pueda afectar a varias personas detrás de una IP compartida. |
+| A-03 | Mitigación parcial aplicada en código: límites distribuidos en Redis por correo e IP, con cuotas amplias para IP compartida. Pendiente observar y calibrar los umbrales con tráfico real. |
 | A-04 y A-05 | Corregidos en código: política compartida, revocación transaccional de refresh tokens, nuevos tokens para la sesión actual y propagación de errores a la interfaz. Los access tokens ya emitidos siguen válidos hasta expirar. |
 | A-06 | Parcial: cabeceras CSP básicas y `nosniff` en la web. Migrar tokens a cookies HttpOnly requiere cambiar el contrato de autenticación web, API y Socket.IO. |
 | A-07 | Corregido en archivo: DB y Redis ya no publican puertos; se usa Caddy incluido en el repositorio y se corrigió el healthcheck de Redis. |
@@ -35,7 +35,7 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 | Infraestructura | La variante de Compose evaluada aísla DB y Redis; el compose de producción alternativo expone ambos y hace referencia a Nginx ausente. |
 | Calidad | Lint pasa con advertencias. Las pruebas unitarias previas pasan; integración y E2E no se ejecutan en CI. |
 
-## Hallazgos abiertos, ordenados por riesgo
+## Hallazgos y seguimiento, ordenados por riesgo
 
 ### A-01 — Alto — Edición habilitada sin sincronización inicial
 
@@ -49,11 +49,11 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 **Acción:** usar un cuerpo binario con límite explícito acorde a cuotas o aumentar el límite JSON con validación estricta de tamaño y forma. Mostrar fallo de guardado y conservar una cola de reintentos; probar un documento cercano al máximo admitido.
 
-### A-03 — Alta si la instancia es accesible por terceros — Autenticación sin límite de intentos
+### A-03 — Alta si la instancia es accesible por terceros — Intentos de autenticación automatizados
 
 **Evidencia:** `apps/api/src/routes/auth.ts:8-14` publica registro, login, refresh y recuperación sin control de intentos. La retirada del límite global por IP fue una decisión anterior para evitar falsos positivos entre personas que comparten una IP. **Impacto:** fuerza bruta, abuso de registro y de correos de recuperación si el origen es alcanzable por atacantes.
 
-**Acción:** aplicar límites por cuenta/identificador y por IP en el proxy o la API, con ventanas y excepciones calibradas para usuarios tras la misma IP. Mientras tanto, mantener acceso restringido mediante la capa de red existente. No restablecer un límite global por IP sin medir el comportamiento de dos usuarios simultáneos.
+**Mitigación aplicada:** Redis mantiene ventanas deslizantes compartidas entre instancias. Login limita 12 credenciales fallidas por correo y 300 solicitudes por IP en 15 minutos; registro, recuperación y reenvío de verificación limitan 3 solicitudes por correo y 300 por IP en una hora. Refresh tiene un límite de 600 solicitudes por IP en 15 minutos. Las claves usan HMAC; el middleware devuelve `429` con `Retry-After` y falla cerrado con `503` si Redis no puede aplicar el control. **Seguimiento:** medir falsos positivos y abuso tras desplegar, y ajustar las cuotas con tráfico real.
 
 ### A-04 — Media — Cambio de contraseña inconsistente y sesiones vigentes
 
@@ -128,6 +128,6 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 ## Plan de corrección propuesto
 
 1. **Integridad de documentos:** resolver A-01 y A-02, añadir pruebas de dos clientes, red lenta, reconexión y documento grande; después desplegar y abrir el documento que fallaba.
-2. **Cuenta y acceso:** resolver A-04 y A-05; diseñar protección de auth para el entorno compartido (A-03). Añadir casos de permisos de propietario, administrador, miembro, observador e invitado.
+2. **Cuenta y acceso:** resolver A-04 y A-05; observar y calibrar la mitigación de auth (A-03) tras desplegar. Añadir casos de permisos de propietario, administrador, miembro, observador e invitado.
 3. **Operación:** mostrar errores de persistencia (A-09), arreglar el compose alternativo (A-07) y medir un despliegue con imágenes preconstruidas (A-12).
 4. **Endurecimiento sostenido:** migración de tokens/CSP (A-06), paginación de versiones (A-08), webhook de facturación cuando se active (A-10) y ampliar CI (A-11).
