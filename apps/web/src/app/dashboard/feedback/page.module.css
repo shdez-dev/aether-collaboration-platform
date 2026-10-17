@@ -1,0 +1,47 @@
+.page { min-height: 100%; padding: clamp(28px, 5vw, 60px) 24px 72px; color: var(--c-text); font-family: 'Manrope', system-ui, sans-serif; }
+.content { width: min(760px, 100%); margin: 0 auto; }
+.intro { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 25px; }
+.introIcon, .typeIcon, .successIcon { display: grid; place-items: center; flex: 0 0 auto; color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 14%, var(--c-surface)); border: 1px solid color-mix(in srgb, var(--c-accent) 32%, var(--c-border)); }
+.introIcon { width: 46px; height: 46px; border-radius: 14px; }
+.eyebrow { display: block; color: var(--c-accent-text); font-size: 10px; font-weight: 800; letter-spacing: .13em; }
+.intro h1 { margin: 6px 0 7px; font: 700 clamp(24px, 3vw, 31px) 'Sora', system-ui, sans-serif; letter-spacing: -.04em; }
+.intro p { max-width: 570px; margin: 0; color: var(--c-text3); font-size: 13px; line-height: 1.65; }
+.form, .successPanel { border: 1px solid var(--c-border); border-radius: 16px; background: var(--c-surface); box-shadow: 0 18px 55px -45px rgba(16, 8, 26, .85); }
+.form { padding: clamp(18px, 3vw, 28px); display: grid; gap: 19px; }
+.formHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.formHeader h2 { margin: 0 0 5px; font: 700 16px 'Sora', system-ui, sans-serif; }
+.formHeader p { margin: 0; color: var(--c-text3); font-size: 12px; }
+.privateNote { display: inline-flex; align-items: center; min-height: 28px; padding: 0 9px; border: 1px solid var(--c-border); border-radius: 999px; background: var(--c-surface2); color: var(--c-text3); font-size: 10px; white-space: nowrap; }
+.typeChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.typeChoice { position: relative; min-width: 0; min-height: 82px; display: flex; align-items: flex-start; gap: 11px; padding: 14px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface2); color: var(--c-text); text-align: left; font: inherit; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+.typeChoice:hover { border-color: var(--c-border2); transform: translateY(-1px); }
+.typeChoiceActive { border-color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 12%, var(--c-surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-accent-text) 25%, transparent); }
+.typeIcon { width: 32px; height: 32px; border-radius: 9px; }
+.typeChoice > span:nth-child(2) { display: grid; gap: 4px; min-width: 0; padding-top: 1px; }
+.typeChoice strong { font-size: 12px; }
+.typeChoice small { color: var(--c-text3); font-size: 10px; line-height: 1.45; }
+.choiceCheck { margin: 2px 0 0 auto; color: var(--c-accent-text); flex: 0 0 auto; }
+.field { display: grid; gap: 7px; color: var(--c-text2); font-size: 12px; font-weight: 700; }
+.field input, .field textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--c-border2); border-radius: 10px; background: var(--c-surface2); color: var(--c-text); padding: 11px 12px; font: 500 13px 'Manrope', system-ui, sans-serif; transition: border-color .16s ease, box-shadow .16s ease; }
+.field input { min-height: 42px; }
+.field textarea { min-height: 90px; resize: vertical; line-height: 1.6; }
+.field input::placeholder, .field textarea::placeholder { color: var(--c-text4); }
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--c-accent-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 20%, transparent); }
+.fieldHint { justify-self: end; margin-top: -3px; color: var(--c-text4); font-size: 10px; font-weight: 500; }
+.optional { color: var(--c-text4); font-size: 10px; font-weight: 500; }
+.contextHint { margin: -7px 0 0; color: var(--c-text4); font-size: 11px; }
+.error { margin: -4px 0 0; color: var(--c-red); font-size: 12px; font-weight: 700; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid var(--c-border); padding-top: 17px; }
+.actions > span { color: var(--c-text4); font-size: 10px; line-height: 1.5; }
+.submitButton, .secondaryButton { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 15px; border: 1px solid var(--c-accent); border-radius: 9px; background: var(--c-accent); color: white; font: 700 12px 'Manrope', system-ui, sans-serif; cursor: pointer; transition: transform .16s ease, filter .16s ease; }
+.submitButton:hover:not(:disabled), .secondaryButton:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.submitButton:disabled { opacity: .55; cursor: not-allowed; }
+.successPanel { min-height: 330px; padding: 42px 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.successIcon { width: 52px; height: 52px; margin-bottom: 20px; border-radius: 16px; color: var(--c-green); border-color: color-mix(in srgb, var(--c-green) 35%, var(--c-border)); background: color-mix(in srgb, var(--c-green) 13%, var(--c-surface)); }
+.successPanel h2 { margin: 9px 0; font: 700 21px 'Sora', system-ui, sans-serif; }
+.successPanel p { max-width: 430px; margin: 0; color: var(--c-text3); font-size: 12px; line-height: 1.65; }
+.reference { margin: 18px 0 20px; padding: 7px 10px; border-radius: 7px; background: var(--c-surface2); color: var(--c-text3); font-size: 10px; font-variant-numeric: tabular-nums; }
+.secondaryButton { border-color: var(--c-border2); background: var(--c-surface2); color: var(--c-text2); }
+.typeChoice:focus-visible, .submitButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 3px; }
+@media (max-width: 580px) { .page { padding-inline: 16px; } .intro { gap: 12px; } .introIcon { width: 40px; height: 40px; } .formHeader { flex-direction: column; } .typeChoices { grid-template-columns: 1fr; } .typeChoice { min-height: 72px; } .actions { align-items: stretch; flex-direction: column; } .submitButton { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .typeChoice, .field input, .field textarea, .submitButton, .secondaryButton { transition: none; } }

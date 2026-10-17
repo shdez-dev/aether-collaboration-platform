@@ -22,6 +22,7 @@ const organizationCreationPermissionsSchema = z.object({
     .refine((types) => new Set(types).size === types.length, 'Organization types must be unique'),
 });
 const uuidSchema = z.string().uuid();
+const feedbackStatusSchema = z.object({ status: z.enum(['NEW', 'IN_REVIEW', 'RESOLVED']) });
 
 // Un único identificador estable, configurado solo en el servidor. Sin valor
 // por defecto: una instalación sin administrador explícito no expone datos.
@@ -97,6 +98,82 @@ router.get('/overview', async (_req, res, next) => {
     } });
   } catch (error) {
     next(error);
+  }
+});
+
+router.get('/feedback', async (req, res, next) => {
+  const { page, limit, offset, search } = pagination(req);
+  const status = z.enum(['all', 'NEW', 'IN_REVIEW', 'RESOLVED']).safeParse(String(req.query.status ?? 'all'));
+  const type = z.enum(['all', 'FEEDBACK', 'BUG']).safeParse(String(req.query.type ?? 'all'));
+  if (!status.success || !type.success) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'El filtro de comentarios no es válido.' } });
+  }
+
+  const params: unknown[] = [`%${search}%`];
+  let where = `WHERE (f.title ILIKE $1 OR f.description ILIKE $1
+    OR COALESCE(f.reproduction_steps, '') ILIKE $1 OR u.name ILIKE $1 OR u.email ILIKE $1)`;
+  if (status.data !== 'all') {
+    params.push(status.data);
+    where += ` AND f.status = $${params.length}::"FeedbackStatus"`;
+  }
+  if (type.data !== 'all') {
+    params.push(type.data);
+    where += ` AND f.type = $${params.length}::"FeedbackType"`;
+  }
+  const listParams = [...params, limit, offset];
+
+  try {
+    const [rows, count] = await Promise.all([
+      query(`SELECT f.id, f.type, f.title, f.description, f.reproduction_steps,
+        f.page_path, f.status, f.handled_at, f.created_at, f.updated_at,
+        u.id AS user_id, u.name AS user_name, u.email AS user_email
+        FROM feedback_submissions f JOIN users u ON u.id = f.user_id
+        ${where}
+        ORDER BY CASE f.status WHEN 'NEW' THEN 0 WHEN 'IN_REVIEW' THEN 1 ELSE 2 END,
+          f.created_at DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, listParams),
+      query<{ total: number }>(`SELECT COUNT(*)::int AS total
+        FROM feedback_submissions f JOIN users u ON u.id = f.user_id ${where}`, params),
+    ]);
+    return res.json({ success: true, data: {
+      feedback: rows.rows.map((row) => ({
+        id: row.id, type: row.type, title: row.title, description: row.description,
+        reproductionSteps: row.reproduction_steps, pagePath: row.page_path,
+        status: row.status, handledAt: row.handled_at, createdAt: row.created_at,
+        updatedAt: row.updated_at, userId: row.user_id, userName: row.user_name, userEmail: row.user_email,
+      })),
+      page, pageSize: limit, total: count.rows[0]?.total ?? 0,
+    } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch('/feedback/:feedbackId', async (req, res, next) => {
+  const id = uuidSchema.safeParse(req.params.feedbackId);
+  const input = feedbackStatusSchema.safeParse(req.body);
+  if (!id.success || !input.success) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'El comentario o su estado no son válidos.' } });
+  }
+
+  try {
+    const updated = await query<{ id: string; status: string; handled_at: Date | null }>(
+      `UPDATE feedback_submissions
+       SET status = $2::"FeedbackStatus",
+           handled_at = CASE WHEN $2::"FeedbackStatus" = 'RESOLVED' THEN CURRENT_TIMESTAMP ELSE NULL END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, status, handled_at`,
+      [id.data, input.data.status],
+    );
+    if (!updated.rows[0]) {
+      return res.status(404).json({ success: false, error: { code: 'FEEDBACK_NOT_FOUND', message: 'No encontramos ese comentario.' } });
+    }
+    return res.json({ success: true, data: {
+      id: updated.rows[0].id, status: updated.rows[0].status, handledAt: updated.rows[0].handled_at,
+    } });
+  } catch (error) {
+    return next(error);
   }
 });
 

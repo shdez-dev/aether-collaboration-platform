@@ -120,6 +120,17 @@ enum NetworkResourceType {
   PROJECT
 }
 
+enum FeedbackType {
+  FEEDBACK
+  BUG
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+}
+
 // Production schema changes are applied from the committed Prisma migrations.
 // `ensure-baseline.js` only marks the legacy pre-Prisma database as baseline.
 
@@ -246,6 +257,7 @@ model User {
   portfolioAlertsResolved      PortfolioAlert[] @relation("PortfolioAlertResolvedBy")
   portfolioExports             PortfolioExportAudit[] @relation("PortfolioExportActor")
   dashboards                   UserDashboard[]
+  feedbackSubmissions          FeedbackSubmission[]
 
   @@map("users")
 }
@@ -265,6 +277,26 @@ model UserDashboard {
 
   @@index([userId, createdAt])
   @@map("user_dashboards")
+}
+
+model FeedbackSubmission {
+  id                 String         @id @default(uuid()) @db.Uuid
+  userId             String         @map("user_id") @db.Uuid
+  type               FeedbackType
+  title              String         @db.VarChar(120)
+  description        String
+  reproductionSteps  String?        @map("reproduction_steps")
+  pagePath           String         @default("/dashboard") @map("page_path") @db.VarChar(500)
+  status             FeedbackStatus @default(NEW)
+  handledAt          DateTime?      @map("handled_at")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@map("feedback_submissions")
 }
 
 // ── User Preferences ─────────────────────────────────────────────────────────

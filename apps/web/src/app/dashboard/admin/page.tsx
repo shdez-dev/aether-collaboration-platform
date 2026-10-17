@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Building2, CircleHelp, CreditCard, Database, FileText, FolderKanban, Landmark, LayoutDashboard, Layers3, Mail, Network, RefreshCw, Search, Send, Server, ShieldCheck, Users, X } from 'lucide-react';
+import { Activity, Bug, Building2, CircleHelp, CreditCard, Database, FileText, FolderKanban, Landmark, LayoutDashboard, Layers3, Mail, MessageSquareText, Network, RefreshCw, Search, Send, Server, ShieldCheck, Users, X } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 import styles from './page.module.css';
 
-type Tab = 'resumen' | 'usuarios' | 'organizaciones' | 'espacios' | 'proyectos' | 'invitaciones' | 'planes' | 'actividad' | 'sistema';
+type Tab = 'resumen' | 'usuarios' | 'organizaciones' | 'espacios' | 'proyectos' | 'invitaciones' | 'planes' | 'actividad' | 'feedback' | 'sistema';
 type PageResponse<T> = { page: number; pageSize: number; total: number } & T;
 
 type Overview = {
@@ -32,8 +32,9 @@ type AdminProject = { id: string; name: string; status: string; workspaceName: s
 type AdminActivity = { id: string; type: string; createdAt: string; userName: string; userEmail: string; workspaceName: string | null };
 type AdminInvitation = { id: string; email: string; role: string; organizationName: string; inviterName: string; createdAt: string; expiresAt: string };
 type AdminSubscription = { id: string; organizationName: string; plan: string; status: string; periodEnd: string | null; cancelAtPeriodEnd: boolean; createdAt: string };
+type AdminFeedback = { id: string; type: 'FEEDBACK' | 'BUG'; title: string; description: string; reproductionSteps: string | null; pagePath: string; status: 'NEW' | 'IN_REVIEW' | 'RESOLVED'; handledAt: string | null; createdAt: string; updatedAt: string; userId: string; userName: string; userEmail: string };
 type AdminSystem = { api: boolean; database: boolean; redis: boolean; users: number; uptimeSeconds: number; memoryMb: number; environment: string; checkedAt: string };
-type Listing = PageResponse<{ users?: AdminUser[]; organizations?: AdminOrganization[]; workspaces?: AdminWorkspace[]; projects?: AdminProject[]; invitations?: AdminInvitation[]; subscriptions?: AdminSubscription[]; activity?: AdminActivity[] }>;
+type Listing = PageResponse<{ users?: AdminUser[]; organizations?: AdminOrganization[]; workspaces?: AdminWorkspace[]; projects?: AdminProject[]; invitations?: AdminInvitation[]; subscriptions?: AdminSubscription[]; activity?: AdminActivity[]; feedback?: AdminFeedback[] }>;
 
 const NAV: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'resumen', label: 'Resumen', icon: LayoutDashboard },
@@ -44,6 +45,7 @@ const NAV: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'invitaciones', label: 'Invitaciones', icon: Mail },
   { key: 'planes', label: 'Planes', icon: CreditCard },
   { key: 'actividad', label: 'Actividad', icon: Activity },
+  { key: 'feedback', label: 'Comentarios', icon: MessageSquareText },
   { key: 'sistema', label: 'Sistema', icon: Server },
 ];
 
@@ -86,7 +88,7 @@ function actionLabel(type: string) { return ACTIVITY_LABELS[type] ?? `Evento: ${
 
 export default function AdminPage() {
   const [tab, setTab] = useRouteSectionState<Tab>(
-    'tab', 'resumen', ['resumen', 'usuarios', 'organizaciones', 'espacios', 'proyectos', 'invitaciones', 'planes', 'actividad', 'sistema'],
+    'tab', 'resumen', ['resumen', 'usuarios', 'organizaciones', 'espacios', 'proyectos', 'invitaciones', 'planes', 'actividad', 'feedback', 'sistema'],
   );
   const [overview, setOverview] = useState<Overview | null>(null);
   const [listing, setListing] = useState<Listing | null>(null);
@@ -94,6 +96,8 @@ export default function AdminPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [feedbackType, setFeedbackType] = useState('all');
+  const [savingFeedbackId, setSavingFeedbackId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -170,6 +174,31 @@ export default function AdminPage() {
     }
   };
 
+  const updateFeedbackStatus = async (feedbackId: string, status: AdminFeedback['status']) => {
+    if (savingFeedbackId) return;
+    setSavingFeedbackId(feedbackId);
+    setError('');
+    try {
+      const response = await apiService.patch<Pick<AdminFeedback, 'id' | 'status' | 'handledAt'>>(
+        `/api/admin/feedback/${feedbackId}`, { status }, true,
+      );
+      if (!response.success || !response.data) {
+        setError(response.error?.message ?? 'No se pudo actualizar el estado del comentario.');
+        return;
+      }
+      setListing((current) => current ? {
+        ...current,
+        feedback: current.feedback?.map((item) => item.id === feedbackId
+          ? { ...item, status: response.data!.status, handledAt: response.data!.handledAt }
+          : item),
+      } : current);
+    } catch {
+      setError('No se pudo conectar con el servidor. Inténtalo de nuevo.');
+    } finally {
+      setSavingFeedbackId(null);
+    }
+  };
+
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(search), 300);
     return () => window.clearTimeout(timeout);
@@ -180,9 +209,11 @@ export default function AdminPage() {
     if (tab === 'sistema') return '/api/admin/system';
     const params = new URLSearchParams({ page: String(page), search: debouncedSearch });
     if (tab === 'usuarios' && filter !== 'all') params.set('filter', filter);
-    const route = tab === 'espacios' ? 'workspaces' : tab === 'actividad' ? 'activity' : tab === 'usuarios' ? 'users' : tab === 'organizaciones' ? 'organizations' : tab === 'invitaciones' ? 'invitations' : tab === 'planes' ? 'subscriptions' : 'projects';
+    if (tab === 'feedback' && filter !== 'all') params.set('status', filter);
+    if (tab === 'feedback' && feedbackType !== 'all') params.set('type', feedbackType);
+    const route = tab === 'feedback' ? 'feedback' : tab === 'espacios' ? 'workspaces' : tab === 'actividad' ? 'activity' : tab === 'usuarios' ? 'users' : tab === 'organizaciones' ? 'organizations' : tab === 'invitaciones' ? 'invitations' : tab === 'planes' ? 'subscriptions' : 'projects';
     return `/api/admin/${route}?${params}`;
-  }, [tab, page, debouncedSearch, filter]);
+  }, [tab, page, debouncedSearch, filter, feedbackType]);
 
   const load = useCallback(async (initial = false) => {
     if (!initial) setRefreshing(true);
@@ -209,13 +240,13 @@ export default function AdminPage() {
   }, [load, refreshKey]);
 
   useEffect(() => {
-    if (tab !== 'resumen' && tab !== 'sistema') return;
+    if (tab !== 'resumen' && tab !== 'sistema' && tab !== 'feedback') return;
     const interval = window.setInterval(() => setRefreshKey((value) => value + 1), 30_000);
     return () => window.clearInterval(interval);
   }, [tab]);
 
   const switchTab = (next: Tab) => {
-    setTab(next); setSearch(''); setDebouncedSearch(''); setFilter('all'); setPage(1); setError(''); setListing(null);
+    setTab(next); setSearch(''); setDebouncedSearch(''); setFilter('all'); setFeedbackType('all'); setPage(1); setError(''); setListing(null);
   };
   const changeSearch = (value: string) => { setSearch(value); setPage(1); };
   const changeFilter = (value: string) => { setFilter(value); setPage(1); };
@@ -236,7 +267,23 @@ export default function AdminPage() {
     {loading && !((tab === 'resumen' && overview) || (tab === 'sistema' && system) || (tab !== 'resumen' && tab !== 'sistema' && listing)) ? <div className={styles.loading}>Cargando {NAV.find((item) => item.key === tab)?.label.toLowerCase()}…</div> : <>
       {tab === 'resumen' && overview && <OverviewPanel overview={overview} />}
       {tab === 'sistema' && system && <SystemPanel system={system} />}
-      {tab !== 'resumen' && tab !== 'sistema' && <>
+      {tab === 'feedback' && <FeedbackPanel
+        listing={listing}
+        loading={loading}
+        refreshing={refreshing}
+        search={search}
+        status={filter}
+        type={feedbackType}
+        page={page}
+        savingFeedbackId={savingFeedbackId}
+        onSearch={changeSearch}
+        onStatusChange={(value) => { setFilter(value); setPage(1); }}
+        onTypeChange={(value) => { setFeedbackType(value); setPage(1); }}
+        onPageChange={setPage}
+        onRefresh={() => setRefreshKey((value) => value + 1)}
+        onUpdateStatus={updateFeedbackStatus}
+      />}
+      {tab !== 'resumen' && tab !== 'sistema' && tab !== 'feedback' && <>
         <div className={styles.listHeader}><div><h2>{NAV.find((item) => item.key === tab)?.label}</h2><p>{listing ? plural(listing.total, 'registro', 'registros') : 'Explora los registros de la plataforma'}</p></div>
           <div className={styles.filters}><label className={styles.search}><Search size={15} /><input value={search} onChange={(event) => changeSearch(event.target.value)} placeholder={`Buscar ${tab === 'usuarios' ? 'por nombre o correo' : tab === 'actividad' ? 'por usuario o evento' : 'por nombre'}…`} aria-label="Buscar registros" /></label>
             {tab === 'usuarios' && <select value={filter} onChange={(event) => changeFilter(event.target.value)} aria-label="Filtrar usuarios"><option value="all">Todos</option><option value="online">En línea</option><option value="verified">Verificados</option><option value="unverified">Sin verificar</option></select>}
@@ -301,6 +348,67 @@ function OverviewPanel({ overview }: { overview: Overview }) {
       <section className={styles.panel}><div className={styles.panelHeader}><div><h2>Últimos registros</h2><p>Personas incorporadas recientemente</p></div></div><div className={styles.userList}>{recentUsers.length === 0 ? <p className={styles.empty}>Aún no hay usuarios registrados.</p> : recentUsers.map((user) => <div className={styles.userRow} key={user.id}><span className={styles.avatar}>{user.name.trim().charAt(0).toUpperCase() || '?'}</span><div className={styles.userInfo}><strong>{user.name}</strong><span>{user.email}</span></div><div className={styles.userMeta}>{user.online && <span className={styles.online}>En línea</span>}<time>{date(user.createdAt)}</time></div></div>)}</div></section>
     </div>
     <p className={styles.note}><CircleHelp size={13} /> «En línea» cuenta conexiones en tiempo real de esta instancia, no sesiones iniciadas en otros servidores. Última lectura: {dateTime(overview.generatedAt)}.</p>
+  </>;
+}
+
+function FeedbackPanel({
+  listing, loading, refreshing, search, status, type, page, savingFeedbackId,
+  onSearch, onStatusChange, onTypeChange, onPageChange, onRefresh, onUpdateStatus,
+}: {
+  listing: Listing | null;
+  loading: boolean;
+  refreshing: boolean;
+  search: string;
+  status: string;
+  type: string;
+  page: number;
+  savingFeedbackId: string | null;
+  onSearch: (value: string) => void;
+  onStatusChange: (value: string) => void;
+  onTypeChange: (value: string) => void;
+  onPageChange: (page: number) => void;
+  onRefresh: () => void;
+  onUpdateStatus: (id: string, status: AdminFeedback['status']) => void;
+}) {
+  const feedback = listing?.feedback ?? [];
+  return <>
+    <div className={styles.feedbackHeading}>
+      <div><h2>Feedback y reportes de bugs</h2><p>{listing ? plural(listing.total, 'comentario recibido', 'comentarios recibidos') : 'Lo que las personas comparten con el equipo de Aether.'}</p></div>
+      <button className={styles.refresh} onClick={onRefresh} disabled={refreshing} aria-label="Actualizar comentarios"><RefreshCw size={15} className={refreshing ? styles.spinning : ''} /> Actualizar</button>
+    </div>
+    <div className={styles.feedbackFilters}>
+      <label className={styles.search}><Search size={15} /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Buscar por texto o persona…" aria-label="Buscar comentarios" /></label>
+      <select value={type} onChange={(event) => onTypeChange(event.target.value)} aria-label="Filtrar por tipo"><option value="all">Todos los tipos</option><option value="BUG">Bugs</option><option value="FEEDBACK">Feedback</option></select>
+      <select value={status} onChange={(event) => onStatusChange(event.target.value)} aria-label="Filtrar por estado"><option value="all">Todos los estados</option><option value="NEW">Nuevos</option><option value="IN_REVIEW">En revisión</option><option value="RESOLVED">Resueltos</option></select>
+    </div>
+    {loading && !listing ? <div className={styles.loading}>Cargando comentarios…</div> : feedback.length === 0
+      ? <div className={styles.emptyPanel}><MessageSquareText size={25} /><strong>{search || status !== 'all' || type !== 'all' ? 'No hay resultados con estos filtros' : 'Aún no hay comentarios'}</strong><span>{search || status !== 'all' || type !== 'all' ? 'Prueba con otro texto o cambia los filtros.' : 'Los comentarios y reportes enviados desde la aplicación aparecerán aquí.'}</span></div>
+      : <div className={styles.feedbackList}>
+        {feedback.map((item) => {
+          const isBug = item.type === 'BUG';
+          return <article className={styles.feedbackCard} key={item.id}>
+            <div className={styles.feedbackTop}>
+              <span className={`${styles.feedbackKind} ${isBug ? styles.feedbackKindBug : ''}`}>
+                {isBug ? <Bug size={14} /> : <MessageSquareText size={14} />}
+                {isBug ? 'Reporte de bug' : 'Sugerencia'}
+              </span>
+              <time dateTime={item.createdAt}>{dateTime(item.createdAt)}</time>
+            </div>
+            <h3>{item.title}</h3>
+            <p className={styles.feedbackDescription}>{item.description}</p>
+            {item.reproductionSteps && <div className={styles.feedbackSteps}><strong>Pasos para reproducir</strong><p>{item.reproductionSteps}</p></div>}
+            <footer className={styles.feedbackFooter}>
+              <div className={styles.feedbackReporter}><strong>{item.userName}</strong><span>{item.userEmail}</span><code>{item.pagePath}</code></div>
+              <label className={styles.feedbackStatus}>Estado
+                <select value={item.status} onChange={(event) => onUpdateStatus(item.id, event.target.value as AdminFeedback['status'])} disabled={savingFeedbackId === item.id} aria-label={`Estado de ${item.title}`}>
+                  <option value="NEW">Nuevo</option><option value="IN_REVIEW">En revisión</option><option value="RESOLVED">Resuelto</option>
+                </select>
+              </label>
+            </footer>
+          </article>;
+        })}
+      </div>}
+    {listing && listing.total > listing.pageSize && <div className={styles.pagination}><span>Página {listing.page} de {Math.ceil(listing.total / listing.pageSize)}</span><div><button disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Anterior</button><button disabled={page * listing.pageSize >= listing.total} onClick={() => onPageChange(page + 1)}>Siguiente</button></div></div>}
   </>;
 }
 

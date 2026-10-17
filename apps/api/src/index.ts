@@ -32,6 +32,7 @@ import searchRoutes from './routes/search';
 import aiRoutes from './routes/ai';
 import eventRoutes from './routes/events';
 import adminRoutes from './routes/admin';
+import feedbackRoutes from './routes/feedback';
 import chatRoutes from './routes/chat';
 import { documentCommentController } from './controllers/DocumentCommentController';
 
@@ -186,6 +187,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/feedback', feedbackRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/users/me/dashboards', dashboardRoutes);

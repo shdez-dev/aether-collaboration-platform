@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bell, Check, LayoutDashboard, Moon, PanelsTopLeft, Sun } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, Check, ChevronRight, LayoutDashboard, MessageSquareText, Moon, PanelsTopLeft, Sun } from 'lucide-react';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useDashboardModeStore, type DashboardMode } from '@/stores/dashboardModeStore';
@@ -132,6 +133,23 @@ export default function SettingsPage() {
               <input type="checkbox" checked={preferences?.[field] ?? false} disabled={!preferences || saving} onChange={() => void toggleNotification(field)} style={{ width: 18, height: 18, accentColor: C.accent, cursor: 'pointer' }} />
             </label>
           ))}
+        </section>
+
+        <section style={card} aria-labelledby="feedback-title">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <span style={{ display: 'grid', placeItems: 'center', width: 38, height: 38, borderRadius: 10, background: C.bg2, color: C.accent }}><MessageSquareText size={19} /></span>
+            <div>
+              <h2 id="feedback-title" style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Ayuda y feedback</h2>
+              <p style={{ color: C.text3, fontSize: 12, margin: '3px 0 0' }}>Comparte una idea o avísanos si algo no funciona.</p>
+            </div>
+          </div>
+          <Link href="/dashboard/feedback?from=%2Fdashboard%2Fsettings" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 15px', border: `1px solid ${C.border}`, borderRadius: 11, background: C.surface2, color: C.text, textDecoration: 'none' }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <strong style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>Enviar feedback o reportar un bug</strong>
+              <small style={{ display: 'block', color: C.text3, fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>El equipo de Aether recibirá tu mensaje en el apartado de Administración.</small>
+            </span>
+            <ChevronRight size={17} color={C.text3} aria-hidden="true" />
+          </Link>
         </section>
         {message && <p role="status" style={{ color: C.red, fontSize: 13, margin: 0 }}>{message}</p>}
       </div>
