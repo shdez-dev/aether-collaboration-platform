@@ -71,6 +71,8 @@ jest.mock('./src/websocket/RealtimeGateway', () => ({
     sendToUser: jest.fn(),
     io: null,
   })),
+  invalidateUserSockets: jest.fn().mockResolvedValue(undefined),
+  revalidateUserSocketRooms: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('./src/websocket/Yjsgateway', () => ({
