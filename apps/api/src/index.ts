@@ -2,7 +2,6 @@
 
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import { createServer } from 'http';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -38,6 +37,7 @@ import { documentCommentController } from './controllers/DocumentCommentControll
 
 // Import config
 import { validateEnv } from './config/env';
+import { createSecurityHeaders } from './middleware/securityHeaders';
 
 // Import WebSocket and Redis
 import { initializeRedis, closeRedisConnections } from './lib/redis';
@@ -77,39 +77,9 @@ app.set('trust proxy', 1);
 // ============================================================================
 
 app.use(
-  helmet({
-    // Allow cross-origin image loads (e.g. frontend loading avatars from API)
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
-
-    // Content Security Policy
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for React
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:', 'https:', 'blob:'], // Allow images from any HTTPS source
-        connectSrc: [
-          "'self'",
-          env.FRONTEND_URL,
-          env.FRONTEND_URL.replace('https://', 'wss://').replace('http://', 'ws://'),
-        ],
-        fontSrc: ["'self'", 'data:'],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'none'"],
-        upgradeInsecureRequests: env.NODE_ENV === 'production' ? [] : null, // Only in production
-      },
-    },
-
-    // Additional security headers
-    hsts: {
-      maxAge: 31536000, // 1 year
-      includeSubDomains: true,
-      preload: true,
-    },
-    noSniff: true,
-    frameguard: { action: 'deny' },
-    xssFilter: true,
+  createSecurityHeaders({
+    frontendUrl: env.FRONTEND_URL,
+    production: env.NODE_ENV === 'production',
   })
 );
 const allowedOrigins = [

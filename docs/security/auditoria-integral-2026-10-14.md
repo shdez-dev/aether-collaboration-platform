@@ -14,12 +14,12 @@ Las descripciones de los hallazgos conservan la evidencia del estado auditado. D
 | A-02 | Corregido en código: respaldo HTTP binario con límite de 8 MB y respuesta 413 explícita. Falta comprobar documento grande en ejecución. |
 | A-03 | Mitigación parcial aplicada en código: límites distribuidos en Redis por correo e IP, con cuotas amplias para IP compartida. Pendiente observar y calibrar los umbrales con tráfico real. |
 | A-04 y A-05 | Corregidos en código: política compartida, revocación transaccional de refresh tokens, nuevos tokens para la sesión actual y propagación de errores a la interfaz. Los access tokens ya emitidos siguen válidos hasta expirar. |
-| A-06 | Parcial: cabeceras CSP básicas y `nosniff` en la web. Migrar tokens a cookies HttpOnly requiere cambiar el contrato de autenticación web, API y Socket.IO. |
+| A-06 | Parcial: web y API ya definen CSP con directivas explícitas; Next usa nonce por respuesta y el layout renderiza dinámicamente. La migración de tokens sigue pendiente y está planificada en `docs/security/a-06-token-cookie-migration.md`. El render dinámico reduce el uso de caché CDN para páginas. |
 | A-07 | Corregido en archivo: DB y Redis ya no publican puertos; se usa Caddy incluido en el repositorio y se corrigió el healthcheck de Redis. |
 | A-08 | Corregido en código: listados de documentos y versiones omiten el binario Yjs; el historial usa límite y desplazamiento acotados. |
 | A-09 | Parcial: los errores de guardado HTTP y Socket.IO se muestran en el editor y permiten reintentar; quedan pendientes la validación E2E y la revisión de errores silenciosos y registro estructurado. |
 | A-10 | Parcial: HMAC sobre cuerpo raw. Idempotencia/orden temporal pendiente hasta definir el proveedor y su formato de eventos. |
-| A-11 | Parcial: CI ahora bloquea avisos nuevos de `pnpm audit` y comprueba el parche conocido; aún no ejecuta integración ni E2E. |
+| A-11 | CI configurado para bloquear el build si fallan integración o Playwright E2E; E2E usa PostgreSQL y Redis de prueba y el sitio web en modo producción. Pendiente observar la ejecución en GitHub Actions. |
 | A-12 | Parcial: la imagen API reutiliza dependencias en lugar de volver a descargarlas; la construcción completa sigue ocurriendo en el host de despliegue. |
 
 Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un estado incompleto; aumentar o rediseñar el límite del guardado Yjs; unificar y revocar sesiones al cambiar la contraseña; corregir el resultado falso de éxito en la interfaz. Antes de usar el `docker-compose.production.yml` alternativo se debe corregir su configuración de red y sus archivos faltantes.
@@ -71,7 +71,7 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 **Evidencia:** `apps/web/src/stores/authStore.ts:472-481` persiste access y refresh tokens en `localStorage`. `apps/web/next.config.js` e `infra/Caddyfile` no definen CSP para las páginas web; la CSP de `apps/api/src/index.ts:77-108` cubre respuestas de la API, no las páginas servidas por Next. **Impacto:** un XSS en el origen web podría extraer tokens persistentes. No se encontró un XSS concreto durante esta revisión.
 
-**Acción:** planificar cookies `HttpOnly`, `Secure` y `SameSite` con defensa CSRF cuando corresponda; implantar CSP en la web y revisar inserciones de HTML y enlaces externos.
+**Acción:** mantener CSP en la web y ejecutar la migración de cookies `HttpOnly`, `Secure` y `SameSite` con defensa CSRF según el plan. Revisar inserciones de HTML y enlaces externos.
 
 ### A-07 — Media operativa — Configuración de producción alternativa no lista para uso
 
@@ -99,7 +99,7 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 **Evidencia:** `package.json` define `test:integration` y `test:e2e`, pero `test:ci` excluye explícitamente integración y upload; `.github/workflows/ci.yml` ejecuta solo `test:ci` y una prueba de migración de esquema. No hay job E2E. El `pnpm audit` del job de seguridad tiene `continue-on-error: true`. **Impacto:** pueden pasar CI regresiones de permisos, sockets, carga de archivos y flujos multiusuario; un aviso nuevo de dependencias no bloquea la publicación.
 
-**Acción:** añadir integración con PostgreSQL, un smoke E2E de autenticación/documentos/colaboración y una política de seguridad que distinga avisos aceptados por parche de avisos nuevos.
+**Acción:** mantener integración y E2E como requisitos del build, completar cobertura de integración con PostgreSQL para permisos/datos y conservar una política de seguridad que distinga avisos aceptados por parche de avisos nuevos.
 
 ### A-12 — Baja / rendimiento — Construcciones Docker costosas en el host de despliegue
 
@@ -124,6 +124,12 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 - La comprobación de migraciones con PostgreSQL, la construcción de imágenes y Trivy no pudieron reproducirse en este equipo: Docker no estaba iniciado, y no estaban disponibles `psql` ni `trivy`. El build de Next y los checks de GitHub Actions aportan verificación adicional, pero no sustituyen pruebas multiusuario ni del despliegue activo.
 - No se ejecutaron integración, E2E, fuzzing, análisis dinámico ni revisión de secretos de producción. No se inspeccionó una sesión autenticada real; tampoco se comprobó qué commit/imágenes están activos actualmente en producción.
 - Los cambios del informe focalizado (`docs/security/audit-2026-10-14.md`) siguen **solo en el árbol local**. Este informe no modifica código ni despliega nada.
+
+## Seguimiento de A-06 y A-11 — 17 de octubre de 2026
+
+- **A-06:** la web construye una CSP nonce por petición con fuentes de API/WebSocket configuradas, bloquea scripts inline sin nonce y mantiene las cabeceras generales; la API aplica directivas CSP explícitas mediante Helmet. El acceso a `headers()` hace el layout dinámico para que Next aplique nonces durante SSR. Los tokens aún residen en `localStorage`; el plan de migración describe compatibilidad, CSRF y el cambio pendiente de Socket.IO.
+- **A-11:** se añadió una integración HTTP real para las cabeceras Helmet y jobs bloqueantes de integración y E2E. El job E2E migra un PostgreSQL aislado, inicia Redis, construye web en producción y ejecuta los recorridos existentes de autenticación, espacios, tableros y colaboración más pruebas de CSP. Las pruebas se añadieron a CI, pero esta edición no afirma que la ejecución remota haya pasado.
+- **Validación local:** no se ejecutaron tests ni builds de este árbol. La skill `security-audit` exige aislar esos procesos en un sandbox con red bloqueada, entorno permitido y límites de recursos; Docker no está activo en este equipo. `git diff --check` fue la única comprobación local ejecutada.
 
 ## Plan de corrección propuesto
 

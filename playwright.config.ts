@@ -68,7 +68,7 @@ export default defineConfig({
     // },
   ],
 
-  // Servidor de desarrollo
+  // API de prueba y build de producción web
   webServer: [
     {
       command: 'pnpm --filter @aether/api dev',
@@ -77,25 +77,28 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         NODE_ENV: 'development', // Cambiado de 'test' a 'development'
+        API_PORT: process.env.API_PORT || '3000',
         DATABASE_URL:
           process.env.TEST_DATABASE_URL ||
           process.env.DATABASE_URL ||
           'postgresql://aether:aether_dev_password@127.0.0.1:5432/aether_dev?schema=public&connect_timeout=10',
         JWT_SECRET: process.env.JWT_SECRET || 'test-secret-key-for-e2e-tests',
-        REDIS_URL: process.env.REDIS_URL || '',
+        REFRESH_TOKEN_SECRET:
+          process.env.REFRESH_TOKEN_SECRET || 'test-refresh-token-secret-for-e2e-tests-32c',
+        REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
       },
       stdout: 'pipe', // Muestra logs del servidor
       stderr: 'pipe',
     },
     {
-      command: 'pnpm --filter @aether/web dev',
+      command: 'pnpm --filter @aether/web exec next start -p 3001 -H localhost',
       url: 'http://localhost:3001',
       timeout: 240 * 1000, // Aumentado a 4 minutos
       reuseExistingServer: !process.env.CI,
       env: {
-        NODE_ENV: 'development', // Cambiado de 'test' a 'development'
-        NEXT_PUBLIC_API_URL: 'http://localhost:3000',
-        NEXT_PUBLIC_WS_URL: 'http://localhost:3000',
+        NODE_ENV: 'production',
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+        NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000',
       },
       stdout: 'pipe',
       stderr: 'pipe',

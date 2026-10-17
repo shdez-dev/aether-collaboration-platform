@@ -168,12 +168,139 @@ jobs:
           fail_ci_if_error: false
 
   # ===========================================================================
+  # INTEGRATION TESTS
+  # ===========================================================================
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run API integration tests
+        run: pnpm test:integration
+        env:
+          CI: true
+          NODE_ENV: test
+
+  # ===========================================================================
+  # END-TO-END TESTS
+  # ===========================================================================
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aether_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aether_e2e"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: true
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aether_e2e?schema=public
+      REDIS_URL: redis://localhost:6379
+      API_PORT: '3000'
+      JWT_SECRET: ci-only-access-token-secret-32-characters-minimum
+      REFRESH_TOKEN_SECRET: ci-only-refresh-token-secret-32-characters-minimum
+      FRONTEND_URL: http://localhost:3001
+      CORS_ORIGIN: http://localhost:3001
+      ALLOWED_ORIGINS: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+      NEXT_PUBLIC_WS_URL: http://localhost:3000
+      STORAGE_DRIVER: r2
+      R2_ACCOUNT_ID: ci-test-account
+      R2_ACCESS_KEY_ID: ci-test-access-key
+      R2_SECRET_ACCESS_KEY: ci-test-secret-key
+      R2_BUCKET_NAME: aether-e2e
+      R2_PUBLIC_URL: https://assets.example.test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared types
+        run: pnpm --dir packages/shared-types run build
+
+      - name: Build web for production E2E
+        run: pnpm --dir apps/web run build
+        env:
+          NODE_ENV: production
+
+      - name: Apply Prisma migrations
+        run: pnpm --dir apps/api run db:migrate:deploy
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: pnpm test:e2e
+
+      - name: Upload Playwright diagnostics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-diagnostics
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ===========================================================================
   # BUILD
   # ===========================================================================
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [migrations, lint, test]
+    needs: [migrations, lint, test, integration, e2e]
 
     steps:
       - name: Checkout code
