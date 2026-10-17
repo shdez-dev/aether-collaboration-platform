@@ -120,6 +120,32 @@
 .pill small { flex-shrink: 0; color: var(--c-text3); font-size: 9px; }
 .pillCompact { padding: 3px 4px; }
 
+/* Weekly overview: seven readable day cards instead of an hourly grid. */
+.weekScroll { flex: 1; min-width: 0; min-height: 0; padding: 13px 12px 10px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--c-border2) transparent; }
+.weekGrid { display: grid; grid-template-columns: repeat(7, minmax(108px, 1fr)); gap: 9px; box-sizing: border-box; width: 100%; min-width: 840px; height: 100%; min-height: 310px; }
+.weekColumn { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--calendar-line); border-radius: 10px; background: color-mix(in srgb, var(--c-accent) 2%, var(--c-surface)); animation: weekCardEnter 260ms cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--week-index, 0) * 22ms); transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease; }
+.weekColumn:hover { border-color: color-mix(in srgb, var(--c-accent) 42%, var(--calendar-line)); transform: translateY(-1px); }
+.weekToday { border-color: color-mix(in srgb, var(--c-accent) 72%, var(--calendar-line)); background: color-mix(in srgb, var(--c-accent) 5%, var(--c-surface)); }
+.weekDayHead { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-start; min-height: 82px; padding: 10px 9px 9px; border: 0; border-bottom: 1px solid var(--calendar-line); color: var(--c-text2); background: transparent; text-align: left; cursor: pointer; transition: color 150ms ease, background-color 150ms ease; }
+.weekDayHead:hover { color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 4%, transparent); }
+.weekDayHead > span { color: var(--c-text3); font-size: 10px; font-weight: 750; }
+.weekDayHead > strong { display: grid; place-items: center; width: 29px; height: 29px; margin-top: 3px; border-radius: 50%; color: var(--c-text); font: 700 19px/1 'Sora', system-ui, sans-serif; transition: color 150ms ease, background-color 150ms ease; }
+.weekToday .weekDayHead > strong { color: #fff; background: var(--c-accent); }
+.weekDayHead > small { margin-top: 3px; color: var(--c-text4); font-size: 9px; }
+.weekToday .weekDayHead > small { color: var(--c-accent-text); }
+.weekEvents { display: flex; flex: 1; flex-direction: column; gap: 7px; min-height: 0; padding: 9px 6px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--c-border2) transparent; }
+.weekEvent { position: relative; display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-start; gap: 4px; box-sizing: border-box; width: 100%; min-width: 0; min-height: 47px; padding: 7px 7px 7px 9px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--item-color) 44%, var(--calendar-line)); border-radius: 7px; color: var(--c-text); background: color-mix(in srgb, var(--item-color) 13%, var(--c-surface)); text-align: left; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease; }
+.weekEvent::before { position: absolute; top: 7px; bottom: 7px; left: -1px; width: 3px; border-radius: 0 2px 2px 0; background: var(--item-color); content: ''; }
+.weekEvent:hover { z-index: 1; border-color: color-mix(in srgb, var(--item-color) 72%, var(--calendar-line)); background: color-mix(in srgb, var(--item-color) 21%, var(--c-surface)); transform: translateY(-1px); }
+.weekEvent:focus-visible, .weekDayHead:focus-visible, .weekAdd:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: -2px; }
+.weekEvent > strong { display: -webkit-box; max-width: 100%; overflow: hidden; color: var(--c-text); font-size: 10px; font-weight: 750; line-height: 1.35; text-overflow: ellipsis; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.weekEvent > span { max-width: 100%; overflow: hidden; color: var(--c-text3); font-size: 9px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.weekEmpty { margin: 12px 3px 0; color: var(--c-text4); font-size: 10px; line-height: 1.45; text-align: center; }
+.weekAdd { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; min-height: 31px; margin: 5px; padding: 0 7px; border: 1px dashed var(--c-border2); border-radius: 7px; color: var(--c-text3); background: transparent; cursor: pointer; font: 700 9px 'Manrope', system-ui, sans-serif; transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease; }
+.weekAdd:hover { border-color: var(--c-accent); color: var(--c-accent-text); background: var(--c-hover); }
+.weekScroll::-webkit-scrollbar, .weekEvents::-webkit-scrollbar { width: 7px; height: 7px; }
+.weekScroll::-webkit-scrollbar-thumb, .weekEvents::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: var(--c-border2); background-clip: padding-box; }
+
 /* Month and agenda */
 .monthScroll { flex: 1; min-height: 0; overflow: auto; }
 .monthGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: 31px repeat(6, minmax(106px, 1fr)); min-height: 100%; }
@@ -213,6 +239,7 @@
 @keyframes miniEnter { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes tabUnderline { from { opacity: .3; transform: scaleX(.35); } to { opacity: 1; transform: scaleX(1); } }
 @keyframes slotEnter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes weekCardEnter { from { opacity: .35; } to { opacity: 1; } }
 @keyframes eventEnter { from { opacity: .25; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes backdropEnter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes backdropExit { from { opacity: 1; } to { opacity: 0; } }

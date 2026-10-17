@@ -1,14 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, CheckCircle2, FileText, ListTodo, Plus, X } from 'lucide-react';
+import { CalendarDays, CheckCircle2, FileText, LayoutGrid, ListTodo, Plus, X } from 'lucide-react';
 import type { Board, List } from '@aether/types';
 import { apiService } from '@/services/apiService';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useActiveWorkspaceStore } from '@/stores/activeWorkspaceStore';
 import type { Workspace } from '@/stores/workspaceStore';
 import type { Project } from '@/stores/projectStore';
+import { CalendarDatePicker } from '@/components/calendar/DateTimePickers';
+import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
+import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import styles from './QuickCreateModal.module.css';
 
 type CaptureKind = 'task' | 'note' | 'decision';
@@ -20,21 +24,27 @@ const options = [
   { kind: 'event', label: 'Evento', detail: 'Un momento en el calendario', icon: CalendarDays },
 ] as const;
 
-export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClose, onEvent }: {
+export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClose, onEvent, initialKind, initialTitle, initialProjectId, initialWorkspaceId }: {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
   onClose: () => void;
   onEvent: () => void;
+  initialKind?: CaptureKind;
+  initialTitle?: string;
+  initialProjectId?: string;
+  initialWorkspaceId?: string;
 }) {
   const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
   const createDocument = useDocumentStore((state) => state.createDocument);
   const setActiveWorkspaceId = useActiveWorkspaceStore((state) => state.setActiveWorkspaceId);
   const availableWorkspaces = useMemo(() => workspaces.filter((workspace) => !workspace.archived), [workspaces]);
-  const [kind, setKind] = useState<CaptureKind>('task');
+  const [kind, setKind] = useState<CaptureKind>(initialKind ?? 'task');
   const [workspaceId, setWorkspaceId] = useState(() =>
-    availableWorkspaces.some((workspace) => workspace.id === activeWorkspaceId)
-      ? activeWorkspaceId! : availableWorkspaces[0]?.id ?? '');
-  const [projectId, setProjectId] = useState('');
+    availableWorkspaces.some((workspace) => workspace.id === initialWorkspaceId)
+      ? initialWorkspaceId! : availableWorkspaces.some((workspace) => workspace.id === activeWorkspaceId)
+        ? activeWorkspaceId! : availableWorkspaces[0]?.id ?? '');
+  const [projectId, setProjectId] = useState(initialProjectId ?? '');
   const [boardId, setBoardId] = useState('');
   const [listId, setListId] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -43,7 +53,7 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
   const [loadingDestinations, setLoadingDestinations] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
   const [destinationRetry, setDestinationRetry] = useState(0);
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle ?? '');
   const [body, setBody] = useState('');
   const [nextStep, setNextStep] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -53,6 +63,49 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { titleRef.current?.focus(); }, []);
+
+  useEffect(() => {
+    const handleDialogKeyDown = (event: KeyboardEvent) => {
+      const form = dialogRef.current;
+      if (!form) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (event.key === 'Escape' && !saving) {
+        if (target?.closest('[aria-label="Seleccionar fecha límite"]')) return;
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusables = [...form.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])')];
+      const calendar = document.querySelector<HTMLElement>('[aria-label="Seleccionar fecha límite"]');
+      const calendarButtons = [...(calendar?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? [])];
+      const dateTrigger = form.querySelector<HTMLElement>('[aria-label^="fecha límite:"]');
+      const calendarIndex = calendarButtons.indexOf(target as HTMLButtonElement);
+      if (calendarIndex >= 0 && calendarButtons.length) {
+        if (event.shiftKey && calendarIndex === 0) {
+          event.preventDefault();
+          dateTrigger?.focus();
+        } else if (!event.shiftKey && calendarIndex === calendarButtons.length - 1) {
+          event.preventDefault();
+          const triggerIndex = dateTrigger ? focusables.indexOf(dateTrigger) : -1;
+          (triggerIndex >= 0 ? focusables[triggerIndex + 1] : focusables[0])?.focus();
+        }
+        return;
+      }
+
+      if (!focusables.length) return;
+      if (event.shiftKey && document.activeElement === focusables[0]) {
+        event.preventDefault();
+        focusables.at(-1)?.focus();
+      } else if (!event.shiftKey && document.activeElement === focusables.at(-1)) {
+        event.preventDefault();
+        focusables[0].focus();
+      }
+    };
+    document.addEventListener('keydown', handleDialogKeyDown);
+    return () => document.removeEventListener('keydown', handleDialogKeyDown);
+  }, [onClose, saving]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -70,14 +123,16 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
       apiService.get<{ boards: Board[] }>(`/api/workspaces/${workspaceId}/boards`, true),
     ]).then(([projectResult, boardResult]) => {
       if (!live) return;
-      setProjects(projectResult.success ? projectResult.data?.projects ?? [] : []);
+      const fetchedProjects = projectResult.success ? projectResult.data?.projects ?? [] : [];
+      setProjects(fetchedProjects);
       setBoards(boardResult.success ? boardResult.data?.boards ?? [] : []);
+      setProjectId(initialProjectId && fetchedProjects.some((project) => project.id === initialProjectId) ? initialProjectId : '');
       if (!projectResult.success || !boardResult.success) setError('No se pudieron cargar todos los destinos.');
     }).catch(() => {
       if (live) setError('No se pudieron cargar los destinos.');
     }).finally(() => { if (live) setLoadingDestinations(false); });
     return () => { live = false; };
-  }, [workspaceId, destinationRetry]);
+  }, [workspaceId, destinationRetry, initialProjectId]);
 
   useEffect(() => {
     if (!boardId) { setLists([]); setListId(''); return; }
@@ -103,15 +158,6 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
     setBoardId('');
     setListId('');
     setError('');
-  }
-
-  function onKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
-    if (event.key === 'Escape' && !saving) { event.preventDefault(); onClose(); }
-    if (event.key !== 'Tab') return;
-    const focusables = [...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])') ?? [])];
-    if (!focusables.length) return;
-    if (event.shiftKey && document.activeElement === focusables[0]) { event.preventDefault(); focusables.at(-1)?.focus(); }
-    if (!event.shiftKey && document.activeElement === focusables.at(-1)) { event.preventDefault(); focusables[0].focus(); }
   }
 
   async function submit(event: React.FormEvent) {
@@ -151,7 +197,7 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
   }
 
   return <div className={styles.backdrop}>
-    <form ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="quick-create-title" onKeyDown={onKeyDown} onSubmit={submit}>
+    <form ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="quick-create-title" onSubmit={submit}>
       <div className={styles.header}>
         <div><h2 id="quick-create-title">Crear desde aquí</h2><p>Captura la idea ahora y elige dónde guardarla.</p></div>
         <button className={styles.close} type="button" onClick={onClose} disabled={saving} aria-label="Cerrar"><X size={18} /></button>
@@ -167,55 +213,112 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
       </div>
 
       <div className={styles.fields}>
-        <label className={styles.field}>{kind === 'decision' ? '¿Qué se decidió?' : kind === 'note' ? 'Título de la nota' : 'Título de la tarea'}
-          <input ref={titleRef} value={title} onChange={(event) => setTitle(event.target.value)}
-            maxLength={kind === 'task' ? 255 : kind === 'decision' ? 170 : 180} placeholder={kind === 'decision' ? 'Ej. Continuar con la propuesta A' : kind === 'note' ? 'Ej. Ideas de la reunión' : 'Ej. Preparar la presentación'} required disabled={saving} />
-        </label>
-
-        <label className={styles.field}>{kind === 'decision' ? 'Motivo y contexto' : kind === 'note' ? 'Contenido' : 'Descripción (opcional)'}
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={kind === 'task' ? 2 : 4}
-            maxLength={kind === 'task' ? 3000 : 5000} required={kind !== 'task'} disabled={saving}
-            placeholder={kind === 'decision' ? 'Explica por qué se tomó esta decisión…' : kind === 'note' ? 'Escribe lo que quieres recordar…' : 'Añade contexto para quien vaya a realizarla…'} />
-        </label>
-
-        {kind === 'decision' && <label className={styles.field}>Siguiente paso <span>(opcional)</span>
-          <textarea value={nextStep} onChange={(event) => setNextStep(event.target.value)} maxLength={1000} rows={2} disabled={saving} placeholder="¿Qué ocurre después?" />
-        </label>}
-        {kind === 'task' && <label className={styles.field}>Fecha límite <span>(opcional)</span>
-          <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} disabled={saving} />
-        </label>}
-
-        <div className={styles.destinationHeading}>Dónde guardarlo</div>
-        <label className={styles.field}>Espacio de trabajo
-          <select value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)} required disabled={saving}>
-            {availableWorkspaces.length === 0 && <option value="">Sin espacios disponibles</option>}
-            {availableWorkspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-          </select>
-        </label>
-
-        <label className={styles.field}>Proyecto <span>(opcional)</span>
-          <select value={projectId} onChange={(event) => selectProject(event.target.value)} disabled={saving || loadingDestinations}>
-            <option value="">{kind === 'task' ? 'Todos los tableros del espacio' : 'Guardar en el espacio'}</option>
-            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-          </select>
-        </label>
-
-        {kind === 'task' && <div className={styles.twoColumns}>
-          <label className={styles.field}>Tablero
-            <select value={boardId} onChange={(event) => { setBoardId(event.target.value); setError(''); }} disabled={saving || loadingDestinations} required>
-              <option value="">{loadingDestinations ? 'Cargando…' : 'Selecciona un tablero'}</option>
-              {visibleBoards.map((board) => <option key={board.id} value={board.id}>{board.name}</option>)}
-            </select>
+        <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={kind}
+          className={styles.fieldsTransition}
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 7 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: -5 }}
+          transition={prefersReducedMotion
+            ? { opacity: { duration: 0.12, ease: 'easeOut' } }
+            : {
+              opacity: { duration: 0.15, ease: 'easeOut' },
+              x: { duration: 0.19, ease: [0.16, 1, 0.3, 1] },
+            }}
+        >
+        <div className={styles.primaryFields}>
+          <label className={styles.field}><span>{kind === 'decision' ? '¿Qué se decidió?' : kind === 'note' ? 'Título de la nota' : 'Título de la tarea'}</span>
+            <input ref={titleRef} value={title} onChange={(event) => setTitle(event.target.value)}
+              maxLength={kind === 'task' ? 255 : kind === 'decision' ? 170 : 180} placeholder={kind === 'decision' ? 'Ej. Continuar con la propuesta A' : kind === 'note' ? 'Ej. Ideas de la reunión' : 'Ej. Preparar la presentación'} required disabled={saving} />
           </label>
-          <label className={styles.field}>Lista
-            <select value={listId} onChange={(event) => setListId(event.target.value)} disabled={saving || loadingLists || !boardId} required>
-              <option value="">{loadingLists ? 'Cargando…' : 'Selecciona una lista'}</option>
-              {lists.map((list) => <option key={list.id} value={list.id}>{list.name}</option>)}
-            </select>
+
+          <label className={styles.field}><span>{kind === 'decision' ? 'Motivo y contexto' : kind === 'note' ? 'Contenido' : 'Descripción (opcional)'}</span>
+            <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={kind === 'task' ? 5 : 7}
+              maxLength={kind === 'task' ? 3000 : 5000} required={kind !== 'task'} disabled={saving}
+              placeholder={kind === 'decision' ? 'Explica por qué se tomó esta decisión…' : kind === 'note' ? 'Escribe lo que quieres recordar…' : 'Añade contexto para quien vaya a realizarla…'} />
           </label>
-        </div>}
-        {kind === 'task' && !loadingDestinations && visibleBoards.length === 0 && <p className={styles.hint}>Este {projectId ? 'proyecto' : 'espacio'} aún no tiene tableros disponibles. Crea uno para guardar tareas.</p>}
-        {kind === 'task' && boardId && !loadingLists && lists.length === 0 && <p className={styles.hint}>Este tablero aún no tiene listas. Crea una lista para guardar tareas.</p>}
+
+          {kind === 'decision' && <label className={styles.field}><span>Siguiente paso <em>(opcional)</em></span>
+            <textarea value={nextStep} onChange={(event) => setNextStep(event.target.value)} maxLength={1000} rows={3} disabled={saving} placeholder="¿Qué ocurre después?" />
+          </label>}
+        </div>
+
+        <div className={styles.destinationFields}>
+          {kind === 'task' && <label className={styles.field}><span>Fecha límite <em>(opcional)</em></span>
+            <CalendarDatePicker value={dueDate} onChange={setDueDate} label="fecha límite" portal />
+          </label>}
+
+          <div className={styles.destinationHeading}>Dónde guardarlo</div>
+          <label className={styles.field}><span>Espacio de trabajo</span>
+            <div className={styles.selectControl}>
+              <ProjectOptionSelect
+                id="quick-create-workspace"
+                label="Espacio de trabajo"
+                value={workspaceId}
+                placeholder={availableWorkspaces.length ? 'Selecciona un espacio' : 'Sin espacios disponibles'}
+                options={availableWorkspaces.map((workspace) => ({ value: workspace.id, label: workspace.name, icon: <WorkspaceIcon icon={workspace.icon ?? 'Folder'} size={14} strokeWidth={1.8} color={workspace.color ?? 'var(--c-accent-text)'} aria-hidden="true" /> }))}
+                onChange={setWorkspaceId}
+                disabled={saving || availableWorkspaces.length === 0}
+                menuZIndex={170}
+                closeOnTab
+              />
+            </div>
+          </label>
+
+          <label className={styles.field}><span>Proyecto <em>(opcional)</em></span>
+            <div className={styles.selectControl}>
+              <ProjectOptionSelect
+                id="quick-create-project"
+                label="Proyecto opcional"
+                value={projectId}
+                placeholder={loadingDestinations ? 'Cargando proyectos…' : kind === 'task' ? 'Todos los tableros del espacio' : 'Guardar en el espacio'}
+                options={projects.map((project) => ({ value: project.id, label: project.name, icon: <WorkspaceIcon icon={project.icon ?? 'Folder'} size={14} strokeWidth={1.8} color={project.color ?? 'var(--c-accent-text)'} aria-hidden="true" /> }))}
+                onChange={selectProject}
+                disabled={saving || loadingDestinations || projects.length === 0}
+                menuZIndex={170}
+                closeOnTab
+              />
+            </div>
+          </label>
+
+          {kind === 'task' && <div className={styles.twoColumns}>
+            <label className={styles.field}><span>Tablero</span>
+              <div className={styles.selectControl}>
+                <ProjectOptionSelect
+                  id="quick-create-board"
+                  label="Tablero"
+                  value={boardId}
+                  placeholder={loadingDestinations ? 'Cargando tableros…' : visibleBoards.length ? 'Selecciona un tablero' : 'No hay tableros disponibles'}
+                  options={visibleBoards.map((board) => ({ value: board.id, label: board.name, icon: <LayoutGrid size={14} aria-hidden="true" color={board.color ?? 'var(--c-accent-text)'} /> }))}
+                  onChange={(value) => { setBoardId(value); setError(''); }}
+                  disabled={saving || loadingDestinations || visibleBoards.length === 0}
+                  menuZIndex={170}
+                  closeOnTab
+                />
+              </div>
+            </label>
+            <label className={styles.field}><span>Lista</span>
+              <div className={styles.selectControl}>
+                <ProjectOptionSelect
+                  id="quick-create-list"
+                  label="Lista"
+                  value={listId}
+                  placeholder={loadingLists ? 'Cargando listas…' : lists.length ? 'Selecciona una lista' : 'Selecciona primero un tablero'}
+                  options={lists.map((list) => ({ value: list.id, label: list.name, icon: <ListTodo size={14} aria-hidden="true" /> }))}
+                  onChange={setListId}
+                  disabled={saving || loadingLists || !boardId || lists.length === 0}
+                  menuZIndex={170}
+                  closeOnTab
+                />
+              </div>
+            </label>
+          </div>}
+          {kind === 'task' && !loadingDestinations && visibleBoards.length === 0 && <p className={styles.hint}>Este {projectId ? 'proyecto' : 'espacio'} aún no tiene tableros disponibles. Crea uno para guardar tareas.</p>}
+          {kind === 'task' && boardId && !loadingLists && lists.length === 0 && <p className={styles.hint}>Este tablero aún no tiene listas. Crea una lista para guardar tareas.</p>}
+        </div>
+        </motion.div>
+        </AnimatePresence>
       </div>
 
       {error && <p className={styles.error} role="alert">{error} {error.includes('cargar') && <button type="button" onClick={() => { setError(''); setDestinationRetry((value) => value + 1); }}>Reintentar</button>}</p>}

@@ -245,8 +245,26 @@ model User {
   portfolioAlertsAcknowledged  PortfolioAlert[] @relation("PortfolioAlertAcknowledgedBy")
   portfolioAlertsResolved      PortfolioAlert[] @relation("PortfolioAlertResolvedBy")
   portfolioExports             PortfolioExportAudit[] @relation("PortfolioExportActor")
+  dashboards                   UserDashboard[]
 
   @@map("users")
+}
+
+model UserDashboard {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String   @db.VarChar(80)
+  contextType String   @map("context_type") @db.VarChar(20)
+  contextId   String?  @map("context_id") @db.Uuid
+  widgets     Json     @default("[]")
+  locked      Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("user_dashboards")
 }
 
 // ── User Preferences ─────────────────────────────────────────────────────────
@@ -563,6 +581,8 @@ model List {
 model Card {
   id          String    @id @default(uuid()) @db.Uuid
   listId      String    @map("list_id") @db.Uuid
+  projectId   String?   @map("project_id") @db.Uuid
+  cardCode    String?   @map("card_code") @db.VarChar(24)
   title       String
   description String?
   position    Int
@@ -579,6 +599,7 @@ model Card {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   list           List               @relation(fields: [listId], references: [id], onDelete: Cascade)
+  project        Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   creator        User               @relation(fields: [createdBy], references: [id])
   members        CardMember[]
   labels         CardLabel[]
@@ -590,6 +611,8 @@ model Card {
   projectEpicCards ProjectEpicCard[]
 
   @@index([listId])
+  @@index([projectId])
+  @@unique([projectId, cardCode], map: "cards_project_id_card_code_key")
   @@index([completed])
   @@map("cards")
 }
@@ -956,6 +979,8 @@ model Project {
   description String?
   icon        String?
   color       String?
+  cardPrefix  String?   @map("card_prefix") @db.VarChar(6)
+  nextCardNumber Int   @default(1) @map("next_card_number")
   status      String    @default("PLANNING") @db.VarChar(20)
   maturityStage String  @default("IDEA") @map("maturity_stage") @db.VarChar(20)
   methodology String @default("FLEXIBLE") @db.VarChar(20)
@@ -988,6 +1013,7 @@ model Project {
 
   workspace      Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   boards         ProjectBoard[]
+  cards          Card[]
   sprints        BoardSprint[]
   epics          ProjectEpic[]
   milestones     ProjectMilestone[]
@@ -1004,6 +1030,7 @@ model Project {
 
   @@index([workspaceId])
   @@index([ownerId])
+  @@unique([workspaceId, cardPrefix], map: "projects_workspace_card_prefix_key")
   @@map("projects")
 }
 

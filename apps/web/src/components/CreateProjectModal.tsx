@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, FolderKanban, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FolderKanban, Plus, RotateCcw, X } from 'lucide-react';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import { ProjectProposalFields, EMPTY_PROJECT_PROPOSAL, PROPOSAL_STEPS, type ProjectProposalAnswers, type ProposalStep } from '@/components/ProjectProposalFields';
 import { ProjectMethodologyStep, type ProjectParticipant, type ProjectTeamOption } from '@/components/ProjectMethodologyStep';
@@ -20,6 +20,17 @@ const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 const STEPS = [...PROPOSAL_STEPS, { title: 'Equipo y enfoque', description: 'Elige quién participa y cómo se organizará este proyecto.' }] as const;
 const PERSONAL_STEPS = [...PROPOSAL_STEPS, { title: 'Proyecto personal', description: 'Este proyecto será privado para ti.' }] as const;
+
+function suggestCardPrefix(projectName: string) {
+  const words = projectName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().match(/[A-Z0-9]+/g) ?? [];
+  if (!words.length) return 'PRO';
+  if (words.length === 1) return words[0].length >= 3 ? words[0].slice(0, 3) : 'PRO';
+  const initials = words.slice(0, 3).map((word) => word[0]).join('');
+  if (initials.length === 3) return initials;
+  const suggestion = `${initials}${words.map((word) => word.slice(1)).join('')}`.slice(0, 3);
+  return suggestion.length === 3 ? suggestion : 'PRO';
+}
+
 interface CreateProjectModalProps {
   onClose: () => void;
   onCreated: (project: Project) => void;
@@ -42,6 +53,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const projectSteps = canConfigureMethodology ? STEPS : PERSONAL_STEPS;
 
   const [proposal, setProposal] = useState<ProjectProposalAnswers>(EMPTY_PROJECT_PROPOSAL);
+  const [customCardPrefix, setCustomCardPrefix] = useState<string | null>(null);
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
   const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
   const [methodology, setMethodology] = useState<'FLEXIBLE' | 'SCRUM'>('FLEXIBLE');
@@ -62,6 +74,9 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [closing, setClosing] = useState(false);
+  const suggestedPrefix = suggestCardPrefix(proposal.title);
+  const cardPrefix = customCardPrefix ?? suggestedPrefix;
+  const validCardPrefix = /^[A-Z0-9]{3}$/.test(cardPrefix);
 
   useEffect(() => { void fetchWorkspaces(); }, [fetchWorkspaces]);
 
@@ -77,6 +92,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
     if (draft.workspaceId !== selectedWorkspaceId) return;
     pendingDraft.current = draft;
     setProposal(draft.proposal);
+    setCustomCardPrefix(draft.cardPrefixCustomized ? (draft.cardPrefix ?? '').slice(0, 3) : null);
     setMethodology(canConfigureMethodology ? draft.methodology : 'FLEXIBLE');
     setResumingDraft(true);
     setStep(3);
@@ -88,7 +104,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const canSubmit = Boolean(canCreateProject && selectedWorkspace && proposal.title.trim() && !isLoading);
   const participantIds = new Set([currentUserId, ...memberIds, ...teams.filter((team) => teamIds.includes(team.id)).flatMap((team) => team.members.map((person) => person.id))]);
   const scrumReady = methodology !== 'SCRUM' || Boolean(participantIds.size >= 3 && productOwnerId && scrumMasterId && productOwnerId !== scrumMasterId && participantIds.has(productOwnerId) && participantIds.has(scrumMasterId));
-  const finalDisabled = !canSubmit || participantsLoading || loadedWorkspaceId.current !== selectedWorkspaceId || Boolean(participantsError) || (canConfigureMethodology && !scrumReady);
+  const finalDisabled = !canSubmit || !validCardPrefix || participantsLoading || loadedWorkspaceId.current !== selectedWorkspaceId || Boolean(participantsError) || (canConfigureMethodology && !scrumReady);
 
   useEffect(() => {
     if (step !== 3 || !selectedWorkspaceId) return;
@@ -120,7 +136,8 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const leaveForTeams = () => {
     saveProjectCreationDraft({
       savedAt: Date.now(), userId: currentUserId, workspaceId: selectedWorkspaceId,
-      proposal, methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
+      proposal, cardPrefix, cardPrefixCustomized: customCardPrefix !== null,
+      methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
       teamIds: canSelectTeams ? teamIds : [], memberIds: canConfigureMethodology ? memberIds : [], productOwnerId, scrumMasterId,
     });
     setResumingDraft(true);
@@ -133,7 +150,8 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
     const participantsLoaded = loadedWorkspaceId.current === selectedWorkspaceId;
     saveProjectCreationDraft({
       savedAt: Date.now(), userId: currentUserId, workspaceId: selectedWorkspaceId,
-      proposal, methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
+      proposal, cardPrefix, cardPrefixCustomized: customCardPrefix !== null,
+      methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
       teamIds: canSelectTeams ? (participantsLoaded ? teamIds : waitingDraft?.teamIds ?? teamIds) : [],
       memberIds: canConfigureMethodology ? (participantsLoaded ? memberIds : waitingDraft?.memberIds ?? memberIds) : [],
       productOwnerId: participantsLoaded ? productOwnerId : waitingDraft?.productOwnerId ?? productOwnerId,
@@ -185,6 +203,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
       const project = await createProject({
         workspaceId: selectedWorkspace.id,
         name: proposal.title.trim(),
+        cardPrefix: cardPrefix.trim(),
         description: proposal.summary.trim(),
         problemStatement: proposal.problemStatement.trim(),
         impactedPeople: proposal.impactedPeople.trim(),
@@ -206,7 +225,8 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
       markStepDone('project');
       onCreated(project);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo crear el proyecto. Inténtalo de nuevo.');
+      const message = cause instanceof Error ? cause.message : 'No se pudo crear el proyecto. Inténtalo de nuevo.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -299,7 +319,9 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 </div>
               )}
 
-              {selectedWorkspace && step < 3 ? <ProjectProposalFields step={step as ProposalStep} values={proposal} onChange={updateProposal} accent={PROJECT_COLOR} /> : selectedWorkspace ? <ProjectMethodologyStep
+              {selectedWorkspace && step < 3 ? <>
+                <ProjectProposalFields step={step as ProposalStep} values={proposal} onChange={updateProposal} accent={PROJECT_COLOR} />
+              </> : selectedWorkspace ? <ProjectMethodologyStep
                 methodology={methodology} onMethodologyChange={setMethodology}
                 teams={teams} members={members} teamIds={teamIds} onTeamIdsChange={setTeamIds}
                 memberIds={memberIds} onMemberIdsChange={setMemberIds}
@@ -317,6 +339,44 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   {isInstitutionalWorkspace && <Link href="/dashboard/initiatives/new" onClick={handleClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: PROJECT_COLOR, fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>Crear iniciativa institucional <ArrowRight size={14} /></Link>}
                 </div>
               )}
+
+              {selectedWorkspace && step === 3 && <section aria-labelledby="project-card-prefix-title" style={{ marginTop: 20, padding: '16px 0 2px', borderTop: '1px solid rgba(97,71,130,0.12)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+                    <h4 id="project-card-prefix-title" style={{ margin: 0, color: 'var(--c-text)', fontSize: 12, fontWeight: 700, fontFamily: MANROPE }}>Prefijo de tarjetas</h4>
+                    <p style={{ margin: '4px 0 0', color: 'var(--c-text3)', fontSize: 10.5, lineHeight: 1.45, fontFamily: MANROPE }}>Cada tarjeta tendrá un código consecutivo, por ejemplo CFT-01.</p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <input
+                      id="project-card-prefix"
+                      name="cardPrefix"
+                      aria-label="Prefijo de tres caracteres"
+                      required
+                      minLength={3}
+                      maxLength={3}
+                      pattern="[A-Z0-9]{3}"
+                      value={cardPrefix}
+                      onChange={(event) => {
+                        setCustomCardPrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3));
+                        if (error) setError('');
+                      }}
+                      aria-describedby="project-card-prefix-hint"
+                      aria-invalid={!validCardPrefix}
+                      autoComplete="off"
+                      spellCheck={false}
+                      style={{ width: 82, height: 38, boxSizing: 'border-box', borderRadius: 9, padding: '0 10px', border: `1px solid ${validCardPrefix ? 'rgba(97,71,130,0.18)' : 'rgba(184,92,92,0.5)'}`, color: 'var(--c-text)', background: 'rgba(97,71,130,0.045)', outlineColor: PROJECT_COLOR, fontFamily: MANROPE, fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center', textTransform: 'uppercase' }}
+                    />
+                    {customCardPrefix !== null && <button type="button" onClick={() => setCustomCardPrefix(null)} className="create-project-back" aria-label="Restaurar prefijo sugerido" style={{ minHeight: 36, padding: '0 9px', border: '1px solid rgba(97,71,130,0.14)', borderRadius: 8, color: 'var(--c-text2)', background: 'transparent', font: `600 10.5px ${MANROPE}`, cursor: 'pointer' }}><RotateCcw size={12} />Sugerido</button>}
+                    <span aria-live="polite" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 36, padding: '0 10px', borderRadius: 9, border: '1px solid rgba(116,82,166,0.22)', background: 'rgba(116,82,166,0.08)' }}>
+                      <span style={{ color: 'var(--c-text3)', fontSize: 10.5, fontFamily: MANROPE }}>Código</span>
+                      <code style={{ color: PROJECT_COLOR, fontSize: 12, fontWeight: 800, letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>{validCardPrefix ? `${cardPrefix}-01` : 'ABC-01'}</code>
+                    </span>
+                  </div>
+                </div>
+                <p id="project-card-prefix-hint" style={{ margin: '8px 0 0', color: validCardPrefix ? 'var(--c-text3)' : '#D98B9B', fontSize: 10.5, lineHeight: 1.4, fontFamily: MANROPE }}>
+                  {validCardPrefix ? 'Usa 3 letras o números, sin espacios. Puedes cambiar la sugerencia.' : 'Escribe exactamente 3 letras o números.'}
+                </p>
+              </section>}
 
               {error && <p role="alert" className="create-project-error" style={{ margin: '16px 0 0', padding: '10px 12px', borderRadius: 9, color: '#9F455F', background: 'rgba(184,92,92,0.1)', border: '1px solid rgba(184,92,92,0.24)', fontSize: 12.5, lineHeight: 1.45, fontFamily: MANROPE }}>{error}</p>}
               </div>

@@ -3,10 +3,12 @@
 .triggerValue, .optionContent { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; }
 .optionIcon { display: grid; width: 24px; height: 24px; flex: none; place-items: center; overflow: hidden; border-radius: 50%; }
 .optionLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.placeholder { color: var(--c-text4); }
 .trigger:hover, .open { border-color: var(--c-accent-text); }
 .open { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent-text) 12%, transparent); }
-.trigger svg { flex: none; color: var(--c-text3); transition: transform 150ms ease; }
-.open svg { transform: rotate(180deg); }
+.trigger > svg { flex: none; color: var(--c-text3); transition: transform 150ms ease; }
+.trigger .optionIcon svg { color: var(--c-accent-text); }
+.open > svg { transform: rotate(180deg); }
 .trigger:focus-visible, .option:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
 .trigger:disabled { opacity: .58; cursor: not-allowed; }
 :global(.create-project-workspace-select) .trigger { height: 46px; padding-inline: 13px; border-radius: 9px; font-size: 13px; }

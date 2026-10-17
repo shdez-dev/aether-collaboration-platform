@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { workspaceService } from '../services/WorkspaceService';
 import { pool } from '../lib/db';
 import { userActivityService } from '../services/UserActivityService';
+import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
 import type { WorkspaceRequest } from '../middleware/workspace';
 import type { WorkspaceRole, UserId } from '@aether/types';
 
@@ -1151,6 +1152,93 @@ class WorkspaceController {
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch workspace stats' },
+      });
+    }
+  }
+
+  /**
+   * GET /api/workspaces/:id/unassigned-cards
+   * Tarjetas activas sin ninguna persona asignada, dentro del alcance visible del usuario.
+   */
+  async getUnassignedCards(req: WorkspaceRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const workspaceId = req.params.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
+
+      const accessibleProjectIds = await projectAuthorizationService.getAccessibleProjectIds(userId, workspaceId);
+      const result = await pool.query(
+        `SELECT
+           c.id,
+           c.title,
+           c.due_date AS "dueDate",
+           c.priority,
+           c.created_at AS "createdAt",
+           l.name AS "listName",
+           b.id AS "boardId",
+           b.name AS "boardName",
+           w.id AS "workspaceId",
+           w.name AS "workspaceName",
+           COUNT(*) OVER()::int AS "totalCount",
+           COUNT(*) FILTER (WHERE c.priority = 'HIGH') OVER()::int AS "highCount",
+           COUNT(*) FILTER (WHERE c.priority = 'MEDIUM') OVER()::int AS "mediumCount",
+           COUNT(*) FILTER (WHERE c.priority = 'LOW') OVER()::int AS "lowCount",
+           COUNT(*) FILTER (WHERE c.priority IS NULL) OVER()::int AS "unprioritizedCount",
+           COUNT(*) FILTER (WHERE c.due_date IS NOT NULL AND c.due_date < CURRENT_DATE) OVER()::int AS "overdueCount"
+         FROM cards c
+         JOIN lists l ON l.id = c.list_id
+         JOIN boards b ON b.id = l.board_id
+         JOIN workspaces w ON w.id = b.workspace_id
+         WHERE b.workspace_id = $1
+           AND b.archived = false
+           AND c.completed = false
+           AND NOT EXISTS (SELECT 1 FROM card_members cm WHERE cm.card_id = c.id)
+           AND (
+             NOT EXISTS (SELECT 1 FROM project_boards pb WHERE pb.board_id = b.id)
+             OR NOT EXISTS (
+               SELECT 1 FROM project_boards pb
+               WHERE pb.board_id = b.id AND NOT (pb.project_id = ANY($2::uuid[]))
+             )
+           )
+         ORDER BY
+           CASE WHEN c.due_date IS NOT NULL AND c.due_date < CURRENT_DATE THEN 0 ELSE 1 END,
+           CASE c.priority WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
+           CASE WHEN c.due_date IS NULL THEN 1 ELSE 0 END,
+           c.due_date ASC,
+           c.created_at ASC
+         LIMIT 100`,
+        [workspaceId, accessibleProjectIds],
+      );
+      const totalCount = Number(result.rows[0]?.totalCount ?? 0);
+      const priorityCounts = {
+        high: Number(result.rows[0]?.highCount ?? 0),
+        medium: Number(result.rows[0]?.mediumCount ?? 0),
+        low: Number(result.rows[0]?.lowCount ?? 0),
+        unprioritized: Number(result.rows[0]?.unprioritizedCount ?? 0),
+        overdue: Number(result.rows[0]?.overdueCount ?? 0),
+      };
+      const cards = result.rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        dueDate: row.dueDate,
+        priority: row.priority,
+        createdAt: row.createdAt,
+        listName: row.listName,
+        boardId: row.boardId,
+        boardName: row.boardName,
+        workspaceId: row.workspaceId,
+        workspaceName: row.workspaceName,
+      }));
+      return res.json({ success: true, data: { cards, totalCount, priorityCounts } });
+    } catch {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch unassigned cards' },
       });
     }
   }

@@ -1,0 +1,190 @@
+.calendarWidget { container-type: inline-size; display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; color: var(--c-text); background: var(--c-bg2); font-family: 'Manrope', system-ui, sans-serif; }
+.calendarWidget button, .calendarWidget a { -webkit-tap-highlight-color: transparent; }
+.calendarWidget button:focus-visible, .calendarWidget a:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: -2px; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex: 0 0 auto; min-height: 70px; box-sizing: border-box; padding: 10px 86px 10px 19px; border-bottom: 1px solid var(--c-border); background: color-mix(in srgb, var(--c-accent) 5%, var(--c-bg2)); }
+.period { display: grid; grid-template-columns: 3px minmax(0, 1fr); column-gap: 11px; min-width: 0; }
+.periodAccent { grid-row: 1 / span 2; width: 3px; min-height: 34px; border-radius: 3px; background: var(--c-accent); }
+.period strong { overflow: hidden; color: var(--c-text); font: 650 17px/1.25 'Sora', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.period small { margin-top: 3px; color: var(--c-text3); font-size: 10px; }
+.headerActions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.headerActions button { border: 1px solid var(--c-border); color: var(--c-text2); background: var(--c-bg2); cursor: pointer; transition: color .16s ease, border-color .16s ease, background .16s ease; }
+.headerActions button:hover { border-color: var(--c-accent); color: var(--c-accent-text); }
+.todayButton { height: 30px; padding: 0 10px; border-radius: 7px; font: 750 10px 'Manrope', system-ui, sans-serif; }
+.navigation { display: flex; overflow: hidden; border: 1px solid var(--c-border); border-radius: 7px; }
+.navigation button { display: grid; place-items: center; width: 29px; height: 29px; padding: 0; border: 0; border-radius: 0; }
+.navigation button + button { border-left: 1px solid var(--c-border); }
+.viewSwitch { display: flex; padding: 3px; border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-bg); }
+.viewSwitch button { height: 24px; min-width: 45px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; font: 700 10px 'Manrope', system-ui, sans-serif; }
+.viewSwitch button[aria-pressed='true'] { color: #fff; background: var(--c-accent); box-shadow: 0 2px 7px color-mix(in srgb, var(--c-accent) 27%, transparent); }
+.headerActions .createButton { display: flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 9px; border-color: var(--c-accent); border-radius: 7px; color: #fff; background: var(--c-accent); font: 750 10px 'Manrope', system-ui, sans-serif; }
+.headerActions .createButton:hover { color: #fff; background: color-mix(in srgb, var(--c-accent) 83%, white); }
+.content { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.viewMotion { display: flex; flex: 1; width: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.error { position: absolute; z-index: 6; top: 8px; left: 50%; display: flex; align-items: center; gap: 8px; max-width: calc(100% - 20px); padding: 7px 10px; transform: translateX(-50%); border: 1px solid #d98095; border-radius: 7px; color: var(--c-text); background: var(--c-bg2); font-size: 10px; box-shadow: 0 8px 22px rgba(0,0,0,.12); }
+.error button { padding: 0; border: 0; color: var(--c-accent-text); background: transparent; cursor: pointer; font-weight: 750; }
+.footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; min-height: 38px; padding: 0 15px; border-top: 1px solid var(--c-border); }
+.sources { display: flex; align-items: center; gap: 5px; min-width: 0; overflow-x: auto; }
+.sources button { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 4px 7px; border: 1px solid transparent; border-radius: 6px; color: var(--c-text3); background: transparent; cursor: pointer; font: 650 9px 'Manrope', system-ui, sans-serif; transition: opacity .16s ease, background .16s ease; }
+.sources button:hover, .sources button[aria-pressed='true']:hover { background: var(--c-hover); }
+.sources button[aria-pressed='false'] { opacity: .42; }
+.sources i { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 3px; }
+.timezone { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; color: var(--c-text4); font-size: 9px; }
+.eventChip { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; padding: 6px 7px; border: 1px solid color-mix(in srgb, var(--event-color) 42%, var(--c-border)); border-left: 3px solid var(--event-color); border-radius: 7px; color: var(--c-text2); background: color-mix(in srgb, var(--event-color) 12%, var(--c-bg2)); text-align: left; cursor: pointer; transition: background .16s ease, transform .16s ease; }
+.eventChip:hover { background: color-mix(in srgb, var(--event-color) 21%, var(--c-bg2)); transform: translateY(-1px); }
+.eventChip > i { display: none; }
+.eventChip span { max-width: 100%; overflow: hidden; font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.eventChip small { color: var(--c-text3); font-size: 9px; }
+.eventChipCompact { flex-direction: row; align-items: center; justify-content: flex-start; gap: 5px; min-height: 20px; padding: 2px 5px; border: 0; border-radius: 4px; }
+.eventChipCompact > i { display: block; width: 5px; height: 5px; flex: 0 0 5px; border-radius: 2px; background: var(--event-color); }
+.eventChipCompact span { font-size: 9px; }
+.moreEvents { padding: 2px 4px; border: 0; color: var(--c-accent-text); background: transparent; text-align: left; cursor: pointer; font: 700 9px 'Manrope', system-ui, sans-serif; }
+.monthScroll, .weekScroll { flex: 1; min-width: 0; min-height: 0; overflow: auto; }
+.monthScroll { box-sizing: border-box; padding: 10px 11px 12px; }
+.monthGrid { display: grid; grid-template-columns: repeat(7, minmax(95px, 1fr)); grid-template-rows: 24px repeat(6, auto); box-sizing: border-box; width: 100%; min-width: 665px; height: max-content; gap: 6px; background: transparent; }
+.monthWeekday { display: grid; place-items: center; color: var(--c-text3); background: transparent; font-size: 10px; font-weight: 750; }
+.monthCell { position: relative; min-width: 0; min-height: 0; aspect-ratio: 1; padding: 5px; overflow: hidden; border: 1px solid var(--c-border); border-radius: 8px; background: color-mix(in srgb, var(--c-accent) 2%, var(--c-bg2)); cursor: pointer; transition: border-color .16s ease, background .16s ease; }
+.monthCell:hover { border-color: color-mix(in srgb, var(--c-accent) 60%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 8%, var(--c-bg2)); }
+.monthCell:nth-child(7n), .monthCell:nth-child(7n + 6) { background: color-mix(in srgb, var(--c-accent) 5%, var(--c-bg2)); }
+.monthCell.outsideMonth { opacity: .55; }
+.monthCell.currentDay { border-color: color-mix(in srgb, var(--c-accent) 68%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 12%, var(--c-bg2)); }
+.monthCellTop { display: flex; align-items: center; gap: 4px; min-height: 23px; padding-right: 17px; }
+.monthTodayLabel { color: var(--c-accent-text); font-size: 8px; font-weight: 800; }
+.monthCount { min-width: 0; overflow: hidden; margin-left: auto; color: var(--c-text4); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.dayNumber { display: grid; place-items: center; width: 23px; height: 23px; padding: 0; border: 0; border-radius: 6px; color: var(--c-text2); background: transparent; cursor: pointer; font: 750 10px 'Manrope', system-ui, sans-serif; }
+.dayNumber:hover { color: var(--c-accent-text); background: var(--c-hover); }
+.currentDay .dayNumber { color: #fff; background: var(--c-accent); }
+.cellAdd { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 21px; height: 21px; padding: 0; opacity: 0; border: 0; border-radius: 5px; color: var(--c-accent-text); background: var(--c-hover); cursor: pointer; transition: opacity .15s ease; }
+.monthCell:hover .cellAdd, .cellAdd:focus-visible { opacity: 1; }
+.monthEvents { display: flex; flex-direction: column; gap: 3px; min-width: 0; margin-top: 5px; }
+.weekScroll { box-sizing: border-box; padding: 12px; }
+.weekGrid { display: grid; grid-template-columns: repeat(7, minmax(100px, 1fr)); box-sizing: border-box; width: 100%; min-width: 700px; height: 100%; min-height: 320px; gap: 9px; background: transparent; }
+.weekColumn { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--c-border); border-radius: 9px; background: color-mix(in srgb, var(--c-accent) 2%, var(--c-bg2)); }
+.weekToday { border-color: color-mix(in srgb, var(--c-accent) 65%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 8%, var(--c-bg2)); }
+.weekDayHead { display: flex; flex-direction: column; align-items: flex-start; flex: 0 0 auto; min-height: 83px; padding: 11px 10px; border: 0; border-bottom: 1px solid var(--c-border); color: var(--c-text2); background: transparent; text-align: left; cursor: pointer; }
+.weekDayHead:hover { color: var(--c-accent-text); }
+.weekDayHead span { font-size: 10px; font-weight: 700; }
+.weekDayHead strong { margin-top: 2px; font: 700 22px/1 'Sora', system-ui, sans-serif; }
+.weekToday .weekDayHead strong { color: var(--c-accent-text); }
+.weekDayHead small { margin-top: 5px; color: var(--c-text4); font-size: 9px; }
+.weekEvents { display: flex; flex: 1; flex-direction: column; gap: 6px; min-height: 0; padding: 9px 6px; overflow: auto; }
+.weekEmpty { margin-top: 6px; color: var(--c-text4); text-align: center; font-size: 10px; }
+.weekAdd { display: flex; align-items: center; justify-content: center; gap: 4px; flex: 0 0 auto; min-height: 30px; margin: 5px; border: 1px dashed var(--c-border); border-radius: 6px; color: var(--c-text3); background: transparent; cursor: pointer; font: 700 9px 'Manrope', system-ui, sans-serif; }
+.weekAdd:hover { border-color: var(--c-accent); color: var(--c-accent-text); background: var(--c-hover); }
+.dayView { display: grid; grid-template-columns: minmax(0, 1.72fr) minmax(255px, 1fr); gap: 10px; flex: 1; min-width: 0; min-height: 0; padding: 10px; overflow: hidden; }
+.daySchedule { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--c-border); border-radius: 11px; background: var(--c-bg2); }
+.daySide { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.sideEyebrow { color: var(--c-accent-text); font-size: 9px; font-weight: 850; letter-spacing: .1em; }
+.stickyPanel { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; border: 1px solid var(--c-border); border-radius: 11px; background: var(--c-bg2); }
+.stickyHead { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 12px 13px 9px; border-bottom: 1px solid var(--c-border); }
+.stickyHead > div { display: flex; flex-direction: column; gap: 2px; }
+.stickyHead strong { font: 700 13px 'Sora', system-ui, sans-serif; }
+.stickyHead > button { display: grid; place-items: center; width: 27px; height: 27px; padding: 0; border: 1px solid var(--c-border); border-radius: 7px; color: var(--c-accent-text); background: var(--c-bg2); cursor: pointer; }
+.stickyHead > button:hover { border-color: var(--c-accent); background: var(--c-hover); }
+.stickyHead > button:disabled { opacity: .45; cursor: not-allowed; }
+.stickyHead > button svg { transition: transform .2s cubic-bezier(.16, 1, .3, 1); }
+.stickyHead > button[aria-expanded='true'] svg { transform: rotate(45deg); }
+.stickyScroll { flex: 1; min-height: 0; overflow: auto; padding: 11px; }
+.stickyEmpty { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 145px; padding: 10px 14px; border: 1px dashed var(--c-border); border-radius: 8px; background: color-mix(in srgb, var(--c-accent) 4%, var(--c-bg2)); }
+.stickyEmpty > span { color: var(--c-accent-text); font-size: 23px; }
+.stickyEmpty p { max-width: 180px; margin: 6px 0 12px; color: var(--c-text3); font-size: 10px; line-height: 1.5; }
+.stickyEmpty button { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; color: var(--c-accent-text); background: transparent; cursor: pointer; font: 800 10px 'Manrope', system-ui, sans-serif; }
+.stickyGrid { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 8px; }
+.stickyNote { min-width: 0; min-height: 100px; padding: 8px; border: 1px solid color-mix(in srgb, var(--note-color) 33%, var(--c-border)); border-radius: 5px 11px 11px 11px; background: color-mix(in srgb, var(--note-color) 13%, var(--c-bg2)); box-shadow: 0 2px 0 color-mix(in srgb, var(--note-color) 11%, transparent); }
+.stickyViolet { --note-color: #9675cc; }
+.stickyMint { --note-color: #66ab91; }
+.stickyAmber { --note-color: #d7a679; }
+.stickyNoteTop { display: flex; align-items: flex-start; justify-content: space-between; }
+.stickyNoteTop i { width: 14px; height: 4px; border-radius: 2px; background: var(--note-color); }
+.stickyNoteTop button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; color: var(--c-text3); background: transparent; cursor: pointer; }
+.stickyNoteTop button:hover { background: var(--c-hover); color: var(--c-text); }
+.stickyText { display: block; width: 100%; margin-top: 5px; padding: 0; border: 0; color: var(--c-text2); background: transparent; text-align: left; overflow-wrap: anywhere; cursor: text; font: 650 10px/1.45 'Manrope', system-ui, sans-serif; white-space: pre-wrap; }
+.stickyComposer { box-sizing: border-box; margin-bottom: 11px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--note-color) 65%, var(--c-border)); border-radius: 10px; background: color-mix(in srgb, var(--note-color) 11%, var(--c-bg2)); box-shadow: 0 7px 18px -12px color-mix(in srgb, var(--note-color) 42%, transparent); transition: border-color .18s ease, background .18s ease; }
+.stickyComposer:focus-within { border-color: var(--note-color); }
+.composerTop { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px 5px 13px; }
+.composerTop span { display: inline-flex; align-items: center; gap: 6px; color: var(--c-text2); font-size: 10px; font-weight: 800; }
+.composerTop svg { color: var(--note-color); }
+.composerTop button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px; color: var(--c-text3); background: transparent; cursor: pointer; }
+.composerTop button:hover { color: var(--c-text); background: var(--c-hover); }
+.stickyComposer textarea, .stickyEditor textarea { box-sizing: border-box; width: 100%; min-height: 65px; resize: vertical; border: 0; outline: 0; color: var(--c-text); background: transparent; font: 600 10px/1.4 'Manrope', system-ui, sans-serif; }
+.stickyComposer textarea { display: block; min-height: 104px; padding: 8px 14px 7px; resize: none; caret-color: var(--note-color); background-image: linear-gradient(to bottom, transparent 23px, color-mix(in srgb, var(--note-color) 16%, transparent) 24px); background-size: 100% 24px; background-attachment: local; font-size: 11px; line-height: 24px; }
+.stickyComposer textarea::placeholder { color: var(--c-text3); opacity: .85; }
+.stickyComposerFoot { display: flex; align-items: center; gap: 9px; padding: 9px 10px 10px 13px; border-top: 1px solid color-mix(in srgb, var(--note-color) 18%, var(--c-border)); }
+.tonePicker { display: flex; align-items: center; gap: 8px; }
+.tonePicker button { width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; transition: transform .16s ease; }
+.tonePicker button:hover { transform: scale(1.14); }
+.tonePicker button[aria-pressed='true'] { outline: 1px solid var(--c-text2); outline-offset: 2px; }
+.toneViolet { background: #9675cc; }.toneMint { background: #66ab91; }.toneAmber { background: #d7a679; }
+.stickyCounter { margin-left: auto; color: var(--c-text3); font-size: 9px; font-variant-numeric: tabular-nums; }
+.saveSticky { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 28px; padding: 0 9px; border: 0; border-radius: 6px; color: #fff; background: var(--c-accent); cursor: pointer; font: 800 9px 'Manrope', system-ui, sans-serif; transition: background .16s ease, transform .16s ease; }
+.saveSticky:not(:disabled):hover { transform: translateY(-1px); background: color-mix(in srgb, var(--c-accent) 82%, white); }
+.saveSticky:disabled { opacity: .45; cursor: not-allowed; }
+.stickyEditor textarea { min-height: 75px; }
+.stickyEditor > div { display: flex; justify-content: flex-end; gap: 5px; }
+.stickyEditor button { padding: 3px 5px; border: 0; border-radius: 4px; color: var(--c-accent-text); background: var(--c-bg2); cursor: pointer; font: 750 8px 'Manrope', system-ui, sans-serif; }
+.stickyPrivacy { flex: 0 0 auto; padding: 7px 12px; border-top: 1px solid var(--c-border); color: var(--c-text4); font-size: 8px; }
+.dayTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: 0 0 auto; min-height: 62px; padding: 8px 14px; background: color-mix(in srgb, var(--c-accent) 5%, var(--c-bg2)); }
+.dayIdentity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dayBigNumber { display: grid; place-items: center; flex: 0 0 auto; width: 39px; height: 39px; border: 1px solid color-mix(in srgb, var(--c-accent) 26%, var(--c-border)); border-radius: 10px; color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 10%, var(--c-bg2)); font: 750 22px/1 'Sora', system-ui, sans-serif; }
+.dayIdentityText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dayIdentityText strong { overflow: hidden; color: var(--c-text); font: 750 12px/1.25 'Manrope', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.dayIdentityText small { color: var(--c-text3); font-size: 10px; }
+.openCalendar { display: inline-flex; align-items: center; gap: 4px; padding: 6px 7px; border-radius: 6px; color: var(--c-accent-text); font-size: 10px; font-weight: 750; text-decoration: none; white-space: nowrap; transition: background .18s ease, transform .18s ease; }
+.openCalendar:hover { background: color-mix(in srgb, var(--c-accent) 10%, transparent); transform: translateX(2px); }
+.dayTools { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 0 0 auto; padding: 7px 11px; border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); }
+.dayPartButtons { display: flex; gap: 5px; min-width: 0; }
+.dayPartButton { display: inline-flex; align-items: center; gap: 5px; min-height: 27px; padding: 4px 9px; border: 1px solid transparent; border-radius: 7px; color: var(--c-text3); background: transparent; cursor: pointer; font: 750 10px 'Manrope', system-ui, sans-serif; white-space: nowrap; transition: color .18s ease, border-color .18s ease, background .18s ease, transform .18s ease; }
+.dayPartButton span { color: var(--c-text4); font-size: 9px; font-variant-numeric: tabular-nums; }
+.dayPartButton:hover { color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 8%, transparent); transform: translateY(-1px); }
+.dayPartActive { border-color: color-mix(in srgb, var(--c-accent) 33%, var(--c-border)); color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 12%, var(--c-bg2)); }
+.dayPartActive span { color: var(--c-accent-text); opacity: .75; }
+.jumpNow { display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; border: 0; border-radius: 6px; color: var(--c-text2); background: transparent; cursor: pointer; font: 750 10px 'Manrope', system-ui, sans-serif; white-space: nowrap; }
+.jumpNow:hover { background: var(--c-hover); }
+.jumpNow span { width: 6px; height: 6px; border-radius: 50%; background: #d98095; box-shadow: 0 0 0 3px color-mix(in srgb, #d98095 16%, transparent); }
+.allDay { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 7px; flex: 0 0 auto; padding: 5px 12px; border-bottom: 1px solid var(--c-border); }
+.allDay > span { color: var(--c-text4); font-size: 9px; }
+.allDay > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.allDay .eventChip { width: auto; max-width: 180px; }
+.dayScroll { flex: 1; min-height: 0; overflow: auto; scrollbar-color: color-mix(in srgb, var(--c-accent) 26%, var(--c-border)) transparent; }
+.dayTimeline { display: grid; grid-template-columns: 54px minmax(0, 1fr); min-width: 0; height: 1152px; }
+.hourRail { position: relative; border-right: 1px solid var(--c-border); background: color-mix(in srgb, var(--c-accent) 3%, var(--c-bg2)); }
+.hourRail span { position: absolute; right: 8px; color: var(--c-text4); font-size: 9px; font-variant-numeric: tabular-nums; }
+.hourRail .hourMilestone { color: var(--c-accent-text); font-weight: 800; }
+.hourTrack { position: relative; cursor: crosshair; background-image: linear-gradient(to bottom, var(--c-border) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--c-border) 42%, transparent) 1px, transparent 1px); background-size: 100% 48px, 100% 24px; background-position: 0 0, 0 24px; }
+.dayPhase { position: absolute; right: 0; left: 0; border-top: 1px solid color-mix(in srgb, var(--c-accent) 28%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 2.5%, transparent); pointer-events: none; }
+.dayPhase:nth-child(2) { background: color-mix(in srgb, var(--c-accent) 5%, transparent); }
+.dayPhase:nth-child(3) { background: color-mix(in srgb, #d98095 3%, transparent); }
+.nowLine { position: absolute; z-index: 3; right: 0; left: 0; height: 1px; background: #d98095; pointer-events: none; }
+.nowLine i { position: absolute; top: -3px; left: -3px; width: 7px; height: 7px; border-radius: 50%; background: #d98095; }
+.nowLine span { position: absolute; top: -15px; right: 4px; color: #d98095; font-size: 9px; font-weight: 800; }
+.freeMoment { position: absolute; z-index: 2; right: 11px; left: 11px; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 7px 11px; border: 1px dashed color-mix(in srgb, var(--c-accent) 43%, var(--c-border)); border-radius: 9px; color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 8%, var(--c-bg2)); text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease, box-shadow .18s ease; }
+.freeMoment:hover { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 13%, var(--c-bg2)); box-shadow: 0 4px 15px color-mix(in srgb, var(--c-accent) 13%, transparent); transform: translateY(-2px); }
+.freeMomentIcon { display: grid; place-items: center; flex: 0 0 auto; width: 28px; height: 28px; border-radius: 7px; color: var(--c-bg2); background: var(--c-accent); }
+.freeMoment > span:nth-child(2) { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.freeMoment strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.freeMoment small { color: var(--c-text3); font-size: 9px; }
+.slotHover { position: absolute; z-index: 1; right: 5px; left: 5px; display: flex; align-items: center; justify-content: space-between; gap: 6px; height: 24px; padding: 0 8px; border: 1px dashed color-mix(in srgb, var(--c-accent) 50%, var(--c-border)); border-radius: 6px; color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 14%, var(--c-bg2)); box-shadow: 0 2px 9px color-mix(in srgb, var(--c-accent) 12%, transparent); pointer-events: none; font: 750 9px 'Manrope', system-ui, sans-serif; }
+.slotHover span { display: inline-flex; align-items: center; gap: 4px; }
+.slotHover time { font-variant-numeric: tabular-nums; }
+.timedEvent { position: absolute; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; overflow: hidden; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--event-color) 48%, var(--c-border)); border-left: 3px solid var(--event-color); border-radius: 6px; color: var(--c-text2); background: color-mix(in srgb, var(--event-color) 17%, var(--c-bg2)); text-align: left; cursor: pointer; }
+.timedEvent:hover { background: color-mix(in srgb, var(--event-color) 25%, var(--c-bg2)); }
+.timedEvent strong, .timedEvent small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timedEvent strong { font-size: 11px; }
+.timedEvent small { margin-top: 2px; color: var(--c-text3); font-size: 9px; }
+.detailBackdrop { position: absolute; z-index: 8; inset: 0; display: grid; place-items: center; padding: 14px; background: rgba(15, 11, 24, .58); backdrop-filter: blur(2px); }
+.detail { position: relative; box-sizing: border-box; width: min(350px, 100%); max-height: 100%; overflow: auto; padding: 20px; border: 1px solid color-mix(in srgb, var(--event-color) 55%, var(--c-border)); border-top: 3px solid var(--event-color); border-radius: 12px; color: var(--c-text); background: var(--c-bg2); box-shadow: 0 18px 45px rgba(0,0,0,.2); }
+.detailClose { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; color: var(--c-text3); background: var(--c-hover); cursor: pointer; }
+.detailSource { display: inline-flex; align-items: center; gap: 6px; color: var(--c-text3); font-size: 10px; font-weight: 750; }
+.detailSource i { width: 8px; height: 8px; border-radius: 3px; background: var(--event-color); }
+.detail h3 { margin: 13px 0; font: 700 17px/1.35 'Sora', system-ui, sans-serif; }
+.detail p { display: flex; align-items: center; gap: 8px; margin: 7px 0; color: var(--c-text2); font-size: 11px; }
+.detail p svg { color: var(--event-color); }
+.detailDescription { margin: 13px 0; padding-top: 10px; border-top: 1px solid var(--c-border); color: var(--c-text3); font-size: 11px; line-height: 1.5; }
+.detail > small { color: var(--c-text3); font-size: 10px; }
+.detailActions { display: flex; gap: 8px; margin-top: 16px; }
+.detailActions a, .detailActions button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 30px; padding: 0 9px; border: 1px solid var(--c-border); border-radius: 7px; color: var(--c-accent-text); background: var(--c-hover); font: 750 10px 'Manrope', system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+.detailActions a:hover, .detailActions button:hover { border-color: var(--c-accent); }
+@media (max-width: 1150px) { .header { gap: 8px; padding-left: 12px; } .period strong { font-size: 14px; } .period small { display: none; } .headerActions { gap: 4px; } .headerActions .createButton span { display: none; } }
+@media (max-width: 760px) { .header { flex-wrap: wrap; padding: 10px 74px 10px 11px; } .headerActions { width: 100%; } .monthGrid { min-width: 665px; } .timezone { display: none; } }
+@container (max-width: 730px) { .dayView { display: flex; flex-direction: column; overflow: auto; } .daySchedule { flex: 0 0 340px; } .daySide { flex: 0 0 auto; } .stickyPanel { min-height: 200px; max-height: 300px; } }
+@media (hover: none) { .cellAdd { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .calendarWidget *, .calendarWidget *::before, .calendarWidget *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }

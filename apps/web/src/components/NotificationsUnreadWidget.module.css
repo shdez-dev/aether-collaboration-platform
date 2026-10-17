@@ -1,0 +1,94 @@
+.widget {
+  --notification-accent: #a47acb;
+  container-type: inline-size;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--c-text);
+  background: var(--c-bg2);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.widget a,
+.widget button { -webkit-tap-highlight-color: transparent; }
+.widget a:focus-visible,
+.widget button:focus-visible { outline: 2px solid var(--notification-accent); outline-offset: 2px; }
+
+.content { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; min-height: 0; padding: 8px 10px 9px; overflow: hidden; }
+.sectionLabel { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; min-width: 0; min-height: 26px; box-sizing: border-box; padding: 0 68px 0 2px; }
+.sectionLabel > strong { overflow: hidden; color: var(--c-text); font: 700 12px/1.2 'Sora', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.sectionCount { display: grid; place-items: center; flex: 0 0 auto; min-width: 19px; height: 19px; box-sizing: border-box; margin-left: 1px; padding: 0 4px; border: 1px solid color-mix(in srgb, var(--notification-accent) 27%, var(--c-border)); border-radius: 6px; color: var(--notification-accent); background: color-mix(in srgb, var(--notification-accent) 8%, var(--c-bg2)); font-size: 9px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.notificationList,
+.loadingList { display: flex; flex: 1; flex-direction: column; align-items: stretch; min-width: 0; min-height: 0; overflow: auto; scrollbar-color: color-mix(in srgb, var(--notification-accent) 25%, var(--c-border)) transparent; scrollbar-width: thin; }
+.notificationCard { position: relative; display: grid; grid-template-columns: 25px minmax(0, 1fr) 12px; align-items: center; gap: 8px; flex: 0 0 auto; min-width: 0; min-height: 53px; box-sizing: border-box; padding: 6px 3px; border-bottom: 1px solid color-mix(in srgb, var(--c-border) 72%, transparent); border-radius: 6px; color: var(--c-text2); text-decoration: none; animation: notificationIn .22s ease both; animation-delay: calc(var(--notification-index, 0) * 28ms); transition: background .15s ease, transform .15s ease; }
+.notificationCard:last-of-type { border-bottom-color: transparent; }
+.notificationCard:hover { z-index: 1; background: color-mix(in srgb, var(--notification-color) 6%, var(--c-bg2)); transform: translateX(2px); }
+@keyframes notificationIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+.notificationIcon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; color: var(--notification-color); background: color-mix(in srgb, var(--notification-color) 10%, var(--c-bg2)); transition: transform .16s ease; }
+.notificationCard:hover .notificationIcon { transform: scale(1.04); }
+.notificationCopy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notificationCopy > strong { overflow: hidden; color: var(--c-text); font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.notificationCopy > small { overflow: hidden; color: var(--c-text3); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.notificationMeta { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; color: var(--c-text4); font-size: 8px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.notificationMeta > em { flex: 0 0 auto; margin-left: auto; padding-left: 5px; color: var(--c-text4); font-style: normal; }
+.rowArrow { color: color-mix(in srgb, var(--notification-color) 75%, var(--c-text4)); transition: transform .15s ease; }
+.notificationCard:hover .rowArrow { transform: translateX(2px); }
+.widgetFooter { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 0 0 auto; min-height: 24px; }
+.moreLink { display: inline-flex; align-items: center; gap: 4px; padding: 4px 3px; border-radius: 5px; color: var(--notification-accent); font-size: 9px; font-weight: 800; text-decoration: none; }
+.moreLink:hover { background: color-mix(in srgb, var(--notification-accent) 7%, transparent); }
+.markAll { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 24px; margin-left: auto; padding: 3px 5px; border: 0; border-radius: 6px; color: var(--c-text3); background: transparent; cursor: pointer; font: 700 8px 'Manrope', system-ui, sans-serif; transition: color .14s ease, background .14s ease; }
+.markAll:hover:not(:disabled) { color: var(--notification-accent); background: color-mix(in srgb, var(--notification-accent) 7%, transparent); }
+.markAll:disabled { cursor: wait; opacity: .5; }
+
+.loadingList { justify-content: flex-start; padding-top: 1px; }
+.skeletonRow { display: flex; align-items: center; gap: 8px; min-height: 50px; padding: 4px; }
+.skeletonRow > i { width: 23px; height: 23px; flex: 0 0 23px; border-radius: 7px; background: color-mix(in srgb, var(--notification-accent) 12%, var(--c-bg)); animation: notificationPulse 1.2s ease-in-out infinite alternate; }
+.skeletonRow > span { display: flex; flex: 1; flex-direction: column; gap: 7px; }
+.skeletonRow b, .skeletonRow small { display: block; height: 6px; border-radius: 4px; background: color-mix(in srgb, var(--c-text3) 13%, var(--c-bg2)); animation: notificationPulse 1.2s ease-in-out infinite alternate; }
+.skeletonRow b { width: 58%; }.skeletonRow small { width: 36%; height: 5px; animation-delay: .12s; }
+@keyframes notificationPulse { from { opacity: .4; } to { opacity: .9; } }
+
+.emptyState { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 48px; box-sizing: border-box; padding: 4px 3px; }
+.emptyIcon { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 7px; color: var(--notification-accent); background: color-mix(in srgb, var(--notification-accent) 9%, var(--c-bg)); }
+.emptyState > span:nth-child(2) { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.emptyState strong { overflow: hidden; color: var(--c-text2); font: 700 10px 'Sora', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.emptyState small { overflow: hidden; color: var(--c-text3); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.emptyState button { display: grid; place-items: center; flex: 0 0 25px; width: 25px; height: 25px; padding: 0; border: 0; border-radius: 7px; color: var(--notification-accent); background: color-mix(in srgb, var(--notification-accent) 9%, var(--c-bg2)); cursor: pointer; }
+.emptyState button:hover:not(:disabled) { background: color-mix(in srgb, var(--notification-accent) 16%, var(--c-bg2)); }
+.emptyState button:disabled { cursor: wait; opacity: .55; }
+
+.catalogPreview { display: flex; flex-direction: column; gap: 5px; box-sizing: border-box; width: 100%; padding: 7px; border: 1px solid color-mix(in srgb, var(--notification-accent) 20%, var(--c-border)); border-radius: 8px; background: color-mix(in srgb, var(--notification-accent) 4%, var(--c-bg2)); }
+.previewHeader { display: flex; align-items: center; gap: 5px; min-height: 14px; }
+.previewHeader > i { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 5px; color: var(--notification-accent); background: color-mix(in srgb, var(--notification-accent) 12%, var(--c-bg2)); font-style: normal; }
+.previewHeader > b { width: 28%; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--notification-accent) 32%, var(--c-border)); }
+.previewHeader > small { margin-left: auto; color: var(--notification-accent); font-size: 6px; font-weight: 850; }
+.previewRow { display: grid; grid-template-columns: 20px minmax(0, 1fr) 25px; align-items: center; gap: 6px; min-height: 19px; padding: 3px 5px; border: 1px solid color-mix(in srgb, var(--notification-accent) 12%, var(--c-border)); border-radius: 6px; background: var(--c-bg2); }
+.previewRow > i { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 6px; color: var(--notification-accent); background: color-mix(in srgb, var(--notification-accent) 13%, var(--c-bg2)); font-style: normal; }
+.previewMention { color: #9675cc !important; background: color-mix(in srgb, #9675cc 13%, var(--c-bg2)) !important; }
+.previewWork { color: #4d9a84 !important; background: color-mix(in srgb, #4d9a84 13%, var(--c-bg2)) !important; }
+.previewInvite { color: #cf747d !important; background: color-mix(in srgb, #cf747d 13%, var(--c-bg2)) !important; }
+.previewAction { color: #d29a62 !important; background: color-mix(in srgb, #d29a62 14%, var(--c-bg2)) !important; }
+.previewRow > b, .previewRow > em { height: 4px; border-radius: 3px; background: color-mix(in srgb, var(--c-text3) 14%, var(--c-bg2)); }
+.previewRow > em { background: color-mix(in srgb, var(--notification-accent) 19%, var(--c-bg2)); }
+
+@container (max-width: 330px) {
+  .content { padding-inline: 7px; }
+  .sectionLabel { gap: 5px; padding-right: 59px; }
+  .sectionLabel > strong { font-size: 11px; }
+  .notificationCard { grid-template-columns: 23px minmax(0, 1fr) 11px; gap: 6px; }
+  .notificationIcon { width: 22px; height: 22px; }
+  .notificationCopy > strong { font-size: 9px; }
+  .notificationCopy > small { font-size: 8px; }
+  .markAll { width: 25px; padding-inline: 0; }
+  .markAll span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notificationCard, .notificationIcon, .rowArrow, .markAll { transition: none; }
+  .notificationCard { animation: none; }
+  .skeletonRow > i, .skeletonRow b, .skeletonRow small { animation: none; }
+}

@@ -1,0 +1,109 @@
+.membersPage { width: 100%; min-width: 0; }
+.membersToolbar { position: relative; z-index: 1; margin-bottom: 18px; }
+.membersToolbarOpen { z-index: 30; }
+.membersHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; }
+.membersIntro { flex: 1 1 420px; min-width: 0; }
+.membersTitleRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.membersTitle { margin: 0 4px 0 0; color: var(--c-text); font: 650 16px/1.3 'Sora', system-ui, sans-serif; letter-spacing: -0.02em; }
+.countBadge { display: inline-flex; align-items: center; gap: 6px; min-height: 25px; padding: 3px 9px; border: 1px solid var(--c-border); border-radius: 999px; background: var(--c-surface); color: var(--c-text3); font: 500 11px/1.2 'Manrope', system-ui, sans-serif; white-space: nowrap; }
+.countBadge svg { color: var(--c-accent-text); }
+.countBadge strong { color: var(--c-text); font-variant-numeric: tabular-nums; }
+.membersDescription { max-width: 72ch; margin: 0; color: var(--c-text3); font: 400 12.5px/1.55 'Manrope', system-ui, sans-serif; }
+.membersActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; flex-wrap: wrap; }
+
+.inviteTrigger, .inviteCancel, .inviteAddButton, .removeMemberButton { font-family: 'Manrope', system-ui, sans-serif; transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease; }
+.inviteTrigger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 13px; border: 1px solid var(--c-border2); border-radius: 8px; background: var(--c-surface); color: var(--c-text2); cursor: pointer; font-size: 12px; font-weight: 650; white-space: nowrap; }
+.inviteTrigger:hover, .inviteTriggerActive { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 10%, var(--c-surface)); color: var(--c-accent-text); }
+.inviteTrigger:active, .inviteAddButton:active { transform: translateY(1px); }
+.inviteTrigger:focus-visible, .inviteCancel:focus-visible, .inviteAddButton:focus-visible, .removeMemberButton:focus-visible, .memberRoleSelect:focus-visible, .teamRoleSelect:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
+
+.invitePanel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 35; width: min(390px, calc(100vw - 40px)); max-height: min(420px, calc(100vh - 120px)); overflow-y: auto; padding: 12px; border: 1px solid var(--c-border2); border-radius: 11px; background: var(--c-surface); box-shadow: 0 16px 42px rgba(0, 0, 0, 0.32); animation: invitePanelIn 160ms cubic-bezier(0.2, 0.75, 0.25, 1) both; }
+.invitePanelIntro { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+.invitePanelTitle { margin: 0; color: var(--c-text); font: 650 13px/1.4 'Sora', system-ui, sans-serif; }
+.invitePanelDescription { margin: 2px 0 0; color: var(--c-text3); font: 400 11px/1.4 'Manrope', system-ui, sans-serif; }
+.inviteSearchRow { display: flex; align-items: center; gap: 8px; }
+.inviteSearch { display: flex; align-items: center; gap: 9px; flex: 1 1 260px; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--c-border2); border-radius: 8px; background: var(--c-bg2); color: var(--c-text3); transition: border-color 150ms ease, box-shadow 150ms ease, color 150ms ease; }
+.inviteSearch:focus-within { border-color: var(--c-accent-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 16%, transparent); color: var(--c-accent-text); }
+.inviteSearch svg { flex: 0 0 auto; }
+.inviteInput { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--c-text); font: 400 12.5px/1.4 'Manrope', system-ui, sans-serif; }
+.inviteInput::placeholder { color: var(--c-text4); }
+.inviteCancel { min-height: 36px; padding: 0 11px; border: 1px solid var(--c-border2); border-radius: 8px; background: transparent; color: var(--c-text3); cursor: pointer; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.inviteCancel:hover { background: var(--c-hover); color: var(--c-text); }
+.inviteMessage { margin: 8px 2px 0; color: var(--c-text3); font: 400 11.5px/1.45 'Manrope', system-ui, sans-serif; }
+.inviteError { color: var(--c-red); }
+.retryButton { border: 0; padding: 0; background: none; color: var(--c-accent-text); cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.inviteResults { display: flex; flex-direction: column; gap: 3px; max-height: 190px; margin-top: 7px; overflow-y: auto; }
+.inviteResult { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 6px 7px; border: 1px solid transparent; border-radius: 8px; transition: background-color 140ms ease, border-color 140ms ease; }
+.inviteResult:hover { border-color: var(--c-border); background: var(--c-hover); }
+.inviteIdentity { flex: 1; min-width: 0; }
+.inviteName { overflow: hidden; color: var(--c-text); font: 650 12px/1.35 'Manrope', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.inviteEmail { overflow: hidden; color: var(--c-text3); font: 400 10.5px/1.35 'Manrope', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.inviteAddButton { min-height: 29px; padding: 0 10px; border: 1px solid var(--c-accent); border-radius: 7px; background: var(--c-accent); color: #fff; cursor: pointer; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.inviteAddButton:hover:not(:disabled) { box-shadow: 0 4px 12px color-mix(in srgb, var(--c-accent) 28%, transparent); }
+.inviteAddButton:disabled { cursor: wait; opacity: 0.65; }
+
+.emptyState { display: flex; flex-direction: column; align-items: center; gap: 11px; min-height: 168px; margin-bottom: 18px; padding: 26px 20px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); text-align: center; }
+.emptyIcon { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid color-mix(in srgb, var(--c-accent) 25%, var(--c-border)); border-radius: 13px; background: color-mix(in srgb, var(--c-accent) 11%, var(--c-bg2)); color: var(--c-accent-text); }
+.emptyCopy h3 { margin: 0; color: var(--c-text); font: 650 13.5px/1.4 'Sora', system-ui, sans-serif; }
+.emptyCopy p { margin: 4px 0 0; color: var(--c-text3); font: 400 12px/1.5 'Manrope', system-ui, sans-serif; }
+
+.memberGroup { min-width: 0; }
+.groupHeading { display: flex; align-items: center; gap: 9px; margin: 0 2px 8px; }
+.groupHeading h3 { margin: 0; color: var(--c-text2); font: 650 13px/1.4 'Sora', system-ui, sans-serif; }
+.groupHeading > span { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border: 1px solid var(--c-border); border-radius: 7px; background: var(--c-surface); color: var(--c-text3); font: 650 10.5px/1 'Manrope', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.memberList, .teamCard { overflow: hidden; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); }
+.memberRow { display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(150px, auto) 32px; align-items: center; gap: 12px; min-width: 0; padding: 11px 14px; transition: background-color 140ms ease; }
+.memberRow + .memberRow, .teamMemberRow { border-top: 1px solid var(--c-border); }
+.memberRow:hover, .teamMemberRow:hover { background: var(--c-hover); }
+.memberAvatar { display: grid; place-items: center; width: 38px; height: 38px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--c-border) 75%, transparent); border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.memberAvatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.memberIdentity { min-width: 0; }
+.memberNameRow { display: flex; align-items: center; gap: 7px; min-width: 0; flex-wrap: wrap; }
+.memberName { overflow: hidden; color: var(--c-text); font: 650 13px/1.4 'Manrope', system-ui, sans-serif; text-overflow: ellipsis; }
+.memberEmail { margin-top: 2px; overflow: hidden; color: var(--c-text3); font: 400 11.5px/1.45 'Manrope', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.memberRoleSelect, .teamRoleSelect { min-width: 0; max-width: 100%; padding: 7px 30px 7px 10px; border: 1px solid var(--c-border2); border-radius: 8px; background-color: var(--c-bg2); color: var(--c-text2); font: 600 11.5px/1.3 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.memberRoleSelect { width: 172px; }
+.memberRoleBadge { grid-column: 3 / 5; justify-self: end; padding: 5px 10px; border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-bg2); color: var(--c-text2); font: 600 11px/1.2 'Manrope', system-ui, sans-serif; white-space: nowrap; }
+.removeMemberButton { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--c-text4); cursor: pointer; }
+.removeMemberButton:hover { border-color: color-mix(in srgb, var(--c-red) 25%, var(--c-border)); background: color-mix(in srgb, var(--c-red) 10%, transparent); color: var(--c-red); }
+
+.teamGroups { display: flex; flex-direction: column; gap: 12px; }
+.teamHeader { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--c-bg2); }
+.teamHeader[data-has-members='true'] { border-bottom: 1px solid var(--c-border); }
+.teamIcon { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 9px; color: #fff; font-size: 12px; font-weight: 750; }
+.teamName { flex: 1; min-width: 0; overflow: hidden; color: var(--c-text); font: 700 13px/1.4 'Sora', system-ui, sans-serif; text-overflow: ellipsis; }
+.teamCount { flex-shrink: 0; color: var(--c-text3); font: 500 11px/1.3 'Manrope', system-ui, sans-serif; }
+.teamMemberRow { display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(190px, auto); align-items: center; gap: 12px; min-width: 0; padding: 11px 14px; transition: background-color 140ms ease; }
+.teamRoleBadge, .permissionHint, .ownerBadge { display: inline-flex; align-items: center; min-height: 22px; padding: 3px 8px; border: 1px solid var(--c-border); border-radius: 7px; background: var(--c-bg2); font: 600 10.5px/1.25 'Manrope', system-ui, sans-serif; white-space: nowrap; }
+.teamRoleBadge { border-color: color-mix(in srgb, currentColor 24%, var(--c-border)); }
+.permissionHint { color: var(--c-text3); font-weight: 500; }
+.ownerBadge { border-color: color-mix(in srgb, var(--c-accent) 25%, var(--c-border)); color: var(--c-accent-text); }
+.teamRoleSelect { width: 100%; min-width: 190px; }
+
+@keyframes invitePanelIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 760px) {
+  .membersHeader { align-items: flex-start; }
+  .membersActions { justify-content: flex-start; }
+  .memberRow { grid-template-columns: 40px minmax(0, 1fr) 32px; }
+  .memberRoleSelect, .memberRoleBadge { grid-column: 2; grid-row: 2; justify-self: start; }
+  .removeMemberButton { grid-column: 3; grid-row: 1; }
+  .teamMemberRow { grid-template-columns: 40px minmax(0, 1fr); }
+  .teamRoleSelect { grid-column: 2; width: min(100%, 360px); min-width: 0; }
+}
+
+@media (max-width: 560px) {
+  .membersHeader { display: block; }
+  .membersActions { margin-top: 12px; }
+  .invitePanel { right: auto; left: 0; width: min(390px, calc(100vw - 32px)); padding: 11px; }
+  .inviteSearchRow { align-items: stretch; }
+  .inviteSearch { flex-basis: 180px; }
+  .memberRow, .teamMemberRow { gap: 9px; padding: 10px; }
+  .teamHeader { padding: 10px; }
+  .teamRoleBadge, .permissionHint, .ownerBadge { white-space: normal; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inviteTrigger, .inviteCancel, .inviteAddButton, .removeMemberButton, .inviteSearch, .inviteResult, .memberRow, .teamMemberRow { transition-duration: 0.01ms; }
+  .invitePanel { animation: none; }
+}

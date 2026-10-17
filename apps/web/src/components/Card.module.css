@@ -1,0 +1,134 @@
+.cardCheckButton {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 28px;
+  margin: -5px 0 0 -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text2);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.cardCheckButton:hover:not(:disabled) {
+  background: var(--c-hover);
+  color: var(--c-accent-text);
+}
+
+.cardCheckButton:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.cardCheckButton:focus-visible {
+  outline: 2px solid var(--c-accent-text);
+  outline-offset: 1px;
+}
+
+.cardCheckButton:disabled {
+  opacity: 0.78;
+}
+
+.cardCheckVisual {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid var(--c-text2);
+  border-radius: 5px;
+  background: var(--c-surface2);
+  color: #fff;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.cardCheckButton:hover:not(:disabled) .cardCheckVisual {
+  border-color: var(--c-accent-text);
+  transform: scale(1.06);
+}
+
+.cardCheckButton:active:not(:disabled) .cardCheckVisual {
+  transform: scale(0.94);
+}
+
+.cardCheckVisual.completed {
+  border-color: var(--c-green);
+  background: var(--c-green);
+}
+
+.cardCheckVisual.blocked {
+  border-color: var(--c-amber);
+  background: var(--c-surface2);
+  background: color-mix(in srgb, var(--c-amber) 12%, var(--c-surface));
+  color: var(--c-amber);
+}
+
+.cardCheckMark {
+  opacity: 0;
+  transform: scale(0.65);
+  transition: opacity 140ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.cardCheckVisual.completed .cardCheckMark {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cardCopy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.cardCode {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 6px;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+  border: 1px solid color-mix(in srgb, var(--c-accent-text) 34%, var(--c-border));
+  border-radius: 5px;
+  background: var(--c-hover);
+  background: color-mix(in srgb, var(--c-accent) 12%, var(--c-surface));
+  color: var(--c-accent-text);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardTitle {
+  margin: 0;
+  color: var(--c-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  transition: color 150ms ease, text-decoration-color 150ms ease;
+}
+
+.cardTitle[data-completed='true'] {
+  color: var(--c-text3);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--c-text3) 65%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardCheckButton,
+  .cardCheckVisual,
+  .cardCheckMark,
+  .cardTitle {
+    transition-duration: 0.01ms;
+  }
+}

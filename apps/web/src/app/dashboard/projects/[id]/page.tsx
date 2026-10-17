@@ -23,6 +23,8 @@ import type { Document } from '@aether/types';
 import { apiService } from '@/services/apiService';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouteSectionState } from '@/hooks/useRouteSectionState';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getAvatarUrl, getInitials } from '@/lib/utils/avatar';
 import {
   projectApi,
   type ProjectActivityEntry as ActivityEntry,
@@ -52,6 +54,7 @@ import {
   Calendar,
   CalendarDays,
   Users,
+  Search,
   GitBranch,
   Pencil,
   UserPlus,
@@ -68,6 +71,7 @@ import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import { ProjectSprintPlanner, type ProjectSprint } from '@/components/ProjectSprintPlanner';
 import backlogStyles from './backlog.module.css';
 import ganttStyles from './ProjectGantt.module.css';
+import membersStyles from './ProjectMembersTab.module.css';
 import { InlineBoardView } from '@/components/InlineBoardView';
 import { CardDetailModal } from '@/components/CardDetailModal';
 import { useCardStore } from '@/stores/cardStore';
@@ -4674,6 +4678,9 @@ export default function ProjectDetailPage() {
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [inviteSearch, setInviteSearch] = useState('');
   const [inviteResults, setInviteResults] = useState<SearchUser[]>([]);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteLoadError, setInviteLoadError] = useState('');
+  const [inviteRetry, setInviteRetry] = useState(0);
   const [addingUserId, setAddingUserId] = useState<string | null>(null);
   const [savingMemberPermissionId, setSavingMemberPermissionId] = useState<string | null>(null);
   const [memberPermissionError, setMemberPermissionError] = useState('');
@@ -4801,21 +4808,37 @@ export default function ProjectDetailPage() {
       .catch(() => setDirectMembers([]));
   }, [canManageProjectMembers, projectId]);
 
-  // Búsqueda de usuarios para invitar (debounced, mín. 3 chars)
+  // Lista de miembros del workspace actual para agregar únicamente a personas con acceso.
   useEffect(() => {
-    if (!canManageProjectMembers || inviteSearch.length < 3) {
+    const workspaceId = currentProject?.workspaceId;
+    if (!canManageProjectMembers || !showInvitePanel || !workspaceId) {
       setInviteResults([]);
+      setInviteLoading(false);
+      setInviteLoadError('');
       return;
     }
-    const timer = setTimeout(async () => {
-      const res = await apiService.get<{ users: SearchUser[] }>(
-        `/api/users/search?q=${encodeURIComponent(inviteSearch)}`,
-        true
-      );
-      if (res.success && res.data) setInviteResults(res.data.users);
-    }, 280);
-    return () => clearTimeout(timer);
-  }, [canManageProjectMembers, inviteSearch]);
+    let active = true;
+    setInviteLoading(true);
+    setInviteLoadError('');
+    void apiService
+      .get<{ members: Array<{ user: SearchUser }> }>(`/api/workspaces/${workspaceId}/members`, true)
+      .then((response) => {
+        if (!active) return;
+        if (!response.success || !response.data) {
+          throw new Error(response.error?.message ?? 'No se pudieron cargar las personas del espacio.');
+        }
+        setInviteResults(response.data.members.map((membership) => membership.user));
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setInviteResults([]);
+        setInviteLoadError(cause instanceof Error ? cause.message : 'No se pudieron cargar las personas del espacio.');
+      })
+      .finally(() => {
+        if (active) setInviteLoading(false);
+      });
+    return () => { active = false; };
+  }, [canManageProjectMembers, currentProject?.workspaceId, currentUserId, inviteRetry, showInvitePanel]);
 
   useEffect(() => {
     if (currentProject && !canManageProjectMembers && activeTab === 'members')
@@ -7107,97 +7130,156 @@ export default function ProjectDetailPage() {
                 inheritedRoleByUser.set(m.id, m.role);
               }
             });
-            const filteredResults = inviteResults.filter((u) => !allMemberIds.has(u.id));
+            const searchQuery = inviteSearch.trim().toLocaleLowerCase();
+            const matchingWorkspaceMembers = inviteResults.filter((user) => !searchQuery
+              || `${user.name} ${user.email}`.toLocaleLowerCase().includes(searchQuery));
+            const filteredResults = matchingWorkspaceMembers.filter((user) => user.id !== currentUserId && !allMemberIds.has(user.id));
             const isEmpty =
               directMembers.length === 0 &&
               members.length === 0 &&
               (!canUseTeams || assignedTeams.length === 0);
 
             return (
-              <div>
-                {/* Header */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '14px',
-                    marginBottom: '16px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: '0.98rem',
-                      color: 'var(--c-text2)',
-                      fontFamily: "'Manrope', system-ui, sans-serif",
-                    }}
-                  >
-                    Personas con acceso. En miembros de equipos, puedes fijar un permiso solo para este proyecto o volver a heredar el del equipo.
-                  </p>
-                  {canEdit && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <button
-                        onClick={() => {
-                          setShowInvitePanel((p) => !p);
-                          setInviteSearch('');
-                          setInviteResults([]);
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          padding: '4px 12px',
-                          borderRadius: '6px',
-                          fontSize: '12.5px',
-                          fontWeight: 500,
-                          background: showInvitePanel ? `${C.accent}10` : C.surface,
-                          border: `1px solid ${showInvitePanel ? C.accent : C.border2}`,
-                          color: showInvitePanel ? C.accent : C.text2,
-                          cursor: 'pointer',
-                          transition: 'border-color 0.15s, color 0.15s, background 0.15s',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!showInvitePanel) {
-                            e.currentTarget.style.borderColor = C.accent;
-                            e.currentTarget.style.color = C.accent;
-                            e.currentTarget.style.background = `${C.accent}10`;
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!showInvitePanel) {
-                            e.currentTarget.style.borderColor = C.border2;
-                            e.currentTarget.style.color = C.text2;
-                            e.currentTarget.style.background = C.surface;
-                          }
-                        }}
-                      >
-                        <UserPlus style={ic(11)} />
-                        Invitar persona
-                      </button>
-                      {canUseTeams && (
-                        <ProjectTeamSelector
-                          assigned={assignedTeams}
-                          allTeams={(allTeams as any[])
-                            .filter((tm) => tm.workspaceId === project.workspaceId)
-                            .map((tm) => ({
-                              id: tm.id,
-                              name: tm.name,
-                              color: tm.color ?? null,
-                              memberCount: tm.memberCount ?? 0,
-                              leadName: tm.leadName ?? null,
-                            }))}
-                          onAssign={handleAssignTeam}
-                          onRemove={handleRemoveTeam}
-                        />
+              <div className={membersStyles.membersPage}>
+                <div className={`${membersStyles.membersToolbar}${showInvitePanel ? ` ${membersStyles.membersToolbarOpen}` : ''}`}>
+                  <div className={membersStyles.membersHeader}>
+                    <div className={membersStyles.membersIntro}>
+                      <div className={membersStyles.membersTitleRow}>
+                        <h2 className={membersStyles.membersTitle}>Personas con acceso</h2>
+                        <span className={membersStyles.countBadge}>
+                          <Users size={13} aria-hidden="true" />
+                          <strong>{allMemberIds.size}</strong>
+                          {allMemberIds.size === 1 ? 'persona' : 'personas'}
+                        </span>
+                        {canUseTeams && assignedTeams.length > 0 && (
+                          <span className={membersStyles.countBadge}>
+                            <Layers size={13} aria-hidden="true" />
+                            <strong>{assignedTeams.length}</strong>
+                            {assignedTeams.length === 1 ? 'equipo asignado' : 'equipos asignados'}
+                          </span>
+                        )}
+                      </div>
+                      <p className={membersStyles.membersDescription}>
+                        En miembros de equipos, puedes fijar un permiso solo para este proyecto o volver a heredar el del equipo.
+                      </p>
+                    </div>
+                    {canEdit && (
+                      <div className={membersStyles.membersActions}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowInvitePanel((p) => !p);
+                            setInviteSearch('');
+                            setInviteResults([]);
+                            setInviteLoadError('');
+                          }}
+                          className={`${membersStyles.inviteTrigger}${showInvitePanel ? ` ${membersStyles.inviteTriggerActive}` : ''}`}
+                          aria-expanded={showInvitePanel}
+                        >
+                          <UserPlus size={14} aria-hidden="true" />
+                          Invitar persona
+                        </button>
+                        {canUseTeams && (
+                          <ProjectTeamSelector
+                            assigned={assignedTeams}
+                            allTeams={(allTeams as any[])
+                              .filter((tm) => tm.workspaceId === project.workspaceId)
+                              .map((tm) => ({
+                                id: tm.id,
+                                name: tm.name,
+                                color: tm.color ?? null,
+                                memberCount: tm.memberCount ?? 0,
+                                leadName: tm.leadName ?? null,
+                              }))}
+                            onAssign={handleAssignTeam}
+                            onRemove={handleRemoveTeam}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {showInvitePanel && canEdit && (
+                    <div className={membersStyles.invitePanel}>
+                      <div className={membersStyles.invitePanelIntro}>
+                        <div>
+                          <h3 className={membersStyles.invitePanelTitle}>Añadir personas</h3>
+                          <p className={membersStyles.invitePanelDescription}>Busca en los miembros de este espacio.</p>
+                        </div>
+                      </div>
+                      <div className={membersStyles.inviteSearchRow}>
+                        <label className={membersStyles.inviteSearch}>
+                          <Search size={15} aria-hidden="true" />
+                          <input
+                            type="text"
+                            value={inviteSearch}
+                            onChange={(e) => setInviteSearch(e.target.value)}
+                            placeholder="Nombre o correo"
+                            aria-label="Buscar miembros del espacio por nombre o correo"
+                            autoFocus
+                            className={membersStyles.inviteInput}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowInvitePanel(false);
+                            setInviteSearch('');
+                            setInviteResults([]);
+                          }}
+                          className={membersStyles.inviteCancel}
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                      {inviteLoading && (
+                        <p className={membersStyles.inviteMessage}>Cargando personas…</p>
+                      )}
+                      {!inviteLoading && inviteLoadError && (
+                        <p role="alert" className={`${membersStyles.inviteMessage} ${membersStyles.inviteError}`}>
+                          {inviteLoadError}{' '}
+                          <button type="button" onClick={() => setInviteRetry((retry) => retry + 1)} className={membersStyles.retryButton}>
+                            Reintentar
+                          </button>
+                        </p>
+                      )}
+                      {!inviteLoading && !inviteLoadError && searchQuery && matchingWorkspaceMembers.length === 0 && (
+                        <p className={membersStyles.inviteMessage}>No hay coincidencias en este espacio.</p>
+                      )}
+                      {!inviteLoading && !inviteLoadError && matchingWorkspaceMembers.length > 0 && filteredResults.length === 0 && (
+                        <p className={membersStyles.inviteMessage}>
+                          {searchQuery ? 'Esta persona ya tiene acceso al proyecto.' : 'Todas las personas del espacio ya tienen acceso.'}
+                        </p>
+                      )}
+                      {!inviteLoading && !inviteLoadError && !searchQuery && inviteResults.length === 0 && (
+                        <p className={membersStyles.inviteMessage}>No hay otras personas para agregar.</p>
+                      )}
+                      {!inviteLoading && !inviteLoadError && filteredResults.length > 0 && (
+                        <div className={membersStyles.inviteResults}>
+                          {filteredResults.map((u) => {
+                            const avatarUrl = getAvatarUrl(u.avatar);
+                            return <div key={u.id} className={membersStyles.inviteResult}>
+                              <Avatar style={{ width: 30, height: 30, flexShrink: 0 }}>
+                                {avatarUrl && <AvatarImage src={avatarUrl} alt={u.name} />}
+                                <AvatarFallback style={{ background: memberColor(u.id), color: '#FFFFFF', fontSize: 10, fontWeight: 700 }}>
+                                  {getInitials(u.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className={membersStyles.inviteIdentity}>
+                                <div className={membersStyles.inviteName}>{u.name}</div>
+                                <div className={membersStyles.inviteEmail}>{u.email}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleAddDirectMember(u.id)}
+                                disabled={addingUserId === u.id}
+                                className={membersStyles.inviteAddButton}
+                              >
+                                {addingUserId === u.id ? '…' : 'Agregar'}
+                              </button>
+                            </div>;
+                          })}
+                        </div>
                       )}
                     </div>
                   )}
@@ -7310,211 +7392,27 @@ export default function ProjectDetailPage() {
                   </section>
                 )}
 
-                {/* Invite panel */}
-                {showInvitePanel && canEdit && (
-                  <div
-                    style={{
-                      marginBottom: '20px',
-                      padding: '14px 16px',
-                      borderRadius: '10px',
-                      border: `1px solid ${C.border2}`,
-                      background: C.surface,
-                      animation: 'invitePanelIn 0.2s cubic-bezier(0.16,1,0.3,1)',
-                    }}
-                  >
-                    <style>{`@keyframes invitePanelIn { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }`}</style>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <input
-                        type="text"
-                        value={inviteSearch}
-                        onChange={(e) => setInviteSearch(e.target.value)}
-                        placeholder="Email del usuario…"
-                        autoFocus
-                        style={{
-                          flex: 1,
-                          padding: '7px 12px',
-                          borderRadius: '6px',
-                          border: `1px solid ${C.border2}`,
-                          background: 'var(--c-bg2)',
-                          color: C.text,
-                          fontSize: '13px',
-                          fontFamily: "'Manrope', system-ui, sans-serif",
-                          outline: 'none',
-                          minWidth: 0,
-                        }}
-                      />
-                      <button
-                        onClick={() => {
-                          setShowInvitePanel(false);
-                          setInviteSearch('');
-                          setInviteResults([]);
-                        }}
-                        style={{
-                          padding: '7px 12px',
-                          borderRadius: '6px',
-                          border: `1px solid ${C.border2}`,
-                          background: 'transparent',
-                          color: C.text3,
-                          fontSize: '12.5px',
-                          fontWeight: 500,
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          transition: 'color 0.13s',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = C.text)}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = C.text3)}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                    {inviteSearch.length >= 3 && filteredResults.length === 0 && (
-                      <p
-                        style={{
-                          margin: '10px 0 0',
-                          fontSize: '12.5px',
-                          color: C.text4,
-                          fontFamily: "'Manrope', system-ui, sans-serif",
-                        }}
-                      >
-                        Sin resultados para "{inviteSearch}"
-                      </p>
-                    )}
-                    {filteredResults.length > 0 && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '2px',
-                          marginTop: '8px',
-                        }}
-                      >
-                        {filteredResults.map((u) => (
-                          <div
-                            key={u.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px',
-                              padding: '8px 10px',
-                              borderRadius: '7px',
-                              transition: 'background 0.1s',
-                            }}
-                            onMouseEnter={(e) =>
-                              (e.currentTarget.style.background = 'rgba(97,71,130,0.04)')
-                            }
-                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                          >
-                            <span
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '50%',
-                                background: memberColor(u.id),
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                                color: '#FFFFFF',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {u.name.trim()[0]?.toUpperCase()}
-                            </span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '13.5px', fontWeight: 600, color: C.text }}>
-                                {u.name}
-                              </div>
-                              <div style={{ fontSize: '12px', color: C.text3 }}>{u.email}</div>
-                            </div>
-                            <button
-                              onClick={() => handleAddDirectMember(u.id)}
-                              disabled={addingUserId === u.id}
-                              style={{
-                                padding: '5px 14px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: C.accent,
-                                color: '#FFFFFF',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                cursor: addingUserId === u.id ? 'default' : 'pointer',
-                                fontFamily: "'Manrope', system-ui, sans-serif",
-                                opacity: addingUserId === u.id ? 0.6 : 1,
-                                whiteSpace: 'nowrap',
-                                transition: 'opacity 0.13s',
-                              }}
-                            >
-                              {addingUserId === u.id ? '…' : 'Agregar'}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* Empty state */}
                 {isEmpty && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '60px 0',
-                      borderRadius: '8px',
-                      border: '1px dashed rgba(97,71,130,0.1)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: '52px',
-                        height: '52px',
-                        borderRadius: '50%',
-                        background: 'rgba(97,71,130,0.04)',
-                        border: '1px solid rgba(97,71,130,0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Users style={{ ...ic(22), color: 'var(--c-text4)' }} />
+                  <div className={membersStyles.emptyState}>
+                    <span className={membersStyles.emptyIcon} aria-hidden="true">
+                      <Users size={21} strokeWidth={1.8} />
                     </span>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        color: 'var(--c-text2)',
-                        fontFamily: "'Sora', system-ui, sans-serif",
-                      }}
-                    >
-                      Sin miembros todavía
-                    </p>
-                    <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--c-text4)' }}>
-                      Invita personas o asigna un equipo para dar acceso al proyecto
-                    </p>
+                    <div className={membersStyles.emptyCopy}>
+                      <h3>Este proyecto aún no tiene miembros</h3>
+                      <p>Invita a alguien del espacio o asigna un equipo para compartir el acceso.</p>
+                    </div>
                   </div>
                 )}
 
                 {/* Direct members */}
                 {directOnlyMembers.length > 0 && (
-                  <div style={{ marginBottom: members.length > 0 ? '20px' : 0 }}>
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        letterSpacing: '0.07em',
-                        textTransform: 'uppercase',
-                        color: 'var(--c-text4)',
-                        marginBottom: '8px',
-                        padding: '0 2px',
-                      }}
-                    >
-                      Acceso individual
+                  <section className={membersStyles.memberGroup} style={{ marginBottom: members.length > 0 ? '18px' : 0 }}>
+                    <div className={membersStyles.groupHeading}>
+                      <h3>Acceso individual</h3>
+                      <span>{directOnlyMembers.length}</span>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <div className={membersStyles.memberList}>
                       {directOnlyMembers.map((m) => {
                         const isProjectOwner = project.ownerId === m.id;
                         const roleLbl = isProjectOwner || m.role === 'OWNER'
@@ -7527,33 +7425,12 @@ export default function ProjectDetailPage() {
                         return (
                           <div
                             key={m.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '14px',
-                              padding: '11px 14px',
-                              borderRadius: '8px',
-                              transition: 'background 0.1s',
-                            }}
-                            onMouseEnter={(e) =>
-                              (e.currentTarget.style.background = 'rgba(97,71,130,0.03)')
-                            }
-                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                            className={membersStyles.memberRow}
                           >
                             <span
+                              className={membersStyles.memberAvatar}
                               style={{
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: '50%',
                                 background: m.avatar ? 'transparent' : memberColor(m.id),
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '13px',
-                                fontWeight: 700,
-                                color: '#FFFFFF',
-                                flexShrink: 0,
-                                overflow: 'hidden',
                               }}
                             >
                               {m.avatar ? (
@@ -7571,31 +7448,18 @@ export default function ProjectDetailPage() {
                                 m.name.trim()[0]?.toUpperCase()
                               )}
                             </span>
-                            <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+                            <div className={membersStyles.memberIdentity}>
                               <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  flexWrap: 'wrap',
-                                }}
+                                className={membersStyles.memberNameRow}
                               >
                                 <span
-                                  style={{
-                                    fontSize: '14px',
-                                    fontWeight: 600,
-                                    color: 'var(--c-text)',
-                                  }}
+                                  className={membersStyles.memberName}
                                 >
                                   {m.name}
                                 </span>
                               </div>
                               <div
-                                style={{
-                                  fontSize: '12.5px',
-                                  color: 'var(--c-text3)',
-                                  marginTop: '2px',
-                                }}
+                                className={membersStyles.memberEmail}
                               >
                                 {m.email}
                               </div>
@@ -7607,18 +7471,7 @@ export default function ProjectDetailPage() {
                                 value={m.role}
                                 disabled={savingMemberPermissionId === m.id}
                                 onChange={(e) => void handleChangeDirectMemberRole(m.id, e.target.value)}
-                                style={{
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  color: 'var(--c-text2)',
-                                  background: 'rgba(97,71,130,0.06)',
-                                  border: '1px solid rgba(97,71,130,0.1)',
-                                  padding: '3px 8px',
-                                  borderRadius: '8px',
-                                  cursor: 'pointer',
-                                  outline: 'none',
-                                  flexShrink: 0,
-                                }}
+                                className={membersStyles.memberRoleSelect}
                               >
                                 {m.role === 'OWNER' && <option value="OWNER" disabled>Propietario</option>}
                                 <option value="ADMIN">Coordinador</option>
@@ -7627,15 +7480,7 @@ export default function ProjectDetailPage() {
                               </select>
                             ) : (
                               <span
-                                style={{
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  color: 'var(--c-text2)',
-                                  background: 'rgba(97,71,130,0.06)',
-                                  padding: '2px 9px',
-                                  borderRadius: '8px',
-                                  flexShrink: 0,
-                                }}
+                                className={membersStyles.memberRoleBadge}
                               >
                                 {roleLbl}
                               </span>
@@ -7644,20 +7489,8 @@ export default function ProjectDetailPage() {
                               <button
                                 onClick={() => handleRemoveDirectMember(m.id)}
                                 title="Quitar del proyecto"
-                                style={{
-                                  padding: '5px',
-                                  borderRadius: '6px',
-                                  border: 'none',
-                                  background: 'transparent',
-                                  color: '#4A4540',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  transition: 'color 0.12s',
-                                }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = '#AE7C9B')}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = '#4A4540')}
+                                className={membersStyles.removeMemberButton}
+                                aria-label={`Quitar a ${m.name} del proyecto`}
                               >
                                 <X style={{ width: '15px', height: '15px' }} />
                               </button>
@@ -7666,68 +7499,37 @@ export default function ProjectDetailPage() {
                         );
                       })}
                     </div>
-                  </div>
+                  </section>
                 )}
 
                 {/* Personas agrupadas por el equipo que les da acceso. */}
                 {canUseTeams && assignedTeams.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        letterSpacing: '0.07em',
-                        textTransform: 'uppercase',
-                        color: 'var(--c-text4)',
-                        padding: '0 2px',
-                      }}
-                    >
-                      Equipos asignados
+                  <div className={membersStyles.teamGroups}>
+                    <div className={membersStyles.groupHeading}>
+                      <h3>Acceso a través de equipos</h3>
+                      <span>{assignedTeams.length}</span>
                     </div>
                     {assignedTeams.map((team) => {
                       const teamMembers = members.filter((member) => member.teamId === team.id);
                       return (
                         <section
                           key={team.id}
-                          style={{
-                            border: `1px solid ${C.border}`,
-                            borderRadius: '12px',
-                            background: C.surface,
-                            overflow: 'hidden',
-                          }}
+                          className={membersStyles.teamCard}
                         >
                           <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '10px',
-                              padding: '13px 16px',
-                              background: C.bg2,
-                              borderBottom: teamMembers.length ? `1px solid ${C.border}` : 'none',
-                            }}
+                            className={membersStyles.teamHeader}
+                            data-has-members={teamMembers.length > 0 || undefined}
                           >
                             <span
+                              className={membersStyles.teamIcon}
                               style={{
-                                width: 30,
-                                height: 30,
-                                borderRadius: 9,
                                 background: team.color || C.accent,
-                                color: '#FFFFFF',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontWeight: 700,
-                                fontSize: 12,
                               }}
                             >
                               {team.name.trim()[0]?.toUpperCase()}
                             </span>
-                            <span
-                              style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: C.text }}
-                            >
-                              {team.name}
-                            </span>
-                            <span style={{ fontSize: 12, color: C.text3 }}>
+                            <strong className={membersStyles.teamName}>{team.name}</strong>
+                            <span className={membersStyles.teamCount}>
                               {teamMembers.length}{' '}
                               {teamMembers.length === 1 ? 'persona' : 'personas'}
                             </span>
@@ -7764,31 +7566,11 @@ export default function ProjectDetailPage() {
                                     ? 'Propietario'
                                     : 'Colaborador';
                               return (
-                                <div
-                                  key={m.id}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 12,
-                                    padding: '11px 16px',
-                                    borderTop: `1px solid ${C.border}`,
-                                    flexWrap: 'wrap',
-                                  }}
-                                >
+                                <div key={m.id} className={membersStyles.teamMemberRow}>
                                   <span
+                                    className={membersStyles.memberAvatar}
                                     style={{
-                                      width: 36,
-                                      height: 36,
-                                      borderRadius: '50%',
                                       background: m.avatar ? 'transparent' : memberColor(m.id),
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      color: '#FFFFFF',
-                                      fontWeight: 700,
-                                      fontSize: 12,
-                                      flexShrink: 0,
-                                      overflow: 'hidden',
                                     }}
                                   >
                                     {m.avatar ? (
@@ -7805,69 +7587,43 @@ export default function ProjectDetailPage() {
                                       m.name.trim()[0]?.toUpperCase()
                                     )}
                                   </span>
-                                  <div style={{ flex: '1 1 180px', minWidth: 0 }}>
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 8,
-                                        flexWrap: 'wrap',
-                                      }}
-                                    >
+                                  <div className={membersStyles.memberIdentity}>
+                                    <div className={membersStyles.memberNameRow}>
+                                      <span className={membersStyles.memberName}>{m.name}</span>
                                       <span
-                                        style={{ fontSize: 13.5, fontWeight: 600, color: C.text }}
-                                      >
-                                        {m.name}
-                                      </span>
-                                      <span
-                                        style={{
-                                          fontSize: 11,
-                                          color: team.color || C.accent,
-                                          background: C.bg2,
-                                          borderRadius: 8,
-                                          padding: '2px 8px',
-                                        }}
+                                        className={membersStyles.teamRoleBadge}
+                                        style={{ color: team.color || C.accent }}
                                       >
                                         {roleLbl} del equipo
                                       </span>
                                       {showDirectControls && direct && (
-                                        <span style={{ fontSize: 11, color: C.text3 }}>
+                                        <span className={membersStyles.permissionHint}>
                                           Permiso del proyecto: {projectRoleLabel}
                                         </span>
                                       )}
                                       {isProjectOwner && (
-                                        <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>
+                                        <span className={membersStyles.ownerBadge}>
                                           Propietario del proyecto
                                         </span>
                                       )}
                                     </div>
-                                    <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>
-                                      {m.email}
-                                    </div>
+                                    <div className={membersStyles.memberEmail}>{m.email}</div>
                                   </div>
                                   {showDirectControls && canEdit && !isProjectOwner ? (
-                                      <select
-                                        aria-label={`Permiso de ${m.name} en este proyecto`}
-                                        value={direct?.role ?? 'INHERIT'}
-                                        disabled={savingMemberPermissionId === m.id}
-                                        onChange={(e) => void handleChangeDirectMemberRole(m.id, e.target.value, m)}
-                                        style={{
-                                          fontSize: 11,
-                                          color: C.text2,
-                                          background: C.bg2,
-                                          border: `1px solid ${C.border}`,
-                                          padding: '4px 8px',
-                                          borderRadius: 8,
-                                          maxWidth: '100%',
-                                        }}
-                                      >
-                                        <option value="INHERIT">Heredar del equipo ({inheritedRoleLabel})</option>
-                                        {direct?.role === 'OWNER' && <option value="OWNER" disabled>Propietario</option>}
-                                        <option value="ADMIN">Coordinador del proyecto</option>
-                                        <option value="MEMBER">Colaborador</option>
-                                        <option value="VIEWER">Observador</option>
-                                      </select>
-                                    ) : null}
+                                    <select
+                                      aria-label={`Permiso de ${m.name} en este proyecto`}
+                                      value={direct?.role ?? 'INHERIT'}
+                                      disabled={savingMemberPermissionId === m.id}
+                                      onChange={(e) => void handleChangeDirectMemberRole(m.id, e.target.value, m)}
+                                      className={membersStyles.teamRoleSelect}
+                                    >
+                                      <option value="INHERIT">Heredar del equipo ({inheritedRoleLabel})</option>
+                                      {direct?.role === 'OWNER' && <option value="OWNER" disabled>Propietario</option>}
+                                      <option value="ADMIN">Coordinador del proyecto</option>
+                                      <option value="MEMBER">Colaborador</option>
+                                      <option value="VIEWER">Observador</option>
+                                    </select>
+                                  ) : null}
                                 </div>
                               );
                             })

@@ -8,16 +8,14 @@ import { supportsOrganizationProjectPlanning } from '@/lib/workspaceFeatures';
 import { apiService } from '@/services/apiService';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useState, memo, useRef, useEffect } from 'react';
+import { useState, memo } from 'react';
 import { es } from '@/lib/i18n';
 import { C } from '@/lib/colors';
 import { useAuthStore } from '@/stores/authStore';
-
-interface SprintOption { id: string; name: string; status: string }
+import styles from './Card.module.css';
 
 interface CardProps {
   card: CardType;
-  boardId?: string;
 }
 
 
@@ -29,7 +27,7 @@ const PRIORITY_COLORS = {
 
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-export function Card({ card, boardId }: CardProps) {
+export function Card({ card }: CardProps) {
   const t = es;
   const updateCard     = useCardStore((s) => s.updateCard);
   const setSelectedCard = useCardStore((s) => s.setSelectedCard);
@@ -44,14 +42,6 @@ export function Card({ card, boardId }: CardProps) {
   };
 
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
-  const [isHovered,          setIsHovered]          = useState(false);
-  const [showSprintMenu,     setShowSprintMenu]     = useState(false);
-  const [sprints,            setSprints]            = useState<SprintOption[]>([]);
-  const [sprintsLoaded,      setSprintsLoaded]      = useState(false);
-  const [sprintAssigning,    setSprintAssigning]    = useState(false);
-  const [menuPos,            setMenuPos]            = useState<{ top: number; left: number } | null>(null);
-  const sprintBtnRef  = useRef<HTMLButtonElement>(null);
-  const sprintMenuRef = useRef<HTMLDivElement>(null);
 
   const currentUserId = useAuthStore((s) => s.user?.id);
 
@@ -106,60 +96,7 @@ export function Card({ card, boardId }: CardProps) {
     } finally { setIsTogglingComplete(false); }
   };
 
-  useEffect(() => {
-    if (!showSprintMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (sprintMenuRef.current && !sprintMenuRef.current.contains(e.target as Node)) {
-        setShowSprintMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showSprintMenu]);
-
-  const openSprintMenu = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!boardId) return;
-    if (showSprintMenu) { setShowSprintMenu(false); setMenuPos(null); return; }
-    // Calculate fixed position from button rect
-    if (sprintBtnRef.current) {
-      const rect = sprintBtnRef.current.getBoundingClientRect();
-      const popoverH = 220;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const top = spaceBelow >= popoverH ? rect.bottom + 4 : rect.top - popoverH - 4;
-      const left = Math.min(rect.right - 170, window.innerWidth - 180);
-      setMenuPos({ top, left });
-    }
-    setShowSprintMenu(true);
-    if (!sprintsLoaded) {
-      try {
-        const r = await apiService.get<{ sprints: any[] }>(`/api/boards/${boardId}/sprints`, true);
-        if (r.success && r.data) {
-          setSprints(r.data.sprints.filter((s: any) => s.status !== 'COMPLETED'));
-        }
-      } finally { setSprintsLoaded(true); }
-    }
-  };
-
-  const handleAssignSprint = async (e: React.MouseEvent, newSprintId: string | null) => {
-    e.stopPropagation();
-    if (sprintAssigning) return;
-    setSprintAssigning(true);
-    try {
-      const currentSprintId = (card as any).sprintId as string | undefined;
-      if (currentSprintId) {
-        await apiService.delete(`/api/sprints/${currentSprintId}/cards/${card.id}`, true);
-      }
-      if (newSprintId) {
-        await apiService.post(`/api/sprints/${newSprintId}/cards`, { cardId: card.id }, true);
-      }
-      updateCard(card.id, { sprintId: newSprintId ?? undefined } as any);
-      setShowSprintMenu(false);
-    } finally { setSprintAssigning(false); }
-  };
-
   const cardSprintId = (card as any).sprintId as string | undefined;
-  const currentSprint = sprints.find(s => s.id === cardSprintId);
 
   const formatDueDate = (date: string) => {
     const d = new Date(date);
@@ -215,14 +152,12 @@ export function Card({ card, boardId }: CardProps) {
           e.currentTarget.style.borderColor = hoverBorder;
           e.currentTarget.style.background  = hoverBg;
           e.currentTarget.style.boxShadow   = hoverShadow;
-          setIsHovered(true);
         }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = baseBorder;
         e.currentTarget.style.background  = baseBg;
         e.currentTarget.style.boxShadow   = baseShadow;
-        setIsHovered(false);
       }}
       title={isBlocked ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}` : ''}
     >
@@ -248,46 +183,56 @@ export function Card({ card, boardId }: CardProps) {
       <div className="flex items-start gap-2">
         <button
           onClick={handleToggleComplete}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); }}
           disabled={!canComplete || isTogglingComplete || isBlocked}
+          aria-label={
+            isBlocked ? `Tarjeta bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''}`
+            : !canComplete ? 'No tienes permiso para completar esta tarjeta'
+            : isTogglingComplete ? 'Guardando estado de la tarjeta'
+            : card.completed ? `Reabrir tarjeta: ${card.title}`
+            : `Completar tarjeta: ${card.title}`
+          }
+          aria-pressed={card.completed}
+          aria-busy={isTogglingComplete}
           title={
             isBlocked ? `Bloqueada por ${blockedByPendingCount} dep. pendiente${blockedByPendingCount !== 1 ? 's' : ''}`
             : !canComplete ? 'Sin permisos'
             : card.completed ? 'Marcar como pendiente'
             : 'Marcar como completada'
           }
-          className="flex-shrink-0 flex items-center justify-center rounded-[5px] transition-colors mt-[1px]"
+          className={styles.cardCheckButton}
+          data-completed={card.completed || undefined}
           style={{
-            width: '16px', height: '16px',
-            border: `1.5px solid ${isBlocked ? C.amber : card.completed ? C.green : C.text3}`,
-            background: card.completed ? C.green : isBlocked ? `${C.amber}22` : 'transparent',
-            cursor: !canComplete || isBlocked ? 'not-allowed' : 'pointer',
-            flexShrink: 0,
+            cursor: !canComplete || isBlocked ? 'not-allowed' : undefined,
           }}
         >
-          {isBlocked ? (
-            <svg viewBox="0 0 12 12" fill="none" stroke={C.amber} strokeWidth="1.5" width="8" height="8">
-              <rect x="2" y="5" width="8" height="6" rx="1" /><path d="M4 5V3.5a2 2 0 014 0V5" />
-            </svg>
-          ) : card.completed ? (
-            <svg viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" width="8" height="8">
-              <path d="M2 5l2.5 2.5 3.5-4" />
-            </svg>
-          ) : null}
+          <span
+            className={`${styles.cardCheckVisual}${card.completed ? ` ${styles.completed}` : ''}${isBlocked ? ` ${styles.blocked}` : ''}`}
+            data-completed={card.completed || undefined}
+            aria-hidden="true"
+          >
+            {isBlocked ? (
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
+                <rect x="2" y="5" width="8" height="6" rx="1" /><path d="M4 5V3.5a2 2 0 014 0V5" />
+              </svg>
+            ) : (
+              <svg className={styles.cardCheckMark} viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10">
+                <path d="M2 5l2.5 2.5 3.5-4" />
+              </svg>
+            )}
+          </span>
         </button>
 
-        <h4
-          style={{
-            fontSize: '12.5px',
-            fontWeight: 500,
-            lineHeight: 1.45,
-            color: card.completed ? C.text3 : C.text,
-            textDecoration: card.completed ? 'line-through' : 'none',
-            flex: 1,
-            wordBreak: 'break-word',
-          }}
-        >
-          {card.title}
-        </h4>
+        <div className={styles.cardCopy}>
+          {card.cardCode && <code title="Código de tarjeta" className={styles.cardCode}>{card.cardCode}</code>}
+          <h4
+            className={styles.cardTitle}
+            data-completed={card.completed || undefined}
+          >
+            {card.title}
+          </h4>
+        </div>
       </div>
 
       {/* Description preview */}
@@ -358,10 +303,10 @@ export function Card({ card, boardId }: CardProps) {
           </div>
         )}
 
-        {/* Sprint badge (when assigned, not hovering) */}
-        {canUseProjectPlanning && cardSprintId && !isHovered && !showSprintMenu && (
+        {/* Sprint indicator */}
+        {canUseProjectPlanning && cardSprintId && (
           <span
-            title={currentSprint ? `Sprint: ${currentSprint.name}` : 'En sprint'}
+            title="Asignada a un sprint"
             style={{
               display: 'flex', alignItems: 'center', gap: '3px',
               fontSize: '10px', color: '#548B73', flexShrink: 0,
@@ -371,109 +316,6 @@ export function Card({ card, boardId }: CardProps) {
               <path d="M2 9a4 4 0 1 1 8 0M2 9l1.5-2M10 9l-1.5-2"/>
             </svg>
           </span>
-        )}
-
-        {/* Sprint quick-assign button (hover only) */}
-        {canUseProjectPlanning && (isHovered || showSprintMenu) && boardId && (
-          <button
-            ref={sprintBtnRef}
-            onClick={openSprintMenu}
-            title={cardSprintId ? 'Cambiar sprint' : 'Añadir al sprint'}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: '18px', height: '18px', borderRadius: '4px',
-              background: cardSprintId ? 'rgba(118,168,120,0.15)' : 'rgba(97,71,130,0.06)',
-              border: `1px solid ${cardSprintId ? 'rgba(118,168,120,0.35)' : 'rgba(97,71,130,0.12)'}`,
-              cursor: 'pointer', flexShrink: 0,
-            }}
-          >
-            <svg viewBox="0 0 12 12" fill="none" stroke={cardSprintId ? '#548B73' : C.text3} strokeWidth="1.5" strokeLinecap="round" width="9" height="9">
-              <path d="M2 9a4 4 0 1 1 8 0M2 9l1.5-2M10 9l-1.5-2"/>
-            </svg>
-          </button>
-        )}
-
-        {/* Sprint popover — rendered fixed to escape overflow clipping */}
-        {canUseProjectPlanning && showSprintMenu && menuPos && (
-          <>
-            {/* Invisible backdrop to close on outside click */}
-            <div
-              style={{ position: 'fixed', inset: 0, zIndex: 998 }}
-              onClick={e => { e.stopPropagation(); setShowSprintMenu(false); setMenuPos(null); }}
-            />
-            <div
-              ref={sprintMenuRef}
-              onClick={e => e.stopPropagation()}
-              style={{
-                position: 'fixed',
-                top: menuPos.top,
-                left: menuPos.left,
-                width: '180px',
-                borderRadius: '8px', overflow: 'hidden',
-                background: 'var(--c-surface)', border: '1px solid rgba(97,71,130,0.1)',
-                boxShadow: '0 8px 28px rgba(0,0,0,0.55)',
-                zIndex: 999,
-              }}
-            >
-              {/* Header */}
-              <div style={{ padding: '7px 11px 5px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', color: C.text4, textTransform: 'uppercase' as const, borderBottom: '1px solid rgba(97,71,130,0.07)' }}>
-                Sprint
-              </div>
-
-              {/* Options */}
-              <div style={{ padding: '4px' }}>
-                <button
-                  onClick={e => handleAssignSprint(e, null)}
-                  disabled={sprintAssigning}
-                  style={{
-                    width: '100%', textAlign: 'left', padding: '6px 9px', borderRadius: '5px',
-                    background: !cardSprintId ? 'rgba(97,71,130,0.06)' : 'none',
-                    border: 'none', cursor: 'pointer', fontSize: '12px',
-                    color: !cardSprintId ? C.text : C.text3,
-                    display: 'flex', alignItems: 'center', gap: '7px',
-                  }}
-                  onMouseEnter={e => { if (cardSprintId) e.currentTarget.style.background = 'rgba(97,71,130,0.05)'; }}
-                  onMouseLeave={e => { if (cardSprintId) e.currentTarget.style.background = 'none'; }}
-                >
-                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
-                    <path d="M2 2l8 8M10 2L2 10" strokeLinecap="round"/>
-                  </svg>
-                  Sin sprint
-                </button>
-
-                {sprints.length === 0 && sprintsLoaded ? (
-                  <div style={{ padding: '6px 9px', fontSize: '12px', color: C.text4 }}>Sin sprints disponibles</div>
-                ) : sprints.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={e => handleAssignSprint(e, s.id)}
-                    disabled={sprintAssigning}
-                    style={{
-                      width: '100%', textAlign: 'left', padding: '6px 9px', borderRadius: '5px',
-                      background: cardSprintId === s.id ? 'rgba(118,168,120,0.12)' : 'none',
-                      border: 'none', cursor: 'pointer', fontSize: '12px',
-                      color: cardSprintId === s.id ? '#548B73' : C.text2,
-                      display: 'flex', alignItems: 'center', gap: '7px',
-                    }}
-                    onMouseEnter={e => { if (cardSprintId !== s.id) e.currentTarget.style.background = 'rgba(97,71,130,0.05)'; }}
-                    onMouseLeave={e => { if (cardSprintId !== s.id) e.currentTarget.style.background = 'none'; }}
-                  >
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: s.status === 'ACTIVE' ? '#548B73' : 'var(--c-text2)' }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
-                    {s.status === 'ACTIVE' && <span style={{ fontSize: '9px', color: '#548B73', flexShrink: 0 }}>activo</span>}
-                  </button>
-                ))}
-              </div>
-
-              {sprintAssigning && (
-                <div style={{ padding: '6px 11px', borderTop: '1px solid rgba(97,71,130,0.07)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <style>{`@keyframes cardSpinSprint { to { transform: rotate(360deg); } }`}</style>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', border: `1.5px solid ${C.accent}`, borderTopColor: 'transparent', animation: 'cardSpinSprint 0.6s linear infinite' }} />
-                  <span style={{ fontSize: '11px', color: C.text4 }}>Guardando…</span>
-                </div>
-              )}
-            </div>
-          </>
         )}
 
         {/* Spacer */}
@@ -561,6 +403,7 @@ export function Card({ card, boardId }: CardProps) {
 
 export default memo(Card, (prev, next) =>
   prev.card.id === next.card.id &&
+  (prev.card.cardCode ?? '') === (next.card.cardCode ?? '') &&
   prev.card.title === next.card.title &&
   (prev.card.description ?? '') === (next.card.description ?? '') &&
   prev.card.position === next.card.position &&
@@ -574,6 +417,5 @@ export default memo(Card, (prev, next) =>
     next.card.checklistItems?.filter((i) => i.completed).length &&
   prev.card.blockedByPendingCount === next.card.blockedByPendingCount &&
   prev.card.blockingCount === next.card.blockingCount &&
-  (prev.card as any).sprintId === (next.card as any).sprintId &&
-  prev.boardId === next.boardId
+  (prev.card as any).sprintId === (next.card as any).sprintId
 );

@@ -1,0 +1,37 @@
+.root { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; color: var(--c-text); font-family: 'Manrope', system-ui, sans-serif; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 29px; }
+.header > strong { overflow: hidden; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.header > strong span { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 3px; padding: 0 4px; border: 1px solid var(--c-border); border-radius: 6px; color: var(--c-accent-text); font-size: 10px; font-variant-numeric: tabular-nums; }
+.header > div { display: flex; align-items: center; gap: 3px; }
+.header button { min-height: 24px; padding: 0 7px; border: 1px solid transparent; border-radius: 6px; color: var(--c-text3); background: transparent; font-size: 10px; cursor: pointer; }
+.header button:hover, .header .filterActive { border-color: var(--c-border); color: var(--c-accent-text); background: var(--c-hover); }
+.header .iconButton { display: grid; place-items: center; width: 25px; padding: 0; }
+.list { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; scrollbar-color: var(--c-border) transparent; scrollbar-width: thin; }
+.group { margin-top: 8px; }
+.projectCards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr)); gap: 5px 7px; }
+.groupName { display: block; margin: 0 0 4px 2px; color: var(--c-text3); font-size: 9px; font-weight: 750; letter-spacing: .02em; }
+.projectRow { display: flex; align-items: center; gap: 8px; min-height: 37px; padding: 5px 7px; border: 1px solid transparent; border-radius: 7px; color: inherit; text-decoration: none; }
+.projectCards .projectRow { min-height: 48px; padding: 7px 9px; border-color: color-mix(in srgb, var(--c-border) 72%, transparent); background: color-mix(in srgb, var(--c-bg2) 74%, transparent); }
+.projectCards .projectRow:hover { border-color: color-mix(in srgb, var(--c-accent) 42%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 7%, var(--c-bg2)); }
+.projectRow:hover { border-color: var(--c-border); background: var(--c-hover); }
+.projectRow i { flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; }
+.projectRow span { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 2px; }
+.projectRow strong { overflow: hidden; font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.projectRow small { color: var(--c-text3); font-size: 9px; }
+.projectRow > svg { flex: 0 0 auto; color: var(--c-text3); }
+.message, .empty { display: flex; flex: 1; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 0; margin: 0; color: var(--c-text3); font-size: 10px; line-height: 1.5; }
+.message button, .empty button { margin-top: 7px; padding: 3px 0; border: 0; color: var(--c-accent-text); background: transparent; font-size: 10px; cursor: pointer; }
+.empty { gap: 4px; }
+.empty > svg { margin-bottom: 5px; color: var(--c-accent-text); }
+.empty strong { color: var(--c-text); font-size: 11px; }
+.projectFocus { display: flex; align-items: center; gap: 10px; margin-top: 15px; min-width: 0; }
+.projectMark { display: grid; flex: 0 0 38px; place-items: center; width: 38px; height: 38px; border: 1px solid color-mix(in srgb, var(--project-color) 45%, var(--c-border)); border-radius: 10px; color: var(--project-color); background: color-mix(in srgb, var(--project-color) 10%, var(--c-bg2)); }
+.projectFocus > div { min-width: 0; }
+.projectFocus h3 { overflow: hidden; margin: 0 0 3px; font-size: 13px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.projectFocus span:not(.projectMark) { color: var(--c-text3); font-size: 10px; }
+.goal { display: -webkit-box; overflow: hidden; margin: 11px 0 9px; color: var(--c-text2); font-size: 10px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.projectNav { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; overflow-y: auto; }
+.projectNav a { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 7px; border: 1px solid var(--c-border); border-radius: 6px; color: var(--c-text2); font-size: 9px; font-weight: 700; text-decoration: none; }
+.projectNav a:hover { border-color: var(--c-accent); color: var(--c-accent-text); background: var(--c-hover); }
+.root button:focus-visible, .root a:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+@container (max-width: 300px) { .header { align-items: flex-start; } .header > div { flex-wrap: wrap; justify-content: flex-end; } .projectFocus { margin-top: 5px; } .goal { margin: 5px 0; -webkit-line-clamp: 1; } .projectNav a { min-height: 21px; } }

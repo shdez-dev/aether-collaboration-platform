@@ -493,6 +493,7 @@ export function CardDetailModal() {
 
               {/* Title */}
                <div className={styles.titleBlock}>
+                {selectedCard.cardCode && <code className={styles.cardCode} title="Código de tarjeta">{selectedCard.cardCode}</code>}
                 {editingTitle && canEdit ? (
                   <input
                      className={`cdm-title ${styles.titleInput}`}

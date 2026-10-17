@@ -16,6 +16,7 @@ const createProjectSchema = z.object({
   description: z.string().trim().min(1).max(1000),
   icon: z.string().max(100).optional(),
   color: z.string().max(50).optional(),
+  cardPrefix: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{3}$/, 'El prefijo debe tener exactamente 3 letras o números').optional(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
   maturityStage: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
   problemStatement: z.string().trim().min(1).max(8000),
@@ -120,6 +121,7 @@ function fmtProject(row: any) {
     description: row.description,
     icon: row.icon,
     color: row.color,
+    cardPrefix: row.card_prefix ?? null,
     status: row.status,
     maturityStage: row.maturity_stage ?? 'IDEA',
     methodology: row.methodology ?? 'FLEXIBLE',
@@ -793,16 +795,16 @@ class ProjectController {
              problem_statement, impacted_people, problem_impact, impacted_count,
              expected_outcome, proposed_solution, differentiation,
              next_step, start_date, end_date, owner_id,
-             applied_standard_id, applied_standard_version, standard_applied_at, updated_at
+             applied_standard_id, applied_standard_version, standard_applied_at, updated_at, card_prefix
            )
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $21, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $21, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $22)
            RETURNING *`,
           [wsId, data.name, data.description ?? null, data.icon ?? null, data.color ?? null,
            data.status ?? 'PLANNING', data.maturityStage ?? 'IDEA', data.problemStatement ?? null,
            data.impactedPeople, data.problemImpact, data.impactedCount, data.expectedOutcome,
            data.proposedSolution, data.differentiation, data.nextStep ?? null,
            data.startDate ?? null, data.endDate ?? null, userId,
-           workspaceStandard.id, workspaceStandard.version, methodology]
+           workspaceStandard.id, workspaceStandard.version, methodology, data.cardPrefix ?? null]
         );
         const project = result.rows[0];
         for (const teamId of uniqueTeamIds) {
@@ -867,6 +869,15 @@ class ProjectController {
       }
     } catch (error) {
       console.error('[ProjectController.create]', error);
+      if ((error as any)?.code === '23505' && (error as any)?.constraint === 'projects_workspace_card_prefix_key') {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: 'DUPLICATE_PROJECT_CARD_PREFIX',
+            message: 'Ese prefijo ya se usa en otro proyecto de este espacio. Prueba con uno distinto.',
+          },
+        });
+      }
       res.status(500).json({ success: false, error: { message: 'Error al crear proyecto' } });
     }
   }

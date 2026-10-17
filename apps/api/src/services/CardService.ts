@@ -956,6 +956,8 @@ export class CardService {
     const card: any = {
       id:                   row.id,
       listId:               row.list_id,
+      projectId:            row.project_id ?? null,
+      cardCode:             row.card_code ?? null,
       title:                row.title,
       description:          row.description,
       acceptanceCriteria:   row.acceptance_criteria ?? null,

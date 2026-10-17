@@ -1,0 +1,158 @@
+.inviteContacts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inviteDescription {
+  max-width: 42ch;
+  margin: 0 0 1px;
+  color: var(--c-text3);
+  font: 400 12px/1.5 'Manrope', system-ui, sans-serif;
+}
+
+.contactSearch {
+  position: relative;
+  color: var(--c-text4);
+}
+
+.contactSearch > svg {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.contactSearchInput {
+  padding-left: 36px !important;
+}
+
+.contactList {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 126px;
+  overflow-y: auto;
+  padding: 2px 5px 2px 1px;
+  overscroll-behavior: contain;
+  scrollbar-color: color-mix(in srgb, #7452a6 52%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.contactList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.contactList::-webkit-scrollbar-track {
+  margin-block: 3px;
+  background: transparent;
+}
+
+.contactList::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, #7452a6 48%, transparent);
+  background-clip: padding-box;
+}
+
+.contactRow {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 16px 28px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 38px;
+  min-width: 0;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--c-text2) 7%, transparent);
+  border-radius: 9px;
+  color: var(--c-text2);
+  background: color-mix(in srgb, var(--c-text2) 3%, transparent);
+  cursor: pointer;
+  font: 500 12px/1.2 'Manrope', system-ui, sans-serif;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.contactRow:hover {
+  border-color: color-mix(in srgb, #7452a6 28%, var(--c-border));
+  background: color-mix(in srgb, #7452a6 7%, var(--c-surface));
+}
+
+.contactRowSelected {
+  border-color: color-mix(in srgb, #7452a6 42%, var(--c-border));
+  color: var(--c-text);
+  background: color-mix(in srgb, #7452a6 12%, var(--c-surface));
+}
+
+.contactRowSelected:hover {
+  background: color-mix(in srgb, #7452a6 16%, var(--c-surface));
+}
+
+.contactRowDisabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.contactRow input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #7452a6;
+  cursor: inherit;
+}
+
+.contactAvatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, white 24%, #7452a6);
+  border-radius: 50%;
+  color: white;
+  background: #7452a6;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.contactAvatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.contactName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contactCheck {
+  color: var(--c-accent-text);
+}
+
+.contactEmpty {
+  padding: 7px 3px;
+  color: var(--c-text3);
+  font: 400 11px/1.45 'Manrope', system-ui, sans-serif;
+}
+
+.inviteCount {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--c-accent-text);
+  background: color-mix(in srgb, #7452a6 11%, var(--c-surface));
+  font: 700 10px/1.2 'Manrope', system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contactRow { transition: none; }
+}

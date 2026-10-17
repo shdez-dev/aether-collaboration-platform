@@ -1,0 +1,133 @@
+.widget {
+  --team-tone: #7655aa;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 10px 7px;
+  overflow: hidden;
+  color: var(--c-text);
+  font-family: 'Manrope', system-ui, sans-serif;
+  container-type: inline-size;
+}
+
+.header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 22px; padding-right: 49px; }
+.titleLine { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.titleLine strong { overflow: hidden; color: var(--c-text); font: 750 11px/1.25 'Sora', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+
+.eventCount {
+  display: grid;
+  min-width: 18px;
+  height: 17px;
+  padding: 0 4px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--team-tone) 35%, var(--c-border));
+  border-radius: 6px;
+  color: var(--team-tone);
+  background: color-mix(in srgb, var(--team-tone) 8%, var(--c-bg2));
+  font-size: 8px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.headerActions { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.viewLink, .moreLink { display: inline-flex; align-items: center; gap: 4px; color: var(--c-accent-text); font-size: 8px; font-weight: 750; text-decoration: none; white-space: nowrap; transition: color .16s ease, gap .16s ease; }
+.viewLink:hover, .moreLink:hover { gap: 6px; color: var(--c-text); }
+.refreshButton { display: grid; width: 22px; height: 22px; flex: 0 0 22px; place-items: center; border: 1px solid transparent; border-radius: 7px; color: var(--c-text4); background: transparent; cursor: pointer; transition: color .16s ease, border-color .16s ease, background .16s ease, transform .2s ease; }
+.refreshButton:hover:not(:disabled) { color: var(--team-tone); border-color: color-mix(in srgb, var(--team-tone) 30%, var(--c-border)); background: color-mix(in srgb, var(--team-tone) 8%, var(--c-bg2)); transform: rotate(24deg); }
+.refreshButton:disabled { opacity: .45; cursor: wait; }
+
+.toolbar { display: flex; align-items: center; gap: 6px; min-width: 0; margin: 1px 0 3px; }
+.teamControl, .rangeControl { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; height: 26px; padding: 0 7px; border: 1px solid color-mix(in srgb, var(--team-tone) 24%, var(--c-border)); border-radius: 8px; color: var(--c-text2); background: color-mix(in srgb, var(--team-tone) 5%, var(--c-bg2)); }
+.teamControl { flex: 1 1 auto; }
+.rangeControl { flex: 0 0 auto; gap: 4px; padding-right: 6px; border-color: var(--c-border); background: var(--c-bg2); }
+.teamStamp { display: grid; width: 19px; height: 19px; flex: 0 0 19px; place-items: center; border: 1px solid color-mix(in srgb, var(--team-tone) 22%, var(--c-border)); border-radius: 6px; color: var(--team-tone); font-size: 7px; font-weight: 800; }
+.teamControl select, .rangeControl select { width: 100%; min-width: 0; height: 24px; padding: 0 2px 0 0; appearance: none; border: 0; outline: 0; color: var(--c-text2); background: transparent; font: 700 8px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.rangeControl select { width: 54px; }
+.teamControl select option, .rangeControl select option { color: var(--c-text); background: var(--c-surface); }
+.teamControl > svg, .rangeControl > svg { flex: 0 0 auto; color: var(--c-text4); pointer-events: none; }
+
+.activityList { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.activityRow { display: grid; grid-template-columns: 30px minmax(0, 1fr) 22px; align-items: center; gap: 7px; min-width: 0; min-height: 31px; padding: 1px 3px; border-bottom: 1px solid color-mix(in srgb, var(--c-border) 68%, transparent); background: transparent; animation: activityEnter .22s cubic-bezier(.2,.75,.2,1) both; animation-delay: calc(var(--row-index, 0) * 35ms); transition: background .15s ease; }
+.activityRow:hover { background: color-mix(in srgb, var(--team-tone) 5%, transparent); }
+
+.activityAvatar { position: relative; display: grid; width: 27px; height: 27px; overflow: visible; place-items: center; border: 1px solid color-mix(in srgb, var(--event-tone) 34%, var(--c-border)); border-radius: 50%; color: var(--event-tone); background: color-mix(in srgb, var(--event-tone) 14%, var(--c-bg2)); font-size: 8px; font-weight: 800; }
+.activityAvatar > img { width: 100%; height: 100%; overflow: hidden; border-radius: 50%; object-fit: cover; }
+.eventBadge { position: absolute; right: -4px; bottom: -3px; display: grid; width: 14px; height: 14px; place-items: center; border: 1px solid var(--c-bg2); border-radius: 50%; color: var(--event-tone); background: color-mix(in srgb, var(--event-tone) 18%, var(--c-bg2)); }
+.activityCopy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.activitySummary { display: block; overflow: hidden; color: var(--c-text3); font-size: 8.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.activitySummary strong { color: var(--c-text); font-weight: 750; }
+.activitySummary em { color: var(--c-text2); font-style: normal; font-weight: 650; }
+.activityCopy small { overflow: hidden; color: var(--c-text4); font-size: 7.5px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+
+.chatAction { display: grid; width: 21px; height: 21px; place-items: center; border: 1px solid transparent; border-radius: 7px; color: var(--c-text4); background: transparent; cursor: pointer; opacity: .65; transition: color .15s ease, border-color .15s ease, background .15s ease, opacity .15s ease; }
+.activityRow:hover .chatAction, .chatAction:focus-visible { color: var(--team-tone); border-color: color-mix(in srgb, var(--team-tone) 24%, var(--c-border)); background: color-mix(in srgb, var(--team-tone) 9%, var(--c-bg2)); opacity: 1; }
+.chatAction:focus-visible, .viewLink:focus-visible, .moreLink:focus-visible, .refreshButton:focus-visible, .teamControl select:focus-visible, .rangeControl select:focus-visible, .emptyAction:focus-visible, .filteredEmpty button:focus-visible, .recoveryState button:focus-visible { outline: 2px solid var(--team-tone); outline-offset: 2px; border-radius: 6px; }
+.moreLink { align-self: flex-end; min-height: 14px; margin-top: auto; padding-top: 1px; }
+
+.emptyState { display: flex; flex: 1; align-items: center; gap: 14px; min-width: 0; min-height: 0; padding: 5px 4px 7px; }
+.compactEmpty { padding-top: 2px; padding-bottom: 3px; }
+.activitySketch { position: relative; display: grid; width: min(31%, 126px); min-width: 74px; height: 100%; min-height: 76px; flex: 0 0 min(31%, 126px); place-items: center; overflow: hidden; border-radius: 11px; color: var(--team-tone); background: color-mix(in srgb, var(--team-tone) 6%, var(--c-bg2)); }
+.activitySketch::before, .activitySketch::after { position: absolute; border: 1px solid color-mix(in srgb, var(--team-tone) 16%, transparent); border-radius: 50%; content: ''; }
+.activitySketch::before { width: 62px; height: 62px; }
+.activitySketch::after { width: 82px; height: 82px; }
+.timelineTrack { position: absolute; z-index: 0; top: 19%; bottom: 19%; left: 50%; width: 1px; background: color-mix(in srgb, var(--team-tone) 38%, transparent); transform: translateX(-50%); }
+.timelineNode { position: absolute; z-index: 1; display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid color-mix(in srgb, var(--team-tone) 34%, var(--c-border)); border-radius: 8px; color: var(--team-tone); background: var(--c-bg2); }
+.timelineNodeFirst { top: 13%; left: 20%; color: #66b69c; border-color: color-mix(in srgb, #66b69c 38%, var(--c-border)); }
+.timelineNodeSecond { top: 40%; right: 18%; }
+.timelineNodeLast { bottom: 12%; left: 25%; display: grid; width: 23px; height: 23px; place-items: center; border: 1px dashed color-mix(in srgb, var(--team-tone) 36%, var(--c-border)); border-radius: 50%; color: var(--c-text3); background: var(--c-bg2); }
+.emptyCopy { display: flex; flex: 1; flex-direction: column; align-items: flex-start; min-width: 0; }
+.emptyCopy strong { color: var(--c-text); font: 700 10.5px/1.3 'Sora', system-ui, sans-serif; }
+.emptyCopy p { max-width: 38ch; margin: 4px 0 8px; color: var(--c-text3); font-size: 8.5px; line-height: 1.5; }
+.emptyAction { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--team-tone) 32%, var(--c-border)); border-radius: 7px; color: var(--team-tone); background: color-mix(in srgb, var(--team-tone) 8%, var(--c-bg2)); font-size: 8.5px; font-weight: 750; text-decoration: none; transition: color .15s ease, background .15s ease, border-color .15s ease, gap .15s ease; }
+.emptyAction:hover { gap: 7px; border-color: var(--team-tone); color: var(--c-text); background: color-mix(in srgb, var(--team-tone) 14%, var(--c-bg2)); }
+.filteredEmpty { display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px; min-width: 0; color: var(--c-text3); font-size: 8px; }
+.filteredEmpty button { padding: 2px 5px; border: 1px solid transparent; border-radius: 5px; color: var(--c-accent-text); background: transparent; font: 700 8px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.filteredEmpty button:hover { border-color: var(--c-border); background: var(--c-hover); }
+
+.recoveryState { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; padding: 4px; }
+.recoveryMark { display: grid; width: 26px; height: 26px; flex: 0 0 26px; place-items: center; border: 1px solid color-mix(in srgb, var(--team-tone) 26%, var(--c-border)); border-radius: 8px; color: var(--team-tone); background: color-mix(in srgb, var(--team-tone) 8%, var(--c-bg2)); }
+.recoveryState > span:nth-child(2) { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.recoveryState strong { overflow: hidden; color: var(--c-text2); font-size: 8.5px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.recoveryState small { overflow: hidden; color: var(--c-text4); font-size: 7.5px; text-overflow: ellipsis; white-space: nowrap; }
+.recoveryState button { display: grid; width: 23px; height: 23px; flex: 0 0 23px; place-items: center; border: 1px solid var(--c-border); border-radius: 7px; color: var(--c-text3); background: var(--c-bg2); cursor: pointer; }
+.recoveryState button:hover { color: var(--team-tone); border-color: var(--team-tone); }
+
+.loadingState { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 4px; min-width: 0; padding-top: 3px; }
+.loadingState span { display: block; height: 26px; border-bottom: 1px solid color-mix(in srgb, var(--c-border) 70%, transparent); background: color-mix(in srgb, var(--team-tone) 5%, var(--c-bg2)); }
+.loadingState span:nth-child(2) { width: 88%; }
+.loadingState span:nth-child(3) { width: 74%; }
+
+@keyframes activityEnter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+@container (max-width: 310px) {
+  .widget { padding-right: 8px; padding-left: 8px; }
+  .header { padding-right: 43px; }
+  .viewLink span { display: none; }
+  .toolbar { gap: 4px; }
+  .teamControl, .rangeControl { height: 25px; }
+  .teamControl { gap: 5px; padding-inline: 5px; }
+  .teamStamp { width: 17px; height: 17px; flex-basis: 17px; }
+  .teamControl select { font-size: 7.5px; }
+  .rangeControl select { width: 48px; font-size: 7.5px; }
+  .activityRow { grid-template-columns: 28px minmax(0, 1fr) 19px; gap: 5px; min-height: 29px; }
+  .activityAvatar { width: 25px; height: 25px; }
+  .activitySummary { font-size: 8px; }
+  .activityCopy small { font-size: 7px; }
+  .chatAction { width: 19px; height: 19px; }
+  .emptyState { gap: 9px; padding-right: 1px; padding-left: 1px; }
+  .activitySketch { width: 28%; min-width: 62px; flex-basis: 28%; }
+  .activitySketch::before { width: 49px; height: 49px; }
+  .activitySketch::after { width: 67px; height: 67px; }
+  .timelineNode { width: 22px; height: 22px; }
+  .timelineNodeLast { width: 20px; height: 20px; }
+  .emptyCopy strong { font-size: 9px; }
+  .emptyCopy p { font-size: 7.5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activityRow, .refreshButton, .chatAction, .emptyAction { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

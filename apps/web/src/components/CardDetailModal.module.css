@@ -47,6 +47,20 @@
   scrollbar-color: var(--c-border2) transparent !important;
 }
 .titleBlock { padding-bottom: 32px; }
+.cardCode {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin: 0 0 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--c-border2);
+  border-radius: 7px;
+  background: var(--c-surface);
+  color: var(--c-accent);
+  font: 800 11px/1.2 'Manrope', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .025em;
+}
 .titleRow { display: flex; align-items: flex-start; gap: 12px; }
 .title {
   margin: 0;

@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Check, Search } from 'lucide-react';
 import { useCalendarEventStore, type CalendarEvent, type CalendarInvitee, type CreateEventInput } from '@/stores/calendarEventStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTeamStore } from '@/stores/teamStore';
@@ -9,6 +10,7 @@ import { CalendarDatePicker, ClockTimePicker } from './DateTimePickers';
 import { oneHourAfter, timeForSelectedHour } from './calendarTime';
 import { CalendarSelect } from './CalendarSelect';
 import { apiService } from '@/services/apiService';
+import styles from './CreateEventModal.module.css';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -35,6 +37,8 @@ interface Props {
   initialHour?:  number;          // 0-23
   initialMinute?: number;         // 0 o 30
   initialAllDay?: boolean;
+  initialTitle?: string;
+  initialWorkspaceId?: string;
   eventToEdit?:  CalendarEvent | null;
 }
 
@@ -120,7 +124,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
-export default function CreateEventModal({ open, onClose, initialDate, initialHour, initialMinute, initialAllDay, eventToEdit }: Props) {
+export default function CreateEventModal({ open, onClose, initialDate, initialHour, initialMinute, initialAllDay, initialTitle, initialWorkspaceId, eventToEdit }: Props) {
   const createEvent = useCalendarEventStore(s => s.createEvent);
   const updateEvent = useCalendarEventStore(s => s.updateEvent);
   const deleteEvent = useCalendarEventStore(s => s.deleteEvent);
@@ -159,6 +163,7 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
   const [error,       setError]       = useState('');
   const [visible,     setVisible]     = useState(false);
   const [rendered,    setRendered]    = useState(open);
+  const filteredContacts = contacts.filter(contact => contact.name.toLocaleLowerCase().includes(contactSearch.trim().toLocaleLowerCase()));
 
   // Animation state
   useEffect(() => {
@@ -213,18 +218,18 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
       setWorkspaceId(eventToEdit.workspaceId ?? '');
       setTeamId(eventToEdit.teamId ?? '');
     } else {
-      setTitle(''); setDescription('');
+      setTitle(initialTitle ?? ''); setDescription('');
       setDate(defaultDate);
       setEndDate(initialAllDay ? defaultDate : defaultEndDate);
       setStartTime(`${pad(defaultHour)}:${pad(defaultMinute)}`);
       setEndTime(`${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`);
       setAllDay(initialAllDay ?? false); setColor(COLORS[0].value);
-      setType('personal'); setWorkspaceId(''); setTeamId('');
+      setType(initialWorkspaceId ? 'workspace' : 'personal'); setWorkspaceId(initialWorkspaceId ?? ''); setTeamId('');
       setInviteeIds([]); setContactSearch('');
     }
     setError('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventToEdit, open]);
+  }, [eventToEdit, initialTitle, initialWorkspaceId, open]);
 
   // Close on Escape
   useEffect(() => {
@@ -541,19 +546,28 @@ export default function CreateEventModal({ open, onClose, initialDate, initialHo
               )}
 
               {!isEdit && type === 'personal' && <Field label="Invitar contactos (opcional)">
-                <p style={{ margin: 0, color: 'var(--c-text3)', fontFamily: MANROPE, fontSize: 12 }}>Puedes invitar contactos de cualquier organización. Cada persona decide si acepta; hasta entonces el evento no aparecerá en su calendario.</p>
-                <AInput aria-label="Buscar contactos para invitar" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Buscar contacto…" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 154, overflowY: 'auto' }}>
-                  {contacts.filter(contact => contact.name.toLocaleLowerCase().includes(contactSearch.toLocaleLowerCase())).map(contact => (
-                    <label key={contact.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: inviteeIds.includes(contact.id) ? 'rgba(116,82,166,.13)' : 'rgba(97,71,130,.04)', cursor: 'pointer', fontFamily: MANROPE, fontSize: 13 }}>
-                      <input type="checkbox" checked={inviteeIds.includes(contact.id)} disabled={!inviteeIds.includes(contact.id) && inviteeIds.length >= 30} onChange={() => setInviteeIds(current => current.includes(contact.id) ? current.filter(id => id !== contact.id) : [...current, contact.id])} />
-                      <span style={{ width: 25, height: 25, borderRadius: '50%', background: '#7452A6', color: 'white', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>{contact.avatar ? <img src={contact.avatar} alt="" width={25} height={25} /> : contact.name.charAt(0).toUpperCase()}</span>
-                      {contact.name}
-                    </label>
-                  ))}
-                  {contacts.length === 0 && <small style={{ color: 'var(--c-text3)', padding: '8px 2px' }}>Aún no tienes contactos disponibles para invitar.</small>}
+                <div className={styles.inviteContacts}>
+                  <p className={styles.inviteDescription}>Puedes invitar contactos de cualquier organización. Cada persona decide si acepta; hasta entonces el evento no aparecerá en su calendario.</p>
+                  <div className={styles.contactSearch}>
+                    <Search size={15} aria-hidden="true" />
+                    <AInput className={styles.contactSearchInput} aria-label="Buscar contactos para invitar" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Buscar contacto…" />
+                  </div>
+                  <div className={styles.contactList} role="group" aria-label="Contactos disponibles para invitar">
+                    {filteredContacts.map(contact => {
+                      const selected = inviteeIds.includes(contact.id);
+                      const disabled = !selected && inviteeIds.length >= 30;
+                      return <label key={contact.id} className={`${styles.contactRow} ${selected ? styles.contactRowSelected : ''} ${disabled ? styles.contactRowDisabled : ''}`}>
+                        <input type="checkbox" checked={selected} disabled={disabled} aria-label={`Invitar a ${contact.name}`} onChange={() => setInviteeIds(current => current.includes(contact.id) ? current.filter(id => id !== contact.id) : [...current, contact.id])} />
+                        <span className={styles.contactAvatar}>{contact.avatar ? <img src={contact.avatar} alt="" width={28} height={28} /> : contact.name.charAt(0).toUpperCase()}</span>
+                        <span className={styles.contactName}>{contact.name}</span>
+                        {selected && <Check className={styles.contactCheck} size={15} aria-hidden="true" />}
+                      </label>;
+                    })}
+                    {contacts.length === 0 && <small className={styles.contactEmpty}>Aún no tienes contactos disponibles para invitar.</small>}
+                    {contacts.length > 0 && filteredContacts.length === 0 && <small className={styles.contactEmpty}>No encontramos contactos con ese nombre.</small>}
+                  </div>
+                  {inviteeIds.length > 0 && <small className={styles.inviteCount}><Check size={12} /> {inviteeIds.length} {inviteeIds.length === 1 ? 'persona seleccionada' : 'personas seleccionadas'}</small>}
                 </div>
-                {inviteeIds.length > 0 && <small style={{ color: 'var(--c-text3)' }}>{inviteeIds.length} {inviteeIds.length === 1 ? 'persona seleccionada' : 'personas seleccionadas'}</small>}
               </Field>}
 
               {isEdit && type === 'personal' && <Field label="Personas invitadas">

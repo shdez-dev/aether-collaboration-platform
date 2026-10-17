@@ -253,6 +253,8 @@ export interface ChecklistItem {
 export interface Card {
   id: string;
   listId: string;
+  projectId?: string | null;
+  cardCode?: string | null;
   title: string;
   description?: string;
   acceptanceCriteria?: string | null;
@@ -1089,6 +1091,7 @@ export interface CreateProjectData {
   description?: string;
   icon?: string;
   color?: string;
+  cardPrefix?: string;
   status?: ProjectStatus;
   startDate?: string;
   endDate?: string;

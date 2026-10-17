@@ -35,7 +35,7 @@ it('permite entrar a una organización vacía sin abrir la creación de espacio'
     onRefresh={jest.fn().mockResolvedValue(undefined)}
   />);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Cambiar' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cambiar organización. Actual: Con espacios' }));
   await waitFor(() => expect(screen.getByRole('button', { name: /Aether vacía/i })).toBeTruthy());
   fireEvent.click(screen.getByRole('button', { name: /Aether vacía/i }));
 

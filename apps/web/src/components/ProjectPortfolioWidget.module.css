@@ -1,0 +1,210 @@
+.portfolio {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  color: var(--c-text);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.toolbar, .filterBar, .viewTools, .viewToggle { display: flex; align-items: center; min-width: 0; }
+.openPortfolio, .moreProjects { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: 0 0 auto; color: var(--c-accent-text); font-size: 11px; font-weight: 750; text-decoration: none; transition: gap .18s ease, color .18s ease, background .18s ease; }
+.openPortfolio { min-height: 31px; padding: 0 10px; border: 1px solid var(--c-border); border-radius: 9px; background: color-mix(in srgb, var(--c-bg2) 78%, transparent); }
+.openPortfolio:hover { gap: 10px; border-color: color-mix(in srgb, var(--c-accent) 34%, var(--c-border)); color: var(--c-text); background: color-mix(in srgb, var(--c-accent) 8%, var(--c-bg2)); }
+.openPortfolio:focus-visible, .moreProjects:focus-visible, .projectItem:focus-visible, .filterBar button:focus-visible, .viewTools button:focus-visible, .emptyState button:focus-visible, .emptyState a:focus-visible, .errorState button:focus-visible, .filterEmpty button:focus-visible, .journeyStep:focus-visible, .createProject:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
+
+.toolbar { justify-content: space-between; gap: 9px; min-height: 34px; padding: 3px 4px 3px 5px; border: 1px solid var(--c-border); border-radius: 10px; background: color-mix(in srgb, var(--c-bg) 45%, transparent); }
+.filterBar { gap: 3px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.filterBar::-webkit-scrollbar { display: none; }
+.filterBar button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 26px; padding: 0 9px; flex: 0 0 auto; border: 1px solid transparent; border-radius: 7px; color: var(--c-text3); background: transparent; font: 700 10px 'Manrope', system-ui, sans-serif; cursor: pointer; transition: color .16s ease, background .16s ease, border-color .16s ease, transform .16s ease; }
+.filterBar button:hover { color: var(--c-text); background: var(--c-hover); }
+.filterBar button:active, .viewToggle button:active, .journeyStep:active { transform: scale(.97); }
+.filterBar button span { display: inline-grid; min-width: 17px; height: 17px; padding: 0 4px; place-items: center; border-radius: 5px; color: var(--c-text4); background: color-mix(in srgb, var(--c-text3) 8%, transparent); font-size: 9px; font-variant-numeric: tabular-nums; }
+.filterBar button.filterActive { border-color: color-mix(in srgb, var(--c-accent) 29%, var(--c-border)); color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 12%, var(--c-bg2)); box-shadow: 0 1px 3px color-mix(in srgb, #000 7%, transparent); }
+.filterBar button.filterActive span { color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 15%, var(--c-bg2)); }
+.compactFilter { position: relative; display: none; flex: 1; min-width: 0; }
+.compactFilter select { box-sizing: border-box; width: 100%; min-height: 26px; padding: 0 25px 0 9px; appearance: none; border: 1px solid var(--c-border); border-radius: 7px; color: var(--c-text2); background: var(--c-bg2); font: 700 9px 'Manrope', system-ui, sans-serif; }
+.compactFilter svg { position: absolute; top: 50%; right: 8px; color: var(--c-text4); transform: translateY(-50%); pointer-events: none; }
+.viewTools { gap: 6px; flex: 0 0 auto; }
+.toolButton, .viewToggle button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 26px; border: 1px solid transparent; border-radius: 7px; color: var(--c-text3); background: transparent; font: 700 9px 'Manrope', system-ui, sans-serif; cursor: pointer; transition: all .16s ease; }
+.toolButton { padding: 0 7px; }
+.toolButton:hover, .toolButton.toolSelected { border-color: var(--c-border); color: var(--c-accent-text); background: var(--c-bg2); }
+.toolDivider { width: 1px; height: 17px; background: var(--c-border); }
+.viewToggle { gap: 2px; padding: 2px; border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-bg2); }
+.viewToggle button { width: 26px; min-height: 23px; padding: 0; }
+.viewToggle button:hover { color: var(--c-text); background: var(--c-hover); }
+.viewToggle button.viewActive { color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 14%, var(--c-bg2)); box-shadow: 0 1px 3px color-mix(in srgb, #000 9%, transparent); }
+
+.projectList { display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--c-accent) 34%, transparent) transparent; }
+.projectItems { display: grid; gap: 8px; min-width: 0; padding: 1px; }
+.projectCards { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+.projectRows { grid-template-columns: minmax(0, 1fr); align-content: start; }
+.projectItem { --project-color: var(--c-accent); position: relative; display: flex; align-items: center; gap: 10px; box-sizing: border-box; min-width: 0; min-height: 62px; padding: 9px 11px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--project-color) 22%, var(--c-border)); border-radius: 11px; color: var(--c-text2); background: linear-gradient(115deg, color-mix(in srgb, var(--project-color) 8%, var(--c-bg2)), color-mix(in srgb, var(--c-bg2) 96%, transparent)); text-decoration: none; transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+.projectItem::before { position: absolute; inset: 0 auto 0 0; width: 3px; border-radius: 10px 0 0 10px; background: var(--project-color); content: ''; opacity: .72; }
+.projectItem:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--project-color) 49%, var(--c-border)); background: linear-gradient(115deg, color-mix(in srgb, var(--project-color) 13%, var(--c-bg2)), var(--c-bg2)); box-shadow: 0 5px 14px color-mix(in srgb, var(--project-color) 9%, transparent); }
+.projectMark { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border: 1px solid color-mix(in srgb, var(--project-color) 26%, var(--c-border)); border-radius: 9px; color: var(--project-color); background: color-mix(in srgb, var(--project-color) 11%, var(--c-bg2)); }
+.projectInfo { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+.projectName { display: block; overflow: hidden; color: var(--c-text); font-size: 12px; font-weight: 780; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.projectMeta { overflow: hidden; color: var(--c-text4); font-size: 9px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.projectStatus { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 5px 7px; border: 1px solid color-mix(in srgb, var(--c-text3) 17%, transparent); border-radius: 999px; color: var(--c-text3); background: color-mix(in srgb, var(--c-text3) 6%, transparent); font-size: 9px; font-weight: 720; line-height: 1; white-space: nowrap; }
+.projectStatus > i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.projectStatus[data-status='ACTIVE'] { border-color: color-mix(in srgb, #5ca989 32%, transparent); color: #5ca989; background: color-mix(in srgb, #5ca989 9%, var(--c-bg2)); }
+.projectStatus[data-status='PLANNING'] { border-color: color-mix(in srgb, #9b82d2 30%, transparent); color: #9b82d2; background: color-mix(in srgb, #9b82d2 9%, var(--c-bg2)); }
+.projectStatus[data-status='ON_HOLD'] { border-color: color-mix(in srgb, #d29a72 32%, transparent); color: #d29a72; background: color-mix(in srgb, #d29a72 9%, var(--c-bg2)); }
+.projectStatus[data-status='COMPLETED'] { border-color: color-mix(in srgb, #5ca989 28%, transparent); color: #5ca989; background: color-mix(in srgb, #5ca989 7%, var(--c-bg2)); }
+.rowArrow { flex: 0 0 15px; color: var(--c-text4); transition: transform .18s ease, color .18s ease; }
+.projectItem:hover .rowArrow { transform: translateX(2px); color: var(--project-color); }
+.projectRows .projectItem { min-height: 47px; border-radius: 9px; }
+.projectRows .projectMark { width: 27px; height: 27px; flex-basis: 27px; }
+.moreProjects { align-self: flex-start; min-height: 21px; }
+.moreProjects span { display: grid; min-width: 17px; height: 17px; padding: 0 4px; place-items: center; border: 1px solid var(--c-border); border-radius: 5px; color: var(--c-text3); background: var(--c-bg2); font-size: 9px; font-variant-numeric: tabular-nums; }
+.moreProjects:hover { gap: 10px; color: var(--c-text); }
+
+.errorState, .filterEmpty { display: flex; align-items: center; gap: 11px; min-height: 68px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 11px; color: var(--c-text3); background: color-mix(in srgb, var(--c-bg2) 88%, transparent); }
+.errorState > div, .filterEmpty > div { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+.errorState strong, .filterEmpty strong { color: var(--c-text); font-size: 11px; }
+.errorState span, .filterEmpty div > span { color: var(--c-text4); font-size: 10px; line-height: 1.35; }
+.errorState button, .filterEmpty button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 0 0 auto; min-height: 30px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--c-accent) 27%, var(--c-border)); border-radius: 8px; color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 9%, var(--c-bg2)); font: 720 10px 'Manrope', system-ui, sans-serif; cursor: pointer; transition: background .16s ease, transform .16s ease; }
+.errorState button:hover, .filterEmpty button:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--c-accent) 16%, var(--c-bg2)); }
+.filterEmptyIcon { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border-radius: 9px; color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 11%, var(--c-bg2)); }
+
+.emptyPortfolio { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 10px; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 1px; }
+.emptyWelcome, .projectJourney { position: relative; box-sizing: border-box; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--c-border); border-radius: 13px; }
+.emptyWelcome { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; padding: clamp(13px, 2.2cqi, 22px); background: linear-gradient(128deg, color-mix(in srgb, var(--c-accent) 14%, var(--c-bg2)), color-mix(in srgb, var(--c-accent) 5%, var(--c-bg2)) 65%, var(--c-bg2)); }
+.emptyGlow { position: absolute; right: -60px; bottom: -90px; width: 230px; height: 230px; border: 1px solid color-mix(in srgb, var(--c-accent) 17%, transparent); border-radius: 50%; pointer-events: none; }
+.emptyGlow::before, .emptyGlow::after { position: absolute; inset: 20px; border: 1px solid color-mix(in srgb, var(--c-accent) 12%, transparent); border-radius: inherit; content: ''; }
+.emptyGlow::after { inset: 44px; }
+.emptyWelcomeTop, .emptyWelcomeBottom { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.emptyEyebrow { display: inline-flex; align-items: center; gap: 7px; color: var(--c-accent-text); font-size: 9px; font-weight: 800; letter-spacing: .095em; }
+.emptyEyebrow svg { color: var(--c-accent-text); }
+.projectBlueprint { position: relative; display: grid; flex: 0 0 52px; width: 52px; height: 46px; place-items: center; color: var(--c-accent-text); }
+.projectBlueprint::after { position: absolute; right: 5px; bottom: 4px; width: 28px; height: 28px; border: 1px solid color-mix(in srgb, var(--c-accent) 36%, var(--c-border)); border-radius: 9px; content: ''; transform: rotate(10deg); }
+.projectBlueprint::before { position: absolute; top: 2px; left: 2px; width: 27px; height: 30px; border: 1px solid color-mix(in srgb, var(--c-accent) 25%, var(--c-border)); border-radius: 8px; background: color-mix(in srgb, var(--c-accent) 7%, var(--c-bg2)); content: ''; transform: rotate(-8deg); }
+.projectBlueprint > svg { z-index: 1; filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--c-accent) 24%, transparent)); }
+.emptyWelcomeCopy { position: relative; z-index: 1; max-width: 360px; }
+.emptyOverline { display: block; margin-bottom: 7px; color: var(--c-text4); font-size: 8px; font-weight: 800; letter-spacing: .11em; }
+.emptyWelcomeCopy h4 { max-width: 320px; margin: 0 0 7px; color: var(--c-text); font: 780 clamp(15px, 2.1cqi, 21px)/1.22 'Sora', system-ui, sans-serif; letter-spacing: -.04em; }
+.emptyWelcomeCopy p { max-width: 330px; margin: 0; color: var(--c-text3); font-size: clamp(10px, 1.2cqi, 12px); line-height: 1.55; }
+.createProject { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 0 11px; border: 1px solid color-mix(in srgb, var(--c-accent) 22%, var(--c-border)); border-radius: 9px; color: #fff; background: var(--c-accent); box-shadow: 0 4px 10px color-mix(in srgb, var(--c-accent) 18%, transparent); font-size: 10px; font-weight: 780; text-decoration: none; transition: transform .17s ease, filter .17s ease, box-shadow .17s ease; }
+.createProject:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 15px color-mix(in srgb, var(--c-accent) 25%, transparent); }
+.customizeHint { display: inline-flex; align-items: center; gap: 6px; color: var(--c-text4); font-size: 9px; }
+.customizeHint i { width: 6px; height: 6px; border-radius: 50%; background: #5ca989; box-shadow: 0 0 0 3px color-mix(in srgb, #5ca989 12%, transparent); }
+
+.projectJourney { display: flex; flex-direction: column; justify-content: space-between; gap: 9px; padding: 12px; background: color-mix(in srgb, var(--c-surface) 65%, var(--c-bg2)); container-type: inline-size; }
+.journeyHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.journeyHeading > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.journeyHeading > div > span { color: var(--c-text); font-size: 9px; font-weight: 850; letter-spacing: .09em; }
+.journeyHeading small { color: var(--c-text4); font-size: 9px; }
+.journeyCount { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; color: var(--c-text4); font-size: 9px; font-variant-numeric: tabular-nums; }
+.journeyCount b { color: var(--c-accent-text); font-weight: 850; }
+.journeyCount i { display: block; width: 19px; height: 2px; border-radius: 10px; background: linear-gradient(90deg, var(--c-accent) var(--step-progress, 34%), var(--c-border) var(--step-progress, 34%)); }
+.journeyContent { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.journeySteps { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 5px; min-height: 0; margin: 0; padding: 0; list-style: none; }
+.journeyStep { position: relative; display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 36px; padding: 4px 8px; border: 1px solid transparent; border-radius: 9px; color: var(--c-text2); background: transparent; text-align: left; cursor: pointer; transition: border-color .17s ease, background .17s ease, transform .17s ease; }
+.journeyStep:hover { border-color: var(--c-border); background: color-mix(in srgb, var(--c-bg2) 70%, transparent); }
+.journeyStep.journeyStepActive { border-color: color-mix(in srgb, var(--c-accent) 30%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 10%, var(--c-bg2)); }
+.stepNumber { display: grid; z-index: 1; width: 23px; height: 23px; flex: 0 0 23px; place-items: center; border: 1px solid color-mix(in srgb, var(--c-accent) 22%, var(--c-border)); border-radius: 8px; color: var(--c-accent-text); background: var(--c-bg2); font: 750 8px 'Sora', system-ui, sans-serif; }
+.journeyStepActive .stepNumber { border-color: color-mix(in srgb, var(--c-accent) 38%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 14%, var(--c-bg2)); }
+.stepCopy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.stepCopy strong { overflow: hidden; color: var(--c-text); font-size: 10px; font-weight: 760; text-overflow: ellipsis; white-space: nowrap; }
+.stepCopy small { overflow: hidden; color: var(--c-text4); font-size: 9px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.stepArrow { flex: 0 0 14px; color: var(--c-text4); transition: transform .17s ease, color .17s ease; }
+.journeyStep:hover .stepArrow, .journeyStepActive .stepArrow { transform: translateX(2px); color: var(--c-accent-text); }
+.journeyFooter { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--c-border); color: var(--c-text4); font-size: 9px; }
+.journeyProgress { display: block; width: 54px; height: 3px; overflow: hidden; border-radius: 10px; background: var(--c-border); }
+.journeyProgress i { display: block; height: 100%; border-radius: inherit; background: var(--c-accent); transition: width .25s ease; }
+
+.loadingList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 8px; }
+.loadingRow { display: flex; align-items: center; gap: 9px; min-height: 60px; padding: 0 10px; border: 1px solid var(--c-border); border-radius: 10px; background: color-mix(in srgb, var(--c-text3) 5%, transparent); }
+.loadingRow i, .loadingRow span, .loadingRow b { display: block; height: 7px; border-radius: 8px; background: color-mix(in srgb, var(--c-text3) 15%, var(--c-bg2)); animation: shimmer 1.4s ease-in-out infinite alternate; }
+.loadingRow i { width: 26px; height: 26px; background: color-mix(in srgb, var(--c-accent) 30%, var(--c-bg2)); }
+.loadingRow span { width: min(43%, 140px); }
+.loadingRow b { width: 46px; margin-left: auto; }
+
+.catalogPreview { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 10px; border: 1px solid var(--c-border); border-radius: 10px; background: color-mix(in srgb, var(--c-accent) 5%, var(--c-bg2)); }
+.previewHeading, .previewRow, .previewFooter { display: flex; align-items: center; min-width: 0; }
+.previewHeading { justify-content: space-between; gap: 8px; }
+.previewHeading > div { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.previewHeading > div > i { display: grid; flex: 0 0 25px; width: 25px; height: 25px; place-items: center; border: 1px solid color-mix(in srgb, var(--c-accent) 25%, var(--c-border)); border-radius: 8px; color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 10%, var(--c-bg2)); font-style: normal; }
+.previewHeading strong { color: var(--c-text2); font-size: 10px; }
+.previewHeading > span { color: var(--c-text4); font-size: 9px; }
+.previewRows { display: flex; flex-direction: column; gap: 4px; }
+.previewRow { gap: 7px; min-height: 24px; padding: 0 7px; border: 1px solid var(--c-border); border-radius: 7px; background: var(--c-bg2); }
+.previewRow > i { width: 4px; height: 13px; flex: 0 0 4px; border-radius: 3px; background: var(--project-color, var(--c-accent)); }
+.previewRow > span { flex: 1; min-width: 0; overflow: hidden; color: var(--c-text2); font-size: 9px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.previewRow > small { flex: 0 0 auto; color: var(--c-text4); font-size: 8px; }
+.previewEmpty { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px; border: 1px dashed var(--c-border); border-radius: 7px; color: var(--c-text4); font-size: 8px; line-height: 1.4; }
+.previewEmpty > svg { color: var(--c-accent-text); }
+.previewFooter { justify-content: flex-end; gap: 4px; color: var(--c-accent-text); font-size: 9px; font-weight: 700; }
+
+@keyframes shimmer { from { opacity: .45; } to { opacity: .9; } }
+
+@container (max-width: 520px) {
+  .toolbar { gap: 8px; }
+  .filterBar { display: none; }
+  .compactFilter { display: block; }
+  .toolButton { width: 26px; padding: 0; }
+  .toolButton span, .toolDivider { display: none; }
+  .projectCards { grid-template-columns: minmax(0, 1fr); }
+  .emptyPortfolio { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(84px, .9fr) minmax(112px, 1.1fr); gap: 6px; }
+  .emptyWelcome { gap: 5px; padding: 8px; }
+  .emptyWelcomeTop, .emptyOverline, .customizeHint { display: none; }
+  .emptyWelcomeCopy h4 { margin-bottom: 3px; font-size: 13px; }
+  .emptyWelcomeCopy p { font-size: 8px; line-height: 1.3; }
+  .emptyWelcomeBottom { justify-content: flex-start; }
+  .createProject { min-height: 25px; padding-inline: 8px; font-size: 9px; }
+  .projectJourney { gap: 4px; padding: 8px; }
+  .journeyHeading small, .journeyFooter { display: none; }
+  .journeySteps { gap: 3px; }
+  .journeyStep { min-height: 24px; padding: 2px 5px; }
+  .stepNumber { width: 19px; height: 19px; flex-basis: 19px; }
+  .stepCopy strong { font-size: 9px; }
+  .stepCopy small, .stepArrow { display: none; }
+}
+
+@container (max-width: 340px) {
+  .portfolio { gap: 6px; }
+  .openPortfolio { min-height: 27px; padding: 0 7px; font-size: 9px; }
+  .openPortfolio span { display: none; }
+  .openPortfolio { width: 27px; padding: 0; }
+  .toolbar { gap: 4px; padding-inline: 3px; }
+  .filterBar { gap: 1px; }
+  .filterBar button { gap: 4px; min-height: 24px; padding-inline: 6px; font-size: 9px; }
+  .filterBar button span { min-width: 14px; height: 14px; padding-inline: 2px; font-size: 8px; }
+  .toolButton { width: 25px; padding: 0; }
+  .toolButton span, .toolDivider { display: none; }
+  .viewToggle button { width: 22px; min-height: 21px; }
+  .emptyPortfolio { grid-template-rows: minmax(76px, .9fr) minmax(102px, 1.1fr); gap: 5px; }
+  .emptyWelcome { gap: 4px; padding: 7px; }
+  .emptyWelcomeCopy h4 { margin-bottom: 2px; font-size: 12px; }
+  .emptyWelcomeCopy p { font-size: 8px; }
+  .createProject { min-height: 23px; padding-inline: 7px; font-size: 8px; }
+  .projectJourney { gap: 3px; padding: 7px; }
+  .journeyStep { gap: 5px; min-height: 22px; padding: 1px 4px; }
+  .stepNumber { width: 18px; height: 18px; flex-basis: 18px; }
+  .stepCopy strong { font-size: 8px; }
+  .stepCopy small { font-size: 8px; }
+  .stepArrow { display: none; }
+  .projectItem { gap: 7px; min-height: 55px; padding-inline: 8px; }
+  .projectMark { width: 27px; height: 27px; flex-basis: 27px; }
+  .projectName { font-size: 10px; }
+  .projectMeta { font-size: 8px; }
+  .projectStatus { padding: 4px 5px; font-size: 8px; }
+}
+
+@container (max-width: 245px) {
+  .compactFilter select { min-height: 24px; font-size: 8px; }
+  .emptyPortfolio { grid-template-rows: minmax(76px, .9fr) minmax(100px, 1.1fr); gap: 5px; }
+  .journeyStep { min-height: 21px; }
+  .journeyStep .stepCopy small { display: none; }
+  .projectStatus { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .projectItem, .rowArrow, .openPortfolio, .moreProjects, .createProject, .filterBar button, .viewTools button, .journeyStep, .stepArrow, .journeyProgress i { transition: none; }
+  .loadingRow i, .loadingRow span, .loadingRow b { animation: none; }
+  .createProject:hover, .projectItem:hover, .errorState button:hover, .filterEmpty button:hover { transform: none; box-shadow: none; }
+}

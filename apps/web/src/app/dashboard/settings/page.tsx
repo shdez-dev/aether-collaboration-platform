@@ -1,19 +1,30 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bell, Check, Moon, Sun } from 'lucide-react';
+import { Bell, Check, LayoutDashboard, Moon, PanelsTopLeft, Sun } from 'lucide-react';
 import { usePreferencesStore } from '@/stores/preferencesStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useDashboardModeStore, type DashboardMode } from '@/stores/dashboardModeStore';
 import { useTheme } from '@/providers/ThemeProvider';
 import { C } from '@/lib/colors';
 import entrance from '../pageEntrance.module.css';
 
 export default function SettingsPage() {
+  const user = useAuthStore((state) => state.user);
   const { theme, setTheme } = useTheme();
   const { preferences, loadPreferences, updatePreferences } = usePreferencesStore();
+  const dashboardMode = useDashboardModeStore((state) => state.mode);
+  const loadDashboardMode = useDashboardModeStore((state) => state.loadForUser);
+  const setDashboardMode = useDashboardModeStore((state) => state.setMode);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => { void loadPreferences(); }, [loadPreferences]);
+  useEffect(() => { if (user?.id) loadDashboardMode(user.id); }, [loadDashboardMode, user?.id]);
+
+  function changeDashboardMode(mode: DashboardMode) {
+    if (user?.id) setDashboardMode(user.id, mode);
+  }
 
   async function changeTheme(next: 'light' | 'dark') {
     setTheme(next);
@@ -71,6 +82,37 @@ export default function SettingsPage() {
               );
             })}
           </div>
+        </section>
+
+        <section style={card} aria-labelledby="dashboard-layout-title">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+            <span style={{ display: 'grid', placeItems: 'center', width: 38, height: 38, borderRadius: 10, background: C.bg2, color: C.accent }}><LayoutDashboard size={19} /></span>
+            <div>
+              <h2 id="dashboard-layout-title" style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Diseño de la plataforma</h2>
+              <p style={{ color: C.text3, fontSize: 12, margin: '3px 0 0' }}>Elige cómo quieres organizar tu espacio de trabajo.</p>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            {([
+              ['normal', 'Vista normal', 'Conserva el Inicio y la navegación actuales.', LayoutDashboard],
+              ['personalized', 'Vista personalizable', 'Usa una barra compacta y organiza widgets en una cuadrícula.', PanelsTopLeft],
+            ] as const).map(([mode, title, description, Icon]) => {
+              const selected = dashboardMode === mode;
+              return (
+                <button key={mode} type="button" aria-pressed={selected} onClick={() => changeDashboardMode(mode)}
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minHeight: 94, padding: '15px 16px', textAlign: 'left', cursor: 'pointer', borderRadius: 12,
+                    border: `1px solid ${selected ? C.accent : C.border}`, background: selected ? C.bg2 : C.surface2, color: C.text }}>
+                  <Icon size={19} color={selected ? C.accent : C.text3} style={{ marginTop: 1, flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>
+                    <strong style={{ display: 'block', fontSize: 13, fontWeight: selected ? 700 : 600 }}>{title}</strong>
+                    <small style={{ display: 'block', color: C.text3, fontSize: 12, lineHeight: 1.5, marginTop: 5 }}>{description}</small>
+                  </span>
+                  {selected && <Check size={17} color={C.accent} style={{ flexShrink: 0 }} />}
+                </button>
+              );
+            })}
+          </div>
+          <p style={{ color: C.text4, fontSize: 11, margin: '12px 0 0' }}>La selección y la distribución se guardan en este navegador.</p>
         </section>
 
         <section style={card} aria-labelledby="notifications-title">

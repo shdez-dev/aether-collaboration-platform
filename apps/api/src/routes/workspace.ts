@@ -164,6 +164,14 @@ router.get('/:id/stats', checkWorkspaceMembership, (req, res) =>
 );
 
 /**
+ * GET /api/workspaces/:id/unassigned-cards
+ * Tarjetas activas sin responsables, filtradas por acceso a proyectos.
+ */
+router.get('/:id/unassigned-cards', checkWorkspaceMembership, (req, res) =>
+  workspaceController.getUnassignedCards(req, res)
+);
+
+/**
  * GET /api/workspaces/:id/project-standard
  * Obtener estándar activo del workspace
  */

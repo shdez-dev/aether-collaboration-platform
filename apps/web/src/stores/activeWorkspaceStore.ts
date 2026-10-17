@@ -30,6 +30,7 @@ interface ActiveWorkspaceState {
   sidebarProjects: SidebarProject[];
   boardsLoading: boolean;
   projectsLoading: boolean;
+  projectsError: boolean;
 
   setActiveWorkspaceId: (id: string | null) => void;
   fetchSidebarBoards: (workspaceId: string) => Promise<void>;
@@ -48,6 +49,7 @@ export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
       sidebarProjects: [],
       boardsLoading: false,
       projectsLoading: false,
+      projectsError: false,
 
       setActiveWorkspaceId: (id) => {
         if (get().activeWorkspaceId === id) return;
@@ -59,6 +61,7 @@ export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
           sidebarProjects: [],
           boardsLoading: false,
           projectsLoading: false,
+          projectsError: false,
         });
       },
 
@@ -85,16 +88,24 @@ export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
       fetchSidebarProjects: async (workspaceId) => {
         if (get().activeWorkspaceId !== workspaceId) return;
         const requestId = ++sidebarProjectsRequestId;
-        set({ projectsLoading: true });
+        set({ projectsLoading: true, projectsError: false });
         try {
           const r = await apiService.get<{ projects: SidebarProject[] }>(
             `/api/workspaces/${workspaceId}/projects`,
             true
           );
-          if (requestId === sidebarProjectsRequestId && r.success && r.data && get().activeWorkspaceId === workspaceId) {
-            set({ sidebarProjects: r.data.projects });
+          if (requestId === sidebarProjectsRequestId && get().activeWorkspaceId === workspaceId) {
+            if (r.success && r.data) {
+              set({
+                sidebarProjects: r.data.projects.filter((project) => project.workspaceId === workspaceId),
+                projectsError: false,
+              });
+            }
+            else set({ projectsError: true });
           }
-        } catch { /* silent */ }
+        } catch {
+          if (requestId === sidebarProjectsRequestId && get().activeWorkspaceId === workspaceId) set({ projectsError: true });
+        }
         finally {
           if (requestId === sidebarProjectsRequestId && get().activeWorkspaceId === workspaceId) {
             set({ projectsLoading: false });
@@ -117,9 +128,12 @@ export const useActiveWorkspaceStore = create<ActiveWorkspaceState>()(
       },
 
       addSidebarProject: (project) => {
-        set((state) => ({
-          sidebarProjects: [project, ...state.sidebarProjects.filter((item) => item.id !== project.id)],
-        }));
+        set((state) => {
+          if (project.workspaceId !== state.activeWorkspaceId) return state;
+          return {
+            sidebarProjects: [project, ...state.sidebarProjects.filter((item) => item.id !== project.id)],
+          };
+        });
       },
 
       removeSidebarProject: (projectId) => {

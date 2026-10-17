@@ -94,6 +94,7 @@ export interface Project {
   description?: string;
   icon?: string;
   color?: string;
+  cardPrefix?: string | null;
   status: ProjectStatus;
   maturityStage: ProjectMaturityStage;
   methodology?: 'FLEXIBLE' | 'SCRUM';
@@ -157,6 +158,7 @@ interface CreateProjectData {
   description: string;
   icon?: string;
   color?: string;
+  cardPrefix?: string;
   status?: ProjectStatus;
   maturityStage?: ProjectMaturityStage;
   problemStatement: string;

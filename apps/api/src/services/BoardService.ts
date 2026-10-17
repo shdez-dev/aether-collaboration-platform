@@ -156,6 +156,8 @@ export class BoardService {
         cardsByList[card.list_id].push({
           id: card.id,
           listId: card.list_id,
+          projectId: card.project_id ?? null,
+          cardCode: card.card_code ?? null,
           title: card.title,
           description: card.description,
           position: card.position,

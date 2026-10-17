@@ -185,6 +185,45 @@ function TimeGrid({ days, items, selectedDate, onDateSelect, onSlotClick, onItem
   </div>;
 }
 
+function WeekCardGrid({ days, items, onDateSelect, onCreate, onItemClick }: {
+  days: Date[];
+  items: CalendarItem[];
+  onDateSelect: (date: Date) => void;
+  onCreate: (date: Date) => void;
+  onItemClick: (item: CalendarItem) => void;
+}) {
+  const today = dateKey(new Date());
+
+  return <div className={styles.weekScroll} role="region" aria-label="Agenda semanal">
+    <div className={styles.weekGrid}>
+      {days.map((day, index) => {
+        const key = dateKey(day);
+        const isToday = key === today;
+        const entries = items
+          .filter((item) => item.kind === 'card' ? dateKey(item.start) === key : overlapsDay(item.start, item.end, day))
+          .sort((first, second) => first.start.getTime() - second.start.getTime());
+        const weekday = DAY_NAMES[(day.getDay() + 6) % 7];
+
+        return <section key={key} className={`${styles.weekColumn} ${isToday ? styles.weekToday : ''}`} aria-label={dayFormatter.format(day)} aria-current={isToday ? 'date' : undefined} style={{ '--week-index': index } as CSSProperties}>
+          <button type="button" className={styles.weekDayHead} onClick={() => onDateSelect(day)} aria-label={`Abrir ${dayFormatter.format(day)}`}>
+            <span>{weekday}</span>
+            <strong>{day.getDate()}</strong>
+            <small>{entries.length} {entries.length === 1 ? 'plan' : 'planes'}</small>
+          </button>
+          <div className={styles.weekEvents}>
+            {entries.map((item) => <button key={item.id} type="button" className={styles.weekEvent} style={{ '--item-color': item.color } as CSSProperties} onClick={() => onItemClick(item)} title={`${item.title} | ${timeRange(item)}`}>
+              <strong>{item.title}</strong>
+              <span>{timeRange(item)}</span>
+            </button>)}
+            {entries.length === 0 && <span className={styles.weekEmpty}>Sin planes</span>}
+          </div>
+          <button type="button" className={styles.weekAdd} onClick={() => onCreate(day)} aria-label={`Añadir un evento el ${dayFormatter.format(day)}`}><Plus size={13} /> Añadir</button>
+        </section>;
+      })}
+    </div>
+  </div>;
+}
+
 function MonthGrid({ date, items, onDateSelect, onCreate, onItemClick }: {
   date: Date; items: CalendarItem[]; onDateSelect: (date: Date) => void;
   onCreate: (date: Date) => void; onItemClick: (item: CalendarItem) => void;
@@ -425,7 +464,8 @@ export default function CalendarPage() {
       {invitationError && <div className={styles.error} role="alert">{invitationError}</div>}
       <section className={styles.calendar} aria-busy={loading}>
         <div className={styles.viewMotion} key={`${view}-${dateKey(visibleDays[0])}`}>
-          {(view === 'day' || view === 'week') && <TimeGrid days={visibleDays} items={items} selectedDate={date} onDateSelect={(next) => { setDate(next); setView('day'); }} onSlotClick={(day, hour, minute) => openCreate(day, hour < 0 ? undefined : hour, minute, hour < 0)} onItemClick={openItem} />}
+          {view === 'week' && <WeekCardGrid days={visibleDays} items={items} onDateSelect={(next) => { setDate(next); setView('day'); }} onCreate={(day) => openCreate(day, undefined, undefined, true)} onItemClick={openItem} />}
+          {view === 'day' && <TimeGrid days={visibleDays} items={items} selectedDate={date} onDateSelect={(next) => { setDate(next); setView('day'); }} onSlotClick={(day, hour, minute) => openCreate(day, hour < 0 ? undefined : hour, minute, hour < 0)} onItemClick={openItem} />}
           {view === 'month' && <MonthGrid date={date} items={items} onDateSelect={(next) => { setDate(next); setView('day'); }} onCreate={(day) => openCreate(day, undefined, undefined, true)} onItemClick={openItem} />}
           {view === 'agenda' && <AgendaView date={date} items={items} invitations={invitations} onRespond={respondToInvitation} onCreate={(day) => openCreate(day)} onItemClick={openItem} />}
         </div>

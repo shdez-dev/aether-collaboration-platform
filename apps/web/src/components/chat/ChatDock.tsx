@@ -38,7 +38,7 @@ function relativeTime(value: string | null) {
   return date.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
 }
 
-export default function ChatDock({ userId }: { userId?: string }) {
+export default function ChatDock({ userId, personalizedDashboard = false, hideLauncher = false }: { userId?: string; personalizedDashboard?: boolean; hideLauncher?: boolean }) {
   const user = useAuthStore((state) => state.user);
   const presence = usePresence(userId);
   const [open, setOpen] = useState(false);
@@ -53,6 +53,7 @@ export default function ChatDock({ userId }: { userId?: string }) {
   const [draft, setDraft] = useState('');
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
+
   const [error, setError] = useState('');
   const activeRef = useRef<ActiveChat | null>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
@@ -197,8 +198,9 @@ export default function ChatDock({ userId }: { userId?: string }) {
   const badgeCount = unreadCount + incomingCount;
   const filteredContacts = contacts.filter((item) => `${item.name} ${item.position ?? ''}`.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
   const filteredConversations = conversations.filter((item) => item.name.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
+  const renderLauncher = (className = '') => <button type="button" className={`${styles.launcher} ${className}`} aria-label={open ? 'Cerrar mensajes' : 'Abrir mensajes'} title={open ? 'Cerrar mensajes' : 'Mensajes'} aria-controls="aether-chat-panel" aria-expanded={open} onClick={() => { setOpen((value) => !value); if (!open) void refresh(); }}><MessageCircle size={23} fill="none" />{badgeCount > 0 && <span className={styles.badge}>{badgeCount > 99 ? '+99' : badgeCount}</span>}</button>;
 
-  return <div className={styles.dock} ref={dockRef}>
+  return <div className={`${styles.dock} ${personalizedDashboard ? styles.personalizedDock : ''}`} ref={dockRef}>
     {open && <section className={styles.panel} role="dialog" aria-label="Mensajes" id="aether-chat-panel">
       <header className={styles.header}>
         <div className={styles.headerMain}>
@@ -256,6 +258,6 @@ export default function ChatDock({ userId }: { userId?: string }) {
       </>}
       {error && <p className={styles.error} role="alert">{error}</p>}
     </section>}
-    <button type="button" className={styles.launcher} aria-label={open ? 'Cerrar mensajes' : 'Abrir mensajes'} aria-controls="aether-chat-panel" aria-expanded={open} onClick={() => { setOpen((value) => !value); if (!open) void refresh(); }}><MessageCircle size={23} fill="none" />{badgeCount > 0 && <span className={styles.badge}>{badgeCount > 99 ? '+99' : badgeCount}</span>}</button>
+    {!hideLauncher && (personalizedDashboard ? renderLauncher(styles.mobileLauncher) : renderLauncher())}
   </div>;
 }

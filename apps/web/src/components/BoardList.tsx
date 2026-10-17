@@ -270,7 +270,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
             <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {listCards.length > 0 ? (
-                  listCards.map((card) => <Card key={card.id} card={card} boardId={list.boardId} />)
+                  listCards.map((card) => <Card key={card.id} card={card} />)
                 ) : (
                   <div style={{ minHeight: '130px', display: 'grid', placeContent: 'center', justifyItems: 'center', gap: '7px', textAlign: 'center', padding: '18px', borderRadius: '9px', background: isOver ? `color-mix(in srgb, ${C.accent} 10%, ${C.surface})` : C.surface, color: isOver ? C.accent : C.text3, transition: 'background-color 0.15s, color 0.15s' }}>
                     <Inbox size={20} strokeWidth={1.5} aria-hidden="true" />

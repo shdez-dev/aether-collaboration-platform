@@ -8,6 +8,8 @@ export interface ProjectCreationDraft {
   userId: string;
   workspaceId: string;
   proposal: ProjectProposalAnswers;
+  cardPrefix?: string;
+  cardPrefixCustomized?: boolean;
   methodology: 'FLEXIBLE' | 'SCRUM';
   teamIds: string[];
   memberIds: string[];
@@ -28,6 +30,8 @@ function isProjectCreationDraft(value: unknown): value is ProjectCreationDraft {
     && typeof draft.userId === 'string'
     && typeof draft.workspaceId === 'string'
     && Boolean(proposal && proposalFields.every((field) => typeof proposal[field] === 'string'))
+    && (draft.cardPrefix === undefined || typeof draft.cardPrefix === 'string')
+    && (draft.cardPrefixCustomized === undefined || typeof draft.cardPrefixCustomized === 'boolean')
     && (draft.methodology === 'FLEXIBLE' || draft.methodology === 'SCRUM')
     && Array.isArray(draft.teamIds) && draft.teamIds.every((id) => typeof id === 'string')
     && Array.isArray(draft.memberIds) && draft.memberIds.every((id) => typeof id === 'string')

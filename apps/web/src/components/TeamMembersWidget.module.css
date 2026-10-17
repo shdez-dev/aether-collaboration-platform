@@ -1,0 +1,246 @@
+.widget {
+  --team-tone: #7655aa;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 10px 7px;
+  overflow: hidden;
+  color: var(--c-text);
+  font-family: 'Manrope', system-ui, sans-serif;
+  container-type: inline-size;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 22px;
+  padding-right: 49px;
+}
+
+.titleLine { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.titleLine strong { overflow: hidden; color: var(--c-text); font: 750 11px/1.25 'Sora', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+
+.memberCount {
+  display: grid;
+  min-width: 18px;
+  height: 17px;
+  padding: 0 4px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--team-tone) 35%, var(--c-border));
+  border-radius: 6px;
+  color: var(--team-tone);
+  background: color-mix(in srgb, var(--team-tone) 8%, var(--c-bg2));
+  font-size: 8px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.headerActions { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.viewLink, .moreLink { display: inline-flex; align-items: center; gap: 4px; color: var(--c-accent-text); font-size: 8px; font-weight: 750; text-decoration: none; white-space: nowrap; transition: color .16s ease, gap .16s ease; }
+.viewLink:hover, .moreLink:hover { gap: 6px; color: var(--c-text); }
+
+.refreshButton {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--c-text4);
+  background: transparent;
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease, background .16s ease, transform .2s ease;
+}
+
+.refreshButton:hover:not(:disabled) { color: var(--team-tone); border-color: color-mix(in srgb, var(--team-tone) 30%, var(--c-border)); background: color-mix(in srgb, var(--team-tone) 8%, var(--c-bg2)); transform: rotate(24deg); }
+.refreshButton:disabled { opacity: .45; cursor: wait; }
+
+.teamControl {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 25px;
+  margin: 1px 0 2px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--team-tone) 23%, var(--c-border));
+  border-radius: 8px;
+  color: var(--c-text2);
+  background: color-mix(in srgb, var(--team-tone) 5%, var(--c-bg2));
+}
+
+.teamStamp {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--team-tone) 22%, var(--c-border));
+  border-radius: 6px;
+  color: var(--team-tone);
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.teamControl select {
+  width: 100%;
+  min-width: 0;
+  height: 23px;
+  padding: 0 3px 0 0;
+  appearance: none;
+  border: 0;
+  outline: 0;
+  color: var(--c-text2);
+  background: transparent;
+  font: 700 8.5px 'Manrope', system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.teamControl select option { color: var(--c-text); background: var(--c-surface); }
+.teamControl > svg { flex: 0 0 auto; color: var(--c-text4); pointer-events: none; }
+
+.roster { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+
+.memberRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 29px minmax(0, 1fr) 23px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 29px;
+  padding: 1px 3px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-border) 68%, transparent);
+  color: var(--c-text2);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  animation: memberEnter .22s cubic-bezier(.2,.75,.2,1) both;
+  animation-delay: calc(var(--row-index, 0) * 35ms);
+  transition: color .15s ease, background .15s ease;
+}
+
+.memberRow:last-child { border-bottom-color: transparent; }
+.memberRow:hover { color: var(--c-text); background: color-mix(in srgb, var(--team-tone) 6%, transparent); }
+.memberRow:focus-visible, .viewLink:focus-visible, .moreLink:focus-visible, .teamControl select:focus-visible, .refreshButton:focus-visible, .emptyAction:focus-visible, .emptyState > button:focus-visible { outline: 2px solid var(--team-tone); outline-offset: 2px; border-radius: 6px; }
+
+.avatar {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--member-color) 35%, var(--c-border));
+  border-radius: 50%;
+  color: #fff;
+  background: color-mix(in srgb, var(--member-color) 72%, var(--c-bg2));
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.memberCopy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.memberCopy strong { overflow: hidden; color: var(--c-text2); font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.memberCopy small { overflow: hidden; color: var(--c-text3); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+
+.chatAction {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--c-text4);
+  opacity: .72;
+  transition: color .15s ease, border-color .15s ease, background .15s ease, opacity .15s ease;
+}
+
+.memberRow:hover .chatAction, .memberRow:focus-visible .chatAction { color: var(--team-tone); border-color: color-mix(in srgb, var(--team-tone) 24%, var(--c-border)); background: color-mix(in srgb, var(--team-tone) 9%, var(--c-bg2)); opacity: 1; }
+.moreLink { align-self: flex-end; min-height: 14px; margin-top: auto; padding-top: 1px; }
+
+.emptyState {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: 5px 4px 7px;
+}
+
+.memberSketch {
+  position: relative;
+  display: grid;
+  width: min(31%, 126px);
+  min-width: 74px;
+  height: 100%;
+  min-height: 76px;
+  flex: 0 0 min(31%, 126px);
+  place-items: center;
+  overflow: hidden;
+  border-radius: 11px;
+  color: var(--team-tone);
+  background: color-mix(in srgb, var(--team-tone) 6%, var(--c-bg2));
+}
+
+.memberSketch::before, .memberSketch::after { position: absolute; border: 1px solid color-mix(in srgb, var(--team-tone) 17%, transparent); border-radius: 50%; content: ''; }
+.memberSketch::before { width: 62px; height: 62px; }
+.memberSketch::after { width: 82px; height: 82px; }
+.sketchOrbit { position: absolute; z-index: 0; width: 85%; height: 1px; background: color-mix(in srgb, var(--team-tone) 34%, transparent); transform: rotate(-31deg); }
+.sketchOrbit::before, .sketchOrbit::after { position: absolute; top: -2px; width: 5px; height: 5px; border: 1px solid color-mix(in srgb, var(--team-tone) 48%, var(--c-border)); border-radius: 50%; background: var(--c-bg2); content: ''; }
+.sketchOrbit::before { left: 15%; }
+.sketchOrbit::after { right: 13%; }
+
+.sketchPerson, .sketchAdd { position: absolute; z-index: 1; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--team-tone) 36%, var(--c-border)); border-radius: 50%; color: var(--team-tone); background: var(--c-bg2); }
+.sketchLead { width: 39px; height: 39px; }
+.sketchSecond { top: 15%; left: 14%; width: 27px; height: 27px; color: #4d9a84; border-color: color-mix(in srgb, #4d9a84 40%, var(--c-border)); }
+.sketchAdd { right: 12%; bottom: 13%; width: 25px; height: 25px; color: var(--c-text2); border-style: dashed; }
+
+.emptyCopy { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 0; min-width: 0; }
+.emptyCopy strong { color: var(--c-text); font: 700 10.5px/1.3 'Sora', system-ui, sans-serif; }
+.emptyCopy p { max-width: 38ch; margin: 4px 0 8px; color: var(--c-text3); font-size: 8.5px; line-height: 1.5; }
+.emptyAction { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--team-tone) 32%, var(--c-border)); border-radius: 7px; color: var(--team-tone); background: color-mix(in srgb, var(--team-tone) 8%, var(--c-bg2)); font-size: 8.5px; font-weight: 750; text-decoration: none; transition: color .15s ease, background .15s ease, border-color .15s ease, gap .15s ease; }
+.emptyAction:hover { gap: 7px; border-color: var(--team-tone); color: var(--c-text); background: color-mix(in srgb, var(--team-tone) 14%, var(--c-bg2)); }
+
+.emptyMark { display: grid; width: 27px; height: 27px; flex: 0 0 27px; place-items: center; border: 1px solid color-mix(in srgb, var(--team-tone) 26%, var(--c-border)); border-radius: 8px; color: var(--team-tone); background: color-mix(in srgb, var(--team-tone) 8%, var(--c-bg2)); }
+.emptyState > button { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border: 1px solid var(--c-border); border-radius: 7px; color: var(--c-text3); background: var(--c-bg2); cursor: pointer; }
+.emptyState > button:hover { border-color: var(--team-tone); color: var(--team-tone); }
+
+.loadingState { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 5px; min-width: 0; padding-top: 3px; }
+.loadingState span { display: block; height: 27px; border-bottom: 1px solid color-mix(in srgb, var(--c-border) 70%, transparent); background: color-mix(in srgb, var(--team-tone) 5%, var(--c-bg2)); }
+.loadingState span:nth-child(2) { width: 88%; }
+.loadingState span:nth-child(3) { width: 74%; }
+
+@keyframes memberEnter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+@container (max-width: 310px) {
+  .widget { padding-right: 8px; padding-left: 8px; }
+  .header { padding-right: 43px; }
+  .viewLink span { display: none; }
+  .memberRow { grid-template-columns: 26px minmax(0, 1fr) 20px; gap: 6px; min-height: 28px; }
+  .avatar { width: 24px; height: 24px; }
+  .chatAction { width: 19px; height: 19px; }
+  .emptyState { gap: 9px; padding-right: 1px; padding-left: 1px; }
+  .memberSketch { width: 28%; min-width: 62px; flex-basis: 28%; }
+  .memberSketch::before { width: 49px; height: 49px; }
+  .memberSketch::after { width: 67px; height: 67px; }
+  .sketchLead { width: 33px; height: 33px; }
+  .sketchSecond { left: 8%; width: 23px; height: 23px; }
+  .sketchAdd { right: 7%; width: 22px; height: 22px; }
+  .emptyCopy strong { font-size: 9px; }
+  .emptyCopy p { font-size: 7.5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memberRow, .refreshButton, .chatAction, .emptyAction { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

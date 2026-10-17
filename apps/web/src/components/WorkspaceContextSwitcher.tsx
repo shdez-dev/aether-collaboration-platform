@@ -204,8 +204,35 @@ export default function WorkspaceContextSwitcher({
         aria-label="Cambiar organización y espacio de trabajo"
       >
             <header className={styles.panelHeader}>
-              <span className={styles.eyebrow}>CAMBIAR DE LUGAR</span>
-              <h2>Tu espacio de trabajo</h2>
+              {step === 'workspaces' ? (
+                <>
+                  <div className={styles.headerRow}>
+                    <h2>Organización</h2>
+                    {activeOrganizationId && selectedOrganization?.type !== 'PERSONAL' ? (
+                      <button
+                        type="button"
+                        className={styles.headerLink}
+                        onClick={() => {
+                          setOpen(false);
+                          router.push(`/dashboard/organizations?organizationId=${encodeURIComponent(activeOrganizationId)}`);
+                        }}
+                      >
+                        <UserPlus size={14} aria-hidden="true" /> Miembros
+                      </button>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.organizationPicker}
+                    onClick={() => setStep('organizations')}
+                    aria-label={`Cambiar organización. Actual: ${organizationName}`}
+                  >
+                    <span className={styles.organizationPickerIcon} aria-hidden="true"><Building2 size={17} /></span>
+                    <span title={organizationName}>{organizationName}</span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </button>
+                </>
+              ) : <h2>Elegir organización</h2>}
             </header>
 
             <AnimatePresence mode="wait" initial={false}>
@@ -220,17 +247,8 @@ export default function WorkspaceContextSwitcher({
                   transition={{ duration: 0.16, ease: 'easeOut' }}
                 >
                   <div className={styles.stepHeader}>
-                    <div className={styles.organizationHeading}>
-                      <span className={styles.eyebrow}>ORGANIZACIÓN</span>
-                      <h3>{organizationName}</h3>
-                    </div>
-                    <button
-                      type="button"
-                      className={styles.textAction}
-                      onClick={() => setStep('organizations')}
-                    >
-                      Cambiar <ArrowRight size={15} aria-hidden="true" />
-                    </button>
+                    <h3>Espacios de esta organización</h3>
+                    <span className={styles.spaceCount}>{organizationWorkspaces.length}</span>
                   </div>
 
                   <div className={styles.options} data-scrollable={organizationWorkspaces.length > 4}>
@@ -269,19 +287,6 @@ export default function WorkspaceContextSwitcher({
                       <Plus size={16} aria-hidden="true" />
                       Nuevo espacio
                     </button>}
-                    {activeOrganizationId && selectedOrganization?.type !== 'PERSONAL' ? (
-                      <button
-                        type="button"
-                        className={styles.manageAction}
-                        onClick={() => {
-                          setOpen(false);
-                          router.push(`/dashboard/organizations?organizationId=${encodeURIComponent(activeOrganizationId)}`);
-                        }}
-                      >
-                        <UserPlus size={15} aria-hidden="true" />
-                        Miembros de la organización
-                      </button>
-                    ) : null}
                   </div>
                 </motion.section>
               ) : (
@@ -298,7 +303,6 @@ export default function WorkspaceContextSwitcher({
                     <button type="button" className={styles.backAction} onClick={() => setStep('workspaces')}>
                       <ArrowLeft size={15} aria-hidden="true" /> Volver
                     </button>
-                    <h3>Organizaciones</h3>
                   </div>
                   {organizationsLoading && organizations.length === 0 ? (
                     <p className={styles.emptyState} role="status">Cargando organizaciones…</p>
@@ -343,7 +347,7 @@ export default function WorkspaceContextSwitcher({
               )}
             </AnimatePresence>
 
-            <footer className={styles.panelFooter}>
+            {step === 'workspaces' && <footer className={styles.panelFooter}>
               <button
                 type="button"
                 className={styles.footerAction}
@@ -354,13 +358,13 @@ export default function WorkspaceContextSwitcher({
                   else if (activeOrganizationId) router.push(`/dashboard/organizations?organizationId=${encodeURIComponent(activeOrganizationId)}`);
                 }}
               >
-                <Settings2 size={15} aria-hidden="true" /> Configuración
+                <Settings2 size={15} aria-hidden="true" /> {activeWorkspace ? 'Configurar espacio' : 'Configurar organización'}
               </button>
               <button type="button" className={styles.footerAction} onClick={() => void refreshWorkspaces()} disabled={refreshing}>
                 <RefreshCw size={15} className={refreshing ? styles.spinning : undefined} aria-hidden="true" />
                 {refreshing ? 'Actualizando' : 'Actualizar'}
               </button>
-            </footer>
+            </footer>}
       </PopoverContent>
     </Popover>
   );

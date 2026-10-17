@@ -1,36 +1,71 @@
 'use client';
 
-// apps/web/src/components/CommandPalette.tsx
-// Paleta de búsqueda global — se activa con ⌘K / Ctrl+K
-
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  ArrowDown,
+  ArrowUp,
+  Building2,
+  ClipboardList,
+  CornerDownLeft,
+  FileText,
+  FolderKanban,
+  LayoutDashboard,
+  LoaderCircle,
+  RotateCw,
+  Search,
+  X,
+} from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import { useT } from '@/lib/i18n';
-import { C } from '@/lib/colors';
-
-// ── Tokens de color ───────────────────────────────────────────────────────────
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import styles from './CommandPalette.module.css';
 
 interface SearchCard {
-  id: string; title: string; priority: string | null; dueDate: string | null;
-  listName: string; boardId: string; boardName: string;
-  workspaceId: string; workspaceName: string;
+  id: string;
+  title: string;
+  cardCode: string | null;
+  description: string | null;
+  acceptanceCriteria: string | null;
+  priority: string | null;
+  dueDate: string | null;
+  listName: string;
+  boardId: string;
+  boardName: string;
+  workspaceId: string;
+  workspaceName: string;
+  projectName: string | null;
 }
+
 interface SearchProject {
-  id: string; name: string; status: string; color: string | null;
-  workspaceId: string; workspaceName: string;
+  id: string;
+  name: string;
+  status: string;
+  color: string | null;
+  workspaceId: string;
+  workspaceName: string;
 }
+
 interface SearchBoard {
-  id: string; name: string; workspaceId: string; workspaceName: string;
+  id: string;
+  name: string;
+  workspaceId: string;
+  workspaceName: string;
 }
+
 interface SearchWorkspace {
-  id: string; name: string; description: string | null; color: string | null;
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
 }
+
 interface SearchDocument {
-  id: string; title: string; workspaceId: string; workspaceName: string;
+  id: string;
+  title: string;
+  workspaceId: string;
+  workspaceName: string;
 }
+
 interface SearchResults {
   cards: SearchCard[];
   projects: SearchProject[];
@@ -39,140 +74,181 @@ interface SearchResults {
   documents: SearchDocument[];
 }
 
-// ── Icons SVG inline ──────────────────────────────────────────────────────────
+type ResultType = 'workspace' | 'project' | 'board' | 'card' | 'document';
 
-const IconCard = () => (
-  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="13" height="13">
-    <rect x="1" y="2" width="12" height="10" rx="1.5" />
-    <path d="M4 6h6M4 8.5h3" />
-  </svg>
-);
-const IconProject = () => (
-  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="13" height="13">
-    <circle cx="7" cy="7" r="5" />
-    <path d="M7 4v3l2 2" />
-  </svg>
-);
-const IconBoard = () => (
-  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="13" height="13">
-    <rect x="1" y="2" width="12" height="10" rx="1" />
-    <path d="M5 2v10M9 2v10" />
-  </svg>
-);
-const IconWorkspace = () => (
-  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="13" height="13">
-    <rect x="1" y="3" width="12" height="8" rx="1" />
-    <path d="M4 3V2h6v1" />
-  </svg>
-);
-const IconDoc = () => (
-  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="13" height="13">
-    <path d="M3 1h6l3 3v9H3V1z" />
-    <path d="M9 1v3h3M5 7h4M5 9.5h2.5" />
-  </svg>
-);
-
-const PRIORITY_COLOR: Record<string, string> = {
-  URGENT: '#ef4444',
-  HIGH:   '#f59e0b',
-  MEDIUM: '#3b82f6',
-  LOW:    '#6b7280',
-};
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function highlight(text: string, q: string) {
-  if (!q) return <>{text}</>;
-  const idx = text.toLowerCase().indexOf(q.toLowerCase());
-  if (idx === -1) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark style={{ background: `${C.accent}33`, color: C.accent, borderRadius: '2px' }}>
-        {text.slice(idx, idx + q.length)}
-      </mark>
-      {text.slice(idx + q.length)}
-    </>
-  );
+interface FlatResult {
+  type: ResultType;
+  id: string;
+  label: string;
+  code?: string;
+  sub?: string;
+  detail?: string;
+  accent?: string;
+  action: () => void;
 }
 
-// ── Result item ───────────────────────────────────────────────────────────────
-
-function ResultItem({
-  icon,
-  label,
-  sub,
-  accent,
-  isSelected,
-  onClick,
-  q,
-}: {
-  icon: React.ReactNode;
+interface ResultGroup {
+  type: ResultType;
   label: string;
-  sub?: string;
-  accent?: string;
-  isSelected: boolean;
-  onClick: () => void;
-  q: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
+  items: FlatResult[];
+}
 
-  useEffect(() => {
-    if (isSelected && ref.current) {
-      ref.current.scrollIntoView({ block: 'nearest' });
+const foldText = (value: string) => {
+  let folded = '';
+  const ranges: Array<{ start: number; end: number }> = [];
+
+  for (let index = 0; index < value.length;) {
+    const codePoint = value.codePointAt(index);
+    if (codePoint === undefined) break;
+    const character = String.fromCodePoint(codePoint);
+    const normalized = character.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
+    for (let offset = 0; offset < normalized.length; offset += 1) {
+      folded += normalized[offset];
+      ranges.push({ start: index, end: index + character.length });
     }
-  }, [isSelected]);
+    index += character.length;
+  }
+
+  return { folded, ranges };
+};
+
+const searchTokens = (value: string) => foldText(value).folded.split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= 2);
+
+function matchingRanges(text: string, query: string) {
+  const { folded, ranges: sourceRanges } = foldText(text);
+  const terms = searchTokens(query);
+  const matches: Array<{ start: number; end: number }> = [];
+
+  terms.forEach((term) => {
+    let offset = folded.indexOf(term);
+    while (offset !== -1) {
+      const first = sourceRanges[offset];
+      const last = sourceRanges[offset + term.length - 1];
+      if (first && last) matches.push({ start: first.start, end: last.end });
+      offset = folded.indexOf(term, offset + term.length);
+    }
+  });
+
+  return matches.sort((a, b) => a.start - b.start || a.end - b.end).reduce<Array<{ start: number; end: number }>>((ranges, match) => {
+    const previous = ranges[ranges.length - 1];
+    if (previous && match.start <= previous.end) previous.end = Math.max(previous.end, match.end);
+    else ranges.push({ ...match });
+    return ranges;
+  }, []);
+}
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  const ranges = matchingRanges(text, query);
+  if (!ranges.length) return <>{text}</>;
+
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  ranges.forEach((range, index) => {
+    if (range.start > cursor) parts.push(text.slice(cursor, range.start));
+    parts.push(<mark className={styles.match} key={`${range.start}-${index}`}>{text.slice(range.start, range.end)}</mark>);
+    cursor = range.end;
+  });
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
+}
+
+function matchingExcerpt(text: string | null | undefined, query: string) {
+  const cleanText = text?.replace(/\s+/g, ' ').trim();
+  if (!cleanText) return undefined;
+
+  const terms = searchTokens(query);
+  const { folded, ranges } = foldText(cleanText);
+  const firstMatch = terms
+    .map((term) => folded.indexOf(term))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b)[0];
+  if (firstMatch === undefined) return undefined;
+
+  const match = ranges[firstMatch];
+  let start = Math.max(0, match.start - 34);
+  let end = Math.min(cleanText.length, match.end + 62);
+  if (start > 0) {
+    const boundary = cleanText.indexOf(' ', start);
+    if (boundary !== -1 && boundary < match.start) start = boundary + 1;
+  }
+  if (end < cleanText.length) {
+    const boundary = cleanText.lastIndexOf(' ', end);
+    if (boundary > match.end) end = boundary;
+  }
+
+  return `${start > 0 ? '…' : ''}${cleanText.slice(start, end)}${end < cleanText.length ? '…' : ''}`;
+}
+
+function optionId(result: FlatResult) {
+  return `command-search-option-${result.type}-${result.id}`;
+}
+
+function ResultOption({
+  item,
+  query,
+  index,
+  total,
+  selected,
+  onChoose,
+  onPoint,
+}: {
+  item: FlatResult;
+  query: string;
+  index: number;
+  total: number;
+  selected: boolean;
+  onChoose: () => void;
+  onPoint: () => void;
+}) {
+  const optionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected) optionRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [selected]);
+
+  const icon = item.type === 'workspace'
+    ? <Building2 size={16} />
+    : item.type === 'project'
+      ? <FolderKanban size={16} />
+      : item.type === 'board'
+        ? <LayoutDashboard size={16} />
+        : item.type === 'card'
+          ? <ClipboardList size={16} />
+          : <FileText size={16} />;
 
   return (
     <div
-      ref={ref}
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '7px 12px',
-        cursor: 'pointer',
-        borderRadius: '6px',
-        background: isSelected ? C.hover : 'transparent',
-        transition: 'background 0.1s',
-      }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.hover; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isSelected ? C.hover : 'transparent'; }}
+      id={optionId(item)}
+      ref={optionRef}
+      className={`${styles.option} ${selected ? styles.optionSelected : ''}`}
+      role="option"
+      aria-selected={selected}
+      aria-posinset={index + 1}
+      aria-setsize={total}
+      tabIndex={-1}
+      onClick={onChoose}
+      onMouseMove={onPoint}
+      onMouseDown={(event) => event.preventDefault()}
     >
-      <span style={{ color: accent || C.text3, flexShrink: 0 }}>{icon}</span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ fontSize: '13px', color: C.text, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {highlight(label, q)}
-        </span>
-        {sub && (
-          <span style={{ fontSize: '11px', color: C.text3, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '1px' }}>
-            {sub}
-          </span>
-        )}
+      <span className={styles.optionIcon} style={item.accent ? { color: item.accent } : undefined} aria-hidden="true">
+        {icon}
       </span>
+      <span className={styles.optionCopy}>
+        <span className={styles.optionTitle}>
+          {item.code && <code className={styles.optionCode}><Highlight text={item.code} query={query} /></code>}
+          <span className={styles.optionTitleText}><Highlight text={item.label} query={query} /></span>
+        </span>
+        {item.sub && <span className={styles.optionMeta}>{item.sub}</span>}
+        {item.detail && <span className={styles.optionDetail}><Highlight text={item.detail} query={query} /></span>}
+      </span>
+      <span className={styles.openHint} aria-hidden="true"><CornerDownLeft size={14} /></span>
     </div>
   );
 }
-
-// ── Section header ────────────────────────────────────────────────────────────
-
-function SectionLabel({ label }: { label: string }) {
-  return (
-    <div style={{ padding: '8px 12px 4px', fontSize: '10px', fontFamily: 'monospace', letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text4 }}>
-      {label}
-    </div>
-  );
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
 }
-
-type FlatResult = { type: string; id: string; label: string; sub?: string; accent?: string; action: () => void };
 
 export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const router = useRouter();
@@ -180,264 +256,299 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
-  // Foco al abrir
-  useEffect(() => {
-    if (open) {
-      setQuery('');
-      setResults(null);
-      setSelectedIdx(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [open]);
+  const searchTerm = query.trim().replace(/\s+/g, ' ');
 
-  // Búsqueda con debounce
-  const doSearch = useCallback(async (q: string) => {
-    if (q.length < 2) { setResults(null); return; }
-    setLoading(true);
-    try {
-      const res = await apiService.get<SearchResults>(`/api/search?q=${encodeURIComponent(q)}`, true);
-      if (res.success && res.data) setResults(res.data);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(query), 200);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, doSearch]);
-
-  // Flatten results para navegación por teclado
-  const flat: FlatResult[] = [];
-  if (results) {
-    results.workspaces.forEach((w) => flat.push({
-      type: 'workspace', id: w.id, label: w.name, sub: w.description ?? undefined,
-      action: () => { router.push('/dashboard/projects'); onClose(); },
-    }));
-    results.projects.forEach((p) => flat.push({
-      type: 'project', id: p.id, label: p.name, sub: p.workspaceName,
-      accent: p.color ?? undefined,
-      action: () => { router.push(`/dashboard/projects/${p.id}`); onClose(); },
-    }));
-    results.boards.forEach((b) => flat.push({
-      type: 'board', id: b.id, label: b.name, sub: b.workspaceName,
-      action: () => { router.push(`/dashboard/boards/${b.id}`); onClose(); },
-    }));
-    results.cards.forEach((c) => flat.push({
-      type: 'card', id: c.id, label: c.title,
-      sub: `${c.boardName} - ${c.listName}`,
-      accent: c.priority ? PRIORITY_COLOR[c.priority] : undefined,
-      action: () => { router.push(`/dashboard/boards/${c.boardId}?card=${c.id}`); onClose(); },
-    }));
-    results.documents.forEach((d) => flat.push({
-      type: 'document', id: d.id, label: d.title, sub: d.workspaceName,
-      action: () => { router.push(`/dashboard/documents/${d.id}`); onClose(); },
-    }));
-  }
-
-  // Teclado
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return; }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx((i) => Math.min(i + 1, flat.length - 1)); }
-      if (e.key === 'ArrowUp')   { e.preventDefault(); setSelectedIdx((i) => Math.max(i - 1, 0)); }
-      if (e.key === 'Enter' && flat[selectedIdx]) { flat[selectedIdx].action(); }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, flat, selectedIdx, onClose]);
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 35);
+    setQuery('');
+    setResults(null);
+    setLoading(false);
+    setHasError(false);
+    setSelectedIdx(0);
 
-  // Reset selectedIdx when results change
+    return () => {
+      window.clearTimeout(focusTimer);
+      previousFocus?.focus({ preventScroll: true });
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (searchTerm.length < 2) {
+      setResults(null);
+      setLoading(false);
+      setHasError(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    setLoading(true);
+    setResults(null);
+    setHasError(false);
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await apiService.get<SearchResults>(
+          `/api/search?q=${encodeURIComponent(searchTerm)}`,
+          true,
+          { signal: controller.signal },
+        );
+        if (!active) return;
+        if (response.success && response.data) {
+          setResults(response.data);
+        } else {
+          setHasError(true);
+        }
+      } catch {
+        if (active) setHasError(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, searchTerm, retryVersion]);
+
+  const groups = useMemo<ResultGroup[]>(() => {
+    if (!results) return [];
+
+    const nextGroups: ResultGroup[] = [
+      {
+        type: 'card',
+        label: t.command_search_project_cards,
+        items: results.cards.map((card) => ({
+          type: 'card', id: card.id, code: card.cardCode ?? undefined, label: card.title,
+          sub: [card.projectName || card.workspaceName, card.boardName, card.listName].filter(Boolean).join(' / '),
+          detail: matchingExcerpt(card.description, searchTerm) ?? matchingExcerpt(card.acceptanceCriteria, searchTerm),
+          action: () => { router.push(`/dashboard/boards/${card.boardId}?card=${card.id}`); onClose(); },
+        })),
+      },
+      {
+        type: 'workspace',
+        label: t.command_search_workspaces,
+        items: results.workspaces.map((workspace) => ({
+          type: 'workspace', id: workspace.id, label: workspace.name,
+          sub: workspace.description ?? undefined,
+          action: () => { router.push('/dashboard/projects'); onClose(); },
+        })),
+      },
+      {
+        type: 'project',
+        label: t.command_search_projects,
+        items: results.projects.map((project) => ({
+          type: 'project', id: project.id, label: project.name, sub: project.workspaceName,
+          accent: project.color ?? undefined,
+          action: () => { router.push(`/dashboard/projects/${project.id}`); onClose(); },
+        })),
+      },
+      {
+        type: 'board',
+        label: t.command_search_boards,
+        items: results.boards.map((board) => ({
+          type: 'board', id: board.id, label: board.name, sub: board.workspaceName,
+          action: () => { router.push(`/dashboard/boards/${board.id}`); onClose(); },
+        })),
+      },
+      {
+        type: 'document',
+        label: t.command_search_documents,
+        items: results.documents.map((document) => ({
+          type: 'document', id: document.id, label: document.title, sub: document.workspaceName,
+          action: () => { router.push(`/dashboard/documents/${document.id}`); onClose(); },
+        })),
+      },
+    ];
+
+    return nextGroups.filter((group) => group.items.length > 0);
+  }, [onClose, results, router, searchTerm, t]);
+
+  const flat = useMemo(() => groups.flatMap((group) => group.items), [groups]);
+  const activeOption = flat[selectedIdx];
+  const isEmpty = Boolean(results && flat.length === 0);
+
   useEffect(() => { setSelectedIdx(0); }, [results]);
+
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown' && flat.length) {
+      event.preventDefault();
+      setSelectedIdx((index) => Math.min(index + 1, flat.length - 1));
+    } else if (event.key === 'ArrowUp' && flat.length) {
+      event.preventDefault();
+      setSelectedIdx((index) => Math.max(index - 1, 0));
+    } else if (event.key === 'Enter' && activeOption) {
+      event.preventDefault();
+      activeOption.action();
+    }
+  };
+
+  const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   if (!open) return null;
 
-  const isEmpty = results && flat.length === 0;
-  const hasResults = results && flat.length > 0;
-
-  const iconFor = (type: string) => {
-    if (type === 'card')      return <IconCard />;
-    if (type === 'project')   return <IconProject />;
-    if (type === 'board')     return <IconBoard />;
-    if (type === 'workspace') return <IconWorkspace />;
-    return <IconDoc />;
-  };
-
-  // Group index tracking
-  let cardStart = -1, projStart = -1, boardStart = -1, wsStart = -1, docStart = -1;
-  if (results) {
-    let idx = 0;
-    if (results.workspaces.length) { wsStart = idx; idx += results.workspaces.length; }
-    if (results.projects.length)   { projStart = idx; idx += results.projects.length; }
-    if (results.boards.length)     { boardStart = idx; idx += results.boards.length; }
-    if (results.cards.length)      { cardStart = idx; idx += results.cards.length; }
-    if (results.documents.length)  { docStart = idx; }
-  }
+  let groupStart = 0;
+  const resultCount = flat.length;
 
   return (
-    /* Backdrop */
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '80px', background: 'rgba(0,0,0,0.6)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className={styles.backdrop}
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
     >
-      {/* Panel */}
-      <div
-        style={{
-          width: '560px',
-          maxWidth: 'calc(100vw - 32px)',
-          background: C.surface,
-          border: `1px solid ${C.border2}`,
-          borderRadius: '10px',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          maxHeight: '70vh',
-        }}
-      >
-        {/* Input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 14px', borderBottom: `1px solid ${C.border}` }}>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15" style={{ color: C.text3, flexShrink: 0 }}>
-            <circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" />
-          </svg>
+      <section ref={panelRef} className={styles.panel} role="dialog" aria-modal="true" aria-label={t.command_search_title} onKeyDown={handleDialogKeyDown}>
+        <header className={styles.header}>
+          <span className={styles.headerIcon} aria-hidden="true"><Search size={17} /></span>
+          <div className={styles.headerCopy}>
+            <h2>{t.command_search_title}</h2>
+            <span>{t.command_search_subtitle}</span>
+          </div>
+          <button type="button" className={styles.closeButton} onClick={onClose} aria-label={t.command_search_close} title={`${t.command_search_close} (Esc)`}>
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className={styles.searchField}>
+          <Search className={styles.fieldIcon} size={18} aria-hidden="true" />
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t.board_filter_search_placeholder}
-            style={{
-              flex: 1,
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              color: C.text,
-              fontSize: '14px',
-              padding: '14px 0',
-              caretColor: C.accent,
-            }}
+            onChange={(event) => { setQuery(event.target.value); setSelectedIdx(0); }}
+            onKeyDown={handleInputKeyDown}
+            placeholder={t.command_search_placeholder}
+            aria-label={t.command_search_placeholder}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={groups.length > 0}
+            aria-controls={groups.length > 0 ? 'command-search-results' : undefined}
+            aria-activedescendant={activeOption ? optionId(activeOption) : undefined}
+            autoComplete="off"
+            spellCheck={false}
           />
+          {query ? (
+            <button type="button" className={styles.clearButton} onClick={() => { setQuery(''); setSelectedIdx(0); }} aria-label={t.command_search_clear} title={t.command_search_clear}>
+              <X size={15} />
+            </button>
+          ) : (
+            <kbd className={styles.escapeHint}>Esc</kbd>
+          )}
+        </div>
+
+        <div className={styles.results} aria-live="polite" aria-busy={loading}>
+          {!searchTerm && (
+            <div className={styles.initialState}>
+              <span className={styles.stateIcon}><Search size={19} /></span>
+              <strong>{t.command_search_initial_title}</strong>
+              <span>{t.command_search_intro}</span>
+              <div className={styles.searchScopes} aria-label={t.command_search_includes}>
+                <span><ClipboardList size={13} /> {t.command_search_project_cards}</span>
+                <span><FolderKanban size={13} /> {t.command_search_projects}</span>
+                <span><LayoutDashboard size={13} /> {t.command_search_boards}</span>
+              </div>
+            </div>
+          )}
+
+          {searchTerm.length === 1 && <div className={styles.messageState}>{t.command_search_min_chars}</div>}
+
           {loading && (
-            <div style={{ width: '14px', height: '14px', border: `2px solid ${C.border2}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.6s linear infinite', flexShrink: 0 }} />
-          )}
-          <span style={{ fontSize: '11px', color: C.text4, fontFamily: 'monospace', flexShrink: 0 }}>ESC</span>
-        </div>
-
-        {/* Results */}
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          {!query && (
-            <div style={{ padding: '32px 16px', textAlign: 'center', color: C.text3, fontSize: '13px' }}>
-              {t.board_filter_search_placeholder}
+            <div className={styles.loadingState} role="status">
+              <LoaderCircle size={17} className={styles.spinner} />
+              <span>{t.command_search_loading}</span>
+              <div className={styles.skeletons} aria-hidden="true"><i /><i /><i /></div>
             </div>
           )}
 
-          {query && query.length < 2 && (
-            <div style={{ padding: '32px 16px', textAlign: 'center', color: C.text3, fontSize: '13px' }}>
-              {t.btn_loading}
+          {!loading && hasError && (
+            <div className={styles.messageState}>
+              <span className={styles.stateIcon}><RotateCw size={18} /></span>
+              <strong>{t.command_search_error_title}</strong>
+              <span>{t.command_search_error_hint}</span>
+              <button type="button" className={styles.retryButton} onClick={() => setRetryVersion((version) => version + 1)}>
+                <RotateCw size={14} /> {t.command_search_retry}
+              </button>
             </div>
           )}
 
-          {isEmpty && (
-            <div style={{ padding: '32px 16px', textAlign: 'center', color: C.text3, fontSize: '13px' }}>
-              {t.comments_mention_no_results}
+          {!loading && !hasError && isEmpty && (
+            <div className={`${styles.messageState} ${styles.emptyState}`}>
+              <span className={styles.stateIcon}><Search size={18} /></span>
+              <strong>{t.command_search_no_results_title}</strong>
+              <span>{t.command_search_no_results_body(searchTerm)}</span>
+              <small>{t.command_search_no_results_hint}</small>
             </div>
           )}
 
-          {hasResults && (
-            <div style={{ padding: '6px' }}>
-              {/* Workspaces */}
-              {wsStart !== -1 && <SectionLabel label={t.nav_workspaces} />}
-              {results!.workspaces.map((w, i) => (
-                <ResultItem
-                  key={`ws-${w.id}`}
-                  icon={<IconWorkspace />}
-                  label={w.name}
-                  sub={w.description ?? undefined}
-                  isSelected={selectedIdx === wsStart + i}
-                  onClick={flat[wsStart + i].action}
-                  q={query}
-                />
-              ))}
-
-              {/* Proyectos */}
-              {projStart !== -1 && <SectionLabel label={t.projects_title} />}
-              {results!.projects.map((p, i) => (
-                <ResultItem
-                  key={`proj-${p.id}`}
-                  icon={<IconProject />}
-                  label={p.name}
-                  sub={p.workspaceName}
-                  accent={p.color ?? undefined}
-                  isSelected={selectedIdx === projStart + i}
-                  onClick={flat[projStart + i].action}
-                  q={query}
-                />
-              ))}
-
-              {/* Boards */}
-              {boardStart !== -1 && <SectionLabel label={t.workspace_section_boards} />}
-              {results!.boards.map((b, i) => (
-                <ResultItem
-                  key={`board-${b.id}`}
-                  icon={<IconBoard />}
-                  label={b.name}
-                  sub={b.workspaceName}
-                  isSelected={selectedIdx === boardStart + i}
-                  onClick={flat[boardStart + i].action}
-                  q={query}
-                />
-              ))}
-
-              {/* Cards */}
-              {cardStart !== -1 && <SectionLabel label={t.board_stat_cards} />}
-              {results!.cards.map((c, i) => (
-                <ResultItem
-                  key={`card-${c.id}`}
-                  icon={<IconCard />}
-                  label={c.title}
-                  sub={`${c.boardName} - ${c.listName}`}
-                  accent={c.priority ? PRIORITY_COLOR[c.priority] : undefined}
-                  isSelected={selectedIdx === cardStart + i}
-                  onClick={flat[cardStart + i].action}
-                  q={query}
-                />
-              ))}
-
-              {/* Documentos */}
-              {docStart !== -1 && <SectionLabel label={t.documents_section_title} />}
-              {results!.documents.map((d, i) => (
-                <ResultItem
-                  key={`doc-${d.id}`}
-                  icon={<IconDoc />}
-                  label={d.title}
-                  sub={d.workspaceName}
-                  isSelected={selectedIdx === docStart + i}
-                  onClick={flat[docStart + i].action}
-                  q={query}
-                />
-              ))}
+          {!loading && !hasError && groups.length > 0 && (
+            <div className={styles.resultList} id="command-search-results" role="listbox" aria-label={t.command_search_results}>
+              <div className={styles.resultSummary}>
+                <span>{t.command_search_results}</span>
+                <span className={styles.resultCount}>{resultCount}</span>
+              </div>
+              {groups.map((group) => {
+                const startIndex = groupStart;
+                groupStart += group.items.length;
+                return (
+                  <section className={styles.resultGroup} role="group" aria-label={group.label} key={group.type}>
+                    <h3 className={styles.groupLabel}><span>{group.label}</span><span>{group.items.length}</span></h3>
+                    {group.items.map((item, index) => {
+                      const flatIndex = startIndex + index;
+                      return (
+                        <ResultOption
+                          key={`${item.type}-${item.id}`}
+                          item={item}
+                          query={searchTerm}
+                          index={flatIndex}
+                          total={resultCount}
+                          selected={selectedIdx === flatIndex}
+                          onChoose={item.action}
+                          onPoint={() => setSelectedIdx(flatIndex)}
+                        />
+                      );
+                    })}
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div
-          style={{ display: 'flex', gap: '14px', padding: '8px 14px', borderTop: `1px solid ${C.border}`, fontSize: '11px', color: C.text4 }}
-        >
-          <span><kbd style={{ fontFamily: 'monospace' }}>↑↓</kbd> navegar</span>
-          <span><kbd style={{ fontFamily: 'monospace' }}>↵</kbd> abrir</span>
-          <span><kbd style={{ fontFamily: 'monospace' }}>ESC</kbd> cerrar</span>
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
+        <footer className={styles.footer}>
+          <span><kbd><ArrowUp size={11} /><ArrowDown size={11} /></kbd> {t.command_search_navigate}</span>
+          <span><kbd><CornerDownLeft size={11} /></kbd> {t.command_search_open}</span>
+          <span><kbd>Esc</kbd> {t.command_search_dismiss}</span>
+        </footer>
+      </section>
     </div>
   );
 }
