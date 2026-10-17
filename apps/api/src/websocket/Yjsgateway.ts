@@ -15,6 +15,17 @@ interface AuthenticatedSocket extends Socket {
   userAvatar?: string;
 }
 
+const MAX_YJS_UPDATE_BYTES = 1024 * 1024;
+const YJS_UPDATE_WINDOW_MS = 60_000;
+const MAX_YJS_UPDATES_PER_WINDOW = 300;
+const MAX_YJS_UPDATE_BYTES_PER_WINDOW = 5 * 1024 * 1024;
+
+interface YjsUpdateBudget {
+  windowStartedAt: number;
+  updateCount: number;
+  byteCount: number;
+}
+
 export class YjsGateway {
   private docs = new Map<string, Y.Doc>();
   private documentLoads = new Map<string, Promise<Y.Doc>>();
@@ -33,6 +44,8 @@ export class YjsGateway {
   // CRÍTICO: socket.rooms está vacío en el evento 'disconnect',
   // por eso rastreamos esto manualmente antes de que ocurra
   private socketToDocuments = new Map<string, Set<string>>(); // socketId → Set<documentId>
+  private documentAccessTimers = new Map<string, Map<string, NodeJS.Timeout | null>>();
+  private yjsUpdateBudgets = new Map<string, YjsUpdateBudget>();
 
   constructor(io: SocketIOServer) {
     this.io = io;
@@ -68,10 +81,15 @@ export class YjsGateway {
             this.socketToDocuments.set(socket.id, new Set());
           }
           this.socketToDocuments.get(socket.id)!.add(documentId);
+          await this.scheduleDocumentAccessRevalidation(socket, documentId);
 
           // Esperar la carga compartida antes de enviar el estado inicial. Si el
           // primer socket aún lee la DB, un segundo join no debe recibir un Y.Doc vacío.
           const doc = await this.getOrLoadDocument(documentId);
+          if (!(await documentService.checkDocumentAccess(documentId, authSocket.userId))) {
+            await this.revalidateUserDocuments(authSocket.userId);
+            return;
+          }
 
           // Enviar estado completo al cliente que se acaba de unir
           const stateVector = Y.encodeStateAsUpdate(doc);
@@ -111,6 +129,10 @@ export class YjsGateway {
           }
           await this.ensureSocketDocumentMembership(socket, documentId);
           const doc = await this.getOrLoadDocument(documentId);
+          if (!(await documentService.checkDocumentAccess(documentId, authSocket.userId))) {
+            await this.revalidateUserDocuments(authSocket.userId);
+            return;
+          }
           const stateVector = Y.encodeStateAsUpdate(doc);
           socket.emit('document:sync', {
             documentId,
@@ -130,6 +152,30 @@ export class YjsGateway {
         'document:yjs:update',
         async (data: { documentId: string; update: number[]; restoreGeneration: number }) => {
           try {
+            if (
+              typeof data?.documentId !== 'string' ||
+              data.documentId.length === 0 ||
+              data.documentId.length > 100 ||
+              !Array.isArray(data.update) ||
+              data.update.length === 0 ||
+              data.update.length > MAX_YJS_UPDATE_BYTES ||
+              !data.update.every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255) ||
+              !Number.isSafeInteger(data.restoreGeneration) ||
+              data.restoreGeneration < 0
+            ) {
+              socket.emit('error', { message: 'Invalid document update' });
+              return;
+            }
+
+            const retryAfterMs = this.consumeYjsUpdateBudget(socket.id, data.update.length);
+            if (retryAfterMs !== null) {
+              socket.emit('document:rate-limited', {
+                documentId: data.documentId,
+                retryAfterMs,
+              });
+              return;
+            }
+
             const { documentId, update, restoreGeneration } = data;
             const hasAccess = await documentService.checkDocumentAccess(documentId, authSocket.userId);
             if (!hasAccess) {
@@ -160,6 +206,20 @@ export class YjsGateway {
             }
 
             await this.ensureSocketDocumentMembership(socket, documentId);
+
+            const currentAccess = await documentService.checkDocumentAccess(documentId, authSocket.userId);
+            if (!currentAccess) {
+              await this.revalidateUserDocuments(authSocket.userId);
+              return;
+            }
+            const currentPermission = await documentService.getEffectiveUserPermission(
+              documentId,
+              authSocket.userId,
+            );
+            if (currentPermission !== 'EDIT') {
+              socket.emit('error', { message: 'Edit permission required' });
+              return;
+            }
 
             if (
               !Number.isSafeInteger(restoreGeneration) ||
@@ -234,6 +294,7 @@ export class YjsGateway {
           const { documentId } = data;
 
           socket.leave(`document:${documentId}`);
+          this.clearDocumentAccessTimer(socket.id, documentId);
 
           // Actualizar rastreo manual
           this.socketToDocuments.get(socket.id)?.delete(documentId);
@@ -258,6 +319,8 @@ export class YjsGateway {
       // CRÍTICO: socket.rooms está VACÍO aquí, usamos socketToDocuments
       // ================================================================
       socket.on('disconnect', async (reason) => {
+        this.yjsUpdateBudgets.delete(socket.id);
+        this.clearAllDocumentAccessTimers(socket.id);
         // Obtener los documentos de este socket desde nuestro rastreo manual
         const documents = this.socketToDocuments.get(socket.id);
         this.socketToDocuments.delete(socket.id);
@@ -285,6 +348,72 @@ export class YjsGateway {
         }
       });
     });
+  }
+
+  /** Remove document subscriptions immediately after workspace/project/grant revocation. */
+  public async revalidateUserDocuments(userId: string): Promise<void> {
+    const sockets = Array.from(this.io.sockets.sockets.values()).filter(
+      (socket) => (socket as AuthenticatedSocket).userId === userId,
+    );
+
+    for (const socket of sockets) {
+      const documents = this.socketToDocuments.get(socket.id);
+      if (!documents) continue;
+
+      for (const documentId of Array.from(documents)) {
+        let hasAccess = false;
+        try {
+          // Fail closed if the access decision cannot be refreshed.
+          hasAccess = await documentService.checkDocumentAccess(documentId, userId);
+        } catch {
+          hasAccess = false;
+        }
+        if (hasAccess) {
+          this.clearDocumentAccessTimer(socket.id, documentId);
+          await this.scheduleDocumentAccessRevalidation(socket, documentId);
+          continue;
+        }
+
+        const room = `document:${documentId}`;
+        socket.emit('document:access:revoked', { documentId });
+        await socket.leave(room);
+        documents.delete(documentId);
+        this.clearDocumentAccessTimer(socket.id, documentId);
+        socket.to(room).emit('document:user:left', { documentId, userId });
+
+        const roomSockets = this.io.sockets.adapter.rooms.get(room);
+        if (!roomSockets || roomSockets.size === 0) {
+          try {
+            await this.saveAndCleanup(documentId);
+          } catch {
+            const doc = this.docs.get(documentId);
+            if (doc) this.scheduleSave(documentId, doc);
+          }
+        }
+      }
+
+      if (documents.size === 0) this.socketToDocuments.delete(socket.id);
+    }
+  }
+
+  private consumeYjsUpdateBudget(socketId: string, updateBytes: number): number | null {
+    const now = Date.now();
+    let budget = this.yjsUpdateBudgets.get(socketId);
+    if (!budget || now - budget.windowStartedAt >= YJS_UPDATE_WINDOW_MS) {
+      budget = { windowStartedAt: now, updateCount: 0, byteCount: 0 };
+      this.yjsUpdateBudgets.set(socketId, budget);
+    }
+
+    if (
+      budget.updateCount >= MAX_YJS_UPDATES_PER_WINDOW ||
+      budget.byteCount + updateBytes > MAX_YJS_UPDATE_BYTES_PER_WINDOW
+    ) {
+      return Math.max(1, YJS_UPDATE_WINDOW_MS - (now - budget.windowStartedAt));
+    }
+
+    budget.updateCount += 1;
+    budget.byteCount += updateBytes;
+    return null;
   }
 
   /**
@@ -574,6 +703,73 @@ export class YjsGateway {
     if (!this.isSocketInDocument(socket, documentId)) {
       await socket.join(`document:${documentId}`);
     }
+    await this.scheduleDocumentAccessRevalidation(socket, documentId);
+  }
+
+  private async scheduleDocumentAccessRevalidation(socket: Socket, documentId: string): Promise<void> {
+    let socketTimers = this.documentAccessTimers.get(socket.id);
+    if (!socketTimers) {
+      socketTimers = new Map();
+      this.documentAccessTimers.set(socket.id, socketTimers);
+    }
+    if (socketTimers.has(documentId)) return;
+    // Mark the check as pending to prevent duplicate DB reads from concurrent updates.
+    socketTimers.set(documentId, null);
+
+    const userId = (socket as AuthenticatedSocket).userId;
+    let expiresAt: number | null;
+    try {
+      expiresAt = await documentService.getDocumentAccessExpiresAt(documentId, userId);
+    } catch {
+      // If expiry cannot be established, re-check immediately and fail closed.
+      expiresAt = Date.now();
+    }
+
+    if (!this.socketToDocuments.get(socket.id)?.has(documentId) || !socket.connected) {
+      this.clearDocumentAccessTimer(socket.id, documentId);
+      return;
+    }
+    if (expiresAt === null) return;
+
+    const delay = Math.max(0, expiresAt - Date.now());
+    const timer = setTimeout(async () => {
+      socketTimers?.delete(documentId);
+      if (socketTimers?.size === 0) this.documentAccessTimers.delete(socket.id);
+
+      let hasAccess = false;
+      try {
+        hasAccess = await documentService.checkDocumentAccess(documentId, userId);
+      } catch {
+        hasAccess = false;
+      }
+
+      if (!hasAccess) {
+        await this.revalidateUserDocuments(userId);
+        return;
+      }
+
+      // Another active grant or baseline membership still authorizes access.
+      await this.scheduleDocumentAccessRevalidation(socket, documentId);
+    }, Math.min(delay, 2_147_483_647));
+    timer.unref?.();
+    socketTimers.set(documentId, timer);
+  }
+
+  private clearDocumentAccessTimer(socketId: string, documentId: string): void {
+    const timers = this.documentAccessTimers.get(socketId);
+    const timer = timers?.get(documentId);
+    if (timer) clearTimeout(timer);
+    timers?.delete(documentId);
+    if (timers?.size === 0) this.documentAccessTimers.delete(socketId);
+  }
+
+  private clearAllDocumentAccessTimers(socketId: string): void {
+    const timers = this.documentAccessTimers.get(socketId);
+    if (!timers) return;
+    for (const timer of timers.values()) {
+      if (timer) clearTimeout(timer);
+    }
+    this.documentAccessTimers.delete(socketId);
   }
 }
 
@@ -592,4 +788,8 @@ export function getYjsGateway(): YjsGateway {
     throw new Error('Yjs Gateway not initialized');
   }
   return yjsGatewayInstance;
+}
+
+export async function revalidateYjsUserDocuments(userId: string): Promise<void> {
+  if (yjsGatewayInstance) await yjsGatewayInstance.revalidateUserDocuments(userId);
 }

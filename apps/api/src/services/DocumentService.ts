@@ -846,6 +846,37 @@ export class DocumentService {
     return (membership.rowCount ?? 0) > 0;
   }
 
+  /** Returns when an external-only document grant stops authorizing this user. */
+  async getDocumentAccessExpiresAt(documentId: string, userId: string): Promise<number | null> {
+    const result = await pool.query(
+      `SELECT workspace_id, project_id FROM documents WHERE id = $1`,
+      [documentId],
+    );
+    const document = result.rows[0];
+    if (!document) return Date.now();
+
+    const hasBaselineAccess = document.project_id
+      ? await projectAuthorizationService.can(document.project_id, userId, 'READ')
+      : Boolean((await pool.query(
+          'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+          [document.workspace_id, userId],
+        )).rows[0]);
+    if (hasBaselineAccess) return null;
+
+    const grants = await pool.query(
+      `SELECT BOOL_OR(expires_at IS NULL) AS has_permanent_grant, MAX(expires_at) AS last_expiry
+       FROM network_access_grants
+       WHERE resource_type = 'DOCUMENT' AND resource_id = $1 AND user_id = $2
+         AND revoked_at IS NULL
+         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+      [documentId, userId],
+    );
+    const grant = grants.rows[0];
+    if (grant?.has_permanent_grant) return null;
+    if (!grant?.last_expiry) return Date.now();
+    return new Date(grant.last_expiry).getTime();
+  }
+
   /** Document administration follows project MANAGE when the document is project-bound. */
   async canManageDocument(documentId: string, userId: string): Promise<boolean> {
     const result = await pool.query(

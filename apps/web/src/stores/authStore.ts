@@ -66,12 +66,16 @@ interface AuthState {
 
 // ==================== HELPERS ====================
 
-/** Decodifica el claim exp de un JWT sin verificar la firma */
-function getTokenExpiry(token: string): number | null {
+/** Decodifica los tiempos de un JWT sin verificar la firma */
+function getTokenTiming(token: string): { exp: number; iat?: number } | null {
   try {
     const payload = token.split('.')[1];
     const decoded = JSON.parse(atob(payload));
-    return typeof decoded.exp === 'number' ? decoded.exp : null;
+    if (typeof decoded.exp !== 'number') return null;
+    return {
+      exp: decoded.exp,
+      ...(typeof decoded.iat === 'number' ? { iat: decoded.iat } : {}),
+    };
   } catch {
     return null;
   }
@@ -89,12 +93,14 @@ function clearProactiveRefresh(): void {
 
 function scheduleProactiveRefresh(accessToken: string, refreshToken: string): void {
   clearProactiveRefresh();
-  const exp = getTokenExpiry(accessToken);
-  if (!exp) return;
+  const timing = getTokenTiming(accessToken);
+  if (!timing) return;
 
-  // Refrescar 5 minutos antes de que expire
-  const msUntilRefresh = exp * 1000 - Date.now() - 5 * 60 * 1000;
-  if (msUntilRefresh <= 0) return; // ya expiró o está a punto de expirar
+  // Refrescar hasta 5 minutos antes; usa media vida en tokens de corta duración.
+  const issuedAt = timing.iat ?? Math.floor(Date.now() / 1000);
+  const tokenLifetimeMs = Math.max(0, (timing.exp - issuedAt) * 1000);
+  const refreshAheadMs = Math.min(5 * 60 * 1000, tokenLifetimeMs / 2);
+  const msUntilRefresh = timing.exp * 1000 - Date.now() - refreshAheadMs;
 
   proactiveRefreshTimer = setTimeout(async () => {
     try {
@@ -117,7 +123,7 @@ function scheduleProactiveRefresh(accessToken: string, refreshToken: string): vo
     } catch {
       // Si falla el refresh proactivo, el reactivo (401) se encargará
     }
-  }, msUntilRefresh);
+  }, Math.max(0, msUntilRefresh));
 }
 
 function setSessionCookie(): void {

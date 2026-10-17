@@ -3,6 +3,31 @@
 import Redis from 'ioredis';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const SOCKET_INVALIDATION_CHANNEL = 'aether:socket:invalidate';
+
+export type SocketInvalidationKind = 'disconnect' | 'revalidate';
+export interface SocketInvalidation {
+  kind: SocketInvalidationKind;
+  userId: string;
+  sourceId: string;
+}
+
+const socketInvalidationHandlers = new Set<(message: SocketInvalidation) => void>();
+
+export function onSocketInvalidation(handler: (message: SocketInvalidation) => void): void {
+  socketInvalidationHandlers.add(handler);
+}
+
+export async function publishSocketInvalidation(
+  kind: SocketInvalidationKind,
+  userId: string,
+  sourceId: string,
+): Promise<void> {
+  await redisPubClient.publish(
+    SOCKET_INVALIDATION_CHANNEL,
+    JSON.stringify({ kind, userId, sourceId } satisfies SocketInvalidation),
+  );
+}
 
 /**
  * Redis Client for AETHER
@@ -66,11 +91,32 @@ export async function initializeRedis(): Promise<void> {
   await Promise.all([redisClient.connect(), redisPubClient.connect(), redisSubClient.connect()]);
 
   // Subscribe to event stream
-  await redisSubClient.subscribe('aether:events');
+  await redisSubClient.subscribe('aether:events', SOCKET_INVALIDATION_CHANNEL);
 
-  redisSubClient.on('message', (channel, _message) => {
+  redisSubClient.on('message', (channel, message) => {
     if (channel === 'aether:events') {
       // Handle event broadcasting (future use)
+      return;
+    }
+
+    if (channel === SOCKET_INVALIDATION_CHANNEL) {
+      try {
+        const parsed = JSON.parse(message) as Partial<SocketInvalidation>;
+        if (
+          (parsed.kind !== 'disconnect' && parsed.kind !== 'revalidate') ||
+          typeof parsed.userId !== 'string' ||
+          parsed.userId.length === 0 ||
+          typeof parsed.sourceId !== 'string'
+        ) {
+          return;
+        }
+
+        for (const handler of socketInvalidationHandlers) {
+          handler(parsed as SocketInvalidation);
+        }
+      } catch {
+        // Ignore malformed messages on the internal invalidation channel.
+      }
     }
   });
 }

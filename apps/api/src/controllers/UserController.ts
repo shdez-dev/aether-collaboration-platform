@@ -12,6 +12,7 @@ import { passwordSchema } from '../schemas/password';
 import { RefreshTokenService } from '../services/RefreshTokenService';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
 import type { UserId } from '@aether/types';
+import { invalidateUserSockets } from '../websocket/RealtimeGateway';
 
 class UserController {
   /**
@@ -592,6 +593,10 @@ class UserController {
       } finally {
         client.release();
       }
+
+      // Disconnect existing sockets after revoking old refresh sessions. The
+      // client reconnects with the newly issued access token from this response.
+      await invalidateUserSockets(userId);
 
       return res.json({
         success: true,

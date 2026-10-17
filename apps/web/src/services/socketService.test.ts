@@ -8,6 +8,7 @@ function makeSocket() {
   const socket = {
     connected: false,
     auth: {},
+    io: { reconnection: jest.fn() },
     on: jest.fn((event: string, callback: (...args: any[]) => void) => { handlers.set(event, callback); }),
     off: jest.fn(),
     emit: jest.fn(),
@@ -56,5 +57,46 @@ describe('SocketService scoped room subscriptions', () => {
     expect(socket.emit).toHaveBeenCalledWith('join:project', { projectId: 'project-1' });
     expect(socket.emit).toHaveBeenCalledWith('join:organization', { organizationId: 'organization-1' });
     expect(socket.emit).toHaveBeenCalledWith('join:board', { boardId: 'board-1' });
+  });
+
+  it('pauses retries after an authentication failure until a fresh token is provided', () => {
+    const service = new SocketService();
+    const { socket, handlers } = makeSocket();
+    mockIo.mockReturnValue(socket);
+    service.connect('expired-token');
+    socket.auth = { token: 'expired-token' };
+
+    const error = Object.assign(new Error('Authentication error'), {
+      data: { code: 'AUTH_INVALID_TOKEN' },
+    });
+    handlers.get('connect_error')?.(error);
+    expect(socket.io.reconnection).toHaveBeenLastCalledWith(false);
+
+    service.connect('expired-token');
+    handlers.get('disconnect')?.('io server disconnect');
+    expect(socket.connect).not.toHaveBeenCalled();
+
+    service.updateToken('fresh-token');
+    expect(socket.auth).toEqual({ token: 'fresh-token' });
+    expect(socket.io.reconnection).toHaveBeenLastCalledWith(true);
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a queued document join and active subscription after access is revoked', () => {
+    const service = new SocketService();
+    const { socket, handlers } = makeSocket();
+    mockIo.mockReturnValue(socket);
+    service.connect('access-token');
+    service.joinDocument('document-1', 'workspace-1');
+
+    handlers.get('document:access:revoked')?.({ documentId: 'document-1' });
+    expect((service as any).activeDocuments.has('document-1')).toBe(false);
+    socket.connected = true;
+    handlers.get('connect')?.();
+
+    expect(socket.emit).not.toHaveBeenCalledWith('document:join', {
+      documentId: 'document-1',
+      workspaceId: 'workspace-1',
+    });
   });
 });

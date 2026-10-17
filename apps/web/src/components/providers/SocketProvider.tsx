@@ -32,10 +32,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Sin token o usuario: desconectar
     if (!accessToken || !user) {
-      if (socketService.isConnected()) {
-        socketService.disconnect();
-        hasConnectedRef.current = false;
-      }
+      socketService.disconnect();
+      hasConnectedRef.current = false;
       setIsSocketConnected(false);
       return;
     }

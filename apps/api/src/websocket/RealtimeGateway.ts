@@ -2,7 +2,8 @@
 
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
-import { verifyAccessToken } from '../utils/jwt';
+import { randomUUID } from 'crypto';
+import { verifyAccessTokenWithExpiry } from '../utils/jwt';
 import type {
   Event,
   WebSocketMessage,
@@ -13,7 +14,11 @@ import type {
   ActiveUser,
 } from '@aether/types';
 import { getPresenceService } from '../services/PresenceService';
-import { redisClient } from '../lib/redis';
+import {
+  onSocketInvalidation,
+  publishSocketInvalidation,
+  redisClient,
+} from '../lib/redis';
 import { query } from '../lib/db';
 import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
 
@@ -22,6 +27,7 @@ interface AuthenticatedSocket extends Socket {
   userEmail: string;
   userName: string;
   userAvatar?: string;
+  accessTokenExpiresAt: number;
 }
 
 /**
@@ -31,6 +37,7 @@ interface AuthenticatedSocket extends Socket {
 export class RealtimeGateway {
   private io: SocketIOServer;
   private presenceService = getPresenceService(redisClient);
+  private readonly instanceId = randomUUID();
 
   constructor(httpServer: HTTPServer) {
     // Construir lista de orígenes permitidos combinando FRONTEND_URL y ALLOWED_ORIGINS.
@@ -64,6 +71,8 @@ export class RealtimeGateway {
       // upgrade HTTP→WS correctamente. Arrancamos con polling y luego
       // el cliente hace upgrade a WebSocket si el proxy lo permite.
       transports: ['polling', 'websocket'],
+      // Yjs updates are capped at 1 MiB; leave room for Socket.IO's JSON envelope.
+      maxHttpBufferSize: 5 * 1024 * 1024,
       // Mantener vivas las conexiones bajo el timeout de 60s de Railway
       pingInterval: 25000,
       pingTimeout: 20000,
@@ -71,6 +80,16 @@ export class RealtimeGateway {
 
     this.setupMiddleware();
     this.setupEventHandlers();
+    onSocketInvalidation((message) => {
+      if (message.sourceId === this.instanceId) return;
+      if (message.kind === 'disconnect') {
+        this.disconnectUserSocketsLocally(message.userId);
+      } else {
+        void this.revalidateUserRoomsLocally(message.userId).catch(() => {
+          console.error('[websocket] Failed to revalidate rooms after remote access change');
+        });
+      }
+    });
   }
 
   /**
@@ -78,39 +97,46 @@ export class RealtimeGateway {
    */
   private setupMiddleware() {
     this.io.use(async (socket: Socket, next) => {
+      const token =
+        socket.handshake.auth.token ||
+        socket.handshake.headers.authorization?.replace('Bearer ', '');
+
+      const createAuthError = (code: string) => {
+        const error = new Error('Authentication error') as Error & { data: { code: string } };
+        error.data = { code };
+        return error;
+      };
+
+      if (!token) return next(createAuthError('AUTH_TOKEN_REQUIRED'));
+
+      let decoded: ReturnType<typeof verifyAccessTokenWithExpiry>;
       try {
-        const token =
-          socket.handshake.auth.token ||
-          socket.handshake.headers.authorization?.replace('Bearer ', '');
-
-        if (!token) {
-          return next(new Error('Authentication error: No token provided'));
-        }
-
-        // Verificación centralizada: fija el algoritmo HS256 (evita confusión de algoritmo)
-        const decoded = verifyAccessToken(token);
-
-        // Obtener info completa del usuario
-        const userResult = await query('SELECT id, email, name, avatar FROM users WHERE id = $1', [
-          decoded.userId,
-        ]);
-
-        if (userResult.rows.length === 0) {
-          return next(new Error('Authentication error: User not found'));
-        }
-
-        const user = userResult.rows[0];
-
-        // Adjuntar datos del usuario al socket
-        (socket as AuthenticatedSocket).userId = user.id;
-        (socket as AuthenticatedSocket).userEmail = user.email;
-        (socket as AuthenticatedSocket).userName = user.name;
-        (socket as AuthenticatedSocket).userAvatar = user.avatar;
-
-        next();
-      } catch (error) {
-        next(new Error('Authentication error'));
+        // Verificación centralizada: fija el algoritmo HS256 (evita confusión de algoritmo).
+        decoded = verifyAccessTokenWithExpiry(token);
+      } catch {
+        return next(createAuthError('AUTH_INVALID_TOKEN'));
       }
+
+      const userResult = await query('SELECT id, email, name, avatar FROM users WHERE id = $1', [
+        decoded.userId,
+      ]).catch(() => null);
+      if (!userResult) {
+        // Temporary database errors should use Socket.IO's normal retry policy.
+        return next(new Error('Authentication service unavailable'));
+      }
+
+      if (userResult.rows.length === 0) return next(createAuthError('AUTH_USER_NOT_FOUND'));
+
+      const user = userResult.rows[0];
+
+      // Adjuntar datos del usuario al socket
+      (socket as AuthenticatedSocket).userId = user.id;
+      (socket as AuthenticatedSocket).userEmail = user.email;
+      (socket as AuthenticatedSocket).userName = user.name;
+      (socket as AuthenticatedSocket).userAvatar = user.avatar;
+      (socket as AuthenticatedSocket).accessTokenExpiresAt = decoded.exp * 1000;
+
+      next();
     });
   }
 
@@ -120,6 +146,23 @@ export class RealtimeGateway {
   private setupEventHandlers() {
     this.io.on('connection', (socket: Socket) => {
       const authSocket = socket as AuthenticatedSocket;
+      let expiryTimer: NodeJS.Timeout | undefined;
+      const disconnectAtTokenExpiry = () => {
+        const remainingMs = authSocket.accessTokenExpiresAt - Date.now();
+        if (remainingMs > 0) {
+          // Node timers overflow above 2^31-1 ms, so long-lived configured JWTs
+          // are checked in bounded intervals.
+          expiryTimer = setTimeout(disconnectAtTokenExpiry, Math.min(remainingMs, 2_147_483_647));
+          expiryTimer.unref?.();
+          return;
+        }
+        socket.emit('auth:expired');
+        socket.disconnect(true);
+      };
+      disconnectAtTokenExpiry();
+      socket.once('disconnect', () => {
+        if (expiryTimer) clearTimeout(expiryTimer);
+      });
 
       // ========================================================================
       // AUTO-JOIN PERSONAL ROOM (para recibir notificaciones globales)
@@ -462,6 +505,15 @@ export class RealtimeGateway {
 
   /** Re-check live rooms after a membership/role change to prevent stale access. */
   public async revalidateUserRooms(userId: string): Promise<void> {
+    await this.revalidateUserRoomsLocally(userId);
+    try {
+      await publishSocketInvalidation('revalidate', userId, this.instanceId);
+    } catch {
+      console.error('[websocket] Failed to publish user room revalidation');
+    }
+  }
+
+  private async revalidateUserRoomsLocally(userId: string): Promise<void> {
     const sockets = Array.from(this.io.sockets.sockets.values()).filter(
       (socket) => (socket as AuthenticatedSocket).userId === userId,
     );
@@ -492,6 +544,31 @@ export class RealtimeGateway {
           if (!membership.rows.length) await socket.leave(room);
         }
       }
+    }
+
+    try {
+      const { revalidateYjsUserDocuments } = require('./Yjsgateway');
+      await revalidateYjsUserDocuments(userId);
+    } catch {
+      console.error('[websocket] Failed to revalidate document rooms');
+    }
+  }
+
+  /** Disconnect every active socket for a user locally and across API instances. */
+  public async disconnectUserSockets(userId: string): Promise<void> {
+    this.disconnectUserSocketsLocally(userId);
+    try {
+      await publishSocketInvalidation('disconnect', userId, this.instanceId);
+    } catch {
+      console.error('[websocket] Failed to publish user socket revocation');
+    }
+  }
+
+  private disconnectUserSocketsLocally(userId: string): void {
+    for (const socket of this.io.sockets.sockets.values()) {
+      if ((socket as AuthenticatedSocket).userId !== userId) continue;
+      socket.emit('auth:revoked');
+      socket.disconnect(true);
     }
   }
 
@@ -632,4 +709,13 @@ export function getRealtimeGateway(): RealtimeGateway {
     throw new Error('Realtime Gateway not initialized. Call initializeRealtimeGateway first.');
   }
   return gatewayInstance;
+}
+
+/** Safe controller entry point; auth operations may run before realtime initialization in tests. */
+export async function invalidateUserSockets(userId: string): Promise<void> {
+  if (gatewayInstance) await gatewayInstance.disconnectUserSockets(userId);
+}
+
+export async function revalidateUserSocketRooms(userId: string): Promise<void> {
+  if (gatewayInstance) await gatewayInstance.revalidateUserRooms(userId);
 }

@@ -36,6 +36,10 @@ export interface TokenPayload {
   email: string;
 }
 
+export interface VerifiedAccessTokenPayload extends TokenPayload {
+  exp: number;
+}
+
 /**
  * Genera un access token JWT
  */
@@ -70,17 +74,29 @@ export function generateRefreshToken(payload: TokenPayload): string {
  * Verifica y decodifica un access token
  */
 export function verifyAccessToken(token: string): TokenPayload {
+  const { userId, email } = verifyAccessTokenWithExpiry(token);
+  return { userId, email };
+}
+
+/** Verifica un access token y conserva su expiración para conexiones persistentes. */
+export function verifyAccessTokenWithExpiry(token: string): VerifiedAccessTokenPayload {
   try {
     const decoded = jwt.verify(token, getAccessSecret(), {
       algorithms: [JWT_ALGORITHM],
     }) as {
       userId: string;
       email: string;
+      exp?: number;
     };
+
+    if (!Number.isSafeInteger(decoded.exp)) {
+      throw new Error('Access token is missing a valid expiration');
+    }
 
     return {
       userId: decoded.userId as UserId,
       email: decoded.email,
+      exp: decoded.exp!,
     };
   } catch (error) {
     throw new Error('Invalid or expired token');

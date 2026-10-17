@@ -12,6 +12,7 @@ import { emailService } from '../services/EmailService';
 import { RefreshTokenService } from '../services/RefreshTokenService';
 import { passwordSchema } from '../schemas/password';
 import { buildFrontendUrl } from '../utils/frontendUrl';
+import { invalidateUserSockets } from '../websocket/RealtimeGateway';
 
 // Hash usado para nunca almacenar tokens de reset/verificación en claro en la BD.
 function hashToken(token: string): string {
@@ -316,6 +317,7 @@ export class AuthController {
       const userId = (req as any).user?.id;
       if (userId) {
         await RefreshTokenService.revokeAllForUser(userId);
+        await invalidateUserSockets(userId);
       }
 
       return res.status(200).json({
@@ -365,6 +367,7 @@ export class AuthController {
         // Reuso de un token ya rotado/revocado → posible robo. Revocar toda la
         // familia de tokens del usuario como respuesta defensiva.
         await RefreshTokenService.revokeAllForUser(decoded.userId);
+        await invalidateUserSockets(decoded.userId);
         return res.status(401).json({
           success: false,
           error: { code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token inválido o expirado' },
@@ -909,6 +912,7 @@ export class AuthController {
 
       // Al cambiar la contraseña, invalidar todas las sesiones activas (refresh tokens)
       await RefreshTokenService.revokeAllForUser(user.id);
+      await invalidateUserSockets(user.id);
 
       return res.status(200).json({
         success: true,

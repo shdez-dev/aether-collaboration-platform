@@ -25,6 +25,7 @@ class SocketService {
   private pendingListeners: Array<{ event: string; callback: (data: any) => void }> = [];
 
   private isConnecting = false;
+  private awaitingFreshToken = false;
 
   // Callbacks que se llaman cuando el socket se conecta o reconecta
   private connectListeners: Array<() => void> = [];
@@ -64,7 +65,13 @@ class SocketService {
 
     // Si hay socket desconectado del mismo token, reconectar directamente
     if (this.socket && !this.socket.connected) {
+      const currentToken = (this.socket.auth as { token?: string } | undefined)?.token;
+      if (this.awaitingFreshToken && currentToken === token) return;
+
+      this.awaitingFreshToken = false;
+      this.socket.io.reconnection(true);
       this.socket.auth = { token };
+      this.isConnecting = true;
       this.socket.connect();
       return;
     }
@@ -112,13 +119,29 @@ class SocketService {
     this.socket.on('disconnect', (reason) => {
       this.isConnecting = false;
       // socket.io reconecta automáticamente excepto cuando el servidor desconectó
-      if (reason === 'io server disconnect') {
+      if (reason === 'io server disconnect' && !this.awaitingFreshToken) {
         this.socket?.connect();
       }
     });
 
-    this.socket.on('connect_error', () => {
+    this.socket.on('auth:expired', () => this.pauseUntilFreshToken());
+    this.socket.on('auth:revoked', () => this.pauseUntilFreshToken());
+
+    this.socket.on('document:access:revoked', (data: { documentId?: string }) => {
+      const documentId = data?.documentId;
+      if (!documentId) return;
+      this.activeDocuments.delete(documentId);
+      this.eventQueue = this.eventQueue.filter(
+        (queued) => !(queued.event === 'document:join' && queued.data?.documentId === documentId)
+      );
+    });
+
+    this.socket.on('connect_error', (error) => {
       this.isConnecting = false;
+      const authCode = (error as Error & { data?: { code?: string } }).data?.code;
+      if (authCode?.startsWith('AUTH_') || error.message.startsWith('Authentication error')) {
+        this.pauseUntilFreshToken();
+      }
     });
 
     this.socket.on('reconnect', () => {
@@ -133,11 +156,20 @@ class SocketService {
    */
   updateToken(newToken: string): void {
     if (!this.socket) return;
+    this.awaitingFreshToken = false;
+    this.socket.io.reconnection(true);
     this.socket.auth = { token: newToken };
     if (this.socket.connected) {
       this.socket.disconnect();
-      this.socket.connect();
     }
+    this.isConnecting = true;
+    this.socket.connect();
+  }
+
+  private pauseUntilFreshToken(): void {
+    this.awaitingFreshToken = true;
+    this.isConnecting = false;
+    this.socket?.io.reconnection(false);
   }
 
   disconnect(): void {
@@ -147,6 +179,7 @@ class SocketService {
     this.eventQueue = [];
     this.pendingListeners = [];
     this.isConnecting = false;
+    this.awaitingFreshToken = false;
     this.connectListeners = [];
     this.activeDocuments.clear();
     this.activeBoards.clear();
