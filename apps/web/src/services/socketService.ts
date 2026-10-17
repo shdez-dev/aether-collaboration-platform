@@ -83,7 +83,7 @@ class SocketService {
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: this.reconnectDelay,
-      // A Raspberry or its reverse proxy can briefly lose connectivity. Keep
+      // A server or its reverse proxy can briefly lose connectivity. Keep
       // retrying so chat and presence recover without a page reload.
       reconnectionAttempts: Infinity,
       // Tiempo máximo esperando antes de considerar timeout de conexión

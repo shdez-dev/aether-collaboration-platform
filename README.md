@@ -212,7 +212,7 @@ El workflow de GitHub Actions se ejecuta en los cambios dirigidos a `main` y `de
 
 ## Despliegue y operación
 
-`docker-compose.production.yml` describe PostgreSQL, Redis, API, aplicación web y Caddy, con volúmenes persistentes para datos y archivos. Caddy escucha solo en `127.0.0.1:8081`; para acceso público se necesita un proxy TLS o túnel delante. `docker-compose.raspberry.yml` contiene la variante de despliegue para Raspberry Pi; también hay configuración de Railway para los servicios web y API. La API aplica las migraciones pendientes antes de iniciar el servidor en el comando de producción.
+`docker-compose.production.yml` describe PostgreSQL, Redis, API, aplicación web y Caddy, con volúmenes persistentes para datos y archivos. Caddy escucha solo en `127.0.0.1:8081`; para acceso público se necesita un proxy TLS o túnel delante. También hay configuración de Railway para los servicios web y API. La API aplica las migraciones pendientes antes de iniciar el servidor en el comando de producción.
 
 Antes de desplegar cambios de esquema, genera y valida un respaldo según el [runbook de migraciones](./docs/runbooks/database-migrations.md). PostgreSQL y Redis requieren volúmenes persistentes y credenciales de producción. El driver R2, la URL pública del frontend, los orígenes CORS, correo y proveedor de IA deben configurarse de acuerdo con los servicios realmente habilitados.
 

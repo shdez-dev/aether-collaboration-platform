@@ -2,17 +2,17 @@
 
 ## Resumen ejecutivo
 
-Revisión del código local en `main` (`9318582`) más los cambios todavía sin confirmar del 14 de octubre. Se inspeccionaron API, web, autenticación, permisos, documentos colaborativos, WebSocket, datos, dependencias, CI y los archivos Docker del Raspberry y de producción. La revisión es estática y se complementa con lint, compilación y pruebas ya ejecutadas sobre este árbol. **No** se hizo una prueba de penetración, un recorrido completo autenticado ni una verificación del contenedor actualmente desplegado en el Raspberry. Por ello, «sin hallazgos» en un módulo no equivale a «seguro».
+Revisión del código local en `main` (`9318582`) más los cambios todavía sin confirmar del 14 de octubre. Se inspeccionaron API, web, autenticación, permisos, documentos colaborativos, WebSocket, datos, dependencias, CI y la configuración Docker de despliegue. La revisión es estática y se complementa con lint, compilación y pruebas ya ejecutadas sobre este árbol. **No** se hizo una prueba de penetración, un recorrido completo autenticado ni una verificación de un contenedor desplegado. Por ello, «sin hallazgos» en un módulo no equivale a «seguro».
 
 ### Avance de correcciones locales
 
-Las descripciones de los hallazgos conservan la evidencia del estado auditado. Después de la auditoría se aplicaron las correcciones descritas a continuación. Su presencia en el Raspberry depende del despliegue posterior al push:
+Las descripciones de los hallazgos conservan la evidencia del estado auditado. Después de la auditoría se aplicaron las correcciones descritas a continuación. Su presencia en producción depende del despliegue posterior al push:
 
 | Hallazgo | Estado actual |
 | --- | --- |
 | A-01 | Mitigado: la edición y el guardado esperan sync; los estados Yjs se fusionan bajo bloqueo de fila. Una prueba unitaria verifica cambios de dos clientes. Falta recorrido multiusuario y de restauración bajo carga; un guardado que ya estaba en vuelo durante la restauración aún requiere protección adicional. |
 | A-02 | Corregido en código: respaldo HTTP binario con límite de 8 MB y respuesta 413 explícita. Falta comprobar documento grande en ejecución. |
-| A-03 | Pendiente por decisión previa del usuario: no reintroducir rate limiting por IP compartida en el Raspberry. |
+| A-03 | Pendiente por decisión previa del usuario: no reintroducir un límite global que pueda afectar a varias personas detrás de una IP compartida. |
 | A-04 y A-05 | Corregidos en código: política compartida, revocación transaccional de refresh tokens, nuevos tokens para la sesión actual y propagación de errores a la interfaz. Los access tokens ya emitidos siguen válidos hasta expirar. |
 | A-06 | Parcial: cabeceras CSP básicas y `nosniff` en la web. Migrar tokens a cookies HttpOnly requiere cambiar el contrato de autenticación web, API y Socket.IO. |
 | A-07 | Corregido en archivo: DB y Redis ya no publican puertos; se usa Caddy incluido en el repositorio y se corrigió el healthcheck de Redis. |
@@ -20,7 +20,7 @@ Las descripciones de los hallazgos conservan la evidencia del estado auditado. D
 | A-09 | Mejorado: se registran errores de DB, Redis y sincronización; faltan confirmaciones de guardado y reintentos visibles. |
 | A-10 | Parcial: HMAC sobre cuerpo raw. Idempotencia/orden temporal pendiente hasta definir el proveedor y su formato de eventos. |
 | A-11 | Parcial: CI ahora bloquea avisos nuevos de `pnpm audit` y comprueba el parche conocido; aún no ejecuta integración ni E2E. |
-| A-12 | Parcial: la imagen API reutiliza dependencias en lugar de volver a descargarlas; la construcción completa sigue ocurriendo en el Raspberry. |
+| A-12 | Parcial: la imagen API reutiliza dependencias en lugar de volver a descargarlas; la construcción completa sigue ocurriendo en el host de despliegue. |
 
 Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un estado incompleto; aumentar o rediseñar el límite del guardado Yjs; unificar y revocar sesiones al cambiar la contraseña; corregir el resultado falso de éxito en la interfaz. Antes de usar el `docker-compose.production.yml` alternativo se debe corregir su configuración de red y sus archivos faltantes.
 
@@ -32,7 +32,7 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 | Autenticación | JWT y refresh tokens rotables; faltan controles contra intentos automatizados y la política de cambio de contraseña es inconsistente. |
 | Documentos y tiempo real | Riesgo alto de sobrescritura por snapshots completos, límite de petición insuficiente y errores de sincronización silenciados. |
 | Dependencias | `pnpm audit` informa 1 alta, 0 críticas; el aviso alto corresponde a `braces` parcheado localmente. Hay numerosas versiones posteriores, pero estar desactualizado no implica por sí solo vulnerabilidad. |
-| Infraestructura | Compose del Raspberry aísla DB y Redis; compose de producción alternativo expone ambos y hace referencia a Nginx ausente. |
+| Infraestructura | La variante de Compose evaluada aísla DB y Redis; el compose de producción alternativo expone ambos y hace referencia a Nginx ausente. |
 | Calidad | Lint pasa con advertencias. Las pruebas unitarias previas pasan; integración y E2E no se ejecutan en CI. |
 
 ## Hallazgos abiertos, ordenados por riesgo
@@ -51,7 +51,7 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 ### A-03 — Alta si la instancia es accesible por terceros — Autenticación sin límite de intentos
 
-**Evidencia:** `apps/api/src/routes/auth.ts:8-14` publica registro, login, refresh y recuperación sin control de intentos. La retirada del rate limiting fue una decisión anterior para evitar falsos positivos por IP compartida en el Raspberry. **Impacto:** fuerza bruta, abuso de registro y de correos de recuperación si el origen es alcanzable por atacantes.
+**Evidencia:** `apps/api/src/routes/auth.ts:8-14` publica registro, login, refresh y recuperación sin control de intentos. La retirada del límite global por IP fue una decisión anterior para evitar falsos positivos entre personas que comparten una IP. **Impacto:** fuerza bruta, abuso de registro y de correos de recuperación si el origen es alcanzable por atacantes.
 
 **Acción:** aplicar límites por cuenta/identificador y por IP en el proxy o la API, con ventanas y excepciones calibradas para usuarios tras la misma IP. Mientras tanto, mantener acceso restringido mediante la capa de red existente. No restablecer un límite global por IP sin medir el comportamiento de dos usuarios simultáneos.
 
@@ -69,19 +69,19 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 ### A-06 — Media — Tokens persistidos en almacenamiento legible por JavaScript
 
-**Evidencia:** `apps/web/src/stores/authStore.ts:472-481` persiste access y refresh tokens en `localStorage`. `apps/web/next.config.js` y `infra/raspberry-pi/Caddyfile` no definen CSP para las páginas web; la CSP de `apps/api/src/index.ts:77-108` cubre respuestas de la API, no las páginas servidas por Next. **Impacto:** un XSS en el origen web podría extraer tokens persistentes. No se encontró un XSS concreto durante esta revisión.
+**Evidencia:** `apps/web/src/stores/authStore.ts:472-481` persiste access y refresh tokens en `localStorage`. `apps/web/next.config.js` e `infra/Caddyfile` no definen CSP para las páginas web; la CSP de `apps/api/src/index.ts:77-108` cubre respuestas de la API, no las páginas servidas por Next. **Impacto:** un XSS en el origen web podría extraer tokens persistentes. No se encontró un XSS concreto durante esta revisión.
 
 **Acción:** planificar cookies `HttpOnly`, `Secure` y `SameSite` con defensa CSRF cuando corresponda; implantar CSP en la web y revisar inserciones de HTML y enlaces externos.
 
 ### A-07 — Media operativa — Configuración de producción alternativa no lista para uso
 
-**Evidencia:** `docker-compose.production.yml:20-21,49-50` publica PostgreSQL y Redis en todas las interfaces del host; `:162-163` monta `./nginx/nginx.conf` y `./nginx/ssl`, rutas ausentes en el repositorio; `:83,125` combina nombres fijos de contenedor con `deploy.replicas: 2`. **Impacto:** si se usa ese compose, expone servicios internos y probablemente falla al iniciar o al escalar. **Alcance:** el Raspberry usa `docker-compose.raspberry.yml`, que no publica DB/Redis y liga Caddy a `127.0.0.1:8081`.
+**Evidencia:** en la versión evaluada de `docker-compose.production.yml`, PostgreSQL y Redis se publicaban en todas las interfaces del host; también se montaban `./nginx/nginx.conf` y `./nginx/ssl`, rutas ausentes, y se combinaban nombres fijos de contenedor con `deploy.replicas: 2`. **Impacto:** esa configuración exponía servicios internos y probablemente fallaba al iniciar o al escalar. La variante de Compose de menor tamaño evaluada mantenía DB/Redis en la red interna y ligaba Caddy a `127.0.0.1:8081`.
 
 **Acción:** retirar el compose obsoleto o repararlo con proxy incluido, red privada y sin `container_name` en servicios replicables. Probarlo desde cero antes de promoverlo.
 
 ### A-08 — Media de rendimiento — Historial de versiones sin paginación y con binarios
 
-**Evidencia:** `apps/api/src/services/DocumentService.ts:248-255,326-331` usa `d.*` al listar documentos; `formatDocument` incluye `yjsState` (`:1137`). El historial usa `SELECT *` de todas las versiones y serializa el binario de cada una (`:695-701,1147-1152`). **Impacto:** respuestas y uso de memoria crecientes con el número y tamaño de documentos/versiones; especialmente costoso en el Raspberry.
+**Evidencia:** `apps/api/src/services/DocumentService.ts:248-255,326-331` usa `d.*` al listar documentos; `formatDocument` incluye `yjsState` (`:1137`). El historial usa `SELECT *` de todas las versiones y serializa el binario de cada una (`:695-701,1147-1152`). **Impacto:** respuestas y uso de memoria crecientes con el número y tamaño de documentos/versiones, especialmente en hosts con recursos limitados.
 
 **Acción:** proyectar solo metadatos tanto en documentos como en versiones; paginar el historial y descargar el estado binario solo al abrir/restaurar un elemento concreto.
 
@@ -101,9 +101,9 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 **Acción:** añadir integración con PostgreSQL, un smoke E2E de autenticación/documentos/colaboración y una política de seguridad que distinga avisos aceptados por parche de avisos nuevos.
 
-### A-12 — Baja / rendimiento — Construcciones Docker costosas en Raspberry
+### A-12 — Baja / rendimiento — Construcciones Docker costosas en el host de despliegue
 
-**Evidencia:** `apps/api/Dockerfile:16,65` instala dependencias dos veces y además copia `node_modules` entre etapas; la imagen web copia todo el árbol de dependencias (`apps/web/Dockerfile:65-66`). En la evidencia previa aportada por el usuario, solo instalar dependencias durante un despliegue tomó ~44 minutos en el Raspberry. **Acción:** generar imágenes en CI para `linux/arm64`, publicarlas y hacer pull por digest en el Raspberry; reducir dependencias de runtime y descargar Chromium solo donde sea necesario. Medir antes y después.
+**Evidencia:** `apps/api/Dockerfile:16,65` instala dependencias dos veces y además copia `node_modules` entre etapas; la imagen web copia todo el árbol de dependencias (`apps/web/Dockerfile:65-66`). En la evidencia previa aportada por el usuario, solo instalar dependencias durante un despliegue tomó ~44 minutos en el host de despliegue. **Acción:** generar en CI imágenes compatibles con el entorno de despliegue, publicarlas y hacer pull por digest; reducir dependencias de runtime y descargar Chromium solo donde sea necesario. Medir antes y después.
 
 ## Dependencias y avisos
 
@@ -116,13 +116,13 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 - Las rutas de equipos y organizaciones pasan por `authenticateJWT` y comprueban acceso en middleware o controladores (`apps/api/src/routes/teams.ts`, `apps/api/src/routes/organizations.ts`). Las rutas de documentos comprobadas diferencian permiso de lectura y edición (`apps/api/src/routes/documentss.ts:72-99`).
 - La API configura Helmet, HSTS, CORS por orígenes y consultas SQL parametrizadas en los flujos revisados (`apps/api/src/index.ts:77-138`). Las interpolaciones dinámicas examinadas en `middleware/project.ts`, `DocumentService.ts` y `NetworkController.ts` provienen de mapas cerrados, no directamente de texto de usuario.
 - El webhook de GitHub verifica HMAC sobre cuerpo raw (`apps/api/src/index.ts:134-135`, `apps/api/src/routes/github_webhook.ts:93-115`).
-- El compose del Raspberry mantiene Postgres y Redis en la red interna y Caddy solo en loopback (`docker-compose.raspberry.yml`).
+- La variante de Compose de menor tamaño evaluada mantiene Postgres y Redis en la red interna y Caddy solo en loopback.
 
 ## Verificaciones y límites
 
 - En esta ampliación: `corepack pnpm lint` terminó con código 0, con advertencias de hooks, imágenes y deprecación de `next lint`; `corepack pnpm typecheck` pasó; `corepack pnpm test:ci` pasó (30 suites/237 pruebas API y 32 suites/193 pruebas web); `corepack pnpm audit --json` informó solo el aviso de `braces` parcheado localmente y `check:braces-patch` pasó. Se inspeccionaron rutas, controladores, servicios, WebSocket, stores, Docker y CI.
-- La comprobación de migraciones con PostgreSQL, la construcción de imágenes y Trivy no pudieron reproducirse en este equipo: Docker no estaba iniciado, y no estaban disponibles `psql` ni `trivy`. El build de Next y los checks de GitHub Actions aportan verificación adicional, pero no sustituyen pruebas multiusuario ni del Raspberry.
-- No se ejecutaron integración, E2E, fuzzing, análisis dinámico ni revisión de secretos de producción. No se inspeccionó una sesión autenticada real; tampoco se comprobó qué commit/imágenes están activos actualmente en el Raspberry.
+- La comprobación de migraciones con PostgreSQL, la construcción de imágenes y Trivy no pudieron reproducirse en este equipo: Docker no estaba iniciado, y no estaban disponibles `psql` ni `trivy`. El build de Next y los checks de GitHub Actions aportan verificación adicional, pero no sustituyen pruebas multiusuario ni del despliegue activo.
+- No se ejecutaron integración, E2E, fuzzing, análisis dinámico ni revisión de secretos de producción. No se inspeccionó una sesión autenticada real; tampoco se comprobó qué commit/imágenes están activos actualmente en producción.
 - Los cambios del informe focalizado (`docs/security/audit-2026-10-14.md`) siguen **solo en el árbol local**. Este informe no modifica código ni despliega nada.
 
 ## Plan de corrección propuesto

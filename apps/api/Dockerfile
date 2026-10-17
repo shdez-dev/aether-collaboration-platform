@@ -60,7 +60,7 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 
 # Reuse the dependency stage instead of downloading the same workspace a
-# second time on the Raspberry. Prisma CLI remains available for migrations.
+# second time on the target host. Prisma CLI remains available for migrations.
 COPY --from=deps --chown=aether:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=aether:nodejs /app/apps/api/node_modules ./apps/api/node_modules
 # Reuse Chromium downloaded in the dependency stage and make it available to

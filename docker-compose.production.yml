@@ -136,7 +136,7 @@ services:
     ports:
       - '127.0.0.1:8081:80'
     volumes:
-      - ./infra/raspberry-pi/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
     networks:
       - aether-network
     deploy:
