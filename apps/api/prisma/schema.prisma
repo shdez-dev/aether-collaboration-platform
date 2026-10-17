@@ -783,6 +783,7 @@ model Document {
   description String   @default("") @db.VarChar(300)
   content     String   @default("")
   yjsState    Bytes?   @map("yjs_state")
+  restoreGeneration Int @default(0) @map("restore_generation")
   createdBy   String   @map("created_by") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

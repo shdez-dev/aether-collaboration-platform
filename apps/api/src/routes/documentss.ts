@@ -3,7 +3,11 @@
 import { Router, raw } from 'express';
 import { documentController } from '../controllers/DocumentController';
 import { documentCommentController } from '../controllers/DocumentCommentController';
-import { documentService, DocumentTextLimitError } from '../services/DocumentService';
+import {
+  documentService,
+  DocumentRestoreConflictError,
+  DocumentTextLimitError,
+} from '../services/DocumentService';
 import { authenticateJWT } from '../middleware/auth';
 import { checkWorkspaceMembership } from '../middleware/workspace';
 import { requireProjectAccess } from '../middleware/project';
@@ -98,14 +102,34 @@ router.put('/documents/:id/yjs-state', raw({ type: 'application/octet-stream', l
       });
     }
 
+    const generationHeader = req.get('X-Document-Restore-Generation');
+    const restoreGeneration = generationHeader && /^(0|[1-9]\d*)$/.test(generationHeader)
+      ? Number(generationHeader)
+      : Number.NaN;
+    if (!Number.isSafeInteger(restoreGeneration)) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'DOCUMENT_RESTORE_CONFLICT',
+          message: 'El documento fue restaurado. Vuelve a sincronizarlo antes de guardar.',
+        },
+      });
+    }
+
     const yjsBuffer = new Uint8Array(req.body);
-    await documentService.updateYjsState(id, yjsBuffer);
+    await documentService.updateYjsState(id, yjsBuffer, restoreGeneration);
 
     return res.json({
       success: true,
       data: { message: 'Estado guardado exitosamente' },
     });
   } catch (error) {
+    if (error instanceof DocumentRestoreConflictError) {
+      return res.status(409).json({
+        success: false,
+        error: { code: error.code, message: error.message },
+      });
+    }
     if (error instanceof DocumentTextLimitError) {
       return res.status(400).json({ success: false, error: { code: 'DOCUMENT_TEXT_LIMIT', message: error.message } });
     }

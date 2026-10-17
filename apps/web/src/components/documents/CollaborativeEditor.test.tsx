@@ -14,24 +14,26 @@ jest.mock('lowlight', () => ({
 }));
 
 jest.mock('@/services/socketService', () => {
-  const syncHandlers = new Set<(data: { documentId: string; update: number[] }) => void>();
+  const syncHandlers = new Set<
+    (data: { documentId: string; update: number[]; restoreGeneration: number }) => void
+  >();
   return {
     socketService: {
-      onYjsSync: (handler: (data: { documentId: string; update: number[] }) => void) => syncHandlers.add(handler),
+      onYjsSync: (handler: (data: { documentId: string; update: number[]; restoreGeneration: number }) => void) => syncHandlers.add(handler),
       onYjsUpdate: jest.fn(),
       onForceReload: jest.fn(),
       isConnected: jest.fn(() => true),
       onConnect: jest.fn(),
       offConnect: jest.fn(),
       on: jest.fn(),
-      off: (event: string, handler: (data: { documentId: string; update: number[] }) => void) => {
+      off: (event: string, handler: (data: { documentId: string; update: number[]; restoreGeneration: number }) => void) => {
         if (event === 'document:sync') syncHandlers.delete(handler);
       },
       joinDocument: jest.fn(),
       leaveDocument: jest.fn(),
       sendYjsUpdate: jest.fn(),
       emit: jest.fn(),
-      emitSync: (data: { documentId: string; update: number[] }) => syncHandlers.forEach((handler) => handler(data)),
+      emitSync: (data: { documentId: string; update: number[]; restoreGeneration: number }) => syncHandlers.forEach((handler) => handler(data)),
     },
   };
 });
@@ -97,9 +99,12 @@ describe('CollaborativeEditor', () => {
     const source = new Y.Doc();
 
     await act(async () => {
-      (socketService as typeof socketService & { emitSync: (data: { documentId: string; update: number[] }) => void }).emitSync({
+      (socketService as typeof socketService & {
+        emitSync: (data: { documentId: string; update: number[]; restoreGeneration: number }) => void;
+      }).emitSync({
         documentId: props.documentId,
         update: Array.from(Y.encodeStateAsUpdate(source)),
+        restoreGeneration: 0,
       });
     });
 

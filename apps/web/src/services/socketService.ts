@@ -396,16 +396,22 @@ class SocketService {
     this.socket?.emit('document:leave', { documentId });
   }
 
-  sendYjsUpdate(documentId: string, update: Uint8Array): void {
+  sendYjsUpdate(documentId: string, update: Uint8Array, restoreGeneration: number): void {
     if (!this.isConnected()) return;
-    this.socket?.emit('document:yjs:update', { documentId, update: Array.from(update) });
+    this.socket?.emit('document:yjs:update', {
+      documentId,
+      update: Array.from(update),
+      restoreGeneration,
+    });
   }
 
   onYjsUpdate(callback: (data: { documentId: string; update: number[] }) => void): void {
     this.on('document:yjs:update', callback);
   }
 
-  onYjsSync(callback: (data: { documentId: string; update: number[] }) => void): void {
+  onYjsSync(
+    callback: (data: { documentId: string; update: number[]; restoreGeneration: number }) => void
+  ): void {
     this.on('document:sync', callback);
   }
 

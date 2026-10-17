@@ -1636,6 +1636,8 @@ export default function CollaborativeEditor({
   const [yjsDoc] = useState(() => new Y.Doc());
   const { saveYjsState } = useDocumentStore();
   const isJoinedRef = useRef(false);
+  const restoreGenerationRef = useRef<number | null>(null);
+  const skipUnmountSaveRef = useRef(false);
   const [isDocumentReady, setIsDocumentReady] = useState(false);
   const [isSyncCurrent, setIsSyncCurrent] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -1700,6 +1702,9 @@ export default function CollaborativeEditor({
   }, [yjsDoc]); // Solo recrear si cambia yjsDoc, no el color del usuario
 
   useEffect(() => {
+    restoreGenerationRef.current = null;
+    skipUnmountSaveRef.current = false;
+
     // ── Estado de la sesión de sync actual ────────────────────────────────────
     // `isMounted` evita procesar respuestas después del desmontaje.
     // `joinedOnce` distingue la primera conexión de reconexiones posteriores.
@@ -1746,8 +1751,28 @@ export default function CollaborativeEditor({
     };
 
     // ── Handler del document:sync enviado por el servidor ─────────────────────
-    const handleInitialSync = (data: { documentId: string; update: number[] }) => {
+    const handleInitialSync = (data: {
+      documentId: string;
+      update: number[];
+      restoreGeneration: number;
+    }) => {
       if (!isMounted || data.documentId !== documentId) return;
+
+      if (!Number.isSafeInteger(data.restoreGeneration) || data.restoreGeneration < 0) {
+        setSyncError('No se pudo verificar la versión del documento. Vuelve a intentarlo.');
+        return;
+      }
+
+      if (
+        restoreGenerationRef.current !== null &&
+        restoreGenerationRef.current !== data.restoreGeneration
+      ) {
+        skipUnmountSaveRef.current = true;
+        setIsSyncCurrent(false);
+        window.location.reload();
+        return;
+      }
+      restoreGenerationRef.current = data.restoreGeneration;
 
       if (syncTimeoutId) {
         clearTimeout(syncTimeoutId);
@@ -1758,7 +1783,9 @@ export default function CollaborativeEditor({
         const update = new Uint8Array(data.update);
         Y.applyUpdate(yjsDoc, update, 'server');
         const localChanges = Y.encodeStateAsUpdate(yjsDoc, Y.encodeStateVectorFromUpdate(update));
-        if (localChanges.length > 2) socketService.sendYjsUpdate(documentId, localChanges);
+        if (localChanges.length > 2) {
+          socketService.sendYjsUpdate(documentId, localChanges, data.restoreGeneration);
+        }
         initialSyncReceivedRef.current = true;
         setIsDocumentReady(true);
         setIsSyncCurrent(true);
@@ -1958,8 +1985,11 @@ export default function CollaborativeEditor({
     yjsDoc,
     editor,
     enabled: canEdit && isDocumentReady && isSyncCurrent,
+    shouldSaveOnUnmount: () => !skipUnmountSaveRef.current,
     onSave: async (docId, state) => {
-      try { await saveYjsState(docId, state); setLimitMessage(''); }
+      const restoreGeneration = restoreGenerationRef.current;
+      if (restoreGeneration === null || skipUnmountSaveRef.current) return;
+      try { await saveYjsState(docId, state, restoreGeneration); setLimitMessage(''); }
       catch (error) { setLimitMessage(error instanceof Error ? error.message : 'No se pudo guardar el documento'); throw error; }
     },
   });
@@ -1969,8 +1999,10 @@ export default function CollaborativeEditor({
 
     const updateHandler = (update: Uint8Array, origin: any) => {
       if (origin !== 'server') {
+        const restoreGeneration = restoreGenerationRef.current;
+        if (restoreGeneration === null) return;
         // Enviar update al servidor (solo sincroniza con otros usuarios)
-        socketService.sendYjsUpdate(documentId, update);
+        socketService.sendYjsUpdate(documentId, update, restoreGeneration);
 
         // Indicar que hay cambios pendientes de guardar
         setIsSavingToServer(true);
@@ -2011,9 +2043,21 @@ export default function CollaborativeEditor({
         setIsSyncCurrent(false);
 
         // Listener para recibir el nuevo sync
-        const handleRejoin = (syncData: { documentId: string; update: number[] }) => {
+        const handleRejoin = (syncData: {
+          documentId: string;
+          update: number[];
+          restoreGeneration: number;
+        }) => {
           if (syncData.documentId !== documentId) return;
           try {
+            if (
+              !Number.isSafeInteger(syncData.restoreGeneration) ||
+              syncData.restoreGeneration !== restoreGenerationRef.current
+            ) {
+              skipUnmountSaveRef.current = true;
+              window.location.reload();
+              return;
+            }
             const update = new Uint8Array(syncData.update);
             Y.applyUpdate(yjsDoc, update, 'server');
             initialSyncReceivedRef.current = true;
@@ -2091,6 +2135,8 @@ export default function CollaborativeEditor({
   useEffect(() => {
     const handleForceReload = (data: { documentId: string; reason: string }) => {
       if (data.documentId === documentId) {
+        skipUnmountSaveRef.current = true;
+        setIsSyncCurrent(false);
         window.location.reload();
       }
     };

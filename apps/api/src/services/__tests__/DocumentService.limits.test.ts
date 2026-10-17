@@ -1,6 +1,10 @@
 import * as Y from 'yjs';
 import { pool } from '../../lib/db';
-import { documentService, DocumentTextLimitError } from '../DocumentService';
+import {
+  documentService,
+  DocumentRestoreConflictError,
+  DocumentTextLimitError,
+} from '../DocumentService';
 
 jest.mock('../../lib/db');
 jest.mock('../OrganizationStorageService', () => ({
@@ -42,6 +46,33 @@ describe('límite de contenido de documentos', () => {
 });
 
 describe('guardado concurrente de documentos', () => {
+  it('rechaza un autosave de una generación anterior a la restauración', async () => {
+    const client = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT id, content, yjs_state')) {
+          return {
+            rows: [{
+              id: 'doc-1',
+              content: 'Versión restaurada',
+              yjs_state: stateWithText('Versión restaurada'),
+              restore_generation: 1,
+            }],
+          };
+        }
+        return { rows: [] };
+      }),
+      release: jest.fn(),
+    };
+    (pool.connect as jest.Mock).mockResolvedValue(client);
+
+    await expect(
+      documentService.updateYjsState('doc-1', stateWithText('Autosave antiguo'), 0)
+    ).rejects.toBeInstanceOf(DocumentRestoreConflictError);
+
+    expect(client.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE documents'), expect.anything());
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
   it('fusiona cambios de dos clientes con el estado persistido', async () => {
     const base = stateWithText('Inicio');
     const first = new Y.Doc();

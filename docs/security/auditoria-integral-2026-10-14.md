@@ -10,7 +10,7 @@ Las descripciones de los hallazgos conservan la evidencia del estado auditado. D
 
 | Hallazgo | Estado actual |
 | --- | --- |
-| A-01 | Mitigado: la edición y el guardado esperan sync; los estados Yjs se fusionan bajo bloqueo de fila. Una prueba unitaria verifica cambios de dos clientes. Falta recorrido multiusuario y de restauración bajo carga; un guardado que ya estaba en vuelo durante la restauración aún requiere protección adicional. |
+| A-01 | Mitigación aplicada en código: edición y guardado esperan la sincronización inicial; cada restauración incrementa una generación persistida y los guardados HTTP/WebSocket obsoletos se rechazan bajo bloqueo de fila. El desmontaje por restauración omite el autosave local. Falta recorrido E2E multiusuario, restauración y recuperación bajo carga. |
 | A-02 | Corregido en código: respaldo HTTP binario con límite de 8 MB y respuesta 413 explícita. Falta comprobar documento grande en ejecución. |
 | A-03 | Mitigación parcial aplicada en código: límites distribuidos en Redis por correo e IP, con cuotas amplias para IP compartida. Pendiente observar y calibrar los umbrales con tráfico real. |
 | A-04 y A-05 | Corregidos en código: política compartida, revocación transaccional de refresh tokens, nuevos tokens para la sesión actual y propagación de errores a la interfaz. Los access tokens ya emitidos siguen válidos hasta expirar. |
@@ -41,7 +41,7 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 **Evidencia:** `apps/web/src/components/documents/CollaborativeEditor.tsx:1725-1740` pide una resincronización tras 8 s y, 5 s después, activa `isDocumentReady` aunque no haya recibido `document:sync`. `apps/web/src/components/documents/CollaborativeEditor.tsx:1936-1944` habilita el guardado automático cuando ese indicador es verdadero. `apps/web/src/hooks/useDocumentAutoSave.ts:70-91,154-190` guarda el snapshot local por HTTP, incluido al desmontar. `apps/api/src/services/DocumentService.ts:553-607` reemplaza `yjs_state` completo en la base de datos; la protección por tamaño solo rechaza estados de menos del 10 % del anterior. **Riesgo:** una reconexión lenta o fallida, o dos clientes con snapshots distintos, puede terminar persistiendo contenido incompleto o antiguo. Es un flujo de riesgo confirmado por código; la pérdida efectiva requiere reproducir el orden de eventos en dos clientes.
 
-**Acción:** no permitir editar ni guardar hasta recibir y aplicar la sincronización inicial; mostrar un estado de conexión fallida con reintento. En el servidor, fusionar actualizaciones Yjs contra el estado bloqueado en DB o usar un único proceso autoritativo con confirmaciones/versiones; no aceptar reemplazos ciegos de snapshots HTTP. Añadir prueba E2E de desconexión, edición concurrente y recuperación.
+**Mitigación aplicada:** la edición y el guardado siguen bloqueados hasta recibir y aplicar `document:sync`. El servidor incrementa `restore_generation` al restaurar una versión, y cada guardado HTTP o WebSocket debe indicar la generación que recibió al sincronizarse. El servicio compara ese valor dentro de la transacción y rechaza snapshots obsoletos; la recarga de una restauración no vuelve a guardar el estado local durante el desmontaje. **Seguimiento:** añadir recorrido E2E de desconexión, edición concurrente, guardado en vuelo durante restauración y recuperación bajo carga.
 
 ### A-02 — Alto funcional — El guardado de documentos grandes supera el límite JSON
 

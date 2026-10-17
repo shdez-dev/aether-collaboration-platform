@@ -17,6 +17,14 @@ import { organizationStorageService } from './OrganizationStorageService';
 
 export const DOCUMENT_TEXT_LIMIT = 100_000;
 export class DocumentTextLimitError extends Error {}
+export class DocumentRestoreConflictError extends Error {
+  readonly code = 'DOCUMENT_RESTORE_CONFLICT';
+
+  constructor() {
+    super('El documento fue restaurado. Vuelve a sincronizarlo antes de guardar.');
+    this.name = 'DocumentRestoreConflictError';
+  }
+}
 
 export class DocumentService {
   getVisibleTextLength(yjsState: Uint8Array): number {
@@ -545,17 +553,25 @@ export class DocumentService {
    * ✅ GUARDA ESTADO COMPLETO Y EXTRAE TEXTO PLANO
    *
    * Los snapshots pueden venir de varios clientes o del gateway. Se fusionan
-   * dentro del bloqueo de fila para no reemplazar cambios de otro cliente.
+   * dentro del bloqueo de fila para no reemplazar cambios de otro cliente. La
+   * generación también impide mezclar un snapshot anterior a una restauración.
    *
    * Lanza una excepción en todos los casos de rechazo para que el llamador
    * (YjsGateway) pueda reintentar o notificar al cliente correctamente.
    */
-  async updateYjsState(documentId: string, yjsState: Uint8Array): Promise<void> {
+  async updateYjsState(
+    documentId: string,
+    yjsState: Uint8Array,
+    expectedRestoreGeneration = 0
+  ): Promise<void> {
     // PROTECCIÓN CRÍTICA: nunca sobrescribir con un estado vacío o inválido.
     // Un Y.Doc vacío serializado pesa exactamente 2 bytes.
     if (!yjsState || yjsState.length <= 2) {
       const msg = `Rejected empty yjs_state for document ${documentId} (${yjsState?.length ?? 0} bytes)`;
       throw new Error(msg);
+    }
+    if (!Number.isSafeInteger(expectedRestoreGeneration) || expectedRestoreGeneration < 0) {
+      throw new DocumentRestoreConflictError();
     }
 
     const client = await pool.connect();
@@ -568,12 +584,17 @@ export class DocumentService {
       // Leer el estado actual antes de sobrescribir (con FOR UPDATE para evitar
       // race conditions entre guardados concurrentes del mismo documento)
       const current = await client.query(
-        'SELECT id, content, yjs_state, length(yjs_state) as current_bytes FROM documents WHERE id = $1 FOR UPDATE',
+        'SELECT id, content, yjs_state, restore_generation, length(yjs_state) as current_bytes FROM documents WHERE id = $1 FOR UPDATE',
         [documentId]
       );
 
       if (current.rows.length === 0) {
         throw new Error(`Document not found: ${documentId}`);
+      }
+
+      const currentRestoreGeneration = Number(current.rows[0].restore_generation ?? 0);
+      if (currentRestoreGeneration !== expectedRestoreGeneration) {
+        throw new DocumentRestoreConflictError();
       }
 
       const persistedState = current.rows[0].yjs_state
@@ -621,6 +642,21 @@ export class DocumentService {
     const yjsState = new Uint8Array(result.rows[0].yjs_state);
 
     return yjsState;
+  }
+
+  async getYjsSnapshot(
+    documentId: string
+  ): Promise<{ state: Uint8Array | null; restoreGeneration: number }> {
+    const result = await pool.query(
+      'SELECT yjs_state, restore_generation FROM documents WHERE id = $1',
+      [documentId]
+    );
+    const row = result.rows[0];
+
+    return {
+      state: row?.yjs_state ? new Uint8Array(row.yjs_state) : null,
+      restoreGeneration: Number(row?.restore_generation ?? 0),
+    };
   }
 
   /**
@@ -738,12 +774,16 @@ export class DocumentService {
       const plainText = this.extractTextFromYjs(yjsState);
 
       // Restaurar tanto yjs_state como content
-      await client.query(
+      const restoreResult = await client.query(
         `UPDATE documents 
-         SET yjs_state = $1, content = $2, updated_at = CURRENT_TIMESTAMP 
-         WHERE id = $3`,
+         SET yjs_state = $1, content = $2,
+             restore_generation = restore_generation + 1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+         RETURNING restore_generation`,
         [Buffer.from(yjsState), plainText, documentId]
       );
+      const restoreGeneration = Number(restoreResult.rows[0]?.restore_generation);
 
       await organizationStorageService.assertWithinLimit(organizationId, client, storageBefore.usedBytes);
       const docResult = await client.query(`SELECT * FROM documents WHERE id = $1`, [documentId]);
@@ -765,7 +805,7 @@ export class DocumentService {
       // CRÍTICO: Forzar recarga del documento en memoria si hay usuarios conectados
       // Esto evita que se pierdan datos cuando se restaura una versión
       const yjsGateway = (global as any).yjsGateway;
-      if (yjsGateway?.getDocument(documentId)) yjsGateway.replaceDocument(documentId, yjsState);
+      yjsGateway?.replaceDocument(documentId, yjsState, restoreGeneration);
 
       return document;
     } catch (error) {

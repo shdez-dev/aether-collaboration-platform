@@ -2,7 +2,11 @@
 
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import * as Y from 'yjs';
-import { documentService, DOCUMENT_TEXT_LIMIT } from '../services/DocumentService';
+import {
+  documentService,
+  DOCUMENT_TEXT_LIMIT,
+  DocumentRestoreConflictError,
+} from '../services/DocumentService';
 import { OrganizationStorageLimitError } from '../services/OrganizationStorageService';
 
 interface AuthenticatedSocket extends Socket {
@@ -14,6 +18,7 @@ interface AuthenticatedSocket extends Socket {
 export class YjsGateway {
   private docs = new Map<string, Y.Doc>();
   private documentLoads = new Map<string, Promise<Y.Doc>>();
+  private restoreGenerations = new Map<string, number>();
   private io: SocketIOServer;
 
   // Guardado con debounce después de cada cambio
@@ -73,6 +78,7 @@ export class YjsGateway {
           socket.emit('document:sync', {
             documentId,
             update: Array.from(stateVector),
+            restoreGeneration: this.restoreGenerations.get(documentId) ?? 0,
           });
 
           // Notificar a otros usuarios
@@ -106,7 +112,11 @@ export class YjsGateway {
           await this.ensureSocketDocumentMembership(socket, documentId);
           const doc = await this.getOrLoadDocument(documentId);
           const stateVector = Y.encodeStateAsUpdate(doc);
-          socket.emit('document:sync', { documentId, update: Array.from(stateVector) });
+          socket.emit('document:sync', {
+            documentId,
+            update: Array.from(stateVector),
+            restoreGeneration: this.restoreGenerations.get(documentId) ?? 0,
+          });
         } catch (error) {
           console.error('[document] request-sync failed', { documentId: data?.documentId, error });
           socket.emit('document:save-error', { documentId: data?.documentId, error: 'No se pudo sincronizar el documento' });
@@ -116,69 +126,83 @@ export class YjsGateway {
       // ================================================================
       // YJS UPDATE — Recibir cambio del cliente y persistir
       // ================================================================
-      socket.on('document:yjs:update', async (data: { documentId: string; update: number[] }) => {
-        try {
-          const { documentId, update } = data;
-          const hasAccess = await documentService.checkDocumentAccess(documentId, authSocket.userId);
-          if (!hasAccess) {
-            socket.emit('error', { message: 'No access to document' });
-            return;
-          }
-          const permission = await documentService.getEffectiveUserPermission(documentId, authSocket.userId);
-          if (permission !== 'EDIT') {
-            socket.emit('error', { message: 'Edit permission required' });
-            return;
-          }
-
-          let doc = this.docs.get(documentId);
-          if (!doc) {
-            // El proceso pudo reiniciarse antes de que llegara un update. Cargar
-            // una sola instancia desde DB antes de aplicar el cambio.
-            try {
-              doc = await this.getOrLoadDocument(documentId);
-              if (!this.socketToDocuments.has(socket.id)) {
-                this.socketToDocuments.set(socket.id, new Set());
-              }
-              this.socketToDocuments.get(socket.id)!.add(documentId);
-              await socket.join(`document:${documentId}`);
-            } catch {
-              socket.emit('document:reload', { documentId });
-              return;
-            }
-          }
-
-          await this.ensureSocketDocumentMembership(socket, documentId);
-
-          // Aplicar el update al documento Yjs en memoria
-          const currentState = Y.encodeStateAsUpdate(doc);
-          const currentLength = documentService.getVisibleTextLength(currentState);
-          const candidate = new Y.Doc();
+      socket.on(
+        'document:yjs:update',
+        async (data: { documentId: string; update: number[]; restoreGeneration: number }) => {
           try {
-            Y.applyUpdate(candidate, currentState);
-            Y.applyUpdate(candidate, new Uint8Array(update));
-            const nextLength = documentService.getVisibleTextLength(Y.encodeStateAsUpdate(candidate));
-            if (nextLength > DOCUMENT_TEXT_LIMIT && nextLength > currentLength) {
-              socket.emit('document:text-limit', { documentId, limit: DOCUMENT_TEXT_LIMIT });
+            const { documentId, update, restoreGeneration } = data;
+            const hasAccess = await documentService.checkDocumentAccess(documentId, authSocket.userId);
+            if (!hasAccess) {
+              socket.emit('error', { message: 'No access to document' });
               return;
             }
-          } finally {
-            candidate.destroy();
+            const permission = await documentService.getEffectiveUserPermission(documentId, authSocket.userId);
+            if (permission !== 'EDIT') {
+              socket.emit('error', { message: 'Edit permission required' });
+              return;
+            }
+
+            let doc = this.docs.get(documentId);
+            if (!doc) {
+              // El proceso pudo reiniciarse antes de que llegara un update. Cargar
+              // una sola instancia desde DB antes de aplicar el cambio.
+              try {
+                doc = await this.getOrLoadDocument(documentId);
+                if (!this.socketToDocuments.has(socket.id)) {
+                  this.socketToDocuments.set(socket.id, new Set());
+                }
+                this.socketToDocuments.get(socket.id)!.add(documentId);
+                await socket.join(`document:${documentId}`);
+              } catch {
+                socket.emit('document:reload', { documentId });
+                return;
+              }
+            }
+
+            await this.ensureSocketDocumentMembership(socket, documentId);
+
+            if (
+              !Number.isSafeInteger(restoreGeneration) ||
+              restoreGeneration !== this.restoreGenerations.get(documentId)
+            ) {
+              socket.emit('document:force-reload', {
+                documentId,
+                reason: 'Document version changed',
+              });
+              return;
+            }
+
+            // Aplicar el update al documento Yjs en memoria
+            const currentState = Y.encodeStateAsUpdate(doc);
+            const currentLength = documentService.getVisibleTextLength(currentState);
+            const candidate = new Y.Doc();
+            try {
+              Y.applyUpdate(candidate, currentState);
+              Y.applyUpdate(candidate, new Uint8Array(update));
+              const nextLength = documentService.getVisibleTextLength(Y.encodeStateAsUpdate(candidate));
+              if (nextLength > DOCUMENT_TEXT_LIMIT && nextLength > currentLength) {
+                socket.emit('document:text-limit', { documentId, limit: DOCUMENT_TEXT_LIMIT });
+                return;
+              }
+            } finally {
+              candidate.destroy();
+            }
+            Y.applyUpdate(doc, new Uint8Array(update));
+
+            // Hacer broadcast a los demás usuarios del mismo documento
+            socket.to(`document:${documentId}`).emit('document:yjs:update', {
+              documentId,
+              update,
+            });
+
+            // Programar guardado a DB con debounce
+            this.scheduleSave(documentId, doc);
+          } catch (error) {
+            console.error('[document] update failed', { documentId: data?.documentId, error });
+            socket.emit('document:save-error', { documentId: data?.documentId, error: 'No se pudo sincronizar el cambio' });
           }
-          Y.applyUpdate(doc, new Uint8Array(update));
-
-          // Hacer broadcast a los demás usuarios del mismo documento
-          socket.to(`document:${documentId}`).emit('document:yjs:update', {
-            documentId,
-            update,
-          });
-
-          // Programar guardado a DB con debounce
-          this.scheduleSave(documentId, doc);
-        } catch (error) {
-          console.error('[document] update failed', { documentId: data?.documentId, error });
-          socket.emit('document:save-error', { documentId: data?.documentId, error: 'No se pudo sincronizar el cambio' });
         }
-      });
+      );
 
       // ================================================================
       // AWARENESS UPDATE (cursores y presencia)
@@ -268,12 +292,15 @@ export class YjsGateway {
    * Cada cambio reinicia el timer. El guardado ocurre 2s después del último cambio.
    */
   private scheduleSave(documentId: string, doc: Y.Doc) {
+    const restoreGeneration = this.restoreGenerations.get(documentId);
+    if (restoreGeneration === undefined) return;
+
     const existing = this.saveTimers.get(documentId);
     if (existing) clearTimeout(existing);
 
     const timer = setTimeout(async () => {
       this.saveTimers.delete(documentId);
-      await this.persistDocument(documentId, doc);
+      await this.persistDocument(documentId, doc, restoreGeneration);
     }, this.SAVE_DEBOUNCE);
 
     this.saveTimers.set(documentId, timer);
@@ -282,16 +309,24 @@ export class YjsGateway {
   /**
    * Guardar el documento a la base de datos con reintentos automáticos.
    */
-  private async persistDocument(documentId: string, doc: Y.Doc, attempt = 1): Promise<void> {
+  private async persistDocument(
+    documentId: string,
+    doc: Y.Doc,
+    expectedRestoreGeneration: number,
+    attempt = 1
+  ): Promise<void> {
     try {
       const state = Y.encodeStateAsUpdate(doc);
+      if (!Number.isSafeInteger(expectedRestoreGeneration) || expectedRestoreGeneration < 0) {
+        throw new DocumentRestoreConflictError();
+      }
 
       // PROTECCIÓN: nunca guardar un estado vacío (2 bytes = Y.Doc vacío)
       if (state.length <= 2) {
         return;
       }
 
-      await documentService.updateYjsState(documentId, state);
+      await documentService.updateYjsState(documentId, state, expectedRestoreGeneration);
 
       // Notificar a los clientes que el guardado fue exitoso
       this.io.to(`document:${documentId}`).emit('document:saved', {
@@ -300,6 +335,10 @@ export class YjsGateway {
         size: state.length,
       });
     } catch (error) {
+      if (error instanceof DocumentRestoreConflictError) {
+        await this.reloadDocumentFromDatabase(documentId);
+        return;
+      }
       if (error instanceof OrganizationStorageLimitError) {
         this.io.to(`document:${documentId}`).emit('document:save-error', {
           documentId,
@@ -312,7 +351,7 @@ export class YjsGateway {
       if (attempt < this.MAX_SAVE_RETRIES) {
         const delay = this.RETRY_DELAY_MS * attempt;
         await new Promise((resolve) => setTimeout(resolve, delay));
-        await this.persistDocument(documentId, doc, attempt + 1);
+        await this.persistDocument(documentId, doc, expectedRestoreGeneration, attempt + 1);
       } else {
         this.io.to(`document:${documentId}`).emit('document:save-error', {
           documentId,
@@ -342,11 +381,15 @@ export class YjsGateway {
     }
 
     const state = Y.encodeStateAsUpdate(doc);
+    const restoreGeneration = this.restoreGenerations.get(documentId);
 
     if (state.length <= 2) {
       // Nothing to save — clean up memory
       doc.destroy();
-      this.docs.delete(documentId);
+      if (this.docs.get(documentId) === doc) {
+        this.docs.delete(documentId);
+        this.restoreGenerations.delete(documentId);
+      }
       return;
     }
 
@@ -354,10 +397,15 @@ export class YjsGateway {
 
     for (let attempt = 1; attempt <= this.MAX_SAVE_RETRIES; attempt++) {
       try {
-        await documentService.updateYjsState(documentId, state);
+        if (restoreGeneration === undefined) throw new DocumentRestoreConflictError();
+        await documentService.updateYjsState(documentId, state, restoreGeneration);
         saved = true;
         break;
       } catch (error) {
+        if (error instanceof DocumentRestoreConflictError) {
+          await this.reloadDocumentFromDatabase(documentId);
+          return;
+        }
         if (attempt < this.MAX_SAVE_RETRIES) {
           await new Promise((resolve) => setTimeout(resolve, this.RETRY_DELAY_MS * attempt));
         }
@@ -371,11 +419,19 @@ export class YjsGateway {
         this.saveTimers.delete(documentId);
         const currentDoc = this.docs.get(documentId);
         if (currentDoc) {
-          await this.persistDocument(documentId, currentDoc);
+          const currentGeneration = this.restoreGenerations.get(documentId);
+          if (currentGeneration === undefined) {
+            await this.reloadDocumentFromDatabase(documentId);
+            return;
+          }
+          await this.persistDocument(documentId, currentDoc, currentGeneration);
           const room = this.io.sockets.adapter.rooms.get(`document:${documentId}`);
           if (!room || room.size === 0) {
-            currentDoc.destroy();
-            this.docs.delete(documentId);
+            if (this.docs.get(documentId) === currentDoc) {
+              currentDoc.destroy();
+              this.docs.delete(documentId);
+              this.restoreGenerations.delete(documentId);
+            }
           }
         }
       }, 30_000);
@@ -384,8 +440,11 @@ export class YjsGateway {
     }
 
     // Guardado exitoso — ahora sí liberar de memoria
-    doc.destroy();
-    this.docs.delete(documentId);
+    if (this.docs.get(documentId) === doc) {
+      doc.destroy();
+      this.docs.delete(documentId);
+      this.restoreGenerations.delete(documentId);
+    }
   }
 
   private getRandomColor(): string {
@@ -408,14 +467,24 @@ export class YjsGateway {
     return this.docs.get(documentId);
   }
 
-  public replaceDocument(documentId: string, state: Uint8Array): void {
+  public replaceDocument(documentId: string, state: Uint8Array, restoreGeneration: number): void {
+    if (!Number.isSafeInteger(restoreGeneration) || restoreGeneration < 0) return;
+    const currentGeneration = this.restoreGenerations.get(documentId);
+    if (currentGeneration !== undefined && restoreGeneration < currentGeneration) return;
+
     const pendingSave = this.saveTimers.get(documentId);
     if (pendingSave) clearTimeout(pendingSave);
     this.saveTimers.delete(documentId);
-    this.docs.get(documentId)?.destroy();
-    const restored = new Y.Doc();
-    Y.applyUpdate(restored, state);
-    this.docs.set(documentId, restored);
+    const existing = this.docs.get(documentId);
+    existing?.destroy();
+    this.restoreGenerations.set(documentId, restoreGeneration);
+    if (existing) {
+      const restored = new Y.Doc();
+      Y.applyUpdate(restored, state);
+      this.docs.set(documentId, restored);
+    } else {
+      this.docs.delete(documentId);
+    }
     this.broadcastToDocument(documentId, 'document:force-reload', {
       documentId,
       reason: 'Version restored',
@@ -424,6 +493,25 @@ export class YjsGateway {
 
   public broadcastToDocument(documentId: string, event: string, data: any) {
     this.io.to(`document:${documentId}`).emit(event, data);
+  }
+
+  private async reloadDocumentFromDatabase(documentId: string): Promise<void> {
+    try {
+      const snapshot = await documentService.getYjsSnapshot(documentId);
+      let state = snapshot.state;
+      if (!state) {
+        const empty = new Y.Doc();
+        state = Y.encodeStateAsUpdate(empty);
+        empty.destroy();
+      }
+      this.replaceDocument(documentId, state, snapshot.restoreGeneration);
+    } catch (error) {
+      console.error('[document] failed to reload after version conflict', { documentId, error });
+      this.broadcastToDocument(documentId, 'document:force-reload', {
+        documentId,
+        reason: 'Document version changed',
+      });
+    }
   }
 
   public broadcastToUserInDocument(userId: string, event: string, data: any) {
@@ -446,8 +534,21 @@ export class YjsGateway {
     const load = (async () => {
       const doc = new Y.Doc();
       try {
-        const yjsState = await documentService.getYjsState(documentId);
-        if (yjsState && yjsState.length > 0) Y.applyUpdate(doc, yjsState, 'load');
+        let snapshot = await documentService.getYjsSnapshot(documentId);
+        const minimumGeneration = this.restoreGenerations.get(documentId);
+        if (minimumGeneration !== undefined && snapshot.restoreGeneration < minimumGeneration) {
+          const replaced = this.docs.get(documentId);
+          if (replaced) {
+            doc.destroy();
+            return replaced;
+          }
+          snapshot = await documentService.getYjsSnapshot(documentId);
+          if (snapshot.restoreGeneration < minimumGeneration) {
+            throw new DocumentRestoreConflictError();
+          }
+        }
+        if (snapshot.state && snapshot.state.length > 0) Y.applyUpdate(doc, snapshot.state, 'load');
+        this.restoreGenerations.set(documentId, snapshot.restoreGeneration);
         this.docs.set(documentId, doc);
         return doc;
       } catch (error) {

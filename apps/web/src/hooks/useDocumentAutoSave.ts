@@ -9,6 +9,7 @@ interface UseDocumentAutoSaveOptions {
   editor: Editor | null;
   enabled: boolean;
   onSave: (documentId: string, state: Uint8Array) => Promise<void>;
+  shouldSaveOnUnmount?: () => boolean;
 }
 
 /**
@@ -19,7 +20,7 @@ interface UseDocumentAutoSaveOptions {
  * Estrategia:
  * - Debounce de 1.5 segundos tras el último cambio (auto-save)
  * - Ctrl+S para guardado inmediato manual
- * - Guardado al desmontar usando refs para evitar stale closures
+ * - Guardado al desmontar usando refs, salvo cuando se descarta una sesión obsoleta
  */
 export function useDocumentAutoSave({
   documentId,
@@ -27,6 +28,7 @@ export function useDocumentAutoSave({
   editor,
   enabled,
   onSave,
+  shouldSaveOnUnmount,
 }: UseDocumentAutoSaveOptions) {
   const isSavingRef = useRef(false);
   const pendingSaveRef = useRef(false);
@@ -40,6 +42,7 @@ export function useDocumentAutoSave({
   const documentIdRef = useRef(documentId);
   const onSaveRef = useRef(onSave);
   const enabledRef = useRef(enabled);
+  const shouldSaveOnUnmountRef = useRef(shouldSaveOnUnmount);
 
   // Mantener los refs actualizados en cada render
   useEffect(() => {
@@ -54,6 +57,9 @@ export function useDocumentAutoSave({
   useEffect(() => {
     enabledRef.current = enabled;
   }, [enabled]);
+  useEffect(() => {
+    shouldSaveOnUnmountRef.current = shouldSaveOnUnmount;
+  }, [shouldSaveOnUnmount]);
 
   const doSave = useCallback(async () => {
     if (!enabledRef.current || isSavingRef.current) {
@@ -154,7 +160,7 @@ export function useDocumentAutoSave({
         debounceTimerRef.current = null;
       }
 
-      if (!enabledRef.current) return;
+      if (!enabledRef.current || shouldSaveOnUnmountRef.current?.() === false) return;
 
       const currentState = Y.encodeStateAsUpdate(yjsDocRef.current);
       if (currentState.length <= 2) return;

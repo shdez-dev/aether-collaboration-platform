@@ -26,7 +26,11 @@ interface DocumentState {
   yjsDoc: Y.Doc | null;
   activeUsers: ActiveDocumentUser[];
 
-  saveYjsState: (documentId: string, yjsState: Uint8Array) => Promise<void>;
+  saveYjsState: (
+    documentId: string,
+    yjsState: Uint8Array,
+    restoreGeneration: number
+  ) => Promise<void>;
   fetchDocuments: (workspaceId: string) => Promise<void>;
   fetchProjectDocuments: (projectId: string) => Promise<void>;
   fetchDocumentById: (documentId: string) => Promise<void>;
@@ -262,12 +266,19 @@ export const useDocumentStore = create<DocumentState>()(
         }
       },
 
-      saveYjsState: async (documentId: string, yjsState: Uint8Array) => {
+      saveYjsState: async (
+        documentId: string,
+        yjsState: Uint8Array,
+        restoreGeneration: number
+      ) => {
         const response = await apiService.request(
           `/api/documents/${documentId}/yjs-state`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/octet-stream' },
+            headers: {
+              'Content-Type': 'application/octet-stream',
+              'X-Document-Restore-Generation': String(restoreGeneration),
+            },
             body: new Blob([Uint8Array.from(yjsState)]),
           },
           true
