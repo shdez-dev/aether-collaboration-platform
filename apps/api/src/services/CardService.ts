@@ -136,10 +136,12 @@ export class CardService {
           WHERE cd.blocking_card_id = c.id
         ) as blocking_count
        FROM cards c
+       JOIN lists li ON li.id = c.list_id
+       JOIN boards b ON b.id = li.board_id
        LEFT JOIN card_members cm ON c.id = cm.card_id
        LEFT JOIN users u ON cm.user_id = u.id
        LEFT JOIN card_labels cl ON c.id = cl.card_id
-       LEFT JOIN labels l ON cl.label_id = l.id
+       LEFT JOIN labels l ON cl.label_id = l.id AND l.workspace_id = b.workspace_id
        WHERE c.list_id = $1
        GROUP BY c.id
        ORDER BY c.position ASC`,
@@ -192,10 +194,12 @@ export class CardService {
           WHERE cd.blocking_card_id = c.id
         ) as blocking_count
        FROM cards c
+       JOIN lists li ON li.id = c.list_id
+       JOIN boards b ON b.id = li.board_id
        LEFT JOIN card_members cm ON c.id = cm.card_id
        LEFT JOIN users u ON cm.user_id = u.id
        LEFT JOIN card_labels cl ON c.id = cl.card_id
-       LEFT JOIN labels l ON cl.label_id = l.id
+       LEFT JOIN labels l ON cl.label_id = l.id AND l.workspace_id = b.workspace_id
        WHERE c.id = $1
        GROUP BY c.id`,
       [cardId]
@@ -866,6 +870,18 @@ export class CardService {
     try {
       await client.query('BEGIN');
 
+      const workspaceMatch = await client.query(
+        `SELECT c.id
+           FROM cards c
+           JOIN lists li ON li.id = c.list_id
+           JOIN boards b ON b.id = li.board_id
+           JOIN labels label ON label.id = $2 AND label.workspace_id = b.workspace_id
+          WHERE c.id = $1
+          FOR SHARE OF c, label`,
+        [cardId, labelId]
+      );
+      if (!workspaceMatch.rows.length) throw new Error('Label not found in card workspace');
+
       const existingResult = await client.query(
         'SELECT * FROM card_labels WHERE card_id = $1 AND label_id = $2',
         [cardId, labelId]
@@ -915,6 +931,18 @@ export class CardService {
 
     try {
       await client.query('BEGIN');
+
+      const workspaceMatch = await client.query(
+        `SELECT c.id
+           FROM cards c
+           JOIN lists li ON li.id = c.list_id
+           JOIN boards b ON b.id = li.board_id
+           JOIN labels label ON label.id = $2 AND label.workspace_id = b.workspace_id
+          WHERE c.id = $1
+          FOR SHARE OF c, label`,
+        [cardId, labelId]
+      );
+      if (!workspaceMatch.rows.length) throw new Error('Label not found in card workspace');
 
       const [cardResult, labelResult, actorResult] = await Promise.all([
         pool.query('SELECT title FROM cards WHERE id = $1', [cardId]),

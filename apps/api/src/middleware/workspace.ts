@@ -193,6 +193,52 @@ export async function checkWorkspaceMembership(
 }
 
 /**
+ * Verify membership through a label ID without disclosing whether a label in
+ * another workspace exists. This is used by label-by-ID routes.
+ */
+export async function checkLabelWorkspaceMembership(
+  req: WorkspaceRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT l.workspace_id, wm.role
+         FROM labels l
+         JOIN workspace_members wm ON wm.workspace_id = l.workspace_id AND wm.user_id = $2
+        WHERE l.id = $1`,
+      [req.params.labelId, userId],
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Label not found' },
+      });
+    }
+
+    req.workspace = {
+      id: result.rows[0].workspace_id,
+      role: result.rows[0].role,
+    };
+    return next();
+  } catch {
+    return res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to verify label access' },
+    });
+  }
+}
+
+/**
  * Middleware: Verificar que el usuario tiene un rol mínimo requerido
  * Debe ejecutarse DESPUÉS de checkWorkspaceMembership
  * @param minRole - Rol mínimo requerido (OWNER, ADMIN, MEMBER, VIEWER)

@@ -27,6 +27,18 @@ const updateLabelSchema = z.object({
 
 // ==================== CONTROLLER ====================
 
+function requireUserId(req: Request, res: Response): string | null {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'User not authenticated' },
+    });
+    return null;
+  }
+  return userId;
+}
+
 export class LabelController {
   /**
    * POST /api/workspaces/:workspaceId/labels
@@ -35,6 +47,8 @@ export class LabelController {
   static async createLabel(req: Request, res: Response) {
     try {
       const { workspaceId } = req.params;
+      const userId = requireUserId(req, res);
+      if (!userId) return;
 
       // Validar body
       const validationResult = createLabelSchema.safeParse(req.body);
@@ -49,7 +63,13 @@ export class LabelController {
         });
       }
 
-      const label = await LabelService.createLabel(workspaceId, validationResult.data);
+      const label = await LabelService.createLabel(workspaceId, userId, validationResult.data);
+      if (!label) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Workspace not found' },
+        });
+      }
 
       return res.status(201).json({
         success: true,
@@ -70,8 +90,10 @@ export class LabelController {
   static async getWorkspaceLabels(req: Request, res: Response) {
     try {
       const { workspaceId } = req.params;
+      const userId = requireUserId(req, res);
+      if (!userId) return;
 
-      const labels = await LabelService.getWorkspaceLabels(workspaceId);
+      const labels = await LabelService.getWorkspaceLabels(workspaceId, userId);
 
       return res.status(200).json({
         success: true,
@@ -91,9 +113,11 @@ export class LabelController {
    */
   static async getLabel(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { labelId } = req.params;
+      const userId = requireUserId(req, res);
+      if (!userId) return;
 
-      const label = await LabelService.getLabelById(id);
+      const label = await LabelService.getLabelById(labelId, userId);
 
       if (!label) {
         return res.status(404).json({
@@ -120,7 +144,9 @@ export class LabelController {
    */
   static async updateLabel(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { labelId } = req.params;
+      const userId = requireUserId(req, res);
+      if (!userId) return;
 
       // Validar body
       const validationResult = updateLabelSchema.safeParse(req.body);
@@ -135,7 +161,13 @@ export class LabelController {
         });
       }
 
-      const label = await LabelService.updateLabel(id, validationResult.data);
+      const label = await LabelService.updateLabel(labelId, userId, validationResult.data);
+      if (!label) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Label not found' },
+        });
+      }
 
       return res.status(200).json({
         success: true,
@@ -155,9 +187,26 @@ export class LabelController {
    */
   static async deleteLabel(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { labelId } = req.params;
+      const userId = requireUserId(req, res);
+      if (!userId) return;
 
-      await LabelService.deleteLabel(id);
+      const result = await LabelService.deleteLabel(labelId, userId);
+      if (result === 'not_found') {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Label not found' },
+        });
+      }
+      if (result === 'cross_workspace_association') {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: 'CROSS_WORKSPACE_ASSOCIATION',
+            message: 'Label has an association outside its workspace and cannot be deleted yet',
+          },
+        });
+      }
 
       return res.status(200).json({
         success: true,

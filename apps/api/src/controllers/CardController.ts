@@ -541,6 +541,12 @@ export class CardController {
           error: { code: 'ALREADY_ADDED', message: error.message },
         });
       }
+      if (error.message === 'Label not found in card workspace') {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Label not found' },
+        });
+      }
 
       return res.status(500).json({
         success: false,
@@ -574,6 +580,12 @@ export class CardController {
         data: { message: 'Label removed successfully' },
       });
     } catch (error: any) {
+      if (error.message === 'Label not found in card workspace') {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Label not found' },
+        });
+      }
       return res.status(500).json({
         success: false,
         error: { code: 'INTERNAL_ERROR', message: error.message },

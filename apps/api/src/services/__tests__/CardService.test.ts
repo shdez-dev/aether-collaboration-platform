@@ -87,9 +87,13 @@ describe('CardService', () => {
       expect(result).toHaveLength(2);
       expect(result[0].title).toBe('Task 1');
       expect(result[1].title).toBe('Task 2');
-      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('WHERE c.list_id = $1'), [
-        listId,
-      ]);
+      expect(pool.query).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'LEFT JOIN labels l ON cl.label_id = l.id AND l.workspace_id = b.workspace_id'
+        ),
+        [listId]
+      );
+      expect((pool.query as jest.Mock).mock.calls[0][0]).toContain('WHERE c.list_id = $1');
     });
 
     it('should order cards by position', async () => {
@@ -238,6 +242,9 @@ describe('CardService', () => {
       expect(result).not.toBeNull();
       expect(result?.id).toBe(cardId);
       expect(result?.title).toBe('Test Card');
+      expect((pool.query as jest.Mock).mock.calls[0][0]).toContain(
+        'LEFT JOIN labels l ON cl.label_id = l.id AND l.workspace_id = b.workspace_id'
+      );
     });
 
     it('should return null if card not found', async () => {
@@ -524,6 +531,44 @@ describe('CardService', () => {
           subject: expect.objectContaining({ id: userId }),
         })
       );
+    });
+  });
+
+  describe('label workspace isolation', () => {
+    it('rejects associating a label from another workspace', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }); // No card and label in the same workspace
+
+      await expect(CardService.addLabel('card-a', 'label-b', 'user-a')).rejects.toThrow(
+        'Label not found in card workspace'
+      );
+
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('label.workspace_id = b.workspace_id'),
+        ['card-a', 'label-b']
+      );
+      expect(mockClient.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO card_labels'),
+        expect.anything()
+      );
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+    });
+
+    it('rejects removing a label from another workspace', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }); // No card and label in the same workspace
+
+      await expect(CardService.removeLabel('card-a', 'label-b', 'user-a')).rejects.toThrow(
+        'Label not found in card workspace'
+      );
+
+      expect(mockClient.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM card_labels'),
+        expect.anything()
+      );
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
     });
   });
 });
