@@ -17,7 +17,7 @@ Las descripciones de los hallazgos conservan la evidencia del estado auditado. D
 | A-06 | Parcial: cabeceras CSP básicas y `nosniff` en la web. Migrar tokens a cookies HttpOnly requiere cambiar el contrato de autenticación web, API y Socket.IO. |
 | A-07 | Corregido en archivo: DB y Redis ya no publican puertos; se usa Caddy incluido en el repositorio y se corrigió el healthcheck de Redis. |
 | A-08 | Corregido en código: listados de documentos y versiones omiten el binario Yjs; el historial usa límite y desplazamiento acotados. |
-| A-09 | Mejorado: se registran errores de DB, Redis y sincronización; faltan confirmaciones de guardado y reintentos visibles. |
+| A-09 | Parcial: los errores de guardado HTTP y Socket.IO se muestran en el editor y permiten reintentar; quedan pendientes la validación E2E y la revisión de errores silenciosos y registro estructurado. |
 | A-10 | Parcial: HMAC sobre cuerpo raw. Idempotencia/orden temporal pendiente hasta definir el proveedor y su formato de eventos. |
 | A-11 | Parcial: CI ahora bloquea avisos nuevos de `pnpm audit` y comprueba el parche conocido; aún no ejecuta integración ni E2E. |
 | A-12 | Parcial: la imagen API reutiliza dependencias en lugar de volver a descargarlas; la construcción completa sigue ocurriendo en el host de despliegue. |
@@ -87,7 +87,7 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 ### A-09 — Media de observabilidad — Errores de tiempo real y DB silenciados
 
-**Evidencia:** `apps/api/src/websocket/Yjsgateway.ts:126,201` deja `catch` vacíos al pedir sincronización o aplicar cambios; `apps/api/src/lib/db.ts:28` ignora errores del pool. `apps/web/src/hooks/useDocumentAutoSave.ts:92-94,188-190` suprime errores HTTP. **Impacto:** fallos de guardado/conexión son difíciles de detectar y el usuario puede continuar sin una indicación fiable del estado. **Acción:** registrar errores estructurados sin contenido sensible, devolver confirmaciones de guardado y exponer un estado de reintento en el editor.
+**Evidencia actualizada:** `apps/web/src/hooks/useDocumentAutoSave.ts` conserva el error del autosave HTTP; `apps/web/src/components/documents/CollaborativeEditor.tsx` muestra los errores HTTP y `document:save-error` como alerta y ofrece reintentar el guardado del estado Yjs actual. `apps/api/src/websocket/Yjsgateway.ts` ya reintenta persistencia antes de emitir el error. Aún hay rutas de captura que solo fuerzan recarga o devuelven un error genérico, y los errores de consultas de DB no incorporan contexto estructurado de operación. **Impacto:** el usuario puede detectar y volver a intentar un fallo de guardado mientras el editor sigue abierto; la investigación de ciertos fallos operativos sigue siendo limitada. **Seguimiento:** validar fallo y reintento HTTP/WebSocket en E2E; completar registro estructurado sin contenido sensible y revisar los `catch` restantes.
 
 ### A-10 — Media condicional — Webhook de facturación frágil y eventos fuera de orden
 

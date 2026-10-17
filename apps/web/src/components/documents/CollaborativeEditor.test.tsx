@@ -1,7 +1,15 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as Y from 'yjs';
 import CollaborativeEditor from './CollaborativeEditor';
 import { socketService } from '@/services/socketService';
+
+const mockAutoSaveResult = {
+  saveNow: jest.fn(),
+  isSaving: false,
+  lastSavedAt: null as Date | null,
+  saveError: null as string | null,
+  reportSaveError: jest.fn(),
+};
 
 jest.mock('lowlight', () => ({
   common: {},
@@ -73,11 +81,19 @@ jest.mock('@/components/documents/DocumentCommentsSidebar', () => ({
   CommentGutterIndicators: () => null,
 }));
 jest.mock('@/hooks/useDocumentAutoSave', () => ({
-  useDocumentAutoSave: () => ({ saveNow: jest.fn(), isSaving: false, lastSavedAt: null }),
+  useDocumentAutoSave: () => mockAutoSaveResult,
 }));
 jest.mock('@/lib/i18n', () => ({ useT: () => ({}) }));
 
 describe('CollaborativeEditor', () => {
+  beforeEach(() => {
+    mockAutoSaveResult.saveNow.mockReset();
+    mockAutoSaveResult.isSaving = false;
+    mockAutoSaveResult.lastSavedAt = null;
+    mockAutoSaveResult.saveError = null;
+    mockAutoSaveResult.reportSaveError.mockReset();
+  });
+
   beforeAll(() => {
     class ResizeObserverMock {
       observe() {}
@@ -112,6 +128,38 @@ describe('CollaborativeEditor', () => {
     view.rerender(<CollaborativeEditor {...props} currentUser={{ ...props.currentUser }} />);
     await waitFor(() => expect(screen.getByLabelText('0 de 100.000 caracteres')).toBeTruthy());
     expect(document.querySelector('.ProseMirror')).toBeTruthy();
+    source.destroy();
+  });
+
+  it('shows a save error and retries the current document state', async () => {
+    mockAutoSaveResult.saveError = 'Error de conexión. Verifica que el servidor esté corriendo.';
+    const props = {
+      documentId: 'document-1', workspaceId: 'workspace-1',
+      currentUser: { id: 'user-1', name: 'Ana', color: '#7452a6' },
+      canEdit: true, canComment: true,
+    };
+    const view = render(<CollaborativeEditor {...props} />);
+    const source = new Y.Doc();
+
+    await act(async () => {
+      (socketService as typeof socketService & {
+        emitSync: (data: { documentId: string; update: number[]; restoreGeneration: number }) => void;
+      }).emitSync({
+        documentId: props.documentId,
+        update: Array.from(Y.encodeStateAsUpdate(source)),
+        restoreGeneration: 0,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(mockAutoSaveResult.saveError!);
+    });
+    const retryButton = await screen.findByRole('button', { name: 'Reintentar guardado del documento' });
+    await waitFor(() => expect(retryButton).toBeEnabled());
+    fireEvent.click(retryButton);
+    expect(mockAutoSaveResult.saveNow).toHaveBeenCalledTimes(1);
+
+    view.unmount();
     source.destroy();
   });
 });

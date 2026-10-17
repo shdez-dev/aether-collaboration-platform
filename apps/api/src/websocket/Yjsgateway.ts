@@ -355,7 +355,7 @@ export class YjsGateway {
       } else {
         this.io.to(`document:${documentId}`).emit('document:save-error', {
           documentId,
-          error: 'Failed to save after multiple retries',
+          error: 'No se pudo guardar el documento después de varios intentos.',
         });
       }
     }

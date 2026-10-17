@@ -447,6 +447,13 @@ body:has(.fixed.z-40) {
   font: 500 11px/1.4 'Manrope', system-ui, sans-serif;
 }
 .doc-editor-limit-message { margin-right: auto; color: var(--c-amber); }
+.doc-editor-save-error {
+  flex: 1 1 280px;
+  min-width: 0;
+  margin-right: auto;
+  color: var(--c-red);
+  overflow-wrap: anywhere;
+}
 .doc-character-count {
   display: inline-flex;
   align-items: center;

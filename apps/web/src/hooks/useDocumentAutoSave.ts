@@ -35,6 +35,7 @@ export function useDocumentAutoSave({
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Refs que siempre apuntan a los valores más recientes — evitan stale closures
   // en el cleanup del desmontaje y en el handler del teclado.
@@ -50,6 +51,8 @@ export function useDocumentAutoSave({
   }, [yjsDoc]);
   useEffect(() => {
     documentIdRef.current = documentId;
+    setSaveError(null);
+    setLastSavedAt(null);
   }, [documentId]);
   useEffect(() => {
     onSaveRef.current = onSave;
@@ -81,8 +84,13 @@ export function useDocumentAutoSave({
 
       await onSaveRef.current(documentIdRef.current, currentState);
       setLastSavedAt(new Date());
-    } catch {
-      // save failure is surfaced via document:save-error socket event
+      setSaveError(null);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo guardar el documento. Inténtalo de nuevo.'
+      );
     } finally {
       isSavingRef.current = false;
       setIsSaving(false);
@@ -175,5 +183,7 @@ export function useDocumentAutoSave({
     saveNow: doSave,
     isSaving,
     lastSavedAt,
+    saveError,
+    reportSaveError: setSaveError,
   };
 }

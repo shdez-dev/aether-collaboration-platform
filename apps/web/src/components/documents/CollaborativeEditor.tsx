@@ -1980,17 +1980,18 @@ export default function CollaborativeEditor({
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [editor, canEdit, isSyncCurrent]);
 
-  const { saveNow, isSaving, lastSavedAt } = useDocumentAutoSave({
+  const canRetrySave = canEdit && isDocumentReady && isSyncCurrent;
+  const { saveNow, isSaving, lastSavedAt, saveError, reportSaveError } = useDocumentAutoSave({
     documentId,
     yjsDoc,
     editor,
-    enabled: canEdit && isDocumentReady && isSyncCurrent,
+    enabled: canRetrySave,
     shouldSaveOnUnmount: () => !skipUnmountSaveRef.current,
     onSave: async (docId, state) => {
       const restoreGeneration = restoreGenerationRef.current;
       if (restoreGeneration === null || skipUnmountSaveRef.current) return;
-      try { await saveYjsState(docId, state, restoreGeneration); setLimitMessage(''); }
-      catch (error) { setLimitMessage(error instanceof Error ? error.message : 'No se pudo guardar el documento'); throw error; }
+      await saveYjsState(docId, state, restoreGeneration);
+      setLimitMessage('');
     },
   });
 
@@ -2029,7 +2030,7 @@ export default function CollaborativeEditor({
     const handleSaveError = (data: { documentId: string; error: string; code?: string }) => {
       if (data.documentId === documentId) {
         setIsSavingToServer(false);
-        if (data.code === 'ORGANIZATION_STORAGE_LIMIT_REACHED') setLimitMessage(data.error);
+        reportSaveError(data.error || 'No se pudo guardar el documento. Inténtalo de nuevo.');
       }
     };
     socketService.on('document:save-error', handleSaveError);
@@ -2086,7 +2087,7 @@ export default function CollaborativeEditor({
       socketService.off('document:save-error', handleSaveError);
       socketService.off('document:reload', handleReload);
     };
-  }, [editor, yjsDoc, documentId, isDocumentReady]);
+  }, [editor, yjsDoc, documentId, isDocumentReady, reportSaveError]);
 
   // Sincronización manual de Awareness vía Socket.IO
   useEffect(() => {
@@ -2311,11 +2312,33 @@ export default function CollaborativeEditor({
   return (
     <div className="doc-editor-root" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
 
-      <div role={limitMessage || syncError ? 'alert' : undefined} className="doc-editor-status">
-        {(limitMessage || syncError || !isSyncCurrent || characterCount >= 80_000) && (
-          <span className="doc-editor-limit-message">
-            {limitMessage || syncError || (!isSyncCurrent ? 'Reconectando el documento; edición pausada.' : 'El documento se acerca al límite.')}
+      <div role={saveError || limitMessage || syncError ? 'alert' : undefined} className="doc-editor-status">
+        {(saveError || limitMessage || syncError || !isSyncCurrent || characterCount >= 80_000) && (
+          <span
+            className={saveError ? 'doc-editor-save-error' : 'doc-editor-limit-message'}
+          >
+            {saveError || limitMessage || syncError || (!isSyncCurrent ? 'Reconectando el documento; edición pausada.' : 'El documento se acerca al límite.')}
           </span>
+        )}
+        {saveError && canEdit && (
+          <button
+            type="button"
+            onClick={() => void saveNow()}
+            disabled={isSaving || !canRetrySave}
+            aria-label="Reintentar guardado del documento"
+            style={{
+              padding: '5px 10px',
+              border: `1px solid ${C.border2}`,
+              borderRadius: '7px',
+              background: C.surface,
+              color: isSaving || !canRetrySave ? C.text3 : C.red,
+              font: '600 11px Manrope, system-ui, sans-serif',
+              cursor: isSaving || !canRetrySave ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isSaving ? 'Reintentando…' : 'Reintentar guardado'}
+          </button>
         )}
         {syncError && (
           <button type="button" onClick={() => window.location.reload()}>Reintentar</button>
