@@ -5,6 +5,7 @@ import { capabilityService, PLAN_CATALOG } from '../services/CapabilityService';
 import { organizationStorageService } from '../services/OrganizationStorageService';
 import { pool } from '../lib/db';
 const fail=(res:Response,s:number,c:string,m:string)=>res.status(s).json({success:false,error:{code:c,message:m}});
+const BILLING_PROVIDER = process.env.BILLING_PROVIDER?.trim() || 'configured-provider';
 async function admin(orgId:string,userId:string){const r=await pool.query(`SELECT 1 FROM organization_members WHERE organization_id=$1 AND user_id=$2 AND role IN ('OWNER','BILLING_ADMIN','ADMIN')`,[orgId,userId]);return !!r.rows[0];}
 export class BillingController {
   async catalog(_req:Request,res:Response){return res.json({success:true,data:{plans:Object.entries(PLAN_CATALOG).map(([code,plan])=>({code,...plan}))}})}
@@ -59,25 +60,49 @@ export class BillingController {
       return fail(res, 400, 'VALIDATION_ERROR', 'Invalid webhook JSON');
     }
     const event = z.object({
-      id: z.string().min(1),
+      id: z.string().min(1).max(255),
       organizationId: z.string().uuid(),
       planCode: z.enum(['FREE', 'TEAMS', 'PORTFOLIO', 'INSTITUTIONAL', 'NETWORK']),
       status: z.enum(['TRIALING', 'ACTIVE', 'PAST_DUE', 'PAUSED', 'CANCELED', 'EXPIRED']),
-      providerCustomerId: z.string().optional(),
-      providerSubscriptionId: z.string().optional(),
+      providerCustomerId: z.string().max(255).optional(),
+      providerSubscriptionId: z.string().min(1).max(255),
       periodEnd: z.string().datetime().optional().nullable(),
     }).safeParse(payload);
     if (!event.success) return fail(res, 400, 'VALIDATION_ERROR', 'Invalid billing event');
     const value = event.data;
-    await pool.query(
-      `INSERT INTO subscriptions(id,organization_id,plan_code,status,provider,provider_customer_id,provider_subscription_id,current_period_end,updated_at)
-       VALUES(gen_random_uuid(),$1,$2,$3::"SubscriptionStatus",'configured-provider',$4,$5,$6,CURRENT_TIMESTAMP)
-       ON CONFLICT(provider_subscription_id) DO UPDATE SET plan_code=EXCLUDED.plan_code,status=EXCLUDED.status,
-         current_period_end=EXCLUDED.current_period_end,updated_at=CURRENT_TIMESTAMP`,
-      [value.organizationId, value.planCode, value.status, value.providerCustomerId ?? null,
-        value.providerSubscriptionId ?? `event:${value.id}`, value.periodEnd ?? null]
-    );
-    return res.json({ success: true });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const accepted = await client.query(
+        `INSERT INTO billing_webhook_events(provider,event_id)
+         VALUES($1,$2)
+         ON CONFLICT(provider,event_id) DO NOTHING
+         RETURNING event_id`,
+        [BILLING_PROVIDER, value.id]
+      );
+
+      if (accepted.rowCount === 0) {
+        await client.query('COMMIT');
+        return res.json({ success: true, data: { duplicate: true } });
+      }
+
+      await client.query(
+        `INSERT INTO subscriptions(id,organization_id,plan_code,status,provider,provider_customer_id,provider_subscription_id,current_period_end,updated_at)
+         VALUES(gen_random_uuid(),$1,$2,$3::"SubscriptionStatus",$4,$5,$6,$7,CURRENT_TIMESTAMP)
+         ON CONFLICT(provider_subscription_id) DO UPDATE SET plan_code=EXCLUDED.plan_code,status=EXCLUDED.status,
+           provider=EXCLUDED.provider,provider_customer_id=EXCLUDED.provider_customer_id,
+           current_period_end=EXCLUDED.current_period_end,updated_at=CURRENT_TIMESTAMP`,
+        [value.organizationId, value.planCode, value.status, BILLING_PROVIDER, value.providerCustomerId ?? null,
+          value.providerSubscriptionId, value.periodEnd ?? null]
+      );
+      await client.query('COMMIT');
+      return res.json({ success: true, data: { duplicate: false } });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 export const billingController=new BillingController();

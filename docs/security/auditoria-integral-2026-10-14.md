@@ -18,7 +18,7 @@ Las descripciones de los hallazgos conservan la evidencia del estado auditado. D
 | A-07 | Corregido en archivo: DB y Redis ya no publican puertos; se usa Caddy incluido en el repositorio y se corrigió el healthcheck de Redis. |
 | A-08 | Corregido en código: listados de documentos y versiones omiten el binario Yjs; el historial usa límite y desplazamiento acotados. |
 | A-09 | Parcial: los errores de guardado HTTP y Socket.IO se muestran en el editor y permiten reintentar; quedan pendientes la validación E2E y la revisión de errores silenciosos y registro estructurado. |
-| A-10 | Parcial: HMAC sobre cuerpo raw. Idempotencia/orden temporal pendiente hasta definir el proveedor y su formato de eventos. |
+| A-10 | Parcial: HMAC sobre cuerpo raw y deduplicación transaccional persistida por proveedor e ID de evento; exige ID de suscripción para evitar registros separados por evento. El orden temporal sigue pendiente hasta definir el proveedor y su semántica de secuencia. |
 | A-11 | CI configurado para bloquear el build si fallan integración o Playwright E2E; E2E usa PostgreSQL y Redis de prueba y el sitio web en modo producción. Pendiente observar la ejecución en GitHub Actions. |
 | A-12 | Parcial: la imagen API reutiliza dependencias en lugar de volver a descargarlas; la construcción completa sigue ocurriendo en el host de despliegue. |
 
@@ -91,9 +91,9 @@ Prioridad inmediata: impedir que un editor sin sincronizar pueda guardar un esta
 
 ### A-10 — Media condicional — Webhook de facturación frágil y eventos fuera de orden
 
-**Evidencia:** `apps/api/src/controllers/BillingController.ts:46` firma `JSON.stringify(req.body)` en vez de los bytes recibidos. Un proveedor que firme el JSON original rechazará webhooks válidos si cambian espacios u orden de claves. La misma función actualiza suscripciones por `provider_subscription_id` sin guardar ni deduplicar el identificador de evento o comprobar orden temporal. **Alcance:** solo aplica si se configura `BILLING_WEBHOOK_SECRET` y se integra un proveedor de pago; no se comprobó un proveedor real.
+**Evidencia histórica:** la auditoría inicial detectó firma sobre JSON serializado, falta de deduplicación y ausencia de control temporal. **Estado actual:** `BillingController.webhook` verifica HMAC sobre el cuerpo raw, exige ID de evento e ID de suscripción, y registra `(proveedor, event_id)` con clave primaria en la misma transacción que actualiza la suscripción. Un reintento confirmado responde éxito sin repetir el efecto; si falla la actualización, también se revierte el registro del evento para que el proveedor pueda reintentar.
 
-**Acción:** verificar HMAC sobre cuerpo raw, usar la especificación del proveedor, registrar id de evento único y rechazar transiciones antiguas.
+**Pendiente:** no se encontró un proveedor de pagos elegido ni un contrato con timestamp/versión monotónica. No se debe comparar timestamps inventando semántica: al seleccionar proveedor, mapear su identificador y orden documentados a un adaptador, y rechazar eventos que queden detrás de la última revisión aplicada. **Alcance:** recepción de webhooks solo está activa si se configura `BILLING_WEBHOOK_SECRET`; no se comprobó un proveedor ni se ejecutó un flujo real.
 
 ### A-11 — Media de calidad — Las pruebas de integración y E2E no bloquean cambios
 
