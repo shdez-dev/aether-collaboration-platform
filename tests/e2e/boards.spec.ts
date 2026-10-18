@@ -1,5 +1,31 @@
+import { type Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth-fixture';
 import { generateTestName, dragAndDrop } from '../utils/test-helpers';
+
+async function postAsAuthenticatedUser<T>(page: Page, endpoint: string, data: object): Promise<T> {
+  const accessToken = await page.evaluate(() => {
+    const stored = localStorage.getItem('aether-auth-storage');
+    return stored ? (JSON.parse(stored)?.state?.accessToken as string | undefined) : undefined;
+  });
+  if (!accessToken) throw new Error('La sesión E2E no contiene un access token.');
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const response = await page.request.post(new URL(endpoint, apiUrl).toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    data,
+  });
+  const result = (await response.json()) as {
+    success: boolean;
+    data?: T;
+    error?: { message?: string };
+  };
+  if (!response.ok() || !result.success || !result.data) {
+    throw new Error(
+      result.error?.message || `No se pudo preparar ${endpoint} (${response.status()}).`
+    );
+  }
+  return result.data;
+}
 
 test.describe('Boards y Cards', () => {
   // Helper: Crear workspace y board de prueba
@@ -474,28 +500,37 @@ test.describe('Boards y Cards', () => {
     });
 
     test('debe mostrar contador de comentarios en card', async ({ authenticatedPage: page }) => {
-      await setupWorkspaceAndBoard(page);
+      const workspaceResult = await postAsAuthenticatedUser<{ workspace: { id: string } }>(
+        page,
+        '/api/workspaces',
+        { name: generateTestName('Comments Workspace'), workspaceTemplateId: 'personal' }
+      );
+      const boardResult = await postAsAuthenticatedUser<{ board: { id: string } }>(
+        page,
+        `/api/workspaces/${workspaceResult.workspace.id}/boards`,
+        { name: generateTestName('Comments Board') }
+      );
+      const listResult = await postAsAuthenticatedUser<{ list: { id: string } }>(
+        page,
+        `/api/boards/${boardResult.board.id}/lists`,
+        { name: 'To Do' }
+      );
+      const cardTitle = 'Card Comments Counter';
+      await postAsAuthenticatedUser<{ card: { id: string } }>(
+        page,
+        `/api/lists/${listResult.list.id}/cards`,
+        { title: cardTitle }
+      );
 
-      // Setup y añadir comentario
-      await page.click('[data-testid="create-list-button"]');
-      await page.fill('input[name="title"]', 'To Do');
-      await page.press('input[name="title"]', 'Enter');
-      await page.waitForSelector('text=To Do');
+      await page.goto(`/dashboard/boards/${boardResult.board.id}`);
+      const card = page.getByText(cardTitle, { exact: true });
+      await expect(card).toBeVisible();
+      await card.click();
 
-      await page.click('[data-testid="add-card-button"]');
-      await page.fill('input[name="cardTitle"]', 'Card Comments Counter');
-      await page.press('input[name="cardTitle"]', 'Enter');
-      await page.waitForSelector('text=Card Comments Counter');
+      await page.locator('textarea[role="combobox"]').fill('Comentario 1');
+      await page.getByRole('button', { name: 'Comentar', exact: true }).click();
 
-      await page.click('text=Card Comments Counter');
-      await page.fill('textarea[name="comment"]', 'Comentario 1');
-      await page.click('button:has-text("Comentar")');
-
-      // Cerrar modal
-      await page.press('body', 'Escape');
-
-      // Verificar contador
-      await expect(page.locator('[data-testid="comment-count"]')).toHaveText('1');
+      await expect(page.getByTestId('comment-count')).toHaveText('1');
     });
   });
 });

@@ -1,5 +1,5 @@
 import { test, expect, Browser, BrowserContext } from '@playwright/test';
-import { generateTestEmail, generateTestName } from '../utils/test-helpers';
+import { generateTestEmail, generateTestName, registerAndLogin } from '../utils/test-helpers';
 
 test.describe('Colaboración en Tiempo Real', () => {
   let browser1: Browser;
@@ -27,13 +27,11 @@ test.describe('Colaboración en Tiempo Real', () => {
       const user1Email = generateTestEmail();
       const user1Password = 'TestPassword123!';
 
-      await page1.goto('/register');
-      await page1.fill('input[name="name"]', 'User 1');
-      await page1.fill('input[name="email"]', user1Email);
-      await page1.fill('input[name="password"]', user1Password);
-      await page1.fill('input[name="confirmPassword"]', user1Password);
-      await page1.click('button[type="submit"]');
-      await page1.waitForURL(/\/(dashboard|verify-email)/);
+      await registerAndLogin(page1, {
+        email: user1Email,
+        password: user1Password,
+        name: 'User 1',
+      });
 
       // Crear workspace
       await page1.goto('/dashboard/workspaces');
@@ -57,13 +55,11 @@ test.describe('Colaboración en Tiempo Real', () => {
       const user2Email = generateTestEmail();
       const user2Password = 'TestPassword123!';
 
-      await page2.goto('/register');
-      await page2.fill('input[name="name"]', 'User 2');
-      await page2.fill('input[name="email"]', user2Email);
-      await page2.fill('input[name="password"]', user2Password);
-      await page2.fill('input[name="confirmPassword"]', user2Password);
-      await page2.click('button[type="submit"]');
-      await page2.waitForURL(/\/(dashboard|verify-email)/);
+      await registerAndLogin(page2, {
+        email: user2Email,
+        password: user2Password,
+        name: 'User 2',
+      });
 
       // Unirse mediante link
       await page2.goto(`/join/${inviteToken}`);
@@ -91,13 +87,11 @@ test.describe('Colaboración en Tiempo Real', () => {
 
       // Setup similar al test anterior (simplificado)
       const user1Email = generateTestEmail();
-      await page1.goto('/register');
-      await page1.fill('input[name="name"]', 'User 1');
-      await page1.fill('input[name="email"]', user1Email);
-      await page1.fill('input[name="password"]', 'Test123!');
-      await page1.fill('input[name="confirmPassword"]', 'Test123!');
-      await page1.click('button[type="submit"]');
-      await page1.waitForURL(/\/(dashboard|verify-email)/);
+      await registerAndLogin(page1, {
+        email: user1Email,
+        password: 'TestPassword123!',
+        name: 'User 1',
+      });
 
       // Usuario 2 se desconecta
       await page2.close();
@@ -116,13 +110,11 @@ test.describe('Colaboración en Tiempo Real', () => {
 
       // Crear workspace compartido (código reutilizable del test anterior)
       const user1Email = generateTestEmail();
-      await page1.goto('/register');
-      await page1.fill('input[name="name"]', 'User 1');
-      await page1.fill('input[name="email"]', user1Email);
-      await page1.fill('input[name="password"]', 'Test123!');
-      await page1.fill('input[name="confirmPassword"]', 'Test123!');
-      await page1.click('button[type="submit"]');
-      await page1.waitForURL(/\/(dashboard|verify-email)/);
+      await registerAndLogin(page1, {
+        email: user1Email,
+        password: 'TestPassword123!',
+        name: 'User 1',
+      });
 
       await page1.goto('/dashboard/workspaces');
       await page1.click('[data-testid="create-workspace-button"]');

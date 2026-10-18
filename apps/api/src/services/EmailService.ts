@@ -24,13 +24,17 @@ export class EmailService {
   private smtpTransporter?: Transporter;
   private fromEmail: string;
   private fromName: string;
+  private deliveryDisabled: boolean;
 
   constructor() {
+    this.deliveryDisabled = process.env.AETHER_E2E_DISABLE_EMAIL === 'true';
     const apiKey = process.env.BREVO_API_KEY;
     const smtpLogin = process.env.BREVO_SMTP_LOGIN;
     const smtpKey = process.env.BREVO_SMTP_KEY;
 
-    if (smtpLogin && smtpKey) {
+    if (this.deliveryDisabled) {
+      // E2E verifies test accounts directly in its disposable database.
+    } else if (smtpLogin && smtpKey) {
       this.smtpTransporter = nodemailer.createTransport({
         host: 'smtp-relay.brevo.com',
         port: 587,
@@ -51,6 +55,8 @@ export class EmailService {
   }
 
   async sendEmail(options: EmailOptions): Promise<void> {
+    if (this.deliveryDisabled) return;
+
     try {
       if (this.smtpTransporter) {
         await this.smtpTransporter.sendMail({

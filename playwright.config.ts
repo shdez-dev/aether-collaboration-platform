@@ -71,7 +71,7 @@ export default defineConfig({
   // API de prueba y build de producción web
   webServer: [
     {
-      command: 'pnpm --filter @aether/api dev',
+      command: 'pnpm --filter @aether/api exec tsx watch --env-file-if-exists=.env src/index.ts',
       url: 'http://localhost:3000/health',
       timeout: 240 * 1000, // Aumentado a 4 minutos
       reuseExistingServer: !process.env.CI,
@@ -82,10 +82,15 @@ export default defineConfig({
           process.env.TEST_DATABASE_URL ||
           process.env.DATABASE_URL ||
           'postgresql://aether:aether_dev_password@127.0.0.1:5432/aether_dev?schema=public&connect_timeout=10',
-        JWT_SECRET: process.env.JWT_SECRET || 'test-secret-key-for-e2e-tests',
+        JWT_SECRET: process.env.JWT_SECRET || 'test-secret-key-for-e2e-tests-32-characters-minimum',
         REFRESH_TOKEN_SECRET:
           process.env.REFRESH_TOKEN_SECRET || 'test-refresh-token-secret-for-e2e-tests-32c',
         REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+        // E2E uses database verification instead of a real email provider.
+        AETHER_E2E_DISABLE_EMAIL: 'true',
+        BREVO_API_KEY: 'xkeysib-placeholder-not-configured',
+        BREVO_SMTP_LOGIN: '',
+        BREVO_SMTP_KEY: '',
       },
       stdout: 'pipe', // Muestra logs del servidor
       stderr: 'pipe',

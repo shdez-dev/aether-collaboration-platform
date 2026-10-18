@@ -1,4 +1,6 @@
 import { Page, expect } from '@playwright/test';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
 
 /**
  * Helpers para tests E2E
@@ -23,15 +25,102 @@ export async function login(page: Page, email: string, password: string) {
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="password"]', password);
 
-  // Click en submit y esperar navegación
+  // Esperar el cambio de ruta de Next.js, que puede ser una navegación SPA.
   await Promise.all([
-    page.waitForNavigation({ timeout: 20000, waitUntil: 'networkidle' }),
+    page.waitForURL(/.*dashboard.*/, { timeout: 20000 }),
     page.click('button[type="submit"]'),
   ]);
 
   // Verificar que el login fue exitoso
   await page.waitForURL(/.*dashboard.*/, { timeout: 10000 });
   await expect(page).toHaveURL(/.*dashboard.*/);
+}
+
+export type TestAccount = {
+  email: string;
+  password: string;
+  name: string;
+};
+
+/**
+ * Registra una cuenta a través de la interfaz para conservar cobertura del flujo real.
+ */
+export async function registerTestUser(page: Page, account: TestAccount) {
+  await page.goto('/register', { waitUntil: 'networkidle' });
+  await page.waitForSelector('input[name="name"]', { state: 'visible', timeout: 10000 });
+
+  await page.fill('input[name="name"]', account.name);
+  await page.fill('input[name="email"]', account.email);
+  await page.fill('input[name="password"]', account.password);
+  await page.fill('input[name="confirmPassword"]', account.password);
+
+  await Promise.all([
+    page.waitForURL(/.*(?:dashboard|login|verify-email).*/, { timeout: 20000 }),
+    page.click('button[type="submit"]'),
+  ]);
+}
+
+/**
+ * Verifica la cuenta recién creada directamente en la base E2E.
+ * El entorno de GitHub no debe depender de credenciales ni de un proveedor de correo real.
+ */
+export async function verifyTestEmail(email: string) {
+  const connectionString =
+    process.env.TEST_DATABASE_URL ||
+    process.env.DATABASE_URL ||
+    'postgresql://aether:aether_dev_password@127.0.0.1:5432/aether_dev?schema=public&connect_timeout=10';
+  const databaseHost = new URL(connectionString).hostname.replace(/^\[|\]$/g, '');
+
+  if (!process.env.TEST_DATABASE_URL && !['localhost', '127.0.0.1', '::1'].includes(databaseHost)) {
+    throw new Error(
+      'La verificación de correo E2E solo puede modificar una base local. Configura TEST_DATABASE_URL para usar una base de pruebas.'
+    );
+  }
+
+  const apiRequire = createRequire(resolve(process.cwd(), 'apps/api/package.json'));
+  const { Pool } = apiRequire('pg') as {
+    Pool: new (config: { connectionString: string }) => {
+      query: (sql: string, values: string[]) => Promise<{ rowCount: number | null }>;
+      end: () => Promise<void>;
+    };
+  };
+  const pool = new Pool({ connectionString });
+
+  try {
+    const result = await pool.query(
+      `UPDATE users
+       SET email_verified = TRUE,
+           email_verification_token = NULL,
+           email_verification_expires = NULL,
+           updated_at = NOW()
+       WHERE email = $1`,
+      [email]
+    );
+
+    if (result.rowCount !== 1) {
+      throw new Error(`No se encontró la cuenta E2E para verificar: ${email}`);
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/** Registra, verifica y autentica una cuenta E2E para los tests que requieren sesión. */
+export async function registerAndLogin(page: Page, account: TestAccount) {
+  await registerTestUser(page, account);
+  await verifyTestEmail(account.email);
+
+  // El registro puede crear una sesión si el entorno tiene correo configurado.
+  // Cerrar esa sesión hace que cada test ejercite el login de forma determinista.
+  if (page.url().includes('/dashboard')) {
+    await page.goto('/dashboard/profile');
+    await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
+    await page.waitForURL(/.*login.*/, { timeout: 10000 });
+  } else {
+    await page.goto('/login', { waitUntil: 'networkidle' });
+  }
+
+  await login(page, account.email, account.password);
 }
 
 /**

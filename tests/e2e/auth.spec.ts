@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { generateTestEmail, waitForToast } from '../utils/test-helpers';
+import { generateTestEmail, registerAndLogin, waitForToast } from '../utils/test-helpers';
 
 test.describe('Autenticación', () => {
   test.describe('Registro de usuario', () => {
@@ -26,7 +26,7 @@ test.describe('Autenticación', () => {
       // Esperar redirección al dashboard o verificación de email
       // O verificar que no hay error visible (si hay problemas de BD)
       await Promise.race([
-        page.waitForURL(/\/(dashboard|verify-email)/, { timeout: 15000 }),
+        page.waitForURL(/\/(dashboard|login|verify-email)/, { timeout: 15000 }),
         page.waitForSelector('.text-error', { state: 'visible', timeout: 15000 }).then(() => {
           throw new Error('Se mostró un error durante el registro');
         }),
@@ -34,7 +34,7 @@ test.describe('Autenticación', () => {
 
       // Verificar que el registro fue exitoso
       const currentUrl = page.url();
-      expect(currentUrl).toMatch(/\/(dashboard|verify-email)/);
+      expect(currentUrl).toMatch(/\/(dashboard|login|verify-email)/);
     });
 
     test('debe mostrar error si las contraseñas no coinciden', async ({ page }) => {
@@ -48,10 +48,7 @@ test.describe('Autenticación', () => {
       await page.click('button[type="submit"]');
 
       // Verificar mensaje de error específico
-      await expect(page.locator('.bg-error\\/10 >> p.text-error')).toContainText(
-        /passwords do not match|las contraseñas no coinciden/i,
-        { timeout: 5000 }
-      );
+      await expect(page.getByText('Las contraseñas no coinciden', { exact: true })).toBeVisible();
     });
 
     test('debe mostrar error si la contraseña es muy corta', async ({ page }) => {
@@ -65,10 +62,9 @@ test.describe('Autenticación', () => {
       await page.click('button[type="submit"]');
 
       // Verificar mensaje de error específico
-      await expect(page.locator('.bg-error\\/10 >> p.text-error')).toContainText(
-        /password must be at least 8|contraseña debe tener al menos 8/i,
-        { timeout: 5000 }
-      );
+      await expect(
+        page.getByText('La contraseña debe tener al menos 8 caracteres', { exact: true })
+      ).toBeVisible();
     });
 
     test('debe mostrar error si el email ya existe', async ({ page }) => {
@@ -84,7 +80,7 @@ test.describe('Autenticación', () => {
       await page.click('button[type="submit"]');
 
       // Esperar que complete
-      await page.waitForURL(/\/(dashboard|verify-email)/, { timeout: 15000 });
+      await page.waitForURL(/\/(dashboard|login|verify-email)/, { timeout: 15000 });
 
       // Intentar registrar de nuevo con el mismo email
       await page.goto('/register');
@@ -125,34 +121,13 @@ test.describe('Autenticación', () => {
       const testEmail = generateTestEmail();
       const testPassword = 'TestPassword123!';
 
-      // Registrar usuario primero
-      await page.goto('/register');
-      await page.fill('input[name="name"]', 'Test User');
-      await page.fill('input[name="email"]', testEmail);
-      await page.fill('input[name="password"]', testPassword);
-      await page.fill('input[name="confirmPassword"]', testPassword);
-      await page.click('button[type="submit"]');
-      await page.waitForURL(/\/(dashboard|verify-email)/, { timeout: 10000 });
-
-      // Hacer logout si estamos en dashboard
-      if (page.url().includes('dashboard')) {
-        // Esperar a que el botón de logout esté visible
-        await page.waitForSelector('[data-testid="logout-button"]', {
-          state: 'visible',
-          timeout: 5000,
-        });
-        await page.click('[data-testid="logout-button"]');
-        await page.waitForURL('/login', { timeout: 10000 });
-      }
-
-      // Ahora hacer login
-      await page.goto('/login');
-      await page.fill('input[name="email"]', testEmail);
-      await page.fill('input[name="password"]', testPassword);
-      await page.click('button[type="submit"]');
+      await registerAndLogin(page, {
+        email: testEmail,
+        password: testPassword,
+        name: 'Test User',
+      });
 
       // Verificar redirección al dashboard
-      await page.waitForURL('/dashboard', { timeout: 10000 });
       await expect(page).toHaveURL('/dashboard');
     });
 
@@ -164,10 +139,7 @@ test.describe('Autenticación', () => {
       await page.click('button[type="submit"]');
 
       // Verificar mensaje de error (el backend devuelve este mensaje)
-      await expect(page.locator('.bg-error\\/10 >> p.text-error')).toContainText(
-        /email o contraseña incorrectos|invalid credentials/i,
-        { timeout: 10000 }
-      );
+      await expect(page.getByText('Email o contraseña incorrectos', { exact: true })).toBeVisible();
     });
 
     test('debe mostrar error con email vacío', async ({ page }) => {
@@ -176,26 +148,18 @@ test.describe('Autenticación', () => {
       await page.fill('input[name="password"]', 'SomePassword123!');
       await page.click('button[type="submit"]');
 
-      // HTML5 validation debería prevenir el submit
-      const emailInput = page.locator('input[name="email"]');
-      const validationMessage = await emailInput.evaluate(
-        (el: HTMLInputElement) => el.validationMessage
-      );
-      expect(validationMessage).toBeTruthy();
+      await expect(page.getByText('El correo electrónico es requerido', { exact: true })).toBeVisible();
     });
 
     test('debe redirigir a dashboard si ya está autenticado', async ({ page }) => {
       const testEmail = generateTestEmail();
       const testPassword = 'TestPassword123!';
 
-      // Registrar y autenticar
-      await page.goto('/register');
-      await page.fill('input[name="name"]', 'Test User');
-      await page.fill('input[name="email"]', testEmail);
-      await page.fill('input[name="password"]', testPassword);
-      await page.fill('input[name="confirmPassword"]', testPassword);
-      await page.click('button[type="submit"]');
-      await page.waitForURL(/\/(dashboard|verify-email)/, { timeout: 10000 });
+      await registerAndLogin(page, {
+        email: testEmail,
+        password: testPassword,
+        name: 'Test User',
+      });
 
       // Intentar ir a login estando autenticado
       await page.goto('/login');
@@ -210,26 +174,15 @@ test.describe('Autenticación', () => {
       const testEmail = generateTestEmail();
       const testPassword = 'TestPassword123!';
 
-      // Registrar usuario
-      await page.goto('/register');
-      await page.fill('input[name="name"]', 'Test User');
-      await page.fill('input[name="email"]', testEmail);
-      await page.fill('input[name="password"]', testPassword);
-      await page.fill('input[name="confirmPassword"]', testPassword);
-      await page.click('button[type="submit"]');
-      await page.waitForURL(/\/(dashboard|verify-email)/, { timeout: 10000 });
-
-      // Esperar a estar en dashboard
-      if (!page.url().includes('dashboard')) {
-        await page.goto('/dashboard');
-      }
-
-      // Hacer logout
-      await page.waitForSelector('[data-testid="logout-button"]', {
-        state: 'visible',
-        timeout: 5000,
+      await registerAndLogin(page, {
+        email: testEmail,
+        password: testPassword,
+        name: 'Test User',
       });
-      await page.click('[data-testid="logout-button"]');
+
+      // El cierre de sesión está en la página de perfil.
+      await page.goto('/dashboard/profile');
+      await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
 
       // Verificar redirección a login
       await page.waitForURL('/login', { timeout: 10000 });
@@ -240,33 +193,27 @@ test.describe('Autenticación', () => {
       const testEmail = generateTestEmail();
       const testPassword = 'TestPassword123!';
 
-      // Registrar usuario
-      await page.goto('/register');
-      await page.fill('input[name="name"]', 'Test User');
-      await page.fill('input[name="email"]', testEmail);
-      await page.fill('input[name="password"]', testPassword);
-      await page.fill('input[name="confirmPassword"]', testPassword);
-      await page.click('button[type="submit"]');
-      await page.waitForURL(/\/(dashboard|verify-email)/, { timeout: 10000 });
+      await registerAndLogin(page, {
+        email: testEmail,
+        password: testPassword,
+        name: 'Test User',
+      });
 
       // Verificar que hay cookies/storage
       const cookiesBefore = await context.cookies();
       expect(cookiesBefore.length).toBeGreaterThan(0);
 
-      // Hacer logout
-      await page.waitForSelector('[data-testid="logout-button"]', {
-        state: 'visible',
-        timeout: 5000,
-      });
-      await page.click('[data-testid="logout-button"]');
+      // El cierre de sesión está en la página de perfil.
+      await page.goto('/dashboard/profile');
+      await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
       await page.waitForURL('/login', { timeout: 10000 });
 
       // Intentar acceder a dashboard
       await page.goto('/dashboard');
 
       // Debería redirigir a login
-      await page.waitForURL('/login', { timeout: 5000 });
-      await expect(page).toHaveURL('/login');
+      await page.waitForURL(/\/login(?:\?|$)/, { timeout: 5000 });
+      await expect(page).toHaveURL(/\/login(?:\?|$)/);
     });
   });
 
@@ -278,7 +225,7 @@ test.describe('Autenticación', () => {
       await page.click('button[type="submit"]');
 
       // Verificar que muestra la página de éxito con el mensaje
-      await expect(page.locator('text=/check your email|revisa tu correo/i')).toBeVisible({
+      await expect(page.locator('text=/check your email|revisa tu (email|correo)/i')).toBeVisible({
         timeout: 10000,
       });
       await expect(
@@ -295,7 +242,7 @@ test.describe('Autenticación', () => {
       await page.click('button[type="submit"]');
 
       // Por seguridad, debería mostrar el mismo mensaje
-      await expect(page.locator('text=/check your email|revisa tu correo/i')).toBeVisible({
+      await expect(page.locator('text=/check your email|revisa tu (email|correo)/i')).toBeVisible({
         timeout: 10000,
       });
       await expect(
@@ -308,7 +255,7 @@ test.describe('Autenticación', () => {
     test('debe navegar de login a registro', async ({ page }) => {
       await page.goto('/login');
 
-      await page.click('text=/.*registr.*/i');
+      await page.getByRole('link', { name: 'Crear cuenta', exact: true }).click();
 
       await expect(page).toHaveURL('/register');
     });

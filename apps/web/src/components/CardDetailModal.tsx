@@ -204,7 +204,14 @@ export function CardDetailModal() {
   const [cardMilestoneId,   setCardMilestoneId]   = useState<string | null>(null);
   const [milestoneUpdating, setMilestoneUpdating] = useState(false);
 
-  const handleCommentCountChange      = useCallback((n: number) => setCommentCount(n), []);
+  const handleCommentCountChange = useCallback((count: number) => {
+    setCommentCount(count);
+    if (selectedCard) {
+      updateCard(selectedCard.id, {
+        _count: { ...(selectedCard as any)._count, comments: count },
+      } as any);
+    }
+  }, [selectedCard, updateCard]);
   const handleChecklistProgressChange = useCallback((done: number, total: number) => setChecklistProgress({ done, total }), []);
 
   useTypingIndicator({ cardId: selectedCard?.id || '', isTyping: isDescFocused, debounceMs: 500, disabled: !selectedCard });

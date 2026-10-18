@@ -126,7 +126,8 @@ async function ensurePersonalOrganization(client: PoolClient, userId: string): P
      SELECT uuid_generate_v4(), COALESCE(NULLIF(TRIM(name), ''), 'Cuenta personal') || ' - Aether',
             'PERSONAL'::"OrganizationType", id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
      FROM users WHERE id = $1
-     ON CONFLICT (owner_user_id) WHERE type = 'PERSONAL'::"OrganizationType"
+     ON CONFLICT (owner_user_id)
+       WHERE type = 'PERSONAL'::"OrganizationType" AND owner_user_id IS NOT NULL
      DO UPDATE SET updated_at = CURRENT_TIMESTAMP
      RETURNING id`,
     [userId]

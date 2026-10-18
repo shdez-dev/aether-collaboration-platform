@@ -103,6 +103,11 @@ describe('WorkspaceService', () => {
       expect(result.name).toBe(workspaceData.name);
       expect(result.userRole).toBe('OWNER');
 
+      const ensurePersonalOrganizationCall = mockClient.query.mock.calls.find((call: unknown[]) =>
+        String(call[0]).includes('INSERT INTO organizations')
+      );
+      expect(ensurePersonalOrganizationCall?.[0]).toContain('owner_user_id IS NOT NULL');
+
       expect(mockClient.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO workspace_members'),
         ['ws-new', userId, 'OWNER']

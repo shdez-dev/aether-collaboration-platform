@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/auth-fixture';
-import { generateTestName, waitForToast } from '../utils/test-helpers';
+import { generateTestName, registerAndLogin, waitForToast } from '../utils/test-helpers';
 
 test.describe('Workspaces', () => {
   test.describe('Crear workspace', () => {
@@ -339,13 +339,7 @@ test.describe('Workspaces', () => {
 
     test('debe mostrar mensaje si no hay workspaces', async ({ page, testUser }) => {
       // Usuario nuevo sin workspaces
-      await page.goto('/register');
-      await page.fill('input[name="name"]', testUser.name);
-      await page.fill('input[name="email"]', testUser.email);
-      await page.fill('input[name="password"]', testUser.password);
-      await page.fill('input[name="confirmPassword"]', testUser.password);
-      await page.click('button[type="submit"]');
-      await page.waitForURL(/\/(dashboard|verify-email)/);
+      await registerAndLogin(page, testUser);
 
       await page.goto('/dashboard/workspaces');
 
