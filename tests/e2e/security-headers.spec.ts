@@ -19,11 +19,21 @@ test('serves a nonce-based CSP and nonced Next.js inline scripts', async ({ page
   expect(policy).not.toContain("'unsafe-eval'");
 
   const nonce = getScriptNonce(policy);
-  const inlineScriptNonces = await page.locator('script:not([src])').evaluateAll((scripts) =>
-    scripts.map((script) => script.getAttribute('nonce'))
+  const inlineScripts = await page.locator('script:not([src])').evaluateAll((scripts) =>
+    scripts.map((script) => ({
+      // Browsers deliberately hide CSP nonces from getAttribute(); use the
+      // HTMLScriptElement.nonce property to inspect the protected value.
+      nonce: script.nonce,
+      type: script.getAttribute('type')?.toLowerCase() ?? '',
+      preview: script.textContent?.trim().slice(0, 80) ?? '',
+    }))
   );
-  expect(inlineScriptNonces.length).toBeGreaterThan(0);
-  expect(inlineScriptNonces.every((scriptNonce) => scriptNonce === nonce)).toBe(true);
+  const executableScripts = inlineScripts.filter(({ type }) =>
+    !type || type === 'module' || /^(text|application)\/(javascript|ecmascript)$/.test(type)
+  );
+  expect(executableScripts.length).toBeGreaterThan(0);
+  const missingNonce = executableScripts.filter((script) => script.nonce !== nonce);
+  expect(missingNonce, `Executable inline scripts missing the response nonce: ${JSON.stringify(missingNonce)}`).toEqual([]);
 });
 
 test('issues a fresh CSP nonce for every document response', async ({ page }) => {

@@ -525,6 +525,23 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
         );
       }
 
+      case 'project.risk.created':
+      case 'project.risk.updated':
+      case 'project.risk.status-changed': {
+        const riskName = targetName || 'riesgo';
+        const action = eventType === 'project.risk.created'
+          ? 'registró el riesgo'
+          : eventType === 'project.risk.status-changed'
+            ? 'actualizó el estado del riesgo'
+            : 'actualizó el riesgo';
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s(action)} {a(riskName)}
+            {payload?.projectName && <>{s(' en')} {m(payload.projectName)}</>}
+          </p>
+        );
+      }
+
       // ── Team ──────────────────────────────────────────────────────────────────
       case 'team.created':
         return <p className="text-xs leading-relaxed">{u(user.name)} {s('creó el equipo')} {a(targetName || payload?.name)}</p>;

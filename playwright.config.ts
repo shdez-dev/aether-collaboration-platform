@@ -14,7 +14,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
 
   // Reintentos en CI
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
 
   // Workers: parallelismo
   workers: process.env.CI ? 1 : undefined,
@@ -42,6 +42,9 @@ export default defineConfig({
 
     // Viewport por defecto
     viewport: { width: 1280, height: 720 },
+    // Evita que selectores o navegación rotos consuman el timeout completo del test.
+    actionTimeout: 10_000,
+    navigationTimeout: 15_000,
   },
 
   // Configurar proyectos para diferentes browsers
@@ -71,7 +74,9 @@ export default defineConfig({
   // API de prueba y build de producción web
   webServer: [
     {
-      command: 'pnpm --filter @aether/api exec tsx watch --env-file-if-exists=.env src/index.ts',
+      // En E2E no cargar apps/api/.env: sus valores locales podrían sobreescribir
+      // DATABASE_URL y mezclar datos de prueba con la base de desarrollo.
+      command: 'pnpm --filter @aether/api exec tsx watch src/index.ts',
       url: 'http://localhost:3000/health',
       timeout: 240 * 1000, // Aumentado a 4 minutos
       reuseExistingServer: !process.env.CI,
@@ -86,6 +91,20 @@ export default defineConfig({
         REFRESH_TOKEN_SECRET:
           process.env.REFRESH_TOKEN_SECRET || 'test-refresh-token-secret-for-e2e-tests-32c',
         REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+        CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3001',
+        ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3001',
+        FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3001',
+        STORAGE_DRIVER: process.env.STORAGE_DRIVER || 'local',
+        LOCAL_STORAGE_DIR: process.env.LOCAL_STORAGE_DIR || 'apps/api/public/uploads',
+        ...(process.env.STORAGE_DRIVER === 'r2'
+          ? {
+              R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
+              R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
+              R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
+              R2_BUCKET_NAME: process.env.R2_BUCKET_NAME,
+              R2_PUBLIC_URL: process.env.R2_PUBLIC_URL,
+            }
+          : {}),
         // E2E uses database verification instead of a real email provider.
         AETHER_E2E_DISABLE_EMAIL: 'true',
         BREVO_API_KEY: 'xkeysib-placeholder-not-configured',
@@ -110,9 +129,9 @@ export default defineConfig({
     },
   ],
 
-  // Timeout global - aumentado para tests e2e
-  timeout: 60 * 1000, // Aumentado de 30s a 60s
+  // Un timeout finito acelera el diagnóstico de una interacción que no existe.
+  timeout: 45 * 1000,
   expect: {
-    timeout: 10000, // Aumentado de 5s a 10s
+    timeout: 8000,
   },
 });

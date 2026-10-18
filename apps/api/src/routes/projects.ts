@@ -8,6 +8,7 @@ import { projectSprintController } from '../modules/projects/ProjectSprintContro
 import { projectEpicController } from '../modules/projects/ProjectEpicController';
 import { projectMethodologyController } from '../modules/projects/ProjectMethodologyController';
 import { projectActivityController } from '../modules/projects/ProjectActivityController';
+import { projectRiskController } from '../controllers/ProjectRiskController';
 import { authenticateJWT } from '../middleware/auth';
 import { requireProjectEditor, requireProjectMembership, requireProjectScrumRole } from '../middleware/project';
 
@@ -86,6 +87,11 @@ router.put('/:id', requireProjectEditor, (req, res) => projectController.update(
 router.delete('/:id', requireProjectEditor, (req, res) => projectController.delete(req, res));
 router.post('/:id/adopt-current-standard', requireProjectEditor, (req, res) => projectController.adoptCurrentStandard(req, res));
 router.post('/:id/workflow', requireProjectEditor, (req, res) => projectController.transitionWorkflow(req, res));
+
+// ── Registro de riesgos ───────────────────────────────────────────────────────
+router.get('/:id/risks', (req, res) => projectRiskController.list(req, res));
+router.post('/:id/risks', requireProjectEditor, (req, res) => projectRiskController.create(req, res));
+router.patch('/:id/risks/:riskId', requireProjectEditor, (req, res) => projectRiskController.update(req, res));
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
 router.get('/:id/stats',           (req, res) => projectController.getStats(req, res));

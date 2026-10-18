@@ -173,6 +173,10 @@ export class PortfolioController {
                 cards.last_card_activity,
                 workflow.last_workflow_activity,
                 milestones.next_milestone_at,
+                risk_register.active_risk_count,
+                risk_register.max_residual_risk_score,
+                risk_register.overdue_risk_reviews,
+                risk_register.active_risks,
                 teams.teams,
                 teams.team_count,
                 cards.top_priority
@@ -204,6 +208,21 @@ export class PortfolioController {
                FROM project_milestones pm WHERE pm.project_id = b.id AND pm.status <> 'COMPLETED'
            ) milestones ON true
            LEFT JOIN LATERAL (
+             SELECT COUNT(*) FILTER (WHERE r.status <> 'CLOSED')::int AS active_risk_count,
+                    COALESCE(MAX(COALESCE(r.residual_probability, r.probability)
+                      * COALESCE(r.residual_impact, r.impact)) FILTER (WHERE r.status <> 'CLOSED'), 0)::int AS max_residual_risk_score,
+                    COUNT(*) FILTER (WHERE r.status <> 'CLOSED' AND r.next_review_at < CURRENT_DATE)::int AS overdue_risk_reviews,
+                    COALESCE(jsonb_agg(jsonb_build_object(
+                      'id', r.id,
+                      'residualScore', COALESCE(r.residual_probability, r.probability) * COALESCE(r.residual_impact, r.impact),
+                      'ownerId', r.owner_id,
+                      'nextReviewAt', r.next_review_at
+                    ) ORDER BY COALESCE(r.residual_probability, r.probability) * COALESCE(r.residual_impact, r.impact) DESC)
+                      FILTER (WHERE r.status <> 'CLOSED'), '[]'::jsonb) AS active_risks
+               FROM project_risks r
+              WHERE r.project_id = b.id
+           ) risk_register ON true
+           LEFT JOIN LATERAL (
              SELECT COUNT(*)::int AS team_count,
                     COALESCE(jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name) ORDER BY t.name), '[]'::jsonb) AS teams
                FROM project_teams pt JOIN teams t ON t.id = pt.team_id
@@ -214,15 +233,19 @@ export class PortfolioController {
          SELECT m.*,
                 GREATEST(m.updated_at, COALESCE(m.last_card_activity, m.updated_at), COALESCE(m.last_workflow_activity, m.updated_at)) AS last_activity_at,
                 CASE
-                  WHEN m.overdue_cards > 0 OR m.blocked_cards > 0 OR (m.end_date IS NOT NULL AND m.end_date < CURRENT_DATE) THEN 'HIGH'
+                  WHEN m.overdue_cards > 0 OR m.blocked_cards > 0 OR (m.end_date IS NOT NULL AND m.end_date < CURRENT_DATE)
+                    OR m.max_residual_risk_score >= 10 THEN 'HIGH'
                   WHEN NULLIF(BTRIM(m.next_step), '') IS NULL
-                    OR GREATEST(m.updated_at, COALESCE(m.last_card_activity, m.updated_at), COALESCE(m.last_workflow_activity, m.updated_at)) < CURRENT_TIMESTAMP - INTERVAL '14 days' THEN 'MEDIUM'
+                    OR GREATEST(m.updated_at, COALESCE(m.last_card_activity, m.updated_at), COALESCE(m.last_workflow_activity, m.updated_at)) < CURRENT_TIMESTAMP - INTERVAL '14 days'
+                    OR m.max_residual_risk_score >= 5 THEN 'MEDIUM'
                   ELSE 'LOW'
                 END AS risk,
                 CASE
-                  WHEN m.overdue_cards > 0 OR m.blocked_cards > 0 OR (m.end_date IS NOT NULL AND m.end_date < CURRENT_DATE) THEN 'AT_RISK'
+                  WHEN m.overdue_cards > 0 OR m.blocked_cards > 0 OR (m.end_date IS NOT NULL AND m.end_date < CURRENT_DATE)
+                    OR m.max_residual_risk_score >= 16 THEN 'AT_RISK'
                   WHEN NULLIF(BTRIM(m.next_step), '') IS NULL
-                    OR GREATEST(m.updated_at, COALESCE(m.last_card_activity, m.updated_at), COALESCE(m.last_workflow_activity, m.updated_at)) < CURRENT_TIMESTAMP - INTERVAL '14 days' THEN 'ATTENTION'
+                    OR GREATEST(m.updated_at, COALESCE(m.last_card_activity, m.updated_at), COALESCE(m.last_workflow_activity, m.updated_at)) < CURRENT_TIMESTAMP - INTERVAL '14 days'
+                    OR m.max_residual_risk_score >= 8 THEN 'ATTENTION'
                   ELSE 'HEALTHY'
                 END AS health
            FROM measured m
@@ -259,6 +282,11 @@ export class PortfolioController {
       teams: row.teams ?? [],
       topPriority: row.top_priority,
       indicators: { overdueCards: Number(row.overdue_cards ?? 0), blockedCards: Number(row.blocked_cards ?? 0), lastActivityAt: row.last_activity_at },
+      riskRegister: {
+        activeCount: Number(row.active_risk_count ?? 0),
+        highestResidualScore: Number(row.max_residual_risk_score ?? 0),
+        overdueReviews: Number(row.overdue_risk_reviews ?? 0),
+      },
     };
   }
 
@@ -437,6 +465,31 @@ export class PortfolioController {
       if (new Date(row.last_activity_at).getTime() < Date.now() - 14 * 24 * 60 * 60 * 1000) add(row.id, 'NO_ACTIVITY', 'WARNING', 'Proyecto sin actividad reciente', 'No se registró actividad en los últimos 14 días.', { lastActivityAt: row.last_activity_at });
       if (Number(row.overdue_cards) > 0 || (row.end_date && new Date(row.end_date).getTime() < Date.now())) add(row.id, 'OVERDUE', 'CRITICAL', 'Proyecto atrasado', 'Hay trabajo o una fecha de término vencida.', { overdueCards: Number(row.overdue_cards ?? 0), endDate: row.end_date });
       if (Number(row.blocked_cards) > 0) add(row.id, 'BLOCKED', 'CRITICAL', 'Proyecto bloqueado', 'Hay tarjetas bloqueadas por dependencias pendientes.', { blockedCards: Number(row.blocked_cards ?? 0) });
+      const activeRisks = Array.isArray(row.active_risks)
+        ? row.active_risks as Array<{ id: string; residualScore: number; ownerId: string | null }>
+        : [];
+      const highestRisk = activeRisks[0];
+      if (highestRisk && Number(highestRisk.residualScore) >= 10) {
+        const score = Number(highestRisk.residualScore);
+        add(
+          row.id,
+          `PROJECT_RISK_${highestRisk.id}`,
+          score >= 16 ? 'CRITICAL' : 'WARNING',
+          score >= 16 ? 'Riesgo crítico en el proyecto' : 'Riesgo alto en el proyecto',
+          `El riesgo residual máximo es ${score}/25. Revisa la mitigación y la próxima acción.`,
+          {
+            ...(readable.has(row.id) ? { riskId: highestRisk.id } : {}),
+            residualScore: score,
+            activeRiskCount: Number(row.active_risk_count ?? 0),
+          },
+        );
+      }
+      if (activeRisks.some((risk) => !risk.ownerId)) {
+        add(row.id, 'PROJECT_RISK_UNASSIGNED', 'CRITICAL', 'Riesgo sin responsable', 'Hay un riesgo activo sin una persona responsable asignada.', {});
+      }
+      if (Number(row.overdue_risk_reviews ?? 0) > 0) {
+        add(row.id, 'PROJECT_RISK_REVIEW_OVERDUE', 'WARNING', 'Revisión de riesgos vencida', 'Hay riesgos activos cuya fecha de revisión ya pasó.', { overdueReviews: Number(row.overdue_risk_reviews) });
+      }
     }
     for (const allocation of capacity.allocations) {
       if (overallocatedUsers.has(allocation.userId)) add(allocation.projectId, 'CAPACITY_INSUFFICIENT', 'WARNING', 'Capacidad insuficiente', 'Una persona asignada supera su disponibilidad semanal.', { userId: allocation.userId });
@@ -711,7 +764,7 @@ export class PortfolioController {
     // A bounded export prevents a direction view from becoming an uncontrolled
     // data extraction endpoint. Larger exports should be an asynchronous job.
     const result = await this.overviewRows(req.params.id, parsed.data, 10_000, 0);
-    const header = ['project_id', 'project', 'workspace', 'status', 'maturity', 'health', 'risk', 'progress_percent', 'next_step', 'next_review_at', 'next_milestone_at', 'owner', 'teams', 'top_priority', 'overdue_cards', 'blocked_cards', 'last_activity_at'];
+    const header = ['project_id', 'project', 'workspace', 'status', 'maturity', 'health', 'risk', 'progress_percent', 'next_step', 'next_review_at', 'next_milestone_at', 'owner', 'teams', 'top_priority', 'overdue_cards', 'blocked_cards', 'active_risks', 'highest_residual_risk_score', 'overdue_risk_reviews', 'last_activity_at'];
     const lines = [header.map(csvCell).join(',')];
     for (const row of result.rows) {
       const overview = this.formatOverviewRow(row, new Set<string>());
@@ -719,7 +772,9 @@ export class PortfolioController {
         overview.projectId, overview.name, overview.workspace.name, overview.status, overview.maturity, overview.health, overview.risk,
         overview.progress.percent, overview.nextStep, overview.nextReviewAt, overview.nextMilestoneAt, overview.owner?.name ?? null,
         (overview.teams as Array<{ name: string }>).map((team) => team.name).join('; '), overview.topPriority,
-        overview.indicators.overdueCards, overview.indicators.blockedCards, overview.indicators.lastActivityAt,
+        overview.indicators.overdueCards, overview.indicators.blockedCards,
+        overview.riskRegister.activeCount, overview.riskRegister.highestResidualScore, overview.riskRegister.overdueReviews,
+        overview.indicators.lastActivityAt,
       ].map(csvCell).join(','));
     }
     const client = await getClient();

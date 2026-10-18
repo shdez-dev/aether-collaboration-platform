@@ -35,6 +35,7 @@ import {
   type ProjectScrumRole,
 } from '@/features/projects/api';
 import { ProjectDocumentsTab } from '@/features/projects/components/ProjectDocumentsTab';
+import { ProjectRisksTab } from '@/features/projects/components/ProjectRisksTab';
 import { ProjectTeamSelector } from '@/features/projects/components/ProjectTeamSelector';
 import { ProjectScrumSummary } from '@/features/projects/components/ProjectScrumSummary';
 import overviewStyles from '@/features/projects/components/ProjectScrumSummary.module.css';
@@ -450,6 +451,12 @@ function describeEvent(ev: ActivityEntry): {
       return { verb: 'eliminó el hito', target: tn, accent: 'var(--c-text4)' };
     case 'project.milestone.updated':
       return { verb: 'actualizó el hito', target: tn, accent: '#8076A7' };
+    case 'project.risk.created':
+      return { verb: 'registró el riesgo', target: tn, accent: '#AE7C55' };
+    case 'project.risk.updated':
+      return { verb: 'actualizó el riesgo', target: tn, accent: '#8076A7' };
+    case 'project.risk.status-changed':
+      return { verb: 'actualizó el estado del riesgo', target: tn, accent: '#AE7C55' };
     case 'project.team.assigned':
       return {
         verb: `asignó al proyecto «${tn}» el equipo`,
@@ -968,12 +975,14 @@ function ProjectGantt({
   color,
   refreshTick,
   projectBoards,
+  methodology,
 }: {
   projectId: string;
   milestones: ProjectMilestone[];
   color: string;
   refreshTick?: number;
   projectBoards?: ProjectBoard[];
+  methodology?: 'FLEXIBLE' | 'SCRUM';
 }) {
   const [cards, setCards] = useState<TimelineCard[]>([]);
   const [depEdges, setDepEdges] = useState<{ blockingCardId: string; blockedCardId: string }[]>([]);
@@ -1049,23 +1058,8 @@ function ProjectGantt({
         // Dependencias por tablero; los sprints pertenecen al proyecto Scrum.
         const edges: { blockingCardId: string; blockedCardId: string }[] = [];
         const allSprints: SprintItem[] = [];
-        await Promise.all([
-          ...fetchedBoardIds.map(async (bid) => {
-            await apiService
-              .get<{ graph: { edges: { blockingCardId: string; blockedCardId: string }[] } }>(
-                `/api/boards/${bid}/dependency-graph`,
-                true
-              )
-              .then((r) => {
-                if (!r.success || !r.data) return;
-                for (const e of r.data.graph.edges ?? []) {
-                  if (cardIdSet.has(e.blockingCardId) && cardIdSet.has(e.blockedCardId))
-                    edges.push(e);
-                }
-              })
-              .catch(() => {});
-          }),
-          apiService
+        const sprintRequest = methodology === 'SCRUM'
+          ? apiService
             .get<{ sprints: ProjectSprint[] }>(`/api/projects/${projectId}/sprints`, true)
             .then((r) => {
               if (!r.success || !r.data) return;
@@ -1088,7 +1082,26 @@ function ProjectGantt({
                   });
               }
             })
-            .catch(() => {}),
+            .catch(() => {})
+          : Promise.resolve();
+
+        await Promise.all([
+          ...fetchedBoardIds.map(async (bid) => {
+            await apiService
+              .get<{ graph: { edges: { blockingCardId: string; blockedCardId: string }[] } }>(
+                `/api/boards/${bid}/dependency-graph`,
+                true
+              )
+              .then((r) => {
+                if (!r.success || !r.data) return;
+                for (const e of r.data.graph.edges ?? []) {
+                  if (cardIdSet.has(e.blockingCardId) && cardIdSet.has(e.blockedCardId))
+                    edges.push(e);
+                }
+              })
+              .catch(() => {});
+          }),
+          sprintRequest,
         ]);
 
         // Batch all state updates together so React renders once
@@ -1105,7 +1118,7 @@ function ProjectGantt({
         setLoading(false);
         setSyncing(false);
       });
-  }, [projectId, refreshTick, internalTick, timelineVersion, boardIdsKey]);
+  }, [projectId, refreshTick, internalTick, timelineVersion, boardIdsKey, methodology]);
 
   if (loading) {
     return (
@@ -4668,11 +4681,12 @@ export default function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useRouteSectionState(
     'tab',
     'overview',
-    ['overview', 'boards', 'backlog', 'schedule', 'docs', 'members', 'activity'] as const,
+    ['overview', 'boards', 'backlog', 'schedule', 'risks', 'docs', 'members', 'activity'] as const,
     projectId,
   );
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [ganttRefreshTick, setGanttRefreshTick] = useState(0);
+  const [riskRefreshTick, setRiskRefreshTick] = useState(0);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [directMembers, setDirectMembers] = useState<DirectMember[]>([]);
   const [showInvitePanel, setShowInvitePanel] = useState(false);
@@ -4735,6 +4749,7 @@ export default function ProjectDetailPage() {
     { key: 'boards', label: 'Tableros' },
     { key: 'backlog', label: 'Backlog' },
     ...(canUseProjectPlanning ? [{ key: 'schedule' as const, label: 'Cronograma' }] : []),
+    { key: 'risks', label: 'Riesgos' },
     { key: 'docs', label: 'Documentos' },
     ...(canManageProjectMembers ? [{ key: 'members' as const, label: 'Miembros' }] : []),
     { key: 'activity', label: 'Actividad' },
@@ -5192,6 +5207,12 @@ export default function ProjectDetailPage() {
         case 'project.milestone.deleted':
           fetchProjectById(projectId);
           fetchStats(projectId);
+          break;
+
+        case 'project.risk.created':
+        case 'project.risk.updated':
+        case 'project.risk.status-changed':
+          setRiskRefreshTick((tick) => tick + 1);
           break;
 
         case 'project.board.linked':
@@ -6766,6 +6787,7 @@ export default function ProjectDetailPage() {
                   color={color}
                   refreshTick={ganttRefreshTick}
                   projectBoards={currentProject?.boards ?? []}
+                  methodology={currentProject?.methodology}
                 />
               </div>
             </section>
@@ -7108,6 +7130,11 @@ export default function ProjectDetailPage() {
             onCreate={() => setShowAddDoc(true)}
             onOpen={(documentId) => router.push(`/dashboard/documents/${documentId}`)}
           />
+        )}
+
+        {/* ── RIESGOS ─────────────────────────────────────────────────────── */}
+        {activeTab === 'risks' && (
+          <ProjectRisksTab projectId={projectId} canEdit={canEdit} refreshKey={riskRefreshTick} />
         )}
 
         {/* ── MIEMBROS ─────────────────────────────────────────────────────── */}

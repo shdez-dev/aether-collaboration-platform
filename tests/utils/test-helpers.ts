@@ -17,7 +17,9 @@ export async function waitForElement(page: Page, selector: string, timeout = 500
  * Login helper - realiza login y retorna cookies/tokens
  */
 export async function login(page: Page, email: string, password: string) {
-  await page.goto('/login', { waitUntil: 'networkidle' });
+  // La app mantiene conexiones WebSocket; networkidle puede tardar mucho o no
+  // ocurrir aunque la página de acceso ya esté lista.
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
 
   // Esperar que los campos estén visibles
   await page.waitForSelector('input[name="email"]', { state: 'visible', timeout: 10000 });
@@ -46,7 +48,7 @@ export type TestAccount = {
  * Registra una cuenta a través de la interfaz para conservar cobertura del flujo real.
  */
 export async function registerTestUser(page: Page, account: TestAccount) {
-  await page.goto('/register', { waitUntil: 'networkidle' });
+  await page.goto('/register', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('input[name="name"]', { state: 'visible', timeout: 10000 });
 
   await page.fill('input[name="name"]', account.name);
@@ -116,10 +118,9 @@ export async function registerAndLogin(page: Page, account: TestAccount) {
     await page.goto('/dashboard/profile');
     await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
     await page.waitForURL(/.*login.*/, { timeout: 10000 });
-  } else {
-    await page.goto('/login', { waitUntil: 'networkidle' });
   }
 
+  // login() navega al formulario; evitar una segunda carga redundante aquí.
   await login(page, account.email, account.password);
 }
 

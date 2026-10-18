@@ -104,6 +104,9 @@ export class UserActivityService {
       'project.board.unlinked',
       'project.milestone.created',
       'project.milestone.completed',
+      'project.risk.created',
+      'project.risk.updated',
+      'project.risk.status-changed',
       // Team
       'team.created',
       'team.updated',
@@ -783,6 +786,16 @@ export class UserActivityService {
         metadata.projectName  = payload.projectName || (metadata.projectId ? await this.getProjectName(metadata.projectId) : undefined);
         metadata.milestoneName = payload.milestoneName || payload.subjectName;
         metadata.workspaceId  = payload.workspaceId;
+        break;
+
+      case 'project.risk.created':
+      case 'project.risk.updated':
+      case 'project.risk.status-changed':
+        metadata.projectId = payload.projectId || payload.subjectId;
+        metadata.projectName = payload.projectName || (metadata.projectId ? await this.getProjectName(metadata.projectId) : undefined);
+        metadata.riskId = payload.subjectId;
+        metadata.riskName = payload.subjectName;
+        metadata.workspaceId = payload.workspaceId;
         break;
 
       case 'team.created':

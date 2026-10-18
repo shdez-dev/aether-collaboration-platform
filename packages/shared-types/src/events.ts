@@ -122,7 +122,10 @@ export type ProjectEventType =
   | 'project.team.removed'
   | 'project.member.added'
   | 'project.member.removed'
-  | 'project.member.role-changed';
+  | 'project.member.role-changed'
+  | 'project.risk.created'
+  | 'project.risk.updated'
+  | 'project.risk.status-changed';
 
 export type SprintEventType =
   | 'sprint.created'
@@ -188,6 +191,7 @@ export type SubjectType =
   | 'document'
   | 'document-comment'
   | 'project'
+  | 'project-risk'
   | 'milestone'
   | 'team'
   | 'member'
@@ -375,6 +379,9 @@ export type ProjectDeletedPayload           = Record<string, never>;
 export type ProjectStatusChangedPayload     = Record<string, never>; // delta: { before: {status}, after: {status} }
 export type ProjectMilestoneCreatedPayload  = { dueDate?: string };
 export type ProjectMilestoneCompletedPayload = Record<string, never>;
+export type ProjectRiskCreatedPayload = { projectId: string };
+export type ProjectRiskUpdatedPayload = { projectId: string };
+export type ProjectRiskStatusChangedPayload = { projectId: string };
 
 // ============================================================================
 // TEAM PAYLOADS
@@ -490,6 +497,9 @@ export type ProjectBoardLinkedEvent        = AetherEvent<'project.board.linked',
 export type ProjectBoardUnlinkedEvent      = AetherEvent<'project.board.unlinked',      Record<string, never>>;
 export type ProjectMilestoneCreatedEvent   = AetherEvent<'project.milestone.created',  ProjectMilestoneCreatedPayload>;
 export type ProjectMilestoneCompletedEvent = AetherEvent<'project.milestone.completed',ProjectMilestoneCompletedPayload>;
+export type ProjectRiskCreatedEvent = AetherEvent<'project.risk.created', ProjectRiskCreatedPayload>;
+export type ProjectRiskUpdatedEvent = AetherEvent<'project.risk.updated', ProjectRiskUpdatedPayload>;
+export type ProjectRiskStatusChangedEvent = AetherEvent<'project.risk.status-changed', ProjectRiskStatusChangedPayload>;
 
 export type TeamCreatedEvent          = AetherEvent<'team.created',          TeamCreatedPayload>;
 export type TeamUpdatedEvent          = AetherEvent<'team.updated',          TeamUpdatedPayload>;

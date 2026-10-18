@@ -843,6 +843,9 @@ class TeamController {
           case 'project.milestone.missed':    action = 'marcó como perdido el hito';   break;
           case 'project.milestone.deleted':   action = 'eliminó el hito';              break;
           case 'project.milestone.updated':   action = 'actualizó el hito';            break;
+          case 'project.risk.created':        action = 'registró el riesgo';           break;
+          case 'project.risk.updated':        action = 'actualizó el riesgo';          break;
+          case 'project.risk.status-changed': action = 'actualizó el estado del riesgo'; break;
           case 'project.board.linked':        action = 'vinculó el tablero';           break;
           case 'project.board.unlinked':      action = 'desvinculó el tablero';        break;
           case 'project.member.added':        action = 'invitó a';                     break;

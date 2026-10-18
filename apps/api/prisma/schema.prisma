@@ -56,6 +56,13 @@ enum ProjectOperationalRole {
   EVALUATOR
 }
 
+enum ProjectRiskStatus {
+  OPEN
+  MITIGATING
+  ACCEPTED
+  CLOSED
+}
+
 enum InitiativeStage {
   SUBMITTED
   TRIAGE
@@ -256,6 +263,8 @@ model User {
   portfolioAlertsAcknowledged  PortfolioAlert[] @relation("PortfolioAlertAcknowledgedBy")
   portfolioAlertsResolved      PortfolioAlert[] @relation("PortfolioAlertResolvedBy")
   portfolioExports             PortfolioExportAudit[] @relation("PortfolioExportActor")
+  ownedProjectRisks            ProjectRisk[] @relation("ProjectRiskOwner")
+  createdProjectRisks          ProjectRisk[] @relation("ProjectRiskCreator")
   dashboards                   UserDashboard[]
   feedbackSubmissions          FeedbackSubmission[]
 
@@ -1060,6 +1069,7 @@ model Project {
   portfolioLinks PortfolioProject[]
   capacityAllocations ProjectCapacityAllocation[]
   portfolioAlerts PortfolioAlert[]
+  risks          ProjectRisk[]
 
   @@index([workspaceId])
   @@index([ownerId])
@@ -1150,6 +1160,32 @@ model ProjectMilestone {
 
   @@index([projectId])
   @@map("project_milestones")
+}
+
+model ProjectRisk {
+  id                  String            @id @default(uuid()) @db.Uuid
+  projectId           String            @map("project_id") @db.Uuid
+  title               String            @db.VarChar(255)
+  description         String?
+  probability         Int
+  impact              Int
+  residualProbability Int?               @map("residual_probability")
+  residualImpact      Int?               @map("residual_impact")
+  mitigationPlan      String             @map("mitigation_plan")
+  ownerId             String?            @map("owner_id") @db.Uuid
+  status              ProjectRiskStatus  @default(OPEN)
+  nextReviewAt        DateTime?          @map("next_review_at") @db.Date
+  createdById         String?            @map("created_by") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner   User?   @relation("ProjectRiskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  creator User?   @relation("ProjectRiskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status, updatedAt])
+  @@index([ownerId, status])
+  @@map("project_risks")
 }
 
 // ── Project Team ──────────────────────────────────────────────────────────────

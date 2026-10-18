@@ -13,7 +13,7 @@
 .triggerOpen .chevron { transform: rotate(180deg); }
 .calendar, .clock { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; border: 1px solid var(--c-border2); border-radius: 14px; background: var(--c-surface); box-shadow: 0 18px 48px rgba(25, 17, 38, .18); color: var(--c-text); animation: appear 150ms ease both; }
 .alignRight { left: auto; right: 0; }
-.calendar { width: 288px; padding: 14px; }
+.calendar { box-sizing: border-box; width: 288px; max-width: calc(100vw - 20px); padding: 14px; font-family: 'Manrope', system-ui, sans-serif; }
 .calendarHeader, .calendarFooter, .clockHeader { display: flex; align-items: center; justify-content: space-between; }
 .calendarHeader strong { font: 700 13px 'Sora', system-ui, sans-serif; text-transform: capitalize; }
 .navigation { display: flex; gap: 3px; }
@@ -28,7 +28,7 @@
 .selectedDay, .selectedDay:hover:not(:disabled) { background: var(--c-accent) !important; color: #fff !important; }
 .day:disabled, .calendarFooter button:disabled { opacity: .28; cursor: not-allowed; }
 .calendarFooter { gap: 8px; margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--c-border2); }
-.calendarFooter span { color: var(--c-text3); font-size: 10px; text-transform: capitalize; }
+.calendarFooter span { color: var(--c-text3); font: 500 11px/1.4 'Manrope', system-ui, sans-serif; }
 .calendarFooter button { flex: none; border: 0; border-radius: 7px; padding: 6px 8px; background: transparent; color: var(--c-accent-text); font: 700 11px 'Manrope', system-ui, sans-serif; cursor: pointer; }
 .clock { width: 206px; padding: 12px; }
 .clockHeader { padding: 2px 3px 10px; color: var(--c-text3); font: 700 11px 'Sora', system-ui, sans-serif; }

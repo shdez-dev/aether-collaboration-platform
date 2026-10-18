@@ -116,6 +116,7 @@ export default function PortfolioDetailPage() {
       atRisk: projects.filter((project) => project.health === 'AT_RISK').length,
       attention: projects.filter((project) => project.health === 'ATTENTION').length,
       criticalAlerts: alerts.filter((alert) => alert.severity === 'CRITICAL').length,
+      activeRisks: projects.reduce((total, project) => total + (project.riskRegister?.activeCount ?? 0), 0),
       overloaded: capacity?.people.filter((person) => person.overallocated).length ?? 0,
     }),
     [projects, alerts, capacity]
@@ -306,6 +307,7 @@ export default function PortfolioDetailPage() {
           <section style={metricGrid}>
             <Metric label="Proyectos en riesgo" value={metrics.atRisk} tone="#ff8b86" />
             <Metric label="Requieren atención" value={metrics.attention} tone="#f7c66e" />
+            <Metric label="Riesgos activos" value={metrics.activeRisks} tone="#e7b46a" />
             <Metric label="Alertas críticas" value={metrics.criticalAlerts} tone="#ff8b86" />
             <Metric label="Personas sobrecargadas" value={metrics.overloaded} tone="#c4b5fd" />
           </section>
@@ -462,7 +464,10 @@ export default function PortfolioDetailPage() {
                     </div>
                   )}
                   {alert.canOpenProject ? (
-                    <Link href={`/dashboard/projects/${alert.projectId}`} style={projectLink}>
+                    <Link
+                      href={`/dashboard/projects/${alert.projectId}${alert.type.startsWith('PROJECT_RISK_') ? '?tab=risks' : ''}`}
+                      style={projectLink}
+                    >
                       Abrir <ArrowUpRight size={14} />
                     </Link>
                   ) : (
@@ -967,6 +972,9 @@ function ProjectTable({
                 : project.risk === 'MEDIUM'
                   ? 'Riesgo medio'
                   : 'Riesgo bajo'}
+              {project.riskRegister?.activeCount
+                ? ` · ${project.riskRegister.activeCount} activos · máx. ${project.riskRegister.highestResidualScore}/25`
+                : ''}
             </p>
           </div>
           <div style={tableCell}>

@@ -115,7 +115,12 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
 
   return (
     <>
-      <div ref={setSortableNodeRef} style={{ ...style, width: 'min(304px, calc(100vw - 48px))', flexShrink: 0 }}>
+      <div
+        ref={setSortableNodeRef}
+        role="group"
+        aria-label={list.name}
+        style={{ ...style, width: 'min(304px, calc(100vw - 48px))', flexShrink: 0 }}
+      >
         <div
           style={{
             background: C.bg2,

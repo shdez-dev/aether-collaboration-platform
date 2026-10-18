@@ -82,6 +82,47 @@ export type ProjectEpic = {
   updatedAt: string;
 };
 
+export type ProjectRiskStatus = 'OPEN' | 'MITIGATING' | 'ACCEPTED' | 'CLOSED';
+
+export type ProjectRiskOwner = {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+};
+
+export type ProjectRisk = {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string | null;
+  probability: number;
+  impact: number;
+  inherentScore: number;
+  residualProbability: number | null;
+  residualImpact: number | null;
+  residualScore: number;
+  mitigationPlan: string;
+  ownerId: string | null;
+  ownerName: string | null;
+  ownerEmail: string | null;
+  ownerAvatar: string | null;
+  status: ProjectRiskStatus;
+  nextReviewAt: string | null;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectRiskInput = Pick<ProjectRisk, 'title' | 'probability' | 'impact' | 'mitigationPlan'> & {
+  description?: string | null;
+  residualProbability?: number | null;
+  residualImpact?: number | null;
+  ownerId: string;
+  status?: ProjectRiskStatus;
+  nextReviewAt?: string | null;
+};
+
 async function requireData<T>(request: Promise<{ success: boolean; data?: T; error?: { message?: string } }>): Promise<T> {
   const response = await request;
   if (!response.success || !response.data) throw new Error(response.error?.message || 'No se pudo cargar el proyecto');
@@ -89,6 +130,15 @@ async function requireData<T>(request: Promise<{ success: boolean; data?: T; err
 }
 
 export const projectApi = {
+  async getRisks(projectId: string): Promise<{ risks: ProjectRisk[]; owners: ProjectRiskOwner[] }> {
+    return requireData(apiService.get<{ risks: ProjectRisk[]; owners: ProjectRiskOwner[] }>(`/api/projects/${projectId}/risks`, true));
+  },
+  async createRisk(projectId: string, input: ProjectRiskInput): Promise<ProjectRisk> {
+    return (await requireData(apiService.post<{ risk: ProjectRisk }>(`/api/projects/${projectId}/risks`, input, true))).risk;
+  },
+  async updateRisk(projectId: string, riskId: string, input: Partial<ProjectRiskInput>): Promise<ProjectRisk> {
+    return (await requireData(apiService.patch<{ risk: ProjectRisk }>(`/api/projects/${projectId}/risks/${riskId}`, input, true))).risk;
+  },
   async getTeams(projectId: string): Promise<ProjectTeam[]> {
     return (await requireData(apiService.get<{ teams: ProjectTeam[] }>(`/api/projects/${projectId}/teams`, true))).teams;
   },

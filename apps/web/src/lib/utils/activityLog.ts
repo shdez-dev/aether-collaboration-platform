@@ -205,6 +205,12 @@ export function getEventDescription(event: ActivityLogEntry, t: Record<string, a
         payload?.milestoneName || '',
         payload?.projectName || projName
       );
+    case 'project.risk.created':
+      return `Registró el riesgo “${targetName || 'Sin título'}” en ${payload?.projectName || projName}.`;
+    case 'project.risk.updated':
+      return `Actualizó el riesgo “${targetName || 'Sin título'}” en ${payload?.projectName || projName}.`;
+    case 'project.risk.status-changed':
+      return `Cambió el estado del riesgo “${targetName || 'Sin título'}” en ${payload?.projectName || projName}.`;
 
     // Team
     case 'team.created':

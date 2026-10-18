@@ -177,23 +177,27 @@ export const useBoardStore = create<BoardState>()(
           // ========== CARD EVENTS ==========
           case 'card.created': {
             const payload = event.payload as any;
-            // Payload is flat: { cardId, listId, title, description, position, createdBy, boardId, workspaceId }
-            const cardData = payload.card ?? {
-              id: payload.cardId,
-              listId: payload.listId,
-              title: payload.title,
-              description: payload.description,
-              position: payload.position,
-              priority: payload.priority ?? null,
-              dueDate: payload.dueDate ?? null,
-              startDate: payload.startDate ?? null,
-              completed: payload.completed ?? false,
-              members: payload.members ?? [],
-              labels: payload.labels ?? [],
-              createdAt: payload.createdAt ?? new Date().toISOString(),
-              updatedAt: payload.updatedAt ?? new Date().toISOString(),
+            // Eventos v2 guardan el identificador y el nombre en subject, y la
+            // lista en context; payload contiene solo datos específicos del evento.
+            const eventTime = new Date(event.timestamp).toISOString();
+            const cardData = {
+              ...(payload.card ?? {}),
+              id: payload.card?.id ?? payload.cardId ?? (event.subject.type === 'card' ? event.subject.id : undefined),
+              listId: payload.card?.listId ?? payload.listId ?? event.context.listId,
+              title: payload.card?.title ?? payload.title ?? event.subject.name,
+              description: payload.card?.description ?? payload.description ?? '',
+              position: payload.card?.position ?? payload.position ?? 0,
+              priority: payload.card?.priority ?? payload.priority ?? undefined,
+              dueDate: payload.card?.dueDate ?? payload.dueDate ?? undefined,
+              startDate: payload.card?.startDate ?? payload.startDate ?? undefined,
+              completed: payload.card?.completed ?? payload.completed ?? false,
+              createdBy: payload.card?.createdBy ?? payload.createdBy ?? event.actor.id,
+              members: payload.card?.members ?? payload.members ?? [],
+              labels: payload.card?.labels ?? payload.labels ?? [],
+              createdAt: payload.card?.createdAt ?? payload.createdAt ?? eventTime,
+              updatedAt: payload.card?.updatedAt ?? payload.updatedAt ?? eventTime,
             };
-            if (cardData.listId) {
+            if (cardData.id && cardData.listId) {
               cardStore.addCard(cardData.listId, cardData);
             }
             break;
@@ -213,6 +217,15 @@ export const useBoardStore = create<BoardState>()(
                   get().fetchBoardById(currentBoard.id);
                 }
               }
+            }
+            break;
+          }
+
+          case 'card.status-changed': {
+            const cardId = event.subject.type === 'card' ? event.subject.id : undefined;
+            const completed = event.delta?.after.completed;
+            if (cardId && typeof completed === 'boolean') {
+              cardStore.updateCard(cardId, { completed });
             }
             break;
           }

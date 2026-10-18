@@ -41,6 +41,7 @@ export interface PortfolioProject {
   teams?: Array<{ id: string; name: string }>;
   topPriority?: string | null;
   indicators?: { overdueCards: number; blockedCards: number; lastActivityAt?: string | null };
+  riskRegister?: { activeCount: number; highestResidualScore: number; overdueReviews: number };
 }
 
 export interface PortfolioAlert {

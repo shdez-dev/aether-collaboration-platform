@@ -42,11 +42,12 @@ interface DatePickerProps {
   align?: 'left' | 'right';
   compact?: boolean;
   portal?: boolean;
+  matchTriggerWidth?: boolean;
 }
 
-export function CalendarDatePicker({ value, onChange, min, label, align = 'left', compact = false, portal = false }: DatePickerProps) {
+export function CalendarDatePicker({ value, onChange, min, label, align = 'left', compact = false, portal = false, matchTriggerWidth = false }: DatePickerProps) {
   const [open, setOpen] = useState(false);
-  const [floatingPosition, setFloatingPosition] = useState<{ top: number; left: number } | null>(null);
+  const [floatingPosition, setFloatingPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const [view, setView] = useState(() => {
     const selected = parseDate(value) ?? new Date();
     return new Date(selected.getFullYear(), selected.getMonth(), 1);
@@ -65,13 +66,16 @@ export function CalendarDatePicker({ value, onChange, min, label, align = 'left'
     const calendarRect = calendar.getBoundingClientRect();
     const edge = 10;
     const gap = 8;
-    const left = Math.max(edge, Math.min(anchorRect.left, window.innerWidth - calendarRect.width - edge));
+    const width = matchTriggerWidth
+      ? Math.min(anchorRect.width, window.innerWidth - edge * 2)
+      : calendarRect.width;
+    const left = Math.max(edge, Math.min(anchorRect.left, window.innerWidth - width - edge));
     const roomBelow = window.innerHeight - anchorRect.bottom - edge;
     const top = roomBelow >= calendarRect.height || anchorRect.top < calendarRect.height + edge
       ? Math.min(anchorRect.bottom + gap, window.innerHeight - calendarRect.height - edge)
       : Math.max(edge, anchorRect.top - calendarRect.height - gap);
-    setFloatingPosition(current => current?.top === top && current.left === left ? current : { top, left });
-  }, []);
+    setFloatingPosition(current => current?.top === top && current.left === left && current.width === width ? current : { top, left, width });
+  }, [matchTriggerWidth]);
 
   useLayoutEffect(() => {
     if (!open || !portal) {
@@ -143,6 +147,7 @@ export function CalendarDatePicker({ value, onChange, min, label, align = 'left'
             top: floatingPosition?.top ?? 0,
             left: floatingPosition?.left ?? 0,
             right: 'auto',
+            width: matchTriggerWidth && floatingPosition ? `${floatingPosition.width}px` : undefined,
             zIndex: 1200,
             visibility: floatingPosition ? 'visible' : 'hidden',
           } : undefined}
