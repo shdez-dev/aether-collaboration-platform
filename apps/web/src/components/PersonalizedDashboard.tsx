@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'framer-motion';
 import {
-  Activity, ArrowRight, Bell, BellDot, Building2, CalendarCheck2, CalendarClock, CalendarDays, CalendarRange, Check, CheckCircle2, CircleAlert, ClipboardCheck, Clock3, ContactRound, FileClock, FileText, History, MailPlus, PanelsTopLeft,
+  Activity, ArrowRight, Bell, BellDot, Building2, CalendarCheck2, CalendarClock, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, Clock3, ContactRound, FileClock, FileText, History, MailPlus, PanelsTopLeft,
   Flag, FolderKanban, GripVertical, LayoutDashboard, ListTodo, LockKeyhole, MessageCircle, Plus, Search, Share2, Sparkles,
   MessagesSquare, UnlockKeyhole, UserRoundCheck, Users, UsersRound, X,
 } from 'lucide-react';
@@ -53,7 +53,7 @@ import styles from './PersonalizedDashboard.module.css';
 
 type CatalogCategoryId = 'general' | 'my-day' | 'projects' | 'boards' | 'calendar' | 'documents' | 'notifications' | 'contacts' | 'teams';
 type WidgetKind =
-  | 'quick-capture' | 'quick-links'
+  | 'quick-links'
   | 'today-priorities' | 'today-due' | 'today-overdue' | 'today-followups'
   | 'project-active' | 'project-tasks' | 'project-milestones' | 'project-activity' | 'project-members'
   | 'board-my-cards' | 'board-blocked' | 'board-unassigned' | 'scrum-current' | 'scrum-progress'
@@ -67,8 +67,6 @@ type WidgetKind =
 type DashboardWidget = { id: string; kind: WidgetKind; column: number; row: number; width: number; height: number; config?: Record<string, unknown> };
 type DashboardBoard = { id: string; name: string; context: DashboardContext; widgets: DashboardWidget[]; locked: boolean };
 type ContextProject = SidebarProject & { workspaceName?: string; organizationName?: string; description?: string | null; productGoal?: string | null; methodology?: string };
-export type QuickCaptureKind = 'task' | 'note' | 'decision' | 'event';
-export type QuickCaptureIntent = { kind: QuickCaptureKind; title: string; projectId?: string; workspaceId?: string };
 type GridDropTarget = { id: string; column: number; row: number; span: number; height: number; clamped?: boolean };
 type WidgetDragSession = {
   id: string;
@@ -110,7 +108,6 @@ const WIDGET_SLOT_INSET = 10;
 const WIDGET_DRAG_SCALE = 0.97;
 const DEFAULT_WIDGET_SIZE = { width: 8, height: 3 };
 const WIDGET_SIZES: Partial<Record<WidgetKind, { width: number; height: number }>> = {
-  'quick-capture': { width: 6, height: 4 },
   'quick-links': { width: 5, height: 3 },
   'today-priorities': { width: 5.5, height: 4.25 },
   'today-due': { width: 5.5, height: 4.25 },
@@ -162,7 +159,6 @@ function widgetSizeLimitsFor(kind: WidgetKind) {
   if (kind === 'organization-project-status') return { minWidth: 8, minHeight: 4, maxWidth: 24, maxHeight: 7 };
   if (kind === 'notifications-unread' || kind === 'notifications-actions') return { minWidth: 5, minHeight: 4, maxWidth: 8, maxHeight: 6 };
   if (kind === 'project-active') return { minWidth: 6, minHeight: 3, maxWidth: 24, maxHeight: 10 };
-  if (kind === 'quick-capture') return { minWidth: 4, minHeight: 3, maxWidth: 12, maxHeight: 8 };
   if (kind === 'quick-links') return { minWidth: 4, minHeight: 2, maxWidth: 12, maxHeight: 5 };
   if (kind === 'board-my-cards') return { minWidth: 6, minHeight: 4, maxWidth: 18, maxHeight: 9 };
   if (kind === 'board-blocked' || kind === 'board-unassigned') return { minWidth: 6, minHeight: 4, maxWidth: 16, maxHeight: 8 };
@@ -317,7 +313,6 @@ const CATEGORIES: { id: CatalogCategoryId; title: string; description: string }[
 ];
 
 const CATALOG: CatalogItem[] = [
-  { kind: 'quick-capture', category: 'general', title: 'Captura rápida', description: 'Crea una tarea, nota, decisión o evento sin salir del dashboard.' },
   { kind: 'quick-links', category: 'general', title: 'Accesos rápidos', description: 'Enlaces directos a las áreas que más utilizas.' },
   { kind: 'today-priorities', category: 'my-day', title: 'Prioridades de hoy', description: 'Ten a mano lo más importante de tu jornada.', context: 'Personal' },
   { kind: 'today-due', category: 'my-day', title: 'Tareas que vencen hoy', description: 'Consulta lo que necesita quedar listo durante el día.', context: 'Personal' },
@@ -353,7 +348,6 @@ const CATALOG: CatalogItem[] = [
 
 const LEGACY_KIND_MAP: Record<string, WidgetKind> = {
   'my-day': 'today-priorities',
-  'quick-create': 'quick-capture',
   shortcuts: 'quick-links',
   projects: 'project-active',
   calendar: 'calendar-upcoming',
@@ -409,13 +403,12 @@ function normalizeBoard(value: DashboardBoard): DashboardBoard {
     && widgets.some((widget) => widget.kind === 'organization-invitations' && widget.column === 13 && widget.row === 15 && widget.width === 12 && widget.height === 8);
   return {
     ...value,
-    widgets: previousThreeWidgetOrganizationBoard || previousFiveWidgetOrganizationBoard ? starterWidgets(value.context, 'suggested') : widgets,
+    widgets: previousThreeWidgetOrganizationBoard || previousFiveWidgetOrganizationBoard ? starterWidgets(value.context) : widgets,
     locked: value.locked,
   };
 }
 
-function starterWidgets(context: DashboardContext, template: 'suggested' | 'blank'): DashboardWidget[] {
-  if (template === 'blank') return [];
+function starterWidgets(context: DashboardContext): DashboardWidget[] {
   if (context.type === 'ORGANIZATION') return [
     { id: 'organization-overview-' + crypto.randomUUID(), kind: 'organization-overview', column: 1, row: 1, width: 24, height: 4 },
     { id: 'project-active-' + crypto.randomUUID(), kind: 'project-active', column: 1, row: 6, width: 15, height: 9 },
@@ -599,8 +592,7 @@ const dashboardCollision: CollisionDetection = (args) => {
   return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args);
 };
 
-export default function PersonalizedDashboard({ onQuickCreate, projects = [], organization = null, organizations = [], workspaces = [], onSelectWorkspace, onCreateWorkspace }: {
-  onQuickCreate: (intent: QuickCaptureIntent) => void;
+export default function PersonalizedDashboard({ projects = [], organization = null, organizations = [], workspaces = [], onSelectWorkspace, onCreateWorkspace }: {
   projects?: SidebarProject[];
   organization?: { id: string; name: string; type: string; role?: string; workspaceCount?: number; memberCount?: number } | null;
   organizations?: { id: string; name: string; type: string; role?: string; workspaceCount?: number; memberCount?: number }[];
@@ -1001,13 +993,13 @@ export default function PersonalizedDashboard({ onQuickCreate, projects = [], or
     return true;
   }
 
-  async function createBoard(name: string, context: DashboardContext, template: 'suggested' | 'blank') {
+  async function createBoard(name: string, context: DashboardContext) {
     if (boardBusy) return false;
     setBoardBusy(true);
     setBoardError('');
     try {
       if (activeBoardId && !await saveBoardSnapshot(activeBoardId, fixedWidgets, locked)) return false;
-      const initialWidgets = starterWidgets(context, template);
+      const initialWidgets = starterWidgets(context);
       const response = await apiService.post<{ dashboard: DashboardBoard }>('/api/users/me/dashboards', {
         name, context, widgets: initialWidgets, locked: false,
       }, true);
@@ -1440,10 +1432,7 @@ export default function PersonalizedDashboard({ onQuickCreate, projects = [], or
             <p>{selectedItem.description}</p>
             <div className={styles.detailPreview}>
               <span>Así aparecerá</span>
-              {selectedItem.kind === 'quick-capture' ? <div className={styles.capturePreview}>
-                <span className={styles.capturePreviewModes}><i><ListTodo size={11} /></i><i><FileText size={11} /></i><i><CheckCircle2 size={11} /></i><i><CalendarDays size={11} /></i></span>
-                <span className={styles.capturePreviewField}>Escribe una idea… <ArrowRight size={11} /></span>
-              </div> : selectedItem.kind === 'quick-links' ? <div className={styles.linksPreview}>
+              {selectedItem.kind === 'quick-links' ? <div className={styles.linksPreview}>
                 <span><FolderKanban size={13} /><b>Proyectos</b></span>
                 <span><CalendarDays size={11} /><b>Calendario</b></span>
                 <span><FileText size={11} /><b>Documentos</b></span>
@@ -1500,7 +1489,7 @@ export default function PersonalizedDashboard({ onQuickCreate, projects = [], or
             } as React.CSSProperties;
             return <DashboardWidgetCard key={widget.id} id={widget.id} kind={widget.kind} title={titleFor(widget.kind)} style={style} disabled={locked || columns < DESKTOP_COLUMNS} dragging={draggingId === widget.id} dragActive={Boolean(draggingId)} resizing={resizeState?.id === widget.id} resizeInvalid={resizeState?.id === widget.id && resizeState.invalid} settle={widgetSettle?.id === widget.id ? widgetSettle : null} prefersReducedMotion={Boolean(prefersReducedMotion)} animateOnAdd={enteringWidgetId === widget.id} onEntryAnimationComplete={() => setEnteringWidgetId((current) => current === widget.id ? null : current)} onResizeStart={(direction, event) => startWidgetResize(widget.id, direction, event)} onResizeKey={(direction, event) => handleResizeKey(widget.id, direction, event)} onRemove={() => removeWidget(widget.id)}>
               {renderWidget(widget.kind, {
-                onQuickCreate, projects: widgetProjects, projectWidgetData, contactWidgetData,
+                projects: widgetProjects, projectWidgetData, contactWidgetData,
                 context: boardContext, scopedProjects: scopedProjectsScope === boardScopeKey ? scopedProjects : [],
                 scopedProjectsLoading: scopedProjectsLoading || scopedProjectsScope !== boardScopeKey, scopedProjectsError,
                 onRetryScopedProjects: () => setScopedProjectsRefresh((value) => value + 1),
@@ -1547,7 +1536,7 @@ function DashboardWidgetCard({ id, kind, title, style, disabled, dragging, dragA
     ? `translate3d(${settle.x}px, ${settle.y}px, 0)`
     : settle?.phase === 'animate' && !prefersReducedMotion ? 'translate3d(0, 0, 0)' : undefined;
   const settleClass = settle?.phase === 'prepare' ? styles.widgetSettlePrepare : settle?.phase === 'animate' ? styles.widgetSettling : '';
-  const isGeneralWidget = kind === 'quick-capture' || kind === 'quick-links';
+  const isGeneralWidget = kind === 'quick-links';
   const isCustomWidget = isGeneralWidget || isMyDayKind(kind) || kind === 'calendar-planner' || kind === 'calendar-upcoming' || kind === 'calendar-week' || kind === 'documents-recent' || kind === 'documents-shared' || kind === 'notifications-unread' || kind === 'notifications-actions' || kind === 'contacts-online' || kind === 'contacts-recent' || kind === 'team-members' || kind === 'team-activity' || kind === 'organization-workspaces' || kind === 'organization-invitations' || kind === 'organization-members' || kind === 'organization-overview' || kind === 'organization-project-status' || kind === 'project-active' || kind === 'scrum-current' || kind === 'scrum-progress' || isProjectInsightKind(kind);
 
   return <motion.div
@@ -1566,9 +1555,9 @@ function DashboardWidgetCard({ id, kind, title, style, disabled, dragging, dragA
     style={{ ...style, pointerEvents: isPresent ? undefined : 'none', transformOrigin: isPresent ? 'center center' : 'top right' }}
     onAnimationComplete={() => { if (animateOnAdd) onEntryAnimationComplete(); }}
   >
-    <article ref={setNodeRef} data-kind={kind} data-resize-invalid={resizeInvalid || undefined} className={`${styles.widget} ${kind === 'quick-capture' ? styles.widgetQuickCapture : ''} ${kind === 'quick-links' ? styles.widgetQuickLinks : ''} ${isMyDayKind(kind) ? styles.widgetMyDay : ''} ${kind === 'calendar-planner' ? styles.widgetCalendar : ''} ${kind === 'calendar-upcoming' ? styles.widgetUpcoming : ''} ${kind === 'calendar-week' ? styles.widgetWeekAgenda : ''} ${kind === 'documents-recent' ? styles.widgetDocuments : ''} ${kind === 'documents-shared' ? styles.widgetDocumentsShared : ''} ${kind === 'notifications-unread' ? styles.widgetNotificationsUnread : ''} ${kind === 'project-active' ? styles.widgetProject : ''} ${disabled ? styles.widgetReadOnly : ''} ${dragging ? styles.dragging : ''} ${resizing ? styles.resizing : ''} ${settleClass}`} style={{ transform: dragging ? cardTransform : settleTransform, scale: cardScale }} aria-label={isCustomWidget ? title : undefined}>
+    <article ref={setNodeRef} data-kind={kind} data-resize-invalid={resizeInvalid || undefined} className={`${styles.widget} ${kind === 'quick-links' ? styles.widgetQuickLinks : ''} ${isMyDayKind(kind) ? styles.widgetMyDay : ''} ${kind === 'calendar-planner' ? styles.widgetCalendar : ''} ${kind === 'calendar-upcoming' ? styles.widgetUpcoming : ''} ${kind === 'calendar-week' ? styles.widgetWeekAgenda : ''} ${kind === 'documents-recent' ? styles.widgetDocuments : ''} ${kind === 'documents-shared' ? styles.widgetDocumentsShared : ''} ${kind === 'notifications-unread' ? styles.widgetNotificationsUnread : ''} ${kind === 'project-active' ? styles.widgetProject : ''} ${disabled ? styles.widgetReadOnly : ''} ${dragging ? styles.dragging : ''} ${resizing ? styles.resizing : ''} ${settleClass}`} style={{ transform: dragging ? cardTransform : settleTransform, scale: cardScale }} aria-label={isCustomWidget ? title : undefined}>
       {isCustomWidget ? <>
-        <div className={`${styles.widgetBody} ${kind === 'quick-capture' ? styles.quickCaptureBody : kind === 'quick-links' ? styles.quickLinksBody : kind === 'calendar-planner' ? styles.calendarWidgetBody : kind === 'calendar-upcoming' ? styles.upcomingEventsBody : kind === 'calendar-week' ? styles.weekAgendaBody : kind === 'documents-recent' ? styles.documentsWidgetBody : kind === 'documents-shared' ? styles.documentsSharedWidgetBody : kind === 'notifications-unread' ? styles.notificationsUnreadWidgetBody : kind === 'contacts-online' || kind === 'contacts-recent' ? styles.contactsWidgetBody : kind === 'team-members' ? styles.teamMembersBody : kind === 'team-activity' ? styles.teamActivityBody : kind === 'organization-workspaces' ? styles.organizationWorkspacesBody : kind === 'organization-invitations' ? styles.organizationInvitationsBody : kind === 'project-active' ? styles.projectWidgetBody : kind === 'scrum-current' ? styles.scrumCurrentWidgetBody : kind === 'scrum-progress' ? styles.scrumProgressWidgetBody : styles.myDayBody}`}>{children}</div>
+        <div className={`${styles.widgetBody} ${kind === 'quick-links' ? styles.quickLinksBody : kind === 'calendar-planner' ? styles.calendarWidgetBody : kind === 'calendar-upcoming' ? styles.upcomingEventsBody : kind === 'calendar-week' ? styles.weekAgendaBody : kind === 'documents-recent' ? styles.documentsWidgetBody : kind === 'documents-shared' ? styles.documentsSharedWidgetBody : kind === 'notifications-unread' ? styles.notificationsUnreadWidgetBody : kind === 'contacts-online' || kind === 'contacts-recent' ? styles.contactsWidgetBody : kind === 'team-members' ? styles.teamMembersBody : kind === 'team-activity' ? styles.teamActivityBody : kind === 'organization-workspaces' ? styles.organizationWorkspacesBody : kind === 'organization-invitations' ? styles.organizationInvitationsBody : kind === 'project-active' ? styles.projectWidgetBody : kind === 'scrum-current' ? styles.scrumCurrentWidgetBody : kind === 'scrum-progress' ? styles.scrumProgressWidgetBody : styles.myDayBody}`}>{children}</div>
       </> : <>
         <div className={`${styles.widgetHeader} ${!disabled ? styles.widgetHeaderWithActions : ''}`}>
           <h2>{title}</h2>
@@ -1576,7 +1565,7 @@ function DashboardWidgetCard({ id, kind, title, style, disabled, dragging, dragA
         <div className={`${styles.widgetBody} ${kind === 'board-my-cards' ? styles.openCardsWidgetBody : ''} ${kind === 'board-blocked' ? styles.blockedCardsWidgetBody : ''} ${kind === 'board-unassigned' ? styles.unassignedCardsWidgetBody : ''}`}>{children}</div>
       </>}
     </article>
-    {!disabled && <div className={`${styles.widgetActions} ${styles.widgetControlPill} ${settleClass}`} style={{ transform: dragging ? cardTransform : settleTransform }}>
+    {!disabled && <div className={[styles.widgetActions, styles.widgetControlPill, settleClass].filter(Boolean).join(' ')} style={{ transform: dragging ? cardTransform : settleTransform }}>
       <button ref={setActivatorNodeRef} type="button" className={styles.widgetActionButton} {...attributes} {...listeners} aria-label={`Mover widget ${title}`} title="Arrastra para mover"><GripVertical size={15} /></button>
       <button type="button" className={styles.widgetActionButton} onClick={onRemove} aria-label={`Quitar ${title}`} title="Quitar widget"><X size={15} /></button>
     </div>}
@@ -1586,8 +1575,7 @@ function DashboardWidgetCard({ id, kind, title, style, disabled, dragging, dragA
   </motion.div>;
 }
 
-function renderWidget(kind: WidgetKind, { onQuickCreate, projects, projectWidgetData, contactWidgetData, context, scopedProjects, scopedProjectsLoading, scopedProjectsError, onRetryScopedProjects, workspaceId, myDayGroups, myDayCards, myDayLoading, myDayError, onRetryMyDayCards, followups, organization, onSelectWorkspace, onCreateWorkspace }: {
-  onQuickCreate: (intent: QuickCaptureIntent) => void;
+function renderWidget(kind: WidgetKind, { projects, projectWidgetData, contactWidgetData, context, scopedProjects, scopedProjectsLoading, scopedProjectsError, onRetryScopedProjects, workspaceId, myDayGroups, myDayCards, myDayLoading, myDayError, onRetryMyDayCards, followups, organization, onSelectWorkspace, onCreateWorkspace }: {
   projects: SidebarProject[];
   projectWidgetData: ReturnType<typeof useProjectDashboardData>;
   contactWidgetData: ReturnType<typeof useContactWidgetData>;
@@ -1608,13 +1596,23 @@ function renderWidget(kind: WidgetKind, { onQuickCreate, projects, projectWidget
   onCreateWorkspace?: (organizationId: string) => void;
 }) {
   switch (kind) {
-    case 'quick-capture':
-      return <QuickCaptureWidget projects={projects} workspaceId={workspaceId} onQuickCreate={onQuickCreate} />;
     case 'quick-links':
       return <nav className={styles.shortcutDeck} aria-label="Accesos del dashboard">
-        <Link className={styles.shortcutRoute} href="/dashboard/projects"><span className={styles.shortcutIcon}><FolderKanban size={17} /></span><span className={styles.shortcutName}>Proyectos</span></Link>
-        <Link className={styles.shortcutRoute} href="/dashboard/calendar"><span className={styles.shortcutIcon}><CalendarDays size={15} /></span><span className={styles.shortcutName}>Calendario</span></Link>
-        <Link className={styles.shortcutRoute} href="/dashboard/documents"><span className={styles.shortcutIcon}><FileText size={15} /></span><span className={styles.shortcutName}>Documentos</span></Link>
+        <Link className={styles.shortcutRoute} href="/dashboard/projects">
+          <span className={styles.shortcutIcon}><FolderKanban size={14} aria-hidden="true" /></span>
+          <span className={styles.shortcutCopy}><span className={styles.shortcutName}>Proyectos</span><span className={styles.shortcutHint}>Iniciativas</span></span>
+          <ArrowRight className={styles.shortcutArrow} size={13} aria-hidden="true" />
+        </Link>
+        <Link className={styles.shortcutRoute} href="/dashboard/calendar">
+          <span className={styles.shortcutIcon}><CalendarDays size={14} aria-hidden="true" /></span>
+          <span className={styles.shortcutCopy}><span className={styles.shortcutName}>Calendario</span><span className={styles.shortcutHint}>Agenda</span></span>
+          <ArrowRight className={styles.shortcutArrow} size={13} aria-hidden="true" />
+        </Link>
+        <Link className={styles.shortcutRoute} href="/dashboard/documents">
+          <span className={styles.shortcutIcon}><FileText size={14} aria-hidden="true" /></span>
+          <span className={styles.shortcutCopy}><span className={styles.shortcutName}>Documentos</span><span className={styles.shortcutHint}>Archivos</span></span>
+          <ArrowRight className={styles.shortcutArrow} size={13} aria-hidden="true" />
+        </Link>
       </nav>;
     case 'calendar-planner':
       return <CalendarDashboardWidget />;
@@ -1739,71 +1737,4 @@ function MyDayCatalogPreview({ kind }: { kind: WidgetKind }) {
       : kind === 'today-overdue' ? <><Clock3 size={16} /><span><i /><i /></span></>
       : <><MessageCircle size={16} /><span><i /><i /></span></>}
   </div>;
-}
-
-function QuickCaptureWidget({ projects, workspaceId, onQuickCreate }: {
-  projects: { id: string; name: string; color?: string | null }[];
-  workspaceId: string | null;
-  onQuickCreate: (intent: QuickCaptureIntent) => void;
-}) {
-  const [kind, setKind] = useState<QuickCaptureKind>('task');
-  const [title, setTitle] = useState('');
-  const [projectId, setProjectId] = useState('');
-  const choices: { kind: QuickCaptureKind; label: string; icon: typeof ListTodo }[] = [
-    { kind: 'task', label: 'Tarea', icon: ListTodo },
-    { kind: 'note', label: 'Nota', icon: FileText },
-    { kind: 'decision', label: 'Decisión', icon: CheckCircle2 },
-    { kind: 'event', label: 'Evento', icon: CalendarDays },
-  ];
-  const placeholders: Record<QuickCaptureKind, string> = {
-    task: '¿Qué hay que hacer?',
-    note: '¿Qué quieres guardar?',
-    decision: '¿Qué se decidió?',
-    event: '¿Qué va a pasar?',
-  };
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const cleanTitle = title.trim();
-    if (!cleanTitle) return;
-    onQuickCreate({
-      kind,
-      title: cleanTitle,
-      ...(kind !== 'event' && projectId && { projectId }),
-      ...(workspaceId && { workspaceId }),
-    });
-    setTitle('');
-  }
-
-  return <form className={styles.quickCapture} onSubmit={submit}>
-    <div className={styles.quickCaptureTypes} role="group" aria-label="Tipo de captura">
-      {choices.map(({ kind: choice, label, icon: Icon }) => <button key={choice} type="button"
-        className={`${styles.quickCaptureType} ${kind === choice ? styles.quickCaptureTypeSelected : ''}`}
-        aria-label={label} title={label} aria-pressed={kind === choice} onClick={() => setKind(choice)}>
-        <Icon size={14} aria-hidden="true" /><span>{label}</span>
-      </button>)}
-    </div>
-    <div className={styles.quickCaptureComposer}>
-      <input className={styles.quickCaptureInput} value={title} onChange={(event) => setTitle(event.target.value)}
-        maxLength={kind === 'task' ? 255 : kind === 'decision' ? 170 : kind === 'note' ? 180 : 120}
-        placeholder={placeholders[kind]} aria-label={placeholders[kind]} />
-      <div className={styles.quickCaptureEntry}>
-      {kind === 'event'
-        ? <span className={styles.quickCaptureWorkspace} title={workspaceId ? 'Se guardará en el calendario del espacio actual' : 'Se guardará en tu calendario personal'}>
-          <CalendarDays size={14} aria-hidden="true" /> {workspaceId ? 'Calendario' : 'Personal'}
-        </span>
-        : <label className={styles.quickCaptureDestination}>
-          <span className={styles.srOnly}>Dónde guardarlo</span>
-          <select value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Dónde guardar la captura">
-            <option value="">Espacio actual</option>
-            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-          </select>
-          <FolderKanban size={13} aria-hidden="true" />
-        </label>}
-      <button className={styles.quickCaptureSubmit} type="submit" disabled={!title.trim()} aria-label={`Continuar con ${kind}`} title="Continuar">
-        <ArrowRight size={17} aria-hidden="true" />
-      </button>
-      </div>
-    </div>
-  </form>;
 }

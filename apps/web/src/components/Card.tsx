@@ -18,41 +18,40 @@ interface CardProps {
   card: CardType;
 }
 
-
 const PRIORITY_COLORS = {
-  LOW:    { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)'  },
-  MEDIUM: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)'  },
-  HIGH:   { color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
+  LOW: { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+  MEDIUM: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  HIGH: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
 };
 
-const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 export function Card({ card }: CardProps) {
   const t = es;
-  const updateCard     = useCardStore((s) => s.updateCard);
+  const updateCard = useCardStore((s) => s.updateCard);
   const setSelectedCard = useCardStore((s) => s.setSelectedCard);
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
-  const userRole       = currentWorkspace?.userRole;
+  const userRole = currentWorkspace?.userRole;
   const canUseProjectPlanning = supportsOrganizationProjectPlanning(currentWorkspace);
 
   const PRIORITY = {
-    LOW:    { label: t.card_priority_low,    ...PRIORITY_COLORS.LOW    },
+    LOW: { label: t.card_priority_low, ...PRIORITY_COLORS.LOW },
     MEDIUM: { label: t.card_priority_medium, ...PRIORITY_COLORS.MEDIUM },
-    HIGH:   { label: t.card_priority_high,   ...PRIORITY_COLORS.HIGH   },
+    HIGH: { label: t.card_priority_high, ...PRIORITY_COLORS.HIGH },
   };
 
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
 
   const currentUserId = useAuthStore((s) => s.user?.id);
 
-  const canEdit     = userRole === 'ADMIN' || userRole === 'OWNER';
+  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
   const canDragByRole = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
   // Members can only complete cards that have no assignees (anyone can)
   // or cards where they are explicitly assigned.
   const cardMembers: Array<{ id: string }> = (card as any).members || [];
   const cardHasAssignees = cardMembers.length > 0;
-  const isAssignedToMe   = cardMembers.some((m) => m.id === currentUserId);
+  const isAssignedToMe = cardMembers.some((m) => m.id === currentUserId);
   const canComplete = canEdit || (userRole === 'MEMBER' && (!cardHasAssignees || isAssignedToMe));
 
   const blockedByPendingCount = card.blockedByPendingCount ?? 0;
@@ -82,18 +81,26 @@ export function Card({ card }: CardProps) {
     if (!canComplete || isTogglingComplete || isBlocked) return;
     setIsTogglingComplete(true);
     const next = !card.completed;
-    updateCard(card.id, { completed: next, completedAt: next ? new Date().toISOString() : undefined });
+    updateCard(card.id, {
+      completed: next,
+      completedAt: next ? new Date().toISOString() : undefined,
+    });
     try {
       const r = await apiService.put<{ card: any }>(
         `/api/cards/${card.id}`,
         { completed: next, completedAt: next ? new Date().toISOString() : null },
         true
       );
-      if (!r.success) { updateCard(card.id, { completed: card.completed, completedAt: card.completedAt }); return; }
+      if (!r.success) {
+        updateCard(card.id, { completed: card.completed, completedAt: card.completedAt });
+        return;
+      }
       updateCard(card.id, r.data!.card);
     } catch {
       updateCard(card.id, { completed: card.completed, completedAt: card.completedAt });
-    } finally { setIsTogglingComplete(false); }
+    } finally {
+      setIsTogglingComplete(false);
+    }
   };
 
   const cardSprintId = (card as any).sprintId as string | undefined;
@@ -103,32 +110,32 @@ export function Card({ card }: CardProps) {
     const now = new Date();
     const diff = Math.ceil((d.getTime() - now.getTime()) / 86400000);
     const text = diff === 0 ? 'Hoy' : `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-    if (diff < 0)  return { text, color: C.red   };
+    if (diff < 0) return { text, color: C.red };
     if (diff === 0) return { text, color: C.amber };
-    if (diff <= 3)  return { text, color: C.amber };
+    if (diff <= 3) return { text, color: C.amber };
     return { text, color: C.text4 };
   };
 
-  const due      = card.dueDate ? formatDueDate(card.dueDate) : null;
-  const prio     = card.priority ? PRIORITY[card.priority] : null;
-  const labels   = (card as any).labels || [];
-  const members  = card.members || [];
+  const due = card.dueDate ? formatDueDate(card.dueDate) : null;
+  const prio = card.priority ? PRIORITY[card.priority] : null;
+  const labels = (card as any).labels || [];
+  const members = card.members || [];
   const commentCount = (card as any)._count?.comments || 0;
   const blockingCount = card.blockingCount ?? 0;
 
   const checklistItems: Array<{ completed: boolean }> = card.checklistItems || [];
   const checklistTotal = checklistItems.length;
-  const checklistDone  = checklistItems.filter((i) => i.completed).length;
-  const checklistPct   = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
+  const checklistDone = checklistItems.filter((i) => i.completed).length;
+  const checklistPct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
 
   const description = card.description ?? '';
 
   // Derive base border/bg from card state
-  const baseBorder  = card.completed ? `${C.green}40` : isBlocked ? `${C.amber}88` : C.border;
-  const baseBg      = card.completed ? `${C.green}09` : isBlocked ? `${C.amber}0e` : C.surface;
+  const baseBorder = card.completed ? `${C.green}40` : isBlocked ? `${C.amber}88` : C.border;
+  const baseBg = card.completed ? `${C.green}09` : isBlocked ? `${C.amber}0e` : C.surface;
   const hoverBorder = card.completed ? `${C.green}66` : isBlocked ? `${C.amber}cc` : C.border2;
-  const hoverBg     = card.completed ? `${C.green}12` : isBlocked ? `${C.amber}16` : C.hover;
-  const baseShadow  = isBlocked ? `inset 3px 0 0 ${C.amber}cc` : 'none';
+  const hoverBg = card.completed ? `${C.green}12` : isBlocked ? `${C.amber}16` : C.hover;
+  const baseShadow = isBlocked ? `inset 3px 0 0 ${C.amber}cc` : 'none';
   const hoverShadow = isBlocked ? `inset 3px 0 0 ${C.amber}` : 'none';
 
   return (
@@ -142,7 +149,10 @@ export function Card({ card }: CardProps) {
         padding: '9px 10px 8px',
         cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer',
         boxShadow: baseShadow,
-        transition: `${dndStyle.transition ?? ''}, border-color 0.12s, background 0.12s, box-shadow 0.12s`.trimStart().replace(/^,\s*/, ''),
+        transition:
+          `${dndStyle.transition ?? ''}, border-color 0.12s, background 0.12s, box-shadow 0.12s`
+            .trimStart()
+            .replace(/^,\s*/, ''),
       }}
       {...(canDrag ? attributes : {})}
       {...(canDrag ? listeners : {})}
@@ -150,16 +160,20 @@ export function Card({ card }: CardProps) {
       onMouseEnter={(e) => {
         if (!isDragging) {
           e.currentTarget.style.borderColor = hoverBorder;
-          e.currentTarget.style.background  = hoverBg;
-          e.currentTarget.style.boxShadow   = hoverShadow;
+          e.currentTarget.style.background = hoverBg;
+          e.currentTarget.style.boxShadow = hoverShadow;
         }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = baseBorder;
-        e.currentTarget.style.background  = baseBg;
-        e.currentTarget.style.boxShadow   = baseShadow;
+        e.currentTarget.style.background = baseBg;
+        e.currentTarget.style.boxShadow = baseShadow;
       }}
-      title={isBlocked ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}` : ''}
+      title={
+        isBlocked
+          ? `Bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''} pendiente${blockedByPendingCount !== 1 ? 's' : ''}`
+          : ''
+      }
     >
       {/* Label strips */}
       {labels.length > 0 && (
@@ -168,11 +182,19 @@ export function Card({ card }: CardProps) {
             <span
               key={label.id}
               title={label.name}
-              style={{ display: 'inline-block', height: '4px', width: '24px', borderRadius: '2px', background: label.color }}
+              style={{
+                display: 'inline-block',
+                height: '4px',
+                width: '24px',
+                borderRadius: '2px',
+                background: label.color,
+              }}
             />
           ))}
           {labels.length > 4 && (
-            <span style={{ fontSize: '9px', color: C.text4, lineHeight: '4px', alignSelf: 'center' }}>
+            <span
+              style={{ fontSize: '9px', color: C.text4, lineHeight: '4px', alignSelf: 'center' }}
+            >
               +{labels.length - 4}
             </span>
           )}
@@ -184,22 +206,31 @@ export function Card({ card }: CardProps) {
         <button
           onClick={handleToggleComplete}
           onPointerDown={(e) => e.stopPropagation()}
-          onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); }}
+          onKeyDown={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') e.stopPropagation();
+          }}
           disabled={!canComplete || isTogglingComplete || isBlocked}
           aria-label={
-            isBlocked ? `Tarjeta bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''}`
-            : !canComplete ? 'No tienes permiso para completar esta tarjeta'
-            : isTogglingComplete ? 'Guardando estado de la tarjeta'
-            : card.completed ? `Reabrir tarjeta: ${card.title}`
-            : `Completar tarjeta: ${card.title}`
+            isBlocked
+              ? `Tarjeta bloqueada por ${blockedByPendingCount} dependencia${blockedByPendingCount !== 1 ? 's' : ''}`
+              : !canComplete
+                ? 'No tienes permiso para completar esta tarjeta'
+                : isTogglingComplete
+                  ? 'Guardando estado de la tarjeta'
+                  : card.completed
+                    ? `Reabrir tarjeta: ${card.title}`
+                    : `Completar tarjeta: ${card.title}`
           }
           aria-pressed={card.completed}
           aria-busy={isTogglingComplete}
           title={
-            isBlocked ? `Bloqueada por ${blockedByPendingCount} dep. pendiente${blockedByPendingCount !== 1 ? 's' : ''}`
-            : !canComplete ? 'Sin permisos'
-            : card.completed ? 'Marcar como pendiente'
-            : 'Marcar como completada'
+            isBlocked
+              ? `Bloqueada por ${blockedByPendingCount} dep. pendiente${blockedByPendingCount !== 1 ? 's' : ''}`
+              : !canComplete
+                ? 'Sin permisos'
+                : card.completed
+                  ? 'Marcar como pendiente'
+                  : 'Marcar como completada'
           }
           className={styles.cardCheckButton}
           data-completed={card.completed || undefined}
@@ -213,11 +244,27 @@ export function Card({ card }: CardProps) {
             aria-hidden="true"
           >
             {isBlocked ? (
-              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
-                <rect x="2" y="5" width="8" height="6" rx="1" /><path d="M4 5V3.5a2 2 0 014 0V5" />
+              <svg
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                width="10"
+                height="10"
+              >
+                <rect x="2" y="5" width="8" height="6" rx="1" />
+                <path d="M4 5V3.5a2 2 0 014 0V5" />
               </svg>
             ) : (
-              <svg className={styles.cardCheckMark} viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10">
+              <svg
+                className={styles.cardCheckMark}
+                viewBox="0 0 10 10"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                width="10"
+                height="10"
+              >
                 <path d="M2 5l2.5 2.5 3.5-4" />
               </svg>
             )}
@@ -225,11 +272,12 @@ export function Card({ card }: CardProps) {
         </button>
 
         <div className={styles.cardCopy}>
-          {card.cardCode && <code title="Código de tarjeta" className={styles.cardCode}>{card.cardCode}</code>}
-          <h4
-            className={styles.cardTitle}
-            data-completed={card.completed || undefined}
-          >
+          {card.cardCode && (
+            <code title="Código de tarjeta" className={styles.cardCode}>
+              {card.cardCode}
+            </code>
+          )}
+          <h4 className={styles.cardTitle} data-completed={card.completed || undefined}>
             {card.title}
           </h4>
         </div>
@@ -257,13 +305,29 @@ export function Card({ card }: CardProps) {
       {/* Checklist bar (only if there are items) */}
       {checklistTotal > 0 && (
         <div className="flex items-center gap-1.5 mt-2">
-          <span style={{ fontSize: '10px', color: checklistPct === 100 ? C.green : C.text4, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+          <span
+            style={{
+              fontSize: '10px',
+              color: checklistPct === 100 ? C.green : C.text4,
+              flexShrink: 0,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
             {checklistDone}/{checklistTotal}
           </span>
-          <div style={{ flex: 1, height: '3px', background: C.border2, borderRadius: '2px', overflow: 'hidden' }}>
+          <div
+            style={{
+              flex: 1,
+              height: '3px',
+              background: C.border2,
+              borderRadius: '2px',
+              overflow: 'hidden',
+            }}
+          >
             <div
               style={{
-                height: '100%', borderRadius: '2px',
+                height: '100%',
+                borderRadius: '2px',
                 width: `${checklistPct}%`,
                 background: checklistPct === 100 ? C.green : C.accent,
                 transition: 'width 0.3s',
@@ -279,9 +343,12 @@ export function Card({ card }: CardProps) {
         {prio && (
           <span
             style={{
-              fontSize: '10px', fontWeight: 600,
-              padding: '1px 5px', borderRadius: '3px',
-              background: prio.bg, color: prio.color,
+              fontSize: '10px',
+              fontWeight: 600,
+              padding: '1px 5px',
+              borderRadius: '3px',
+              background: prio.bg,
+              color: prio.color,
               border: `1px solid ${prio.color}33`,
               flexShrink: 0,
             }}
@@ -293,11 +360,20 @@ export function Card({ card }: CardProps) {
         {/* Due date */}
         {due && (
           <div className="flex items-center gap-[3px]" style={{ flexShrink: 0 }}>
-            <svg viewBox="0 0 14 14" fill="none" stroke={due.color} strokeWidth="1.4" width="10" height="10">
+            <svg
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke={due.color}
+              strokeWidth="1.4"
+              width="10"
+              height="10"
+            >
               <rect x="1" y="2" width="12" height="11" rx="1.5" />
               <path d="M4 1v2M10 1v2M1 6h12" />
             </svg>
-            <span style={{ fontSize: '10.5px', color: due.color, fontVariantNumeric: 'tabular-nums' }}>
+            <span
+              style={{ fontSize: '10.5px', color: due.color, fontVariantNumeric: 'tabular-nums' }}
+            >
               {due.text}
             </span>
           </div>
@@ -308,12 +384,24 @@ export function Card({ card }: CardProps) {
           <span
             title="Asignada a un sprint"
             style={{
-              display: 'flex', alignItems: 'center', gap: '3px',
-              fontSize: '10px', color: '#548B73', flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+              fontSize: '10px',
+              color: '#548B73',
+              flexShrink: 0,
             }}
           >
-            <svg viewBox="0 0 12 12" fill="none" stroke="#548B73" strokeWidth="1.5" strokeLinecap="round" width="10" height="10">
-              <path d="M2 9a4 4 0 1 1 8 0M2 9l1.5-2M10 9l-1.5-2"/>
+            <svg
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="#548B73"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              width="10"
+              height="10"
+            >
+              <path d="M2 9a4 4 0 1 1 8 0M2 9l1.5-2M10 9l-1.5-2" />
             </svg>
           </span>
         )}
@@ -324,10 +412,19 @@ export function Card({ card }: CardProps) {
         {/* Comments */}
         {commentCount > 0 && (
           <div className="flex items-center gap-[3px]" style={{ flexShrink: 0 }}>
-            <svg viewBox="0 0 14 14" fill="none" stroke={C.text4} strokeWidth="1.4" width="10" height="10">
+            <svg
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke={C.text4}
+              strokeWidth="1.4"
+              width="10"
+              height="10"
+            >
               <path d="M2 2h10v7H8l-2 2-2-2H2z" />
             </svg>
-            <span style={{ fontSize: '10px', color: C.text4 }}>{commentCount}</span>
+            <span data-testid="comment-count" style={{ fontSize: '10px', color: C.text4 }}>
+              {commentCount}
+            </span>
           </div>
         )}
 
@@ -338,8 +435,16 @@ export function Card({ card }: CardProps) {
             title={`Bloqueada por ${blockedByPendingCount} dep. pendiente${blockedByPendingCount !== 1 ? 's' : ''}`}
             style={{ flexShrink: 0 }}
           >
-            <svg viewBox="0 0 12 12" fill="none" stroke={C.amber} strokeWidth="1.5" width="10" height="10">
-              <rect x="1.5" y="5" width="9" height="6.5" rx="1" /><path d="M3.5 5V3.5a2.5 2.5 0 015 0V5" />
+            <svg
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke={C.amber}
+              strokeWidth="1.5"
+              width="10"
+              height="10"
+            >
+              <rect x="1.5" y="5" width="9" height="6.5" rx="1" />
+              <path d="M3.5 5V3.5a2.5 2.5 0 015 0V5" />
             </svg>
             <span style={{ fontSize: '10px', color: C.amber }}>{blockedByPendingCount}</span>
           </div>
@@ -352,8 +457,17 @@ export function Card({ card }: CardProps) {
             title={`Bloquea a ${blockingCount} card${blockingCount !== 1 ? 's' : ''}`}
             style={{ flexShrink: 0 }}
           >
-            <svg viewBox="0 0 14 14" fill="none" stroke={C.text4} strokeWidth="1.4" width="10" height="10">
-              <circle cx="4" cy="3" r="1.5" /><circle cx="4" cy="11" r="1.5" /><circle cx="10" cy="3" r="1.5" />
+            <svg
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke={C.text4}
+              strokeWidth="1.4"
+              width="10"
+              height="10"
+            >
+              <circle cx="4" cy="3" r="1.5" />
+              <circle cx="4" cy="11" r="1.5" />
+              <circle cx="10" cy="3" r="1.5" />
               <path d="M4 4.5v5M10 4.5C10 8 4 9 4 9.5" />
             </svg>
             <span style={{ fontSize: '10px', color: C.text4 }}>{blockingCount}</span>
@@ -368,13 +482,18 @@ export function Card({ card }: CardProps) {
                 key={m.id}
                 title={m.name}
                 style={{
-                  width: '18px', height: '18px',
+                  width: '18px',
+                  height: '18px',
                   borderRadius: '50%',
                   background: `linear-gradient(135deg, ${C.accent}bb, ${C.accent}55)`,
                   border: `1.5px solid ${C.bg}`,
                   marginLeft: i === 0 ? 0 : '-5px',
-                  fontSize: '9px', fontWeight: 700, color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   zIndex: 3 - i,
                   position: 'relative',
                 }}
@@ -385,10 +504,19 @@ export function Card({ card }: CardProps) {
             {members.length > 3 && (
               <div
                 style={{
-                  width: '18px', height: '18px', borderRadius: '50%',
-                  background: C.hover, border: `1.5px solid ${C.bg}`,
-                  marginLeft: '-5px', fontSize: '9px', fontWeight: 700, color: C.text3,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  background: C.hover,
+                  border: `1.5px solid ${C.bg}`,
+                  marginLeft: '-5px',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  color: C.text3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
                 }}
               >
                 +{members.length - 3}
@@ -401,21 +529,23 @@ export function Card({ card }: CardProps) {
   );
 }
 
-export default memo(Card, (prev, next) =>
-  prev.card.id === next.card.id &&
-  (prev.card.cardCode ?? '') === (next.card.cardCode ?? '') &&
-  prev.card.title === next.card.title &&
-  (prev.card.description ?? '') === (next.card.description ?? '') &&
-  prev.card.position === next.card.position &&
-  prev.card.completed === next.card.completed &&
-  prev.card.dueDate === next.card.dueDate &&
-  prev.card.priority === next.card.priority &&
-  prev.card.members?.length === next.card.members?.length &&
-  prev.card.labels?.length === next.card.labels?.length &&
-  prev.card.checklistItems?.length === next.card.checklistItems?.length &&
-  prev.card.checklistItems?.filter((i) => i.completed).length ===
-    next.card.checklistItems?.filter((i) => i.completed).length &&
-  prev.card.blockedByPendingCount === next.card.blockedByPendingCount &&
-  prev.card.blockingCount === next.card.blockingCount &&
-  (prev.card as any).sprintId === (next.card as any).sprintId
+export default memo(
+  Card,
+  (prev, next) =>
+    prev.card.id === next.card.id &&
+    (prev.card.cardCode ?? '') === (next.card.cardCode ?? '') &&
+    prev.card.title === next.card.title &&
+    (prev.card.description ?? '') === (next.card.description ?? '') &&
+    prev.card.position === next.card.position &&
+    prev.card.completed === next.card.completed &&
+    prev.card.dueDate === next.card.dueDate &&
+    prev.card.priority === next.card.priority &&
+    prev.card.members?.length === next.card.members?.length &&
+    prev.card.labels?.length === next.card.labels?.length &&
+    prev.card.checklistItems?.length === next.card.checklistItems?.length &&
+    prev.card.checklistItems?.filter((i) => i.completed).length ===
+      next.card.checklistItems?.filter((i) => i.completed).length &&
+    prev.card.blockedByPendingCount === next.card.blockedByPendingCount &&
+    prev.card.blockingCount === next.card.blockingCount &&
+    (prev.card as any).sprintId === (next.card as any).sprintId
 );

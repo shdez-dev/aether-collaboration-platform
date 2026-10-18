@@ -22,7 +22,6 @@ export type DashboardBoardSummary = {
 
 type OrganizationOption = { id: string; name: string; type: string };
 type ProjectOption = { id: string; name: string };
-type TemplateChoice = 'suggested' | 'blank';
 type ContextSelectOption = { value: string; label: string; icon: ReactNode };
 
 function DashboardContextSelect({
@@ -198,7 +197,7 @@ export function DashboardBoardControls({
   error: string;
   onRetry: () => void;
   onSelect: (id: string) => Promise<boolean>;
-  onCreate: (name: string, context: DashboardContext, template: TemplateChoice) => Promise<boolean>;
+  onCreate: (name: string, context: DashboardContext) => Promise<boolean>;
   onRename: (id: string, name: string) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
 }) {
@@ -220,7 +219,6 @@ export function DashboardBoardControls({
   const [projectReloadKey, setProjectReloadKey] = useState(0);
   const [name, setName] = useState('Personal');
   const [nameEdited, setNameEdited] = useState(false);
-  const [template, setTemplate] = useState<TemplateChoice>('suggested');
   const dialogRef = useRef<HTMLDialogElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -232,11 +230,6 @@ export function DashboardBoardControls({
   const selectedProject = projects.find((item) => item.id === projectId);
   const targetId = contextType === 'ORGANIZATION' ? organizationId : contextType === 'WORKSPACE' ? workspaceId : contextType === 'PROJECT' ? projectId : null;
   const targetReady = contextType === 'PERSONAL' || Boolean(targetId);
-  const suggestedDescription = contextType === 'PERSONAL' ? 'Proyectos y prioridades.'
-    : contextType === 'ORGANIZATION' ? 'Panorama, proyectos, estado, espacios, personas e invitaciones.'
-      : contextType === 'WORKSPACE' ? 'Proyectos y documentos recientes.'
-        : 'Vista compacta del proyecto.';
-
   useEffect(() => {
     if (!createOpen) return;
     const dialog = dialogRef.current;
@@ -313,7 +306,6 @@ export function DashboardBoardControls({
     setProjectId('');
     setName('Mi tablero personal');
     setNameEdited(false);
-    setTemplate('suggested');
     setMenuOpen(false);
     setManageOpen(false);
     setPanelOpen(false);
@@ -349,7 +341,7 @@ export function DashboardBoardControls({
   async function submitCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim() || !targetReady || busy) return;
-    const created = await onCreate(name.trim(), { type: contextType, id: targetId }, template);
+    const created = await onCreate(name.trim(), { type: contextType, id: targetId });
     if (created) setCreateOpen(false);
   }
 
@@ -402,7 +394,6 @@ export function DashboardBoardControls({
           {boards.map((board) => <button type="button" key={board.id} className={`${styles.menuItem} ${board.id === activeId ? styles.menuItemActive : ''}`} onClick={() => { void onSelect(board.id).then((selected) => { if (selected) { setMenuOpen(false); setPanelOpen(false); } }); }}>
             {contextIcon(board.context.type)}<span><strong>{board.name}</strong><small>{CONTEXT_LABELS[board.context.type]}</small></span>
           </button>)}
-          <button type="button" className={styles.menuCreate} onClick={openCreate}><Plus size={15} /> Crear tablero</button>
         </div>}
       </div>
       <div className={styles.barActions}>
@@ -472,7 +463,6 @@ export function DashboardBoardControls({
           </motion.div>}
         </AnimatePresence>
         <label className={styles.nameField}>Nombre del tablero<input value={name} maxLength={80} onChange={(event) => { setName(event.target.value); setNameEdited(true); }} placeholder="Ej. Mi semana" required /></label>
-        <fieldset className={styles.templateChoices}><legend>Composición inicial</legend><label className={template === 'suggested' ? styles.templateActive : ''}><input type="radio" name="dashboard-template" checked={template === 'suggested'} onChange={() => setTemplate('suggested')} /><strong>Sugerida</strong><span>{suggestedDescription}</span></label><label className={template === 'blank' ? styles.templateActive : ''}><input type="radio" name="dashboard-template" checked={template === 'blank'} onChange={() => setTemplate('blank')} /><strong>En blanco</strong><span>Empieza desde cero y añade funciones.</span></label></fieldset>
         {error && <p className={styles.formError} role="alert">{error}</p>}
         <div className={styles.footer}><button type="button" onClick={() => setCreateOpen(false)} disabled={busy}>Cancelar</button><button type="submit" disabled={busy || !targetReady || !name.trim()}>{busy ? 'Creando…' : 'Crear tablero'}</button></div>
       </form>

@@ -24,27 +24,22 @@ const options = [
   { kind: 'event', label: 'Evento', detail: 'Un momento en el calendario', icon: CalendarDays },
 ] as const;
 
-export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClose, onEvent, initialKind, initialTitle, initialProjectId, initialWorkspaceId }: {
+export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClose, onEvent }: {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
   onClose: () => void;
   onEvent: () => void;
-  initialKind?: CaptureKind;
-  initialTitle?: string;
-  initialProjectId?: string;
-  initialWorkspaceId?: string;
 }) {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
   const createDocument = useDocumentStore((state) => state.createDocument);
   const setActiveWorkspaceId = useActiveWorkspaceStore((state) => state.setActiveWorkspaceId);
   const availableWorkspaces = useMemo(() => workspaces.filter((workspace) => !workspace.archived), [workspaces]);
-  const [kind, setKind] = useState<CaptureKind>(initialKind ?? 'task');
+  const [kind, setKind] = useState<CaptureKind>('task');
   const [workspaceId, setWorkspaceId] = useState(() =>
-    availableWorkspaces.some((workspace) => workspace.id === initialWorkspaceId)
-      ? initialWorkspaceId! : availableWorkspaces.some((workspace) => workspace.id === activeWorkspaceId)
+    availableWorkspaces.some((workspace) => workspace.id === activeWorkspaceId)
         ? activeWorkspaceId! : availableWorkspaces[0]?.id ?? '');
-  const [projectId, setProjectId] = useState(initialProjectId ?? '');
+  const [projectId, setProjectId] = useState('');
   const [boardId, setBoardId] = useState('');
   const [listId, setListId] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -53,7 +48,7 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
   const [loadingDestinations, setLoadingDestinations] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
   const [destinationRetry, setDestinationRetry] = useState(0);
-  const [title, setTitle] = useState(initialTitle ?? '');
+  const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [nextStep, setNextStep] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -126,13 +121,13 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
       const fetchedProjects = projectResult.success ? projectResult.data?.projects ?? [] : [];
       setProjects(fetchedProjects);
       setBoards(boardResult.success ? boardResult.data?.boards ?? [] : []);
-      setProjectId(initialProjectId && fetchedProjects.some((project) => project.id === initialProjectId) ? initialProjectId : '');
+      setProjectId('');
       if (!projectResult.success || !boardResult.success) setError('No se pudieron cargar todos los destinos.');
     }).catch(() => {
       if (live) setError('No se pudieron cargar los destinos.');
     }).finally(() => { if (live) setLoadingDestinations(false); });
     return () => { live = false; };
-  }, [workspaceId, destinationRetry, initialProjectId]);
+  }, [workspaceId, destinationRetry]);
 
   useEffect(() => {
     if (!boardId) { setLists([]); setListId(''); return; }

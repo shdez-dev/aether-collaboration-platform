@@ -30,7 +30,7 @@ import WorkspaceContextSwitcher from '@/components/WorkspaceContextSwitcher';
 import CreateBoardModal from '@/components/CreateBoardModal';
 import CreateProjectModal from '@/components/CreateProjectModal';
 import QuickCreateModal from '@/components/QuickCreateModal';
-import PersonalizedDashboard, { type QuickCaptureIntent } from '@/components/PersonalizedDashboard';
+import PersonalizedDashboard from '@/components/PersonalizedDashboard';
 import CreateEventModal from '@/components/calendar/CreateEventModal';
 import FirstWorkspaceOnboarding from '@/components/FirstWorkspaceOnboarding';
 import OrganizationEmptyState from '@/components/OrganizationEmptyState';
@@ -595,8 +595,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickEventOpen, setQuickEventOpen] = useState(false);
-  const [quickCaptureIntent, setQuickCaptureIntent] = useState<QuickCaptureIntent | null>(null);
-  const [quickEventPrefill, setQuickEventPrefill] = useState<{ title: string; workspaceId?: string } | null>(null);
   const [sidebarCompact, setSidebarCompact] = useState(false);
   const [workspaceBootstrapLoaded, setWorkspaceBootstrapLoaded] = useState(false);
   const [organizations, setOrganizations] = useState<OrganizationContext[]>([]);
@@ -611,16 +609,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isPersonalizedHome = pathname === '/dashboard' && isPersonalizedMode;
   const effectiveSidebarCompact = isPersonalizedMode || sidebarCompact;
 
-  function openQuickCreate(intent?: QuickCaptureIntent) {
+  function openQuickCreate() {
     setSidebarOpen(false);
-    if (intent?.kind === 'event') {
-      setQuickCaptureIntent(null);
-      setQuickEventPrefill({ title: intent.title, ...(intent.workspaceId && { workspaceId: intent.workspaceId }) });
-      setQuickEventOpen(true);
-      return;
-    }
-    setQuickEventPrefill(null);
-    setQuickCaptureIntent(intent ?? null);
     setQuickCreateOpen(true);
   }
 
@@ -948,7 +938,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 ? <div style={{ margin: 'auto', padding: 32, textAlign: 'center' }} role="alert">No pudimos cargar tus organizaciones. <button type="button" onClick={() => void refreshOrganizations()}>Reintentar</button></div>
                 : pathname === '/dashboard' && isPersonalizedMode
                   ? <PersonalizedDashboard
-                      onQuickCreate={openQuickCreate}
                       projects={sidebarProjects}
                       organization={activeOrganization}
                       organizations={organizations}
@@ -970,14 +959,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <RealtimeNotificationProvider />
         <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
         {quickCreateOpen && <QuickCreateModal workspaces={workspaces} activeWorkspaceId={activeWorkspaceId}
-          initialKind={quickCaptureIntent?.kind === 'event' ? undefined : quickCaptureIntent?.kind}
-          initialTitle={quickCaptureIntent?.title}
-          initialProjectId={quickCaptureIntent?.projectId}
-          initialWorkspaceId={quickCaptureIntent?.workspaceId}
-          onClose={() => { setQuickCreateOpen(false); setQuickCaptureIntent(null); }}
-          onEvent={() => { setQuickCreateOpen(false); setQuickCaptureIntent(null); setQuickEventPrefill(null); setQuickEventOpen(true); }} />}
-        <CreateEventModal open={quickEventOpen} onClose={() => { setQuickEventOpen(false); setQuickEventPrefill(null); }}
-          initialTitle={quickEventPrefill?.title} initialWorkspaceId={quickEventPrefill?.workspaceId} />
+          onClose={() => setQuickCreateOpen(false)}
+          onEvent={() => { setQuickCreateOpen(false); setQuickEventOpen(true); }} />}
+        <CreateEventModal open={quickEventOpen} onClose={() => setQuickEventOpen(false)} />
 
         <CreateWorkspaceModal
           isOpen={createWsOpen}

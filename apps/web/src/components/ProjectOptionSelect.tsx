@@ -18,9 +18,10 @@ interface Props {
   menuZIndex?: number;
   placeholder?: string;
   closeOnTab?: boolean;
+  density?: 'standard' | 'comfortable';
 }
 
-export function ProjectOptionSelect({ id, label, value, options, onChange, disabled = false, menuZIndex, placeholder = 'Seleccionar', closeOnTab = false }: Props) {
+export function ProjectOptionSelect({ id, label, value, options, onChange, disabled = false, menuZIndex, placeholder = 'Seleccionar', closeOnTab = false, density = 'standard' }: Props) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
@@ -28,13 +29,14 @@ export function ProjectOptionSelect({ id, label, value, options, onChange, disab
   const optionButtons = useRef<Array<HTMLButtonElement | null>>([]);
   const selectedIndex = options.findIndex(option => option.value === value);
   const menuId = id ? `${id}-options` : undefined;
+  const optionHeight = density === 'comfortable' ? 44 : 37;
 
   useEffect(() => {
     if (!open) return;
     const place = () => {
       const rect = trigger.current?.getBoundingClientRect();
       if (!rect) return;
-      const menuHeight = Math.min(options.length * 37 + 10, 250);
+      const menuHeight = Math.min(options.length * optionHeight + 10, 250);
       const below = window.innerHeight - rect.bottom;
       const top = below < menuHeight + 10 && rect.top > menuHeight + 10
         ? rect.top - menuHeight - 6
@@ -54,7 +56,7 @@ export function ProjectOptionSelect({ id, label, value, options, onChange, disab
       window.removeEventListener('scroll', place, true);
       document.removeEventListener('pointerdown', onPointerDown);
     };
-  }, [open, options.length]);
+  }, [open, options.length, optionHeight]);
 
   function choose(nextValue: string) {
     onChange(nextValue);
@@ -88,9 +90,9 @@ export function ProjectOptionSelect({ id, label, value, options, onChange, disab
 
   return (
     <div className={styles.root} onKeyDown={onKeyDown}>
-      <button id={id} ref={trigger} type="button" disabled={disabled} aria-label={label} aria-haspopup="listbox" aria-expanded={open} aria-controls={menuId} className={`${styles.trigger} ${open ? styles.open : ''}`} onClick={event => {
+      <button id={id} ref={trigger} type="button" disabled={disabled} aria-label={label} aria-haspopup="listbox" aria-expanded={open} aria-controls={menuId} className={`${styles.trigger} ${density === 'comfortable' ? styles.triggerComfortable : ''} ${open ? styles.open : ''}`} onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect();
-        const menuHeight = Math.min(options.length * 37 + 10, 250);
+        const menuHeight = Math.min(options.length * optionHeight + 10, 250);
         const top = window.innerHeight - rect.bottom < menuHeight + 10 && rect.top > menuHeight + 10 ? rect.top - menuHeight - 6 : rect.bottom + 6;
         setPosition({ top: Math.max(10, Math.min(top, window.innerHeight - menuHeight - 10)), left: rect.left, width: rect.width });
         setOpen(previous => !previous);
@@ -102,8 +104,8 @@ export function ProjectOptionSelect({ id, label, value, options, onChange, disab
         <ChevronDown size={15} aria-hidden="true" />
       </button>
       {open && createPortal(
-        <div id={menuId} ref={menu} role="listbox" aria-label={label} className={styles.menu} style={{ top: position.top, left: position.left, width: position.width, zIndex: menuZIndex }}>
-          {options.map((option, index) => <button key={option.value} ref={element => { optionButtons.current[index] = element; }} type="button" role="option" aria-selected={option.value === value} className={`${styles.option} ${option.value === value ? styles.selected : ''}`} onClick={() => choose(option.value)}>
+        <div id={menuId} ref={menu} role="listbox" aria-label={label} className={`${styles.menu} ${density === 'comfortable' ? styles.menuComfortable : ''}`} style={{ top: position.top, left: position.left, width: position.width, zIndex: menuZIndex }}>
+          {options.map((option, index) => <button key={option.value} ref={element => { optionButtons.current[index] = element; }} type="button" role="option" aria-selected={option.value === value} className={`${styles.option} ${density === 'comfortable' ? styles.optionComfortable : ''} ${option.value === value ? styles.selected : ''}`} onClick={() => choose(option.value)}>
             <span className={styles.optionContent}>
               {option.icon && <span className={styles.optionIcon}>{option.icon}</span>}
               <span className={styles.optionLabel}>{option.label}</span>

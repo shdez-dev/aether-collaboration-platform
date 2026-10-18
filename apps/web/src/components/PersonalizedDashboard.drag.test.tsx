@@ -64,7 +64,7 @@ describe('PersonalizedDashboard widget positioning', () => {
   });
 
   it('persists the new grid position after dragging a widget', async () => {
-    const { container } = render(<PersonalizedDashboard onQuickCreate={jest.fn()} />);
+    const { container } = render(<PersonalizedDashboard />);
     const dragHandle = await screen.findByRole('button', { name: 'Mover widget Prioridades de hoy' });
     const grid = container.querySelector('[data-columns="24"]');
     const widget = container.querySelector('[data-kind="today-priorities"]');
