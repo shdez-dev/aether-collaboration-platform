@@ -20,6 +20,7 @@ import { useBoardStore } from '@/stores/boardStore';
 import { useTeamStore } from '@/stores/teamStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import type { Document } from '@aether/types';
+import type { OrganizationAccessRole } from '@aether/types';
 import { apiService } from '@/services/apiService';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouteSectionState } from '@/hooks/useRouteSectionState';
@@ -36,8 +37,10 @@ import {
 } from '@/features/projects/api';
 import { ProjectDocumentsTab } from '@/features/projects/components/ProjectDocumentsTab';
 import { ProjectRisksTab } from '@/features/projects/components/ProjectRisksTab';
+import { ProjectTraceabilityTab } from '@/features/projects/components/ProjectTraceabilityTab';
 import { ProjectTeamSelector } from '@/features/projects/components/ProjectTeamSelector';
 import { ProjectScrumSummary } from '@/features/projects/components/ProjectScrumSummary';
+import { ProjectDirectionSummary } from '@/features/projects/components/ProjectDirectionSummary';
 import overviewStyles from '@/features/projects/components/ProjectScrumSummary.module.css';
 import { socketService } from '@/services/socketService';
 import { useT } from '@/lib/i18n';
@@ -129,6 +132,13 @@ function getStatusCfg(status: string, t: ReturnType<typeof useT>) {
         border: 'rgba(97,71,130,0.10)',
       };
   }
+}
+
+function projectAccessRoleName(roleKey: string | null | undefined, roles: OrganizationAccessRole[]) {
+  if (!roleKey) return 'Sin rol';
+  if (roleKey === 'OWNER') return 'Propietario';
+  return roles.find((role) => role.roleKey === roleKey)?.name
+    ?? (roleKey === 'ADMIN' ? 'Coordinador' : roleKey === 'VIEWER' ? 'Observador' : 'Colaborador');
 }
 
 function getMaturityCfg(stage: ProjectMaturityStage) {
@@ -457,6 +467,10 @@ function describeEvent(ev: ActivityEntry): {
       return { verb: 'actualizó el riesgo', target: tn, accent: '#8076A7' };
     case 'project.risk.status-changed':
       return { verb: 'actualizó el estado del riesgo', target: tn, accent: '#AE7C55' };
+    case 'project.deliverable.deleted':
+      return { verb: 'eliminó el entregable', target: p.deletedName ?? tn, accent: 'var(--c-text4)' };
+    case 'project.outcome.deleted':
+      return { verb: 'eliminó el resultado medido', target: p.deletedName ?? tn, accent: 'var(--c-text4)' };
     case 'project.team.assigned':
       return {
         verb: `asignó al proyecto «${tn}» el equipo`,
@@ -935,6 +949,7 @@ interface BacklogCard {
   epicId: string | null;
   priority: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   completed: boolean;
+  blockedByPendingCount: number;
   dueDate: string | null;
   boardId: string;
   boardName: string;
@@ -2900,11 +2915,21 @@ function DatePicker({
   onChange,
   placeholder = 'Sin fecha',
   accent = '#7452A6',
+  id,
+  ariaLabel,
+  invalid = false,
+  required = false,
+  describedBy,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   accent?: string;
+  id?: string;
+  ariaLabel?: string;
+  invalid?: boolean;
+  required?: boolean;
+  describedBy?: string;
 }) {
   const today = new Date();
   const parsed = value ? new Date(value + 'T00:00:00') : null;
@@ -2990,8 +3015,14 @@ function DatePicker({
     <div ref={ref} style={{ position: 'relative' }}>
       {/* Trigger */}
       <button
+        id={id}
         ref={triggerRef}
         type="button"
+        aria-label={`${ariaLabel ?? placeholder}${required ? ', obligatorio' : ''}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         onClick={(event) => {
           setPopupPosition(datePopupPosition(event.currentTarget.getBoundingClientRect()));
           setOpen((v) => !v);
@@ -3005,7 +3036,7 @@ function DatePicker({
           borderRadius: '7px',
           fontSize: '12.5px',
           background: C.bg2,
-          border: `1px solid ${open ? accent : C.border2}`,
+          border: `1px solid ${invalid ? C.red : open ? accent : C.border2}`,
           color: value ? C.text : C.text4,
           cursor: 'pointer',
           textAlign: 'left',
@@ -3919,6 +3950,7 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
   const [desc, setDesc] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [nameError, setNameError] = useState('');
   const [closing, setClosing] = useState(false);
 
   const handleClose = () => {
@@ -3928,12 +3960,14 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
   };
 
   const handleCreate = async () => {
+    setError('');
     if (!name.trim()) {
-      setError(t.create_ws_validation_name);
+      setNameError('Escribe un nombre para identificar este tablero.');
+      requestAnimationFrame(() => document.getElementById('project-board-name')?.focus());
       return;
     }
+    setNameError('');
     setCreating(true);
-    setError('');
     try {
       const board = await createBoard(project.workspaceId, {
         name: name.trim(),
@@ -4032,37 +4066,60 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
           {[
             {
               label: 'Nombre *',
+              id: 'project-board-name',
               node: (
-                <input
-                  autoFocus
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreate();
-                  }}
-                  placeholder="Ej. Sprint Q3, Diseño UI, Backend API…"
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    background: C.bg2,
-                    border: `1px solid ${C.border2}`,
-                    color: C.text,
-                    outline: 'none',
-                    boxSizing: 'border-box' as const,
-                    fontFamily: "'Manrope', system-ui, sans-serif",
-                    transition: 'border-color 0.15s',
-                  }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = color)}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
-                />
+                <>
+                  <input
+                    id="project-board-name"
+                    autoFocus
+                    value={name}
+                    aria-required="true"
+                    aria-invalid={Boolean(nameError)}
+                    aria-describedby={nameError ? 'project-board-name-error' : undefined}
+                    onChange={(e) => {
+                      const nextName = e.target.value;
+                      setName(nextName);
+                      setError('');
+                      if (nextName.trim()) setNameError('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreate();
+                    }}
+                    placeholder="Ej. Sprint Q3, Diseño UI, Backend API…"
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      background: C.bg2,
+                      border: `1px solid ${nameError ? C.red : C.border2}`,
+                      color: C.text,
+                      outline: 'none',
+                      boxSizing: 'border-box' as const,
+                      fontFamily: "'Manrope', system-ui, sans-serif",
+                      transition: 'border-color 0.15s',
+                    }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = nameError ? C.red : color)}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = nameError ? C.red : C.border2)}
+                  />
+                  {nameError && (
+                    <span
+                      id="project-board-name-error"
+                      role="alert"
+                      style={{ fontSize: '11.5px', color: C.red }}
+                    >
+                      {nameError}
+                    </span>
+                  )}
+                </>
               ),
             },
             {
               label: 'Descripción',
+              id: 'project-board-description',
               node: (
                 <textarea
+                  id="project-board-description"
                   value={desc}
                   onChange={(e) => setDesc(e.target.value)}
                   rows={2}
@@ -4086,9 +4143,10 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
                 />
               ),
             },
-          ].map(({ label, node }) => (
+          ].map(({ label, id, node }) => (
             <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label
+                htmlFor={id}
                 style={{
                   fontSize: '10.5px',
                   fontWeight: 700,
@@ -4103,7 +4161,11 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
               {node}
             </div>
           ))}
-          {error && <p style={{ margin: 0, fontSize: '11.5px', color: C.red }}>{error}</p>}
+          {error && (
+            <p role="alert" style={{ margin: 0, fontSize: '11.5px', color: C.red }}>
+              {error}
+            </p>
+          )}
         </div>
 
         {/* Footer */}
@@ -4176,6 +4238,7 @@ function CreateMilestoneModal({
   const [desc, setDesc] = useState(milestone?.description ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; date?: string }>({});
   const [closing, setClosing] = useState(false);
 
   const handleClose = () => {
@@ -4185,14 +4248,21 @@ function CreateMilestoneModal({
   };
 
   const submit = async () => {
-    if (!name.trim()) {
-      setError('El nombre del hito es obligatorio');
+    setError('');
+    const nextFieldErrors: { name?: string; date?: string } = {};
+    if (!name.trim()) nextFieldErrors.name = 'Escribe el nombre del hito para poder identificarlo.';
+    if (!date) nextFieldErrors.date = 'Selecciona la fecha en la que debe alcanzarse este hito.';
+
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) {
+      requestAnimationFrame(() => {
+        document
+          .getElementById(nextFieldErrors.name ? 'milestone-name' : 'milestone-date')
+          ?.focus();
+      });
       return;
     }
-    if (!date) {
-      setError('La fecha es obligatoria');
-      return;
-    }
+    setFieldErrors({});
     setLoading(true);
     try {
       if (isEdit) {
@@ -4274,80 +4344,138 @@ function CreateMilestoneModal({
           </button>
         </div>
         <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '13px' }}>
-          {[
-            {
-              label: 'Nombre *',
-              node: (
-                <input
-                  autoFocus
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Nombre del hito"
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '7px',
-                    fontSize: '12.5px',
-                    background: C.bg2,
-                    border: `1px solid ${C.border2}`,
-                    color: C.text,
-                    outline: 'none',
-                    boxSizing: 'border-box' as const,
-                  }}
-                />
-              ),
-            },
-            {
-              label: 'Fecha *',
-              node: (
-                <DatePicker
-                  value={date}
-                  onChange={setDate}
-                  placeholder="Selecciona una fecha"
-                  accent={color}
-                />
-              ),
-            },
-            {
-              label: 'Descripción',
-              node: (
-                <textarea
-                  value={desc}
-                  onChange={(e) => setDesc(e.target.value)}
-                  rows={2}
-                  placeholder="Opcional"
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '7px',
-                    fontSize: '12.5px',
-                    background: C.bg2,
-                    border: `1px solid ${C.border2}`,
-                    color: C.text,
-                    outline: 'none',
-                    resize: 'none',
-                    boxSizing: 'border-box' as const,
-                  }}
-                />
-              ),
-            },
-          ].map(({ label, node }) => (
-            <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <label
-                style={{
-                  fontSize: '10.5px',
-                  fontWeight: 700,
-                  letterSpacing: '0.07em',
-                  color: C.text4,
-                  textTransform: 'uppercase',
-                }}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label
+              htmlFor="milestone-name"
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                letterSpacing: '0.07em',
+                color: C.text4,
+                textTransform: 'uppercase',
+              }}
+            >
+              Nombre *
+            </label>
+            <input
+              id="milestone-name"
+              autoFocus
+              value={name}
+              aria-required="true"
+              aria-invalid={Boolean(fieldErrors.name)}
+              aria-describedby={fieldErrors.name ? 'milestone-name-error' : undefined}
+              onChange={(e) => {
+                const nextName = e.target.value;
+                setName(nextName);
+                setError('');
+                if (nextName.trim()) {
+                  setFieldErrors((current) => ({ ...current, name: undefined }));
+                }
+              }}
+              placeholder="Nombre del hito"
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: '7px',
+                fontSize: '12.5px',
+                background: C.bg2,
+                border: `1px solid ${fieldErrors.name ? C.red : C.border2}`,
+                color: C.text,
+                outline: 'none',
+                boxSizing: 'border-box' as const,
+                transition: 'border-color 0.14s',
+              }}
+            />
+            {fieldErrors.name && (
+              <span
+                id="milestone-name-error"
+                role="alert"
+                style={{ fontSize: '11.5px', color: C.red }}
               >
-                {label}
-              </label>
-              {node}
-            </div>
-          ))}
-          {error && <p style={{ fontSize: '11.5px', color: C.red }}>{error}</p>}
+                {fieldErrors.name}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label
+              htmlFor="milestone-date"
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                letterSpacing: '0.07em',
+                color: C.text4,
+                textTransform: 'uppercase',
+              }}
+            >
+              Fecha *
+            </label>
+            <DatePicker
+              id="milestone-date"
+              value={date}
+              onChange={(nextDate) => {
+                setDate(nextDate);
+                setError('');
+                if (nextDate) {
+                  setFieldErrors((current) => ({ ...current, date: undefined }));
+                }
+              }}
+              placeholder="Selecciona una fecha"
+              ariaLabel="Fecha del hito"
+              accent={color}
+              required
+              invalid={Boolean(fieldErrors.date)}
+              describedBy={fieldErrors.date ? 'milestone-date-error' : undefined}
+            />
+            {fieldErrors.date && (
+              <span
+                id="milestone-date-error"
+                role="alert"
+                style={{ fontSize: '11.5px', color: C.red }}
+              >
+                {fieldErrors.date}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label
+              htmlFor="milestone-description"
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                letterSpacing: '0.07em',
+                color: C.text4,
+                textTransform: 'uppercase',
+              }}
+            >
+              Descripción
+            </label>
+            <textarea
+              id="milestone-description"
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              rows={2}
+              placeholder="Opcional"
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: '7px',
+                fontSize: '12.5px',
+                background: C.bg2,
+                border: `1px solid ${C.border2}`,
+                color: C.text,
+                outline: 'none',
+                resize: 'none',
+                boxSizing: 'border-box' as const,
+              }}
+            />
+          </div>
+          {error && (
+            <p role="alert" style={{ margin: 0, fontSize: '11.5px', color: C.red }}>
+              {error}
+            </p>
+          )}
         </div>
         <div
           style={{
@@ -4643,6 +4771,7 @@ export default function ProjectDetailPage() {
     currentStats,
     fetchProjectById,
     fetchStats,
+    updateProject,
     updateMilestone,
     deleteMilestone,
     removeBoard,
@@ -4656,18 +4785,38 @@ export default function ProjectDetailPage() {
   );
   const canUseProjectPlanning = supportsOrganizationProjectPlanning(projectWorkspace);
   const canUseTeams = supportsOrganizationTeams(projectWorkspace);
-  const canManageProjectMembers = canUseProjectPlanning;
 
   // ── Role-based permissions ─────────────────────────────────────────────────
   // Derived after currentProject loads (workspaceId needed to find the workspace)
   const canEdit = currentProject?.access?.canManage === true;
+  const projectPermissions = currentProject?.access?.permissions;
+  const hasProjectPermission = (key: keyof NonNullable<typeof projectPermissions>) => projectPermissions?.[key] ?? canEdit;
+  const canManageProjectMembers = canUseProjectPlanning && hasProjectPermission('members.manage');
+  const canManageBoards = hasProjectPermission('boards.manage');
+  const canManagePlanning = hasProjectPermission('planning.manage');
+  const canManageRisks = hasProjectPermission('risks.manage');
+  const canManageTraceability = hasProjectPermission('traceability.manage');
+  const canManageDocuments = hasProjectPermission('documents.manage');
+  const canCreateWork = hasProjectPermission('work.create');
   const currentScrumRole = currentProject?.methodologyAssignments?.find(
     (assignment) => assignment.userId === currentUserId,
   )?.role;
-  const canManageScrumBacklog = canEdit || currentScrumRole === 'PRODUCT_OWNER';
-  const canManageScrumSprints = canEdit || currentScrumRole === 'SCRUM_MASTER';
-  const canPlanScrumSprint = canEdit || Boolean(currentScrumRole);
+  const canManageScrumBacklog = canManagePlanning || currentScrumRole === 'PRODUCT_OWNER';
+  const canManageScrumSprints = canManagePlanning || currentScrumRole === 'SCRUM_MASTER';
+  const canPlanScrumSprint = canManagePlanning || Boolean(currentScrumRole);
   const { documents, fetchProjectDocuments } = useDocumentStore();
+
+  useEffect(() => {
+    const organizationId = projectWorkspace?.organizationId;
+    if (!organizationId) { setOrganizationAccessRoles([]); return; }
+    let active = true;
+    void apiService.get<{ roles: OrganizationAccessRole[] }>(`/api/organizations/${organizationId}/access-roles`, true)
+      .then((response) => {
+        if (active && response.success && response.data) setOrganizationAccessRoles(response.data.roles ?? []);
+      })
+      .catch(() => { if (active) setOrganizationAccessRoles([]); });
+    return () => { active = false; };
+  }, [projectWorkspace?.organizationId]);
 
   const [showConfig, setShowConfig] = useState(false);
   const [showAppearance, setShowAppearance] = useState(false);
@@ -4681,14 +4830,26 @@ export default function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useRouteSectionState(
     'tab',
     'overview',
-    ['overview', 'boards', 'backlog', 'schedule', 'risks', 'docs', 'members', 'activity'] as const,
+    ['overview', 'boards', 'backlog', 'schedule', 'risks', 'traceability', 'docs', 'members', 'activity'] as const,
     projectId,
   );
+
+  useEffect(() => {
+    const handleProjectTabNavigation = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId: string }>).detail;
+      if (detail?.projectId === projectId && currentProject?.advancedTraceability) setActiveTab('traceability');
+    };
+    window.addEventListener('aether:project-tab', handleProjectTabNavigation);
+    return () => window.removeEventListener('aether:project-tab', handleProjectTabNavigation);
+  }, [currentProject?.advancedTraceability, projectId, setActiveTab]);
+
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [ganttRefreshTick, setGanttRefreshTick] = useState(0);
   const [riskRefreshTick, setRiskRefreshTick] = useState(0);
+  const [traceabilityRefreshTick, setTraceabilityRefreshTick] = useState(0);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [directMembers, setDirectMembers] = useState<DirectMember[]>([]);
+  const [organizationAccessRoles, setOrganizationAccessRoles] = useState<OrganizationAccessRole[]>([]);
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [inviteSearch, setInviteSearch] = useState('');
   const [inviteResults, setInviteResults] = useState<SearchUser[]>([]);
@@ -4702,6 +4863,7 @@ export default function ProjectDetailPage() {
   const [scrumAssignmentError, setScrumAssignmentError] = useState('');
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [activityError, setActivityError] = useState(false);
   const [actCats, setActCats] = useState<Set<ActCategory>>(
     new Set(['milestone', 'board', 'document', 'team', 'project'])
   );
@@ -4750,6 +4912,7 @@ export default function ProjectDetailPage() {
     { key: 'backlog', label: 'Backlog' },
     ...(canUseProjectPlanning ? [{ key: 'schedule' as const, label: 'Cronograma' }] : []),
     { key: 'risks', label: 'Riesgos' },
+    ...(currentProject?.advancedTraceability ? [{ key: 'traceability' as const, label: 'Trazabilidad' }] : []),
     { key: 'docs', label: 'Documentos' },
     ...(canManageProjectMembers ? [{ key: 'members' as const, label: 'Miembros' }] : []),
     { key: 'activity', label: 'Actividad' },
@@ -4764,6 +4927,11 @@ export default function ProjectDetailPage() {
     if (currentProject && !canUseProjectPlanning && activeTab === 'schedule')
       setActiveTab('overview');
   }, [activeTab, canUseProjectPlanning, currentProject, setActiveTab]);
+
+  useEffect(() => {
+    if (currentProject && !currentProject.advancedTraceability && activeTab === 'traceability')
+      setActiveTab('overview');
+  }, [activeTab, currentProject, setActiveTab]);
 
   useEffect(() => {
     if (canUseTeams && currentProject?.workspaceId) fetchTeams(currentProject.workspaceId);
@@ -4862,16 +5030,17 @@ export default function ProjectDetailPage() {
 
   // Actividad real del proyecto desde el event store — se refresca al entrar al tab
   useEffect(() => {
-    if (activeTab !== 'activity') return;
+    if (activeTab !== 'activity' && activeTab !== 'overview') return;
     let cancelled = false;
     setLoadingActivity(true);
+    setActivityError(false);
     projectApi
-      .getActivity(projectId)
+      .getActivity(projectId, activeTab === 'overview' ? 6 : 100)
       .then((events) => {
-        if (!cancelled) setActivityEntries(events);
+        if (!cancelled) { setActivityEntries(events); setActivityError(false); }
       })
       .catch(() => {
-        if (!cancelled) setActivityEntries([]);
+        if (!cancelled) { setActivityEntries([]); setActivityError(true); }
       })
       .finally(() => {
         if (!cancelled) setLoadingActivity(false);
@@ -4982,7 +5151,7 @@ export default function ProjectDetailPage() {
     if (
       !title ||
       !target ||
-      !(currentProject?.access?.canContribute || currentProject?.access?.canManage) ||
+      !canCreateWork ||
       creatingBacklogCard
     )
       return;
@@ -5013,6 +5182,7 @@ export default function ProjectDetailPage() {
           epicId: null,
           priority: created.priority ?? null,
           completed: created.completed ?? false,
+          blockedByPendingCount: 0,
           dueDate: created.dueDate ? new Date(created.dueDate).toISOString() : null,
           boardId: target.boardId,
           boardName: target.boardName,
@@ -5213,6 +5383,11 @@ export default function ProjectDetailPage() {
         case 'project.risk.updated':
         case 'project.risk.status-changed':
           setRiskRefreshTick((tick) => tick + 1);
+          break;
+
+        case 'project.deliverable.deleted':
+        case 'project.outcome.deleted':
+          setTraceabilityRefreshTick((tick) => tick + 1);
           break;
 
         case 'project.board.linked':
@@ -5587,7 +5762,7 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
 
-                  {canEdit && (
+                  {canManageBoards && (
                     <button
                       onClick={() => setShowAddBoard(true)}
                       style={{
@@ -5830,11 +6005,13 @@ export default function ProjectDetailPage() {
           flex: 1,
           overflowY: 'auto',
           width: '100%',
-          maxWidth: activeBoardId ? 'none' : '1140px',
+          maxWidth: activeBoardId || activeTab === 'traceability' ? 'none' : '1140px',
           margin: '0 auto',
           padding: activeBoardId
             ? '20px clamp(16px,2.5vw,32px) 0'
-            : '26px clamp(20px,4vw,48px) 60px',
+            : activeTab === 'traceability'
+              ? '26px clamp(24px,3vw,48px) 60px'
+              : '26px clamp(20px,4vw,48px) 60px',
           animation: 'tabFadeIn 0.22s cubic-bezier(0.16,1,0.3,1)',
           transition:
             'max-width 0.42s cubic-bezier(0.4,0,0.2,1), padding 0.42s cubic-bezier(0.4,0,0.2,1)',
@@ -5890,6 +6067,34 @@ export default function ProjectDetailPage() {
 
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                {project.advancedTraceability && <ProjectDirectionSummary
+                  project={project}
+                  stats={stats}
+                  milestones={milestones}
+                  cards={backlogCards}
+                  cardsLoading={backlogLoading}
+                  activity={activityEntries}
+                  activityLoading={loadingActivity}
+                  activityError={activityError}
+                  canEdit={canEdit}
+                  canManageTraceability={canManageTraceability}
+                  canUseProjectPlanning={canUseProjectPlanning}
+                  onAssignOwner={async (ownerId) => {
+                    const updated = await updateProject(project.id, { ownerId });
+                    if (!updated.access?.canRead) router.push('/dashboard/projects');
+                  }}
+                  onNavigate={(tab, options) => {
+                    if (tab === 'traceability' && options?.traceSection) {
+                      const url = new URL(window.location.href);
+                      if (options.traceSection === 'chain') url.searchParams.delete('traceSection');
+                      else url.searchParams.set('traceSection', options.traceSection);
+                      if (options.createBaseline) url.searchParams.set('traceAction', 'create-baseline');
+                      else url.searchParams.delete('traceAction');
+                      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+                    }
+                    setActiveTab(tab);
+                  }}
+                />}
                 {project.methodology === 'SCRUM' && canUseProjectPlanning && (
                   <ProjectScrumSummary
                     project={project}
@@ -6088,11 +6293,11 @@ export default function ProjectDetailPage() {
                   workspaceId={project.workspaceId}
                   onNavigate={() => setActiveBoardId(board.id)}
                   onRemove={
-                    canEdit ? () => setBoardToRemove({ id: board.id, name: board.name }) : undefined
+                    canManageBoards ? () => setBoardToRemove({ id: board.id, name: board.name }) : undefined
                   }
                 />
               ))}
-              {canEdit && <NewBoardCard onClick={() => setShowAddBoard(true)} />}
+              {canManageBoards && <NewBoardCard onClick={() => setShowAddBoard(true)} />}
             </div>
           ))}
 
@@ -6159,7 +6364,7 @@ export default function ProjectDetailPage() {
                       {backlogCards.length} tarjeta{backlogCards.length === 1 ? '' : 's'}
                     </span>
                   </div>
-                  {(project.access?.canContribute || project.access?.canManage) && (
+                  {canCreateWork && (
                     <div className={backlogStyles.quickCreateSection}>
                       {backlogTargetsLoading ? (
                         <div className={backlogStyles.quickCreateLoading} role="status">
@@ -6264,11 +6469,11 @@ export default function ProjectDetailPage() {
                       ) : (
                         <div className={backlogStyles.quickCreateNotice}>
                           <span>
-                            {canEdit
+                            {canManageBoards
                               ? 'Añade un tablero para empezar a crear tarjetas en el backlog.'
                               : 'Pide a quien administra el proyecto que añada un tablero para comenzar.'}
                           </span>
-                          {canEdit && (
+                          {canManageBoards && (
                             <button
                               type="button"
                               onClick={() => setShowAddBoard(true)}
@@ -6680,7 +6885,7 @@ export default function ProjectDetailPage() {
                     </p>
                   </div>
                 </div>
-                {canEdit && (
+                {canManagePlanning && (
                   <button
                     type="button"
                     onClick={() => setShowAddMs(true)}
@@ -7001,7 +7206,7 @@ export default function ProjectDetailPage() {
                           >
                             {mc.label}
                           </span>
-                          {canEdit && (
+                          {canManagePlanning && (
                             <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
                               <button
                                 onClick={() => setEditMs(m)}
@@ -7126,7 +7331,7 @@ export default function ProjectDetailPage() {
             documents={documents}
             members={members}
             color={color}
-            canEdit={canEdit}
+            canEdit={canManageDocuments}
             onCreate={() => setShowAddDoc(true)}
             onOpen={(documentId) => router.push(`/dashboard/documents/${documentId}`)}
           />
@@ -7134,26 +7339,61 @@ export default function ProjectDetailPage() {
 
         {/* ── RIESGOS ─────────────────────────────────────────────────────── */}
         {activeTab === 'risks' && (
-          <ProjectRisksTab projectId={projectId} canEdit={canEdit} refreshKey={riskRefreshTick} />
+          <ProjectRisksTab projectId={projectId} canEdit={canManageRisks} refreshKey={riskRefreshTick} />
+        )}
+
+        {/* ── TRAZABILIDAD ────────────────────────────────────────────────── */}
+        {activeTab === 'traceability' && project.advancedTraceability && (
+          <ProjectTraceabilityTab
+            projectId={projectId}
+            canEdit={canManageTraceability}
+            externalRefreshKey={traceabilityRefreshTick}
+            projectStartDate={project.startDate}
+            projectTargetDate={project.endDate}
+            workflowHistory={project.workflowHistory}
+          />
         )}
 
         {/* ── MIEMBROS ─────────────────────────────────────────────────────── */}
         {activeTab === 'members' &&
           canManageProjectMembers &&
           (() => {
+            const directMembersWithOwner = project.ownerId && !directMembers.some((m) => m.id === project.ownerId)
+              ? [
+                  ...directMembers,
+                  {
+                    id: project.ownerId,
+                    name: project.ownerName?.trim() || 'Propietario del proyecto',
+                    email: project.ownerEmail ?? '',
+                    avatar: project.ownerAvatar ?? null,
+                    role: 'OWNER',
+                    addedAt: project.createdAt,
+                  } satisfies DirectMember,
+                ]
+              : directMembers;
             const allMemberIds = new Set([
-              ...directMembers.map((m) => m.id),
+              ...(project.ownerId ? [project.ownerId] : []),
+              ...directMembersWithOwner.map((m) => m.id),
               ...members.map((m) => m.id),
             ]);
             const teamMemberIds = new Set(members.map((m) => m.id));
-            const directOnlyMembers = directMembers.filter((m) => !teamMemberIds.has(m.id));
+            const directOnlyMembers = directMembersWithOwner.filter((m) =>
+              m.id === project.ownerId || !teamMemberIds.has(m.id),
+            );
+            const ownerTeamNames = Array.from(new Set(
+              members.filter((m) => m.id === project.ownerId).map((m) => m.teamName),
+            ));
             const firstTeamByUser = new Map<string, string>();
             const inheritedRoleByUser = new Map<string, ProjectMember['role']>();
             members.forEach((m) => {
               if (!firstTeamByUser.has(m.id)) firstTeamByUser.set(m.id, m.teamId);
               const currentRole = inheritedRoleByUser.get(m.id);
-              const rolePriority = { VIEWER: 0, MEMBER: 1, ADMIN: 2 };
-              if (!currentRole || rolePriority[m.role] > rolePriority[currentRole]) {
+              const rolePriority = (roleKey: string) => {
+                const role = organizationAccessRoles.find((item) => item.roleKey === roleKey);
+                if (role) return Object.values(role.permissions).filter(Boolean).length;
+                return roleKey === 'ADMIN' ? 3 : roleKey === 'MEMBER' ? 2 : 1;
+              };
+              if (!currentRole || rolePriority(m.role) > rolePriority(currentRole)) {
                 inheritedRoleByUser.set(m.id, m.role);
               }
             });
@@ -7162,6 +7402,7 @@ export default function ProjectDetailPage() {
               || `${user.name} ${user.email}`.toLocaleLowerCase().includes(searchQuery));
             const filteredResults = matchingWorkspaceMembers.filter((user) => user.id !== currentUserId && !allMemberIds.has(user.id));
             const isEmpty =
+              !project.ownerId &&
               directMembers.length === 0 &&
               members.length === 0 &&
               (!canUseTeams || assignedTeams.length === 0);
@@ -7190,7 +7431,7 @@ export default function ProjectDetailPage() {
                         En miembros de equipos, puedes fijar un permiso solo para este proyecto o volver a heredar el del equipo.
                       </p>
                     </div>
-                    {canEdit && (
+                    {canManageProjectMembers && (
                       <div className={membersStyles.membersActions}>
                         <button
                           type="button"
@@ -7226,7 +7467,7 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
 
-                  {showInvitePanel && canEdit && (
+                  {showInvitePanel && canManageProjectMembers && (
                     <div className={membersStyles.invitePanel}>
                       <div className={membersStyles.invitePanelIntro}>
                         <div>
@@ -7382,7 +7623,7 @@ export default function ProjectDetailPage() {
                               {person.email}
                             </span>
                           </div>
-                          {canEdit ? (
+                          {canManagePlanning ? (
                             <select
                               aria-label={`Responsabilidad Scrum de ${person.name}`}
                               value={person.role}
@@ -7436,19 +7677,14 @@ export default function ProjectDetailPage() {
                 {directOnlyMembers.length > 0 && (
                   <section className={membersStyles.memberGroup} style={{ marginBottom: members.length > 0 ? '18px' : 0 }}>
                     <div className={membersStyles.groupHeading}>
-                      <h3>Acceso individual</h3>
+                      <h3>Acceso general al proyecto</h3>
                       <span>{directOnlyMembers.length}</span>
                     </div>
                     <div className={membersStyles.memberList}>
                       {directOnlyMembers.map((m) => {
                         const isProjectOwner = project.ownerId === m.id;
-                        const roleLbl = isProjectOwner || m.role === 'OWNER'
-                          ? 'Propietario'
-                          : m.role === 'ADMIN'
-                            ? 'Coordinador'
-                            : m.role === 'VIEWER'
-                              ? 'Observador'
-                              : 'Colaborador';
+                        const roleLbl = isProjectOwner ? 'Propietario' : m.roleName || projectAccessRoleName(m.role, organizationAccessRoles);
+                        const avatarUrl = getAvatarUrl(m.avatar);
                         return (
                           <div
                             key={m.id}
@@ -7457,12 +7693,12 @@ export default function ProjectDetailPage() {
                             <span
                               className={membersStyles.memberAvatar}
                               style={{
-                                background: m.avatar ? 'transparent' : memberColor(m.id),
+                                background: avatarUrl ? 'transparent' : memberColor(m.id),
                               }}
                             >
-                              {m.avatar ? (
+                              {avatarUrl ? (
                                 <img
-                                  src={m.avatar}
+                                  src={avatarUrl}
                                   alt={m.name}
                                   style={{
                                     width: '100%',
@@ -7485,14 +7721,19 @@ export default function ProjectDetailPage() {
                                   {m.name}
                                 </span>
                               </div>
-                              <div
-                                className={membersStyles.memberEmail}
-                              >
-                                {m.email}
-                              </div>
+                              {m.email && (
+                                <div className={membersStyles.memberEmail}>
+                                  {m.email}
+                                </div>
+                              )}
+                              {isProjectOwner && ownerTeamNames.length > 0 && (
+                                <div className={membersStyles.memberEmail}>
+                                  También pertenece a {ownerTeamNames.join(', ')}.
+                                </div>
+                              )}
                             </div>
                             {/* Role selector — editable by OWNER, read-only badge otherwise */}
-                            {canEdit && !isProjectOwner ? (
+                            {canManageProjectMembers && !isProjectOwner ? (
                               <select
                                 aria-label={`Permiso de ${m.name} en este proyecto`}
                                 value={m.role}
@@ -7501,9 +7742,7 @@ export default function ProjectDetailPage() {
                                 className={membersStyles.memberRoleSelect}
                               >
                                 {m.role === 'OWNER' && <option value="OWNER" disabled>Propietario</option>}
-                                <option value="ADMIN">Coordinador</option>
-                                <option value="MEMBER">Colaborador</option>
-                                <option value="VIEWER">Observador</option>
+                                {organizationAccessRoles.map((role) => <option key={role.roleKey} value={role.roleKey}>{role.name}</option>)}
                               </select>
                             ) : (
                               <span
@@ -7512,7 +7751,7 @@ export default function ProjectDetailPage() {
                                 {roleLbl}
                               </span>
                             )}
-                            {canEdit && !isProjectOwner && (
+                            {canManageProjectMembers && !isProjectOwner && (
                               <button
                                 onClick={() => handleRemoveDirectMember(m.id)}
                                 title="Quitar del proyecto"
@@ -7537,7 +7776,13 @@ export default function ProjectDetailPage() {
                       <span>{assignedTeams.length}</span>
                     </div>
                     {assignedTeams.map((team) => {
-                      const teamMembers = members.filter((member) => member.teamId === team.id);
+                      const teamOwnerBelongs = members.some((member) =>
+                        member.teamId === team.id && member.id === project.ownerId,
+                      );
+                      const teamMembers = members.filter((member) =>
+                        member.teamId === team.id && member.id !== project.ownerId,
+                      );
+                      const teamMemberCount = teamMembers.length + (teamOwnerBelongs ? 1 : 0);
                       return (
                         <section
                           key={team.id}
@@ -7545,7 +7790,7 @@ export default function ProjectDetailPage() {
                         >
                           <div
                             className={membersStyles.teamHeader}
-                            data-has-members={teamMembers.length > 0 || undefined}
+                            data-has-members={teamMemberCount > 0 || undefined}
                           >
                             <span
                               className={membersStyles.teamIcon}
@@ -7557,52 +7802,45 @@ export default function ProjectDetailPage() {
                             </span>
                             <strong className={membersStyles.teamName}>{team.name}</strong>
                             <span className={membersStyles.teamCount}>
-                              {teamMembers.length}{' '}
-                              {teamMembers.length === 1 ? 'persona' : 'personas'}
+                              {teamMemberCount}{' '}
+                              {teamMemberCount === 1 ? 'persona' : 'personas'}
                             </span>
                           </div>
-                          {teamMembers.length === 0 ? (
-                            <p
-                              style={{ margin: 0, padding: '16px', fontSize: 12.5, color: C.text4 }}
-                            >
-                              Este equipo aún no tiene miembros con acceso al espacio de trabajo.
+                          {teamOwnerBelongs && (
+                            <p className={membersStyles.teamOwnerHint}>
+                              El propietario también pertenece a este equipo y aparece una sola vez en el acceso general.
                             </p>
+                          )}
+                          {teamMembers.length === 0 ? (
+                            !teamOwnerBelongs && (
+                              <p
+                                style={{ margin: 0, padding: '16px', fontSize: 12.5, color: C.text4 }}
+                              >
+                                Este equipo aún no tiene miembros con acceso al espacio de trabajo.
+                              </p>
+                            )
                           ) : (
                             teamMembers.map((m) => {
                               const direct = directMembers.find((person) => person.id === m.id);
                               const showDirectControls =
                                 firstTeamByUser.get(m.id) === team.id;
                               const isProjectOwner = project.ownerId === m.id;
-                              const roleLbl =
-                                m.role === 'ADMIN'
-                                  ? 'Coordinador'
-                                  : m.role === 'VIEWER'
-                                    ? 'Observador'
-                                    : 'Colaborador';
+                              const roleLbl = m.roleName || projectAccessRoleName(m.role, organizationAccessRoles);
                               const inheritedRole = inheritedRoleByUser.get(m.id) ?? m.role;
-                              const inheritedRoleLabel = inheritedRole === 'ADMIN'
-                                ? 'Coordinador'
-                                : inheritedRole === 'VIEWER'
-                                  ? 'Observador'
-                                  : 'Colaborador';
-                              const projectRoleLabel = direct?.role === 'ADMIN'
-                                ? 'Coordinador'
-                                : direct?.role === 'VIEWER'
-                                  ? 'Observador'
-                                  : direct?.role === 'OWNER'
-                                    ? 'Propietario'
-                                    : 'Colaborador';
+                              const inheritedRoleLabel = projectAccessRoleName(inheritedRole, organizationAccessRoles);
+                              const projectRoleLabel = direct?.roleName || projectAccessRoleName(direct?.role, organizationAccessRoles);
+                              const avatarUrl = getAvatarUrl(m.avatar);
                               return (
                                 <div key={m.id} className={membersStyles.teamMemberRow}>
                                   <span
                                     className={membersStyles.memberAvatar}
                                     style={{
-                                      background: m.avatar ? 'transparent' : memberColor(m.id),
+                                      background: avatarUrl ? 'transparent' : memberColor(m.id),
                                     }}
                                   >
-                                    {m.avatar ? (
+                                    {avatarUrl ? (
                                       <img
-                                        src={m.avatar}
+                                        src={avatarUrl}
                                         alt={m.name}
                                         style={{
                                           width: '100%',
@@ -7636,7 +7874,7 @@ export default function ProjectDetailPage() {
                                     </div>
                                     <div className={membersStyles.memberEmail}>{m.email}</div>
                                   </div>
-                                  {showDirectControls && canEdit && !isProjectOwner ? (
+                                  {showDirectControls && canManageProjectMembers && !isProjectOwner ? (
                                     <select
                                       aria-label={`Permiso de ${m.name} en este proyecto`}
                                       value={direct?.role ?? 'INHERIT'}
@@ -7645,10 +7883,7 @@ export default function ProjectDetailPage() {
                                       className={membersStyles.teamRoleSelect}
                                     >
                                       <option value="INHERIT">Heredar del equipo ({inheritedRoleLabel})</option>
-                                      {direct?.role === 'OWNER' && <option value="OWNER" disabled>Propietario</option>}
-                                      <option value="ADMIN">Coordinador del proyecto</option>
-                                      <option value="MEMBER">Colaborador</option>
-                                      <option value="VIEWER">Observador</option>
+                                      {organizationAccessRoles.map((role) => <option key={role.roleKey} value={role.roleKey}>{role.name}</option>)}
                                     </select>
                                   ) : null}
                                 </div>

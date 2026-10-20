@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, FolderKanban, Plus, RotateCcw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FolderKanban, GitBranch, Plus, RotateCcw, X } from 'lucide-react';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
 import { ProjectProposalFields, EMPTY_PROJECT_PROPOSAL, PROPOSAL_STEPS, type ProjectProposalAnswers, type ProposalStep } from '@/components/ProjectProposalFields';
 import { ProjectMethodologyStep, type ProjectParticipant, type ProjectTeamOption } from '@/components/ProjectMethodologyStep';
@@ -57,6 +57,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
   const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
   const [methodology, setMethodology] = useState<'FLEXIBLE' | 'SCRUM'>('FLEXIBLE');
+  const [advancedTraceability, setAdvancedTraceability] = useState(false);
   const [teams, setTeams] = useState<ProjectTeamOption[]>([]);
   const [members, setMembers] = useState<ProjectParticipant[]>([]);
   const [teamIds, setTeamIds] = useState<string[]>([]);
@@ -94,6 +95,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
     setProposal(draft.proposal);
     setCustomCardPrefix(draft.cardPrefixCustomized ? (draft.cardPrefix ?? '').slice(0, 3) : null);
     setMethodology(canConfigureMethodology ? draft.methodology : 'FLEXIBLE');
+    setAdvancedTraceability(draft.advancedTraceability ?? false);
     setResumingDraft(true);
     setStep(3);
   }, [canConfigureMethodology, currentUserId, selectedWorkspaceId]);
@@ -138,6 +140,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
       savedAt: Date.now(), userId: currentUserId, workspaceId: selectedWorkspaceId,
       proposal, cardPrefix, cardPrefixCustomized: customCardPrefix !== null,
       methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
+      advancedTraceability,
       teamIds: canSelectTeams ? teamIds : [], memberIds: canConfigureMethodology ? memberIds : [], productOwnerId, scrumMasterId,
     });
     setResumingDraft(true);
@@ -152,6 +155,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
       savedAt: Date.now(), userId: currentUserId, workspaceId: selectedWorkspaceId,
       proposal, cardPrefix, cardPrefixCustomized: customCardPrefix !== null,
       methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
+      advancedTraceability,
       teamIds: canSelectTeams ? (participantsLoaded ? teamIds : waitingDraft?.teamIds ?? teamIds) : [],
       memberIds: canConfigureMethodology ? (participantsLoaded ? memberIds : waitingDraft?.memberIds ?? memberIds) : [],
       productOwnerId: participantsLoaded ? productOwnerId : waitingDraft?.productOwnerId ?? productOwnerId,
@@ -216,6 +220,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
         icon: 'Folder',
         color: PROJECT_COLOR,
         methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
+        advancedTraceability,
         teamIds: canSelectTeams ? teamIds : [],
         memberIds: canConfigureMethodology ? memberIds : [],
         productOwnerId: methodology === 'SCRUM' ? productOwnerId : null,
@@ -321,6 +326,12 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
               {selectedWorkspace && step < 3 ? <>
                 <ProjectProposalFields step={step as ProposalStep} values={proposal} onChange={updateProposal} accent={PROJECT_COLOR} />
+                {step === 2 && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 14, padding: '11px 12px', border: '1px solid rgba(116,82,166,0.18)', borderRadius: 9, background: 'rgba(116,82,166,0.055)' }}>
+                  <Check size={15} style={{ flex: '0 0 auto', marginTop: 1, color: PROJECT_COLOR }} />
+                  <p style={{ margin: 0, color: 'var(--c-text2)', fontSize: 11, lineHeight: 1.5, fontFamily: MANROPE }}>
+                    El resultado esperado queda guardado con el proyecto. Si añades Trazabilidad avanzada, podrás completarlo con indicador y meta, acordar la línea base y dar seguimiento a hitos y resultados.
+                  </p>
+                </div>}
               </> : selectedWorkspace ? <ProjectMethodologyStep
                 methodology={methodology} onMethodologyChange={setMethodology}
                 teams={teams} members={members} teamIds={teamIds} onTeamIdsChange={setTeamIds}
@@ -338,6 +349,22 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   <p style={{ margin: '0 0 12px', color: '#D8D1C5', fontSize: 13, lineHeight: 1.55 }}>{isInstitutionalWorkspace ? 'En esta organización, las propuestas pasan por la bandeja de iniciativas antes de convertirse en proyectos.' : 'Activa un espacio personal o de equipo desde el menú lateral para crear el proyecto.'}</p>
                   {isInstitutionalWorkspace && <Link href="/dashboard/initiatives/new" onClick={handleClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: PROJECT_COLOR, fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>Crear iniciativa institucional <ArrowRight size={14} /></Link>}
                 </div>
+              )}
+
+              {selectedWorkspace && step === 3 && (
+                <section aria-labelledby="project-traceability-title" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'start', gap: '10px 14px', marginTop: 18, padding: '14px 15px', border: '1px solid rgba(116,82,166,0.2)', borderRadius: 11, background: 'linear-gradient(125deg, rgba(116,82,166,0.075), rgba(97,71,130,0.025))' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, minWidth: 0 }}>
+                    <span style={{ width: 31, height: 31, flex: '0 0 31px', display: 'grid', placeItems: 'center', border: '1px solid rgba(116,82,166,0.22)', borderRadius: 9, color: PROJECT_COLOR, background: 'rgba(116,82,166,0.1)' }}><GitBranch size={15} /></span>
+                    <div style={{ minWidth: 0 }}>
+                      <h4 id="project-traceability-title" style={{ margin: '1px 0 4px', color: 'var(--c-text)', fontSize: 12, fontWeight: 750, fontFamily: MANROPE }}>Trazabilidad avanzada <span style={{ color: 'var(--c-text4)', fontSize: 10, fontWeight: 600 }}>Complemento opcional</span></h4>
+                      <p style={{ margin: 0, color: 'var(--c-text3)', fontSize: 10.5, lineHeight: 1.5, fontFamily: MANROPE }}>Añade objetivo medible, entregables, requisitos, hitos, resultados, decisiones y línea base. Puedes usarla con Flexible o Scrum.</p>
+                    </div>
+                  </div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 30, padding: '0 9px', border: `1px solid ${advancedTraceability ? 'rgba(116,82,166,0.42)' : 'rgba(97,71,130,0.14)'}`, borderRadius: 8, background: advancedTraceability ? 'rgba(116,82,166,0.12)' : 'rgba(97,71,130,0.035)', color: advancedTraceability ? 'var(--c-text)' : 'var(--c-text2)', cursor: isLoading ? 'not-allowed' : 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={advancedTraceability} onChange={(event) => setAdvancedTraceability(event.target.checked)} disabled={isLoading} style={{ accentColor: PROJECT_COLOR }} />
+                    Incluir
+                  </label>
+                </section>
               )}
 
               {selectedWorkspace && step === 3 && <section aria-labelledby="project-card-prefix-title" style={{ marginTop: 20, padding: '16px 0 2px', borderTop: '1px solid rgba(97,71,130,0.12)' }}>

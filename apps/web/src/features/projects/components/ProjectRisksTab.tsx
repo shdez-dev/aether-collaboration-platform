@@ -54,6 +54,7 @@ type Draft = {
 };
 
 type Filter = 'active' | 'all';
+type RiskFieldErrors = Partial<Record<'title' | 'ownerId' | 'mitigationPlan', string>>;
 
 const RISK_TITLE_MAX_LENGTH = 255;
 const RISK_TEXT_MAX_LENGTH = 5000;
@@ -121,6 +122,8 @@ function RiskSelect({
   placeholder = 'Selecciona una opción',
   disabled = false,
   labelledBy,
+  invalid = false,
+  describedBy,
 }: {
   label: string;
   value: string;
@@ -129,6 +132,8 @@ function RiskSelect({
   placeholder?: string;
   disabled?: boolean;
   labelledBy?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   const id = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -300,12 +305,14 @@ function RiskSelect({
       <button
         ref={triggerRef}
         type="button"
-        className={`${styles.selectTrigger} ${open ? styles.selectTriggerOpen : ''}`}
+        className={`${styles.selectTrigger} ${open ? styles.selectTriggerOpen : ''} ${invalid ? styles.selectTriggerInvalid : ''}`}
         aria-label={labelledBy ? undefined : `${label}: ${selectedOption?.label ?? placeholder}`}
         aria-labelledby={labelledBy ? `${labelledBy} ${id}-value` : undefined}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls={`${id}-listbox`}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openAt(selectedIndex >= 0 ? selectedIndex : 0))}
         onKeyDown={handleTriggerKeyDown}
@@ -390,6 +397,7 @@ export function ProjectRisksTab({
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<RiskFieldErrors>({});
   const formRef = useRef<HTMLFormElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -503,6 +511,7 @@ export function ProjectRisksTab({
     setEditingRiskId(null);
     setDraft(emptyDraft(owners[0]?.id ?? ''));
     setFormError('');
+    setFieldErrors({});
     setShowForm(true);
   }
 
@@ -511,6 +520,7 @@ export function ProjectRisksTab({
     setEditingRiskId(risk.id);
     setDraft(draftFromRisk(risk));
     setFormError('');
+    setFieldErrors({});
     setShowForm(true);
   }
 
@@ -518,16 +528,40 @@ export function ProjectRisksTab({
     setShowForm(false);
     setEditingRiskId(null);
     setFormError('');
+    setFieldErrors({});
     window.requestAnimationFrame(() => {
       if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
       returnFocusRef.current = null;
     });
   }
 
+  function clearFieldError(field: keyof RiskFieldErrors) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
   async function saveRisk(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
     setFormError('');
+    const errors: RiskFieldErrors = {};
+    if (!draft.title.trim()) errors.title = 'Describe qué podría ocurrir para identificar este riesgo.';
+    if (!draft.ownerId || !owners.some((owner) => owner.id === draft.ownerId)) {
+      errors.ownerId = 'Elige quién dará seguimiento a este riesgo.';
+    }
+    if (!draft.mitigationPlan.trim()) {
+      errors.mitigationPlan = 'Describe las acciones para reducir o gestionar esta exposición.';
+    }
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      window.requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+      return;
+    }
+    setSaving(true);
+    setFieldErrors({});
     const input: ProjectRiskInput = {
       title: draft.title.trim(),
       description: draft.description.trim() || null,
@@ -579,7 +613,7 @@ export function ProjectRisksTab({
       {showForm && (
         createPortal(
         <div className={styles.modalBackdrop}>
-        <form ref={formRef} className={styles.formPanel} onSubmit={saveRisk} role="dialog" aria-modal="true" aria-labelledby="risk-form-title">
+        <form ref={formRef} className={styles.formPanel} onSubmit={saveRisk} noValidate role="dialog" aria-modal="true" aria-labelledby="risk-form-title">
           <div className={styles.formHeading}>
             <div>
               <h3 id="risk-form-title">{editingRiskId ? 'Editar riesgo' : 'Nuevo riesgo'}</h3>
@@ -599,9 +633,10 @@ export function ProjectRisksTab({
                   <div><h4 id="risk-identify-title">Describe el riesgo</h4><p>Enuncia la incertidumbre de forma concreta para que el equipo pueda reconocerla.</p></div>
                 </div>
                 <div className={styles.formGrid}>
-                  <label className={`${styles.field} ${styles.fullField}`}>
+                  <label className={`${styles.field} ${styles.fullField} ${fieldErrors.title ? styles.fieldInvalid : ''}`}>
                     <span>¿Qué podría ocurrir? <em>Requerido</em><small className={styles.characterCount}>{draft.title.length}/{RISK_TITLE_MAX_LENGTH}</small></span>
-                    <input autoFocus={!editingRiskId} maxLength={RISK_TITLE_MAX_LENGTH} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Ej. El proveedor podría retrasar la entrega crítica" />
+                    <input id="risk-title" autoFocus={!editingRiskId} maxLength={RISK_TITLE_MAX_LENGTH} value={draft.title} aria-required="true" aria-invalid={Boolean(fieldErrors.title)} aria-describedby={fieldErrors.title ? 'risk-title-error' : undefined} onChange={(event) => { clearFieldError('title'); setDraft((current) => ({ ...current, title: event.target.value })); }} placeholder="Ej. El proveedor podría retrasar la entrega crítica" />
+                    {fieldErrors.title && <small id="risk-title-error" className={styles.fieldError} role="alert">{fieldErrors.title}</small>}
                   </label>
                   <label className={`${styles.field} ${styles.fullField}`}>
                     <span>Contexto y causa <small>Opcional</small><small className={styles.characterCount}>{draft.description.length}/{RISK_TEXT_MAX_LENGTH}</small></span>
@@ -633,9 +668,10 @@ export function ProjectRisksTab({
                   <div><h4 id="risk-response-title">Define la respuesta</h4><p>Asigna a una persona y registra las acciones que reducirán o manejarán la exposición.</p></div>
                 </div>
                 <div className={styles.formGrid}>
-                  <div className={styles.field}>
+                  <div className={`${styles.field} ${fieldErrors.ownerId ? styles.fieldInvalid : ''}`}>
                     <span id="risk-owner-label">Responsable <em>Requerido</em></span>
-                    <RiskSelect label="Responsable" labelledBy="risk-owner-label" value={draft.ownerId} options={ownerOptions} placeholder="Elige quién lo seguirá" disabled={saving} onChange={(ownerId) => setDraft({ ...draft, ownerId })} />
+                    <RiskSelect label="Responsable" labelledBy="risk-owner-label" value={draft.ownerId} options={ownerOptions} placeholder="Elige quién lo seguirá" disabled={saving} invalid={Boolean(fieldErrors.ownerId)} describedBy={fieldErrors.ownerId ? 'risk-owner-error' : undefined} onChange={(ownerId) => { clearFieldError('ownerId'); setDraft((current) => ({ ...current, ownerId })); }} />
+                    {fieldErrors.ownerId && <small id="risk-owner-error" className={styles.fieldError} role="alert">{fieldErrors.ownerId}</small>}
                   </div>
                   {editingRiskId && (
                     <div className={styles.field}>
@@ -643,9 +679,10 @@ export function ProjectRisksTab({
                       <RiskSelect label="Estado del riesgo" labelledBy="risk-status-label" value={draft.status} options={statusOptions} disabled={saving} onChange={(status) => setDraft({ ...draft, status: status as ProjectRiskStatus })} />
                     </div>
                   )}
-                  <label className={`${styles.field} ${styles.fullField}`}>
+                  <label className={`${styles.field} ${styles.fullField} ${fieldErrors.mitigationPlan ? styles.fieldInvalid : ''}`}>
                     <span>Plan de mitigación o respuesta <em>Requerido</em><small className={styles.characterCount}>{draft.mitigationPlan.length}/{RISK_TEXT_MAX_LENGTH}</small></span>
-                    <textarea maxLength={RISK_TEXT_MAX_LENGTH} required rows={3} value={draft.mitigationPlan} onChange={(event) => setDraft({ ...draft, mitigationPlan: event.target.value })} placeholder="Describe acciones, responsables de ejecución y cómo sabrán que la respuesta funciona." />
+                    <textarea id="risk-mitigation-plan" maxLength={RISK_TEXT_MAX_LENGTH} rows={3} value={draft.mitigationPlan} aria-required="true" aria-invalid={Boolean(fieldErrors.mitigationPlan)} aria-describedby={fieldErrors.mitigationPlan ? 'risk-mitigation-plan-error' : undefined} onChange={(event) => { clearFieldError('mitigationPlan'); setDraft((current) => ({ ...current, mitigationPlan: event.target.value })); }} placeholder="Describe acciones, responsables de ejecución y cómo sabrán que la respuesta funciona." />
+                    {fieldErrors.mitigationPlan && <small id="risk-mitigation-plan-error" className={styles.fieldError} role="alert">{fieldErrors.mitigationPlan}</small>}
                   </label>
                 </div>
               </section>

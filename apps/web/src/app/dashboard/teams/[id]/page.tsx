@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useTeamStore, type Team, type TeamMember, type TeamActivity, type TeamInvitation } from '@/stores/teamStore';
+import type { OrganizationAccessRole } from '@aether/types';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { supportsOrganizationTeams } from '@/lib/workspaceFeatures';
 import { useAuthStore } from '@/stores/authStore';
@@ -126,14 +127,14 @@ function AddMemberModal({ teamId, organizationId, currentUserId, existingMemberI
   organizationId?: string;
   currentUserId?: string;
   existingMemberIds: string[];
-  allowedRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'>;
+  allowedRoles: OrganizationAccessRole[];
   onClose: () => void;
   onAdded: () => void;
 }) {
   const t = es;
   const { addMember } = useTeamStore();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'ADMIN' | 'MEMBER' | 'VIEWER'>('MEMBER');
+  const [role, setRole] = useState('MEMBER');
   const [organizationMembers, setOrganizationMembers] = useState<OrganizationMemberOption[]>([]);
   const [memberSearch, setMemberSearch] = useState('');
   const [membersLoading, setMembersLoading] = useState(false);
@@ -142,6 +143,10 @@ function AddMemberModal({ teamId, organizationId, currentUserId, existingMemberI
   const [invitingMemberId, setInvitingMemberId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (allowedRoles.length && !allowedRoles.some((option) => option.roleKey === role)) setRole(allowedRoles[0].roleKey);
+  }, [allowedRoles, role]);
 
   useEffect(() => {
     if (!organizationId) {
@@ -246,7 +251,7 @@ function AddMemberModal({ teamId, organizationId, currentUserId, existingMemberI
             </div>
             <div className="flex flex-col gap-1.5">
               <span className="text-[12px] font-medium" style={{ color: C.text2 }}>Rol dentro del equipo</span>
-              <ProjectOptionSelect label="Rol dentro del equipo" value={role} onChange={(value) => setRole(value as 'ADMIN' | 'MEMBER' | 'VIEWER')} options={allowedRoles.map((option) => ({ value: option, label: roleLabel(option, t) }))} />
+              <ProjectOptionSelect label="Rol dentro del equipo" value={role} onChange={setRole} options={allowedRoles.map((option) => ({ value: option.roleKey, label: option.name }))} />
             </div>
             <div className="rounded-[9px] px-3 py-2.5 text-[11.5px] leading-5" style={{ background: C.bg2, border: `1px solid ${C.border}`, color: C.text3 }}>
               La persona debe pertenecer a la organización. Al aceptar la invitación, obtendrá acceso al espacio de trabajo y al equipo.
@@ -508,28 +513,24 @@ function SettingsModal({ team, members, canDelete, onClose, onUpdated, onDeleted
 
 // ── Member Card ───────────────────────────────────────────────────────────────
 
-const TEAM_ROLES: Array<'ADMIN' | 'MEMBER' | 'VIEWER'> = ['ADMIN', 'MEMBER', 'VIEWER'];
+const roleName = (role: string, roles: OrganizationAccessRole[], t: ReturnType<typeof import('@/lib/i18n').useT>) =>
+  roles.find((item) => item.roleKey === role)?.name ?? (role === 'ADMIN' ? t.teams_role_admin : role === 'VIEWER' ? t.teams_role_viewer : t.teams_role_member);
 
-function roleLabel(role: string, t: ReturnType<typeof import('@/lib/i18n').useT>): string {
-  if (role === 'ADMIN')  return t.teams_role_admin;
-  if (role === 'VIEWER') return t.teams_role_viewer;
-  return t.teams_role_member;
+function roleDescription(role: string, roles: OrganizationAccessRole[]): string {
+  return roles.find((item) => item.roleKey === role)?.description ?? (role === 'ADMIN'
+    ? 'Gestiona miembros, invitaciones y configuración del equipo.'
+    : role === 'VIEWER' ? 'Consulta los proyectos asignados al equipo sin modificarlos.' : 'Colabora en los proyectos asignados al equipo.');
 }
 
-function roleDescription(role: string): string {
-  if (role === 'ADMIN') return 'Gestiona miembros, invitaciones y configuración del equipo; no administra permisos de proyectos.';
-  if (role === 'VIEWER') return 'Consulta los proyectos asignados al equipo sin modificarlos.';
-  return 'Colabora en los proyectos asignados al equipo.';
-}
-
-function roleIcon(role: string) {
-  if (role === 'ADMIN') return ShieldCheck;
-  if (role === 'VIEWER') return Eye;
+function roleIcon(role: string, roles: OrganizationAccessRole[]) {
+  if (roles.find((item) => item.roleKey === role)?.permissions['teams.manage'] || role === 'ADMIN') return ShieldCheck;
+  if (!roles.find((item) => item.roleKey === role)?.permissions['work.create'] || role === 'VIEWER') return Eye;
   return UserRound;
 }
 
 function MemberCard({
   member,
+  organizationRoles,
   teamColor,
   canChangeRole,
   canRemove,
@@ -540,14 +541,15 @@ function MemberCard({
   onChangeRole,
 }: {
   member: TeamMember;
+  organizationRoles: OrganizationAccessRole[];
   teamColor: string;
   canChangeRole: boolean;
   canRemove: boolean;
-  allowedRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'>;
+  allowedRoles: OrganizationAccessRole[];
   creatorId: string;
   roleLockReason: string;
   onRemove: (userId: string) => void;
-  onChangeRole: (userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') => Promise<void>;
+  onChangeRole: (userId: string, newRole: string) => Promise<void>;
 }) {
   const t = es;
   const [hov, setHov] = useState(false);
@@ -559,7 +561,7 @@ function MemberCard({
   const isAdmin = member.role === 'ADMIN';
   const isCreator = member.id === creatorId;
   const hasOverdue = member.workload.overdueCards > 0;
-  const RoleIcon = roleIcon(member.role);
+  const RoleIcon = roleIcon(member.role, organizationRoles);
 
   useEffect(() => {
     if (!roleOpen) return;
@@ -581,7 +583,7 @@ function MemberCard({
     };
   }, [roleOpen]);
 
-  async function selectRole(role: 'ADMIN' | 'MEMBER' | 'VIEWER') {
+  async function selectRole(role: string) {
     if (role === member.role || savingRole) return;
     setSavingRole(true);
     setRoleError('');
@@ -639,7 +641,7 @@ function MemberCard({
             type="button"
             className={`${styles.roleTrigger} ${roleOpen ? styles.roleTriggerOpen : ''}`}
             onClick={() => { setRoleError(''); setRoleOpen((open) => !open); }}
-            aria-label={`Cambiar rol de ${member.name}. Actualmente: ${roleLabel(member.role, t)}`}
+            aria-label={`Cambiar rol de ${member.name}. Actualmente: ${member.roleName || roleName(member.role, organizationRoles, t)}`}
             aria-haspopup="listbox"
             aria-expanded={roleOpen}
             disabled={savingRole}
@@ -648,7 +650,7 @@ function MemberCard({
               {savingRole ? <LoaderCircle size={15} className={styles.roleSpinner} /> : <RoleIcon size={15} />}
             </span>
             <span className={styles.roleTriggerCopy}>
-              <strong>{savingRole ? 'Guardando…' : roleLabel(member.role, t)}</strong>
+              <strong>{savingRole ? 'Guardando…' : member.roleName || roleName(member.role, organizationRoles, t)}</strong>
               <small>{savingRole ? 'Aplicando cambio' : 'Cambiar rol'}</small>
             </span>
             <ChevronDown size={15} className={`${styles.roleChevron} ${roleOpen ? styles.roleChevronOpen : ''}`} />
@@ -675,22 +677,22 @@ function MemberCard({
                 <small>Elige qué puede hacer en el equipo</small>
               </div>
               {allowedRoles.map((role) => {
-                const OptionIcon = roleIcon(role);
-                const selected = role === member.role;
+                const OptionIcon = roleIcon(role.roleKey, organizationRoles);
+                const selected = role.roleKey === member.role;
                 return (
                   <button
-                    key={role}
+                    key={role.roleKey}
                     type="button"
                     role="option"
                     aria-selected={selected}
                     className={`${styles.roleOption} ${selected ? styles.roleOptionSelected : ''}`}
-                    onClick={() => void selectRole(role)}
+                    onClick={() => void selectRole(role.roleKey)}
                     disabled={savingRole}
                   >
                     <span className={styles.roleOptionIcon}><OptionIcon size={16} /></span>
                     <span className={styles.roleOptionCopy}>
-                      <strong>{roleLabel(role, t)}{selected && <span>Actual</span>}</strong>
-                      <small>{roleDescription(role)}</small>
+                      <strong>{role.name}{selected && <span>Actual</span>}</strong>
+                      <small>{role.description || roleDescription(role.roleKey, organizationRoles)}</small>
                     </span>
                     {selected && <Check size={16} className={styles.roleOptionCheck} />}
                   </button>
@@ -705,7 +707,7 @@ function MemberCard({
           <span className={styles.memberRoleLabel}>Rol en este equipo</span>
           <div className={styles.memberRoleStaticValue}>
             <span className={styles.roleStaticIcon} style={isAdmin ? { color: teamColor } : undefined}><RoleIcon size={14} /></span>
-            <span className={styles.roleStaticName}>{roleLabel(member.role, t)}</span>
+            <span className={styles.roleStaticName}>{member.roleName || roleName(member.role, organizationRoles, t)}</span>
             {isCreator && <span className={styles.roleOwnerTag}><Crown size={11} /> Propietario</span>}
             {!isCreator && roleLockReason && <span className={styles.roleLocked}>{roleLockReason}</span>}
           </div>
@@ -921,6 +923,7 @@ export default function TeamDetailPage() {
   const belongsToPersonalWorkspace = Boolean(teamWorkspace && !supportsOrganizationTeams(teamWorkspace));
 
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [organizationRoles, setOrganizationRoles] = useState<OrganizationAccessRole[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
 
@@ -979,6 +982,18 @@ export default function TeamDetailPage() {
   useEffect(() => {
     if (belongsToPersonalWorkspace) router.replace('/dashboard');
   }, [belongsToPersonalWorkspace, router]);
+
+  useEffect(() => {
+    const organizationId = teamWorkspace?.organizationId;
+    if (!organizationId) { setOrganizationRoles([]); return; }
+    let active = true;
+    void apiService.get<{ roles: OrganizationAccessRole[] }>(`/api/organizations/${organizationId}/access-roles`, true)
+      .then((response) => {
+        if (active && response.success && response.data) setOrganizationRoles(response.data.roles ?? []);
+      })
+      .catch(() => { if (active) setOrganizationRoles([]); });
+    return () => { active = false; };
+  }, [teamWorkspace?.organizationId]);
 
   // Load members
   const loadMembers = useCallback(async () => {
@@ -1114,19 +1129,23 @@ export default function TeamDetailPage() {
     }
   }
 
-  async function handleChangeRole(userId: string, newRole: 'ADMIN' | 'MEMBER' | 'VIEWER') {
+  async function handleChangeRole(userId: string, newRole: string) {
     await changeMemberRole(teamId, userId, newRole);
-    setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, role: newRole } : m));
+    const nextRole = organizationRoles.find((role) => role.roleKey === newRole);
+    setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, role: newRole, roleName: nextRole?.name ?? newRole } : m));
   }
 
   const teamColor = currentTeam?.color || '#7452A6';
-  const leadMember = members.find((m) => m.id === currentTeam?.leadId) || members.find((m) => m.role === 'ADMIN');
+  const hasTeamManagementPermission = (roleKey: string | null | undefined) =>
+    Boolean(organizationRoles.find((role) => role.roleKey === roleKey)?.permissions['teams.manage'] || roleKey === 'ADMIN');
+  const leadMember = members.find((m) => m.id === currentTeam?.leadId) || members.find((m) => hasTeamManagementPermission(m.role));
   const isTeamOwner = currentUser != null && currentTeam?.createdBy === currentUser.id;
   const currentMemberRole = members.find((member) => member.id === currentUser?.id)?.role;
-  const isTeamAdmin = currentMemberRole === 'ADMIN';
+  const isTeamAdmin = hasTeamManagementPermission(currentMemberRole);
   const isOwnerOrAdmin = currentTeam?.canManage ?? (isTeamOwner || isTeamAdmin);
   const canManageAdminRoles = currentTeam?.canManageAdminRoles ?? isTeamOwner;
-  const inviteRoles: Array<'ADMIN' | 'MEMBER' | 'VIEWER'> = canManageAdminRoles ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+  const assignableRoles = organizationRoles.filter((role) => canManageAdminRoles || !role.permissions['teams.manage']);
+  const inviteRoles = assignableRoles;
   const teamSections = [
     { id: 'overview' as const, label: 'Resumen', description: 'Qué está pasando hoy y cómo orientarte.', Icon: LayoutDashboard },
     { id: 'members' as const, label: 'Personas', description: 'Quién forma parte del equipo y qué puede hacer.', Icon: Users, count: members.length },
@@ -1161,18 +1180,18 @@ export default function TeamDetailPage() {
 
   function canManageMember(member: TeamMember) {
     if (!isOwnerOrAdmin || !currentUser || member.id === currentTeam?.createdBy || member.id === currentUser.id) return false;
-    return canManageAdminRoles || (isTeamAdmin && member.role !== 'ADMIN');
+    return canManageAdminRoles || (isTeamAdmin && !hasTeamManagementPermission(member.role));
   }
 
-  function allowedRolesFor(member: TeamMember): Array<'ADMIN' | 'MEMBER' | 'VIEWER'> {
+  function allowedRolesFor(member: TeamMember): OrganizationAccessRole[] {
     if (!canManageMember(member)) return [];
-    return canManageAdminRoles ? TEAM_ROLES : ['MEMBER', 'VIEWER'];
+    return assignableRoles;
   }
 
   function roleLockReasonFor(member: TeamMember): string {
     if (member.id === currentUser?.id) return 'No puedes cambiar tu propio rol';
     if (!isOwnerOrAdmin) return 'Solo un administrador puede cambiar roles';
-    if (isTeamAdmin && !canManageAdminRoles && member.role === 'ADMIN') {
+    if (isTeamAdmin && !canManageAdminRoles && hasTeamManagementPermission(member.role)) {
       return 'Solo el propietario puede cambiar roles de administrador';
     }
     return '';
@@ -1283,7 +1302,7 @@ export default function TeamDetailPage() {
                       { value: '', label: 'Sin responsable asignado' },
                       ...members.map((member) => ({
                         value: member.id,
-                        label: `${member.name} | ${roleLabel(member.role, es)}`,
+                        label: `${member.name} | ${member.roleName || roleName(member.role, organizationRoles, es)}`,
                         icon: <Avatar name={member.name} avatar={member.avatar} size={24} color={hashColor(member.id)} />,
                       })),
                     ]}
@@ -1575,6 +1594,7 @@ export default function TeamDetailPage() {
                   <MemberCard
                     key={m.id}
                     member={m}
+                    organizationRoles={organizationRoles}
                     teamColor={teamColor}
                     canChangeRole={canManageMember(m)}
                     canRemove={canManageMember(m)}

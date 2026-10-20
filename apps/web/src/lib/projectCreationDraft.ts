@@ -11,6 +11,7 @@ export interface ProjectCreationDraft {
   cardPrefix?: string;
   cardPrefixCustomized?: boolean;
   methodology: 'FLEXIBLE' | 'SCRUM';
+  advancedTraceability?: boolean;
   teamIds: string[];
   memberIds: string[];
   productOwnerId: string;
@@ -33,6 +34,7 @@ function isProjectCreationDraft(value: unknown): value is ProjectCreationDraft {
     && (draft.cardPrefix === undefined || typeof draft.cardPrefix === 'string')
     && (draft.cardPrefixCustomized === undefined || typeof draft.cardPrefixCustomized === 'boolean')
     && (draft.methodology === 'FLEXIBLE' || draft.methodology === 'SCRUM')
+    && (draft.advancedTraceability === undefined || typeof draft.advancedTraceability === 'boolean')
     && Array.isArray(draft.teamIds) && draft.teamIds.every((id) => typeof id === 'string')
     && Array.isArray(draft.memberIds) && draft.memberIds.every((id) => typeof id === 'string')
     && typeof draft.productOwnerId === 'string'

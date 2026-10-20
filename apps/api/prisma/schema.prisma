@@ -265,6 +265,12 @@ model User {
   portfolioExports             PortfolioExportAudit[] @relation("PortfolioExportActor")
   ownedProjectRisks            ProjectRisk[] @relation("ProjectRiskOwner")
   createdProjectRisks          ProjectRisk[] @relation("ProjectRiskCreator")
+  recordedProjectDecisions     ProjectDecision[] @relation("ProjectDecisionRecorder")
+  createdProjectBaselines      ProjectBaseline[] @relation("ProjectBaselineCreator")
+  recordedProjectOrigins       ProjectOriginSnapshot[] @relation("ProjectOriginSnapshotRecorder")
+  createdProjectObjectives     ProjectObjective[] @relation("ProjectObjectiveCreator")
+  createdProjectDeliverables   ProjectDeliverable[] @relation("ProjectDeliverableCreator")
+  recordedProjectOutcomes      ProjectOutcome[] @relation("ProjectOutcomeRecorder")
   dashboards                   UserDashboard[]
   feedbackSubmissions          FeedbackSubmission[]
 
@@ -650,6 +656,8 @@ model Card {
   blocked        CardDependency[]   @relation("BlockedCard")
   sprintCards    SprintCard[]
   projectEpicCards ProjectEpicCard[]
+  projectDeliverableCards ProjectDeliverableCard[]
+  projectRequirementCards ProjectRequirementCard[]
 
   @@index([listId])
   @@index([projectId])
@@ -977,7 +985,7 @@ model TeamMember {
   id       String   @id @default(uuid()) @db.Uuid
   teamId   String   @map("team_id") @db.Uuid
   userId   String   @map("user_id") @db.Uuid
-  role     String   @default("MEMBER") @db.VarChar(50)
+  role     String   @default("MEMBER") @db.VarChar(64)
   joinedAt DateTime @default(now()) @map("joined_at")
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -996,7 +1004,7 @@ model TeamInvitation {
   teamId        String   @map("team_id") @db.Uuid
   invitedUserId String   @map("invited_user_id") @db.Uuid
   invitedBy     String   @map("invited_by") @db.Uuid
-  role          String   @default("MEMBER") @db.VarChar(20)
+  role          String   @default("MEMBER") @db.VarChar(64)
   status        String   @default("PENDING") @db.VarChar(20)
   createdAt     DateTime @default(now()) @map("created_at")
 
@@ -1026,6 +1034,7 @@ model Project {
   status      String    @default("PLANNING") @db.VarChar(20)
   maturityStage String  @default("IDEA") @map("maturity_stage") @db.VarChar(20)
   methodology String @default("FLEXIBLE") @db.VarChar(20)
+  advancedTraceability Boolean @default(false) @map("advanced_traceability")
   productGoal String? @map("product_goal")
   problemStatement String? @map("problem_statement")
   impactedPeople String? @map("impacted_people")
@@ -1070,11 +1079,176 @@ model Project {
   capacityAllocations ProjectCapacityAllocation[]
   portfolioAlerts PortfolioAlert[]
   risks          ProjectRisk[]
+  decisions      ProjectDecision[]
+  baselines      ProjectBaseline[]
+  originSnapshot ProjectOriginSnapshot?
+  objectives     ProjectObjective[]
+  deliverables   ProjectDeliverable[]
+  requirements   ProjectRequirement[]
+  outcomes       ProjectOutcome[]
 
   @@index([workspaceId])
   @@index([ownerId])
   @@unique([workspaceId, cardPrefix], map: "projects_workspace_card_prefix_key")
   @@map("projects")
+}
+
+model ProjectOriginSnapshot {
+  id                  String   @id @default(uuid()) @db.Uuid
+  projectId           String   @unique @map("project_id") @db.Uuid
+  originType          String   @map("origin_type") @db.VarChar(20)
+  sourceInitiativeId  String?  @map("source_initiative_id") @db.Uuid
+  sourceTitle         String   @map("source_title") @db.VarChar(500)
+  sourceDescription   String?  @map("source_description")
+  problemStatement    String?  @map("problem_statement")
+  impactedPeople      String?  @map("impacted_people")
+  problemImpact       String?  @map("problem_impact")
+  impactedCount       Int?     @map("impacted_count")
+  expectedOutcome     String?  @map("expected_outcome")
+  proposedSolution    String?  @map("proposed_solution")
+  differentiation     String?
+  capturedById        String?  @map("captured_by") @db.Uuid
+  capturedAt          DateTime @default(now()) @map("captured_at")
+  isReconstructed     Boolean  @default(false) @map("is_reconstructed")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  capturedBy User? @relation("ProjectOriginSnapshotRecorder", fields: [capturedById], references: [id], onDelete: SetNull)
+  objectives ProjectObjective[]
+
+  @@index([sourceInitiativeId])
+  @@map("project_origin_snapshots")
+}
+
+model ProjectObjective {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  originSnapshotId String @map("origin_snapshot_id") @db.Uuid
+  version       Int      @default(1)
+  isCurrent     Boolean  @default(true) @map("is_current")
+  statement     String   @db.VarChar(2000)
+  successMetric String?  @map("success_metric") @db.VarChar(160)
+  targetValue   Decimal? @map("target_value") @db.Decimal(12, 2)
+  unit          String?  @db.VarChar(40)
+  changeReason  String?  @map("change_reason") @db.VarChar(1500)
+  creatorId     String?  @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  project      Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  originSnapshot ProjectOriginSnapshot @relation(fields: [originSnapshotId], references: [id], onDelete: Cascade)
+  creator      User?                @relation("ProjectObjectiveCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  deliverables ProjectDeliverable[]
+  outcomes     ProjectOutcome[]
+
+  @@unique([projectId, version])
+  @@index([projectId, isCurrent, version(sort: Desc)])
+  @@map("project_objectives")
+}
+
+model ProjectDeliverable {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  objectiveId String   @map("objective_id") @db.Uuid
+  name        String   @db.VarChar(160)
+  description String?  @db.VarChar(1000)
+  status      String   @default("PLANNED") @db.VarChar(20)
+  position    Int      @default(0)
+  createdBy   String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project  Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  objective ProjectObjective          @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  creator  User?                      @relation("ProjectDeliverableCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  cards    ProjectDeliverableCard[]
+  requirements ProjectRequirement[]
+  milestones ProjectMilestone[]
+  outcomes ProjectOutcome[]
+
+  @@unique([projectId, name])
+  @@index([projectId, position])
+  @@map("project_deliverables")
+}
+
+model ProjectDeliverableCard {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  deliverableId String   @map("deliverable_id") @db.Uuid
+  cardId        String   @map("card_id") @db.Uuid
+  addedAt       DateTime @default(now()) @map("added_at")
+
+  deliverable ProjectDeliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  card        Card               @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([deliverableId, cardId])
+  @@index([projectId, cardId])
+  @@map("project_deliverable_cards")
+}
+
+model ProjectRequirement {
+  id                 String   @id @default(uuid()) @db.Uuid
+  projectId          String   @map("project_id") @db.Uuid
+  deliverableId      String   @map("deliverable_id") @db.Uuid
+  title              String   @db.VarChar(160)
+  description        String?  @db.VarChar(1000)
+  acceptanceCriteria String   @map("acceptance_criteria") @db.VarChar(2000)
+  requirementType    String   @default("FUNCTIONAL") @map("requirement_type") @db.VarChar(24)
+  priority           String   @default("MEDIUM") @db.VarChar(16)
+  status             String   @default("DEFINED") @db.VarChar(20)
+  verificationMethod String?  @map("verification_method") @db.VarChar(500)
+  evidence           String?  @db.VarChar(2000)
+  position           Int      @default(0)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  project     Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliverable ProjectDeliverable         @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  cards       ProjectRequirementCard[]
+
+  @@index([projectId, deliverableId, position])
+  @@map("project_requirements")
+}
+
+model ProjectRequirementCard {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  requirementId String   @map("requirement_id") @db.Uuid
+  cardId        String   @map("card_id") @db.Uuid
+  addedAt       DateTime @default(now()) @map("added_at")
+
+  requirement ProjectRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  card        Card               @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([requirementId, cardId])
+  @@index([projectId, cardId])
+  @@map("project_requirement_cards")
+}
+
+model ProjectOutcome {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  objectiveId   String   @map("objective_id") @db.Uuid
+  deliverableId String?  @map("deliverable_id") @db.Uuid
+  milestoneId   String?  @map("milestone_id") @db.Uuid
+  metricName    String   @map("metric_name") @db.VarChar(160)
+  targetValue   Decimal? @map("target_value") @db.Decimal(12, 2)
+  actualValue   Decimal  @map("actual_value") @db.Decimal(12, 2)
+  unit          String   @db.VarChar(40)
+  evidence       String?  @db.VarChar(2000)
+  measuredAt    DateTime @map("measured_at") @db.Date
+  recorderId    String?  @map("recorded_by") @db.Uuid
+  recorderName  String   @map("recorded_by_name") @db.VarChar(255)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  project     Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  objective   ProjectObjective   @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  deliverable ProjectDeliverable? @relation(fields: [deliverableId], references: [id], onDelete: SetNull)
+  milestone   ProjectMilestone?   @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  recorder    User?               @relation("ProjectOutcomeRecorder", fields: [recorderId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, measuredAt(sort: Desc), createdAt(sort: Desc)])
+  @@index([objectiveId, measuredAt(sort: Desc)])
+  @@map("project_outcomes")
 }
 
 model ProjectEpic {
@@ -1126,6 +1300,52 @@ model ProjectWorkflowHistory {
   @@map("project_workflow_history")
 }
 
+model ProjectDecision {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  title         String   @db.VarChar(200)
+  context       String?
+  outcome       String
+  rationale     String
+  decisionDate  DateTime @default(now()) @map("decision_date") @db.Date
+  recorderId    String?  @map("actor_id") @db.Uuid
+  recorderName  String   @map("actor_name") @db.VarChar(255)
+  supersedesId  String?  @map("supersedes_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recorder  User?            @relation("ProjectDecisionRecorder", fields: [recorderId], references: [id], onDelete: SetNull)
+  supersedes ProjectDecision? @relation("ProjectDecisionSupersession", fields: [supersedesId], references: [id], onDelete: SetNull)
+  successors ProjectDecision[] @relation("ProjectDecisionSupersession")
+
+  @@unique([projectId, supersedesId], map: "project_decisions_project_supersedes_key")
+  @@index([projectId, decisionDate(sort: Desc), createdAt(sort: Desc)], map: "project_decisions_project_decision_date_idx")
+  @@map("project_decisions")
+}
+
+model ProjectBaseline {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  version       Int
+  scope         String   @db.Text
+  startDate     DateTime @map("start_date") @db.Date
+  targetDate    DateTime @map("target_date") @db.Date
+  effortValue   Decimal  @map("effort_value") @db.Decimal(12, 2)
+  effortUnit    String   @map("effort_unit") @db.VarChar(20)
+  changeReason  String?  @map("change_reason") @db.Text
+  isCurrent     Boolean  @default(true) @map("is_current")
+  creatorId     String?  @map("created_by") @db.Uuid
+  creatorName   String   @map("created_by_name") @db.VarChar(255)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User?   @relation("ProjectBaselineCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, version], map: "project_baselines_project_version_key")
+  @@index([projectId, isCurrent, version(sort: Desc)], map: "project_baselines_project_current_idx")
+  @@map("project_baselines")
+}
+
 // ── Project Board ─────────────────────────────────────────────────────────────
 
 model ProjectBoard {
@@ -1153,12 +1373,16 @@ model ProjectMilestone {
   date        DateTime?
   status      String    @default("PENDING") @db.VarChar(20)
   color       String?
+  deliverableId String?  @map("deliverable_id") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliverable ProjectDeliverable? @relation(fields: [deliverableId], references: [id], onDelete: SetNull)
+  outcomes ProjectOutcome[]
 
   @@index([projectId])
+  @@index([deliverableId])
   @@map("project_milestones")
 }
 
@@ -1212,7 +1436,7 @@ model ProjectMember {
   id        String   @id @default(uuid()) @db.Uuid
   projectId String   @map("project_id") @db.Uuid
   userId    String   @map("user_id") @db.Uuid
-  role      String   @default("MEMBER") @db.VarChar(20)
+  role      String   @default("MEMBER") @db.VarChar(64)
   addedBy   String?  @map("added_by") @db.Uuid
   addedAt   DateTime @default(now()) @map("added_at")
 
@@ -1342,6 +1566,7 @@ model Organization {
   institutionalSettings InstitutionalOrganizationSettings?
   institutionalSettingsHistory InstitutionalOrganizationSettingsHistory[]
   teamSettings TeamOrganizationSettings?
+  accessRoles OrganizationAccessRole[]
 
   @@index([ownerUserId])
   @@map("organizations")
@@ -1382,6 +1607,25 @@ model TeamOrganizationSettings {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("team_organization_settings")
+}
+
+model OrganizationAccessRole {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  roleKey        String   @map("role_key") @db.VarChar(64)
+  name           String   @db.VarChar(60)
+  description    String   @default("") @db.VarChar(180)
+  permissions    Json     @default("{}") @db.JsonB
+  isSystem       Boolean  @default(false) @map("is_system")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, roleKey])
+  @@index([organizationId, sortOrder, name])
+  @@map("organization_access_roles")
 }
 
 model InstitutionalOrganizationSettingsHistory {

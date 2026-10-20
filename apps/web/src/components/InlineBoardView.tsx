@@ -54,15 +54,22 @@ export function InlineBoardView({ boardId, onBack, projectId, methodology, onOpe
   const toast = useRealtimeToast();
 
   const { reorderList, updateBoard }                             = useBoardStore();
-  const { patchBoard }                                           = useProjectStore();
+  const { patchBoard, currentProject }                           = useProjectStore();
   const { cards, setCards, moveCard, setCurrentWorkspaceId, clearAllCards } = useCardStore();
   const { preferences, loadPreferences, updatePreferences }     = usePreferencesStore();
   const { currentWorkspace, fetchWorkspaceById, fetchMembers }  = useWorkspaceStore();
   const canUseProjectPlanning = supportsOrganizationProjectPlanning(currentWorkspace);
 
   const userRole    = currentWorkspace?.userRole;
-  const canEditBoard = userRole === 'ADMIN' || userRole === 'OWNER';
-  const canMoveCards = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
+  const projectPermissions = currentProject?.boards?.some((board) => board.id === currentBoard?.id)
+    ? currentProject.access?.permissions
+    : undefined;
+  const canEditBoard = projectPermissions
+    ? Boolean(projectPermissions['boards.manage'])
+    : userRole === 'ADMIN' || userRole === 'OWNER';
+  const canMoveCards = projectPermissions
+    ? Boolean(projectPermissions['work.edit'])
+    : userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
   const [activeId,         setActiveId]         = useState<string | null>(null);
   const [activeType,       setActiveType]       = useState<'list' | 'card' | null>(null);

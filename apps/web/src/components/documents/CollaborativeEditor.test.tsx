@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as Y from 'yjs';
 import CollaborativeEditor from './CollaborativeEditor';
 import { socketService } from '@/services/socketService';
@@ -84,7 +84,7 @@ jest.mock('@/components/documents/DocumentCommentsSidebar', () => ({
 jest.mock('@/hooks/useDocumentAutoSave', () => ({
   useDocumentAutoSave: () => mockAutoSaveResult,
 }));
-jest.mock('@/lib/i18n', () => ({ useT: () => ({}) }));
+jest.mock('@/lib/i18n', () => ({ useT: () => ({ editor_table_delete_table: 'Eliminar tabla' }) }));
 
 describe('CollaborativeEditor', () => {
   beforeEach(() => {
@@ -159,6 +159,42 @@ describe('CollaborativeEditor', () => {
     await waitFor(() => expect(retryButton).toBeEnabled());
     fireEvent.click(retryButton);
     expect(mockAutoSaveResult.saveNow).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+    source.destroy();
+  });
+
+  it('removes an inserted table from the document toolbar', async () => {
+    const props = {
+      documentId: 'document-table', workspaceId: 'workspace-1',
+      currentUser: { id: 'user-1', name: 'Ana', color: '#7452a6' },
+      canEdit: true, canComment: true,
+    };
+    const view = render(<CollaborativeEditor {...props} />);
+    const source = new Y.Doc();
+
+    await act(async () => {
+      (socketService as typeof socketService & {
+        emitSync: (data: { documentId: string; update: number[]; restoreGeneration: number }) => void;
+      }).emitSync({
+        documentId: props.documentId,
+        update: Array.from(Y.encodeStateAsUpdate(source)),
+        restoreGeneration: 0,
+      });
+    });
+
+    await waitFor(() => expect(document.querySelector('.ProseMirror')).toHaveAttribute('contenteditable', 'true'));
+    fireEvent.click(screen.getByRole('button', { name: 'Insertar tabla' }));
+    await waitFor(() => expect(document.querySelector('.ProseMirror table')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar tabla' }));
+    await waitFor(() => expect(document.querySelector('.ProseMirror table')).toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Insertar tabla' }));
+    await waitFor(() => expect(document.querySelector('.ProseMirror table')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Opciones de tabla' }));
+    const tableMenu = document.querySelector('.doc-table-popover') as HTMLElement;
+    fireEvent.mouseDown(within(tableMenu).getByRole('button', { name: 'Eliminar tabla' }));
+    await waitFor(() => expect(document.querySelector('.ProseMirror table')).toBeNull());
 
     view.unmount();
     source.destroy();

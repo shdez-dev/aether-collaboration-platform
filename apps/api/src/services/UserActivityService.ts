@@ -107,6 +107,8 @@ export class UserActivityService {
       'project.risk.created',
       'project.risk.updated',
       'project.risk.status-changed',
+      'project.deliverable.deleted',
+      'project.outcome.deleted',
       // Team
       'team.created',
       'team.updated',
@@ -796,6 +798,16 @@ export class UserActivityService {
         metadata.riskId = payload.subjectId;
         metadata.riskName = payload.subjectName;
         metadata.workspaceId = payload.workspaceId;
+        break;
+
+      case 'project.deliverable.deleted':
+      case 'project.outcome.deleted':
+        metadata.projectId = payload.projectId || payload.subjectId;
+        metadata.projectName = payload.projectName || (metadata.projectId ? await this.getProjectName(metadata.projectId) : undefined);
+        metadata.deletedName = payload.deletedName || payload.subjectName;
+        metadata.workspaceId = payload.workspaceId;
+        metadata.impact = payload.impact;
+        metadata.snapshot = payload.snapshot;
         break;
 
       case 'team.created':

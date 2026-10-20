@@ -29,6 +29,26 @@ export type WorkspaceMode = 'PERSONAL' | 'TEAM' | 'INSTITUTIONAL';
 export type OrganizationType = 'PERSONAL' | 'COMPANY' | 'INSTITUTION' | 'NETWORK_OPERATOR';
 export type OrganizationMemberRole = 'OWNER' | 'BILLING_ADMIN' | 'ADMIN' | 'MEMBER';
 
+/** Reusable organization-defined permissions for project and team access roles. */
+export const ORGANIZATION_ACCESS_PERMISSION_KEYS = [
+  'project.view', 'project.manage',
+  'members.manage', 'boards.manage',
+  'work.create', 'work.edit', 'work.delete', 'work.comment',
+  'planning.manage', 'risks.manage', 'documents.manage', 'traceability.manage', 'teams.manage',
+] as const;
+
+export type OrganizationAccessPermission = typeof ORGANIZATION_ACCESS_PERMISSION_KEYS[number];
+export type OrganizationAccessRolePermissions = Record<OrganizationAccessPermission, boolean>;
+
+export interface OrganizationAccessRole {
+  roleKey: string;
+  name: string;
+  description: string;
+  permissions: OrganizationAccessRolePermissions;
+  isSystem: boolean;
+  assignedCount: number;
+}
+
 export interface WorkspaceCapabilities {
   projects: boolean;
   boards: boolean;

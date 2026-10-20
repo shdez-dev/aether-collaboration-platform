@@ -38,7 +38,7 @@ import { socketService } from '@/services/socketService';
 import { apiService } from '@/services/apiService';
 import { canManageOrganizationRole } from '@/lib/workspaceFeatures';
 import ChatDock from '@/components/chat/ChatDock';
-import { BellRing, Building2, ChevronRight, ClipboardList, FolderKanban, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, UsersRound } from 'lucide-react';
+import { BellRing, Building2, ChevronRight, CircleHelp, ClipboardList, FolderKanban, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, UsersRound } from 'lucide-react';
 
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
@@ -481,6 +481,15 @@ function Sidebar({
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
+      <nav className="dsh-sidebar-help-nav" aria-label="Ayuda">
+        <NavItem
+          href="/dashboard/help"
+          label="Ayuda"
+          active={pathname === '/dashboard/help'}
+          icon={<CircleHelp size={17} strokeWidth={1.7} aria-hidden="true" />}
+        />
+      </nav>
+
       {/* User footer */}
       <div
         className="dsh-user-footer-expanded"
@@ -493,7 +502,7 @@ function Sidebar({
       >
         <Link href="/dashboard/profile" className="dsh-user-profile-link">
           <Avatar className="dsh-user-avatar" style={{ width: '30px', height: '30px', flexShrink: 0 }}>
-            {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt={user?.name ?? ''} crossOrigin="anonymous" />}
+            {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt={user?.name ?? ''} />}
             <AvatarFallback style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', background: '#7452A6', width: '30px', height: '30px' }}>
               {user ? getInitials(user.name) : '?'}
             </AvatarFallback>
@@ -511,7 +520,7 @@ function Sidebar({
       <div className="dsh-user-footer-compact">
         <Link href="/dashboard/profile" className="dsh-compact-icon dsh-compact-profile-link" title="Mi perfil" aria-label="Mi perfil">
           <Avatar className="dsh-user-avatar" style={{ width: '30px', height: '30px', flexShrink: 0 }}>
-            {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt="" crossOrigin="anonymous" />}
+            {userAvatarUrl && <AvatarImage src={userAvatarUrl} alt="" />}
             <AvatarFallback style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', background: '#7452A6' }}>
               {user ? getInitials(user.name) : '?'}
             </AvatarFallback>

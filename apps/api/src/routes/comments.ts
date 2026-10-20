@@ -29,7 +29,7 @@ router.get('/cards/:cardId/document-candidates', authenticateJWT, requireProject
 router.get('/cards/:cardId/comments', authenticateJWT, requireProjectBoundResourceAccess('READ', 'card'), CommentController.getCommentsByCard);
 
 // Crear comentario en una card
-router.post('/cards/:cardId/comments', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'card'), CommentController.createComment);
+router.post('/cards/:cardId/comments', authenticateJWT, requireProjectBoundResourceAccess('COMMENT_WORK', 'card'), CommentController.createComment);
 
 // ==================== RUTAS POR BOARD ====================
 
@@ -47,9 +47,9 @@ router.get(
 router.get('/comments/:commentId', authenticateJWT, requireProjectBoundResourceAccess('READ', 'comment'), CommentController.getCommentById);
 
 // Actualizar comentario (solo autor)
-router.patch('/comments/:commentId', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'comment'), CommentController.updateComment);
+router.patch('/comments/:commentId', authenticateJWT, requireProjectBoundResourceAccess('COMMENT_WORK', 'comment'), CommentController.updateComment);
 
 // Eliminar comentario (solo autor)
-router.delete('/comments/:commentId', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'comment'), CommentController.deleteComment);
+router.delete('/comments/:commentId', authenticateJWT, requireProjectBoundResourceAccess('COMMENT_WORK', 'comment'), CommentController.deleteComment);
 
 export default router;

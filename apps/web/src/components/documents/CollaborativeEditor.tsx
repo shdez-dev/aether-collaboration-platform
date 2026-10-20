@@ -650,43 +650,33 @@ function ToolbarButton({
   onClick,
   isActive,
   disabled,
+  danger,
   children,
   title,
 }: {
   onClick: () => void;
   isActive?: boolean;
   disabled?: boolean;
+  danger?: boolean;
   children: React.ReactNode;
   title: string;
 }) {
-  const [hovered, setHovered] = useState(false);
   return (
     <button
+      type="button"
       className="doc-format-button"
-      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
       disabled={disabled}
       title={title}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '10px',
-        width: '100%', minHeight: '34px', padding: '0 9px', borderRadius: '8px', flexShrink: 0,
-        background: isActive ? `${C.accent}22` : hovered ? C.hover : 'transparent',
-        border: `1px solid ${isActive ? `${C.accent}55` : hovered ? C.border2 : 'transparent'}`,
-        color: isActive ? C.accent : hovered ? C.text : C.text3,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.35 : 1,
-        transition: 'background 0.12s, border-color 0.12s, color 0.12s',
-      }}
+      aria-label={title}
+      aria-pressed={isActive === undefined ? undefined : isActive}
+      data-active={isActive ? 'true' : undefined}
+      data-danger={danger ? 'true' : undefined}
     >
       {children}
-      <span className="doc-format-button-label" style={{ fontSize: '12px', fontFamily: MANROPE, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title.split(' (')[0]}</span>
     </button>
   );
-}
-
-function Divider({ label }: { label: string }) {
-  return <div className="doc-format-divider" style={{ borderTop: `1px solid ${C.border}`, margin: '11px 0 7px', paddingTop: '10px', color: C.text4, fontSize: '10px', fontWeight: 700 }}>{label}</div>;
 }
 
 // ── Highlight colour picker button ────────────────────────────────────────────
@@ -705,31 +695,23 @@ function HighlightPicker({ editor }: { editor: any }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const [hBtn, setHBtn] = useState(false);
   return (
     <div ref={ref} className="doc-format-control" style={{ position: 'relative' }}>
       <button
+        type="button"
         className="doc-format-button"
-        onMouseDown={(e) => { e.preventDefault(); setOpen((v) => !v); }}
-        onMouseEnter={() => setHBtn(true)}
-        onMouseLeave={() => setHBtn(false)}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((v) => !v)}
         title="Color de resaltado"
-        style={{
-          display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-          padding: '0 9px', minHeight: '34px', borderRadius: '8px',
-          background: isActive ? C.accent : hBtn ? C.hover : 'transparent',
-          border: `1px solid ${isActive ? C.accent : hBtn ? C.border2 : 'transparent'}`,
-          color: isActive ? '#fff' : hBtn ? C.text : C.text3,
-          cursor: 'pointer', transition: 'all 0.1s',
-        }}
+        aria-label="Color de resaltado"
+        aria-expanded={open}
+        data-active={isActive || open ? 'true' : undefined}
       >
-        <Highlighter style={{ width: '13px', height: '13px' }} />
-        <span className="doc-format-button-label" style={{ flex: 1, textAlign: 'left', fontSize: 12 }}>Resaltar</span>
-        <ChevronDown style={{ width: '10px', height: '10px', opacity: 0.6 }} />
+        <Highlighter className="w-4 h-4" />
       </button>
 
       {open && (
-        <div style={{
+        <div className="doc-highlight-popover" style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
           background: C.surface, border: `1px solid ${C.border2}`,
           borderRadius: '9px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
@@ -965,7 +947,9 @@ function TableMenuItem({ children, onMouseDown, danger }: { children: React.Reac
   const [h, setH] = useState(false);
   return (
     <button
-      onMouseDown={onMouseDown}
+      type="button"
+      onMouseDown={(e) => { e.preventDefault(); onMouseDown(e); }}
+      onClick={(e) => { if (e.detail === 0) onMouseDown(e); }}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       style={{
@@ -985,7 +969,6 @@ function TableMenuItem({ children, onMouseDown, danger }: { children: React.Reac
 function TableMenu({ editor, t }: { editor: any; t: any }) {
   // All hooks MUST come before any conditional return (Rules of Hooks)
   const [open, setOpen] = useState(false);
-  const [hBtn, setHBtn] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const inTable = editor.isActive('table');
 
@@ -996,9 +979,10 @@ function TableMenu({ editor, t }: { editor: any; t: any }) {
     <>
       <div ref={ref} className="doc-format-control" style={{ position: 'relative' }}>
         <button
+          type="button"
           className="doc-format-button"
-          onMouseDown={(e) => {
-            e.preventDefault();
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
             // Register outside-click handler only when opening
             if (!open) {
               const handler = (ev: MouseEvent) => {
@@ -1011,26 +995,16 @@ function TableMenu({ editor, t }: { editor: any; t: any }) {
             }
             setOpen((v) => !v);
           }}
-          onMouseEnter={() => setHBtn(true)}
-          onMouseLeave={() => setHBtn(false)}
           title="Opciones de tabla"
-          style={{
-            display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-            padding: '0 9px', minHeight: '34px', borderRadius: '8px',
-            background: open ? `${C.accent}22` : hBtn ? C.hover : 'transparent',
-            border: `1px solid ${open ? `${C.accent}55` : hBtn ? C.border2 : 'transparent'}`,
-            color: open ? C.accent : hBtn ? C.text : C.text3,
-            cursor: 'pointer', transition: 'background 0.12s, border-color 0.12s, color 0.12s',
-            fontFamily: MANROPE, fontSize: '12px', fontWeight: 500,
-          }}
+          aria-label="Opciones de tabla"
+          aria-expanded={open}
+          data-active={open ? 'true' : undefined}
         >
-          <TableIcon style={{ width: '13px', height: '13px' }} />
-          <span className="doc-format-button-label" style={{ flex: 1, textAlign: 'left' }}>Tabla</span>
-          <ChevronDown style={{ width: '10px', height: '10px', opacity: 0.6 }} />
+          <TableIcon className="w-4 h-4" />
         </button>
 
         {open && (
-          <div style={{
+          <div className="doc-table-popover" style={{
             position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
             background: C.surface, border: `1px solid ${C.border2}`,
             borderRadius: '10px', boxShadow: '0 12px 40px rgba(0,0,0,0.55)',
@@ -1103,52 +1077,32 @@ function BubbleBtn({ children, onMouseDown, active, title }: { children: React.R
 }
 
 function CommentsBtn({ active, onClick }: { active: boolean; onClick: () => void }) {
-  const [h, setH] = useState(false);
   return (
     <button
+      type="button"
       className="doc-format-button"
       onClick={onClick}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
       title={active ? 'Cerrar comentarios' : 'Abrir comentarios'}
-      style={{
-        display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-        padding: '0 9px', minHeight: '34px', borderRadius: '8px', fontSize: '12px',
-        background: active ? `${C.accent}18` : h ? C.hover : 'transparent',
-        border: `1px solid ${active ? `${C.accent}50` : h ? C.border2 : 'transparent'}`,
-        color: active ? C.accent : h ? C.text2 : C.text3,
-        cursor: 'pointer', transition: 'all 0.1s',
-      }}
+      aria-label={active ? 'Cerrar comentarios' : 'Abrir comentarios'}
+      aria-pressed={active}
+      data-active={active ? 'true' : undefined}
     >
-      <MessageSquare style={{ width: '13px', height: '13px' }} />
-      <span className="doc-format-button-label">Comentarios</span>
+      <MessageSquare className="w-4 h-4" />
     </button>
   );
 }
 
 function SaveBtn({ onClick, isSaving }: { onClick: () => void; isSaving: boolean }) {
-  const [h, setH] = useState(false);
   return (
     <button
+      type="button"
       className="doc-format-button"
       onClick={onClick}
       disabled={isSaving}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
       title="Guardar manualmente (Ctrl+S)"
-      style={{
-        display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-        padding: '0 9px', minHeight: '34px', borderRadius: '8px', fontSize: '12px', fontWeight: 500,
-        background: isSaving ? `${C.green}18` : h ? C.hover : 'transparent',
-        border: `1px solid ${isSaving ? `${C.green}40` : h ? C.border2 : C.border}`,
-        color: isSaving ? C.green : h ? C.text : C.text2,
-        cursor: isSaving ? 'default' : 'pointer', transition: 'all 0.1s',
-      }}
+      aria-label={isSaving ? 'Guardando documento' : 'Guardar manualmente (Ctrl+S)'}
     >
-      {isSaving
-        ? <><Check style={{ width: '12px', height: '12px' }} /><span className="doc-format-button-label">Guardado</span></>
-        : <><Save style={{ width: '12px', height: '12px' }} /><span className="doc-format-button-label">Guardar</span></>
-      }
+      {isSaving ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
     </button>
   );
 }
@@ -1213,6 +1167,7 @@ function LinkInput({
   return (
     <div
       ref={panelRef}
+      className="doc-link-popover"
       style={{
         position: 'absolute',
         top: 'calc(100% + 6px)',
@@ -1370,6 +1325,7 @@ function EditorToolbar({
   lastSaveTime,
   onToggleComments,
   commentsOpen,
+  characterCount,
   t,
 }: {
   editor: any;
@@ -1379,10 +1335,40 @@ function EditorToolbar({
   lastSaveTime?: Date | null;
   onToggleComments?: () => void;
   commentsOpen?: boolean;
+  characterCount: number;
   t: any;
 }) {
   const [showLinkInput, setShowLinkInput] = useState(false);
+  const [showMoreTools, setShowMoreTools] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const linkWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMoreTools) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      if (!toolbarRef.current?.contains(event.target as Node)) setShowMoreTools(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowMoreTools(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showMoreTools]);
+
+  const handleToolbarKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    const buttons = Array.from(toolbarRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])
+      .filter((button) => button.offsetParent !== null && !button.disabled && !button.closest('.doc-link-popover, .doc-highlight-popover, .doc-table-popover'));
+    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    if (current < 0) return;
+    event.preventDefault();
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    buttons[(current + direction + buttons.length) % buttons.length]?.focus();
+  };
 
   const handleLinkToggle = () => {
     setShowLinkInput((v) => !v);
@@ -1426,10 +1412,9 @@ function EditorToolbar({
   };
 
   return (
-    <aside className="doc-format-panel" aria-label="Herramientas de formato" style={{ background: C.surface, borderRight: `1px solid ${C.border}`, flexShrink: 0 }}>
-      <div className="doc-format-panel-inner" style={{ fontFamily: MANROPE }}>
-        <div className="doc-format-heading" style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 3 }}>Formato</div>
-        <div className="doc-format-subheading" style={{ fontSize: 11, color: C.text4, marginBottom: 12 }}>Herramientas del documento</div>
+    <div ref={toolbarRef} className={`doc-format-panel${showMoreTools ? ' is-expanded' : ''}`} role="toolbar" aria-label="Formato del documento" onKeyDown={handleToolbarKeys}>
+      <div className="doc-format-panel-inner">
+        <div className="doc-format-group" role="group" aria-label="Historial">
         {/* History */}
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
@@ -1446,7 +1431,8 @@ function EditorToolbar({
           <Redo className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider label="Texto" />
+        </div>
+        <div className="doc-format-group" role="group" aria-label="Texto">
 
         {/* Inline formatting */}
         <ToolbarButton
@@ -1470,6 +1456,7 @@ function EditorToolbar({
         >
           <UnderlineIcon className="w-4 h-4" />
         </ToolbarButton>
+        <div className="doc-format-text-extra">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleStrike().run()}
           isActive={editor.isActive('strike')}
@@ -1485,6 +1472,7 @@ function EditorToolbar({
         >
           <Code className="w-4 h-4" />
         </ToolbarButton>
+        </div>
         <div ref={linkWrapperRef} className="doc-format-control" style={{ position: 'relative' }}>
           <ToolbarButton
             onClick={handleLinkToggle}
@@ -1502,7 +1490,8 @@ function EditorToolbar({
           )}
         </div>
 
-        <Divider label="Encabezados" />
+        </div>
+        <div className="doc-format-group doc-format-advanced-group" role="group" aria-label="Encabezados">
 
         {/* Headings */}
         <ToolbarButton
@@ -1527,7 +1516,8 @@ function EditorToolbar({
           <Heading3 className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider label="Listas" />
+        </div>
+        <div className="doc-format-group doc-format-advanced-group" role="group" aria-label="Listas">
 
         {/* Lists */}
         <ToolbarButton
@@ -1552,7 +1542,67 @@ function EditorToolbar({
           <ListChecks className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider label="Sangría" />
+        </div>
+        <div className="doc-format-group" role="group" aria-label="Tabla">
+          {editor.isActive('table') ? (
+            <>
+              <TableMenu editor={editor} t={t} />
+              <ToolbarButton
+                onClick={() => editor.chain().focus().deleteTable().run()}
+                title={t.editor_table_delete_table}
+                danger
+              >
+                <Trash2 className="w-4 h-4" />
+              </ToolbarButton>
+            </>
+          ) : (
+            <ToolbarButton
+              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+              title="Insertar tabla"
+            >
+              <TableIcon className="w-4 h-4" />
+            </ToolbarButton>
+          )}
+        </div>
+        <button
+          type="button"
+          className="doc-format-more"
+          aria-label={showMoreTools ? 'Ocultar más herramientas' : 'Mostrar más herramientas'}
+          aria-expanded={showMoreTools}
+          title={showMoreTools ? 'Ocultar más herramientas' : 'Mostrar más herramientas'}
+          onClick={() => setShowMoreTools((value) => !value)}
+        >
+          <Plus aria-hidden="true" />
+        </button>
+        <div className="doc-format-secondary">
+        <div className="doc-format-mobile-extra" role="group" aria-label="Más formato">
+          <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Tachado">
+            <Strikethrough className="w-4 h-4" />
+          </ToolbarButton>
+          <HighlightPicker editor={editor} />
+          <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="Código inline">
+            <Code className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} isActive={editor.isActive('heading', { level: 1 })} title="Encabezado 1">
+            <Heading1 className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title="Encabezado 2">
+            <Heading2 className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} isActive={editor.isActive('heading', { level: 3 })} title="Encabezado 3">
+            <Heading3 className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="Lista de viñetas">
+            <List className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} title="Lista numerada">
+            <ListOrdered className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} isActive={editor.isActive('taskList')} title="Lista de tareas">
+            <ListChecks className="w-4 h-4" />
+          </ToolbarButton>
+        </div>
+        <div className="doc-format-group" role="group" aria-label="Sangría">
 
         {/* Indent / outdent */}
         <ToolbarButton onClick={handleOutdent} title="Disminuir sangría (Shift+Tab)">
@@ -1562,7 +1612,8 @@ function EditorToolbar({
           <IndentIncrease className="w-4 h-4" />
         </ToolbarButton>
 
-        <Divider label="Bloques" />
+        </div>
+        <div className="doc-format-group" role="group" aria-label="Bloques">
 
         {/* Blocks */}
         <ToolbarButton
@@ -1586,31 +1637,22 @@ function EditorToolbar({
           <Minus className="w-4 h-4" />
         </ToolbarButton>
 
-        {/* Table management — only shown when cursor is inside an existing table */}
-        <TableMenu editor={editor} t={t} />
+        </div>
+        </div>
 
-        <Divider label="Documento" />
+        <div className="doc-format-actions" role="group" aria-label="Documento">
 
         {/* Auto-save indicator */}
-        {isSavingToServer ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px', fontFamily: MANROPE,
-            background: `${C.amber}10`, border: `1px solid ${C.amber}30`, color: C.amber,
-          }}>
-            <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: C.amber, animation: 'pulse 1.2s ease-in-out infinite' }} />
-            Guardando…
-          </div>
-        ) : lastSaveTime ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '5px',
-            padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px', fontFamily: MANROPE,
-            background: `${C.green}10`, border: `1px solid ${C.green}30`, color: C.green,
-          }}>
-            <Check style={{ width: '11px', height: '11px' }} />
-            Guardado {formatTimeAgo(lastSaveTime)}
-          </div>
-        ) : null}
+        {(isSavingToServer || lastSaveTime) && (
+          <span
+            className={`doc-format-save-status${isSavingToServer ? ' is-saving' : ''}`}
+            role="status"
+            aria-label={isSavingToServer ? 'Guardando documento' : `Guardado ${formatTimeAgo(lastSaveTime!)}`}
+            title={isSavingToServer ? 'Guardando…' : `Guardado ${formatTimeAgo(lastSaveTime!)}`}
+          >
+            {isSavingToServer ? <span className="doc-format-save-pulse" /> : <Check aria-hidden="true" />}
+          </span>
+        )}
 
         {/* Toggle comments sidebar */}
         {onToggleComments && (
@@ -1619,8 +1661,13 @@ function EditorToolbar({
 
         {/* Manual Save (Ctrl+S) */}
         <SaveBtn onClick={onSave} isSaving={!!isSaving} />
+        <span className="doc-format-count" aria-label={`${characterCount.toLocaleString('es-CL')} de 100.000 caracteres`} title="Caracteres del documento">
+          <FileText aria-hidden="true" />
+          <span>{characterCount.toLocaleString('es-CL')} / 100.000</span>
+        </span>
+        </div>
       </div>
-    </aside>
+    </div>
   );
 }
 
@@ -2312,6 +2359,7 @@ export default function CollaborativeEditor({
   return (
     <div className="doc-editor-root" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
 
+      {(!canEdit || saveError || limitMessage || syncError || !isSyncCurrent || characterCount >= 80_000) && (
       <div role={saveError || limitMessage || syncError ? 'alert' : undefined} className="doc-editor-status">
         {(saveError || limitMessage || syncError || !isSyncCurrent || characterCount >= 80_000) && (
           <span
@@ -2343,11 +2391,12 @@ export default function CollaborativeEditor({
         {syncError && (
           <button type="button" onClick={() => window.location.reload()}>Reintentar</button>
         )}
-        <span className="doc-character-count" aria-label={`${characterCount.toLocaleString('es-CL')} de 100.000 caracteres`}>
+        {!canEdit && <span className="doc-character-count" aria-label={`${characterCount.toLocaleString('es-CL')} de 100.000 caracteres`}>
           <FileText aria-hidden="true" />
           <span>{characterCount.toLocaleString('es-CL')} / 100.000 caracteres</span>
-        </span>
+        </span>}
       </div>
+      )}
 
       {/* Bubble menu — appears on text selection */}
       {canComment && (
@@ -2504,9 +2553,7 @@ export default function CollaborativeEditor({
         </BubbleMenu>
       )}
 
-      {/* Main content area: editor + sidebar */}
-      <div className="doc-editor-shell" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {canEdit && (
+      {canEdit && (
           <EditorToolbar
             editor={editor}
             onSave={saveNow}
@@ -2521,9 +2568,13 @@ export default function CollaborativeEditor({
               setSidebarOpen(!commentSidebarOpen);
             }}
             commentsOpen={commentSidebarOpen}
+            characterCount={characterCount}
             t={t}
           />
-        )}
+      )}
+
+      {/* Main content area: editor + sidebar */}
+      <div className="doc-editor-shell" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Editor scroll area */}
         <div ref={scrollContainerRef} className="doc-editor-scroll" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
           <div className="doc-editor-canvas" style={{ minHeight: '100%', padding: '36px 28px 72px' }}>
@@ -2582,11 +2633,6 @@ export default function CollaborativeEditor({
                     [&_.hljs-params]:text-[#f07178]
                     [&_.hljs-literal]:text-[#ff5370]
                     [&_.hljs-type]:text-[#ffcb6b]
-                    [&_.tableWrapper]:block [&_.tableWrapper]:w-full [&_.tableWrapper]:max-w-full [&_.tableWrapper]:overflow-x-auto
-                    [&_table]:border-collapse [&_table]:my-4 [&_table]:w-full [&_table]:max-w-full [&_table]:table-fixed
-                    [&_table_th]:bg-surface [&_table_th]:border [&_table_th]:border-border [&_table_th]:px-3 [&_table_th]:py-2 [&_table_th]:text-left [&_table_th]:text-sm [&_table_th]:font-semibold [&_table_th]:break-words [&_table_th]:min-w-0 [&_table_th]:overflow-hidden
-                    [&_table_td]:border [&_table_td]:border-border [&_table_td]:px-3 [&_table_td]:py-2 [&_table_td]:text-sm [&_table_td]:align-top [&_table_td]:break-words [&_table_td]:min-w-0 [&_table_td]:overflow-hidden
-                    [&_.selectedCell]:bg-accent/10
                     [&_mark]:rounded-sm [&_mark]:px-0.5
                     [&_.comment-mark]:bg-transparent [&_.comment-mark]:border-b-2 [&_.comment-mark]:border-amber-400/30 [&_.comment-mark]:cursor-pointer [&_.comment-mark]:rounded-[2px] [&_.comment-mark]:px-0.5 [&_.comment-mark]:transition-all [&_.comment-mark]:duration-150
                     [&_.comment-mark:hover]:bg-amber-400/20 [&_.comment-mark:hover]:border-amber-400/70

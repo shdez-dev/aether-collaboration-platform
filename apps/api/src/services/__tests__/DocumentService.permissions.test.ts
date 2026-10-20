@@ -24,7 +24,7 @@ describe('permisos de documentos ligados a proyectos', () => {
       external_permission: null,
       project_id: projectId,
     }] });
-    (projectAuthorizationService.can as jest.Mock).mockResolvedValueOnce({ level: 'READ' });
+    (projectAuthorizationService.can as jest.Mock).mockResolvedValueOnce({ level: 'READ', permissions: { 'documents.manage': false } });
 
     await expect(documentService.getEffectiveUserPermission('document-1', memberId)).resolves.toBe('VIEW');
   });
@@ -37,12 +37,12 @@ describe('permisos de documentos ligados a proyectos', () => {
       external_permission: null,
       project_id: projectId,
     }] });
-    (projectAuthorizationService.can as jest.Mock).mockResolvedValueOnce({ level: 'READ' });
+    (projectAuthorizationService.can as jest.Mock).mockResolvedValueOnce({ level: 'READ', permissions: { 'documents.manage': false } });
 
     await expect(documentService.getEffectiveUserPermission('document-1', memberId)).resolves.toBe('COMMENT');
   });
 
-  it('da edición por defecto a quien puede colaborar en el proyecto', async () => {
+  it('mantiene solo lectura para quien colabora si su rol no permite administrar documentos', async () => {
     (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{
       created_by: 'creator-1',
       workspace_role: 'MEMBER',
@@ -50,9 +50,9 @@ describe('permisos de documentos ligados a proyectos', () => {
       external_permission: null,
       project_id: projectId,
     }] });
-    (projectAuthorizationService.can as jest.Mock).mockResolvedValueOnce({ level: 'CONTRIBUTE' });
+    (projectAuthorizationService.can as jest.Mock).mockResolvedValueOnce({ level: 'CONTRIBUTE', permissions: { 'documents.manage': false } });
 
-    await expect(documentService.getEffectiveUserPermission('document-1', memberId)).resolves.toBe('EDIT');
+    await expect(documentService.getEffectiveUserPermission('document-1', memberId)).resolves.toBe('VIEW');
   });
 
   it('rechaza asignar edición a alguien que solo puede leer el proyecto', async () => {

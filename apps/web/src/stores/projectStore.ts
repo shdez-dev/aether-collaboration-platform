@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { apiService } from '@/services/apiService';
 import type { ProjectScrumAssignment } from '@/features/projects/api';
+import type { OrganizationAccessRolePermissions } from '@aether/types';
 
 // ==================== TYPES ====================
 
@@ -98,6 +99,7 @@ export interface Project {
   status: ProjectStatus;
   maturityStage: ProjectMaturityStage;
   methodology?: 'FLEXIBLE' | 'SCRUM';
+  advancedTraceability?: boolean;
   productGoal?: string | null;
   methodologyAssignments?: ProjectScrumAssignment[];
   problemStatement?: string | null;
@@ -125,6 +127,8 @@ export interface Project {
   pausedReason?: string | null;
   ownerId: string;
   ownerName?: string | null;
+  ownerEmail?: string | null;
+  ownerAvatar?: string | null;
   createdAt: string;
   updatedAt: string;
   progressPercent?: number;
@@ -140,7 +144,8 @@ export interface Project {
     canRead: boolean;
     canContribute: boolean;
     canManage: boolean;
-  };
+    permissions?: OrganizationAccessRolePermissions;
+  } | null;
 }
 
 interface ProjectWorkflowTransitionData {
@@ -173,6 +178,7 @@ interface CreateProjectData {
   endDate?: string;
   boardIds?: string[];
   methodology?: 'FLEXIBLE' | 'SCRUM';
+  advancedTraceability?: boolean;
   teamIds?: string[];
   memberIds?: string[];
   productOwnerId?: string | null;
@@ -197,6 +203,7 @@ interface UpdateProjectData {
   nextStep?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  ownerId?: string;
 }
 
 interface CreateMilestoneData {
@@ -226,7 +233,7 @@ interface ProjectState {
   fetchProjectById: (id: string) => Promise<void>;
   fetchStats: (id: string) => Promise<void>;
   createProject: (data: CreateProjectData) => Promise<Project>;
-  updateProject: (id: string, data: UpdateProjectData) => Promise<void>;
+  updateProject: (id: string, data: UpdateProjectData) => Promise<Project>;
   transitionWorkflow: (id: string, data: ProjectWorkflowTransitionData) => Promise<Project>;
   adoptCurrentStandard: (id: string) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
@@ -250,6 +257,7 @@ interface ProjectState {
 // ==================== STORE ====================
 
 function withPreservedAccess(updated: Project, previous?: Project | null): Project {
+  if (updated.access === null) return updated;
   return updated.access || !previous?.access ? updated : { ...updated, access: previous.access };
 }
 
@@ -352,6 +360,7 @@ export const useProjectStore = create<ProjectState>()(
           projects: state.projects.map((p) => (p.id === id ? withPreservedAccess(updated, p) : p)),
           currentProject: state.currentProject?.id === id ? withPreservedAccess(updated, state.currentProject) : state.currentProject,
         }));
+        return updated;
       },
 
       transitionWorkflow: async (id: string, data: ProjectWorkflowTransitionData) => {

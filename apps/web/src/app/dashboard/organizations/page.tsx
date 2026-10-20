@@ -16,6 +16,7 @@ import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import { MultiSelectDropdown } from '@/components/MultiSelectDropdown';
 import { InstitutionalSettingsPanel } from '@/components/InstitutionalSettingsPanel';
 import { TeamOrganizationSettingsPanel } from '@/components/TeamOrganizationSettingsPanel';
+import { OrganizationAccessRolesPanel } from './OrganizationAccessRolesPanel';
 import styles from './organizations.module.css';
 
 type OrganizationRole = 'OWNER' | 'ADMIN' | 'BILLING_ADMIN' | 'MEMBER';
@@ -157,7 +158,7 @@ export default function OrganizationsPage() {
   const activeOrganizationId = activeWorkspaceOrganizationId ?? currentWorkspaceOrganizationId;
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
-  const [view, setView] = useState<'people' | 'settings'>('people');
+  const [view, setView] = useState<'people' | 'settings' | 'roles'>('people');
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [organizationWorkspaces, setOrganizationWorkspaces] = useState<{ organizationId: string; items: Array<{ id: string; name: string; mode: string; archived: boolean }> } | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
@@ -223,7 +224,11 @@ export default function OrganizationsPage() {
         ?? available.find((organization) => organization.id === currentWorkspaceOrganizationId)
         ?? available[0];
       setOrganizationId(preferred?.id || '');
-      setView(requestedView === 'settings' && (preferred?.type === 'INSTITUTION' || preferred?.type === 'COMPANY') ? 'settings' : 'people');
+      setView(requestedView === 'roles' && preferred?.type !== 'PERSONAL' && canManage(preferred?.role)
+        ? 'roles'
+        : requestedView === 'settings' && (preferred?.type === 'INSTITUTION' || preferred?.type === 'COMPANY')
+          ? 'settings'
+          : 'people');
       if (preferred) window.dispatchEvent(new CustomEvent('aether:select-organization', { detail: preferred.id }));
       setLoadError('');
     }).catch(() => {
@@ -294,11 +299,11 @@ export default function OrganizationsPage() {
     setOrganizationDeleteName('');
     setOrganizationDeleteError('');
   }, [organizationId]);
-  function selectOrganizationView(next: 'people' | 'settings') {
+  function selectOrganizationView(next: 'people' | 'settings' | 'roles') {
     setView(next);
     const url = new URL(window.location.href);
-    if (next === 'settings') url.searchParams.set('view', 'settings');
-    else url.searchParams.delete('view');
+    if (next === 'people') url.searchParams.delete('view');
+    else url.searchParams.set('view', next);
     window.history.replaceState(null, '', url);
   }
   const knownOrganizationWorkspaces = organizationWorkspaces && organizationWorkspaces.organizationId === selectedOrganization?.id ? organizationWorkspaces.items : [];
@@ -697,6 +702,7 @@ export default function OrganizationsPage() {
             <button type="button" aria-current={view === 'people' ? 'page' : undefined} onClick={() => selectOrganizationView('people')}><Users size={16} /> Personas y accesos <span>{members.length}</span></button>
             {selectedOrganization.type === 'INSTITUTION' && <button type="button" aria-current={view === 'settings' ? 'page' : undefined} onClick={() => selectOrganizationView('settings')}><Building2 size={16} /> Configuración institucional</button>}
             {selectedOrganization.type === 'COMPANY' && <button type="button" aria-current={view === 'settings' ? 'page' : undefined} onClick={() => selectOrganizationView('settings')}><Building2 size={16} /> Configuración del equipo</button>}
+            {selectedOrganization.type !== 'PERSONAL' && isManager && <button type="button" aria-current={view === 'roles' ? 'page' : undefined} onClick={() => selectOrganizationView('roles')}><ShieldCheck size={16} /> Roles y permisos</button>}
           </nav>
           <div className={styles.organizationViewStage}>
           <div className={styles.organizationViewPanel} data-active={view === 'people'} aria-hidden={view !== 'people'} inert={view !== 'people'} id="organization-people">
@@ -829,6 +835,9 @@ export default function OrganizationsPage() {
             </section>}
           </>}
           </div>
+          {selectedOrganization.type !== 'PERSONAL' && isManager && <div className={styles.organizationViewPanel} data-active={view === 'roles'} aria-hidden={view !== 'roles'} inert={view !== 'roles'} id="organization-access-roles">
+            <OrganizationAccessRolesPanel key={selectedOrganization.id} organizationId={selectedOrganization.id} canManage={isManager} />
+          </div>}
           </div>
           </>}
         </>

@@ -7,6 +7,7 @@ import { eventStore } from '../services/EventStoreService';
 import { activityLogService } from '../services/ActivityLogService';
 import { notificationService } from '../services/NotificationService';
 import { projectAuthorizationService } from '../services/ProjectAuthorizationService';
+import { organizationAccessRoleService } from '../services/OrganizationAccessRoleService';
 import type { ProjectRequest } from '../middleware/project';
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ const createProjectSchema = z.object({
   endDate: z.string().optional(),
   boardIds: z.array(z.string().uuid()).optional(),
   methodology: z.enum(['FLEXIBLE', 'SCRUM']).default('FLEXIBLE'),
+  advancedTraceability: z.boolean().default(false),
   teamIds: z.array(z.string().uuid()).max(30).default([]),
   memberIds: z.array(z.string().uuid()).max(100).default([]),
   productOwnerId: z.string().uuid().nullable().optional(),
@@ -55,6 +57,7 @@ const updateProjectSchema = z.object({
   nextStep: z.string().max(1000).optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  ownerId: z.string().uuid().optional(),
 });
 
 const workflowStageSchema = z.enum([
@@ -103,11 +106,11 @@ const updateMilestoneSchema = z.object({
 
 const directProjectMemberSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
+  role: z.string().trim().min(1).max(64).default('MEMBER'),
 });
 
 const directProjectMemberRoleSchema = z.object({
-  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
+  role: z.string().trim().min(1).max(64),
 });
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -125,6 +128,7 @@ function fmtProject(row: any) {
     status: row.status,
     maturityStage: row.maturity_stage ?? 'IDEA',
     methodology: row.methodology ?? 'FLEXIBLE',
+    advancedTraceability: row.advanced_traceability ?? false,
     productGoal: row.product_goal ?? null,
     problemStatement: row.problem_statement,
     impactedPeople: row.impacted_people,
@@ -151,6 +155,8 @@ function fmtProject(row: any) {
     pausedReason: row.paused_reason,
     ownerId: row.owner_id,
     ownerName: row.owner_name ?? null,
+    ownerEmail: row.owner_email ?? null,
+    ownerAvatar: row.owner_avatar ?? null,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
   };
@@ -719,7 +725,7 @@ class ProjectController {
       if (!body.success) {
         return res.status(400).json({ success: false, error: { message: 'Datos inválidos', details: body.error.flatten() } });
       }
-      const { boardIds = [], teamIds, memberIds, methodology, productOwnerId, scrumMasterId, ...data } = body.data;
+      const { boardIds = [], teamIds, memberIds, methodology, advancedTraceability, productOwnerId, scrumMasterId, ...data } = body.data;
       const uniqueBoardIds = [...new Set(boardIds)];
       const uniqueTeamIds = [...new Set(teamIds)];
       const uniqueMemberIds = [...new Set(memberIds)];
@@ -795,18 +801,32 @@ class ProjectController {
              problem_statement, impacted_people, problem_impact, impacted_count,
              expected_outcome, proposed_solution, differentiation,
              next_step, start_date, end_date, owner_id,
-             applied_standard_id, applied_standard_version, standard_applied_at, updated_at, card_prefix
+             applied_standard_id, applied_standard_version, standard_applied_at, updated_at, card_prefix, advanced_traceability
            )
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $21, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $22)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $21, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $22, $23)
            RETURNING *`,
           [wsId, data.name, data.description ?? null, data.icon ?? null, data.color ?? null,
            data.status ?? 'PLANNING', data.maturityStage ?? 'IDEA', data.problemStatement ?? null,
            data.impactedPeople, data.problemImpact, data.impactedCount, data.expectedOutcome,
            data.proposedSolution, data.differentiation, data.nextStep ?? null,
            data.startDate ?? null, data.endDate ?? null, userId,
-           workspaceStandard.id, workspaceStandard.version, methodology, data.cardPrefix ?? null]
+           workspaceStandard.id, workspaceStandard.version, methodology, data.cardPrefix ?? null, advancedTraceability]
         );
         const project = result.rows[0];
+        if (advancedTraceability) await client.query(
+          `INSERT INTO project_origin_snapshots (
+             project_id, origin_type, source_title, source_description, problem_statement,
+             impacted_people, problem_impact, impacted_count, expected_outcome,
+             proposed_solution, differentiation, captured_by
+           ) VALUES ($1, 'DIRECT', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [project.id, data.name, data.description ?? null, data.problemStatement ?? null, data.impactedPeople,
+           data.problemImpact, data.impactedCount, data.expectedOutcome, data.proposedSolution, data.differentiation, userId],
+        );
+        if (advancedTraceability) await client.query(
+          `INSERT INTO project_objectives (project_id, origin_snapshot_id, statement, created_by)
+           SELECT $1, id, $2, $3 FROM project_origin_snapshots WHERE project_id = $1`,
+          [project.id, data.expectedOutcome, userId],
+        );
         for (const teamId of uniqueTeamIds) {
           await client.query(
             `INSERT INTO project_teams (id, project_id, team_id, assigned_by) VALUES (gen_random_uuid(), $1, $2, $3)`,
@@ -886,7 +906,12 @@ class ProjectController {
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const result = await pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
+      const result = await pool.query(
+        `SELECT p.*, owner.name AS owner_name, owner.email AS owner_email, owner.avatar AS owner_avatar
+         FROM projects p LEFT JOIN users owner ON owner.id = p.owner_id
+         WHERE p.id = $1`,
+        [id],
+      );
       if (!result.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
       const relations = await loadRelations(id, req.user?.id);
       const access = (req as ProjectRequest).projectContext;
@@ -899,8 +924,9 @@ class ProjectController {
               level: access.level,
               external: access.external,
               canRead: true,
-              canContribute: access.level !== 'READ',
-              canManage: access.level === 'MANAGE',
+              canContribute: access.permissions['work.create'] || access.permissions['work.edit'] || access.permissions['work.comment'],
+              canManage: access.permissions['project.manage'],
+              permissions: access.permissions,
             } : undefined,
           },
         },
@@ -918,6 +944,22 @@ class ProjectController {
       const body = updateProjectSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: 'Datos inválidos' } });
       const data = body.data;
+      if (data.ownerId !== undefined) {
+        const ownerMembership = await pool.query(
+          `SELECT 1 FROM projects p
+           JOIN workspaces w ON w.id = p.workspace_id
+           JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = $2
+           WHERE p.id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM organization_access_revocations r
+               WHERE r.organization_id = w.organization_id AND r.user_id = $2
+             )`,
+          [id, data.ownerId],
+        );
+        if (!ownerMembership.rows.length) {
+          return res.status(400).json({ success: false, error: { message: 'El responsable debe pertenecer al espacio de trabajo del proyecto.' } });
+        }
+      }
       const fields: string[] = [];
       const values: any[] = [];
       let idx = 1;
@@ -938,6 +980,7 @@ class ProjectController {
       if (data.nextStep !== undefined) { fields.push(`next_step = $${idx++}`); values.push(data.nextStep); }
       if (data.startDate   !== undefined) { fields.push(`start_date = $${idx++}`);  values.push(data.startDate); }
       if (data.endDate     !== undefined) { fields.push(`end_date = $${idx++}`);    values.push(data.endDate); }
+      if (data.ownerId     !== undefined) { fields.push(`owner_id = $${idx++}`);     values.push(data.ownerId); }
       if (!fields.length) return res.status(400).json({ success: false, error: { message: 'Sin campos' } });
       // Get old project for event metadata
       const oldProject = await pool.query(`SELECT name, status, workspace_id FROM projects WHERE id = $1`, [id]);
@@ -963,6 +1006,7 @@ class ProjectController {
         next_step: data.nextStep !== undefined ? data.nextStep : currentProject.next_step,
         start_date: data.startDate !== undefined ? data.startDate : currentProject.start_date,
         end_date: data.endDate !== undefined ? data.endDate : currentProject.end_date,
+        owner_id: data.ownerId !== undefined ? data.ownerId : currentProject.owner_id,
       };
       const predictedRelations = await loadRelations(id);
       const standard = await getWorkspaceProjectStandard(currentProject.workspace_id);
@@ -990,6 +1034,7 @@ class ProjectController {
           impactedCount: 'impacted_count', expectedOutcome: 'expected_outcome',
           proposedSolution: 'proposed_solution', differentiation: 'differentiation',
           nextStep: 'next_step', startDate: 'start_date', endDate: 'end_date',
+          ownerId: 'owner_id',
         };
         const changedFields = Object.entries(projectFieldColumns)
           .filter(([field, column]) => field in data && String(currentProject[column] ?? '') !== String(updated[column] ?? ''))
@@ -1030,19 +1075,24 @@ class ProjectController {
           } as any);
         }
       } catch {}
-      const access = (req as ProjectRequest).projectContext;
+      const actorId = (req as any).user?.id as string;
+      const access = data.ownerId !== undefined
+        ? await projectAuthorizationService.getAccess(id, actorId)
+        : (req as ProjectRequest).projectContext;
+      const owner = await pool.query('SELECT name FROM users WHERE id = $1', [result.rows[0].owner_id]);
       res.json({
         success: true,
         data: {
           project: {
-            ...(await hydrateProject(result.rows[0], relations)),
+            ...(await hydrateProject({ ...result.rows[0], owner_name: owner.rows[0]?.name ?? null }, relations)),
             access: access ? {
               level: access.level,
               external: access.external,
               canRead: true,
-              canContribute: access.level !== 'READ',
-              canManage: access.level === 'MANAGE',
-            } : undefined,
+              canContribute: access.permissions['work.create'] || access.permissions['work.edit'] || access.permissions['work.comment'],
+              canManage: access.permissions['project.manage'],
+              permissions: access.permissions,
+            } : null,
           },
         },
       });
@@ -1510,7 +1560,7 @@ class ProjectController {
       const { id } = req.params;
       const result = await pool.query(
         `SELECT tm.team_id, t.name AS team_name, t.color AS team_color,
-                u.id, u.name, u.email, u.avatar, tm.role
+                u.id, u.name, u.email, u.avatar, tm.role, ar.name AS role_name
            FROM project_teams pt
            JOIN teams t ON t.id = pt.team_id
            JOIN projects p ON p.id = pt.project_id AND p.workspace_id = t.workspace_id
@@ -1518,6 +1568,7 @@ class ProjectController {
            JOIN users u ON u.id = tm.user_id
            JOIN workspace_members wm ON wm.workspace_id = t.workspace_id AND wm.user_id = u.id
            JOIN workspaces w ON w.id = t.workspace_id
+           LEFT JOIN organization_access_roles ar ON ar.organization_id = w.organization_id AND ar.role_key = tm.role
           WHERE pt.project_id = $1
             AND NOT EXISTS (
               SELECT 1 FROM organization_access_revocations r
@@ -1535,6 +1586,7 @@ class ProjectController {
             email: r.email,
             avatar: r.avatar ?? null,
             role: r.role,
+            roleName: r.role_name ?? r.role,
             teamId: r.team_id,
             teamName: r.team_name,
             teamColor: r.team_color ?? null,
@@ -1680,11 +1732,22 @@ class ProjectController {
     try {
       const { id } = req.params;
       const result = await pool.query(
-        `SELECT u.id, u.name, u.email, u.avatar, pm.role, pm.added_at
-         FROM project_members pm
-         JOIN users u ON u.id = pm.user_id
-         WHERE pm.project_id = $1
-         ORDER BY pm.added_at ASC`,
+        `SELECT * FROM (
+           SELECT u.id, u.name, u.email, u.avatar,
+                  'OWNER'::text AS role, 'Propietario'::text AS role_name, p.created_at AS added_at
+             FROM projects p
+             JOIN users u ON u.id = p.owner_id
+            WHERE p.id = $1
+           UNION ALL
+           SELECT u.id, u.name, u.email, u.avatar, pm.role, ar.name AS role_name, pm.added_at
+             FROM project_members pm
+             JOIN projects p ON p.id = pm.project_id
+             JOIN workspaces w ON w.id = p.workspace_id
+             LEFT JOIN organization_access_roles ar ON ar.organization_id = w.organization_id AND ar.role_key = pm.role
+             JOIN users u ON u.id = pm.user_id
+            WHERE pm.project_id = $1 AND pm.user_id <> p.owner_id
+         ) project_members_with_owner
+         ORDER BY added_at ASC`,
         [id]
       );
       res.json({
@@ -1696,6 +1759,7 @@ class ProjectController {
             email:    r.email,
             avatar:   r.avatar ?? null,
             role:     r.role,
+            roleName: r.role_name ?? r.role,
             addedAt:  new Date(r.added_at).toISOString(),
           })),
         },
@@ -1717,9 +1781,12 @@ class ProjectController {
 
       // Project access is narrower than workspace access. Adding someone to a
       // project must never silently grant them a workspace membership.
-      const projRow = await pool.query(`SELECT workspace_id FROM projects WHERE id = $1`, [id]);
+      const projRow = await pool.query(`SELECT p.workspace_id, w.organization_id FROM projects p JOIN workspaces w ON w.id = p.workspace_id WHERE p.id = $1`, [id]);
       if (!projRow.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
       const workspaceId = projRow.rows[0].workspace_id;
+      if (!(await organizationAccessRoleService.getAssignable(projRow.rows[0].organization_id, role))) {
+        return res.status(400).json({ success: false, error: { code: 'ACCESS_ROLE_NOT_FOUND', message: 'Selecciona un rol disponible en la organización.' } });
+      }
 
       const member = await pool.query(
         `SELECT u.id, u.name, u.email, u.avatar
@@ -1788,7 +1855,7 @@ class ProjectController {
       }
       const { role } = parsed.data;
       const membership = await pool.query(
-        `SELECT p.workspace_id, u.name AS member_name,
+        `SELECT p.workspace_id, w.organization_id, u.name AS member_name,
                 EXISTS (
                   SELECT 1 FROM project_teams pt
                   JOIN team_members tm ON tm.team_id = pt.team_id
@@ -1796,6 +1863,7 @@ class ProjectController {
                 ) AS has_team_access,
                 pm.role AS previous_role
          FROM projects p
+         JOIN workspaces w ON w.id = p.workspace_id
          JOIN users u ON u.id = $2
          JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = u.id
          LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = u.id
@@ -1804,6 +1872,9 @@ class ProjectController {
       );
       if (!membership.rows.length || (!membership.rows[0].previous_role && !membership.rows[0].has_team_access)) {
         return res.status(404).json({ success: false, error: { message: 'La persona no tiene acceso a este proyecto' } });
+      }
+      if (!(await organizationAccessRoleService.getAssignable(membership.rows[0].organization_id, role))) {
+        return res.status(400).json({ success: false, error: { code: 'ACCESS_ROLE_NOT_FOUND', message: 'Selecciona un rol disponible en la organización.' } });
       }
       const result = await pool.query(
         `INSERT INTO project_members (project_id, user_id, role, added_by)

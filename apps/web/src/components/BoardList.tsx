@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useBoardStore } from '@/stores/boardStore';
 import { useCardStore } from '@/stores/cardStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { apiService } from '@/services/apiService';
 import { markStepDone } from '@/lib/utils/onboardingGuide';
 import { useSortable } from '@dnd-kit/sortable';
@@ -35,11 +36,15 @@ interface BoardListProps {
 }
 
 export default function BoardList({ list, filteredCards: filteredCardsProp }: BoardListProps) {
-  const { updateList, deleteList } = useBoardStore();
+  const { updateList, deleteList, currentBoard } = useBoardStore();
   const { cards, addCard } = useCardStore();
   const setSelectedCard = useCardStore((s) => s.setSelectedCard);
   const { currentWorkspace } = useWorkspaceStore();
+  const currentProject = useProjectStore((s) => s.currentProject);
   const userRole = currentWorkspace?.userRole;
+  const projectPermissions = currentProject?.boards?.some((board) => board.id === currentBoard?.id)
+    ? currentProject.access?.permissions
+    : undefined;
 
   const [isEditing, setIsEditing]           = useState(false);
   const [editedName, setEditedName]         = useState(list.name);
@@ -52,8 +57,15 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
 
   const t = es;
 
-  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
-  const canDrag = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
+  const canEdit = projectPermissions
+    ? Boolean(projectPermissions['boards.manage'])
+    : userRole === 'ADMIN' || userRole === 'OWNER';
+  const canCreateCard = projectPermissions
+    ? Boolean(projectPermissions['work.create'])
+    : userRole !== 'VIEWER';
+  const canDrag = projectPermissions
+    ? Boolean(projectPermissions['work.edit'])
+    : userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
   const {
     attributes, listeners, setNodeRef: setSortableNodeRef,
@@ -93,7 +105,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
 
   const handleCreateCard = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEdit || !cardTitle.trim()) return;
+    if (!canCreateCard || !cardTitle.trim()) return;
     setCardCreateError('');
     setIsCreatingCard(true);
     try {
@@ -280,7 +292,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
                   <div style={{ minHeight: '130px', display: 'grid', placeContent: 'center', justifyItems: 'center', gap: '7px', textAlign: 'center', padding: '18px', borderRadius: '9px', background: isOver ? `color-mix(in srgb, ${C.accent} 10%, ${C.surface})` : C.surface, color: isOver ? C.accent : C.text3, transition: 'background-color 0.15s, color 0.15s' }}>
                     <Inbox size={20} strokeWidth={1.5} aria-hidden="true" />
                     <span style={{ fontSize: '12px', fontWeight: 650 }}>{isOver ? 'Suelta la tarjeta aquí' : isFiltered ? 'Sin resultados para estos filtros' : 'Aún no hay tarjetas'}</span>
-                    {!isOver && !isFiltered && canEdit && <span style={{ fontSize: '11px', color: C.text3 }}>Añade la primera tarjeta para empezar.</span>}
+                    {!isOver && !isFiltered && canCreateCard && <span style={{ fontSize: '11px', color: C.text3 }}>Añade la primera tarjeta para empezar.</span>}
                   </div>
                 )}
               </div>
@@ -288,7 +300,7 @@ export default function BoardList({ list, filteredCards: filteredCardsProp }: Bo
           </div>
 
           {/* ── Add card ───────────────────────────────────── */}
-          {canEdit && (
+          {canCreateCard && (
             <div style={{ padding: '0 10px 10px', flexShrink: 0 }}>
               {isAddingCard ? (
                 <form onSubmit={handleCreateCard} className={composerStyles.composer}>

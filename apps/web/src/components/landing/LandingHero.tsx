@@ -56,7 +56,7 @@ export function LandingHero() {
         </div>
         <div className="home-journey-stages" role="group" aria-label="Etapas de una idea en AETHER">
           <svg className="home-journey-track" viewBox="0 0 1000 250" preserveAspectRatio="none" fill="none" aria-hidden="true">
-            <path d="M0 28H310L350 80H610L650 18H1000" stroke="currentColor" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
+            <path className="home-journey-path" d="M0 28H310L350 80H610L650 18H1000" stroke="currentColor" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
           </svg>
           {journey.map((stage, index) => (
             <button
@@ -75,9 +75,11 @@ export function LandingHero() {
           ))}
         </div>
         <div className="home-journey-detail" id="home-journey-detail" aria-live="polite">
-          <span>Ejemplo ilustrativo</span>
-          <strong>{selected.example}</strong>
-          <p>{selected.context}</p>
+          <div className="home-journey-detail-content" key={selected.id}>
+            <span>Ejemplo ilustrativo</span>
+            <strong>{selected.example}</strong>
+            <p>{selected.context}</p>
+          </div>
         </div>
       </div>
     </header>

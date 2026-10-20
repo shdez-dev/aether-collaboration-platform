@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { pool } from '../lib/db';
 import { eventStore } from '../services/EventStoreService';
 import { notificationService } from '../services/NotificationService';
+import { organizationAccessRoleService } from '../services/OrganizationAccessRoleService';
 import type { TeamRequest } from '../middleware/team';
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
@@ -28,11 +29,11 @@ const updateTeamSchema = z.object({
 const addMemberSchema = z.object({
   email:  z.string().email().optional(),
   userId: z.string().uuid().optional(),
-  role:   z.enum(['ADMIN', 'MEMBER', 'VIEWER']).optional(),
+  role:   z.string().trim().min(1).max(64).optional(),
 }).refine((d) => d.email || d.userId, { message: 'email o userId requerido' });
 
 const changeMemberRoleSchema = z.object({
-  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
+  role: z.string().trim().min(1).max(64),
 });
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -56,11 +57,12 @@ function fmtTeam(row: any) {
     activeCards: Number(row.active_cards ?? 0),
     workspaceName: row.workspace_name ?? null,
     viewerRole: row.viewer_role ?? null,
-    canManage: Boolean(
+    viewerRoleName: row.viewer_role_name ?? row.viewer_role ?? null,
+    canManage: Boolean(row.viewer_can_manage_team ?? (
       row.viewer_role === 'ADMIN' ||
       row.created_by === row.viewer_user_id ||
       ['OWNER', 'ADMIN'].includes(row.viewer_workspace_role)
-    ),
+    )),
     canManageAdminRoles: Boolean(
       row.created_by === row.viewer_user_id ||
       ['OWNER', 'ADMIN'].includes(row.viewer_workspace_role)
@@ -76,6 +78,7 @@ function fmtMember(row: any) {
     memberId: row.member_id,
     teamId:   row.team_id,
     role:     row.role,
+    roleName: row.role_name ?? row.role,
     joinedAt: new Date(row.joined_at).toISOString(),
     name:     row.name,
     email:    row.email,
@@ -106,6 +109,8 @@ class TeamController {
                 u.name AS lead_name, u.avatar AS lead_avatar,
                 w.name AS workspace_name,
                 tm_viewer.role AS viewer_role,
+                viewer_access_role.name AS viewer_role_name,
+                COALESCE((viewer_access_role.permissions ->> 'teams.manage')::boolean, tm_viewer.role = 'ADMIN') AS viewer_can_manage_team,
                 wm_viewer.role AS viewer_workspace_role,
                 $1::uuid AS viewer_user_id,
                 COUNT(DISTINCT p.id)::int AS project_count,
@@ -130,13 +135,15 @@ class TeamController {
          LEFT JOIN card_members cm ON cm.card_id = c.id
          LEFT JOIN users u ON u.id = t.lead_id
          LEFT JOIN workspaces w ON w.id = t.workspace_id
+         LEFT JOIN organization_access_roles viewer_access_role
+           ON viewer_access_role.organization_id = w.organization_id AND viewer_access_role.role_key = tm_viewer.role
          WHERE t.workspace_id IS NOT NULL
            AND EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = t.workspace_id AND wm.user_id = $1)
            AND (t.created_by = $1
             OR EXISTS (SELECT 1 FROM team_members WHERE team_id = t.id AND user_id = $1)
             OR EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = t.workspace_id AND wm.user_id = $1 AND wm.role IN ('OWNER', 'ADMIN')))
            AND ($2::uuid IS NULL OR t.workspace_id = $2::uuid)
-         GROUP BY t.id, u.name, u.avatar, w.name, tm_viewer.role, wm_viewer.role
+         GROUP BY t.id, u.name, u.avatar, w.name, tm_viewer.role, viewer_access_role.name, viewer_access_role.permissions, wm_viewer.role
          ORDER BY t.updated_at DESC`,
         [userId, workspaceId]
       );
@@ -226,6 +233,8 @@ class TeamController {
                 u.name AS lead_name, u.avatar AS lead_avatar,
                 w.name AS workspace_name,
                 tm_viewer.role AS viewer_role,
+                viewer_access_role.name AS viewer_role_name,
+                COALESCE((viewer_access_role.permissions ->> 'teams.manage')::boolean, tm_viewer.role = 'ADMIN') AS viewer_can_manage_team,
                 wm_viewer.role AS viewer_workspace_role,
                 $2::uuid AS viewer_user_id,
                 COUNT(DISTINCT p.id)::int AS project_count,
@@ -245,8 +254,10 @@ class TeamController {
          LEFT JOIN card_members cm ON cm.card_id = c.id
          LEFT JOIN users u ON u.id = t.lead_id
          LEFT JOIN workspaces w ON w.id = t.workspace_id
+         LEFT JOIN organization_access_roles viewer_access_role
+           ON viewer_access_role.organization_id = w.organization_id AND viewer_access_role.role_key = tm_viewer.role
          WHERE t.id = $1
-         GROUP BY t.id, u.name, u.avatar, w.name, tm_viewer.role, wm_viewer.role`,
+         GROUP BY t.id, u.name, u.avatar, w.name, tm_viewer.role, viewer_access_role.name, viewer_access_role.permissions, wm_viewer.role`,
         [id, userId]
       );
 
@@ -360,6 +371,7 @@ class TeamController {
            tm.id          AS member_id,
            tm.team_id,
            tm.role,
+           ar.name AS role_name,
            tm.joined_at,
            u.id           AS user_id,
            u.name,
@@ -375,10 +387,13 @@ class TeamController {
            MAX(c.updated_at) AS last_activity
          FROM team_members tm
          JOIN users u ON u.id = tm.user_id
+         LEFT JOIN teams t ON t.id = tm.team_id
+         LEFT JOIN workspaces w ON w.id = t.workspace_id
+         LEFT JOIN organization_access_roles ar ON ar.organization_id = w.organization_id AND ar.role_key = tm.role
          LEFT JOIN card_members cm ON cm.user_id = u.id
          LEFT JOIN cards c ON c.id = cm.card_id
          WHERE tm.team_id = $1
-         GROUP BY tm.id, tm.team_id, tm.role, tm.joined_at, u.id, u.name, u.email, u.avatar
+         GROUP BY tm.id, tm.team_id, tm.role, ar.name, tm.joined_at, u.id, u.name, u.email, u.avatar
          ORDER BY tm.role DESC, u.name ASC`,
         [id]
       );
@@ -442,7 +457,10 @@ class TeamController {
         return res.status(403).json({ success: false, error: { message: 'Solo un administrador puede añadir miembros' } });
       }
       const canAssignAdmin = teamContext.isCreator || ['OWNER', 'ADMIN'].includes(teamContext.workspaceRole);
-      if (!canAssignAdmin && body.data.role === 'ADMIN') {
+      const roleKey = body.data.role ?? 'MEMBER';
+      const accessRole = await organizationAccessRoleService.getAssignable(teamContext.organizationId, roleKey);
+      if (!accessRole) return res.status(400).json({ success: false, error: { code: 'ACCESS_ROLE_NOT_FOUND', message: 'El rol seleccionado ya no está disponible.' } });
+      if (!canAssignAdmin && Boolean(accessRole.permissions['teams.manage'])) {
         return res.status(403).json({ success: false, error: { message: 'Solo el responsable puede asignar el rol de administrador' } });
       }
 
@@ -509,7 +527,7 @@ class TeamController {
       const invResult = await pool.query(
         `INSERT INTO team_invitations (team_id, invited_user_id, invited_by, role)
          VALUES ($1, $2, $3, $4) RETURNING id`,
-        [id, targetUserId, userId, body.data.role ?? 'MEMBER']
+        [id, targetUserId, userId, roleKey]
       );
       const invitationId = invResult.rows[0].id;
 
@@ -568,13 +586,16 @@ class TeamController {
       );
       const teamContext = (req as TeamRequest).teamContext;
       const isOwner = teamContext?.isCreator || ['OWNER', 'ADMIN'].includes(teamContext?.workspaceRole ?? '');
-      const actorRole = roles.rows[0]?.actor_role;
+      if (!teamContext) return res.status(403).json({ success: false, error: { message: 'Acceso al equipo denegado' } });
       const targetRole = roles.rows[0]?.target_role;
       if (!targetRole) return res.status(404).json({ success: false, error: { message: 'Miembro no encontrado' } });
-      if (!teamContext?.canManage) {
+      if (!teamContext.canManage) {
         return res.status(403).json({ success: false, error: { message: 'Solo un administrador puede cambiar roles' } });
       }
-      if (!isOwner && (targetRole === 'ADMIN' || body.data.role === 'ADMIN')) {
+      const currentTargetAccessRole = await organizationAccessRoleService.getAssignable(teamContext.organizationId, targetRole);
+      const nextTargetAccessRole = await organizationAccessRoleService.getAssignable(teamContext.organizationId, body.data.role);
+      if (!nextTargetAccessRole) return res.status(400).json({ success: false, error: { code: 'ACCESS_ROLE_NOT_FOUND', message: 'El rol seleccionado ya no está disponible.' } });
+      if (!isOwner && (Boolean(currentTargetAccessRole?.permissions['teams.manage']) || Boolean(nextTargetAccessRole.permissions['teams.manage']))) {
         return res.status(403).json({ success: false, error: { message: 'Solo el responsable puede administrar roles de administrador' } });
       }
 
@@ -633,10 +654,11 @@ class TeamController {
       );
       const teamContext = (req as TeamRequest).teamContext;
       const isOwner = teamContext?.isCreator || ['OWNER', 'ADMIN'].includes(teamContext?.workspaceRole ?? '');
-      const actorRole = roles.rows[0]?.actor_role;
       const targetRole = roles.rows[0]?.target_role;
       if (!targetRole) return res.status(404).json({ success: false, error: { message: 'Miembro no encontrado' } });
-      const canRemove = userId === targetId || isOwner || (actorRole === 'ADMIN' && targetRole !== 'ADMIN');
+      const targetAccessRole = await organizationAccessRoleService.getAssignable(teamContext?.organizationId ?? '', targetRole);
+      const targetIsTeamManager = Boolean(targetAccessRole?.permissions['teams.manage']);
+      const canRemove = userId === targetId || isOwner || Boolean(teamContext?.canManage && !targetIsTeamManager);
       if (!canRemove) {
         return res.status(403).json({ success: false, error: { message: 'No tienes permiso para remover este miembro' } });
       }
@@ -846,6 +868,8 @@ class TeamController {
           case 'project.risk.created':        action = 'registró el riesgo';           break;
           case 'project.risk.updated':        action = 'actualizó el riesgo';          break;
           case 'project.risk.status-changed': action = 'actualizó el estado del riesgo'; break;
+          case 'project.deliverable.deleted': action = 'eliminó el entregable';          break;
+          case 'project.outcome.deleted':     action = 'eliminó el resultado medido';   break;
           case 'project.board.linked':        action = 'vinculó el tablero';           break;
           case 'project.board.unlinked':      action = 'desvinculó el tablero';        break;
           case 'project.member.added':        action = 'invitó a';                     break;

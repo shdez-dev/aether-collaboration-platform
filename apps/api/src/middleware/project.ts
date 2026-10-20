@@ -21,15 +21,25 @@ function workspaceRole(req: Request) {
 }
 
 export function canManageProjectBoundResource(req: Request) {
-  const level = (req as ProjectRequest).projectContext?.level;
-  return level === 'MANAGE' || ['OWNER', 'ADMIN'].includes(workspaceRole(req) ?? '');
+  const access = (req as ProjectRequest).projectContext;
+  if (!access) return ['OWNER', 'ADMIN'].includes(workspaceRole(req) ?? '');
+  if (access?.grantedAction === 'MANAGE') return access.permissions['project.manage'];
+  if (access?.grantedAction === 'MANAGE_BOARDS') return access.permissions['boards.manage'];
+  if (access?.grantedAction === 'MANAGE_PLANNING') return access.permissions['planning.manage'];
+  if (access?.grantedAction === 'EDIT_WORK') return access.permissions['work.edit'];
+  if (access?.grantedAction === 'DELETE_WORK') return access.permissions['work.delete'];
+  return false;
 }
 
 export function canContributeToProjectBoundResource(req: Request) {
-  const level = (req as ProjectRequest).projectContext?.level;
-  return level === 'MANAGE'
-    || level === 'CONTRIBUTE'
-    || ['OWNER', 'ADMIN', 'MEMBER'].includes(workspaceRole(req) ?? '');
+  const access = (req as ProjectRequest).projectContext;
+  if (!access) return ['OWNER', 'ADMIN', 'MEMBER'].includes(workspaceRole(req) ?? '');
+  if (access?.grantedAction === 'CREATE_WORK') return access.permissions['work.create'];
+  if (access?.grantedAction === 'EDIT_WORK') return access.permissions['work.edit'];
+  if (access?.grantedAction === 'COMMENT_WORK') return access.permissions['work.comment'];
+  return Boolean(access?.grantedAction === 'CONTRIBUTE' && (
+    access.permissions['work.create'] || access.permissions['work.edit'] || access.permissions['work.comment']
+  ));
 }
 
 /**
@@ -70,7 +80,7 @@ export function requireProjectAccess(action: ProjectAction, projectIdParam = 'id
 
 // Compatibility names used by the existing project routes.
 export const requireProjectMembership = requireProjectAccess('READ');
-export const requireProjectEditor = requireProjectAccess('MANAGE');
+export const requireProjectEditor = requireProjectAccess('MANAGE_PROJECT');
 
 export type ProjectScrumRole = 'PRODUCT_OWNER' | 'SCRUM_MASTER' | 'DEVELOPER';
 
@@ -92,7 +102,7 @@ export function requireProjectScrumRole(...allowedRoles: ProjectScrumRole[]) {
       }
 
       const access = (req as ProjectRequest).projectContext;
-      if (access?.level === 'MANAGE') return next();
+      if (access?.permissions['planning.manage']) return next();
 
       const assignment = await pool.query(
         `SELECT pma.role
@@ -169,7 +179,7 @@ export function requireProjectBoundScrumRole(...allowedRoles: ProjectScrumRole[]
       }
 
       const access = (req as ProjectRequest).projectContext;
-      if (access?.level === 'MANAGE') return next();
+      if (access?.permissions['planning.manage']) return next();
 
       const assignment = await pool.query(
         `SELECT pma.role
@@ -286,8 +296,15 @@ export function requireProjectBoundResourceAccess(action: ProjectAction, resourc
         return next();
       }
 
+      const effectiveAction: ProjectAction = action !== 'MANAGE'
+        ? action
+        : resource === 'board' || resource === 'list'
+          ? 'MANAGE_BOARDS'
+          : resource === 'sprint' || resource === 'milestone'
+            ? 'MANAGE_PLANNING'
+            : 'DELETE_WORK';
       const accesses = await Promise.all(
-        context.project_ids.map((projectId) => projectAuthorizationService.can(projectId, userId, action)),
+        context.project_ids.map((projectId) => projectAuthorizationService.can(projectId, userId, effectiveAction)),
       );
       if (accesses.some((access) => !access)) {
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Recurso no encontrado' } });

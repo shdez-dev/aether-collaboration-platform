@@ -1,7 +1,8 @@
 // apps/web/src/components/CardDetailModal.tsx
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { useCardStore } from '@/stores/cardStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -14,7 +15,7 @@ import { TypingIndicator } from './realtime/TypingIndicator';
 import { MemberPicker } from './MemberPicker';
 import { LabelPicker } from './LabelPicker';
 import { CommentList } from './comments/CommentList';
-import { X, Calendar, Zap, ChevronLeft, ChevronRight, Trash2, Flag, ListChecks, Link2, MessageSquare, ArrowDown, ArrowUp, Equal, Minus, PanelRight, Pencil } from 'lucide-react';
+import { X, Calendar, Zap, ChevronLeft, ChevronRight, ChevronDown, Check, LoaderCircle, Trash2, Flag, ListChecks, Link2, MessageSquare, ArrowDown, ArrowUp, Equal, Minus, PanelRight, Pencil } from 'lucide-react';
 import { es } from '@/lib/i18n';
 import { formatShort } from '@/lib/utils/date';
 import { CardChecklist } from './CardChecklist';
@@ -146,6 +147,227 @@ function SectionLabel({ icon, label }: { icon?: React.ReactNode; label: string }
   );
 }
 
+const STORY_POINT_VALUES = [1, 2, 3, 5, 8, 13, 21] as const;
+const STORY_POINT_OPTIONS: Array<number | null> = [...STORY_POINT_VALUES, null];
+
+function StoryPointsPicker({
+  value,
+  disabled,
+  saving,
+  onChange,
+}: {
+  value: number | null;
+  disabled: boolean;
+  saving: boolean;
+  onChange: (value: number | null) => void;
+}) {
+  const pickerId = useId();
+  const listboxId = `${pickerId}-story-points`;
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [position, setPosition] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
+  const focusOnOpenRef = useRef(false);
+
+  const selectedIndex = value == null ? STORY_POINT_OPTIONS.length - 1 : STORY_POINT_OPTIONS.indexOf(value);
+
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger || typeof window === 'undefined') return;
+    const rect = trigger.getBoundingClientRect();
+    const viewportPadding = 12;
+    const menuHeight = Math.min(260, window.innerHeight - viewportPadding * 2);
+    const width = Math.min(Math.max(rect.width, 256), window.innerWidth - viewportPadding * 2);
+    const left = Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - width - viewportPadding));
+    const belowSpace = window.innerHeight - rect.bottom - 8;
+    const aboveSpace = rect.top - 8;
+    const openBelow = belowSpace >= menuHeight || belowSpace >= aboveSpace;
+    const availableSpace = Math.max(120, Math.min(menuHeight, openBelow ? belowSpace : aboveSpace));
+    const top = openBelow ? rect.bottom + 8 : Math.max(viewportPadding, rect.top - availableSpace - 8);
+    setPosition({ top, left, width, maxHeight: availableSpace });
+  }, []);
+
+  const close = useCallback((restoreFocus = false) => {
+    setOpen(false);
+    focusOnOpenRef.current = false;
+    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
+
+  const openMenu = useCallback((focusOption: boolean) => {
+    if (disabled || saving) return;
+    focusOnOpenRef.current = focusOption;
+    setActiveIndex(selectedIndex < 0 ? 0 : selectedIndex);
+    updatePosition();
+    setOpen(true);
+  }, [disabled, saving, selectedIndex, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!triggerRef.current?.contains(target) && !listboxRef.current?.parentElement?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target as Node;
+      if (!triggerRef.current?.contains(target) && !listboxRef.current?.parentElement?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    const reposition = () => updatePosition();
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+    if (focusOnOpenRef.current) {
+      requestAnimationFrame(() => document.getElementById(`${listboxId}-option-${activeIndex}`)?.focus());
+    }
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
+    };
+  }, [open, updatePosition, listboxId, activeIndex]);
+
+  const moveActiveOption = (nextIndex: number) => {
+    const index = (nextIndex + STORY_POINT_OPTIONS.length) % STORY_POINT_OPTIONS.length;
+    setActiveIndex(index);
+    requestAnimationFrame(() => document.getElementById(`${listboxId}-option-${index}`)?.focus());
+  };
+
+  const selectOption = (nextValue: number | null) => {
+    onChange(nextValue);
+    close(true);
+  };
+
+  const selectedLabel = value == null ? 'Sin estimar' : `${value} puntos`;
+
+  return (
+    <div className={styles.estimatePicker}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={styles.estimateTrigger}
+        data-open={open || undefined}
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
+        aria-expanded={open}
+        aria-label={`Estimación: ${selectedLabel}`}
+        disabled={disabled || saving}
+        onClick={() => open ? close() : openMenu(false)}
+        onKeyDown={(event) => {
+          if (open && event.key === 'Escape') {
+            event.preventDefault();
+            close(true);
+          } else if (!open && ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
+            event.preventDefault();
+            openMenu(true);
+          } else if (open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            event.preventDefault();
+            moveActiveOption(activeIndex + (event.key === 'ArrowDown' ? 1 : -1));
+          }
+        }}
+      >
+        <span className={styles.estimateCurrent}>
+          {value == null ? (
+            <span className={styles.estimateUnsetMark} aria-hidden="true"><Minus size={13} /></span>
+          ) : (
+            <span className={styles.estimateNumber}>{value}</span>
+          )}
+          <span className={styles.estimateCurrentText}>{value == null ? 'Sin estimar' : 'puntos'}</span>
+        </span>
+        {saving
+          ? <LoaderCircle className={styles.estimateSpinner} size={15} aria-label="Guardando estimación" />
+          : <ChevronDown className={styles.estimateChevron} size={15} aria-hidden="true" />}
+      </button>
+
+      {open && position && typeof document !== 'undefined' && createPortal(
+        <div
+          className={styles.estimatePopover}
+          style={{ position: 'fixed', top: position.top, left: position.left, width: position.width, maxHeight: position.maxHeight }}
+        >
+          <div className={styles.estimatePopoverHeader}>
+            <strong>Puntos de historia</strong>
+            <span className={styles.estimateFibonacci}>Fibonacci</span>
+          </div>
+          <div
+            ref={listboxRef}
+            id={listboxId}
+            role="listbox"
+            aria-label="Seleccionar estimación en puntos de historia"
+            className={styles.estimatePointsGrid}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                close(true);
+              } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                moveActiveOption(activeIndex + (event.key === 'ArrowDown' ? 1 : -1));
+              } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                event.preventDefault();
+                moveActiveOption(activeIndex + (event.key === 'ArrowRight' ? 1 : -1));
+              } else if (event.key === 'Home' || event.key === 'End') {
+                event.preventDefault();
+                moveActiveOption(event.key === 'Home' ? 0 : STORY_POINT_OPTIONS.length - 1);
+              } else if (event.key === 'Tab') {
+                event.preventDefault();
+                const dialog = triggerRef.current?.closest('[role="dialog"]');
+                const focusable = Array.from(dialog?.querySelectorAll<HTMLElement>(
+                  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                ) ?? []).filter((element) => element.getClientRects().length > 0);
+                const triggerIndex = focusable.indexOf(triggerRef.current as HTMLButtonElement);
+                const direction = event.shiftKey ? -1 : 1;
+                const next = focusable[triggerIndex + direction] ?? (event.shiftKey ? focusable.at(-1) : focusable[0]);
+                setOpen(false);
+                next?.focus();
+              }
+            }}
+          >
+            {STORY_POINT_VALUES.map((points, index) => (
+              <button
+                key={points}
+                id={`${listboxId}-option-${index}`}
+                type="button"
+                role="option"
+                aria-label={`${points} ${points === 1 ? 'punto' : 'puntos'}`}
+                aria-selected={value === points}
+                tabIndex={activeIndex === index ? 0 : -1}
+                className={styles.estimateOption}
+                data-selected={value === points || undefined}
+                onFocus={() => setActiveIndex(index)}
+                onClick={() => selectOption(points)}
+              >
+                <span className={styles.estimateOptionNumber}>{points}</span>
+                <span className={styles.estimateOptionUnit}>pts</span>
+                {value === points && <Check className={styles.estimateOptionCheck} size={13} aria-hidden="true" />}
+              </button>
+            ))}
+            <button
+              id={`${listboxId}-option-${STORY_POINT_OPTIONS.length - 1}`}
+              type="button"
+              role="option"
+              aria-selected={value == null}
+              tabIndex={activeIndex === STORY_POINT_OPTIONS.length - 1 ? 0 : -1}
+              className={styles.estimateClearOption}
+              data-selected={value == null || undefined}
+              onFocus={() => setActiveIndex(STORY_POINT_OPTIONS.length - 1)}
+              onClick={() => selectOption(null)}
+            >
+              <Minus size={14} aria-hidden="true" />
+              <span>Sin estimar</span>
+              {value == null && <Check size={13} aria-hidden="true" />}
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
 // ── Main modal ────────────────────────────────────────────────────────────────
 export function CardDetailModal() {
   const t = es;
@@ -157,9 +379,19 @@ export function CardDetailModal() {
   const currentProject = useProjectStore((s) => s.currentProject);
   const projectMilestones = currentProject?.milestones ?? [];
   const userRole = currentWorkspace?.userRole;
-  // Allow editing unless the user is an explicit VIEWER; undefined role (no board/workspace
-  // context, e.g. opened from Gantt) is treated as editable.
-  const canEdit  = userRole !== 'VIEWER';
+  const isCurrentProjectBoard = Boolean(currentProject?.boards?.some((board) => board.id === currentBoard?.id));
+  const projectPermissions = isCurrentProjectBoard ? currentProject?.access?.permissions : undefined;
+  // Project cards follow the project permission matrix. Workspace boards keep
+  // their existing workspace role behavior.
+  const canEdit = projectPermissions
+    ? Boolean(projectPermissions['work.edit'])
+    : userRole !== 'VIEWER';
+  const canDelete = projectPermissions
+    ? Boolean(projectPermissions['work.delete'])
+    : userRole === 'OWNER' || userRole === 'ADMIN';
+  const canManagePlanning = projectPermissions
+    ? Boolean(projectPermissions['planning.manage'])
+    : userRole !== 'VIEWER';
 
   const SORA    = "'Sora', system-ui, sans-serif";
   const MANROPE = "'Manrope', system-ui, sans-serif";
@@ -606,11 +838,12 @@ export function CardDetailModal() {
 
               <div className={styles.propertySection}>
                 <SbLabel>Estimación</SbLabel>
-                <select value={editedStoryPoints ?? ''} onChange={(event) => void saveStoryPoints(event.target.value ? Number(event.target.value) : null)} disabled={!canEdit || storyPointsSaving}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '7px', fontSize: '12px', background: 'rgba(97,71,130,0.03)', border: '1px solid rgba(97,71,130,0.08)', color: editedStoryPoints != null ? C.accent : 'var(--c-text3)', outline: 'none', colorScheme: 'dark', fontFamily: MANROPE }}>
-                  <option value="">Sin estimar</option>
-                  {[1, 2, 3, 5, 8, 13, 21].map((points) => <option key={points} value={points}>{points} puntos</option>)}
-                </select>
+                <StoryPointsPicker
+                  value={editedStoryPoints}
+                  disabled={!canEdit}
+                  saving={storyPointsSaving}
+                  onChange={(points) => void saveStoryPoints(points)}
+                />
                 <p className={styles.helperText}>{storyPointsSaving ? 'Guardando…' : 'Puntos de historia Fibonacci'}</p>
               </div>
 
@@ -733,13 +966,13 @@ export function CardDetailModal() {
                 <div className={styles.propertySection}>
                   <SbLabel><Zap style={{ width:'10px', height:'10px', display:'inline', marginRight:'5px', verticalAlign:'middle' }} />{t.card_section_sprint}</SbLabel>
                   <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                    <select value={cardSprintId ?? ''} onChange={(e) => handleSprintChange(e.target.value || null)} disabled={!canEdit || sprintUpdating}
+                    <select value={cardSprintId ?? ''} onChange={(e) => handleSprintChange(e.target.value || null)} disabled={!canManagePlanning || sprintUpdating}
                       style={{ flex:1, padding:'7px 10px', borderRadius:'7px', fontSize:'12.5px', background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.08)', color:cardSprintId?C.accent:'var(--c-text3)', outline:'none', cursor:canEdit?'pointer':'default', colorScheme:'dark', fontFamily:MANROPE }}
                     >
                       <option value="">{t.card_sprint_none}</option>
                       {boardSprints.filter((s) => s.status !== 'COMPLETED').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
-                    {cardSprintId && canEdit && (
+                    {cardSprintId && canManagePlanning && (
                       <button onClick={() => handleSprintChange(null)} disabled={sprintUpdating}
                         style={{ width:'30px', height:'30px', borderRadius:'7px', background:'transparent', border:'1px solid rgba(97,71,130,0.08)', color:'var(--c-text4)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color 0.12s, color 0.12s' }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${C.red}50`; (e.currentTarget as HTMLElement).style.color = C.red; }}
@@ -764,7 +997,7 @@ export function CardDetailModal() {
                     <select
                       value={cardMilestoneId ?? ''}
                       onChange={(e) => handleMilestoneChange(e.target.value || null)}
-                      disabled={!canEdit || milestoneUpdating}
+                      disabled={!canManagePlanning || milestoneUpdating}
                       style={{ flex:1, padding:'7px 10px', borderRadius:'7px', fontSize:'12.5px', background:'rgba(97,71,130,0.03)', border:'1px solid rgba(97,71,130,0.08)', color: cardMilestoneId ? (projectMilestones.find((m) => m.id === cardMilestoneId)?.color ?? '#8D84B0') : 'var(--c-text3)', outline:'none', cursor:canEdit?'pointer':'default', colorScheme:'dark', fontFamily:MANROPE }}
                     >
                       <option value="">Sin hito</option>
@@ -772,7 +1005,7 @@ export function CardDetailModal() {
                         <option key={m.id} value={m.id}>{m.name}</option>
                       ))}
                     </select>
-                    {cardMilestoneId && canEdit && (
+                    {cardMilestoneId && canManagePlanning && (
                       <button
                         onClick={() => handleMilestoneChange(null)}
                         disabled={milestoneUpdating}
@@ -843,7 +1076,7 @@ export function CardDetailModal() {
               </div>
 
               {/* Delete — pinned at bottom */}
-              {canEdit && (
+              {canDelete && (
                 <div className={styles.deleteArea}>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
@@ -863,7 +1096,7 @@ export function CardDetailModal() {
       </div>
 
       {/* ── Delete confirm ──────────────────────────────────────────────────── */}
-      {showDeleteConfirm && canEdit && (
+      {showDeleteConfirm && canDelete && (
         <>
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:60, backdropFilter:'blur(2px)' }} onClick={() => setShowDeleteConfirm(false)} />
           <div style={{ position:'fixed', inset:0, zIndex:70, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}>

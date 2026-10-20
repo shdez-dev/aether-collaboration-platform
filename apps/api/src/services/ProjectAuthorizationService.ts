@@ -1,6 +1,15 @@
 import { pool } from '../lib/db';
+import {
+  ORGANIZATION_ACCESS_PERMISSION_KEYS,
+  type OrganizationAccessPermission,
+  type OrganizationAccessRolePermissions,
+} from '@aether/types';
 
-export type ProjectAction = 'READ' | 'CONTRIBUTE' | 'MANAGE';
+export type ProjectAction =
+  | 'READ' | 'CONTRIBUTE' | 'MANAGE'
+  | 'MANAGE_PROJECT' | 'MANAGE_MEMBERS' | 'MANAGE_BOARDS' | 'MANAGE_PLANNING'
+  | 'MANAGE_RISKS' | 'MANAGE_TRACEABILITY' | 'MANAGE_DOCUMENTS' | 'MANAGE_TEAMS'
+  | 'CREATE_WORK' | 'EDIT_WORK' | 'COMMENT_WORK' | 'DELETE_WORK';
 export type ProjectAccessLevel = 'READ' | 'CONTRIBUTE' | 'MANAGE';
 
 export type ProjectAccess = {
@@ -8,7 +17,75 @@ export type ProjectAccess = {
   workspaceId: string;
   level: ProjectAccessLevel;
   external: boolean;
+  permissions: OrganizationAccessRolePermissions;
+  grantedAction?: ProjectAction;
 };
+
+const noPermissions = (): OrganizationAccessRolePermissions =>
+  Object.fromEntries(ORGANIZATION_ACCESS_PERMISSION_KEYS.map((key) => [key, false])) as OrganizationAccessRolePermissions;
+
+function legacyRolePermissions(role: string | null | undefined): OrganizationAccessRolePermissions {
+  const permissions = noPermissions();
+  if (role === 'ADMIN') return Object.fromEntries(ORGANIZATION_ACCESS_PERMISSION_KEYS.map((key) => [key, true])) as OrganizationAccessRolePermissions;
+  permissions['project.view'] = role === 'MEMBER' || role === 'VIEWER';
+  if (role === 'MEMBER') {
+    permissions['work.create'] = true;
+    permissions['work.edit'] = true;
+    permissions['work.comment'] = true;
+  }
+  return permissions;
+}
+
+function mergePermissions(...sources: Array<unknown>): OrganizationAccessRolePermissions {
+  const result = noPermissions();
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    for (const key of ORGANIZATION_ACCESS_PERMISSION_KEYS) {
+      if ((source as Record<string, unknown>)[key] === true) result[key] = true;
+    }
+  }
+  return result;
+}
+
+function rolePermissions(row: any, directRole: string | null) {
+  if (directRole) return mergePermissions(row.direct_role_permissions ?? legacyRolePermissions(directRole));
+  const teamRoles = Array.isArray(row.team_role_permissions) ? row.team_role_permissions : [];
+  return mergePermissions(...teamRoles, row.legacy_team_role ? legacyRolePermissions(row.legacy_team_role) : null);
+}
+
+function hasWorkContribution(permissions: OrganizationAccessRolePermissions) {
+  return permissions['work.create'] || permissions['work.edit'] || permissions['work.comment'];
+}
+
+function actionPermission(action: ProjectAction): OrganizationAccessPermission | 'work.contribute' {
+  switch (action) {
+    case 'READ': return 'project.view';
+    case 'CONTRIBUTE': return 'work.contribute';
+    case 'MANAGE':
+    case 'MANAGE_PROJECT': return 'project.manage';
+    case 'MANAGE_MEMBERS': return 'members.manage';
+    case 'MANAGE_BOARDS': return 'boards.manage';
+    case 'MANAGE_PLANNING': return 'planning.manage';
+    case 'MANAGE_RISKS': return 'risks.manage';
+    case 'MANAGE_TRACEABILITY': return 'traceability.manage';
+    case 'MANAGE_DOCUMENTS': return 'documents.manage';
+    case 'MANAGE_TEAMS': return 'teams.manage';
+    case 'CREATE_WORK': return 'work.create';
+    case 'EDIT_WORK': return 'work.edit';
+    case 'COMMENT_WORK': return 'work.comment';
+    case 'DELETE_WORK': return 'work.delete';
+  }
+}
+
+function allows(permissions: OrganizationAccessRolePermissions, action: ProjectAction) {
+  const key = actionPermission(action);
+  if (key === 'work.contribute') return hasWorkContribution(permissions);
+  return permissions[key];
+}
+
+function fullPermissions() {
+  return Object.fromEntries(ORGANIZATION_ACCESS_PERMISSION_KEYS.map((key) => [key, true])) as OrganizationAccessRolePermissions;
+}
 
 /**
  * The single authority for project-scoped access.
@@ -39,6 +116,26 @@ export class ProjectAuthorizationService {
            WHERE pm.project_id = p.id AND pm.user_id = $2
            LIMIT 1
          ) AS direct_project_role,
+         (
+           SELECT r.permissions FROM organization_access_roles r
+           JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $2 AND pm.role = r.role_key
+           WHERE r.organization_id = w.organization_id LIMIT 1
+         ) AS direct_role_permissions,
+         COALESCE((
+           SELECT jsonb_agg(r.permissions)
+             FROM team_members tm
+             JOIN project_teams pt ON pt.team_id = tm.team_id
+             JOIN organization_access_roles r ON r.organization_id = w.organization_id AND r.role_key = tm.role
+             JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = tm.user_id
+            WHERE pt.project_id = p.id AND tm.user_id = $2
+         ), '[]'::jsonb) AS team_role_permissions,
+         (SELECT tm.role
+            FROM team_members tm
+            JOIN project_teams pt ON pt.team_id = tm.team_id
+            JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = tm.user_id
+           WHERE pt.project_id = p.id AND tm.user_id = $2
+           ORDER BY CASE tm.role WHEN 'ADMIN' THEN 3 WHEN 'MEMBER' THEN 2 ELSE 1 END DESC
+           LIMIT 1) AS legacy_team_role,
          EXISTS (
            SELECT 1 FROM team_members tm
            JOIN project_teams pt ON pt.team_id = tm.team_id
@@ -110,28 +207,48 @@ export class ProjectAuthorizationService {
     const isPersonalOrganization = row.organization_type === 'PERSONAL';
     const isExternal = !isPersonalOrganization && Boolean(row.external_permission);
     const hasProjectOverride = Boolean(row.direct_project_role);
-    const canManage = Boolean(row.is_project_owner || (!isPersonalOrganization && (
-      row.is_workspace_admin || (hasProjectOverride
-        ? ['OWNER', 'ADMIN'].includes(row.direct_project_role)
-        : row.is_project_lead)
-    )));
+    const isPrivileged = Boolean(row.is_project_owner || (!isPersonalOrganization && row.is_workspace_admin));
     const hasProjectRelationship = Boolean(
       hasProjectOverride || row.is_team_member || row.has_operational_role,
     );
+    const permissions = isPrivileged
+      ? fullPermissions()
+      : rolePermissions(row, row.direct_project_role ?? null);
+
+    // Operational leads remain project administrators. Other operational roles
+    // and Scrum assignments grant work participation without project settings.
+    if (!isPersonalOrganization && !hasProjectOverride && row.is_project_lead) {
+      Object.assign(permissions, fullPermissions());
+    } else if (!isPersonalOrganization && !hasProjectOverride && row.is_operational_contributor) {
+      permissions['project.view'] = true;
+      permissions['work.create'] = true;
+      permissions['work.edit'] = true;
+      permissions['work.comment'] = true;
+    }
     // Scrum responsibilities are a scoped capability overlay. They let an
     // assigned Scrum participant contribute to project work, while the
     // role-specific routes still protect backlog and sprint administration.
     const canContributeAsScrumParticipant = !isPersonalOrganization
       && Boolean(row.has_scrum_role)
       && hasProjectRelationship;
-    const canContribute = canManage || (!isPersonalOrganization && Boolean(
-      hasProjectOverride
-        ? row.direct_project_role === 'MEMBER'
-        : row.is_direct_contributor || row.is_team_contributor || row.is_operational_contributor || row.external_permission === 'EDIT',
-    )) || canContributeAsScrumParticipant;
-    const canRead = canContribute || (!isPersonalOrganization && Boolean(
-      hasProjectOverride || row.is_team_member || row.has_operational_role || isExternal,
-    ));
+    if (canContributeAsScrumParticipant) {
+      permissions['project.view'] = true;
+      permissions['work.create'] = true;
+      permissions['work.edit'] = true;
+      permissions['work.comment'] = true;
+    }
+    if (!isPersonalOrganization && row.external_permission === 'EDIT') {
+      permissions['project.view'] = true;
+      permissions['work.create'] = true;
+      permissions['work.edit'] = true;
+      permissions['work.comment'] = true;
+    } else if (!isPersonalOrganization && isExternal) {
+      permissions['project.view'] = true;
+    }
+
+    const canManage = isPrivileged || permissions['project.manage'];
+    const canContribute = canManage || hasWorkContribution(permissions);
+    const canRead = canManage || canContribute || permissions['project.view'];
 
     if (!canRead) return null;
     return {
@@ -139,16 +256,15 @@ export class ProjectAuthorizationService {
       workspaceId: row.workspace_id,
       level: canManage ? 'MANAGE' : canContribute ? 'CONTRIBUTE' : 'READ',
       external: isExternal,
+      permissions,
     };
   }
 
   async can(projectId: string, userId: string, action: ProjectAction): Promise<ProjectAccess | null> {
     const access = await this.getAccess(projectId, userId);
     if (!access) return null;
-    if (action === 'READ') return access;
-    if (action === 'CONTRIBUTE' && access.level !== 'READ') return access;
-    if (action === 'MANAGE' && access.level === 'MANAGE') return access;
-    return null;
+    const allowed = allows(access.permissions, action);
+    return allowed ? { ...access, grantedAction: action } : null;
   }
 
   async getAccessibleProjectIds(userId: string, workspaceId?: string): Promise<string[]> {
@@ -169,18 +285,30 @@ export class ProjectAuthorizationService {
            OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM project_members pm
              JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = pm.user_id
+             LEFT JOIN organization_access_roles ar ON ar.organization_id = w.organization_id AND ar.role_key = pm.role
              WHERE pm.project_id = p.id AND pm.user_id = $1
+               AND COALESCE((ar.permissions->>'project.view')::boolean, pm.role IN ('ADMIN', 'MEMBER', 'VIEWER'))
            ))
            OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM project_teams pt
              JOIN team_members tm ON tm.team_id = pt.team_id
              JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = tm.user_id
+             LEFT JOIN organization_access_roles ar ON ar.organization_id = w.organization_id AND ar.role_key = tm.role
              WHERE pt.project_id = p.id AND tm.user_id = $1
+               AND NOT EXISTS (
+                 SELECT 1 FROM project_members override_member
+                  WHERE override_member.project_id = p.id AND override_member.user_id = $1
+               )
+               AND COALESCE((ar.permissions->>'project.view')::boolean, tm.role IN ('ADMIN', 'MEMBER', 'VIEWER'))
            ))
            OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM project_role_assignments pra
              JOIN workspace_members wm ON wm.workspace_id = p.workspace_id AND wm.user_id = pra.user_id
              WHERE pra.project_id = p.id AND pra.user_id = $1 AND pra.ended_at IS NULL
+               AND NOT EXISTS (
+                 SELECT 1 FROM project_members override_member
+                  WHERE override_member.project_id = p.id AND override_member.user_id = $1
+               )
            ))
            OR (o.type <> 'PERSONAL' AND EXISTS (
              SELECT 1 FROM network_access_grants g

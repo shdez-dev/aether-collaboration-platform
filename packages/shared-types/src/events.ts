@@ -125,7 +125,9 @@ export type ProjectEventType =
   | 'project.member.role-changed'
   | 'project.risk.created'
   | 'project.risk.updated'
-  | 'project.risk.status-changed';
+  | 'project.risk.status-changed'
+  | 'project.deliverable.deleted'
+  | 'project.outcome.deleted';
 
 export type SprintEventType =
   | 'sprint.created'
@@ -192,6 +194,8 @@ export type SubjectType =
   | 'document-comment'
   | 'project'
   | 'project-risk'
+  | 'project-deliverable'
+  | 'project-outcome'
   | 'milestone'
   | 'team'
   | 'member'

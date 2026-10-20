@@ -877,7 +877,7 @@ export class DocumentService {
     return new Date(grant.last_expiry).getTime();
   }
 
-  /** Document administration follows project MANAGE when the document is project-bound. */
+  /** Project documents follow the dedicated documents.manage permission. */
   async canManageDocument(documentId: string, userId: string): Promise<boolean> {
     const result = await pool.query(
       `SELECT d.project_id, d.workspace_id, d.created_by,
@@ -890,7 +890,7 @@ export class DocumentService {
     if (!document) return false;
     if (document.created_by === userId) return true;
     if (document.project_id) {
-      return Boolean(await projectAuthorizationService.can(document.project_id, userId, 'MANAGE'));
+      return Boolean(await projectAuthorizationService.can(document.project_id, userId, 'MANAGE_DOCUMENTS'));
     }
     return ['OWNER', 'ADMIN'].includes(document.workspace_role);
   }
@@ -949,14 +949,13 @@ export class DocumentService {
     if (document.project_id) {
       const access = await projectAuthorizationService.can(document.project_id, userId, 'READ');
       if (!access) return null;
-      if (created_by === userId || access.level === 'MANAGE') return 'EDIT';
+      if (created_by === userId || access.permissions['documents.manage']) return 'EDIT';
       if (explicit_permission) {
         // Document-level permissions can narrow project access, but cannot
         // elevate a read-only project participant to editing the document.
         if (explicit_permission === 'EDIT' && access.level === 'READ') return 'VIEW';
         return explicit_permission as DocumentPermission;
       }
-      if (access.level === 'CONTRIBUTE') return 'EDIT';
       return 'VIEW';
     }
 

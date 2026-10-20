@@ -12,6 +12,7 @@ const decisionStages = new Set<InitiativeStage>(['APPROVED', 'DECLINED', 'PAUSED
 const triageAssessmentStatuses = ['PASS', 'FAIL', 'NOT_APPLICABLE'] as const;
 const initiativeConversionInput = z.object({
   methodology: z.enum(['FLEXIBLE', 'SCRUM']).default('FLEXIBLE'),
+  advancedTraceability: z.boolean().default(false),
   productOwnerId: z.string().uuid().nullable().optional(),
   scrumMasterId: z.string().uuid().nullable().optional(),
 });
@@ -609,7 +610,7 @@ export class InitiativeController {
     const actorId = userId(req); if (!actorId) return error(res, 401, 'UNAUTHORIZED', 'Authentication required');
     const conversion = initiativeConversionInput.safeParse(req.body ?? {});
     if (!conversion.success) return error(res, 400, 'VALIDATION_ERROR', 'Invalid project methodology or Scrum assignments');
-    const { methodology, productOwnerId, scrumMasterId } = conversion.data;
+    const { methodology, advancedTraceability, productOwnerId, scrumMasterId } = conversion.data;
     const client = await getClient();
     try {
       await client.query('BEGIN');
@@ -659,8 +660,22 @@ export class InitiativeController {
       }
       const standard = await client.query(`SELECT id, version FROM workspace_project_standards WHERE workspace_id = $2 AND is_active = true AND ($1::uuid IS NULL OR id = $1) ORDER BY version DESC, updated_at DESC LIMIT 1`, [i.active_standard_id, i.workspace_id]);
       if (!standard.rows[0]) { await client.query('ROLLBACK'); return error(res, 409, 'FORMALIZATION_STANDARD_REQUIRED', 'Select an active institutional standard before formalizing an initiative'); }
-      const project = await client.query(`INSERT INTO projects (id, workspace_id, source_initiative_id, name, description, status, maturity_stage, problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome, proposed_solution, differentiation, next_step, owner_id, formalized_at, applied_standard_id, applied_standard_version, standard_applied_at, methodology, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, 'PLANNING', 'FORMALIZED', $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, $14, $15, CURRENT_TIMESTAMP, $16, CURRENT_TIMESTAMP) RETURNING id`, [i.workspace_id, i.id, i.title, i.description, i.problem_statement, i.impacted_people, i.problem_impact, i.impacted_count, i.expected_outcome, i.proposed_solution, i.differentiation, i.proposed_next_step, ownerId, standard.rows[0].id, standard.rows[0].version, methodology]);
+      const project = await client.query(`INSERT INTO projects (id, workspace_id, source_initiative_id, name, description, status, maturity_stage, problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome, proposed_solution, differentiation, next_step, owner_id, formalized_at, applied_standard_id, applied_standard_version, standard_applied_at, methodology, advanced_traceability, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, 'PLANNING', 'FORMALIZED', $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, $14, $15, CURRENT_TIMESTAMP, $16, $17, CURRENT_TIMESTAMP) RETURNING id`, [i.workspace_id, i.id, i.title, i.description, i.problem_statement, i.impacted_people, i.problem_impact, i.impacted_count, i.expected_outcome, i.proposed_solution, i.differentiation, i.proposed_next_step, ownerId, standard.rows[0].id, standard.rows[0].version, methodology, advancedTraceability]);
       const projectId = project.rows[0].id;
+      if (advancedTraceability) await client.query(
+        `INSERT INTO project_origin_snapshots (
+           project_id, origin_type, source_initiative_id, source_title, source_description,
+           problem_statement, impacted_people, problem_impact, impacted_count, expected_outcome,
+           proposed_solution, differentiation, captured_by
+         ) VALUES ($1, 'INITIATIVE', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [projectId, i.id, i.title, i.description, i.problem_statement, i.impacted_people,
+         i.problem_impact, i.impacted_count, i.expected_outcome, i.proposed_solution, i.differentiation, actorId],
+      );
+      if (advancedTraceability) await client.query(
+        `INSERT INTO project_objectives (project_id, origin_snapshot_id, statement, created_by)
+         SELECT $1, id, $2, $3 FROM project_origin_snapshots WHERE project_id = $1`,
+        [projectId, i.expected_outcome, actorId],
+      );
     const board = await client.query(`INSERT INTO boards (id, workspace_id, name, description, position, created_by, color) VALUES (gen_random_uuid(), $1, $2, $3, COALESCE((SELECT MAX(position) + 1 FROM boards WHERE workspace_id = $1), 0), $4, '#F2571E') RETURNING id`, [i.workspace_id, `Ejecución - ${i.title}`, 'Tablero inicial creado desde una iniciativa aprobada.', actorId]);
       await client.query(`INSERT INTO project_boards (id, project_id, board_id) VALUES (gen_random_uuid(), $1, $2)`, [projectId, board.rows[0].id]);
       await client.query(`INSERT INTO project_milestones (id, project_id, name, description, date, color) VALUES (gen_random_uuid(), $1, 'Definir plan inicial', 'Primer hito generado al formalizar la iniciativa.', CURRENT_DATE + INTERVAL '7 days', '#F59E0B')`, [projectId]);

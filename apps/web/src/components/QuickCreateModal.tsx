@@ -13,9 +13,15 @@ import type { Project } from '@/stores/projectStore';
 import { CalendarDatePicker } from '@/components/calendar/DateTimePickers';
 import { ProjectOptionSelect } from '@/components/ProjectOptionSelect';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
+import { projectApi } from '@/features/projects/api';
 import styles from './QuickCreateModal.module.css';
 
 type CaptureKind = 'task' | 'note' | 'decision';
+
+function todayISO() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
 
 const options = [
   { kind: 'task', label: 'Tarea', detail: 'Algo por hacer', icon: ListTodo },
@@ -50,6 +56,7 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
   const [destinationRetry, setDestinationRetry] = useState(0);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [decisionOutcome, setDecisionOutcome] = useState('');
   const [nextStep, setNextStep] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [saving, setSaving] = useState(false);
@@ -147,6 +154,13 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
   const visibleBoards = projectId
     ? boards.filter((board) => projects.find((project) => project.id === projectId)?.boards?.some((item) => item.id === board.id))
     : boards;
+  const decisionProjects = projects.filter((project) => project.advancedTraceability);
+
+  useEffect(() => {
+    if (kind === 'decision' && projectId && !projects.some((project) => project.id === projectId && project.advancedTraceability)) {
+      setProjectId('');
+    }
+  }, [kind, projectId, projects]);
 
   function selectProject(id: string) {
     setProjectId(id);
@@ -159,6 +173,9 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
     event.preventDefault();
     if (saving || !title.trim() || !workspaceId) return;
     if (kind === 'task' && !listId) { setError('Elige un tablero y una lista para guardar la tarea.'); return; }
+    if (kind === 'decision' && !projectId) { setError('Elige un proyecto con Trazabilidad avanzada para guardar la decisión en su registro.'); return; }
+    if (kind === 'decision' && !projects.find((project) => project.id === projectId)?.advancedTraceability) { setError('Activa Trazabilidad avanzada al crear el proyecto para guardar decisiones en su registro.'); return; }
+    if (kind === 'decision' && !decisionOutcome.trim()) { setError('Describe la decisión tomada.'); return; }
     if (kind !== 'task' && !body.trim()) { setError(kind === 'decision' ? 'Explica el motivo de la decisión.' : 'Escribe el contenido de la nota.'); return; }
     setSaving(true);
     setError('');
@@ -173,13 +190,28 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
         setActiveWorkspaceId(workspaceId);
         onClose();
         router.push(`/dashboard/boards/${boardId}?cardId=${encodeURIComponent(response.data.card.id)}`);
+      } else if (kind === 'decision') {
+        await projectApi.createDecision(projectId, {
+          title: title.trim(),
+          context: nextStep.trim() ? `Siguiente paso: ${nextStep.trim()}` : null,
+          outcome: decisionOutcome.trim(),
+          rationale: body.trim(),
+          decisionDate: todayISO(),
+        });
+        setActiveWorkspaceId(workspaceId);
+        onClose();
+        router.push(`/dashboard/projects/${encodeURIComponent(projectId)}?tab=traceability&traceSection=decisions`);
+        window.dispatchEvent(new CustomEvent('aether:project-tab', { detail: { projectId } }));
+        window.dispatchEvent(new CustomEvent('aether:project-traceability-section', {
+          detail: { projectId, section: 'decisions' },
+        }));
       } else {
         const document = await createDocument(workspaceId, {
-          title: kind === 'decision' ? `Decisión: ${title.trim()}` : title.trim(),
+          title: title.trim(),
           description: body.trim().slice(0, 300),
           projectId: projectId || undefined,
-          templateId: kind === 'decision' ? 'decision-record' : 'quick-note',
-          metadata: { body: body.trim(), ...(kind === 'decision' && nextStep.trim() && { nextStep: nextStep.trim() }) },
+          templateId: 'quick-note',
+          metadata: { body: body.trim() },
         });
         setActiveWorkspaceId(workspaceId);
         onClose();
@@ -223,14 +255,18 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
             }}
         >
         <div className={styles.primaryFields}>
-          <label className={styles.field}><span>{kind === 'decision' ? '¿Qué se decidió?' : kind === 'note' ? 'Título de la nota' : 'Título de la tarea'}</span>
+          <label className={styles.field}><span>{kind === 'decision' ? 'Acuerdo o pregunta' : kind === 'note' ? 'Título de la nota' : 'Título de la tarea'}</span>
             <input ref={titleRef} value={title} onChange={(event) => setTitle(event.target.value)}
-              maxLength={kind === 'task' ? 255 : kind === 'decision' ? 170 : 180} placeholder={kind === 'decision' ? 'Ej. Continuar con la propuesta A' : kind === 'note' ? 'Ej. Ideas de la reunión' : 'Ej. Preparar la presentación'} required disabled={saving} />
+              maxLength={kind === 'task' ? 255 : kind === 'decision' ? 200 : 180} placeholder={kind === 'decision' ? 'Ej. ¿Qué proveedor usaremos para pagos?' : kind === 'note' ? 'Ej. Ideas de la reunión' : 'Ej. Preparar la presentación'} required disabled={saving} />
           </label>
+
+          {kind === 'decision' && <label className={styles.field}><span>Decisión tomada</span>
+            <textarea value={decisionOutcome} onChange={(event) => setDecisionOutcome(event.target.value)} maxLength={2000} rows={4} required disabled={saving} placeholder="Ej. Continuar con la propuesta A" />
+          </label>}
 
           <label className={styles.field}><span>{kind === 'decision' ? 'Motivo y contexto' : kind === 'note' ? 'Contenido' : 'Descripción (opcional)'}</span>
             <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={kind === 'task' ? 5 : 7}
-              maxLength={kind === 'task' ? 3000 : 5000} required={kind !== 'task'} disabled={saving}
+              maxLength={kind === 'task' ? 3000 : kind === 'decision' ? 2000 : 5000} required={kind !== 'task'} disabled={saving}
               placeholder={kind === 'decision' ? 'Explica por qué se tomó esta decisión…' : kind === 'note' ? 'Escribe lo que quieres recordar…' : 'Añade contexto para quien vaya a realizarla…'} />
           </label>
 
@@ -261,21 +297,28 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
             </div>
           </label>
 
-          <label className={styles.field}><span>Proyecto <em>(opcional)</em></span>
+          <label className={styles.field}><span>Proyecto <em>{kind === 'decision' ? 'Obligatorio' : 'Opcional'}</em></span>
             <div className={styles.selectControl}>
               <ProjectOptionSelect
                 id="quick-create-project"
-                label="Proyecto opcional"
+                label={kind === 'decision' ? 'Proyecto obligatorio' : 'Proyecto opcional'}
                 value={projectId}
-                placeholder={loadingDestinations ? 'Cargando proyectos…' : kind === 'task' ? 'Todos los tableros del espacio' : 'Guardar en el espacio'}
-                options={projects.map((project) => ({ value: project.id, label: project.name, icon: <WorkspaceIcon icon={project.icon ?? 'Folder'} size={14} strokeWidth={1.8} color={project.color ?? 'var(--c-accent-text)'} aria-hidden="true" /> }))}
+                placeholder={loadingDestinations ? 'Cargando proyectos…' : kind === 'task' ? 'Todos los tableros del espacio' : kind === 'decision' ? 'Selecciona el proyecto' : 'Guardar en el espacio'}
+                options={(kind === 'decision' ? decisionProjects : projects).map((project) => ({ value: project.id, label: project.name, icon: <WorkspaceIcon icon={project.icon ?? 'Folder'} size={14} strokeWidth={1.8} color={project.color ?? 'var(--c-accent-text)'} aria-hidden="true" /> }))}
                 onChange={selectProject}
-                disabled={saving || loadingDestinations || projects.length === 0}
+                disabled={saving || loadingDestinations || (kind === 'decision' ? decisionProjects.length === 0 : projects.length === 0)}
                 menuZIndex={170}
                 closeOnTab
               />
             </div>
           </label>
+          {kind === 'decision' && <p className={styles.hint}>
+            {loadingDestinations
+              ? 'Cargando proyectos…'
+              : decisionProjects.length
+                ? 'Se guardará en Trazabilidad → Decisiones del proyecto.'
+                : 'No hay proyectos con Trazabilidad avanzada. Actívala al crear el proyecto para guardar decisiones en su registro.'}
+          </p>}
 
           {kind === 'task' && <div className={styles.twoColumns}>
             <label className={styles.field}><span>Tablero</span>
@@ -319,7 +362,7 @@ export default function QuickCreateModal({ workspaces, activeWorkspaceId, onClos
       {error && <p className={styles.error} role="alert">{error} {error.includes('cargar') && <button type="button" onClick={() => { setError(''); setDestinationRetry((value) => value + 1); }}>Reintentar</button>}</p>}
       <div className={styles.footer}>
         <button type="button" className={styles.cancel} onClick={onClose} disabled={saving}>Cancelar</button>
-        <button type="submit" className={styles.submit} disabled={saving || !workspaceId || !title.trim() || (kind === 'task' ? !listId : !body.trim())}>
+        <button type="submit" className={styles.submit} disabled={saving || !workspaceId || !title.trim() || (kind === 'task' ? !listId : !body.trim() || (kind === 'decision' && !decisionOutcome.trim()))}>
           <Plus size={16} aria-hidden="true" />{saving ? 'Guardando…' : `Crear ${kind === 'task' ? 'tarea' : kind === 'note' ? 'nota' : 'decisión'}`}
         </button>
       </div>

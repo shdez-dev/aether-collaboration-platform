@@ -4,6 +4,8 @@
 import { Card as CardType } from '@aether/types';
 import { useCardStore } from '@/stores/cardStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { useBoardStore } from '@/stores/boardStore';
 import { supportsOrganizationProjectPlanning } from '@/lib/workspaceFeatures';
 import { apiService } from '@/services/apiService';
 import { useSortable } from '@dnd-kit/sortable';
@@ -31,6 +33,8 @@ export function Card({ card }: CardProps) {
   const updateCard = useCardStore((s) => s.updateCard);
   const setSelectedCard = useCardStore((s) => s.setSelectedCard);
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const currentBoard = useBoardStore((s) => s.currentBoard);
+  const currentProject = useProjectStore((s) => s.currentProject);
   const userRole = currentWorkspace?.userRole;
   const canUseProjectPlanning = supportsOrganizationProjectPlanning(currentWorkspace);
 
@@ -44,15 +48,24 @@ export function Card({ card }: CardProps) {
 
   const currentUserId = useAuthStore((s) => s.user?.id);
 
-  const canEdit = userRole === 'ADMIN' || userRole === 'OWNER';
-  const canDragByRole = userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
+  const projectPermissions = currentProject?.boards?.some((board) => board.id === currentBoard?.id)
+    ? currentProject.access?.permissions
+    : undefined;
+  const canEdit = projectPermissions
+    ? Boolean(projectPermissions['work.edit'] || projectPermissions['project.manage'])
+    : userRole === 'ADMIN' || userRole === 'OWNER';
+  const canDragByRole = projectPermissions
+    ? Boolean(projectPermissions['work.edit'] || projectPermissions['project.manage'])
+    : userRole === 'OWNER' || userRole === 'ADMIN' || userRole === 'MEMBER';
 
   // Members can only complete cards that have no assignees (anyone can)
   // or cards where they are explicitly assigned.
   const cardMembers: Array<{ id: string }> = (card as any).members || [];
   const cardHasAssignees = cardMembers.length > 0;
   const isAssignedToMe = cardMembers.some((m) => m.id === currentUserId);
-  const canComplete = canEdit || (userRole === 'MEMBER' && (!cardHasAssignees || isAssignedToMe));
+  const canComplete = projectPermissions
+    ? canEdit
+    : canEdit || (userRole === 'MEMBER' && (!cardHasAssignees || isAssignedToMe));
 
   const blockedByPendingCount = card.blockedByPendingCount ?? 0;
   const isBlocked = blockedByPendingCount > 0 && !card.completed;

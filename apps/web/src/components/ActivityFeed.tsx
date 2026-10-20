@@ -542,6 +542,20 @@ export default function ActivityFeed({ workspaceId, refreshKey }: ActivityFeedPr
         );
       }
 
+      case 'project.deliverable.deleted':
+      case 'project.outcome.deleted': {
+        const deletedName = payload?.deletedName || targetName;
+        const action = eventType === 'project.deliverable.deleted'
+          ? 'eliminó el entregable'
+          : 'eliminó el resultado medido';
+        return (
+          <p className="text-xs leading-relaxed">
+            {u(user.name)} {s(action)} {e(deletedName)}
+            {payload?.projectName && <>{s(' en')} {m(payload.projectName)}</>}
+          </p>
+        );
+      }
+
       // ── Team ──────────────────────────────────────────────────────────────────
       case 'team.created':
         return <p className="text-xs leading-relaxed">{u(user.name)} {s('creó el equipo')} {a(targetName || payload?.name)}</p>;

@@ -8,6 +8,10 @@ import { emailService } from './EmailService';
 import { renderOrganizationInvitationEmail } from './emailTemplates';
 import { notificationService } from './NotificationService';
 import { buildFrontendUrl } from '../utils/frontendUrl';
+import { OrganizationServiceError } from './OrganizationServiceError';
+import { seedDefaultOrganizationAccessRoles } from './OrganizationAccessRoleService';
+
+export { OrganizationServiceError } from './OrganizationServiceError';
 
 export interface OrganizationDetails extends OrganizationSummary {
   billingEmail: string | null;
@@ -46,12 +50,6 @@ export interface OrganizationInvitationCode {
   email: string;
   expiresAt: Date;
   emailStatus: 'sent' | 'failed' | 'not_sent';
-}
-
-export class OrganizationServiceError extends Error {
-  constructor(public readonly code: string, message: string, public readonly status: number) {
-    super(message);
-  }
 }
 
 class OrganizationService {
@@ -115,6 +113,7 @@ class OrganizationService {
         [data.name, data.type, userId, data.billingEmail ?? null]
       );
       const organizationId = organization.rows[0].id;
+      await seedDefaultOrganizationAccessRoles(client, organizationId);
       await client.query(
         `INSERT INTO organization_members (id, organization_id, user_id, role)
          VALUES (uuid_generate_v4(), $1, $2, 'OWNER'::"OrganizationMemberRole")`,

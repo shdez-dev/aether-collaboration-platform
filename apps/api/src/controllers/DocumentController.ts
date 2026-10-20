@@ -74,16 +74,6 @@ class DocumentController {
         });
       }
 
-      if (userRole !== 'ADMIN' && userRole !== 'OWNER' && userRole !== 'MEMBER') {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'INSUFFICIENT_PERMISSIONS',
-            message: 'Solo ADMIN, OWNER o MEMBER pueden crear documentos',
-          },
-        });
-      }
-
       const validation = createDocumentSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({
@@ -96,8 +86,18 @@ class DocumentController {
         });
       }
 
+      if (!validation.data.projectId && userRole !== 'ADMIN' && userRole !== 'OWNER' && userRole !== 'MEMBER') {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Solo ADMIN, OWNER o MEMBER pueden crear documentos en el espacio',
+          },
+        });
+      }
+
       if (validation.data.projectId) {
-        const projectAccess = await projectAuthorizationService.can(validation.data.projectId, userId, 'CONTRIBUTE');
+        const projectAccess = await projectAuthorizationService.can(validation.data.projectId, userId, 'MANAGE_DOCUMENTS');
         if (!projectAccess || projectAccess.workspaceId !== workspaceId) {
           return res.status(404).json({
             success: false,

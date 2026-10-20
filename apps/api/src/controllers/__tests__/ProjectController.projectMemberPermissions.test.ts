@@ -19,7 +19,8 @@ describe('ProjectController project member permissions', () => {
 
   it('sets a project-only role for an existing team member without sending an invite', async () => {
     query
-      .mockResolvedValueOnce({ rows: [{ workspace_id: 'workspace', member_name: 'Ana', has_team_access: true, previous_role: null }] })
+      .mockResolvedValueOnce({ rows: [{ workspace_id: 'workspace', organization_id: 'org', member_name: 'Ana', has_team_access: true, previous_role: null }] })
+      .mockResolvedValueOnce({ rows: [{ role_key: 'VIEWER', permissions: {} }] })
       .mockResolvedValueOnce({ rows: [{ role: 'VIEWER' }] })
       .mockResolvedValueOnce({ rows: [{ project_name: 'Proyecto Aether' }] })
       .mockResolvedValueOnce({ rows: [{ name: 'Sebastian' }] });
@@ -31,8 +32,10 @@ describe('ProjectController project member permissions', () => {
       user: { id: 'actor' },
     } as unknown as Request, res);
 
-    expect(query.mock.calls[1][0]).toContain('ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role');
-    expect(query.mock.calls[1][1]).toEqual(['project', 'member', 'VIEWER', 'actor']);
+    expect(query.mock.calls[1][0]).toContain('FROM organization_access_roles');
+    expect(query.mock.calls[1][1]).toEqual(['org', 'VIEWER']);
+    expect(query.mock.calls[2][0]).toContain('ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role');
+    expect(query.mock.calls[2][1]).toEqual(['project', 'member', 'VIEWER', 'actor']);
     expect(res.json).toHaveBeenCalledWith({ success: true, data: { role: 'VIEWER' } });
     expect(emit).toHaveBeenCalledWith(expect.objectContaining({
       type: 'project.member.role-changed',
@@ -67,6 +70,9 @@ describe('ProjectController project member permissions', () => {
   });
 
   it('rejects roles outside project coordinator, collaborator and observer', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [{ workspace_id: 'workspace', organization_id: 'org', member_name: 'Ana', has_team_access: true, previous_role: null }] })
+      .mockResolvedValueOnce({ rows: [] });
     const res = response();
 
     await projectController.updateDirectMemberRole({
@@ -76,6 +82,7 @@ describe('ProjectController project member permissions', () => {
     } as unknown as Request, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(query).not.toHaveBeenCalled();
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls.some(([statement]) => String(statement).includes('INSERT INTO project_members'))).toBe(false);
   });
 });

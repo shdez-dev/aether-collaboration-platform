@@ -19,7 +19,8 @@ export interface TeamMember {
   name: string;
   email: string;
   avatar?: string | null;
-  role: 'ADMIN' | 'MEMBER' | 'VIEWER';
+  role: string;
+  roleName?: string;
   joinedAt: string;
   workload: TeamMemberWorkload;
 }
@@ -41,7 +42,8 @@ export interface Team {
   projectCount?: number;
   activeCards?: number;
   workspaceName?: string | null;
-  viewerRole?: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER' | null;
+  viewerRole?: string | null;
+  viewerRoleName?: string | null;
   canManage?: boolean;
   canManageAdminRoles?: boolean;
   members?: TeamMember[];
@@ -104,9 +106,9 @@ interface TeamState {
   updateTeam: (id: string, data: UpdateTeamData) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
 
-  addMember: (teamId: string, email: string, role?: 'ADMIN' | 'MEMBER' | 'VIEWER') => Promise<void>;
+  addMember: (teamId: string, email: string, role?: string) => Promise<void>;
   removeMember: (teamId: string, userId: string) => Promise<void>;
-  changeMemberRole: (teamId: string, userId: string, role: 'ADMIN' | 'MEMBER' | 'VIEWER') => Promise<void>;
+  changeMemberRole: (teamId: string, userId: string, role: string) => Promise<void>;
 
   loadPendingTeamInvitations: () => Promise<void>;
   acceptTeamInvitation: (invitationId: string) => Promise<void>;
@@ -222,7 +224,7 @@ export const useTeamStore = create<TeamState>()(
 
       // ── Members ─────────────────────────────────────────────────────────────
 
-      addMember: async (teamId: string, email: string, role: 'ADMIN' | 'MEMBER' | 'VIEWER' = 'MEMBER') => {
+      addMember: async (teamId: string, email: string, role = 'MEMBER') => {
         const response = await apiService.post<{ member: TeamMember }>(
           `/api/teams/${teamId}/members`,
           { email, role },
@@ -255,7 +257,7 @@ export const useTeamStore = create<TeamState>()(
         }));
       },
 
-      changeMemberRole: async (teamId: string, userId: string, role: 'ADMIN' | 'MEMBER' | 'VIEWER') => {
+      changeMemberRole: async (teamId: string, userId: string, role: string) => {
         const response = await apiService.put<{ member: TeamMember }>(
           `/api/teams/${teamId}/members/${userId}`,
           { role },

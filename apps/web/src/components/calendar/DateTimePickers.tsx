@@ -35,6 +35,7 @@ function useOutsideClose(
 }
 
 interface DatePickerProps {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   min?: string;
@@ -43,9 +44,12 @@ interface DatePickerProps {
   compact?: boolean;
   portal?: boolean;
   matchTriggerWidth?: boolean;
+  ariaRequired?: boolean;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
 }
 
-export function CalendarDatePicker({ value, onChange, min, label, align = 'left', compact = false, portal = false, matchTriggerWidth = false }: DatePickerProps) {
+export function CalendarDatePicker({ id, value, onChange, min, label, align = 'left', compact = false, portal = false, matchTriggerWidth = false, ariaRequired, ariaInvalid, ariaDescribedBy }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [floatingPosition, setFloatingPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const [view, setView] = useState(() => {
@@ -123,7 +127,7 @@ export function CalendarDatePicker({ value, onChange, min, label, align = 'left'
 
   return (
     <div ref={root} className={styles.picker} onKeyDown={handlePickerKeyDown}>
-      <button ref={triggerRef} type="button" className={`${styles.trigger} ${compact ? styles.compactTrigger : ''} ${open ? styles.triggerOpen : ''}`} aria-label={`${label}: ${selected ? selected.toLocaleDateString('es-CL') : 'sin fecha'}`} aria-expanded={open} aria-haspopup="dialog" onClick={() => {
+      <button id={id} ref={triggerRef} type="button" className={`${styles.trigger} ${compact ? styles.compactTrigger : ''} ${open ? styles.triggerOpen : ''}`} aria-label={`${label}: ${selected ? selected.toLocaleDateString('es-CL') : 'sin fecha'}`} aria-expanded={open} aria-haspopup="dialog" aria-required={ariaRequired || undefined} aria-invalid={ariaInvalid || undefined} aria-describedby={ariaDescribedBy} onClick={() => {
         if (!open) {
           const next = parseDate(value) ?? new Date();
           setView(new Date(next.getFullYear(), next.getMonth(), 1));

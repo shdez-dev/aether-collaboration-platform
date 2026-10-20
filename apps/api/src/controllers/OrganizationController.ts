@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { getRealtimeGateway } from '../websocket/RealtimeGateway';
-import { organizationService, OrganizationServiceError } from '../services/OrganizationService';
+import { organizationService } from '../services/OrganizationService';
+import { OrganizationServiceError } from '../services/OrganizationServiceError';
+import { organizationAccessRoleService } from '../services/OrganizationAccessRoleService';
 import { getInstitutionalSettingsHistory, institutionalSettingsSchema, loadInstitutionalSettingsForMember, saveInstitutionalSettings } from '../services/InstitutionalSettingsService';
 import { loadTeamOrganizationSettingsForMember, saveTeamOrganizationSettings, teamOrganizationSettingsSchema } from '../services/TeamOrganizationSettingsService';
 
@@ -95,6 +97,45 @@ class OrganizationController {
       await publishOrganizationChange(req.params.id, 'settings');
       return res.json({ success: true, data: { settings } });
     } catch (error) { return serviceError(res, error, 'Failed to save team settings'); }
+  }
+
+  async getAccessRoles(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const roles = await organizationAccessRoleService.list(req.params.id, userId);
+      return res.json({ success: true, data: { roles } });
+    } catch (error) { return serviceError(res, error, 'Failed to load access roles'); }
+  }
+
+  async createAccessRole(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const role = await organizationAccessRoleService.create(req.params.id, userId, req.body);
+      await publishOrganizationChange(req.params.id, 'settings');
+      return res.status(201).json({ success: true, data: { role } });
+    } catch (error) { return serviceError(res, error, 'Failed to create access role'); }
+  }
+
+  async updateAccessRole(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      const role = await organizationAccessRoleService.update(req.params.id, userId, req.params.roleKey, req.body);
+      await publishOrganizationChange(req.params.id, 'settings');
+      return res.json({ success: true, data: { role } });
+    } catch (error) { return serviceError(res, error, 'Failed to update access role'); }
+  }
+
+  async deleteAccessRole(req: Request, res: Response) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    try {
+      await organizationAccessRoleService.remove(req.params.id, userId, req.params.roleKey);
+      await publishOrganizationChange(req.params.id, 'settings');
+      return res.status(204).send();
+    } catch (error) { return serviceError(res, error, 'Failed to delete access role'); }
   }
 
   async getInstitutionalSettingsHistory(req: Request, res: Response) {

@@ -9,8 +9,9 @@ import { projectEpicController } from '../modules/projects/ProjectEpicController
 import { projectMethodologyController } from '../modules/projects/ProjectMethodologyController';
 import { projectActivityController } from '../modules/projects/ProjectActivityController';
 import { projectRiskController } from '../controllers/ProjectRiskController';
+import { projectTraceabilityController } from '../controllers/ProjectTraceabilityController';
 import { authenticateJWT } from '../middleware/auth';
-import { requireProjectEditor, requireProjectMembership, requireProjectScrumRole } from '../middleware/project';
+import { requireProjectAccess, requireProjectEditor, requireProjectMembership, requireProjectScrumRole } from '../middleware/project';
 
 const router = Router();
 
@@ -90,8 +91,25 @@ router.post('/:id/workflow', requireProjectEditor, (req, res) => projectControll
 
 // ── Registro de riesgos ───────────────────────────────────────────────────────
 router.get('/:id/risks', (req, res) => projectRiskController.list(req, res));
-router.post('/:id/risks', requireProjectEditor, (req, res) => projectRiskController.create(req, res));
-router.patch('/:id/risks/:riskId', requireProjectEditor, (req, res) => projectRiskController.update(req, res));
+router.post('/:id/risks', requireProjectAccess('MANAGE_RISKS'), (req, res) => projectRiskController.create(req, res));
+router.patch('/:id/risks/:riskId', requireProjectAccess('MANAGE_RISKS'), (req, res) => projectRiskController.update(req, res));
+
+// ── Decisiones y línea base ──────────────────────────────────────────────────
+router.get('/:id/traceability', (req, res) => projectTraceabilityController.getTraceability(req, res));
+router.put('/:id/traceability/objective', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.saveObjective(req, res));
+router.post('/:id/traceability/deliverables', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.createDeliverable(req, res));
+router.patch('/:id/traceability/deliverables/:deliverableId', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.updateDeliverable(req, res));
+router.delete('/:id/traceability/deliverables/:deliverableId', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.deleteDeliverable(req, res));
+router.post('/:id/traceability/deliverables/:deliverableId/requirements', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.createRequirement(req, res));
+router.patch('/:id/traceability/deliverables/:deliverableId/requirements/:requirementId', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.updateRequirement(req, res));
+router.delete('/:id/traceability/deliverables/:deliverableId/requirements/:requirementId', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.deleteRequirement(req, res));
+router.patch('/:id/traceability/milestones/:milestoneId/deliverable', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.linkMilestone(req, res));
+router.post('/:id/traceability/outcomes', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.createOutcome(req, res));
+router.delete('/:id/traceability/outcomes/:outcomeId', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.deleteOutcome(req, res));
+router.get('/:id/decisions', (req, res) => projectTraceabilityController.listDecisions(req, res));
+router.post('/:id/decisions', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.createDecision(req, res));
+router.get('/:id/baselines', (req, res) => projectTraceabilityController.listBaselines(req, res));
+router.post('/:id/baselines', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.createBaseline(req, res));
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
 router.get('/:id/stats',           (req, res) => projectController.getStats(req, res));
@@ -108,29 +126,29 @@ router.patch('/:id/epics/:epicId', requireOrganizationScrumProject, requireProje
 router.delete('/:id/epics/:epicId', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER'), (req, res) => projectEpicController.remove(req, res));
 router.put('/:id/cards/:cardId/epic', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER'), (req, res) => projectEpicController.setCardEpic(req, res));
 router.patch('/:id/product-goal', requireOrganizationScrumProject, requireProjectScrumRole('PRODUCT_OWNER'), (req, res) => projectMethodologyController.updateProductGoal(req, res));
-router.patch('/:id/scrum-assignments/:userId', requireProjectEditor, requireOrganizationScrumProject, (req, res) => projectMethodologyController.updateScrumAssignment(req, res));
+router.patch('/:id/scrum-assignments/:userId', requireProjectAccess('MANAGE_PLANNING'), requireOrganizationScrumProject, (req, res) => projectMethodologyController.updateScrumAssignment(req, res));
 
 // ── Boards del proyecto ────────────────────────────────────────────────────────
-router.post('/:id/boards', requireProjectEditor, (req, res) => projectController.addBoard(req, res));
-router.delete('/:id/boards/:boardId', requireProjectEditor, (req, res) => projectController.removeBoard(req, res));
+router.post('/:id/boards', requireProjectAccess('MANAGE_BOARDS'), (req, res) => projectController.addBoard(req, res));
+router.delete('/:id/boards/:boardId', requireProjectAccess('MANAGE_BOARDS'), (req, res) => projectController.removeBoard(req, res));
 
 // ── Milestones ─────────────────────────────────────────────────────────────────
-router.post('/:id/milestones', requireProjectEditor, requireOrganizationProjectPlanning, (req, res) => projectController.createMilestone(req, res));
-router.put('/:id/milestones/:milestoneId', requireProjectEditor, requireOrganizationProjectPlanning, (req, res) => projectController.updateMilestone(req, res));
-router.delete('/:id/milestones/:milestoneId', requireProjectEditor, requireOrganizationProjectPlanning, (req, res) => projectController.deleteMilestone(req, res));
+router.post('/:id/milestones', requireProjectAccess('MANAGE_PLANNING'), requireOrganizationProjectPlanning, (req, res) => projectController.createMilestone(req, res));
+router.put('/:id/milestones/:milestoneId', requireProjectAccess('MANAGE_PLANNING'), requireOrganizationProjectPlanning, (req, res) => projectController.updateMilestone(req, res));
+router.delete('/:id/milestones/:milestoneId', requireProjectAccess('MANAGE_PLANNING'), requireOrganizationProjectPlanning, (req, res) => projectController.deleteMilestone(req, res));
 
 // ── Teams del proyecto ─────────────────────────────────────────────────────────
 router.get('/:id/teams', requireOrganizationProjectPlanning, (req, res) => projectController.getTeams(req, res));
 router.get('/:id/team-members', requireOrganizationProjectPlanning, (req, res) => projectController.getTeamMembers(req, res));
-router.post('/:id/teams', requireProjectEditor, requireOrganizationProjectPlanning, (req, res) => projectController.assignTeam(req, res));
-router.delete('/:id/teams/:teamId', requireProjectEditor, requireOrganizationProjectPlanning, (req, res) => projectController.removeTeam(req, res));
+router.post('/:id/teams', requireProjectAccess('MANAGE_MEMBERS'), requireOrganizationProjectPlanning, (req, res) => projectController.assignTeam(req, res));
+router.delete('/:id/teams/:teamId', requireProjectAccess('MANAGE_MEMBERS'), requireOrganizationProjectPlanning, (req, res) => projectController.removeTeam(req, res));
 
 // ── Miembros directos del proyecto ─────────────────────────────────────────────
 router.get('/:id/members', requireOrganizationProjectMembers, (req, res) => projectController.getDirectMembers(req, res));
-router.post('/:id/members', requireProjectEditor, requireOrganizationProjectMembers, (req, res) => projectController.addDirectMember(req, res));
-router.patch('/:id/members/:userId', requireProjectEditor, requireOrganizationProjectMembers, (req, res) => projectController.updateDirectMemberRole(req, res));
-router.delete('/:id/members/:userId/role', requireProjectEditor, requireOrganizationProjectMembers, (req, res) => projectController.resetDirectMemberRole(req, res));
-router.delete('/:id/members/:userId', requireProjectEditor, requireOrganizationProjectMembers, (req, res) => projectController.removeDirectMember(req, res));
+router.post('/:id/members', requireProjectAccess('MANAGE_MEMBERS'), requireOrganizationProjectMembers, (req, res) => projectController.addDirectMember(req, res));
+router.patch('/:id/members/:userId', requireProjectAccess('MANAGE_MEMBERS'), requireOrganizationProjectMembers, (req, res) => projectController.updateDirectMemberRole(req, res));
+router.delete('/:id/members/:userId/role', requireProjectAccess('MANAGE_MEMBERS'), requireOrganizationProjectMembers, (req, res) => projectController.resetDirectMemberRole(req, res));
+router.delete('/:id/members/:userId', requireProjectAccess('MANAGE_MEMBERS'), requireOrganizationProjectMembers, (req, res) => projectController.removeDirectMember(req, res));
 
 // ── Actividad del proyecto ──────────────────────────────────────────────────────
 router.get('/:id/activity', (req, res) => projectActivityController.list(req, res));

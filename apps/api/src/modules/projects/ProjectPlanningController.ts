@@ -14,7 +14,7 @@ export class ProjectPlanningController {
 
       const result = await pool.query(
         `SELECT c.id, c.title, c.description, c.acceptance_criteria, c.story_points, epic_membership.epic_id,
-                c.priority, c.due_date, c.completed,
+                c.priority, c.due_date, c.completed, COALESCE(blocker_state.pending_count, 0)::int AS blocked_by_pending_count,
                 b.id AS board_id, b.name AS board_name,
                 l.id AS list_id, l.name AS list_name,
                 current_sprint.id AS sprint_id, current_sprint.name AS sprint_name, current_sprint.status AS sprint_status
@@ -29,6 +29,14 @@ export class ProjectPlanningController {
            WHERE sc.card_id = c.id AND s.project_id = $1 AND s.status IN ('PLANNED', 'ACTIVE')
            ORDER BY CASE WHEN s.status = 'ACTIVE' THEN 0 ELSE 1 END, s.start_date DESC LIMIT 1
          ) current_sprint ON true
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS pending_count
+           FROM card_dependencies dependency
+           JOIN cards blocker ON blocker.id = dependency.blocking_card_id
+           JOIN lists blocker_list ON blocker_list.id = blocker.list_id
+           WHERE dependency.blocked_card_id = c.id AND blocker.completed = false
+             AND blocker_list.board_id = ANY($2::uuid[])
+         ) blocker_state ON true
          WHERE pb.project_id = $1 AND b.id = ANY($2::uuid[])
          ORDER BY c.completed ASC, CASE c.priority WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 WHEN 'LOW' THEN 2 ELSE 3 END,
                   c.due_date NULLS LAST, c.created_at DESC`,
@@ -47,6 +55,7 @@ export class ProjectPlanningController {
             epicId: row.epic_id,
             priority: row.priority,
             completed: row.completed,
+            blockedByPendingCount: row.blocked_by_pending_count,
             dueDate: row.due_date ? new Date(row.due_date).toISOString() : null,
             boardId: row.board_id,
             boardName: row.board_name,

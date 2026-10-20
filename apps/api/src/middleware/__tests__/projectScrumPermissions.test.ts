@@ -16,7 +16,13 @@ describe('requireProjectScrumRole', () => {
     return {
       params: { id: 'project-1' },
       user: { id: 'user-1' },
-      projectContext: { projectId: 'project-1', workspaceId: 'workspace-1', level, external: false },
+      projectContext: {
+        projectId: 'project-1',
+        workspaceId: 'workspace-1',
+        level,
+        external: false,
+        permissions: { 'planning.manage': level === 'MANAGE' } as any,
+      },
     } as unknown as ProjectRequest;
   }
 

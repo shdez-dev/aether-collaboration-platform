@@ -18,6 +18,7 @@ describe('invitaciones a equipos', () => {
 
   it('permite invitar a un miembro de la organización aunque aún no pertenezca al espacio', async () => {
     query
+      .mockResolvedValueOnce({ rows: [{ role_key: 'MEMBER', permissions: {} }] }) // rol asignable de la organización
       .mockResolvedValueOnce({ rows: [{ id: 'invitee' }] }) // usuario por correo
       .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }) // acceso de organización
       .mockResolvedValueOnce({ rows: [] }) // miembro existente
@@ -30,15 +31,16 @@ describe('invitaciones a equipos', () => {
     const req = {
       user: { id: 'manager' }, params: { id: 'team' },
       body: { email: 'PERSONA@example.com', role: 'MEMBER' },
-      teamContext: { canManage: true, isCreator: true, workspaceRole: 'OWNER' },
+      teamContext: { canManage: true, isCreator: true, workspaceRole: 'OWNER', organizationId: 'org' },
     } as unknown as Request;
     const res = response();
 
     await teamController.addMember(req, res);
 
-    expect(query.mock.calls[0][0]).toContain('LOWER(email) = LOWER($1)');
-    expect(query.mock.calls[1][0]).toContain('organization_members');
-    expect(query.mock.calls[1][0]).toContain('organization_access_revocations');
+    expect(query.mock.calls[0][0]).toContain('FROM organization_access_roles');
+    expect(query.mock.calls[1][0]).toContain('LOWER(email) = LOWER($1)');
+    expect(query.mock.calls[2][0]).toContain('organization_members');
+    expect(query.mock.calls[2][0]).toContain('organization_access_revocations');
     expect(res.status).toHaveBeenCalledWith(201);
   });
 

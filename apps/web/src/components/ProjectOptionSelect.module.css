@@ -9,14 +9,32 @@
 .open { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent-text) 12%, transparent); }
 .trigger > svg { flex: none; color: var(--c-text3); transition: transform 150ms ease; }
 .trigger .optionIcon svg { color: var(--c-accent-text); }
+.trigger[data-tone='success'] .optionIcon svg { color: var(--c-green); }
+.trigger[data-tone='warning'] .optionIcon svg { color: var(--c-red); }
+.trigger[data-tone='danger'] .optionIcon svg { color: var(--c-red); }
+.trigger[data-tone='neutral'] .optionIcon svg { color: var(--c-text3); }
 .open > svg { transform: rotate(180deg); }
 .trigger:focus-visible, .option:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
 .trigger:disabled { opacity: .58; cursor: not-allowed; }
 :global(.create-project-workspace-select) .trigger { height: 46px; padding-inline: 13px; border-radius: 9px; font-size: 13px; }
 .menu { position: fixed; z-index: 60; max-height: min(250px, calc(100dvh - 20px)); overflow-y: auto; padding: 5px; border: 1px solid var(--c-border2); border-radius: 10px; background: var(--c-surface); box-shadow: 0 18px 48px rgba(18,12,25,.22); animation: appear 150ms ease both; }
 .menuComfortable { padding: 6px; }
+.menuContextual { max-height: min(300px, calc(100dvh - 20px)); padding: 7px; border-radius: 12px; box-shadow: 0 18px 48px rgba(18,12,25,.28); animation: appear 170ms cubic-bezier(.2,.8,.2,1) both; }
 .option { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 37px; padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--c-text2); font: 600 12px 'Manrope', system-ui, sans-serif; text-align: left; cursor: pointer; transition: background-color 140ms ease, color 140ms ease; }
 .optionComfortable { min-height: 44px; border-radius: 8px; }
+.optionDetailed { min-height: 54px; }
+.optionDetailed.optionComfortable { min-height: 60px; }
+.optionText { display: block; min-width: 0; }
+.optionDetailed .optionText { display: grid; gap: 2px; }
+.optionDescription { display: block; overflow: hidden; color: var(--c-text4); font: 500 10px/1.35 'Manrope', system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.option[data-tone='success'] .optionIcon { color: var(--c-green); }
+.option[data-tone='warning'] .optionIcon { color: var(--c-red); }
+.option[data-tone='danger'] .optionIcon { color: var(--c-red); }
+.option[data-tone='accent'] .optionIcon { color: var(--c-accent-text); }
+.option[data-tone='neutral'] .optionIcon { color: var(--c-text3); }
+.trigger[data-tone='success'] .optionIcon svg { color: var(--c-green); }
+.trigger[data-tone='warning'] .optionIcon svg,.trigger[data-tone='danger'] .optionIcon svg { color: var(--c-red); }
+.trigger[data-tone='neutral'] .optionIcon svg { color: var(--c-text3); }
 .option:hover, .option:focus-visible { background: var(--c-hover); color: var(--c-accent-text); }
 .selected, .selected:hover { background: color-mix(in srgb, var(--c-accent-text) 12%, var(--c-surface)); color: var(--c-accent-text); }
 @keyframes appear { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }

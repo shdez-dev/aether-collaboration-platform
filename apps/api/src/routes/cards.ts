@@ -36,7 +36,7 @@ router.get(
 router.post(
   '/lists/:listId/cards',
   authenticateJWT,
-  requireProjectBoundResourceAccess('CONTRIBUTE', 'list'),
+  requireProjectBoundResourceAccess('CREATE_WORK', 'list'),
   CardController.createCard
 );
 
@@ -48,12 +48,12 @@ router.get('/cards/:id', authenticateJWT, requireProjectBoundResourceAccess('REA
 // Actualizar card
 // Middleware: checkWorkspaceMembership (resuelve workspace desde cardId)
 // Controller: Valida rol ADMIN/OWNER
-router.put('/cards/:id', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'card'), CardController.updateCard);
+router.put('/cards/:id', authenticateJWT, requireProjectBoundResourceAccess('EDIT_WORK', 'card'), CardController.updateCard);
 
 // Mover card (cambiar de lista o reordenar)
 // Middleware: checkWorkspaceMembership (resuelve workspace desde cardId)
 // Controller: Valida rol ADMIN/OWNER
-router.put('/cards/:id/move', authenticateJWT, requireProjectBoundResourceAccess('CONTRIBUTE', 'card'), CardController.moveCard);
+router.put('/cards/:id/move', authenticateJWT, requireProjectBoundResourceAccess('EDIT_WORK', 'card'), CardController.moveCard);
 
 // Eliminar card
 // Middleware: checkWorkspaceMembership (resuelve workspace desde cardId)
@@ -75,7 +75,7 @@ router.get(
 router.post(
   '/cards/:id/members',
   authenticateJWT,
-  requireProjectBoundResourceAccess('MANAGE', 'card'),
+  requireProjectBoundResourceAccess('EDIT_WORK', 'card'),
   CardController.assignMember
 );
 
@@ -85,7 +85,7 @@ router.post(
 router.delete(
   '/cards/:id/members/:userId',
   authenticateJWT,
-  requireProjectBoundResourceAccess('MANAGE', 'card'),
+  requireProjectBoundResourceAccess('EDIT_WORK', 'card'),
   CardController.unassignMember
 );
 
@@ -97,7 +97,7 @@ router.delete(
 router.post(
   '/cards/:id/labels',
   authenticateJWT,
-  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
+  requireProjectBoundResourceAccess('EDIT_WORK', 'card'),
   CardController.addLabel
 );
 
@@ -107,7 +107,7 @@ router.post(
 router.delete(
   '/cards/:id/labels/:labelId',
   authenticateJWT,
-  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
+  requireProjectBoundResourceAccess('EDIT_WORK', 'card'),
   CardController.removeLabel
 );
 
@@ -125,7 +125,7 @@ router.get(
 router.post(
   '/cards/:id/checklist',
   authenticateJWT,
-  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
+  requireProjectBoundResourceAccess('EDIT_WORK', 'card'),
   ChecklistController.createItem
 );
 
@@ -133,7 +133,7 @@ router.post(
 router.put(
   '/cards/:id/checklist/:itemId',
   authenticateJWT,
-  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
+  requireProjectBoundResourceAccess('EDIT_WORK', 'card'),
   ChecklistController.updateItem
 );
 
@@ -167,7 +167,7 @@ router.get(
 router.post(
   '/cards/:id/dependencies',
   authenticateJWT,
-  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
+  requireProjectBoundResourceAccess('EDIT_WORK', 'card'),
   DependencyController.addDependency
 );
 
@@ -175,7 +175,7 @@ router.post(
 router.delete(
   '/cards/:id/dependencies/:depId',
   authenticateJWT,
-  requireProjectBoundResourceAccess('CONTRIBUTE', 'card'),
+  requireProjectBoundResourceAccess('EDIT_WORK', 'card'),
   DependencyController.removeDependency
 );
 

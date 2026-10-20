@@ -98,6 +98,7 @@ export default function InitiativeDetailPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [showFormalization, setShowFormalization] = useState(false);
   const [formalizationMethodology, setFormalizationMethodology] = useState<'FLEXIBLE' | 'SCRUM'>('FLEXIBLE');
+  const [formalizationAdvancedTraceability, setFormalizationAdvancedTraceability] = useState(false);
   const [formalizationProductOwnerId, setFormalizationProductOwnerId] = useState('');
   const [formalizationScrumMasterId, setFormalizationScrumMasterId] = useState('');
 
@@ -232,6 +233,7 @@ export default function InitiativeDetailPage() {
       ? coordinatorId
       : methodologyPeople.find((person) => person.id !== firstCandidate)?.id ?? '';
     setFormalizationMethodology('FLEXIBLE');
+    setFormalizationAdvancedTraceability(false);
     setFormalizationProductOwnerId(firstCandidate);
     setFormalizationScrumMasterId(secondCandidate);
     setFormError(null);
@@ -248,6 +250,7 @@ export default function InitiativeDetailPage() {
     setFormError(null); clearActionError(); setActionBusy(true);
     const completed = await convertDetail(initiative.id, {
       methodology: formalizationMethodology,
+      advancedTraceability: formalizationAdvancedTraceability,
       productOwnerId: formalizationMethodology === 'SCRUM' ? formalizationProductOwnerId : null,
       scrumMasterId: formalizationMethodology === 'SCRUM' ? formalizationScrumMasterId : null,
     });
@@ -422,7 +425,7 @@ export default function InitiativeDetailPage() {
             </label>
             <button type="submit" style={primaryButton} disabled={actionBusy}>{actionBusy ? 'Guardando…' : 'Registrar cambio de etapa'} <ArrowRight size={15} /></button>
           </form>}
-          {!editing && access.canManage && initiative.stage === 'APPROVED' && !initiative.formalizedProjectId && <div style={formalizeBox}><div><strong>Lista para ejecución</strong><p>Elige cómo se organizará el proyecto. Se conservarán la trazabilidad y los datos aprobados.</p></div><button type="button" onClick={openFormalization} style={successButton} disabled={actionBusy}>Formalizar proyecto <ArrowRight size={15} /></button></div>}
+          {!editing && access.canManage && initiative.stage === 'APPROVED' && !initiative.formalizedProjectId && <div style={formalizeBox}><div><strong>Lista para ejecución</strong><p>Elige cómo se organizará el proyecto. Se conservarán la iniciativa y sus datos aprobados.</p></div><button type="button" onClick={openFormalization} style={successButton} disabled={actionBusy}>Formalizar proyecto <ArrowRight size={15} /></button></div>}
         </section>}
 
         <section style={panel}>
@@ -508,6 +511,10 @@ export default function InitiativeDetailPage() {
             </div>
             <p style={methodologyHint}>Scrum requiere tres participantes. Cuentan la persona propietaria, quienes ya participan en la iniciativa y las personas del equipo coordinador configurado.</p>
           </>}
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 8, padding: '13px 14px', border: '1px solid var(--c-border)', borderRadius: 10, background: 'var(--c-surface2)', cursor: actionBusy ? 'not-allowed' : 'pointer' }}>
+            <input type="checkbox" checked={formalizationAdvancedTraceability} onChange={(event) => setFormalizationAdvancedTraceability(event.target.checked)} disabled={actionBusy} style={{ marginTop: 2, accentColor: 'var(--c-accent)' }} />
+            <span><strong style={{ display: 'block', color: 'var(--c-text)', fontSize: 12 }}>Añadir Trazabilidad avanzada <small style={{ color: 'var(--c-text4)', fontWeight: 500 }}>Opcional</small></strong><small style={{ display: 'block', marginTop: 4, color: 'var(--c-text3)', fontSize: 10.5, lineHeight: 1.5 }}>Incluye objetivo medible, entregables, requisitos, hitos, resultados, decisiones y línea base. Complementa Flexible o Scrum.</small></span>
+          </label>
           {(formError || actionError) && <p role="alert" style={actionErrorStyle}>{formError || actionError}</p>}
           <footer style={formalizeFooter}>
             <button type="button" onClick={() => setShowFormalization(false)} style={secondaryButton} disabled={actionBusy}>Cancelar</button>

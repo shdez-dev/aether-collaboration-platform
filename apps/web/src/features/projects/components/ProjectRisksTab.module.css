@@ -46,7 +46,7 @@
   cursor: pointer;
   transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
-.primaryButton { padding: 0 13px; border-color: var(--c-accent); background: var(--c-accent); color: var(--c-bg); }
+.primaryButton { padding: 0 13px; border-color: var(--c-accent); background: var(--c-accent); color: #fff; }
 .primaryButton:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
 .secondaryButton { padding: 0 12px; background: var(--c-bg2); color: var(--c-text2); }
 .secondaryButton:hover:not(:disabled), .editButton:hover { border-color: var(--c-accent); color: var(--c-accent-text); background: color-mix(in srgb, var(--c-accent) 9%, var(--c-bg2)); }
@@ -103,6 +103,9 @@
 .field textarea { min-height: 72px; resize: vertical; }
 .field input:focus-visible, .field textarea:focus-visible { border-color: var(--c-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 14%, transparent); background: var(--c-surface); }
 .field input::placeholder, .field textarea::placeholder { color: var(--c-text4); }
+.fieldInvalid input,.fieldInvalid textarea,.fieldInvalid .selectTrigger { border-color: var(--c-red); }
+.fieldInvalid input:focus-visible,.fieldInvalid textarea:focus-visible,.fieldInvalid .selectTrigger:focus-visible { border-color: var(--c-red); outline-color: color-mix(in srgb, var(--c-red) 36%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-red) 14%, transparent); }
+.field .fieldError { color: var(--c-red); font-size: 10px; font-weight: 600; line-height: 1.45; }
 .fullField { grid-column: 1 / -1; }
 
 .selectRoot { position: relative; min-width: 0; }
@@ -124,6 +127,8 @@
   transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
 .selectTrigger:hover:not(:disabled), .selectTriggerOpen { border-color: var(--c-accent-text); background: var(--c-surface); }
+.selectTriggerInvalid { border-color: var(--c-red); }
+.selectTriggerInvalid:hover:not(:disabled),.selectTriggerInvalid.selectTriggerOpen,.selectTriggerInvalid:focus-visible { border-color: var(--c-red); }
 .selectTrigger:focus-visible { border-color: var(--c-accent-text); outline: 2px solid color-mix(in srgb, var(--c-accent-text) 34%, transparent); outline-offset: 2px; }
 .selectTriggerOpen { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 12%, transparent); }
 .selectTrigger:disabled { opacity: .62; cursor: not-allowed; }
