@@ -201,7 +201,8 @@ router.post('/conversations/:id/messages', async (req, res, next) => {
   try {
     if (!uuidPattern.test(req.params.id)) return res.status(400).json(fail('INVALID_CONVERSATION', 'Conversación inválida'));
     const body = String(req.body?.body ?? '').trim();
-    if (!body || body.length > 4000) return res.status(400).json(fail('INVALID_MESSAGE', 'Escribe un mensaje de hasta 4000 caracteres'));
+    const wordCount = body ? (body.match(/\S+/gu)?.length ?? 0) : 0;
+    if (!body || body.length > 8000 || wordCount > 500) return res.status(400).json(fail('INVALID_MESSAGE', 'Escribe un mensaje de hasta 500 palabras'));
     const conversation = await conversationFor(viewerId(req), req.params.id);
     if (!conversation) return res.status(404).json(fail('CONVERSATION_NOT_FOUND', 'Conversación no encontrada'));
     const access = await permission(viewerId(req), conversation.other_id);

@@ -404,8 +404,8 @@ export function HeroSection() {
                 {t.home_hero_cta_dashboard}
               </Link>
             ) : (
-              <Link href="/register" className="inline-flex items-center text-sm font-medium text-white px-3.5 py-2 rounded-lg transition-all hover:-translate-y-px" style={{ background: '#3b82f6', boxShadow: '0 4px 14px -4px rgba(59,130,246,0.4)' }}>
-                {t.home_hero_cta_start}
+              <Link href="/login" className="inline-flex items-center text-sm font-medium text-white px-3.5 py-2 rounded-lg transition-all hover:-translate-y-px" style={{ background: '#3b82f6', boxShadow: '0 4px 14px -4px rgba(59,130,246,0.4)' }}>
+                Acceder al piloto
               </Link>
             )}
           </div>
@@ -485,8 +485,8 @@ export function HeroSection() {
               </Link>
             ) : (
               <>
-                <Link href="/register" className="inline-flex items-center gap-2 font-medium text-white px-5 py-3 rounded-[10px] transition-all hover:-translate-y-px text-[15px]" style={{ background: '#3b82f6', boxShadow: '0 4px 16px -4px rgba(59,130,246,0.45)' }}>
-                  {t.home_hero_cta_start} →
+                <Link href="/login" className="inline-flex items-center gap-2 font-medium text-white px-5 py-3 rounded-[10px] transition-all hover:-translate-y-px text-[15px]" style={{ background: '#3b82f6', boxShadow: '0 4px 16px -4px rgba(59,130,246,0.45)' }}>
+                  Acceder al piloto →
                 </Link>
                 <Link href="/login" className="inline-flex items-center font-medium text-[15px] px-5 py-3 rounded-[10px] transition-all" style={{ color: 'var(--home-glass-text)', background: 'var(--home-glass)', border: '1px solid var(--home-glass-border)' }}>
                   {t.home_hero_cta_login}

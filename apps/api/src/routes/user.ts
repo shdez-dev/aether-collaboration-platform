@@ -5,11 +5,42 @@ import { userController } from '../controllers/UserController';
 import { standupController } from '../controllers/StandupController';
 import { authenticateJWT } from '../middleware/auth';
 import { uploadAvatar } from '../middleware/upload';
+import { AccountDeletionError, getAccountDeletionBlockers, requestAccountDeletion } from '../services/AccountDeletionService';
+import { createAuthRateLimit } from '../middleware/authRateLimit';
 
 const router = Router();
 
 // Todas las rutas requieren autenticación
 router.use(authenticateJWT);
+
+router.get('/me/deletion', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const blockers = await getAccountDeletionBlockers(req.user!.id);
+    res.json({ success: true, data: { blockers } });
+  } catch {
+    res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'No se pudo revisar la cuenta.' } });
+  }
+});
+
+const accountDeletionRateLimit = createAuthRateLimit({ policy: 'account-deletion', scopes: [{ type: 'ip', limit: 20, windowMs: 60 * 60 * 1000 }] });
+router.post('/me/deletion', accountDeletionRateLimit, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const password = req.body?.password;
+  if (typeof password !== 'string' || password.length === 0 || password.length > 1024) {
+    return res.status(400).json({ success: false, error: { code: 'PASSWORD_REQUIRED', message: 'Confirma tu contraseña.' } });
+  }
+  try {
+    const requestId = await requestAccountDeletion(req.user!.id, password);
+    return res.status(202).json({ success: true, data: { status: 'PENDING', requestId } });
+  } catch (error) {
+    if (error instanceof AccountDeletionError) {
+      return res.status(error.status).json({ success: false, error: { code: error.code, message: error.message, blockers: error.blockers } });
+    }
+    console.error('[accountDeletion] request failed:', error);
+    return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'No se pudo iniciar la eliminación.' } });
+  }
+});
 
 /**
  * GET /api/users?search=xxx&page=1&limit=20

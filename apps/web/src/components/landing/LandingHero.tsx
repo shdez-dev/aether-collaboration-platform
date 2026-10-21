@@ -40,8 +40,8 @@ export function LandingHero() {
           <h1>Una idea es solo<br />el principio.</h1>
           <p>AETHER mantiene unidos el contexto, las decisiones y el trabajo que viene después. Para que tu equipo sepa no solo qué hacer, sino por qué.</p>
           <div className="home-hero-actions">
-            <Link className="home-primary-action" href={isAuthenticated ? '/dashboard' : '/register'}>
-              {isAuthenticated ? 'Ir a mi espacio' : 'Crear mi espacio'}
+            <Link className="home-primary-action" href={isAuthenticated ? '/dashboard' : '/login'}>
+              {isAuthenticated ? 'Ir a mi espacio' : 'Acceder al piloto'}
               <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3 9h11m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </Link>
             <a href="#plataforma" className="home-secondary-action">Conocer la plataforma</a>

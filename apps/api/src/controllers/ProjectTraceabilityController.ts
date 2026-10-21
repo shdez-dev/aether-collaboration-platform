@@ -23,6 +23,14 @@ const createDecisionInput = z.object({
   rationale: z.string().trim().min(1).max(2000),
   decisionDate: dateOnly,
   supersedesId: z.string().uuid().nullable().optional(),
+  subjectType: z.enum(['PROJECT', 'OBJECTIVE', 'DELIVERABLE', 'OUTCOME']).default('PROJECT'),
+  subjectId: z.string().uuid().nullable().optional(),
+}).refine((value) =>
+  value.subjectType === 'PROJECT' || value.subjectType === 'OBJECTIVE'
+    ? !value.subjectId
+    : Boolean(value.subjectId), {
+  message: 'Selecciona un elemento válido para la decisión.',
+  path: ['subjectId'],
 });
 
 const createBaselineInput = z.object({
@@ -79,7 +87,7 @@ const milestoneLinkInput = z.object({ deliverableId: z.string().uuid().nullable(
 
 const decisionSelect = [
   'SELECT d.id, d.project_id, d.title, d.context, d.outcome, d.rationale,',
-  '       d.decision_date, d.actor_id, d.actor_name, d.supersedes_id, d.created_at,',
+  '       d.decision_date, d.actor_id, d.actor_name, d.supersedes_id, d.subject_type, d.subject_id, d.created_at,',
   '       successor.id AS superseded_by_id',
   '  FROM project_decisions d',
   '  LEFT JOIN project_decisions successor',
@@ -112,6 +120,8 @@ function formatDecision(row: any) {
     recorderName: row.actor_name,
     supersedesId: row.supersedes_id,
     supersededById: row.superseded_by_id,
+    subjectType: row.subject_type,
+    subjectId: row.subject_id,
     isCurrent: !row.superseded_by_id,
     createdAt: row.created_at,
   };
@@ -781,10 +791,25 @@ export class ProjectTraceabilityController {
         }
       }
 
+      if (data.subjectType !== 'PROJECT') {
+        const subjectTable = data.subjectType === 'OBJECTIVE'
+          ? 'project_objectives'
+          : data.subjectType === 'DELIVERABLE' ? 'project_deliverables' : 'project_outcomes';
+        const subject = await client.query(
+          `SELECT id FROM ${subjectTable} WHERE project_id = $1 AND ${data.subjectType === 'OBJECTIVE' ? 'is_current = TRUE' : 'id = $2'}`,
+          data.subjectType === 'OBJECTIVE' ? [projectId] : [projectId, data.subjectId],
+        );
+        if (!subject.rowCount) {
+          await client.query('ROLLBACK');
+          transactionOpen = false;
+          return res.status(400).json({ success: false, error: { message: 'El elemento asociado ya no está disponible en este proyecto.' } });
+        }
+      }
+
       const actor = await client.query('SELECT name FROM users WHERE id = $1', [actorId]);
       const created = await client.query(
-        'INSERT INTO project_decisions (project_id, title, context, outcome, rationale, decision_date, actor_id, actor_name, supersedes_id) VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9) RETURNING id',
-        [projectId, data.title, data.context ?? null, data.outcome, data.rationale, data.decisionDate, actorId, actor.rows[0]?.name ?? 'Persona del proyecto', data.supersedesId ?? null],
+        'INSERT INTO project_decisions (project_id, title, context, outcome, rationale, decision_date, actor_id, actor_name, supersedes_id, subject_type, subject_id) VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10, $11) RETURNING id',
+        [projectId, data.title, data.context ?? null, data.outcome, data.rationale, data.decisionDate, actorId, actor.rows[0]?.name ?? 'Persona del proyecto', data.supersedesId ?? null, data.subjectType, data.subjectId ?? null],
       );
       const result = await client.query(decisionSelect + ' WHERE d.id = $1 AND d.project_id = $2', [created.rows[0].id, projectId]);
       await client.query('COMMIT');

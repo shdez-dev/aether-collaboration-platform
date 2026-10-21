@@ -177,12 +177,12 @@ function VerifyEmailPendingContent() {
       <p style={{ textAlign: 'center', fontFamily: MANROPE, fontSize: 13, color: 'var(--c-text4)', marginTop: 20 }}>
         ¿El correo es incorrecto?{' '}
         <Link
-          href="/register"
+          href="/login"
           style={{ color: 'var(--c-accent-text)', textDecoration: 'none' }}
           onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
           onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
         >
-          Crear otra cuenta
+          Volver al inicio de sesión
         </Link>
       </p>
     </>

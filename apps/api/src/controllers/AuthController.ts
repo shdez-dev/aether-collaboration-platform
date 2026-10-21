@@ -24,6 +24,9 @@ const registerSchema = z.object({
   email: z.string().email('Email inválido'),
   password: passwordSchema,
   name: z.string().min(2, 'Nombre debe tener mínimo 2 caracteres'),
+  invitationToken: z.string().regex(/^[a-f0-9]{64}$/i, 'Invitación inválida'),
+  termsRead: z.literal(true),
+  privacyRead: z.literal(true),
 });
 
 const loginSchema = z.object({
@@ -49,16 +52,44 @@ const verifyEmailSchema = z.object({
 });
 
 export class AuthController {
+  async invitationPreview(req: Request, res: Response) {
+    res.set('Cache-Control', 'no-store');
+    const token = req.params.token;
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      return res.status(404).json({ success: false, error: { code: 'INVITATION_NOT_FOUND', message: 'Invitación no disponible.' } });
+    }
+    try {
+      const platform = await pool.query(
+        `SELECT email, expires_at AS "expiresAt" FROM platform_invitations
+         WHERE token_hash = $1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()`,
+        [hashToken(token)]
+      );
+      if (platform.rows[0]) {
+        return res.json({ success: true, data: { invitation: { ...platform.rows[0], type: 'PLATFORM' } } });
+      }
+      const result = await pool.query(
+        `SELECT oi.email, o.name AS "organizationName", oi.expires_at AS "expiresAt"
+         FROM organization_invitations oi JOIN organizations o ON o.id = oi.organization_id
+         WHERE oi.token_hash = $1 AND oi.accepted_at IS NULL AND oi.revoked_at IS NULL
+           AND oi.expires_at > NOW() AND o.type <> 'PERSONAL'`,
+        [hashToken(token)]
+      );
+      if (!result.rows[0]) return res.status(404).json({ success: false, error: { code: 'INVITATION_NOT_FOUND', message: 'Invitación no disponible.' } });
+      return res.json({ success: true, data: { invitation: { ...result.rows[0], type: 'ORGANIZATION' } } });
+    } catch {
+      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'No se pudo consultar la invitación.' } });
+    }
+  }
   /**
-   * POST /api/auth/register
-   * Registra un nuevo usuario
+   * POST /api/auth/join
+   * Activa una cuenta desde una invitación vigente a Aether o a una organización.
    */
   async register(req: Request, res: Response) {
     let client;
     try {
       // 1. Validar input primero (antes de obtener conexión)
       const validatedData = registerSchema.parse(req.body);
-      const { email: rawEmail, password, name } = validatedData;
+      const { email: rawEmail, password, name, invitationToken } = validatedData;
       const email = rawEmail.trim().toLowerCase();
       // organizations.name es VARCHAR(255); reservar los 9 caracteres del
       // sufijo evita que un nombre de usuario válido rompa el registro.
@@ -67,8 +98,27 @@ export class AuthController {
       // 2. Obtener conexión del pool
       client = await pool.connect();
 
+      // El enlace llega al correo invitado y queda ligado a ese destinatario.
+      const platformInvitation = await client.query(
+        `SELECT id, email FROM platform_invitations
+         WHERE token_hash = $1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()`,
+        [hashToken(invitationToken)]
+      );
+      const organizationInvitation = platformInvitation.rows[0] ? null : await client.query(
+        `SELECT oi.id, oi.email FROM organization_invitations oi
+         JOIN organizations o ON o.id = oi.organization_id
+         WHERE oi.token_hash = $1 AND oi.accepted_at IS NULL AND oi.revoked_at IS NULL
+           AND oi.expires_at > NOW() AND o.type <> 'PERSONAL'`,
+        [hashToken(invitationToken)]
+      );
+      const invitation = platformInvitation.rows[0] ?? organizationInvitation?.rows[0];
+      const isPlatformInvitation = Boolean(platformInvitation.rows[0]);
+      if (!invitation || invitation.email.toLowerCase() !== email) {
+        return res.status(403).json({ success: false, error: { code: 'INVITATION_REQUIRED', message: 'La invitación no está vigente o no corresponde a este correo.' } });
+      }
+
       // 3. Verificar que el email no exista
-      const existingUser = await client.query('SELECT id FROM users WHERE email = $1', [email]);
+      const existingUser = await client.query('SELECT id FROM users WHERE lower(email) = $1', [email]);
 
       if (existingUser.rows.length > 0) {
         client.release();
@@ -85,21 +135,28 @@ export class AuthController {
       // 4. Hashear password con bcrypt
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // 5. Generar token de verificación de email (se almacena hasheado)
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-      const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-
       // 6. Crear la cuenta y su organización personal vacía como una sola
       // unidad. No crear ningún workspace aquí: la persona elige su nombre y
       // lo crea explícitamente durante el onboarding.
       await client.query('BEGIN');
       let user;
       try {
+        // Bloquear la invitación durante la creación evita activar una cuenta
+        // con un enlace revocado o consumido en paralelo.
+        const lockedInvitation = await client.query(
+          `SELECT email FROM ${isPlatformInvitation ? 'platform_invitations' : 'organization_invitations'} WHERE id = $1 AND token_hash = $2
+           AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > NOW() FOR UPDATE`,
+          [invitation.id, hashToken(invitationToken)]
+        );
+        if (!lockedInvitation.rows[0] || lockedInvitation.rows[0].email.toLowerCase() !== email) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ success: false, error: { code: 'INVITATION_REQUIRED', message: 'La invitación ya no está disponible.' } });
+        }
         const result = await client.query(
-          `INSERT INTO users (id, email, password, name, email_verified, email_verification_token, email_verification_expires, created_at, updated_at)
-           VALUES (uuid_generate_v4(), $1, $2, $3, FALSE, $4, $5, NOW(), NOW())
+          `INSERT INTO users (id, email, password, name, email_verified, terms_read_at, privacy_read_at, created_at, updated_at)
+           VALUES (uuid_generate_v4(), $1, $2, $3, TRUE, NOW(), NOW(), NOW(), NOW())
            RETURNING id, email, name, avatar, created_at`,
-          [email, hashedPassword, name, hashToken(verificationToken), verificationExpires]
+          [email, hashedPassword, name]
         );
         user = result.rows[0];
 
@@ -115,31 +172,22 @@ export class AuthController {
            VALUES (uuid_generate_v4(), $1, $2, 'OWNER'::"OrganizationMemberRole")`,
           [organization.rows[0].id, user.id]
         );
+        if (isPlatformInvitation) {
+          await client.query(
+            `UPDATE platform_invitations SET accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
+             WHERE id = $1`,
+            [invitation.id, user.id],
+          );
+        }
         await client.query('COMMIT');
       } catch (registrationError) {
         await client.query('ROLLBACK');
         throw registrationError;
       }
 
-      const verificationLink = buildFrontendUrl('/verify-email', { token: verificationToken });
-
-      // Liberar conexión antes de enviar el email
+      // El enlace de invitación recibido en el correo acredita su posesión.
       client.release();
       client = undefined;
-
-      // Confirmar la aceptación del correo antes de afirmar que se envió.
-      // La cuenta ya existe aunque el proveedor falle: el usuario puede reenviar
-      // sin intentar registrarse otra vez.
-      let verificationEmailSent = false;
-      try {
-        await emailService.sendVerificationEmail(user.email, {
-          userName: user.name,
-          verificationLink,
-        });
-        verificationEmailSent = true;
-      } catch (emailError) {
-        console.error('[register] Error sending verification email:', emailError);
-      }
 
       // 8. Retornar usuario creado — el cliente debe verificar su email antes de iniciar sesión
       return res.status(201).json({
@@ -152,8 +200,7 @@ export class AuthController {
             avatar: user.avatar,
             createdAt: user.created_at,
           },
-          requiresEmailVerification: true,
-          verificationEmailSent,
+          requiresEmailVerification: false,
         },
         meta: {
           timestamp: Date.now(),
@@ -205,7 +252,7 @@ export class AuthController {
 
       // 3. Buscar usuario por email
       const result = await client.query(
-        'SELECT id, email, name, password, avatar, email_verified FROM users WHERE email = $1',
+        'SELECT id, email, name, password, avatar, email_verified FROM users WHERE email = $1 AND deletion_requested_at IS NULL',
         [email]
       );
 
@@ -382,7 +429,7 @@ export class AuthController {
       }
 
       // Buscar usuario en la base de datos
-      const result = await client.query('SELECT id, email, name, avatar FROM users WHERE id = $1', [
+      const result = await client.query('SELECT id, email, name, avatar FROM users WHERE id = $1 AND deletion_requested_at IS NULL', [
         decoded.userId,
       ]);
 
@@ -534,7 +581,7 @@ export class AuthController {
 
       // Get user info
       const result = await client.query(
-        'SELECT id, email, name, email_verified FROM users WHERE id = $1',
+        'SELECT id, email, name, email_verified FROM users WHERE id = $1 AND deletion_requested_at IS NULL',
         [userId]
       );
 
@@ -620,7 +667,7 @@ export class AuthController {
 
       client = await pool.connect();
       const result = await client.query(
-        'SELECT id, email, name, email_verified FROM users WHERE email = $1',
+        'SELECT id, email, name, email_verified FROM users WHERE email = $1 AND deletion_requested_at IS NULL',
         [email.toLowerCase().trim()]
       );
 
@@ -784,7 +831,7 @@ export class AuthController {
       const email = validatedData.email.trim().toLowerCase();
 
       // Find user by email
-      const result = await client.query('SELECT id, email, name FROM users WHERE email = $1', [
+      const result = await client.query('SELECT id, email, name FROM users WHERE email = $1 AND deletion_requested_at IS NULL', [
         email,
       ]);
 

@@ -377,7 +377,7 @@ class OrganizationService {
   async inviteMember(
     organizationId: string,
     inviterId: string,
-    data: { email: string; role: Exclude<OrganizationMemberRole, 'OWNER'> }
+    data: { email: string; role: Exclude<OrganizationMemberRole, 'OWNER'> },
   ): Promise<OrganizationInvitationCode> {
     const email = data.email.trim().toLowerCase();
     const token = crypto.randomBytes(32).toString('hex');
@@ -475,33 +475,35 @@ class OrganizationService {
     }
 
     const invitationLink = buildFrontendUrl('/organization-invitation', { token });
-    try {
-      const invitee = await pool.query('SELECT id FROM users WHERE lower(email) = $1 LIMIT 1', [email]);
-      if (invitee.rows[0]?.id) {
-        await notificationService.createOrganizationInviteNotification({
-          userId: invitee.rows[0].id,
-          invitationId,
-          organizationId,
-          organizationName,
-          role: data.role,
-          inviterId,
-          inviterName,
-        });
-      }
-    } catch (error) {
-      console.error('[OrganizationService.inviteMember] in-app notification failed:', error instanceof Error ? error.message : 'Unknown error');
-    }
     let emailStatus: OrganizationInvitationCode['emailStatus'] = 'sent';
     try {
       await emailService.sendEmail({
         to: email,
         subject: `${inviterName} te invitó a ${organizationName} en Aether`,
-        text: `Aether - Invitación a una organización\n\n${inviterName} te invitó a unirte a ${organizationName}.\nAcepta la invitación: ${invitationLink}\n\nInicia sesión con la misma dirección de correo que recibió esta invitación. Expira en 7 días.`,
+        text: `Aether - Invitación al piloto\n\n${inviterName} te invitó a unirte a ${organizationName}.\nAbre el enlace para activar tu cuenta o iniciar sesión: ${invitationLink}\n\nLa invitación está vinculada a este correo y expira en 7 días.`,
         html: renderOrganizationInvitationEmail(inviterName, organizationName, invitationLink),
       });
     } catch (error) {
       emailStatus = 'failed';
       console.error('[OrganizationService.inviteMember] invitation email failed:', error instanceof Error ? error.message : 'Unknown error');
+    }
+    if (emailStatus === 'sent') {
+      try {
+        const invitee = await pool.query('SELECT id FROM users WHERE lower(email) = $1 LIMIT 1', [email]);
+        if (invitee.rows[0]?.id) {
+          await notificationService.createOrganizationInviteNotification({
+            userId: invitee.rows[0].id,
+            invitationId,
+            organizationId,
+            organizationName,
+            role: data.role,
+            inviterId,
+            inviterName,
+          });
+        }
+      } catch (error) {
+        console.error('[OrganizationService.inviteMember] in-app notification failed:', error instanceof Error ? error.message : 'Unknown error');
+      }
     }
     return { code: token, link: invitationLink, email, expiresAt: expiresAt!, emailStatus };
   }

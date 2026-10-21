@@ -33,6 +33,7 @@ import eventRoutes from './routes/events';
 import adminRoutes from './routes/admin';
 import feedbackRoutes from './routes/feedback';
 import chatRoutes from './routes/chat';
+import userReportRoutes from './routes/userReports';
 import { documentCommentController } from './controllers/DocumentCommentController';
 
 // Import config
@@ -44,6 +45,7 @@ import { initializeRedis, closeRedisConnections } from './lib/redis';
 import { initializeRealtimeGateway } from './websocket/RealtimeGateway';
 import { initializeYjsGateway } from './websocket/Yjsgateway';
 import { startDueDateJob, stopDueDateJob } from './jobs/dueDateJob';
+import { runAccountDeletionBatch } from './services/AccountDeletionService';
 import { startDirectMessageRetentionJob, stopDirectMessageRetentionJob } from './jobs/directMessageRetentionJob';
 
 // ============================================================================
@@ -159,6 +161,7 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/user-reports', userReportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/users/me/dashboards', dashboardRoutes);
 app.use('/api', boardRoutes);
@@ -235,6 +238,10 @@ async function startServer() {
     // 5. Start due date notification cron job
     startDueDateJob();
     startDirectMessageRetentionJob();
+    const accountDeletionInterval = setInterval(() => {
+      void runAccountDeletionBatch().catch((error) => console.error('[accountDeletion] worker unavailable:', error));
+    }, 2_000);
+    accountDeletionInterval.unref?.();
 
     // 6. Start HTTP server
     httpServer.listen(PORT, () => {

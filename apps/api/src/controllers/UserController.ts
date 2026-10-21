@@ -66,6 +66,7 @@ class UserController {
           created_at
          FROM users
          WHERE id != $1
+           AND deletion_requested_at IS NULL
            AND (
              name  ILIKE $2
              OR email ILIKE $2
@@ -1096,6 +1097,7 @@ class UserController {
          INNER JOIN workspace_members wm2 ON wm2.workspace_id = wm1.workspace_id
          WHERE wm2.user_id = u.id
          AND u.id != $1
+         AND u.deletion_requested_at IS NULL
          AND (LOWER(u.name) LIKE LOWER($2) OR LOWER(u.email) LIKE LOWER($2))
          GROUP BY u.id, u.name, u.email, u.avatar, u.bio, u.position, u.location, u.created_at
          ORDER BY shared_workspaces_count DESC, u.name ASC
@@ -1110,6 +1112,7 @@ class UserController {
          INNER JOIN workspace_members wm2 ON wm2.workspace_id = wm1.workspace_id
          WHERE wm2.user_id = u.id
          AND u.id != $1
+         AND u.deletion_requested_at IS NULL
          AND (LOWER(u.name) LIKE LOWER($2) OR LOWER(u.email) LIKE LOWER($2))`,
         [requestingUserId, searchParam]
       );

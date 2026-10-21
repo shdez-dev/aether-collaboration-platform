@@ -40,7 +40,7 @@ export function LegalDocument({ current, title, lead, sections }: LegalDocumentP
         <div className="legal-hero-inner">
           <h1>{title}</h1>
           <p>{lead}</p>
-          <span>Revisión de contenido: 10 de octubre de 2026</span>
+          <span>Borrador del piloto · revisión: 21 de octubre de 2026</span>
         </div>
       </div>
 
@@ -63,11 +63,6 @@ export function LegalDocument({ current, title, lead, sections }: LegalDocumentP
         </aside>
 
         <article className="legal-article">
-          <div className="legal-review-note" role="note">
-            <strong>Documento en revisión</strong>
-            <p>AETHER es un piloto gratuito por invitación operado por Juan Sebastian Hernandez Rincon, persona natural residente en Chile. El domicilio legal, la jurisdicción aplicable, los detalles del alojamiento de datos y la regla de edad mínima aún requieren confirmación y revisión jurídica antes de presentar estas páginas como condiciones definitivas.</p>
-          </div>
-
           {sections.map((section) => (
             <section className="legal-section" id={section.id} key={section.id} aria-labelledby={`${section.id}-title`}>
               <h2 id={`${section.id}-title`}>{section.title}</h2>

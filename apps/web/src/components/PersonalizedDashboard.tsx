@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'framer-motion';
 import {
-  Activity, ArrowRight, Bell, BellDot, Building2, CalendarCheck2, CalendarClock, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, Clock3, ContactRound, FileClock, FileText, History, MailPlus, PanelsTopLeft,
+  Activity, ArrowRight, Bell, BellDot, Building2, CalendarCheck2, CalendarClock, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, Clock3, ContactRound, FileClock, FileText, History, MailPlus, Palette, PanelsTopLeft,
   Flag, FolderKanban, GripVertical, LayoutDashboard, ListTodo, LockKeyhole, MessageCircle, Plus, Search, Share2, Sparkles,
   MessagesSquare, UnlockKeyhole, UserRoundCheck, Users, UsersRound, X,
 } from 'lucide-react';
@@ -52,6 +52,7 @@ import type { SidebarProject } from '@/stores/activeWorkspaceStore';
 import styles from './PersonalizedDashboard.module.css';
 
 type CatalogCategoryId = 'general' | 'my-day' | 'projects' | 'boards' | 'calendar' | 'documents' | 'notifications' | 'contacts' | 'teams';
+type DashboardBackgroundColor = 'default' | 'lavender' | 'sky' | 'mint' | 'peach' | 'rose' | 'butter';
 type WidgetKind =
   | 'quick-links'
   | 'today-priorities' | 'today-due' | 'today-overdue' | 'today-followups'
@@ -65,7 +66,7 @@ type WidgetKind =
   | 'team-members' | 'team-activity' | 'organization-workspaces' | 'organization-invitations'
   | 'organization-members' | 'organization-overview' | 'organization-project-status';
 type DashboardWidget = { id: string; kind: WidgetKind; column: number; row: number; width: number; height: number; config?: Record<string, unknown> };
-type DashboardBoard = { id: string; name: string; context: DashboardContext; widgets: DashboardWidget[]; locked: boolean };
+type DashboardBoard = { id: string; name: string; context: DashboardContext; widgets: DashboardWidget[]; locked: boolean; backgroundColor: DashboardBackgroundColor };
 type ContextProject = SidebarProject & { workspaceName?: string; organizationName?: string; description?: string | null; productGoal?: string | null; methodology?: string };
 type GridDropTarget = { id: string; column: number; row: number; span: number; height: number; clamped?: boolean };
 type WidgetDragSession = {
@@ -106,6 +107,16 @@ const ROW_HEIGHT = 40;
 const GRID_CELL_TARGET = 34;
 const WIDGET_SLOT_INSET = 10;
 const WIDGET_DRAG_SCALE = 0.97;
+const DASHBOARD_BACKGROUNDS: { id: DashboardBackgroundColor; label: string; color: string | null }[] = [
+  { id: 'default', label: 'Original', color: null },
+  { id: 'lavender', label: 'Lavanda', color: '#b8a0e6' },
+  { id: 'sky', label: 'Cielo', color: '#8fbce4' },
+  { id: 'mint', label: 'Menta', color: '#87cbb0' },
+  { id: 'peach', label: 'Durazno', color: '#e7aa8c' },
+  { id: 'rose', label: 'Rosa', color: '#e0a3bd' },
+  { id: 'butter', label: 'Mantequilla', color: '#d7c879' },
+];
+const DASHBOARD_BACKGROUND_TINT = 20;
 const DEFAULT_WIDGET_SIZE = { width: 8, height: 3 };
 const WIDGET_SIZES: Partial<Record<WidgetKind, { width: number; height: number }>> = {
   'quick-links': { width: 5, height: 3 },
@@ -391,6 +402,9 @@ function readLayout(value: string | null): SavedLayout | null {
 function normalizeBoard(value: DashboardBoard): DashboardBoard {
   const layout = readLayout(JSON.stringify({ widgets: value.widgets, locked: value.locked }));
   const widgets = layout?.widgets ?? [];
+  const backgroundColor = DASHBOARD_BACKGROUNDS.some((option) => option.id === value.backgroundColor)
+    ? value.backgroundColor
+    : 'default';
   const previousThreeWidgetOrganizationBoard = value.context.type === 'ORGANIZATION' && value.locked === false && widgets.length === 3
     && widgets.some((widget) => widget.kind === 'project-active' && widget.column === 1 && widget.row === 1 && widget.width === 24 && widget.height === 8)
     && widgets.some((widget) => widget.kind === 'organization-workspaces' && widget.column === 1 && widget.row === 10 && widget.width === 15 && widget.height === 7)
@@ -405,6 +419,7 @@ function normalizeBoard(value: DashboardBoard): DashboardBoard {
     ...value,
     widgets: previousThreeWidgetOrganizationBoard || previousFiveWidgetOrganizationBoard ? starterWidgets(value.context) : widgets,
     locked: value.locked,
+    backgroundColor,
   };
 }
 
@@ -609,6 +624,7 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
   const [enteringWidgetId, setEnteringWidgetId] = useState<string | null>(null);
   const [boards, setBoards] = useState<DashboardBoard[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+  const [backgroundColor, setBackgroundColor] = useState<DashboardBackgroundColor>('default');
   const [boardsLoading, setBoardsLoading] = useState(true);
   const [boardsReloadKey, setBoardsReloadKey] = useState(0);
   const [boardBusy, setBoardBusy] = useState(false);
@@ -677,6 +693,10 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
   const [locked, setLocked] = useState(false);
   const [readyForUser, setReadyForUser] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [backgroundPaletteOpen, setBackgroundPaletteOpen] = useState(false);
+  const [backgroundPalettePosition, setBackgroundPalettePosition] = useState<{ top: number; left: number } | null>(null);
+  const backgroundTriggerRef = useRef<HTMLButtonElement>(null);
+  const backgroundPaletteRef = useRef<HTMLDivElement>(null);
   const [sidebarControlsHost, setSidebarControlsHost] = useState<HTMLElement | null>(null);
   const [activeCategory, setActiveCategory] = useState<CatalogCategoryId | 'all'>('all');
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -703,6 +723,25 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
   useEffect(() => { setSidebarControlsHost(document.getElementById('aether-dashboard-controls')); }, []);
 
   useEffect(() => {
+    if (!backgroundPaletteOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!backgroundPaletteRef.current?.contains(target) && !backgroundTriggerRef.current?.contains(target)) setBackgroundPaletteOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setBackgroundPaletteOpen(false);
+      backgroundTriggerRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [backgroundPaletteOpen]);
+
+  useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
     const userId = user.id;
@@ -718,14 +757,14 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
         let loaded = response.data.dashboards.map(normalizeBoard);
         if (loaded.length === 0) {
           const created = await apiService.post<{ dashboard: DashboardBoard }>('/api/users/me/dashboards', {
-            name: 'Personal', context: { type: 'PERSONAL', id: null },
+            name: 'Personal', context: { type: 'PERSONAL', id: null }, backgroundColor: 'default',
             widgets: legacy?.widgets ?? [], locked: legacy?.locked ?? false,
           }, true);
           if (!created.success || !created.data) throw new Error(created.error?.message ?? 'No se pudo crear tu tablero personal.');
           loaded = [normalizeBoard(created.data.dashboard)];
         }
         if (cancelled) return;
-        savedLayoutsRef.current = Object.fromEntries(loaded.map((board) => [board.id, JSON.stringify({ widgets: board.widgets, locked: board.locked })]));
+        savedLayoutsRef.current = Object.fromEntries(loaded.map((board) => [board.id, JSON.stringify({ widgets: board.widgets, locked: board.locked, backgroundColor: board.backgroundColor })]));
         const urlId = new URLSearchParams(window.location.search).get('board');
         let storedId: string | null = null;
         try { storedId = window.localStorage.getItem(`aether:active-dashboard:${userId}`); } catch { /* Use first board. */ }
@@ -735,6 +774,7 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
         setActiveBoardId(chosen.id);
         setWidgets(chosen.widgets);
         setLocked(chosen.locked);
+        setBackgroundColor(chosen.backgroundColor);
         setReadyForUser(userId);
         try { window.localStorage.setItem(`aether:active-dashboard:${userId}`, chosen.id); } catch { /* Keep the selected board in memory. */ }
         const selectedUrl = new URL(window.location.href);
@@ -744,6 +784,7 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
         if (cancelled) return;
         setWidgets(legacy?.widgets ?? []);
         setLocked(legacy?.locked ?? false);
+        setBackgroundColor('default');
         setReadyForUser(userId);
         setBoardError(cause instanceof Error ? cause.message : 'No se pudieron cargar los tableros.');
       } finally {
@@ -753,17 +794,17 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
     return () => { cancelled = true; };
   }, [user?.id, boardsReloadKey]);
 
-  function saveBoardSnapshot(boardId: string, nextWidgets: DashboardWidget[], nextLocked: boolean) {
-    const signature = JSON.stringify({ widgets: nextWidgets, locked: nextLocked });
+  function saveBoardSnapshot(boardId: string, nextWidgets: DashboardWidget[], nextLocked: boolean, nextBackgroundColor = backgroundColor) {
+    const signature = JSON.stringify({ widgets: nextWidgets, locked: nextLocked, backgroundColor: nextBackgroundColor });
     const send = async () => {
       if (savedLayoutsRef.current[boardId] === signature) return true;
-      const response = await apiService.patch<{ dashboard: DashboardBoard }>(`/api/users/me/dashboards/${boardId}`, { widgets: nextWidgets, locked: nextLocked }, true);
+      const response = await apiService.patch<{ dashboard: DashboardBoard }>(`/api/users/me/dashboards/${boardId}`, { widgets: nextWidgets, locked: nextLocked, backgroundColor: nextBackgroundColor }, true);
       if (!response.success) {
         setBoardError(response.error?.message ?? 'No se pudo guardar el tablero.');
         return false;
       }
       savedLayoutsRef.current[boardId] = signature;
-      setBoards((current) => current.map((board) => board.id === boardId ? { ...board, widgets: nextWidgets, locked: nextLocked } : board));
+      setBoards((current) => current.map((board) => board.id === boardId ? { ...board, widgets: nextWidgets, locked: nextLocked, backgroundColor: nextBackgroundColor } : board));
       setBoardError('');
       return true;
     };
@@ -774,10 +815,10 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
 
   useEffect(() => {
     if (!user?.id || readyForUser !== user.id || !activeBoardId) return;
-    void saveBoardSnapshot(activeBoardId, fixedWidgets, locked);
+    void saveBoardSnapshot(activeBoardId, fixedWidgets, locked, backgroundColor);
   // Changes are committed at the end of a drag, resize, add, remove or lock action.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBoardId, fixedWidgets, locked, readyForUser, user?.id]);
+  }, [activeBoardId, backgroundColor, fixedWidgets, locked, readyForUser, user?.id]);
 
   useEffect(() => {
     if (!activeBoardId || !needsScopedProjects) return;
@@ -976,6 +1017,28 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
     window.history.replaceState(window.history.state, '', url);
   }
 
+  function toggleBackgroundPalette() {
+    if (backgroundPaletteOpen) {
+      setBackgroundPaletteOpen(false);
+      return;
+    }
+    const rect = backgroundTriggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const panelWidth = 248;
+    const panelHeight = 218;
+    setBackgroundPalettePosition({
+      top: Math.max(12, Math.min(rect.top - 2, window.innerHeight - panelHeight - 12)),
+      left: Math.max(12, Math.min(rect.right + 10, window.innerWidth - panelWidth - 12)),
+    });
+    setBackgroundPaletteOpen(true);
+  }
+
+  function chooseBackgroundColor(color: DashboardBackgroundColor) {
+    setBackgroundColor(color);
+    setBackgroundPaletteOpen(false);
+    backgroundTriggerRef.current?.focus();
+  }
+
   async function selectBoard(id: string) {
     const next = boards.find((board) => board.id === id);
     if (!next) return false;
@@ -984,6 +1047,7 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
     setActiveBoardId(next.id);
     setWidgets(next.widgets);
     setLocked(next.locked);
+    setBackgroundColor(next.backgroundColor);
     setPickerOpen(false);
     setActiveCategory('all');
     setCatalogSearch('');
@@ -1001,15 +1065,16 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
       if (activeBoardId && !await saveBoardSnapshot(activeBoardId, fixedWidgets, locked)) return false;
       const initialWidgets = starterWidgets(context);
       const response = await apiService.post<{ dashboard: DashboardBoard }>('/api/users/me/dashboards', {
-        name, context, widgets: initialWidgets, locked: false,
+        name, context, widgets: initialWidgets, locked: false, backgroundColor: 'default',
       }, true);
       if (!response.success || !response.data) throw new Error(response.error?.message ?? 'No se pudo crear el tablero.');
       const created = normalizeBoard(response.data.dashboard);
-      savedLayoutsRef.current[created.id] = JSON.stringify({ widgets: created.widgets, locked: created.locked });
+      savedLayoutsRef.current[created.id] = JSON.stringify({ widgets: created.widgets, locked: created.locked, backgroundColor: created.backgroundColor });
       setBoards((current) => [...current, created]);
       setActiveBoardId(created.id);
       setWidgets(created.widgets);
       setLocked(created.locked);
+      setBackgroundColor(created.backgroundColor);
       setPickerOpen(false);
       setActiveCategory('all');
       setCatalogSearch('');
@@ -1051,6 +1116,7 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
         setActiveBoardId(remaining[0].id);
         setWidgets(remaining[0].widgets);
         setLocked(remaining[0].locked);
+        setBackgroundColor(remaining[0].backgroundColor);
         setScopedProjects([]);
         rememberBoard(remaining[0].id);
       }
@@ -1371,11 +1437,25 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
         <button type="button" className={styles.toolButton} onClick={() => setPickerOpen((open) => !open)} disabled={locked || boardsLoading || !activeBoardId} aria-label="Añadir widget" aria-expanded={pickerOpen} title="Añadir widget">
           <Plus size={19} strokeWidth={1.9} />
         </button>
+        <button ref={backgroundTriggerRef} type="button" className={`${styles.toolButton} ${backgroundPaletteOpen || backgroundColor !== 'default' ? styles.toolActive : ''}`} onClick={toggleBackgroundPalette} disabled={boardsLoading || !activeBoardId} aria-label="Personalizar fondo del tablero" aria-haspopup="dialog" aria-expanded={backgroundPaletteOpen} aria-controls="dashboard-background-palette" title="Color de fondo">
+          <Palette size={17} strokeWidth={1.8} />
+          {backgroundColor !== 'default' && <span className={styles.toolColorMark} style={{ backgroundColor: DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color ?? undefined }} aria-hidden="true" />}
+        </button>
         <button type="button" className={`${styles.toolButton} ${locked ? styles.toolActive : ''}`} onClick={() => { setLocked((value) => !value); setPickerOpen(false); }} disabled={boardsLoading || !activeBoardId} aria-label={locked ? 'Desbloquear cuadrícula' : 'Bloquear cuadrícula'} aria-pressed={locked} title={locked ? 'Desbloquear cuadrícula' : 'Bloquear cuadrícula'}>
           {locked ? <LockKeyhole size={18} strokeWidth={1.8} /> : <UnlockKeyhole size={18} strokeWidth={1.8} />}
         </button>
         </div>
       </div>, sidebarControlsHost)}
+
+      {backgroundPaletteOpen && backgroundPalettePosition && createPortal(<div id="dashboard-background-palette" ref={backgroundPaletteRef} role="dialog" aria-label="Color de fondo del tablero" className={styles.backgroundPalette} style={{ top: backgroundPalettePosition.top, left: backgroundPalettePosition.left }}>
+        <div className={styles.backgroundPaletteHeading}><strong>Fondo del tablero</strong><span>Tonos pastel aplicados con suavidad.</span></div>
+        <div className={styles.backgroundSwatches} role="group" aria-label="Colores de fondo">
+          {DASHBOARD_BACKGROUNDS.map((option) => <button key={option.id} type="button" aria-pressed={backgroundColor === option.id} className={`${styles.backgroundSwatch} ${backgroundColor === option.id ? styles.backgroundSwatchSelected : ''}`} onClick={() => chooseBackgroundColor(option.id)}>
+            <span className={`${styles.backgroundSwatchColor} ${option.id === 'default' ? styles.backgroundSwatchDefault : ''}`} style={option.color ? { backgroundColor: option.color } : undefined} aria-hidden="true">{backgroundColor === option.id && <Check size={13} />}</span>
+            <span>{option.label}</span>
+          </button>)}
+        </div>
+      </div>, document.body)}
 
       {canvasMessage && <div className={styles.canvasNotice} role="status">{canvasMessage}</div>}
 
@@ -1449,7 +1529,8 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
       </section>}
 
       <div className={styles.canvasFrame}>
-        <div ref={setGridDropRef} className={gridClass} data-columns={columns} onPointerMove={handleGridPointerMove} onPointerLeave={() => { hoverPointerRef.current = null; setHoveredCell(null); }} style={{ '--grid-columns': cellColumns, '--grid-rows': gridRows, '--grid-cell-size': `${cellSize}px`, '--grid-cell-width': `${cellWidth}px` } as React.CSSProperties}>
+        <div ref={setGridDropRef} className={gridClass} data-columns={columns} onPointerMove={handleGridPointerMove} onPointerLeave={() => { hoverPointerRef.current = null; setHoveredCell(null); }} style={{ '--grid-columns': cellColumns, '--grid-rows': gridRows, '--grid-cell-size': `${cellSize}px`, '--grid-cell-width': `${cellWidth}px`, '--dashboard-board-background': DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color ? `color-mix(in srgb, ${DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color} ${DASHBOARD_BACKGROUND_TINT}%, var(--c-bg2))` : undefined, '--dashboard-board-accent': DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color ?? 'transparent' } as React.CSSProperties}>
+          <span className={styles.boardColorEdge} aria-hidden="true" />
           <div className={styles.cellLayer} aria-hidden="true">
             {highlight && <span className={`${styles.gridCellHighlight} ${styles.gridCellHover} ${hoveredCell?.fast ? styles.gridCellHoverFast : ''}`} style={highlightStyle} />}
           </div>

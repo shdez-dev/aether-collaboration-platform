@@ -191,6 +191,11 @@ model User {
   phone                    String?   @db.VarChar(50)
   location                 String?   @db.VarChar(255)
   emailVerified            Boolean   @default(false) @map("email_verified")
+  deletionRequestedAt      DateTime? @map("deletion_requested_at")
+  // Registro histórico del aviso conjunto previo; no acredita las dos confirmaciones separadas.
+  pilotTermsReadAt         DateTime? @map("pilot_terms_read_at")
+  termsReadAt             DateTime? @map("terms_read_at")
+  privacyReadAt           DateTime? @map("privacy_read_at")
   emailVerificationToken   String?   @unique @map("email_verification_token") @db.VarChar(255)
   emailVerificationExpires DateTime? @map("email_verification_expires")
   passwordResetToken       String?   @unique @map("password_reset_token") @db.VarChar(255)
@@ -240,6 +245,8 @@ model User {
   organizationCreationGrantsIssued UserOrganizationCreationGrant[] @relation("OrganizationCreationGrantIssuer")
   organizationInvitationsSent  OrganizationInvitation[] @relation("OrganizationInvitationInviter")
   organizationInvitationsAccepted OrganizationInvitation[] @relation("OrganizationInvitationAccepter")
+  platformInvitationsSent PlatformInvitation[] @relation("PlatformInvitationInviter")
+  platformInvitationsAccepted PlatformInvitation[] @relation("PlatformInvitationAccepter")
   organizationAccessRevocations OrganizationAccessRevocation[] @relation("OrganizationAccessRevokedUser")
   organizationAccessRevocationsIssued OrganizationAccessRevocation[] @relation("OrganizationAccessRevokedBy")
   submittedInitiatives         Initiative[]          @relation("InitiativeSubmitter")
@@ -273,6 +280,8 @@ model User {
   recordedProjectOutcomes      ProjectOutcome[] @relation("ProjectOutcomeRecorder")
   dashboards                   UserDashboard[]
   feedbackSubmissions          FeedbackSubmission[]
+  reportsSubmitted             UserReport[] @relation("UserReportReporter")
+  reportsReceived              UserReport[] @relation("UserReportSubject")
 
   @@map("users")
 }
@@ -285,6 +294,7 @@ model UserDashboard {
   contextId   String?  @map("context_id") @db.Uuid
   widgets     Json     @default("[]")
   locked      Boolean  @default(false)
+  backgroundColor String @default("default") @map("background_color") @db.VarChar(24)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -292,6 +302,22 @@ model UserDashboard {
 
   @@index([userId, createdAt])
   @@map("user_dashboards")
+}
+
+// Sin FK a users: el recibo puede sobrevivir al borrado definitivo de la fila.
+model AccountDeletionJob {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String?   @unique @map("user_id") @db.Uuid
+  status      String    @default("PENDING") @db.VarChar(20)
+  requestedAt DateTime  @default(now()) @map("requested_at")
+  completedAt DateTime? @map("completed_at")
+  nextRunAt   DateTime  @default(now()) @map("next_run_at")
+  step        Int       @default(0)
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error")
+
+  @@index([nextRunAt, requestedAt])
+  @@map("account_deletion_jobs")
 }
 
 model FeedbackSubmission {
@@ -312,6 +338,25 @@ model FeedbackSubmission {
   @@index([type, createdAt])
   @@index([userId, createdAt])
   @@map("feedback_submissions")
+}
+
+model UserReport {
+  id             String    @id @default(uuid()) @db.Uuid
+  reporterUserId String    @map("reporter_user_id") @db.Uuid
+  reportedUserId String    @map("reported_user_id") @db.Uuid
+  reason         String    @db.VarChar(32)
+  description    String
+  status         String    @default("NEW") @db.VarChar(20)
+  reviewedAt     DateTime? @map("reviewed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  reporter       User      @relation("UserReportReporter", fields: [reporterUserId], references: [id], onDelete: Cascade)
+  reported       User      @relation("UserReportSubject", fields: [reportedUserId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([reporterUserId, createdAt])
+  @@index([reportedUserId, createdAt])
+  @@map("user_reports")
 }
 
 // ── User Preferences ─────────────────────────────────────────────────────────
@@ -429,7 +474,7 @@ model DirectMessage {
   id             String   @id @default(uuid()) @db.Uuid
   conversationId String   @map("conversation_id") @db.Uuid
   senderId       String   @map("sender_id") @db.Uuid
-  body           String   @db.VarChar(4000)
+  body           String   @db.VarChar(8000)
   createdAt      DateTime @default(now()) @map("created_at")
   expiresAt      DateTime @default(dbgenerated("(now() + '30 days'::interval)")) @map("expires_at")
   readAt         DateTime? @map("read_at")
@@ -810,6 +855,8 @@ model Document {
   permissions DocumentPermission[]
   comments    DocumentComment[]
   versions    DocumentVersion[]
+  projectProfile ProjectDocumentProfile?
+  evidenceLinks  ProjectEvidenceLink[]
 
   @@index([workspaceId])
   @@index([projectId])
@@ -859,9 +906,51 @@ model DocumentVersion {
   createdAt  DateTime @default(now()) @map("created_at")
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  evidenceLinks ProjectEvidenceLink[]
 
   @@index([documentId])
   @@map("document_versions")
+}
+
+model ProjectDocumentProfile {
+  documentId String @id @map("document_id") @db.Uuid
+  projectId  String @map("project_id") @db.Uuid
+  category   String @default("GENERAL") @db.VarChar(32)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  updatedBy  String? @map("updated_by") @db.Uuid
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, category], map: "project_document_profiles_project_idx")
+  @@map("project_document_profiles")
+}
+
+model ProjectEvidenceLink {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  documentId String? @map("document_id") @db.Uuid
+  documentVersionId String? @map("document_version_id") @db.Uuid
+  documentTitle String @map("document_title") @db.VarChar(500)
+  snapshotText String @default("") @map("snapshot_text") @db.Text
+  documentUpdatedAt DateTime @map("document_updated_at")
+  targetType String @map("target_type") @db.VarChar(20)
+  targetId String? @map("target_id") @db.Uuid
+  claim String @db.VarChar(1000)
+  excerpt String? @db.VarChar(2000)
+  status String @default("PENDING") @db.VarChar(20)
+  createdBy String? @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  verifiedBy String? @map("verified_by") @db.Uuid
+  verifiedAt DateTime? @map("verified_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentVersion DocumentVersion? @relation(fields: [documentVersionId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, targetType, targetId], map: "project_evidence_links_project_target_idx")
+  @@index([projectId, documentId], map: "project_evidence_links_project_document_idx")
+  @@map("project_evidence_links")
 }
 
 // ── Board Sprint ──────────────────────────────────────────────────────────────
@@ -1072,6 +1161,8 @@ model Project {
   directMembers  ProjectMember[]
   methodologyAssignments ProjectMethodologyAssignment[]
   documents      Document[]
+  documentProfiles ProjectDocumentProfile[]
+  evidenceLinks ProjectEvidenceLink[]
   workflowHistory ProjectWorkflowHistory[]
   sourceInitiative Initiative? @relation("InitiativeFormalizedProject", fields: [sourceInitiativeId], references: [id], onDelete: SetNull)
   roleAssignments ProjectRoleAssignment[]
@@ -1311,6 +1402,8 @@ model ProjectDecision {
   recorderId    String?  @map("actor_id") @db.Uuid
   recorderName  String   @map("actor_name") @db.VarChar(255)
   supersedesId  String?  @map("supersedes_id") @db.Uuid
+  subjectType   String   @default("PROJECT") @map("subject_type") @db.VarChar(20)
+  subjectId     String?  @map("subject_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at")
 
   project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1320,6 +1413,7 @@ model ProjectDecision {
 
   @@unique([projectId, supersedesId], map: "project_decisions_project_supersedes_key")
   @@index([projectId, decisionDate(sort: Desc), createdAt(sort: Desc)], map: "project_decisions_project_decision_date_idx")
+  @@index([projectId, subjectType, subjectId], map: "project_decisions_project_subject_idx")
   @@map("project_decisions")
 }
 
@@ -1677,6 +1771,25 @@ model OrganizationInvitation {
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([email, createdAt(sort: Desc)])
   @@map("organization_invitations")
+}
+
+model PlatformInvitation {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @db.VarChar(255)
+  tokenHash    String    @unique @map("token_hash") @db.Char(64)
+  invitedById  String    @map("invited_by") @db.Uuid
+  expiresAt    DateTime  @map("expires_at") @db.Timestamp(3)
+  acceptedById String?   @map("accepted_by") @db.Uuid
+  acceptedAt   DateTime? @map("accepted_at") @db.Timestamp(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamp(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamp(3)
+
+  invitedBy  User  @relation("PlatformInvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedBy User? @relation("PlatformInvitationAccepter", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt(sort: Desc)])
+  @@map("platform_invitations")
 }
 
 model OrganizationAccessRevocation {

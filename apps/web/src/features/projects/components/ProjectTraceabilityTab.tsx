@@ -24,6 +24,7 @@ import {
   type ProjectBaseline,
   type ProjectBaselineEffortUnit,
   type ProjectDecision,
+  type ProjectTraceabilityData,
 } from '@/features/projects/api';
 import type { ProjectWorkflowHistoryItem } from '@/stores/projectStore';
 import styles from './ProjectTraceabilityTab.module.css';
@@ -37,6 +38,8 @@ type DecisionDraft = {
   outcome: string;
   rationale: string;
   decisionDate: string;
+  subjectType: ProjectDecision['subjectType'];
+  subjectId: string | null;
 };
 
 type BaselineDraft = {
@@ -171,8 +174,10 @@ export function ProjectTraceabilityTab({
   const [filter, setFilter] = useState<'current' | 'all'>('current');
   const [dialog, setDialog] = useState<Dialog>(null);
   const [decisionDraft, setDecisionDraft] = useState<DecisionDraft>({
-    title: '', context: '', outcome: '', rationale: '', decisionDate: todayISO(),
+    title: '', context: '', outcome: '', rationale: '', decisionDate: todayISO(), subjectType: 'PROJECT', subjectId: null,
   });
+  const [decisionTargets, setDecisionTargets] = useState<ProjectTraceabilityData | null>(null);
+  const [decisionFocusId, setDecisionFocusId] = useState<string | null>(null);
   const [baselineDraft, setBaselineDraft] = useState<BaselineDraft>(initialBaselineDraft({ projectStartDate, projectTargetDate }));
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -216,6 +221,25 @@ export function ProjectTraceabilityTab({
       });
     return () => { active = false; };
   }, [projectId, combinedRefreshKey]);
+
+  useEffect(() => {
+    if (section !== 'decisions') return;
+    let active = true;
+    setDecisionTargets(null);
+    projectApi.getTraceability(projectId)
+      .then((traceability) => { if (active) setDecisionTargets(traceability); })
+      .catch(() => { if (active) setDecisionTargets(null); });
+    return () => { active = false; };
+  }, [projectId, section, combinedRefreshKey]);
+
+  useEffect(() => {
+    if (section !== 'decisions' || !decisionFocusId || loading) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`project-decision-${decisionFocusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setDecisionFocusId(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [section, decisionFocusId, loading]);
 
   useEffect(() => {
     if (section !== 'baseline' || loading) return;
@@ -305,7 +329,8 @@ export function ProjectTraceabilityTab({
 
   function openDecisionDialog(supersedesId: string | null = null) {
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setDecisionDraft({ title: '', context: '', outcome: '', rationale: '', decisionDate: todayISO() });
+    const previous = decisions.find((decision) => decision.id === supersedesId);
+    setDecisionDraft({ title: '', context: '', outcome: '', rationale: '', decisionDate: todayISO(), subjectType: previous?.subjectType ?? 'PROJECT', subjectId: previous?.subjectId ?? null });
     setFormError('');
     setFieldErrors({});
     setDialog({ kind: 'decision', supersedesId });
@@ -449,7 +474,15 @@ export function ProjectTraceabilityTab({
         </div>
       ) : section === 'chain' ? (
         <div key={section} className={styles.sectionContent}>
-          <ProjectTraceabilityChain projectId={projectId} canEdit={canEdit} refreshKey={combinedRefreshKey} />
+          <ProjectTraceabilityChain
+            projectId={projectId}
+            canEdit={canEdit}
+            refreshKey={combinedRefreshKey}
+            decisions={decisions}
+            currentBaseline={currentBaseline}
+            onOpenSection={setSection}
+            onOpenDecision={(decisionId) => { setFilter('current'); setDecisionFocusId(decisionId); setSection('decisions'); }}
+          />
         </div>
       ) : section === 'decisions' ? (
         <div key={section} className={styles.sectionContent}>
@@ -479,7 +512,7 @@ export function ProjectTraceabilityTab({
           ) : (
             <ol className={styles.timeline}>
               {timeline.map((item) => item.kind === 'decision' ? (
-                <li key={`decision-${item.decision.id}`} className={styles.timelineItem}>
+                <li key={`decision-${item.decision.id}`} id={`project-decision-${item.decision.id}`} className={styles.timelineItem}>
                   <span className={styles.timelineMarker}><Scale size={14} /></span>
                   <article className={styles.record}>
                     <div className={styles.recordTopline}>
@@ -489,6 +522,13 @@ export function ProjectTraceabilityTab({
                       <time dateTime={item.decision.decisionDate}>{formatDate(item.decision.decisionDate)}</time>
                     </div>
                     <h4>{item.decision.title}</h4>
+                    <span className={styles.decisionSubject}>
+                      Afecta a {item.decision.subjectType === 'OBJECTIVE' ? 'Objetivo' : item.decision.subjectType === 'DELIVERABLE'
+                        ? decisionTargets ? decisionTargets.deliverables.find((target) => target.id === item.decision.subjectId)?.name ?? 'Entregable eliminado' : 'Entregable'
+                        : item.decision.subjectType === 'OUTCOME'
+                          ? decisionTargets ? decisionTargets.outcomes.find((target) => target.id === item.decision.subjectId)?.metricName ?? 'Resultado eliminado' : 'Resultado medido'
+                          : 'Proyecto en general'}
+                    </span>
                     {item.decision.context && <p className={styles.context}>{item.decision.context}</p>}
                     <div className={styles.decisionBlock}>
                       <span>Decisión</span>
@@ -556,7 +596,7 @@ export function ProjectTraceabilityTab({
                   <div className={styles.comparisonHeader}><div><GitCompareArrows size={16} /><h4>Comparación de versiones</h4></div><button type="button" className={styles.iconButton} aria-label="Cerrar comparación" onClick={() => setComparisonId(null)}><X size={15} /></button></div>
                   <div className={styles.compareColumns}>
                     <div className={styles.compareColumn}><span>Versión {comparisonBaseline.version}</span><p>{dateSpan(comparisonBaseline.startDate, comparisonBaseline.targetDate)}</p><p>{comparisonBaseline.effortValue.toLocaleString('es-CL', { maximumFractionDigits: 2 })} {unitLabels[comparisonBaseline.effortUnit]}</p><p className={styles.compareScope}>{comparisonBaseline.scope}</p></div>
-                    <div className={styles.compareColumn}><span>Vigente · versión {currentBaseline.version}</span><p>{dateSpan(currentBaseline.startDate, currentBaseline.targetDate)}{comparisonBaseline.startDate !== currentBaseline.startDate || comparisonBaseline.targetDate !== currentBaseline.targetDate ? <b> Cambió</b> : null}</p><p>{currentBaseline.effortValue.toLocaleString('es-CL', { maximumFractionDigits: 2 })} {unitLabels[currentBaseline.effortUnit]}{comparisonBaseline.effortValue !== currentBaseline.effortValue || comparisonBaseline.effortUnit !== currentBaseline.effortUnit ? <b> Cambió</b> : null}</p><p className={styles.compareScope}>{currentBaseline.scope}{comparisonBaseline.scope !== currentBaseline.scope ? <b> Cambió</b> : null}</p></div>
+                    <div className={styles.compareColumn}><span>Versión {currentBaseline.version} vigente</span><p>{dateSpan(currentBaseline.startDate, currentBaseline.targetDate)}{comparisonBaseline.startDate !== currentBaseline.startDate || comparisonBaseline.targetDate !== currentBaseline.targetDate ? <b> Cambió</b> : null}</p><p>{currentBaseline.effortValue.toLocaleString('es-CL', { maximumFractionDigits: 2 })} {unitLabels[currentBaseline.effortUnit]}{comparisonBaseline.effortValue !== currentBaseline.effortValue || comparisonBaseline.effortUnit !== currentBaseline.effortUnit ? <b> Cambió</b> : null}</p><p className={styles.compareScope}>{currentBaseline.scope}{comparisonBaseline.scope !== currentBaseline.scope ? <b> Cambió</b> : null}</p></div>
                   </div>
                 </section>
               )}
@@ -568,7 +608,7 @@ export function ProjectTraceabilityTab({
                     <div className={styles.versionNumber}>v{baseline.version}</div>
                     <div className={styles.versionContent}>
                       <div className={styles.versionTitle}><strong>Versión {baseline.version}</strong>{baseline.isCurrent && <span>Vigente</span>}<time dateTime={baseline.createdAt}>{formatDate(baseline.createdAt)}</time></div>
-                      <p>{dateSpan(baseline.startDate, baseline.targetDate)} · {baseline.effortValue.toLocaleString('es-CL', { maximumFractionDigits: 2 })} {unitLabels[baseline.effortUnit]}</p>
+                      <p>{dateSpan(baseline.startDate, baseline.targetDate)}, {baseline.effortValue.toLocaleString('es-CL', { maximumFractionDigits: 2 })} {unitLabels[baseline.effortUnit]}</p>
                       <p className={styles.versionScope}>{baseline.scope}</p>
                       {baseline.changeReason && <p className={styles.versionReason}><ArrowLeftRight size={12} /> {baseline.changeReason}</p>}
                       {!baseline.isCurrent && <button type="button" className={styles.textButton} onClick={() => setComparisonId(baseline.id)}><GitCompareArrows size={13} /> Comparar con la vigente</button>}
@@ -585,7 +625,7 @@ export function ProjectTraceabilityTab({
         <div className={styles.backdrop}>
           <div ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="traceability-dialog-title">
             <header className={styles.dialogHeader}>
-              <div><h3 id="traceability-dialog-title">{dialog.kind === 'decision' ? 'Registrar decisión' : currentBaseline ? `Crear línea base · versión ${currentBaseline.version + 1}` : 'Crear línea base inicial'}</h3><p>{dialog.kind === 'decision' ? 'Deja el acuerdo y el motivo disponibles para el equipo.' : 'Esta versión quedará como referencia vigente del proyecto.'}</p></div>
+              <div><h3 id="traceability-dialog-title">{dialog.kind === 'decision' ? 'Registrar decisión' : currentBaseline ? `Crear versión ${currentBaseline.version + 1} de la línea base` : 'Crear línea base inicial'}</h3><p>{dialog.kind === 'decision' ? 'Deja el acuerdo y el motivo disponibles para el equipo.' : 'Esta versión quedará como referencia vigente del proyecto.'}</p></div>
               <button type="button" className={styles.iconButton} aria-label="Cerrar" onClick={closeDialog}><X size={17} /></button>
             </header>
 
@@ -593,6 +633,29 @@ export function ProjectTraceabilityTab({
               <form className={styles.dialogForm} onSubmit={submitDecision} noValidate>
                 <div className={styles.dialogBody}>
                   {dialog.supersedesId && <p className={styles.replacementNotice}><ArrowLeftRight size={14} /> Al guardar, la decisión vigente seleccionada quedará reemplazada y seguirá visible en el historial.</p>}
+                  <div className={styles.field}>
+                    <span>Afecta a</span>
+                    <ProjectOptionSelect
+                      id="decision-subject"
+                      label="Elemento al que afecta la decisión"
+                      value={decisionDraft.subjectType === 'DELIVERABLE' || decisionDraft.subjectType === 'OUTCOME' ? `${decisionDraft.subjectType}:${decisionDraft.subjectId}` : decisionDraft.subjectType}
+                      options={[
+                        { value: 'PROJECT', label: 'Proyecto en general', description: 'Acuerdo transversal', icon: <Scale size={14} />, tone: 'neutral' as const },
+                        ...(decisionTargets?.objective ? [{ value: 'OBJECTIVE', label: 'Objetivo', description: 'Dirección del proyecto', icon: <GitCompareArrows size={14} />, tone: 'accent' as const }] : []),
+                        ...(decisionTargets?.deliverables ?? []).map((item) => ({ value: `DELIVERABLE:${item.id}`, label: item.name, description: 'Entregable', icon: <Check size={14} />, tone: 'neutral' as const })),
+                        ...(decisionTargets?.outcomes ?? []).map((item) => ({ value: `OUTCOME:${item.id}`, label: item.metricName, description: 'Resultado medido', icon: <FileClock size={14} />, tone: 'neutral' as const })),
+                      ]}
+                      density="comfortable"
+                      variant="contextual"
+                      menuZIndex={1200}
+                      closeOnTab
+                      onChange={(value) => {
+                        const [subjectType, subjectId] = value.split(':');
+                        setDecisionDraft((current) => ({ ...current, subjectType: subjectType as ProjectDecision['subjectType'], subjectId: subjectId ?? null }));
+                      }}
+                    />
+                    <small>La decisión aparecerá junto al elemento elegido. Las decisiones generales quedan solo en el registro.</small>
+                  </div>
                   <label className={`${styles.field} ${fieldErrors['decision-title'] ? styles.fieldInvalid : ''}`}>
                     <span className={styles.fieldHeading}><span>Acuerdo o pregunta <em>Obligatorio</em></span><small className={styles.charCounter}>{decisionDraft.title.length}/{decisionTextLimits.title}</small></span>
                     <input id="decision-title" autoFocus maxLength={decisionTextLimits.title} value={decisionDraft.title} aria-required="true" aria-invalid={Boolean(fieldErrors['decision-title'])} aria-describedby={fieldErrors['decision-title'] ? 'decision-title-error' : undefined} onChange={(event) => { clearFieldError('decision-title'); setDecisionDraft((current) => ({ ...current, title: event.target.value })); }} placeholder="Ej. ¿Qué proveedor usaremos para los pagos?" />

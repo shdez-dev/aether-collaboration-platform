@@ -16,10 +16,13 @@ import {
   ClipboardCheck,
   Check,
   ChevronRight,
-  ClipboardList,
   CircleCheck,
   CircleDashed,
   CircleDot,
+  FileCheck2,
+  FileText,
+  FileClock,
+  Scale,
   Flag,
   LoaderCircle,
   Plus,
@@ -40,10 +43,21 @@ import {
   type ProjectTraceabilityDeliverable,
   type ProjectTraceabilityOutcome,
   type ProjectTraceabilityRequirement,
+  type ProjectDecision,
+  type ProjectBaseline,
+  type ProjectEvidenceLink,
 } from '@/features/projects/api';
 import styles from './ProjectTraceabilityChain.module.css';
 
-type Props = { projectId: string; canEdit: boolean; refreshKey: number };
+type Props = {
+  projectId: string;
+  canEdit: boolean;
+  refreshKey: number;
+  decisions: ProjectDecision[];
+  currentBaseline: ProjectBaseline | null;
+  onOpenSection: (section: 'decisions' | 'baseline') => void;
+  onOpenDecision: (decisionId: string) => void;
+};
 type ObjectiveDraft = {
   statement: string;
   successMetric: string;
@@ -222,8 +236,26 @@ function containDialogFocus(event: KeyboardEvent<HTMLElement>, onClose: () => vo
   }
 }
 
-export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Props) {
+function DecisionNotes({ decisions, onOpen }: { decisions: ProjectDecision[]; onOpen: (decisionId: string) => void }) {
+  const current = decisions.filter((decision) => decision.isCurrent);
+  if (!current.length) return null;
+  return (
+    <div className={styles.decisionNotes}>
+      <span><Scale size={13} /> {current.length === 1 ? 'Decisión relacionada' : `${current.length} decisiones relacionadas`}</span>
+      {current.slice(0, 2).map((decision) => (
+        <button key={decision.id} type="button" onClick={() => onOpen(decision.id)} title="Ver en el registro de decisiones">
+          {decision.title}<ChevronRight size={13} aria-hidden="true" />
+        </button>
+      ))}
+      {current.length > 2 && <button type="button" onClick={() => onOpen(current[0].id)}>Ver las {current.length} decisiones <ChevronRight size={13} aria-hidden="true" /></button>}
+    </div>
+  );
+}
+
+export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey, decisions, currentBaseline, onOpenSection, onOpenDecision }: Props) {
   const [data, setData] = useState<ProjectTraceabilityData | null>(null);
+  const [evidenceLinks, setEvidenceLinks] = useState<ProjectEvidenceLink[]>([]);
+  const [evidenceLoadWarning, setEvidenceLoadWarning] = useState(false);
   const [cards, setCards] = useState<ProjectBacklogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -257,12 +289,15 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
     setError('');
     setCardLoadWarning('');
     try {
-      const [traceability, backlog] = await Promise.all([
+      const [traceability, backlog, documentation] = await Promise.all([
         projectApi.getTraceability(projectId),
         projectApi.getBacklog(projectId).catch(() => null),
+        projectApi.getDocumentation(projectId).catch(() => null),
       ]);
       setData(traceability);
       setCards(backlog ?? []);
+      setEvidenceLinks(documentation?.evidenceLinks ?? []);
+      setEvidenceLoadWarning(documentation === null);
       if (!backlog)
         setCardLoadWarning(
           'No se pudieron cargar las tarjetas. Puedes consultar la cadena e intentar cargar las tarjetas de nuevo.'
@@ -512,16 +547,6 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
     }
   }
 
-  async function linkMilestone(milestoneId: string, deliverableId: string) {
-    try {
-      await projectApi.linkMilestoneToDeliverable(projectId, milestoneId, deliverableId || null);
-      setMessage('Hito asociado al entregable.');
-      await load();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'No se pudo asociar el hito.');
-    }
-  }
-
   async function createOutcome(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLocalError('');
@@ -631,10 +656,57 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
   const origin = data.origin;
   const originLabel =
     origin?.type === 'INITIATIVE'
-      ? 'Iniciativa institucional'
+      ? 'Desde una iniciativa'
       : origin?.type === 'DIRECT'
-        ? 'Brief directo del proyecto'
-        : 'Contexto del proyecto';
+        ? 'Base del proyecto'
+        : origin?.type === 'LEGACY'
+          ? 'Contexto recuperado'
+          : 'Sin registrar';
+  const originGroupCandidates: Array<{
+    title: string;
+    description: string;
+    fields: Array<[string, string]>;
+  }> = origin
+    ? [
+        {
+          title: 'Contexto',
+          description: 'La necesidad que da origen al proyecto.',
+          fields: [
+            ['Resumen del proyecto', origin.description ?? ''],
+            ['Problemática identificada', origin.problemStatement ?? ''],
+          ],
+        },
+        {
+          title: 'Impacto',
+          description: 'A quién afecta y qué consecuencias tiene.',
+          fields: [
+            ['Personas impactadas', origin.impactedPeople ?? ''],
+            ['Impacto de la problemática', origin.problemImpact ?? ''],
+            [
+              'Cantidad aproximada',
+              origin.impactedCount == null
+                ? ''
+                : `${origin.impactedCount.toLocaleString('es-CL')} personas`,
+            ],
+          ],
+        },
+        {
+          title: 'Propuesta',
+          description: 'El cambio que se busca y cómo alcanzarlo.',
+          fields: [
+            ['Propuesta de valor', origin.expectedOutcome ?? ''],
+            ['Solución', origin.proposedSolution ?? ''],
+            ['Diferenciación', origin.differentiation ?? ''],
+          ],
+        },
+      ]
+    : [];
+  const originGroups = originGroupCandidates
+    .map((group) => ({
+      ...group,
+      fields: group.fields.filter(([, value]) => value.trim().length > 0),
+    }))
+    .filter((group) => group.fields.length > 0);
   const deliverableOptions = [
     {
       value: '',
@@ -679,10 +751,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
       tone: 'accent' as const,
     })),
   ];
-  const linkedCardCount = new Set(
-    data.deliverables.flatMap((item) => item.cards.map((card) => card.id))
-  ).size;
-  const requirementCount = data.deliverables.reduce((total, item) => total + (item.requirements?.length ?? 0), 0);
+  const previousObjectives = data.objectiveHistory.filter((item) => !item.isCurrent);
   const requirementDeliverable = editingRequirement
     ? data.deliverables.find((item) => item.id === editingRequirement.deliverableId) ?? null
     : null;
@@ -692,72 +761,90 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
     const query = cardSearch.trim().toLocaleLowerCase('es-CL');
     return !query || `${card.title} ${card.listName}`.toLocaleLowerCase('es-CL').includes(query);
   }).slice(0, 24);
+  const currentDecisionCount = decisions.filter((decision) => decision.isCurrent).length;
+  const currentDecisionsForDeliverable = (id: string) => decisions.filter((decision) => decision.isCurrent && decision.subjectType === 'DELIVERABLE' && decision.subjectId === id).length;
+  const noteCount = data.outcomes.filter((outcome) => outcome.evidence?.trim()).length +
+    data.deliverables.reduce((count, deliverable) => count + deliverable.requirements.filter((requirement) => requirement.evidence?.trim()).length, 0);
+  const evidenceCount = evidenceLinks.length + noteCount;
+  const linkedOutcomeCount = data.outcomes.filter((outcome) => outcome.deliverableId).length;
   const chainSteps = [
-    { label: 'Origen', detail: origin ? 'Registrado' : 'Por definir', complete: Boolean(origin) },
-    {
-      label: 'Objetivo',
-      detail: data.objective ? 'Definido' : 'Por definir',
-      complete: Boolean(data.objective),
-    },
-    {
-      label: 'Entregables',
-      detail: `${data.deliverables.length} ${data.deliverables.length === 1 ? 'registrado' : 'registrados'}`,
-      complete: data.deliverables.length > 0,
-    },
-    {
-      label: 'Requisitos',
-      detail: `${requirementCount} ${requirementCount === 1 ? 'definido' : 'definidos'}`,
-      complete: requirementCount > 0,
-    },
-    {
-      label: 'Tarjetas',
-      detail: `${linkedCardCount} ${linkedCardCount === 1 ? 'vinculada' : 'vinculadas'}`,
-      complete: linkedCardCount > 0,
-    },
-    {
-      label: 'Hitos',
-      detail: `${data.milestones.length} ${data.milestones.length === 1 ? 'registrado' : 'registrados'}`,
-      complete: data.milestones.length > 0,
-    },
+    { label: 'Contexto', detail: origin ? 'Registrado' : 'Sin registrar', state: origin ? 'complete' : 'empty', icon: ClipboardCheck, target: 'trace-origin-heading' },
+    { label: 'Objetivo', detail: data.objective ? `Versión ${data.objective.version}` : 'Por definir', state: data.objective ? 'complete' : 'empty', icon: Target, target: 'trace-objective-heading' },
+    { label: 'Entregables', detail: `${data.deliverables.length} ${data.deliverables.length === 1 ? 'registrado' : 'registrados'}`, state: data.deliverables.length ? 'complete' : 'empty', icon: Check, target: 'trace-deliverables-heading' },
+    { label: 'Evidencia', detail: `${evidenceCount} ${evidenceCount === 1 ? 'respaldo' : 'respaldos'}`, state: evidenceCount ? 'complete' : 'empty', icon: FileCheck2, target: 'trace-evidence-heading' },
     {
       label: 'Resultados',
-      detail: `${data.outcomes.length} ${data.outcomes.length === 1 ? 'medido' : 'medidos'}`,
-      complete: data.outcomes.length > 0,
+      detail: data.outcomes.length ? `${linkedOutcomeCount}/${data.outcomes.length} vinculados` : 'Sin mediciones',
+      state: data.outcomes.length ? linkedOutcomeCount === data.outcomes.length ? 'complete' : 'partial' : 'empty',
+      icon: TrendingUp,
+      target: 'trace-outcomes-heading',
     },
-  ];
-  const completedStepCount = chainSteps.filter((step) => step.complete).length;
+  ] as const;
+  const recordedStepCount = chainSteps.filter((step) => step.state !== 'empty').length;
+  const openChainStep = (target: string) => {
+    document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
   const isEditorOpen =
     editingObjective || showDeliverableForm || editingCardsId !== null || showOutcomeForm || editingRequirement !== null;
 
   return (
     <div className={styles.root}>
-      {isEditorOpen && <div className={styles.editorBackdrop} aria-hidden="true" />}
+      {isEditorOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className={styles.editorBackdrop} aria-hidden="true" />,
+          document.body
+        )}
       <div className={styles.chainIntro}>
         <div className={styles.chainIntroTop}>
           <div>
             <h3>Del origen al impacto</h3>
-            <p>Sigue cada paso desde el motivo del proyecto hasta el cambio medido.</p>
+            <p>Sigue lo que motivó el proyecto, el trabajo realizado y los resultados que se han medido.</p>
           </div>
-          <span className={styles.chainSummary} aria-label={`${completedStepCount} de ${chainSteps.length} etapas con datos`}>
-            <strong>{completedStepCount}/{chainSteps.length}</strong>
-            <span>etapas con datos</span>
+          <span className={styles.chainSummary} aria-label={`${recordedStepCount} de ${chainSteps.length} etapas con registros`}>
+            <strong>{recordedStepCount}/{chainSteps.length}</strong>
+            <span>etapas con registros</span>
           </span>
         </div>
         <ol className={styles.chainMap} aria-label="Estado de las etapas de trazabilidad">
           {chainSteps.map((step, index) => (
             <li
               key={step.label}
-              className={`${styles.chainStep} ${step.complete ? styles.chainStepComplete : ''} ${step.complete && chainSteps[index + 1]?.complete ? styles.chainStepConnected : ''}`}
+              className={`${styles.chainStep} ${step.state === 'complete' ? styles.chainStepComplete : step.state === 'partial' ? styles.chainStepPartial : ''}`}
             >
-              <span className={styles.chainStepDot} aria-hidden="true">
-                {step.complete && <Check size={10} />}
-              </span>
-              <strong>{step.label}</strong>
-              <small>{step.detail}</small>
+              <button type="button" className={styles.chainStepButton} onClick={() => openChainStep(step.target)} aria-label={`${step.label}: ${step.detail}. ${step.state === 'partial' ? 'Registro parcial. ' : ''}Ir a la sección`}>
+                <span className={styles.chainStepNumber} aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                <span className={styles.chainStepDot} aria-hidden="true">{step.state === 'complete' ? <Check size={15} strokeWidth={2.5} /> : <step.icon size={15} strokeWidth={1.8} />}</span>
+                <strong>{step.label}</strong>
+                <small>{step.detail}</small>
+              </button>
             </li>
           ))}
         </ol>
+        <div className={styles.chainFootnote}>
+          <span>Las decisiones acompañan el trabajo en cualquier etapa.</span>
+          <div className={styles.chainRelatedLinks}>
+            <button type="button" onClick={() => onOpenSection('decisions')}><Scale size={13} /> Decisiones ({currentDecisionCount}) <ChevronRight size={13} /></button>
+            <button type="button" onClick={() => onOpenSection('baseline')}><FileClock size={13} /> Línea base {currentBaseline ? `v${currentBaseline.version}` : 'sin crear'} <ChevronRight size={13} /></button>
+          </div>
+        </div>
       </div>
+
+      <section className={styles.documentEvidence} aria-labelledby="trace-evidence-heading">
+        <div className={styles.documentEvidenceHeading}>
+          <div><span className={styles.eyebrow}>RESPALDO DEL TRABAJO</span><h4 id="trace-evidence-heading"><FileCheck2 size={16} /> Evidencia documental</h4></div>
+          <span>{evidenceLinks.length} {evidenceLinks.length === 1 ? 'documento vinculado' : 'documentos vinculados'}</span>
+        </div>
+        {evidenceLoadWarning && <p className={styles.documentEvidenceEmpty} role="status">No se pudieron cargar los documentos vinculados. <button type="button" onClick={() => void load()}>Reintentar</button></p>}
+        {!evidenceLoadWarning && (evidenceLinks.length ? <div className={styles.documentEvidenceList}>{evidenceLinks.map((link) => {
+          const targetName = link.targetType === 'PROJECT' ? 'Proyecto' : link.targetType === 'OBJECTIVE' ? 'Objetivo' : link.targetType === 'DELIVERABLE' ? 'Entregable' : link.targetType === 'REQUIREMENT' ? 'Requisito' : link.targetType === 'OUTCOME' ? 'Resultado' : 'Decisión';
+          return <article className={styles.documentEvidenceItem} key={link.id}>
+            <span className={styles.documentEvidenceIcon}><FileText size={15} /></span>
+            <div><strong>{link.claim}</strong><small>{targetName} · {link.documentTitle} · {link.status === 'VERIFIED' ? 'Revisada' : 'Por revisar'}</small>{link.excerpt && <p>{link.excerpt}</p>}<details className={styles.documentEvidenceSnapshot}><summary>Ver contenido conservado</summary><pre>{link.snapshotText || 'Sin texto visible en esta versión.'}</pre></details></div>
+            {link.documentId && <Link href={`/dashboard/documents/${link.documentId}`} aria-label={`Abrir documento ${link.documentTitle}`}><ArrowUpRight size={15} /></Link>}
+          </article>;
+        })}</div> : <p className={styles.documentEvidenceEmpty}>Vincula documentos desde la pestaña Documentos para respaldar objetivos, entregables, requisitos, decisiones o resultados. {noteCount > 0 && `También hay ${noteCount} ${noteCount === 1 ? 'nota de respaldo' : 'notas de respaldo'} en requisitos y resultados.`}</p>)}
+      </section>
 
       {message && (
         <p className={styles.success} role="status">
@@ -782,67 +869,37 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
       )}
 
       <div className={styles.chainGrid}>
-        <section
-          className={`${styles.node} ${styles.originNode}`}
-          aria-labelledby="trace-origin-heading"
-        >
-          <header className={styles.nodeHeader}>
-            <span className={styles.nodeIcon}>
-              <ClipboardList size={16} />
-            </span>
-            <div>
-              <span className={styles.eyebrow}>Origen</span>
-              <h4 id="trace-origin-heading">{originLabel}</h4>
-            </div>
+        <aside className={styles.originColumn} aria-labelledby="trace-origin-heading">
+          <header className={styles.contextColumnHeader}>
+            <h4 id="trace-origin-heading">Contexto del proyecto</h4>
+            <span>{originLabel}</span>
           </header>
           {origin ? (
             <>
-              <h5 className={styles.nodeTitle}>{origin.title}</h5>
-              <p className={styles.bodyText}>
-                {origin.problemStatement ||
-                  origin.description ||
-                  'El registro de origen no incluye contexto adicional.'}
-              </p>
-              <div className={styles.originDetails}>
-                <dl>
-                  {origin.impactedPeople && (
-                    <div>
-                      <dt>Personas involucradas</dt>
-                      <dd>{origin.impactedPeople}</dd>
-                    </div>
-                  )}
-                  {origin.problemImpact && (
-                    <div>
-                      <dt>Impacto del problema</dt>
-                      <dd>{origin.problemImpact}</dd>
-                    </div>
-                  )}
-                  {origin.impactedCount != null && (
-                    <div>
-                      <dt>Personas afectadas</dt>
-                      <dd>{origin.impactedCount.toLocaleString('es-CL')}</dd>
-                    </div>
-                  )}
-                  {origin.expectedOutcome && (
-                    <div>
-                      <dt>Impacto esperado</dt>
-                      <dd>{origin.expectedOutcome}</dd>
-                    </div>
-                  )}
-                  {origin.proposedSolution && (
-                    <div>
-                      <dt>Solución propuesta</dt>
-                      <dd>{origin.proposedSolution}</dd>
-                    </div>
-                  )}
-                  {origin.differentiation && (
-                    <div>
-                      <dt>Diferenciación</dt>
-                      <dd>{origin.differentiation}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
+              {originGroups.length ? (
+                <div className={styles.contextGroups}>
+                  {originGroups.map((group) => (
+                    <section className={styles.contextGroup} key={group.title}>
+                      <div className={styles.contextGroupHeading}>
+                        <h5>{group.title}</h5>
+                        <p>{group.description}</p>
+                      </div>
+                      <dl className={styles.contextFields}>
+                        {group.fields.map(([label, value]) => (
+                          <div className={styles.contextField} key={label}>
+                            <dt>{label}</dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.contextNoDetails}>
+                  Este proyecto aún no tiene detalles de contexto, impacto o propuesta.
+                </p>
+              )}
               {origin.type === 'INITIATIVE' && origin.sourceInitiativeId && (
                 <Link
                   className={styles.sourceLink}
@@ -853,16 +910,16 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
               )}
               {origin.isReconstructed && (
                 <small className={styles.legacyNote}>
-                  Contexto reconstruido al habilitar la trazabilidad; no corresponde a una captura
-                  original.
+                  Contexto reconstruido al habilitar la trazabilidad; no corresponde a una captura original.
                 </small>
               )}
             </>
           ) : (
-            <div className={styles.nodeEmpty}>No hay un registro de origen disponible.</div>
+            <p className={styles.contextNoDetails}>No hay un registro de origen disponible.</p>
           )}
-        </section>
+        </aside>
 
+        <div className={styles.progressColumn}>
         <section
           className={`${styles.node} ${styles.objectiveNode}`}
           aria-labelledby="trace-objective-heading"
@@ -873,7 +930,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
             </span>
             <div>
               <span className={styles.eyebrow}>
-                Dirección · v{data.objective?.version ?? 0}
+                Dirección, versión {data.objective?.version ?? 0}
               </span>
               <h4 id="trace-objective-heading">Objetivo</h4>
             </div>
@@ -891,7 +948,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
               </button>
             )}
           </header>
-          {editingObjective ? (
+          {editingObjective && typeof document !== 'undefined' ? createPortal(
             <form
               className={styles.form}
               role="dialog"
@@ -1136,10 +1193,23 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                   {saving ? 'Guardando…' : 'Guardar objetivo'}
                 </button>
               </div>
-            </form>
+            </form>,
+            document.body
           ) : data.objective ? (
             <>
-              <p className={styles.objectiveText}>{data.objective.statement}</p>
+              {data.objective.statement.length > 260 ? (
+                <details className={styles.objectiveDisclosure}>
+                  <summary className={styles.disclosureSummary}>
+                    <span className={styles.objectiveExcerpt}>{data.objective.statement}</span>
+                    <span className={styles.disclosureCollapsed}>Leer objetivo completo</span>
+                    <span className={styles.disclosureExpanded}>Ocultar objetivo</span>
+                    <ChevronRight size={13} aria-hidden="true" />
+                  </summary>
+                  <p className={styles.objectiveFull}>{data.objective.statement}</p>
+                </details>
+              ) : (
+                <p className={styles.objectiveText}>{data.objective.statement}</p>
+              )}
               {data.objective.successMetric && (
                 <div className={styles.metricTarget}>
                   <span>{data.objective.successMetric}</span>
@@ -1151,15 +1221,13 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                   )}
                 </div>
               )}
-              {data.objectiveHistory.length > 1 && (
+              {previousObjectives.length > 0 && (
                 <details className={styles.objectiveHistory}>
                   <summary>
-                    Historial del objetivo · {data.objectiveHistory.length} versiones
+                    Historial del objetivo ({data.objectiveHistory.length} versiones)
                   </summary>
-                  <ol>
-                    {data.objectiveHistory
-                      .filter((item) => !item.isCurrent)
-                      .map((item) => (
+                  <ol className={previousObjectives.length > 5 ? styles.objectiveHistoryScroll : undefined}>
+                    {previousObjectives.map((item) => (
                         <li key={item.id}>
                           <strong>v{item.version}</strong>
                           <span>{item.statement}</span>
@@ -1169,6 +1237,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                   </ol>
                 </details>
               )}
+              <DecisionNotes decisions={decisions.filter((decision) => decision.subjectType === 'OBJECTIVE')} onOpen={onOpenDecision} />
             </>
           ) : (
             <div className={styles.nodeEmpty}>
@@ -1208,7 +1277,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
               </button>
             )}
           </header>
-          {showDeliverableForm && (
+          {showDeliverableForm && typeof document !== 'undefined' && createPortal(
             <form
               className={`${styles.form} ${styles.deliverableForm}`}
               role="dialog"
@@ -1342,7 +1411,8 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                   {saving ? 'Guardando…' : 'Guardar entregable'}
                 </button>
               </div>
-            </form>
+            </form>,
+            document.body
           )}
           {data.deliverables.length ? (
             activeDeliverable ? (
@@ -1406,6 +1476,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                       )}
                     </div>
                   </div>
+                  <DecisionNotes decisions={decisions.filter((decision) => decision.subjectType === 'DELIVERABLE' && decision.subjectId === item.id)} onOpen={onOpenDecision} />
                   {confirmDeleteDeliverableId === item.id && (
                     <div className={styles.deleteConfirm} role="group" aria-label={`Confirmar eliminación de ${item.name}`}>
                       <div className={styles.deleteConfirmCopy}>
@@ -1437,7 +1508,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                           className={card.completed ? styles.cardDone : styles.cardLink}
                           key={card.id}
                         >
-                          {card.cardCode ? `${card.cardCode} · ` : ''}
+                          {card.cardCode ? `${card.cardCode} ` : ''}
                           {card.title}
                         </span>
                       ))
@@ -1513,7 +1584,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                                 <div>
                                   {requirement.cards.map((card) => (
                                     <span key={card.id} className={card.completed ? styles.cardDone : styles.cardLink}>
-                                      {card.cardCode ? `${card.cardCode} · ` : ''}{card.title}
+                                      {card.cardCode ? `${card.cardCode} ` : ''}{card.title}
                                     </span>
                                   ))}
                                 </div>
@@ -1621,6 +1692,9 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                           {item.cards.length} {item.cards.length === 1 ? 'tarjeta' : 'tarjetas'},{' '}
                           {item.requirements?.length ?? 0}{' '}
                           {(item.requirements?.length ?? 0) === 1 ? 'requisito' : 'requisitos'}
+                          {currentDecisionsForDeliverable(item.id) > 0 && (
+                            <>{', '}{currentDecisionsForDeliverable(item.id)} {currentDecisionsForDeliverable(item.id) === 1 ? 'decisión' : 'decisiones'}</>
+                          )}
                         </small>
                       </span>
                       <span className={styles.status}>{statusLabels[item.status]}</span>
@@ -1635,72 +1709,6 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
               {data.objective
                 ? 'Todavía no hay entregables. Añade el primero y asocia las tarjetas que lo construyen.'
                 : 'Define el objetivo antes de crear entregables.'}
-            </div>
-          )}
-        </section>
-
-        <section
-          className={`${styles.node} ${styles.milestonesNode}`}
-          aria-labelledby="trace-milestones-heading"
-        >
-          <header className={styles.nodeHeader}>
-            <span className={styles.nodeIcon}>
-              <Flag size={16} />
-            </span>
-            <div>
-              <span className={styles.eyebrow}>Seguimiento</span>
-              <h4 id="trace-milestones-heading">
-                Hitos <span className={styles.count}>{data.milestones.length}</span>
-              </h4>
-            </div>
-          </header>
-          {data.milestones.length ? (
-            <div className={styles.milestoneList}>
-              {data.milestones.map((milestone) => (
-                <article className={styles.milestone} key={milestone.id}>
-                  <div className={styles.milestoneHeading}>
-                    <strong>{milestone.name}</strong>
-                    <time>{formatDate(milestone.date)}</time>
-                  </div>
-                  <span
-                    className={
-                      milestone.status === 'REACHED'
-                        ? styles.statusDone
-                        : milestone.status === 'MISSED'
-                          ? styles.statusMissed
-                          : styles.status
-                    }
-                  >
-                    {milestone.status === 'REACHED'
-                      ? 'Alcanzado'
-                      : milestone.status === 'MISSED'
-                        ? 'No alcanzado'
-                        : 'Pendiente'}
-                  </span>
-                  {canEdit && data.deliverables.length > 0 && (
-                    <label className={styles.milestoneLink}>
-                      Entregable relacionado
-                      <ProjectOptionSelect
-                        id={`milestone-deliverable-${milestone.id}`}
-                        label={`Entregable relacionado con ${milestone.name}`}
-                        value={milestone.deliverableId ?? ''}
-                        options={deliverableOptions}
-                        density="comfortable"
-                        variant="contextual"
-                        closeOnTab
-                        onChange={(value) => void linkMilestone(milestone.id, value)}
-                      />
-                    </label>
-                  )}
-                  {!canEdit && milestone.deliverableName && (
-                    <small>Entregable: {milestone.deliverableName}</small>
-                  )}
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.nodeEmpty}>
-              Los hitos creados en el cronograma aparecerán aquí.
             </div>
           )}
         </section>
@@ -1740,7 +1748,7 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
               </button>
             )}
           </header>
-          {showOutcomeForm && (
+          {showOutcomeForm && typeof document !== 'undefined' && createPortal(
             <form
               className={`${styles.form} ${styles.outcomeForm}`}
               role="dialog"
@@ -2075,7 +2083,8 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                   {saving ? 'Guardando…' : 'Guardar medición'}
                 </button>
               </div>
-            </form>
+            </form>,
+            document.body
           )}
           {data.outcomes.length ? (
             <div className={styles.outcomeList}>
@@ -2083,6 +2092,8 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
                 <OutcomeCard
                   outcome={outcome}
                   key={outcome.id}
+                  decisions={decisions.filter((decision) => decision.subjectType === 'OUTCOME' && decision.subjectId === outcome.id)}
+                  onOpenDecision={onOpenDecision}
                   canEdit={canEdit}
                   saving={saving}
                   confirmingDelete={confirmDeleteOutcomeId === outcome.id}
@@ -2100,8 +2111,9 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
             </div>
           )}
         </section>
+        </div>
       </div>
-      {editingRequirement && requirementDeliverable && (
+      {editingRequirement && requirementDeliverable && typeof document !== 'undefined' && createPortal(
         <form
           className={`${styles.form} ${styles.requirementForm}`}
           role="dialog"
@@ -2300,11 +2312,12 @@ export function ProjectTraceabilityChain({ projectId, canEdit, refreshKey }: Pro
               {saving ? 'Guardando…' : editingRequirement.requirementId ? 'Guardar cambios' : 'Añadir requisito'}
             </button>
           </div>
-        </form>
+        </form>,
+        document.body
       )}
       <p className={styles.footnote}>
-        El brief de origen queda como referencia. El objetivo puede ajustarse y los resultados se
-        guardan como mediciones históricas.
+        El contexto de origen queda como referencia. El objetivo puede ajustarse y los resultados
+        se conservan como mediciones históricas.
       </p>
     </div>
   );
@@ -2374,6 +2387,8 @@ function CardPicker({
 
 function OutcomeCard({
   outcome,
+  decisions,
+  onOpenDecision,
   canEdit,
   saving,
   confirmingDelete,
@@ -2382,6 +2397,8 @@ function OutcomeCard({
   onCancelDelete,
 }: {
   outcome: ProjectTraceabilityOutcome;
+  decisions: ProjectDecision[];
+  onOpenDecision: (decisionId: string) => void;
   canEdit: boolean;
   saving: boolean;
   confirmingDelete: boolean;
@@ -2429,7 +2446,7 @@ function OutcomeCard({
           {delta != null && (
             <span className={styles.delta}>
               {' '}
-              · Diferencia {delta > 0 ? '+' : ''}
+              Diferencia {delta > 0 ? '+' : ''}
               {delta.toLocaleString('es-CL', { maximumFractionDigits: 2 })}
             </span>
           )}
@@ -2455,6 +2472,7 @@ function OutcomeCard({
         </div>
       )}
       {outcome.evidence && <p className={styles.evidence}>{outcome.evidence}</p>}
+      <DecisionNotes decisions={decisions} onOpen={onOpenDecision} />
       <footer>Registró {outcome.recorderName}</footer>
       {confirmingDelete && (
         <div className={styles.deleteConfirm} role="group" aria-label={`Confirmar eliminación de la medición ${outcome.metricName}`}>

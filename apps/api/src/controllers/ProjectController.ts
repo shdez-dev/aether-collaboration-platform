@@ -591,6 +591,13 @@ class ProjectController {
         `SELECT p.*,
           MAX(owner.name) AS owner_name,
           MAX(triage_owner.name) AS triage_owner_name,
+          COUNT(DISTINCT c.id) FILTER (WHERE NOT c.completed AND c.due_date < CURRENT_DATE)::int AS overdue_card_count,
+          COUNT(DISTINCT c.id) FILTER (WHERE NOT c.completed AND EXISTS (
+            SELECT 1 FROM card_dependencies cd
+            JOIN cards blocking ON blocking.id = cd.blocking_card_id
+            WHERE cd.blocked_card_id = c.id AND NOT blocking.completed
+          ))::int AS blocked_card_count,
+          COALESCE(MAX(risk_register.active_risk_count), 0)::int AS active_risk_count,
           COALESCE(
             ROUND(100.0 * SUM(CASE WHEN c.completed THEN 1 ELSE 0 END)
                   / NULLIF(COUNT(c.id), 0))
@@ -604,6 +611,11 @@ class ProjectController {
          FROM projects p
          LEFT JOIN users owner ON owner.id = p.owner_id
          LEFT JOIN users triage_owner ON triage_owner.id = p.triage_owner_id
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*) FILTER (WHERE r.status <> 'CLOSED')::int AS active_risk_count
+             FROM project_risks r
+            WHERE r.project_id = p.id
+         ) risk_register ON true
          LEFT JOIN project_boards pb ON pb.project_id = p.id
           LEFT JOIN boards b ON b.id = pb.board_id AND b.archived = false
             AND NOT EXISTS (
@@ -629,6 +641,11 @@ class ProjectController {
           ...(await hydrateProject(row, relations)),
           progressPercent: row.progress_percent ?? 0,
           boards: row.boards ?? [],
+          operationalRisk: {
+            overdueCards: Number(row.overdue_card_count ?? 0),
+            blockedCards: Number(row.blocked_card_count ?? 0),
+            activeRiskCount: Number(row.active_risk_count ?? 0),
+          },
         };
       }));
       res.json({ success: true, data: { projects } });

@@ -131,9 +131,9 @@ export default function LoginPage() {
             letterSpacing: '-0.03em', lineHeight: 1.1,
             color: 'var(--c-text)', margin: '0 0 18px',
           }}>
-            Tu equipo te espera{' '}
+            El trabajo continúa{' '}
             <span style={{ background: '#7452A6', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              justo donde lo dejaste.
+              en un mismo lugar.
             </span>
           </h2>
           <p style={{ fontFamily: MANROPE, fontSize: '15px', lineHeight: 1.65, color: 'var(--c-text2)', margin: '0', maxWidth: '320px' }}>
@@ -168,7 +168,7 @@ export default function LoginPage() {
             ))}
           </div>
           <span style={{ fontFamily: MANROPE, fontSize: '12px', color: 'var(--c-text4)', lineHeight: 1.4 }}>
-            Miles de equipos ya organizan su trabajo con Aether
+            Acceso exclusivo para participantes del piloto
           </span>
         </div>
       </aside>
@@ -197,8 +197,13 @@ export default function LoginPage() {
             {t.login_title}
           </h1>
           <p style={{ fontFamily: MANROPE, fontSize: '14px', color: 'var(--c-text2)', margin: '0 0 32px' }}>
-            {t.login_welcome_subtitle}
+            Ingresa con el correo que recibió la invitación al piloto.
           </p>
+
+          <div style={{ border: '1px solid rgba(116,82,166,.24)', background: 'rgba(116,82,166,.07)', borderRadius: 11, padding: '13px 15px', marginBottom: 24, fontFamily: MANROPE, fontSize: 12, lineHeight: 1.55, color: 'var(--c-text2)' }}>
+            <strong style={{ display: 'block', color: 'var(--c-text)', fontSize: 13, marginBottom: 3 }}>AETHER está en fase piloto</strong>
+            El acceso es por invitación. Algunas funciones pueden cambiar, presentar errores o interrumpirse. Conserva una copia de tu información crítica y escríbenos si encuentras un problema.
+          </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} noValidate>
@@ -301,21 +306,13 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Register link */}
+          {/* Invitation-only access */}
           <div style={{
             marginTop: '24px', paddingTop: '20px',
             borderTop: '1px solid rgba(97,71,130,0.06)',
             textAlign: 'center',
           }}>
-            <span style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text4)' }}>
-              {t.login_no_account}{' '}
-            </span>
-            <Link href="/register" style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-accent-text)', textDecoration: 'none' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
-            >
-              {t.login_link_create}
-            </Link>
+            <span style={{ fontFamily: MANROPE, fontSize: '13px', color: 'var(--c-text4)' }}>¿Recibiste una invitación? Abre el enlace de tu correo para activar tu cuenta.</span>
           </div>
         </div>
       </main>

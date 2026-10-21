@@ -20,6 +20,7 @@ interface ActiveDocumentUser {
 
 interface DocumentState {
   documents: Document[];
+  documentsProjectId: string | null;
   currentDocument: DocumentWithDetails | null;
   isLoading: boolean;
   error: string | null;
@@ -79,11 +80,13 @@ const DOCUMENT_FETCH_MAX_ATTEMPTS = 2;
 const DOCUMENT_FETCH_RETRY_DELAY_MS = 600;
 let documentFetchRequestId = 0;
 let activeDocumentFetchController: AbortController | null = null;
+let documentListRequestId = 0;
 
 export const useDocumentStore = create<DocumentState>()(
   persist(
     (set, get) => ({
       documents: [],
+      documentsProjectId: null,
       currentDocument: null,
       isLoading: false,
       error: null,
@@ -142,29 +145,32 @@ export const useDocumentStore = create<DocumentState>()(
       setActiveUsers: (users: ActiveDocumentUser[]) => set({ activeUsers: users }),
 
       fetchDocuments: async (workspaceId: string) => {
-        set({ isLoading: true, error: null, documents: [] });
+        const requestId = ++documentListRequestId;
+        set({ isLoading: true, error: null, documents: [], documentsProjectId: null });
         try {
           const response = await apiService.get<{ documents: Document[] }>(
             `/api/workspaces/${workspaceId}/documents`,
             true
           );
+          if (requestId !== documentListRequestId) return;
           if (response.success) {
             set({ documents: response.data?.documents ?? [], isLoading: false });
           } else {
             set({ error: response.error?.message || 'Error', isLoading: false });
           }
         } catch {
-          set({ error: 'Error de conexión', isLoading: false });
+          if (requestId === documentListRequestId) set({ error: 'Error de conexión', isLoading: false });
         }
       },
 
       fetchProjectDocuments: async (projectId: string) => {
-        set({ isLoading: true, error: null, documents: [] });
+        const requestId = ++documentListRequestId;
+        set({ isLoading: true, error: null, documents: [], documentsProjectId: projectId });
         try {
           const documents = await getProjectDocuments(projectId);
-          set({ documents, isLoading: false });
+          if (requestId === documentListRequestId) set({ documents, documentsProjectId: projectId, isLoading: false });
         } catch {
-          set({ error: 'Error de conexión al cargar documentos', isLoading: false });
+          if (requestId === documentListRequestId) set({ error: 'Error de conexión al cargar documentos', isLoading: false });
         }
       },
 
@@ -236,10 +242,15 @@ export const useDocumentStore = create<DocumentState>()(
             true
           );
           if (response.success && response.data) {
-            set((state) => ({
-              documents: [...state.documents, response.data!.document],
-              isLoading: false,
-            }));
+            set((state) => {
+              const matchesCurrentScope = data.projectId
+                ? state.documentsProjectId === data.projectId
+                : state.documentsProjectId === null;
+              return {
+                ...(matchesCurrentScope ? { documents: [...state.documents, response.data!.document] } : {}),
+                isLoading: false,
+              };
+            });
             return response.data.document;
           }
           set({ isLoading: false });
@@ -361,11 +372,13 @@ export const useDocumentStore = create<DocumentState>()(
       clearError: () => set({ error: null }),
 
       reset: () => {
+        documentListRequestId += 1;
         documentFetchRequestId += 1;
         activeDocumentFetchController?.abort();
         activeDocumentFetchController = null;
         set({
           documents: [],
+          documentsProjectId: null,
           currentDocument: null,
           isLoading: false,
           error: null,

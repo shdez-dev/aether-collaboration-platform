@@ -73,8 +73,8 @@ describe('Contactos', () => {
     expect(await screen.findByText('Diseñadora de producto')).toBeTruthy();
     expect(screen.getByText('Chile')).toBeTruthy();
     expect(screen.getByText('America/Santiago')).toBeTruthy();
-    expect(screen.getByText('Español')).toBeTruthy();
-    expect(screen.getByText('Espacio — Diseño')).toBeTruthy();
+    expect(screen.queryByText('Español')).toBeNull();
+    expect(screen.getByText('Espacio: Diseño')).toBeTruthy();
     expect(screen.queryByText('+56123456788')).toBeNull();
     expect(screen.getByRole('button', { name: /Enviar solicitud/ })).toBeTruthy();
   });

@@ -117,7 +117,7 @@ export class RealtimeGateway {
         return next(createAuthError('AUTH_INVALID_TOKEN'));
       }
 
-      const userResult = await query('SELECT id, email, name, avatar FROM users WHERE id = $1', [
+      const userResult = await query('SELECT id, email, name, avatar FROM users WHERE id = $1 AND deletion_requested_at IS NULL', [
         decoded.userId,
       ]).catch(() => null);
       if (!userResult) {

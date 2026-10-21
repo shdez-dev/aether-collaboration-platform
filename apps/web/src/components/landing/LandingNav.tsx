@@ -14,9 +14,8 @@ export function LandingNav() {
         <span>AETHER</span>
       </Link>
       <div className="home-nav-end">
-        {!isAuthenticated && <Link href="/login" className="home-nav-login">Entrar</Link>}
-        <Link href={isAuthenticated ? '/dashboard' : '/register'} className="home-nav-action">
-          {isAuthenticated ? 'Mi espacio' : 'Crear mi espacio'}
+        <Link href={isAuthenticated ? '/dashboard' : '/login'} className="home-nav-action">
+          {isAuthenticated ? 'Mi espacio' : 'Acceder al piloto'}
         </Link>
       </div>
     </nav>

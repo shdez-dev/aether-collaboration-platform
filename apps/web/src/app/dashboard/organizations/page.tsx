@@ -847,6 +847,7 @@ export default function OrganizationsPage() {
         <form onSubmit={(event) => void sendInvitation(event)} className={styles.modal} style={modal}>
           <div style={modalHeader}><div><p style={eyebrow}>INVITAR A LA ORGANIZACIÓN</p><h2 style={modalTitle}>Añadir una persona</h2></div><button type="button" aria-label="Cerrar" onClick={() => setInviteOpen(false)} style={iconButton}><X size={17} /></button></div>
           <p style={modalCopy}>Generaremos un código y un enlace para compartir. También intentaremos enviarlos por correo. Caducan en siete días.</p>
+          <p style={roleHint}>Piloto inicial: Chile y Argentina. Antes de invitar a residentes en Argentina, confirma el trámite ante la AAIP.</p>
           <label style={field}>Correo electrónico<input autoFocus required type="email" maxLength={255} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nombre@empresa.com" style={input} /></label>
           <div className={styles.contactPicker}>
             <strong>O elige uno de tus contactos</strong>
@@ -868,7 +869,7 @@ export default function OrganizationsPage() {
       {generatedInvitation && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) setGeneratedInvitation(null); }}>
         <section role="dialog" aria-modal="true" aria-label="Código de invitación generado" className={styles.modal} style={{ ...modal, width: 'min(560px, 100%)' }}>
           <div style={modalHeader}><div><p style={eyebrow}>INVITACIÓN GENERADA</p><h2 style={modalTitle}>Comparte el acceso</h2></div><button type="button" aria-label="Cerrar código" onClick={() => setGeneratedInvitation(null)} style={iconButton}><X size={17} /></button></div>
-          <p style={modalCopy}>Para <strong>{generatedInvitation.email}</strong>. Vence el {formatDate(generatedInvitation.expiresAt)}. La persona debe iniciar sesión con ese correo.</p>
+          <p style={modalCopy}>Para <strong>{generatedInvitation.email}</strong>. Vence el {formatDate(generatedInvitation.expiresAt)}. Si aún no tiene cuenta, puede activarla desde el enlace; si ya la tiene, debe iniciar sesión con ese correo.</p>
           {generatedInvitation.emailStatus === 'failed' && <p role="alert" style={errorBanner}>No se pudo enviar el correo. La invitación sí está activa: comparte el código o enlace manualmente.</p>}
           {generatedInvitation.emailStatus === 'not_sent' && <p style={notice}>Se generó un código nuevo; no se envió un correo. El código anterior ya no funciona.</p>}
           {generatedInvitation.emailStatus === 'sent' && <p style={notice}>El proveedor aceptó el correo. También puedes compartir el código o enlace manualmente.</p>}

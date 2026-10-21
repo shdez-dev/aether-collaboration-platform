@@ -4,7 +4,7 @@ import { LegalDocument, type LegalSection } from '../LegalDocument';
 const sections: LegalSection[] = [
   {
     id: 'proposito', title: 'Propósito y alcance', content: <>
-      <p>Esta política establece cómo usar el piloto gratuito y por invitación de AETHER sin perjudicar a otras personas, organizaciones o a la infraestructura. Abarca cuentas, espacios, proyectos, documentos, archivos, invitaciones, chat, calendario, IA e integraciones. Complementa los <Link href="/legal/terms">Términos de servicio</Link> y se aplica también a quienes actúan por cuenta de una organización.</p>
+      <p>Esta política establece cómo usar el piloto gratuito y por invitación de AETHER sin perjudicar a otras personas, organizaciones o a la infraestructura. Abarca cuentas, espacios, proyectos, documentos, archivos, invitaciones, chat, calendario, IA e integraciones. Complementa los <Link href="/legal/terms">Términos de servicio</Link> y se aplica también a quienes actúan por cuenta de una organización. El operador es Juan Sebastian Hernandez Rincon, persona natural establecida en Chile; el piloto inicial está previsto para Chile y Argentina.</p>
       <p>El uso ordinario para coordinar equipos, planificar iniciativas, crear documentos y comunicarse con contactos está permitido siempre que se respeten los permisos y la ley aplicable. Una función disponible técnicamente no autoriza un uso que vulnere derechos ajenos.</p>
     </>,
   },
@@ -13,6 +13,7 @@ const sections: LegalSection[] = [
       <ul>
         <li>No usar AETHER para delitos, fraude, suplantación, estafas, amenazas o actividades que vulneren la ley.</li>
         <li>No subir ni compartir material que infrinja derechos de autor, marcas, secretos comerciales, contratos de confidencialidad u otros derechos sin autorización.</li>
+        <li>Antes de usar fotografías, ilustraciones, capturas o imágenes en el perfil, documentos u otros recursos, comprobar su procedencia y licencia, cumplir las condiciones de atribución y obtener los permisos adicionales que exija la imagen de personas reconocibles, marcas u obras incluidas.</li>
         <li>No divulgar datos personales, secretos o documentos privados de terceros sin una razón legítima y los permisos necesarios.</li>
         <li>Está prohibido cualquier material de explotación o abuso sexual infantil. Los reportes de este tipo se tratarán con prioridad y podrán comunicarse a autoridades competentes según la ley.</li>
       </ul>
@@ -49,20 +50,21 @@ const sections: LegalSection[] = [
   },
   {
     id: 'integraciones', title: 'GitHub, archivos e IA', content: <>
-      <p>Solo se pueden conectar repositorios de GitHub sobre los que se tenga autoridad. No deben incorporarse secretos, claves privadas o datos confidenciales en webhooks, documentos, tareas o prompts de IA salvo que exista necesidad legítima y medidas adecuadas. Desconectar una integración no elimina automáticamente la actividad que ya se incorporó legítimamente a un proyecto.</p>
+      <p>Solo se pueden conectar repositorios de GitHub sobre los que se tenga autoridad. No deben incorporarse secretos, claves privadas, datos sensibles o datos confidenciales de terceros en webhooks, documentos, tareas o prompts de IA sin una necesidad legítima, permiso para hacerlo y medidas adecuadas. Quien comparte un documento o archivo debe comprobar los permisos del proyecto, espacio o equipo antes de utilizarlo como evidencia o enviarlo a otras personas. Desconectar una integración no elimina automáticamente la actividad que ya se incorporó legítimamente a un proyecto.</p>
       <p>La asistencia con IA no debe usarse para generar contenido ilícito, suplantaciones o instrucciones de daño. Su resultado requiere revisión humana y no sustituye decisiones profesionales, legales o de seguridad.</p>
     </>,
   },
   {
     id: 'reportes', title: 'Cómo reportar un problema', content: <>
-      <p>Una denuncia útil identifica el recurso o la cuenta, describe la conducta, indica cuándo ocurrió y aporta solo la evidencia necesaria. No debe difundirse públicamente información privada o una vulnerabilidad para demostrar el problema. Los reportes de abuso y seguridad pueden enviarse a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>.</p>
+      <p>Una denuncia útil identifica el recurso o la cuenta, describe la conducta, indica cuándo ocurrió y aporta solo la evidencia necesaria. No debe difundirse públicamente información privada o una vulnerabilidad para demostrar el problema. Una persona puede denunciar a otra desde su perfil en Contactos; esos reportes llegan a la administración de AETHER. Los reportes de abuso y seguridad también pueden enviarse a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>.</p>
+      <p>Para reportar una posible infracción de derechos sobre una imagen u otro contenido, indica el enlace o la ubicación precisa del material en AETHER, identifica la obra o el derecho afectado, explica tu relación con su titular y facilita un correo para responder. Si dispones de una autorización, registro o enlace a la obra original, puedes adjuntarlo; evita enviar documentos personales innecesarios. El operador podrá pedir información adicional, restringir temporalmente el acceso y comunicar la reclamación a quien incorporó el contenido para que aporte su versión, cuando sea adecuado y permitido por la ley.</p>
       <p>Los reportes se evaluarán según la gravedad, el contexto y la información disponible. Presentar una denuncia deliberadamente falsa para perjudicar a alguien también puede constituir abuso.</p>
     </>,
   },
   {
     id: 'respuesta', title: 'Medidas ante incumplimientos', content: <>
       <p>La respuesta puede incluir advertir, solicitar corrección, limitar funciones, retirar contenido, suspender acceso o cancelar una cuenta u organización cuando esté justificado. Una amenaza inmediata para personas, datos o infraestructura puede requerir una medida sin aviso previo. Las medidas deben ser proporcionadas y no sustituir las obligaciones legales de conservación o notificación.</p>
-      <p>Cuando sea seguro hacerlo, se informará el motivo y cómo solicitar una revisión mediante <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. El procedimiento y los plazos de apelación deben definirse antes de publicar esta política como definitiva. Ante hechos potencialmente delictivos, el operador podrá cooperar con autoridades competentes conforme a la ley.</p>
+      <p>Cuando sea seguro hacerlo, se informará el motivo y cómo solicitar una revisión mediante <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. La persona afectada puede indicar qué medida cuestiona y aportar el contexto necesario, sin enviar contraseñas ni datos ajenos innecesarios. El procedimiento y los plazos de revisión deben definirse antes de publicar esta política como definitiva. Ante hechos potencialmente delictivos, el operador podrá cooperar con autoridades competentes conforme a la ley.</p>
     </>,
   },
   {

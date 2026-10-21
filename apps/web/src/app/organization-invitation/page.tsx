@@ -47,7 +47,9 @@ export default function OrganizationInvitationPage() {
       const reference = token
         ? `token=${encodeURIComponent(token)}`
         : `invitationId=${encodeURIComponent(invitationId)}`;
-      router.replace(`/login?next=${encodeURIComponent(`/organization-invitation?${reference}`)}`);
+      router.replace(token
+        ? `/join?token=${encodeURIComponent(token)}`
+        : `/login?next=${encodeURIComponent(`/organization-invitation?${reference}`)}`);
     }
   }, [isAuthenticated, isHydrated, invitationId, router, token]);
 

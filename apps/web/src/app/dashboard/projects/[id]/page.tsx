@@ -34,6 +34,7 @@ import {
   type ProjectTeamMember,
   type ProjectEpic,
   type ProjectScrumRole,
+  type ProjectDocumentCategory,
 } from '@/features/projects/api';
 import { ProjectDocumentsTab } from '@/features/projects/components/ProjectDocumentsTab';
 import { ProjectRisksTab } from '@/features/projects/components/ProjectRisksTab';
@@ -4541,18 +4542,20 @@ function CreateDocumentModal({
   workspaceId,
   projectId,
   color,
+  initialTitle = '',
   onClose,
   onCreated,
 }: {
   workspaceId: string;
   projectId: string;
   color: string;
+  initialTitle?: string;
   onClose: () => void;
-  onCreated: (doc: Document) => void;
+  onCreated: (doc: Document) => void | Promise<void>;
 }) {
   const t = useT();
   const { createDocument } = useDocumentStore();
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -4577,7 +4580,7 @@ function CreateDocumentModal({
         description: description.trim(),
         projectId,
       });
-      onCreated(doc);
+      await onCreated(doc);
     } catch (e: any) {
       setError(e?.message || 'No se pudo crear el documento');
       setLoading(false);
@@ -4804,7 +4807,7 @@ export default function ProjectDetailPage() {
   const canManageScrumBacklog = canManagePlanning || currentScrumRole === 'PRODUCT_OWNER';
   const canManageScrumSprints = canManagePlanning || currentScrumRole === 'SCRUM_MASTER';
   const canPlanScrumSprint = canManagePlanning || Boolean(currentScrumRole);
-  const { documents, fetchProjectDocuments } = useDocumentStore();
+  const { documents, documentsProjectId, fetchProjectDocuments } = useDocumentStore();
 
   useEffect(() => {
     const organizationId = projectWorkspace?.organizationId;
@@ -4823,6 +4826,7 @@ export default function ProjectDetailPage() {
   const [showAddBoard, setShowAddBoard] = useState(false);
   const [showAddMs, setShowAddMs] = useState(false);
   const [showAddDoc, setShowAddDoc] = useState(false);
+  const [suggestedDocument, setSuggestedDocument] = useState<{ category: ProjectDocumentCategory; title: string } | null>(null);
   const [editMs, setEditMs] = useState<ProjectMilestone | null>(null);
   const [assignedTeams, setAssignedTeams] = useState<AssignedTeam[]>([]);
   const [boardToRemove, setBoardToRemove] = useState<{ id: string; name: string } | null>(null);
@@ -4956,8 +4960,8 @@ export default function ProjectDetailPage() {
 
   // Solo documentos vinculados al proyecto; los documentos globales permanecen en el workspace.
   useEffect(() => {
-    if (currentProject?.id) fetchProjectDocuments(currentProject.id);
-  }, [currentProject?.id, fetchProjectDocuments]);
+    if (projectId) fetchProjectDocuments(projectId);
+  }, [projectId, fetchProjectDocuments]);
 
   // Miembros de cada equipo asignado al proyecto.
   useEffect(() => {
@@ -7328,11 +7332,13 @@ export default function ProjectDetailPage() {
         {/* ── DOCUMENTOS ───────────────────────────────────────────────────── */}
         {activeTab === 'docs' && (
           <ProjectDocumentsTab
-            documents={documents}
-            members={members}
-            color={color}
+            projectId={project.id}
+            advancedTraceability={project.advancedTraceability === true}
+            documents={documentsProjectId === project.id ? documents : []}
             canEdit={canManageDocuments}
-            onCreate={() => setShowAddDoc(true)}
+            canLinkEvidence={project.advancedTraceability === true && canManageTraceability}
+            onCreate={() => { setSuggestedDocument(null); setShowAddDoc(true); }}
+            onCreateSuggested={(category, title) => { setSuggestedDocument({ category, title }); setShowAddDoc(true); }}
             onOpen={(documentId) => router.push(`/dashboard/documents/${documentId}`)}
           />
         )}
@@ -8330,8 +8336,15 @@ export default function ProjectDetailPage() {
           workspaceId={project.workspaceId}
           projectId={project.id}
           color={color}
-          onClose={() => setShowAddDoc(false)}
-          onCreated={(doc) => router.push(`/dashboard/documents/${doc.id}`)}
+          initialTitle={suggestedDocument?.title}
+          onClose={() => { setShowAddDoc(false); setSuggestedDocument(null); }}
+          onCreated={async (doc) => {
+            if (suggestedDocument) {
+              try { await projectApi.classifyDocument(project.id, doc.id, suggestedDocument.category); }
+              catch (error) { console.error('No se pudo clasificar el documento sugerido', error); }
+            }
+            router.push(`/dashboard/documents/${doc.id}`);
+          }}
         />
       )}
 

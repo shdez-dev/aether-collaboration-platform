@@ -61,11 +61,17 @@ export class OrganizationStorageService {
   async getUsage(organizationId: string, execute: CapabilityQueryExecutor = poolExecutor) {
     const entitlement = await capabilityService.getOrganizationCapabilities(organizationId, execute);
     const usage = await execute(
-        `SELECT COALESCE(SUM(
+        `SELECT (COALESCE(SUM(
            octet_length(d.title) + octet_length(d.description) + octet_length(d.content)
            + COALESCE(octet_length(d.yjs_state), 0)
            + COALESCE(versions.bytes, 0)
-         ), 0)::text AS used_bytes
+         ), 0) + COALESCE((
+           SELECT SUM(octet_length(e.snapshot_text))
+             FROM project_evidence_links e
+             JOIN projects p ON p.id = e.project_id
+             JOIN workspaces ew ON ew.id = p.workspace_id
+            WHERE ew.organization_id = $1
+         ), 0))::text AS used_bytes
            FROM documents d
            JOIN workspaces w ON w.id = d.workspace_id
            LEFT JOIN LATERAL (

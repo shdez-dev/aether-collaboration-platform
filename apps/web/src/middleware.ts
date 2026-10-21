@@ -25,7 +25,9 @@ export function middleware(request: NextRequest) {
 
   // La cookie solo guía la navegación; las API siguen validando JWT y permisos.
   let response: NextResponse;
-  if (pathname.startsWith('/dashboard') && !request.cookies.has('aether_session')) {
+  if (pathname === '/register' || pathname.startsWith('/register/')) {
+    response = NextResponse.redirect(new URL('/login', request.url));
+  } else if (pathname.startsWith('/dashboard') && !request.cookies.has('aether_session')) {
     const loginUrl = new URL('/login', request.url);
     // Guardar la ruta original para redirigir tras login
     loginUrl.searchParams.set('redirect', pathname);

@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Bug, Building2, CircleHelp, CreditCard, Database, FileText, FolderKanban, Landmark, LayoutDashboard, Layers3, Mail, MessageSquareText, Network, RefreshCw, Search, Send, Server, ShieldCheck, Users, X } from 'lucide-react';
+import { Activity, Bug, Building2, CircleHelp, CreditCard, Database, FileText, Flag, FolderKanban, Landmark, LayoutDashboard, Layers3, Mail, MessageSquareText, Network, RefreshCw, Search, Send, Server, ShieldCheck, Users, X } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import { useRouteSectionState } from '@/hooks/useRouteSectionState';
 import styles from './page.module.css';
 
-type Tab = 'resumen' | 'usuarios' | 'organizaciones' | 'espacios' | 'proyectos' | 'invitaciones' | 'planes' | 'actividad' | 'feedback' | 'sistema';
+type Tab = 'resumen' | 'usuarios' | 'organizaciones' | 'espacios' | 'proyectos' | 'invitaciones' | 'planes' | 'actividad' | 'feedback' | 'denuncias' | 'sistema';
 type PageResponse<T> = { page: number; pageSize: number; total: number } & T;
 
 type Overview = {
@@ -30,11 +30,12 @@ type AdminOrganization = { id: string; name: string; type: string; ownerName: st
 type AdminWorkspace = { id: string; name: string; organizationName: string; mode: string; archived: boolean; members: number; projects: number; createdAt: string };
 type AdminProject = { id: string; name: string; status: string; workspaceName: string; organizationName: string; boards: number; createdAt: string; updatedAt: string };
 type AdminActivity = { id: string; type: string; createdAt: string; userName: string; userEmail: string; workspaceName: string | null };
-type AdminInvitation = { id: string; email: string; role: string; organizationName: string; inviterName: string; createdAt: string; expiresAt: string };
+type AdminInvitation = { id: string; email: string; inviterName: string; createdAt: string; expiresAt: string };
 type AdminSubscription = { id: string; organizationName: string; plan: string; status: string; periodEnd: string | null; cancelAtPeriodEnd: boolean; createdAt: string };
 type AdminFeedback = { id: string; type: 'FEEDBACK' | 'BUG'; title: string; description: string; reproductionSteps: string | null; pagePath: string; status: 'NEW' | 'IN_REVIEW' | 'RESOLVED'; handledAt: string | null; createdAt: string; updatedAt: string; userId: string; userName: string; userEmail: string };
+type AdminUserReport = { id: string; reason: string; description: string; status: 'NEW' | 'IN_REVIEW' | 'RESOLVED' | 'DISMISSED'; createdAt: string; reviewedAt: string | null; reporterUserId: string; reporterName: string; reporterEmail: string; reportedUserId: string; reportedName: string; reportedEmail: string };
 type AdminSystem = { api: boolean; database: boolean; redis: boolean; users: number; uptimeSeconds: number; memoryMb: number; environment: string; checkedAt: string };
-type Listing = PageResponse<{ users?: AdminUser[]; organizations?: AdminOrganization[]; workspaces?: AdminWorkspace[]; projects?: AdminProject[]; invitations?: AdminInvitation[]; subscriptions?: AdminSubscription[]; activity?: AdminActivity[]; feedback?: AdminFeedback[] }>;
+type Listing = PageResponse<{ users?: AdminUser[]; organizations?: AdminOrganization[]; workspaces?: AdminWorkspace[]; projects?: AdminProject[]; invitations?: AdminInvitation[]; subscriptions?: AdminSubscription[]; activity?: AdminActivity[]; feedback?: AdminFeedback[]; reports?: AdminUserReport[] }>;
 
 const NAV: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'resumen', label: 'Resumen', icon: LayoutDashboard },
@@ -46,6 +47,7 @@ const NAV: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'planes', label: 'Planes', icon: CreditCard },
   { key: 'actividad', label: 'Actividad', icon: Activity },
   { key: 'feedback', label: 'Comentarios', icon: MessageSquareText },
+  { key: 'denuncias', label: 'Denuncias', icon: Flag },
   { key: 'sistema', label: 'Sistema', icon: Server },
 ];
 
@@ -85,10 +87,14 @@ function dateTime(value?: string | null) {
 }
 function plural(value: number, singular: string, pluralForm: string) { return `${value} ${value === 1 ? singular : pluralForm}`; }
 function actionLabel(type: string) { return ACTIVITY_LABELS[type] ?? `Evento: ${type}`; }
+const REPORT_REASON_LABELS: Record<string, string> = {
+  HARASSMENT: 'Acoso o amenazas', SPAM: 'Spam', IMPERSONATION: 'Suplantación de identidad',
+  INAPPROPRIATE_CONTENT: 'Contenido inapropiado', OTHER: 'Otro motivo',
+};
 
 export default function AdminPage() {
   const [tab, setTab] = useRouteSectionState<Tab>(
-    'tab', 'resumen', ['resumen', 'usuarios', 'organizaciones', 'espacios', 'proyectos', 'invitaciones', 'planes', 'actividad', 'feedback', 'sistema'],
+    'tab', 'resumen', ['resumen', 'usuarios', 'organizaciones', 'espacios', 'proyectos', 'invitaciones', 'planes', 'actividad', 'feedback', 'denuncias', 'sistema'],
   );
   const [overview, setOverview] = useState<Overview | null>(null);
   const [listing, setListing] = useState<Listing | null>(null);
@@ -97,7 +103,9 @@ export default function AdminPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [feedbackType, setFeedbackType] = useState('all');
+  const [reportReason, setReportReason] = useState('all');
   const [savingFeedbackId, setSavingFeedbackId] = useState<string | null>(null);
+  const [savingReportId, setSavingReportId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,6 +120,34 @@ export default function AdminPage() {
   const [selectedOrganizationTypes, setSelectedOrganizationTypes] = useState<OrganizationCreationType[]>([]);
   const [savingOrganizationPermissions, setSavingOrganizationPermissions] = useState(false);
   const [organizationPermissionsError, setOrganizationPermissionsError] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+
+  const sendInvitation = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (sendingInvite) return;
+    setSendingInvite(true);
+    setInviteError('');
+    setInviteSuccess('');
+    try {
+      const response = await apiService.post<{ email: string; expiresAt: string }>(
+        '/api/admin/invitations', { email: inviteEmail.trim() }, true,
+      );
+      if (!response.success || !response.data) {
+        setInviteError(response.error?.message ?? 'No se pudo enviar la invitación.');
+        return;
+      }
+      setInviteSuccess(`Invitación enviada a ${response.data.email}. Vence el ${date(response.data.expiresAt)}.`);
+      setInviteEmail('');
+      setRefreshKey((value) => value + 1);
+    } catch {
+      setInviteError('No se pudo conectar con el servidor. Inténtalo de nuevo.');
+    } finally {
+      setSendingInvite(false);
+    }
+  };
 
   const openPlanEditor = (user: AdminUser) => {
     setPlanUser(user);
@@ -199,6 +235,31 @@ export default function AdminPage() {
     }
   };
 
+  const updateReportStatus = async (reportId: string, status: AdminUserReport['status']) => {
+    if (savingReportId) return;
+    setSavingReportId(reportId);
+    setError('');
+    try {
+      const response = await apiService.patch<Pick<AdminUserReport, 'id' | 'status' | 'reviewedAt'>>(
+        `/api/admin/user-reports/${reportId}`, { status }, true,
+      );
+      if (!response.success || !response.data) {
+        setError(response.error?.message ?? 'No se pudo actualizar la denuncia.');
+        return;
+      }
+      setListing((current) => current ? {
+        ...current,
+        reports: current.reports?.map((item) => item.id === reportId
+          ? { ...item, status: response.data!.status, reviewedAt: response.data!.reviewedAt }
+          : item),
+      } : current);
+    } catch {
+      setError('No se pudo conectar con el servidor. Inténtalo de nuevo.');
+    } finally {
+      setSavingReportId(null);
+    }
+  };
+
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(search), 300);
     return () => window.clearTimeout(timeout);
@@ -211,9 +272,11 @@ export default function AdminPage() {
     if (tab === 'usuarios' && filter !== 'all') params.set('filter', filter);
     if (tab === 'feedback' && filter !== 'all') params.set('status', filter);
     if (tab === 'feedback' && feedbackType !== 'all') params.set('type', feedbackType);
-    const route = tab === 'feedback' ? 'feedback' : tab === 'espacios' ? 'workspaces' : tab === 'actividad' ? 'activity' : tab === 'usuarios' ? 'users' : tab === 'organizaciones' ? 'organizations' : tab === 'invitaciones' ? 'invitations' : tab === 'planes' ? 'subscriptions' : 'projects';
+    if (tab === 'denuncias' && filter !== 'all') params.set('status', filter);
+    if (tab === 'denuncias' && reportReason !== 'all') params.set('reason', reportReason);
+    const route = tab === 'feedback' ? 'feedback' : tab === 'denuncias' ? 'user-reports' : tab === 'espacios' ? 'workspaces' : tab === 'actividad' ? 'activity' : tab === 'usuarios' ? 'users' : tab === 'organizaciones' ? 'organizations' : tab === 'invitaciones' ? 'invitations' : tab === 'planes' ? 'subscriptions' : 'projects';
     return `/api/admin/${route}?${params}`;
-  }, [tab, page, debouncedSearch, filter, feedbackType]);
+  }, [tab, page, debouncedSearch, filter, feedbackType, reportReason]);
 
   const load = useCallback(async (initial = false) => {
     if (!initial) setRefreshing(true);
@@ -240,13 +303,13 @@ export default function AdminPage() {
   }, [load, refreshKey]);
 
   useEffect(() => {
-    if (tab !== 'resumen' && tab !== 'sistema' && tab !== 'feedback') return;
+    if (tab !== 'resumen' && tab !== 'sistema' && tab !== 'feedback' && tab !== 'denuncias') return;
     const interval = window.setInterval(() => setRefreshKey((value) => value + 1), 30_000);
     return () => window.clearInterval(interval);
   }, [tab]);
 
   const switchTab = (next: Tab) => {
-    setTab(next); setSearch(''); setDebouncedSearch(''); setFilter('all'); setFeedbackType('all'); setPage(1); setError(''); setListing(null);
+    setTab(next); setSearch(''); setDebouncedSearch(''); setFilter('all'); setFeedbackType('all'); setReportReason('all'); setPage(1); setError(''); setListing(null);
   };
   const changeSearch = (value: string) => { setSearch(value); setPage(1); };
   const changeFilter = (value: string) => { setFilter(value); setPage(1); };
@@ -283,9 +346,35 @@ export default function AdminPage() {
         onRefresh={() => setRefreshKey((value) => value + 1)}
         onUpdateStatus={updateFeedbackStatus}
       />}
-      {tab !== 'resumen' && tab !== 'sistema' && tab !== 'feedback' && <>
+      {tab === 'denuncias' && <UserReportsPanel
+        listing={listing}
+        loading={loading}
+        refreshing={refreshing}
+        search={search}
+        status={filter}
+        reason={reportReason}
+        page={page}
+        savingReportId={savingReportId}
+        onSearch={changeSearch}
+        onStatusChange={changeFilter}
+        onReasonChange={(value) => { setReportReason(value); setPage(1); }}
+        onPageChange={setPage}
+        onRefresh={() => setRefreshKey((value) => value + 1)}
+        onUpdateStatus={updateReportStatus}
+      />}
+      {tab !== 'resumen' && tab !== 'sistema' && tab !== 'feedback' && tab !== 'denuncias' && <>
+        {tab === 'invitaciones' && <section className={styles.invitePanel} aria-labelledby="admin-invite-title">
+          <div className={styles.inviteIntro}><span className={styles.inviteIcon}><Mail size={21} /></span><div><span className={styles.inviteEyebrow}>ACCESO A AETHER</span><h2 id="admin-invite-title">Invitar a una persona</h2><p>Recibirá por correo un enlace personal para crear su cuenta en Aether.</p></div></div>
+          <form className={styles.inviteForm} onSubmit={(event) => void sendInvitation(event)}>
+            <label className={styles.formField}>Correo de la persona<input type="email" autoComplete="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="nombre@ejemplo.com" maxLength={255} required disabled={sendingInvite} /></label>
+            <button type="submit" className={styles.actionPrimary} disabled={sendingInvite || !inviteEmail.trim()}><Send size={15} />{sendingInvite ? 'Enviando…' : 'Enviar invitación'}</button>
+          </form>
+          <p className={styles.inviteHint}>El enlace vence en 7 días y se desactiva en cuanto la persona crea su cuenta. No asigna acceso a ninguna organización.</p>
+          {inviteError && <p className={styles.formError} role="alert">{inviteError}</p>}
+          {inviteSuccess && <p className={styles.formSuccess} role="status">{inviteSuccess}</p>}
+        </section>}
         <div className={styles.listHeader}><div><h2>{NAV.find((item) => item.key === tab)?.label}</h2><p>{listing ? plural(listing.total, 'registro', 'registros') : 'Explora los registros de la plataforma'}</p></div>
-          <div className={styles.filters}><label className={styles.search}><Search size={15} /><input value={search} onChange={(event) => changeSearch(event.target.value)} placeholder={`Buscar ${tab === 'usuarios' ? 'por nombre o correo' : tab === 'actividad' ? 'por usuario o evento' : 'por nombre'}…`} aria-label="Buscar registros" /></label>
+          <div className={styles.filters}><label className={styles.search}><Search size={15} /><input value={search} onChange={(event) => changeSearch(event.target.value)} placeholder={`Buscar ${tab === 'usuarios' ? 'por nombre o correo' : tab === 'invitaciones' ? 'por correo' : tab === 'actividad' ? 'por usuario o evento' : 'por nombre'}…`} aria-label="Buscar registros" /></label>
             {tab === 'usuarios' && <select value={filter} onChange={(event) => changeFilter(event.target.value)} aria-label="Filtrar usuarios"><option value="all">Todos</option><option value="online">En línea</option><option value="verified">Verificados</option><option value="unverified">Sin verificar</option></select>}
           </div>
         </div>
@@ -412,6 +501,57 @@ function FeedbackPanel({
   </>;
 }
 
+function UserReportsPanel({ listing, loading, refreshing, search, status, reason, page, savingReportId, onSearch, onStatusChange, onReasonChange, onPageChange, onRefresh, onUpdateStatus }: {
+  listing: Listing | null;
+  loading: boolean;
+  refreshing: boolean;
+  search: string;
+  status: string;
+  reason: string;
+  page: number;
+  savingReportId: string | null;
+  onSearch: (value: string) => void;
+  onStatusChange: (value: string) => void;
+  onReasonChange: (value: string) => void;
+  onPageChange: (page: number) => void;
+  onRefresh: () => void;
+  onUpdateStatus: (id: string, status: AdminUserReport['status']) => void;
+}) {
+  const reports = listing?.reports ?? [];
+  return <>
+    <div className={styles.feedbackHeading}>
+      <div><h2>Denuncias de usuarios</h2><p>{listing ? plural(listing.total, 'denuncia recibida', 'denuncias recibidas') : 'Reportes privados enviados desde Contactos.'}</p></div>
+      <button className={styles.refresh} onClick={onRefresh} disabled={refreshing} aria-label="Actualizar denuncias"><RefreshCw size={15} className={refreshing ? styles.spinning : ''} /> Actualizar</button>
+    </div>
+    <div className={styles.feedbackFilters}>
+      <label className={styles.search}><Search size={15} /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Buscar persona o descripción…" aria-label="Buscar denuncias" /></label>
+      <select value={reason} onChange={(event) => onReasonChange(event.target.value)} aria-label="Filtrar por motivo"><option value="all">Todos los motivos</option>{Object.entries(REPORT_REASON_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+      <select value={status} onChange={(event) => onStatusChange(event.target.value)} aria-label="Filtrar por estado"><option value="all">Todos los estados</option><option value="NEW">Nuevas</option><option value="IN_REVIEW">En revisión</option><option value="RESOLVED">Resueltas</option><option value="DISMISSED">Descartadas</option></select>
+    </div>
+    {loading && !listing ? <div className={styles.loading}>Cargando denuncias…</div> : reports.length === 0
+      ? <div className={styles.emptyPanel}><Flag size={25} /><strong>{search || status !== 'all' || reason !== 'all' ? 'No hay denuncias con estos filtros' : 'Aún no hay denuncias'}</strong><span>Los reportes enviados desde el perfil de una persona en Contactos aparecerán aquí.</span></div>
+      : <div className={styles.feedbackList}>
+        {reports.map((item) => <article className={styles.feedbackCard} key={item.id}>
+          <div className={styles.feedbackTop}><span className={`${styles.feedbackKind} ${styles.reportKind}`}><Flag size={14} />{REPORT_REASON_LABELS[item.reason] ?? item.reason}</span><time dateTime={item.createdAt}>{dateTime(item.createdAt)}</time></div>
+          <h3>Reporte sobre {item.reportedName}</h3>
+          <p className={styles.feedbackDescription}>{item.description}</p>
+          <footer className={styles.feedbackFooter}>
+            <div className={styles.reportPeople}>
+              <div><span>Persona denunciada</span><strong>{item.reportedName}</strong><small>{item.reportedEmail}</small></div>
+              <div><span>Quien reportó</span><strong>{item.reporterName}</strong><small>{item.reporterEmail}</small></div>
+            </div>
+            <label className={styles.feedbackStatus}>Estado
+              <select value={item.status} onChange={(event) => onUpdateStatus(item.id, event.target.value as AdminUserReport['status'])} disabled={savingReportId === item.id} aria-label={`Estado de la denuncia sobre ${item.reportedName}`}>
+                <option value="NEW">Nueva</option><option value="IN_REVIEW">En revisión</option><option value="RESOLVED">Resuelta</option><option value="DISMISSED">Descartada</option>
+              </select>
+            </label>
+          </footer>
+        </article>)}
+      </div>}
+    {listing && listing.total > listing.pageSize && <div className={styles.pagination}><span>Página {listing.page} de {Math.ceil(listing.total / listing.pageSize)}</span><div><button disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Anterior</button><button disabled={page * listing.pageSize >= listing.total} onClick={() => onPageChange(page + 1)}>Siguiente</button></div></div>}
+  </>;
+}
+
 function ListingPanel({ tab, listing, onChangeUserPlan, onManageOrganizationCreation }: { tab: Tab; listing: Listing; onChangeUserPlan: (user: AdminUser) => void; onManageOrganizationCreation: (user: AdminUser) => void }) {
   const rows = tab === 'usuarios' ? listing.users ?? [] : tab === 'organizaciones' ? listing.organizations ?? [] : tab === 'espacios' ? listing.workspaces ?? [] : tab === 'proyectos' ? listing.projects ?? [] : tab === 'invitaciones' ? listing.invitations ?? [] : tab === 'planes' ? listing.subscriptions ?? [] : listing.activity ?? [];
   if (rows.length === 0) return <div className={styles.emptyPanel}>No hay resultados para esta búsqueda.</div>;
@@ -420,7 +560,7 @@ function ListingPanel({ tab, listing, onChangeUserPlan, onManageOrganizationCrea
     {tab === 'organizaciones' && <><thead><tr><th>Organización</th><th>Tipo</th><th>Propietario</th><th>Miembros</th><th>Espacios</th><th>Proyectos</th><th>Creada</th></tr></thead><tbody>{(listing.organizations ?? []).map((organization) => <tr key={organization.id}><td><strong>{organization.name}</strong></td><td>{organization.type === 'PERSONAL' ? 'Personal' : organization.type === 'COMPANY' ? 'Empresa' : organization.type === 'INSTITUTION' ? 'Institución' : organization.type === 'NETWORK_OPERATOR' ? 'Red' : organization.type}</td><td>{organization.ownerName ?? 'Sin propietario'}</td><td>{organization.members}</td><td>{organization.workspaces}</td><td>{organization.projects}</td><td>{date(organization.createdAt)}</td></tr>)}</tbody></>}
     {tab === 'espacios' && <><thead><tr><th>Espacio</th><th>Organización</th><th>Contexto</th><th>Estado</th><th>Miembros</th><th>Proyectos</th><th>Creado</th></tr></thead><tbody>{(listing.workspaces ?? []).map((workspace) => <tr key={workspace.id}><td><strong>{workspace.name}</strong></td><td>{workspace.organizationName}</td><td>{workspace.mode === 'PERSONAL' ? 'Personal' : workspace.mode === 'TEAM' ? 'Equipo' : workspace.mode}</td><td><span className={`${styles.pill} ${!workspace.archived ? styles.pillGreen : ''}`}>{workspace.archived ? 'Archivado' : 'Activo'}</span></td><td>{workspace.members}</td><td>{workspace.projects}</td><td>{date(workspace.createdAt)}</td></tr>)}</tbody></>}
     {tab === 'proyectos' && <><thead><tr><th>Proyecto</th><th>Organización</th><th>Espacio</th><th>Estado</th><th>Tableros</th><th>Actualizado</th></tr></thead><tbody>{(listing.projects ?? []).map((project) => <tr key={project.id}><td><strong>{project.name}</strong></td><td>{project.organizationName}</td><td>{project.workspaceName}</td><td><span className={styles.pill}>{project.status}</span></td><td>{project.boards}</td><td>{dateTime(project.updatedAt)}</td></tr>)}</tbody></>}
-    {tab === 'invitaciones' && <><thead><tr><th>Correo invitado</th><th>Organización</th><th>Rol propuesto</th><th>Invitó</th><th>Creada</th><th>Vence</th></tr></thead><tbody>{(listing.invitations ?? []).map((invitation) => <tr key={invitation.id}><td><strong>{invitation.email}</strong></td><td>{invitation.organizationName}</td><td><span className={styles.pill}>{invitation.role}</span></td><td>{invitation.inviterName}</td><td>{date(invitation.createdAt)}</td><td>{date(invitation.expiresAt)}</td></tr>)}</tbody></>}
+    {tab === 'invitaciones' && <><thead><tr><th>Correo invitado</th><th>Invitó</th><th>Creada</th><th>Vence</th></tr></thead><tbody>{(listing.invitations ?? []).map((invitation) => <tr key={invitation.id}><td><strong>{invitation.email}</strong></td><td>{invitation.inviterName}</td><td>{date(invitation.createdAt)}</td><td>{date(invitation.expiresAt)}</td></tr>)}</tbody></>}
     {tab === 'planes' && <><thead><tr><th>Organización</th><th>Plan</th><th>Estado</th><th>Periodo hasta</th><th>Renovación</th><th>Creado</th></tr></thead><tbody>{(listing.subscriptions ?? []).map((subscription) => <tr key={subscription.id}><td><strong>{subscription.organizationName}</strong></td><td>{subscription.plan}</td><td><span className={`${styles.pill} ${subscription.status === 'ACTIVE' ? styles.pillGreen : ''}`}>{subscription.status === 'ACTIVE' ? 'Activo' : subscription.status === 'TRIALING' ? 'En prueba' : subscription.status === 'PAST_DUE' ? 'Pago pendiente' : subscription.status === 'PAUSED' ? 'Pausado' : subscription.status === 'CANCELED' ? 'Cancelado' : subscription.status === 'EXPIRED' ? 'Vencido' : subscription.status}</span></td><td>{date(subscription.periodEnd)}</td><td>{subscription.cancelAtPeriodEnd ? 'Cancela al finalizar' : 'Automática'}</td><td>{date(subscription.createdAt)}</td></tr>)}</tbody></>}
     {tab === 'actividad' && <><thead><tr><th>Persona</th><th>Acción registrada</th><th>Espacio</th><th>Fecha</th></tr></thead><tbody>{(listing.activity ?? []).map((activity) => <tr key={activity.id}><td><strong>{activity.userName}</strong><small className={styles.cellSub}>{activity.userEmail}</small></td><td>{actionLabel(activity.type)}<small className={styles.cellSub}>{activity.type}</small></td><td>{activity.workspaceName ?? '—'}</td><td>{dateTime(activity.createdAt)}</td></tr>)}</tbody></>}
   </table></div>;

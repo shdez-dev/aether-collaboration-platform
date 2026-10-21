@@ -14,7 +14,9 @@ import {
 const router = Router();
 
 // Rutas públicas (no requieren autenticación)
-router.post('/register', registerRateLimit, (req, res) => authController.register(req, res));
+router.post('/register', (_req, res) => res.status(404).json({ success: false, error: { code: 'REGISTRATION_CLOSED', message: 'El acceso al piloto requiere invitación.' } }));
+router.get('/invitations/:token', registerRateLimit, (req, res) => authController.invitationPreview(req, res));
+router.post('/join', registerRateLimit, (req, res) => authController.register(req, res));
 router.post('/login', loginRateLimit, (req, res) => authController.login(req, res));
 router.post('/refresh', refreshRateLimit, (req, res) => authController.refresh(req, res));
 router.post('/verify-email', verifyEmailRateLimit, (req, res) =>

@@ -44,7 +44,7 @@ export function RootLayoutShell({ children }: { children: React.ReactNode }) {
   const hideNav =
     pathname === '/' ||
     pathname === '/login' ||
-    pathname === '/register' ||
+    pathname === '/join' ||
     pathname === '/forgot-password' ||
     pathname?.startsWith('/legal/') ||
     pathname?.startsWith('/verify-email') ||
@@ -80,22 +80,9 @@ export function RootLayoutShell({ children }: { children: React.ReactNode }) {
                         <span className="xs:hidden">Panel</span>
                       </Link>
                     ) : (
-                      <>
-                        <Link
-                          href="/login"
-                          className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-text-primary hover:text-accent transition-colors whitespace-nowrap min-h-[44px] flex items-center"
-                        >
-                          <span className="hidden xs:inline">{t.nav_login}</span>
-                          <span className="xs:hidden">Login</span>
-                        </Link>
-                        <Link
-                          href="/register"
-                          className="px-2.5 sm:px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition-all duration-300 text-xs sm:text-sm whitespace-nowrap min-h-[44px] flex items-center"
-                        >
-                          <span className="hidden xs:inline">{t.nav_register}</span>
-                          <span className="xs:hidden">Reg.</span>
-                        </Link>
-                      </>
+                      <Link href="/login" className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-text-primary hover:text-accent transition-colors whitespace-nowrap min-h-[44px] flex items-center">
+                        {t.nav_login}
+                      </Link>
                     )}
                   </div>
                 </div>

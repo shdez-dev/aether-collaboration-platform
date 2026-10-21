@@ -43,6 +43,12 @@ export interface ProjectStats {
   bottleneckBoardName?: string | null;
 }
 
+export interface ProjectOperationalRiskSummary {
+  overdueCards: number;
+  blockedCards: number;
+  activeRiskCount: number;
+}
+
 export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
 export type ProjectMaturityStage = 'IDEA' | 'DRAFT' | 'FORMALIZED' | 'PLANNED' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
 export type ProjectWorkflowStage = 'INTAKE' | 'DIAGNOSIS' | 'VALIDATION' | 'PREPARATION' | 'EXECUTION' | 'CLOSURE' | 'PAUSED' | 'DECLINED';
@@ -135,6 +141,7 @@ export interface Project {
   boards?: ProjectBoard[];
   milestones?: ProjectMilestone[];
   stats?: ProjectStats;
+  operationalRisk?: ProjectOperationalRiskSummary;
   formalization?: ProjectFormalizationSummary;
   coverage?: ProjectCoverageSummary;
   workflowHistory?: ProjectWorkflowHistoryItem[];

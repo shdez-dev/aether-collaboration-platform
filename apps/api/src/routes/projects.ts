@@ -10,6 +10,7 @@ import { projectMethodologyController } from '../modules/projects/ProjectMethodo
 import { projectActivityController } from '../modules/projects/ProjectActivityController';
 import { projectRiskController } from '../controllers/ProjectRiskController';
 import { projectTraceabilityController } from '../controllers/ProjectTraceabilityController';
+import { projectDocumentationController } from '../controllers/ProjectDocumentationController';
 import { authenticateJWT } from '../middleware/auth';
 import { requireProjectAccess, requireProjectEditor, requireProjectMembership, requireProjectScrumRole } from '../middleware/project';
 
@@ -110,6 +111,13 @@ router.get('/:id/decisions', (req, res) => projectTraceabilityController.listDec
 router.post('/:id/decisions', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.createDecision(req, res));
 router.get('/:id/baselines', (req, res) => projectTraceabilityController.listBaselines(req, res));
 router.post('/:id/baselines', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectTraceabilityController.createBaseline(req, res));
+
+// ── Documentación y evidencias vinculadas ───────────────────────────────────
+router.get('/:id/documentation', (req, res) => projectDocumentationController.list(req, res));
+router.put('/:id/documents/:documentId/classification', requireProjectAccess('MANAGE_DOCUMENTS'), (req, res) => projectDocumentationController.classify(req, res));
+router.post('/:id/evidence', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectDocumentationController.createEvidence(req, res));
+router.patch('/:id/evidence/:evidenceId', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectDocumentationController.setEvidenceStatus(req, res));
+router.delete('/:id/evidence/:evidenceId', requireProjectAccess('MANAGE_TRACEABILITY'), (req, res) => projectDocumentationController.removeEvidence(req, res));
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
 router.get('/:id/stats',           (req, res) => projectController.getStats(req, res));

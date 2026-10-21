@@ -5,7 +5,8 @@ const sections: LegalSection[] = [
   {
     id: 'alcance', title: 'Alcance y responsable del servicio', content: <>
       <p>Estos términos describen el uso de AETHER, una plataforma de colaboración para personas, equipos y organizaciones. Se aplican a la cuenta personal, las organizaciones, los espacios de trabajo y las funciones a las que cada persona accede. La <Link href="/legal/privacy">Política de privacidad</Link> explica el tratamiento de datos y la <Link href="/legal/aup">Política de uso aceptable</Link> establece las reglas de conducta.</p>
-      <p>AETHER es operado por <strong>Juan Sebastian Hernandez Rincon</strong>, persona natural residente en Chile. Para consultas sobre el servicio o estas condiciones, el contacto público es <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. El domicilio legal y la ley y jurisdicción aplicables aún requieren confirmación; hasta entonces, este texto permanece en revisión y no debe presentarse como un contrato completo.</p>
+      <p>AETHER es operado por <strong>Juan Sebastian Hernandez Rincon</strong>, persona natural establecida en Chile. El contacto público para consultas sobre el servicio y estas condiciones es <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. El piloto gratuito se organiza por invitación para participantes de Chile y Argentina. Antes de invitar en Argentina debe aclararse la inscripción del responsable ante la autoridad de protección de datos. Una invitación individual desde otro país requiere revisar previamente las reglas que puedan aplicarse allí.</p>
+      <p>El operador está establecido en Chile. La ley y la autoridad o tribunal aplicables a una controversia se determinarán conforme a las normas correspondientes, incluidas las protecciones imperativas del país de la persona participante cuando procedan. Estas condiciones no obligan a renunciar a esos derechos.</p>
     </>,
   },
   {
@@ -16,8 +17,9 @@ const sections: LegalSection[] = [
   },
   {
     id: 'cuentas', title: 'Cuenta, acceso y seguridad', content: <>
-      <p>El piloto es gratuito y está destinado a participantes invitados, que pueden invitar a otras personas mediante las funciones disponibles en su plan. El registro de cuentas aún no exige una invitación, por lo que la exclusividad del piloto debe implementarse antes de anunciarla como una restricción técnica. Una invitación no garantiza acceso a recursos fuera de los permisos concedidos. Para usar las áreas privadas se necesita una cuenta con información de registro exacta y un correo que pueda verificarse. Cada persona debe proteger sus credenciales, no compartir su sesión y avisar si sospecha un acceso no autorizado. Los permisos se comprueban también en la API: pertenecer a una organización no concede automáticamente acceso a todos sus espacios, proyectos o documentos.</p>
-      <p>Quien cree o administre una organización debe contar con autoridad para hacerlo y para invitar, asignar roles o administrar recursos en nombre de ella. Se propone que este piloto esté dirigido a personas mayores de 18 años, pero la regla y su comprobación en el registro aún deben confirmarse e implementarse antes de presentarla como una condición vigente.</p>
+      <p>El piloto es gratuito y está destinado a participantes invitados. Para crear una cuenta nueva se necesita un enlace vigente enviado al correo invitado. Una invitación no garantiza acceso a recursos fuera de los permisos concedidos. Cada persona debe proteger sus credenciales, no compartir su sesión y avisar si sospecha un acceso no autorizado. Los permisos se comprueban también en la API: pertenecer a una organización no concede automáticamente acceso a todos sus espacios, proyectos o documentos.</p>
+      <p>Quien cree o administre una organización debe contar con autoridad para hacerlo y para invitar, asignar roles o administrar recursos en nombre de ella. El piloto está pensado para personas adultas; la edad mínima y su comprobación en el registro aún deben definirse e implementarse antes de imponer una restricción de edad como condición vigente.</p>
+      <p>Al activar una cuenta nueva se solicita confirmar por separado la lectura de estos términos y de la política de privacidad. La política de uso aceptable forma parte de las reglas de uso de AETHER. La confirmación de lectura de la política de privacidad no equivale a autorizar cualquier finalidad opcional de tratamiento de datos.</p>
     </>,
   },
   {
@@ -34,7 +36,9 @@ const sections: LegalSection[] = [
   },
   {
     id: 'contenido', title: 'Contenido y propiedad intelectual', content: <>
-      <p>Quien crea o incorpora contenido conserva los derechos que le correspondan sobre textos, archivos, documentos y demás material. Debe tener permiso para usarlo, compartirlo y conceder acceso a las personas invitadas. Al utilizar AETHER autoriza únicamente el alojamiento, procesamiento, transmisión, presentación y respaldo técnico necesarios para prestar las funciones solicitadas y mantener la seguridad del servicio, sujeto a la <Link href="/legal/privacy">Política de privacidad</Link>.</p>
+      <p>Quien crea o incorpora contenido conserva los derechos que le correspondan sobre textos, fotografías, imágenes, archivos, documentos y demás material. Antes de subirlo, insertarlo o compartirlo debe contar con los derechos o permisos necesarios para ese uso y para el acceso de las personas invitadas. Que una imagen esté disponible en Internet o pueda descargarse gratis no significa que se pueda reutilizar sin condiciones: deben respetarse su licencia, la atribución exigida y, cuando corresponda, los derechos de las personas reconocibles, marcas u obras representadas.</p>
+      <p>Al incorporar contenido, la persona concede al operador de AETHER una autorización no exclusiva y sin pago adicional, limitada a alojarlo, copiarlo técnicamente, convertirlo o redimensionarlo para vistas previas, transmitirlo, mostrarlo a quienes tengan acceso según la configuración del recurso y mantener respaldos y seguridad. Estas operaciones podrán realizarse mediante proveedores técnicos que actúen para prestar el servicio, conforme a la <Link href="/legal/privacy">Política de privacidad</Link>. Esta autorización dura mientras el contenido deba permanecer en el servicio según su finalidad, las decisiones de quienes administran el recurso y los plazos de conservación aplicables. No transfiere la propiedad del contenido ni autoriza a AETHER a venderlo, usarlo en publicidad o publicarlo fuera de los permisos configurados.</p>
+      <p>Si una persona considera que una imagen u otro contenido vulnera sus derechos, puede solicitar su revisión mediante el procedimiento de la <Link href="/legal/aup#reportes">Política de uso aceptable</Link>. AETHER podrá restringir el acceso o retirar el material cuando corresponda, sin decidir por ese solo hecho quién es su titular definitivo.</p>
       <p>La marca, la interfaz y el software de AETHER pertenecen a sus titulares respectivos. Estos términos no transfieren su propiedad. Las sugerencias enviadas al equipo de AETHER podrán considerarse para mejorar el producto, sin presumir una cesión exclusiva de los derechos sobre ellas.</p>
     </>,
   },
@@ -52,7 +56,7 @@ const sections: LegalSection[] = [
   },
   {
     id: 'disponibilidad', title: 'Disponibilidad, cambios y respaldo', content: <>
-      <p>Por tratarse de un MVP, AETHER puede experimentar mantenimiento, interrupciones y cambios. No se ofrece en este borrador un acuerdo de nivel de servicio ni una garantía de operación continua. AETHER debe adoptar medidas razonables para proteger el servicio y atender incidentes, sin prometer ausencia absoluta de fallos o pérdida de información.</p>
+      <p>Por tratarse de un MVP, AETHER puede experimentar mantenimiento, interrupciones y cambios. No se ofrece en este piloto un acuerdo de nivel de servicio ni una garantía de operación continua. AETHER debe adoptar medidas razonables para proteger el servicio y atender incidentes, sin prometer ausencia absoluta de fallos o pérdida de información.</p>
       <p>Las organizaciones deben conservar copias de la información crítica cuando sus procesos lo requieran. Algunas funciones permiten exportar documentos o informes, pero no debe asumirse que existe una exportación integral de toda la cuenta. La política operativa de respaldos y los plazos de recuperación deben definirse antes de una oferta contractual definitiva.</p>
     </>,
   },
@@ -64,20 +68,20 @@ const sections: LegalSection[] = [
   },
   {
     id: 'salida', title: 'Salida, eliminación y contenido compartido', content: <>
-      <p>Una organización puede retirar miembros y, bajo las condiciones del producto, eliminar sus espacios y la organización. La salida de una persona no elimina automáticamente documentos, mensajes o actividad que otras personas necesitan para continuar el trabajo compartido. La eliminación de una cuenta personal y una exportación integral no figuran como procesos de autoservicio completos en este MVP; las solicitudes pueden enviarse a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>.</p>
+      <p>Una organización puede retirar miembros y, bajo las condiciones del producto, eliminar sus espacios y la organización. La salida de una persona no elimina automáticamente documentos, mensajes o actividad que otras personas necesitan para continuar el trabajo compartido. La persona puede solicitar la eliminación de su cuenta desde su perfil, después de transferir o eliminar los recursos que administra. La eliminación se procesa por etapas; el contenido de proyectos compartidos puede permanecer desvinculado de su perfil. Aún no existe una exportación integral de autoservicio; para revisar datos personales presentes en contenido compartido o solicitar asistencia puede escribir a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>.</p>
       <p>Los mensajes directos tienen una caducidad de 30 días y un proceso periódico elimina los vencidos. Otras categorías siguen los criterios explicados en la <Link href="/legal/privacy">Política de privacidad</Link>. Ninguna disposición autoriza conservar datos sin límite o impedir derechos legales de sus titulares.</p>
     </>,
   },
   {
     id: 'responsabilidad', title: 'Responsabilidades y derechos irrenunciables', content: <>
-      <p>Cada persona responde por la legalidad del contenido que incorpora y por el uso de sus permisos. AETHER responde conforme a la ley aplicable por sus propias obligaciones. Este borrador no fija topes monetarios de responsabilidad ni excluye derechos de consumidores o titulares de datos: esas cláusulas, si proceden, requieren definir al operador, la jurisdicción y una revisión jurídica específica.</p>
-      <p>Las controversias deberían intentar resolverse primero mediante el canal de contacto legal. La ley y los tribunales competentes quedan <strong>pendientes de definición</strong>, sin afectar cualquier protección imperativa que resulte aplicable.</p>
+      <p>Cada persona responde por la legalidad del contenido que incorpora y por el uso de sus permisos. AETHER responde conforme a la ley aplicable por sus propias obligaciones. Estas condiciones no fijan topes monetarios de responsabilidad ni excluyen derechos irrenunciables de usuarios o titulares de datos.</p>
+      <p>Las controversias pueden plantearse primero mediante el canal de contacto legal, sin impedir que una persona recurra directamente a la autoridad o al tribunal competente cuando la ley lo permita.</p>
     </>,
   },
   {
     id: 'cambios', title: 'Actualizaciones y contacto', content: <>
       <p>La versión vigente deberá mostrar su fecha de entrada en vigor y conservar un acceso claro a los cambios relevantes. Antes de aplicar cambios materiales se informará mediante un medio apropiado y se ofrecerá la opción legalmente exigible de dejar de utilizar el servicio. La simple publicación de un texto no sustituye los avisos o consentimientos que la ley requiera.</p>
-      <p>El operador es Juan Sebastian Hernandez Rincon. Puede escribir a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. Siguen pendientes de confirmación el domicilio legal, la ley y jurisdicción aplicables y la fecha de entrada en vigor. Para asuntos de datos personales, consulte la <Link href="/legal/privacy">Política de privacidad</Link>; para denuncias de abuso, la <Link href="/legal/aup">Política de uso aceptable</Link>.</p>
+      <p>El operador es Juan Sebastian Hernandez Rincon, persona natural establecida en Chile. Puede escribir a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>. La fecha de entrada en vigor se publicará al aprobar una versión definitiva para el piloto. Para asuntos de datos personales, consulte la <Link href="/legal/privacy">Política de privacidad</Link>; para denuncias de abuso, la <Link href="/legal/aup">Política de uso aceptable</Link>.</p>
     </>,
   },
 ];

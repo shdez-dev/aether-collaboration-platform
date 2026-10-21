@@ -3,6 +3,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { authenticateJWT, optionalAuth } from '../auth';
 import * as jwt from '../../utils/jwt';
+import { pool } from '../../lib/db';
 import type { UserId } from '@aether/types';
 
 describe('Auth Middleware', () => {
@@ -12,6 +13,7 @@ describe('Auth Middleware', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (pool.query as jest.Mock).mockResolvedValue({ rows: [{ id: 'user-123' }] });
 
     mockRequest = {
       headers: {},
@@ -26,7 +28,7 @@ describe('Auth Middleware', () => {
   });
 
   describe('authenticateJWT', () => {
-    it('should authenticate valid JWT token', () => {
+    it('should authenticate a valid JWT token for an active account', async () => {
       const mockPayload = {
         userId: 'user-123' as UserId,
         email: 'test@example.com',
@@ -38,7 +40,7 @@ describe('Auth Middleware', () => {
 
       jest.spyOn(jwt, 'verifyAccessToken').mockReturnValue(mockPayload);
 
-      authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
+      await authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       expect((mockRequest as any).user).toEqual({
@@ -47,8 +49,8 @@ describe('Auth Middleware', () => {
       });
     });
 
-    it('should return 401 if no authorization header', () => {
-      authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
+    it('should return 401 if no authorization header', async () => {
+      await authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith(
@@ -62,12 +64,12 @@ describe('Auth Middleware', () => {
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should return 401 if authorization header format is invalid', () => {
+    it('should return 401 if authorization header format is invalid', async () => {
       mockRequest.headers = {
         authorization: 'InvalidFormat token',
       };
 
-      authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
+      await authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith(
@@ -81,7 +83,7 @@ describe('Auth Middleware', () => {
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should return 401 if token is invalid or expired', () => {
+    it('should return 401 if token is invalid or expired', async () => {
       mockRequest.headers = {
         authorization: 'Bearer invalid_token',
       };
@@ -90,7 +92,7 @@ describe('Auth Middleware', () => {
         throw new Error('Invalid token');
       });
 
-      authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
+      await authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith(
@@ -104,14 +106,32 @@ describe('Auth Middleware', () => {
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should handle missing Bearer prefix', () => {
+    it('should handle missing Bearer prefix', async () => {
       mockRequest.headers = {
         authorization: 'token_without_bearer',
       };
 
-      authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
+      await authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should reject a valid JWT when its account has requested deletion', async () => {
+      mockRequest.headers = { authorization: 'Bearer valid_token' };
+      jest.spyOn(jwt, 'verifyAccessToken').mockReturnValue({
+        userId: 'user-123' as UserId,
+        email: 'test@example.com',
+      });
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+
+      await authenticateJWT(mockRequest as Request, mockResponse as Response, mockNext);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(401);
+      expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
+        success: false,
+        error: expect.objectContaining({ code: 'ACCOUNT_UNAVAILABLE' }),
+      }));
       expect(mockNext).not.toHaveBeenCalled();
     });
   });

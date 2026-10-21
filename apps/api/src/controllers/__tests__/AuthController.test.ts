@@ -69,13 +69,18 @@ describe('AuthController', () => {
         email: 'test@example.com',
         password: 'password123',
         name: 'Test User',
+        invitationToken: 'a'.repeat(64),
+        termsRead: true,
+        privacyRead: true,
       };
 
       mockRequest.body = userData;
 
-      // Mock: user doesn't exist, then transaction starts.
+      // Mock: valid platform invitation, new user, transaction and locked invite.
+      mockClient.query.mockResolvedValueOnce({ rows: [{ id: 'invitation-123', email: userData.email }] });
       mockClient.query.mockResolvedValueOnce({ rows: [] });
       mockClient.query.mockResolvedValueOnce({ rows: [] });
+      mockClient.query.mockResolvedValueOnce({ rows: [{ email: userData.email }] });
 
       // Mock bcrypt hash
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed_password');
@@ -102,6 +107,7 @@ describe('AuthController', () => {
       mockClient.query.mockResolvedValueOnce({ rows: [{ id: 'organization-123' }] });
       mockClient.query.mockResolvedValueOnce({ rows: [] });
       mockClient.query.mockResolvedValueOnce({ rows: [] });
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
 
       // Mock event store
       (eventStore.emit as jest.Mock).mockResolvedValue({});
@@ -113,7 +119,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: true,
           data: expect.objectContaining({
-            verificationEmailSent: true,
+            requiresEmailVerification: false,
             user: expect.objectContaining({
               email: userData.email,
               name: userData.name,
@@ -145,10 +151,15 @@ describe('AuthController', () => {
         email: 'rollback@example.com',
         password: 'password123',
         name: 'Rollback User',
+        invitationToken: 'a'.repeat(64),
+        termsRead: true,
+        privacyRead: true,
       };
       mockClient.query
+        .mockResolvedValueOnce({ rows: [{ id: 'invitation-rollback', email: 'rollback@example.com' }] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ email: 'rollback@example.com' }] })
         .mockResolvedValueOnce({ rows: [{ id: 'user-rollback', email: 'rollback@example.com', name: 'Rollback User' }] })
         .mockRejectedValueOnce(new Error('organization insert failed'))
         .mockResolvedValueOnce({ rows: [] });
@@ -166,9 +177,13 @@ describe('AuthController', () => {
         email: 'existing@example.com',
         password: 'password123',
         name: 'Test User',
+        invitationToken: 'a'.repeat(64),
+        termsRead: true,
+        privacyRead: true,
       };
 
-      // Mock: user already exists
+      // Mock: valid invitation, then an existing user.
+      mockClient.query.mockResolvedValueOnce({ rows: [{ id: 'invitation-existing', email: 'existing@example.com' }] });
       mockClient.query.mockResolvedValueOnce({
         rows: [{ id: 'existing-user-id' }],
       });
@@ -191,6 +206,9 @@ describe('AuthController', () => {
         email: 'invalid-email',
         password: 'password123',
         name: 'Test User',
+        invitationToken: 'a'.repeat(64),
+        termsRead: true,
+        privacyRead: true,
       };
 
       await authController.register(mockRequest as Request, mockResponse as Response);
@@ -211,6 +229,9 @@ describe('AuthController', () => {
         email: 'test@example.com',
         password: 'short',
         name: 'Test User',
+        invitationToken: 'a'.repeat(64),
+        termsRead: true,
+        privacyRead: true,
       };
 
       await authController.register(mockRequest as Request, mockResponse as Response);
@@ -231,6 +252,9 @@ describe('AuthController', () => {
         email: 'test@example.com',
         password: 'password123',
         name: 'Test User',
+        invitationToken: 'a'.repeat(64),
+        termsRead: true,
+        privacyRead: true,
       };
 
       mockClient.query.mockRejectedValue(new Error('Database error'));

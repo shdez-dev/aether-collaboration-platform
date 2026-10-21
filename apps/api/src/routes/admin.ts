@@ -1,11 +1,14 @@
 import { Router, type Request, type Response } from 'express';
-import { randomUUID } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { authenticateJWT } from '../middleware/auth';
 import { pool, query } from '../lib/db';
 import { getRealtimeGateway } from '../websocket/RealtimeGateway';
 import { checkRedisHealth } from '../lib/redis';
+import { emailService } from '../services/EmailService';
+import { renderPlatformInvitationEmail } from '../services/emailTemplates';
+import { buildFrontendUrl } from '../utils/frontendUrl';
 
 const router = Router();
 router.use(authenticateJWT);
@@ -23,6 +26,7 @@ const organizationCreationPermissionsSchema = z.object({
 });
 const uuidSchema = z.string().uuid();
 const feedbackStatusSchema = z.object({ status: z.enum(['NEW', 'IN_REVIEW', 'RESOLVED']) });
+const userReportStatusSchema = z.object({ status: z.enum(['NEW', 'IN_REVIEW', 'RESOLVED', 'DISMISSED']) });
 
 // Un único identificador estable, configurado solo en el servidor. Sin valor
 // por defecto: una instalación sin administrador explícito no expone datos.
@@ -54,6 +58,67 @@ router.get('/access', (req, res) => {
 
 router.use(requirePlatformAdmin);
 
+router.get('/user-reports', async (req, res, next) => {
+  const { page, limit, offset, search } = pagination(req);
+  const status = z.enum(['all', 'NEW', 'IN_REVIEW', 'RESOLVED', 'DISMISSED']).safeParse(String(req.query.status ?? 'all'));
+  const reason = z.enum(['all', 'HARASSMENT', 'SPAM', 'IMPERSONATION', 'INAPPROPRIATE_CONTENT', 'OTHER']).safeParse(String(req.query.reason ?? 'all'));
+  if (!status.success || !reason.success) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Los filtros de denuncias no son válidos.' } });
+  }
+
+  const params: unknown[] = [`%${search}%`];
+  let where = `WHERE (reporter.name ILIKE $1 OR reporter.email ILIKE $1
+    OR reported.name ILIKE $1 OR reported.email ILIKE $1 OR r.description ILIKE $1)`;
+  if (status.data !== 'all') { params.push(status.data); where += ` AND r.status = $${params.length}`; }
+  if (reason.data !== 'all') { params.push(reason.data); where += ` AND r.reason = $${params.length}`; }
+
+  try {
+    const from = `FROM user_reports r
+      JOIN users reporter ON reporter.id = r.reporter_user_id
+      JOIN users reported ON reported.id = r.reported_user_id ${where}`;
+    const [rows, count] = await Promise.all([
+      query<{
+        id: string; reason: string; description: string; status: string; created_at: Date; reviewed_at: Date | null;
+        reporter_user_id: string; reporter_name: string; reporter_email: string;
+        reported_user_id: string; reported_name: string; reported_email: string;
+      }>(`SELECT r.id, r.reason, r.description, r.status, r.created_at, r.reviewed_at,
+        r.reporter_user_id, reporter.name AS reporter_name, reporter.email AS reporter_email,
+        r.reported_user_id, reported.name AS reported_name, reported.email AS reported_email
+        ${from} ORDER BY r.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]),
+      query<{ total: number }>(`SELECT COUNT(*)::int AS total ${from}`, params),
+    ]);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ success: true, data: {
+      reports: rows.rows.map((row) => ({
+        id: row.id, reason: row.reason, description: row.description, status: row.status,
+        createdAt: row.created_at, reviewedAt: row.reviewed_at,
+        reporterUserId: row.reporter_user_id, reporterName: row.reporter_name, reporterEmail: row.reporter_email,
+        reportedUserId: row.reported_user_id, reportedName: row.reported_name, reportedEmail: row.reported_email,
+      })),
+      page, pageSize: limit, total: count.rows[0]?.total ?? 0,
+    } });
+  } catch (error) { return next(error); }
+});
+
+router.patch('/user-reports/:reportId', async (req, res, next) => {
+  const id = uuidSchema.safeParse(req.params.reportId);
+  const input = userReportStatusSchema.safeParse(req.body);
+  if (!id.success || !input.success) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'La denuncia o su estado no son válidos.' } });
+  }
+  try {
+    const updated = await query<{ id: string; status: string; reviewed_at: Date | null }>(
+      `UPDATE user_reports SET status = $2,
+        reviewed_at = CASE WHEN $2 IN ('RESOLVED', 'DISMISSED') THEN CURRENT_TIMESTAMP ELSE NULL END,
+        updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, status, reviewed_at`,
+      [id.data, input.data.status],
+    );
+    if (!updated.rows[0]) return res.status(404).json({ success: false, error: { code: 'REPORT_NOT_FOUND', message: 'No encontramos esa denuncia.' } });
+    return res.json({ success: true, data: { id: updated.rows[0].id, status: updated.rows[0].status, reviewedAt: updated.rows[0].reviewed_at } });
+  } catch (error) { return next(error); }
+});
+
 router.get('/overview', async (_req, res, next) => {
   try {
     const [totals, recentUsers, registrations] = await Promise.all([
@@ -73,7 +138,7 @@ router.get('/overview', async (_req, res, next) => {
         (SELECT COUNT(*)::int FROM boards) AS boards,
         (SELECT COUNT(*)::int FROM cards) AS cards,
         (SELECT COUNT(*)::int FROM documents) AS documents,
-        (SELECT COUNT(*)::int FROM organization_invitations WHERE accepted_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()) AS pending_invitations,
+        (SELECT COUNT(*)::int FROM platform_invitations WHERE accepted_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()) AS pending_invitations,
         (SELECT COUNT(*)::int FROM subscriptions WHERE status IN ('ACTIVE', 'TRIALING')) AS active_subscriptions`),
       query<{ id: string; name: string; email: string; created_at: Date; email_verified: boolean }>(
         'SELECT id, name, email, created_at, email_verified FROM users ORDER BY created_at DESC LIMIT 8'
@@ -440,21 +505,65 @@ router.get('/invitations', async (req, res, next) => {
     const { page, limit, offset, search } = pagination(req);
     const params = [`%${search}%`, limit, offset];
     const where = `WHERE i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > NOW()
-      AND (i.email ILIKE $1 OR o.name ILIKE $1)`;
+      AND i.email ILIKE $1`;
     const [rows, count] = await Promise.all([
-      query(`SELECT i.id, i.email, i.role, i.created_at, i.expires_at,
-        o.name AS organization_name, u.name AS inviter_name
-        FROM organization_invitations i
-        JOIN organizations o ON o.id = i.organization_id
+      query(`SELECT i.id, i.email, i.created_at, i.expires_at, u.name AS inviter_name
+        FROM platform_invitations i
         JOIN users u ON u.id = i.invited_by
         ${where} ORDER BY i.created_at DESC LIMIT $2 OFFSET $3`, params),
-      query<{ total: number }>(`SELECT COUNT(*)::int AS total FROM organization_invitations i JOIN organizations o ON o.id = i.organization_id ${where}`, params.slice(0, 1)),
+      query<{ total: number }>(`SELECT COUNT(*)::int AS total FROM platform_invitations i ${where}`, params.slice(0, 1)),
     ]);
     res.json({ success: true, data: { invitations: rows.rows.map((row) => ({
-      id: row.id, email: row.email, role: row.role, organizationName: row.organization_name,
-      inviterName: row.inviter_name, createdAt: row.created_at, expiresAt: row.expires_at,
+      id: row.id, email: row.email, inviterName: row.inviter_name,
+      createdAt: row.created_at, expiresAt: row.expires_at,
     })), page, pageSize: limit, total: count.rows[0]?.total ?? 0 } });
   } catch (error) { next(error); }
+});
+
+const adminInvitationSchema = z.object({
+  email: z.string().trim().email().max(255),
+});
+
+router.post('/invitations', async (req, res, next) => {
+  const parsed = adminInvitationSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Indica un correo válido.' } });
+  const inviterId = (req as Request & { user?: { id: string } }).user!.id;
+  const email = parsed.data.email.toLowerCase();
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  try {
+    const existing = await query('SELECT 1 FROM users WHERE lower(email) = $1 LIMIT 1', [email]);
+    if (existing.rows[0]) return res.status(409).json({ success: false, error: { code: 'ALREADY_REGISTERED', message: 'Esta persona ya tiene una cuenta de Aether.' } });
+    await query(
+      `UPDATE platform_invitations SET revoked_at = NOW(), updated_at = NOW()
+       WHERE lower(email) = $1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at <= NOW()`, [email],
+    );
+    const created = await query<{ id: string; expires_at: Date }>(
+      `INSERT INTO platform_invitations (email, token_hash, invited_by, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '7 days') RETURNING id, expires_at`,
+      [email, tokenHash, inviterId],
+    );
+    const invitation = created.rows[0];
+    const link = buildFrontendUrl('/join', { token });
+    try {
+      await emailService.sendEmail({
+        to: email,
+        subject: 'Tu invitación para entrar a Aether',
+        text: `Te invitamos al piloto de Aether. Crea tu cuenta con este correo: ${link}\n\nEste enlace vence en 7 días y se desactiva después de registrarte.`,
+        html: renderPlatformInvitationEmail(link),
+      });
+    } catch {
+      await query(
+        `UPDATE platform_invitations SET revoked_at = NOW(), updated_at = NOW() WHERE id = $1 AND accepted_at IS NULL`,
+        [invitation.id],
+      );
+      return res.status(502).json({ success: false, error: { code: 'INVITATION_EMAIL_FAILED', message: 'No se pudo entregar el correo. Revisa la configuración del proveedor e inténtalo de nuevo.' } });
+    }
+    return res.status(201).json({ success: true, data: { email, expiresAt: invitation.expires_at } });
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') return res.status(409).json({ success: false, error: { code: 'INVITATION_ALREADY_PENDING', message: 'Ya hay una invitación vigente para este correo.' } });
+    next(error);
+  }
 });
 
 router.get('/subscriptions', async (req, res, next) => {

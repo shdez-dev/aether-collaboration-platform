@@ -1,0 +1,116 @@
+.page {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: clamp(24px, 3.5vw, 44px) clamp(18px, 2.5vw, 36px) 80px;
+  color: var(--c-text);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--c-border);
+}
+.pageHeader h1 { margin: 0; font: 700 clamp(1.65rem, 3vw, 2.15rem)/1.2 'Sora', system-ui, sans-serif; letter-spacing: -.025em; }
+.pageHeader p { max-width: 56ch; margin: 7px 0 0; color: var(--c-text2); font-size: 13px; line-height: 1.6; }
+.accountEmail { display: inline-flex; align-items: center; gap: 8px; max-width: 40%; padding: 9px 12px; border: 1px solid var(--c-border); border-radius: 9px; color: var(--c-text3); font-size: 12px; overflow-wrap: anywhere; }
+.accountEmail svg { flex: none; color: var(--c-accent-text); }
+
+.profileLayout { display: grid; grid-template-columns: minmax(290px, 350px) minmax(0, 1fr); align-items: start; gap: clamp(22px, 2.5vw, 38px); margin-top: 27px; }
+.previewColumn { display: grid; gap: 16px; position: sticky; top: 24px; min-width: 0; }
+.previewHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 2px; }
+.previewHeading strong { color: var(--c-text); font: 700 13px 'Sora', system-ui, sans-serif; }
+.previewHeading span { color: var(--c-text4); font-size: 11px; }
+.previewCard { overflow: hidden; border: 1px solid var(--c-border2); border-radius: 15px; background: var(--c-surface); }
+.previewCover { position: relative; height: 80px; overflow: hidden; background: #7655a3; }
+.previewCover::before, .previewCover::after { content: ''; position: absolute; width: 115px; height: 115px; border: 1px solid rgba(255,255,255,.35); transform: rotate(45deg); }
+.previewCover::before { right: 16px; top: -72px; }
+.previewCover::after { right: 105px; top: -82px; }
+.photoButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 39px; margin-top: 19px; border: 1px solid var(--c-border2); border-radius: 9px; background: var(--c-surface2); color: var(--c-text2); font: 700 12px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.photoButton:hover { border-color: var(--c-accent-text); color: var(--c-accent-text); }
+.photoButton:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
+.logoutButton { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 41px; width: 100%; border: 1px solid var(--c-border); border-radius: 9px; background: transparent; color: var(--c-text3); font: 700 12px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.logoutButton:hover { border-color: var(--c-border2); background: var(--c-hover); color: var(--c-text); }
+.logoutButton:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
+.logoutButton:disabled { opacity: .6; cursor: not-allowed; }
+.editorColumn { display: grid; gap: 22px; min-width: 0; }
+.personalFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.sectionCard { min-width: 0; padding: clamp(20px, 3vw, 29px); border: 1px solid var(--c-border); border-radius: 15px; background: var(--c-surface); }
+.sectionHeader { display: flex; align-items: center; gap: 13px; margin-bottom: 24px; padding-bottom: 19px; border-bottom: 1px solid var(--c-border); }
+.fieldControl:focus-visible { outline: 2px solid var(--c-accent-text) !important; outline-offset: 2px; }
+
+.dangerSection { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 26px; border: 1px solid var(--c-border); border-radius: 15px; background: var(--c-surface); }
+.dangerSection h2 { margin: 0 0 5px; color: var(--c-text); font: 700 14px 'Sora', system-ui, sans-serif; }
+.dangerSection p { max-width: 68ch; margin: 0; color: var(--c-text3); font-size: 12px; line-height: 1.6; }
+.dangerSection button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: none; min-height: 38px; padding: 0 13px; border: 1px solid #a85365; border-radius: 9px; background: transparent; color: #bd6577; font: 700 12px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.dangerSection button:hover { background: rgba(189,101,119,.08); }
+.modalOverlay { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10,7,16,.76); backdrop-filter: blur(5px); animation: deletionBackdropIn 260ms ease-out both; }
+.deleteModal { box-sizing: border-box; width: min(100%, 640px); max-height: min(760px, calc(100dvh - 40px)); overflow-y: auto; padding: clamp(20px, 3vw, 30px); border: 1px solid var(--c-border2); border-radius: 17px; background: var(--c-surface); color: var(--c-text); box-shadow: 0 28px 80px rgba(0,0,0,.34); animation: deletionDialogIn 310ms cubic-bezier(.16,1,.3,1) both; scrollbar-color: var(--c-border2) transparent; scrollbar-width: thin; }
+.modalClosing { animation: deletionBackdropOut 180ms ease-in both; }
+.modalClosing .deleteModal { animation: deletionDialogOut 180ms ease-in both; }
+.deleteModalHeading { display: flex; gap: 14px; align-items: center; padding-bottom: 21px; border-bottom: 1px solid var(--c-border); }
+.deleteModalIcon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border: 1px solid color-mix(in srgb, var(--c-red) 30%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--c-red) 10%, transparent); color: var(--c-red); }
+.deleteModalHeading > div { min-width: 0; flex: 1; }
+.deleteModalHeading h2 { margin: 0; font: 700 19px 'Sora', system-ui, sans-serif; letter-spacing: -.02em; }
+.deleteModalHeading p { margin: 5px 0 0; color: var(--c-text3); font-size: 12px; }
+.deleteModalHeading button { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border: 1px solid var(--c-border); border-radius: 9px; color: var(--c-text2); background: transparent; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease; }
+.deleteModalHeading button:hover { background: var(--c-hover); border-color: var(--c-border2); color: var(--c-text); }
+.deleteModalIntro { display: grid; gap: 10px; padding: 18px 0 20px; }
+.deleteModalIntro p { margin: 0; color: var(--c-text2); font-size: 12.5px; line-height: 1.65; }
+.deleteModalIntro a { color: var(--c-accent-text); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.deleteChecking { display: flex; align-items: center; gap: 10px; min-height: 76px; color: var(--c-text2); font-size: 12px; }
+.deleteSpinner { width: 15px; height: 15px; flex: none; border: 2px solid var(--c-border2); border-top-color: var(--c-accent-text); border-radius: 50%; animation: spin 850ms linear infinite; }
+.deleteBlockers { overflow: hidden; border: 1px solid var(--c-border2); border-radius: 12px; background: var(--c-surface2); animation: deletionContentIn 250ms ease-out both; }
+.deleteBlockersHeading { display: flex; align-items: start; gap: 11px; padding: 17px 18px; border-bottom: 1px solid var(--c-border); }
+.deleteBlockersHeading > svg { flex: none; margin-top: 1px; color: var(--c-amber); }
+.deleteBlockersHeading > div { flex: 1; min-width: 0; }
+.deleteBlockersHeading strong { color: var(--c-text); font: 700 13px 'Sora', system-ui, sans-serif; }
+.deleteBlockersHeading p { margin: 5px 0 0; color: var(--c-text3); font-size: 11.5px; line-height: 1.5; }
+.deleteBlockersHeading > span { display: grid; place-items: center; min-width: 25px; height: 25px; padding: 0 5px; border: 1px solid var(--c-border2); border-radius: 7px; color: var(--c-text2); font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.deleteBlockersList { max-height: min(310px, 38dvh); overflow-y: auto; overscroll-behavior: contain; padding: 2px 18px; scrollbar-color: var(--c-border2) transparent; scrollbar-width: thin; }
+.deleteBlockerGroup { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 16px; padding: 15px 0; }
+.deleteBlockerGroup + .deleteBlockerGroup { border-top: 1px solid var(--c-border); }
+.deleteBlockerGroupTitle { display: flex; align-items: start; gap: 8px; padding-top: 6px; color: var(--c-text2); font-size: 11px; font-weight: 800; }
+.deleteBlockerGroupTitle svg { color: var(--c-accent-text); }
+.deleteBlockerCount { margin-left: auto; color: var(--c-text3); font-variant-numeric: tabular-nums; }
+.deleteBlockerGroup ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 17px; margin: 0; padding: 0; list-style: none; }
+.deleteBlockerGroup li { min-width: 0; padding: 6px 0 8px; border-bottom: 1px solid var(--c-border); color: var(--c-text2); font-size: 11.5px; line-height: 1.4; overflow-wrap: anywhere; }
+.deleteBlockersFooter { display: flex; justify-content: flex-end; padding: 13px 18px; border-top: 1px solid var(--c-border); }
+.deleteBlockersFooter button { min-height: 37px; padding: 0 16px; border: 1px solid var(--c-border2); border-radius: 8px; background: var(--c-surface); color: var(--c-text); font: 700 12px 'Manrope', system-ui, sans-serif; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease; }
+.deleteBlockersFooter button:hover { background: var(--c-hover); border-color: var(--c-accent-text); }
+.deleteError { margin: 0; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--c-red) 35%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--c-red) 9%, transparent); color: var(--c-red); font-size: 12px; }
+.deleteModal form { display: grid; gap: 9px; margin-top: 20px; }
+.deleteModal label { font-size: 12px; font-weight: 700; color: var(--c-text2); }
+.deleteModal input { box-sizing: border-box; width: 100%; min-height: 42px; margin-bottom: 9px; padding: 10px 12px; border: 1px solid var(--c-border2); border-radius: 9px; outline: none; background: var(--c-surface2); color: var(--c-text); font: 13px 'Manrope', system-ui, sans-serif; }
+.deleteModal input:focus { border-color: var(--c-accent-text); }
+.deleteModalActions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 9px; }
+.deleteModalActions button { min-height: 39px; padding: 0 13px; border: 1px solid var(--c-border2); border-radius: 8px; background: transparent; color: var(--c-text2); font: 700 12px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+.deleteModalActions button[type='submit'] { border-color: #a85365; background: #a85365; color: #fff; }
+.deleteModalActions button:disabled { opacity: .5; cursor: not-allowed; }
+.deleteModal :is(button, input, a):focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
+@keyframes deletionBackdropIn { from { opacity: 0; backdrop-filter: blur(0); } to { opacity: 1; backdrop-filter: blur(5px); } }
+@keyframes deletionBackdropOut { from { opacity: 1; backdrop-filter: blur(5px); } to { opacity: 0; backdrop-filter: blur(0); } }
+@keyframes deletionDialogIn { from { opacity: .82; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes deletionDialogOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(7px) scale(.99); } }
+@keyframes deletionContentIn { from { opacity: .6; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .modalOverlay, .deleteModal, .modalClosing, .modalClosing .deleteModal, .deleteBlockers { animation-duration: 1ms; } .deleteSpinner { animation-duration: 1.6s; } }
+@media (max-width: 700px) { .dangerSection { flex-direction: column; align-items: stretch; } .deleteModalActions { flex-direction: column-reverse; } }
+@media (max-width: 540px) { .deleteBlockerGroup { grid-template-columns: 1fr; gap: 4px; } .deleteBlockerGroupTitle { padding-top: 0; } .deleteBlockerCount { margin-left: 0; } .deleteBlockerGroup ul { grid-template-columns: 1fr; } }
+
+@media (max-width: 1200px) {
+  .profileLayout { grid-template-columns: minmax(0, 1fr); }
+  .previewColumn { position: static; grid-template-columns: minmax(0, 1fr); max-width: 430px; }
+}
+
+@media (max-width: 620px) {
+  .personalFields { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  .pageHeader { align-items: start; flex-direction: column; }
+  .accountEmail { max-width: 100%; }
+  .previewColumn { max-width: none; }
+  .sectionCard { padding: 19px; }
+}

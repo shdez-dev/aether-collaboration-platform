@@ -71,12 +71,12 @@
 
 .objectiveText {
   max-width: 65ch;
-  margin: 16px 0 auto;
+  margin: 14px 0 auto;
   color: var(--c-text);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  line-height: 1.52;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.6;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }

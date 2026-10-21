@@ -2,6 +2,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
+import { pool } from '../lib/db';
 
 /**
  * Middleware para autenticar requests con JWT
@@ -9,7 +10,7 @@ import { verifyAccessToken } from '../utils/jwt';
  * Extrae el token del header Authorization, lo verifica,
  * y adjunta el usuario decodificado al request.
  */
-export function authenticateJWT(req: Request, res: Response, next: NextFunction) {
+export async function authenticateJWT(req: Request, res: Response, next: NextFunction) {
   try {
     // Extraer token del header Authorization: "Bearer <token>"
     const authHeader = req.headers.authorization;
@@ -40,6 +41,12 @@ export function authenticateJWT(req: Request, res: Response, next: NextFunction)
 
     // Verificar token
     const decoded = verifyAccessToken(token);
+
+    // Un JWT ya emitido deja de servir en cuanto se solicita la baja.
+    const active = await pool.query('SELECT 1 FROM users WHERE id = $1 AND deletion_requested_at IS NULL', [decoded.userId]);
+    if (!active.rows.length) {
+      return res.status(401).json({ success: false, error: { code: 'ACCOUNT_UNAVAILABLE', message: 'Cuenta no disponible' } });
+    }
 
     // Mapear userId a id para consistencia con los controllers
     (req as any).user = {

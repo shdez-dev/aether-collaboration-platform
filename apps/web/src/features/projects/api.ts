@@ -138,6 +138,8 @@ export type ProjectDecision = {
   recorderName: string;
   supersedesId: string | null;
   supersededById: string | null;
+  subjectType: 'PROJECT' | 'OBJECTIVE' | 'DELIVERABLE' | 'OUTCOME';
+  subjectId: string | null;
   isCurrent: boolean;
   createdAt: string;
 };
@@ -145,6 +147,41 @@ export type ProjectDecision = {
 export type ProjectDecisionInput = Pick<ProjectDecision, 'title' | 'outcome' | 'rationale' | 'decisionDate'> & {
   context?: string | null;
   supersedesId?: string | null;
+  subjectType?: ProjectDecision['subjectType'];
+  subjectId?: string | null;
+};
+
+export type ProjectDocumentCategory = 'GENERAL' | 'DIRECTION' | 'REQUIREMENTS' | 'ARCHITECTURE' | 'VERIFICATION' | 'DELIVERY' | 'OPERATIONS' | 'METRICS';
+export type ProjectEvidenceTargetType = 'PROJECT' | 'OBJECTIVE' | 'DELIVERABLE' | 'REQUIREMENT' | 'OUTCOME' | 'DECISION';
+export type ProjectEvidenceLink = {
+  id: string;
+  projectId: string;
+  documentId: string | null;
+  documentVersionId: string | null;
+  documentTitle: string;
+  snapshotText: string;
+  documentUpdatedAt: string;
+  currentDocumentUpdatedAt: string | null;
+  targetType: ProjectEvidenceTargetType;
+  targetId: string | null;
+  claim: string;
+  excerpt: string | null;
+  status: 'PENDING' | 'VERIFIED';
+  createdBy: string | null;
+  createdAt: string;
+  verifiedBy: string | null;
+  verifiedAt: string | null;
+};
+export type ProjectDocumentation = {
+  profiles: Array<{ documentId: string; category: ProjectDocumentCategory }>;
+  evidenceLinks: ProjectEvidenceLink[];
+};
+export type ProjectEvidenceInput = {
+  documentId: string;
+  targetType: ProjectEvidenceTargetType;
+  targetId: string | null;
+  claim: string;
+  excerpt?: string | null;
 };
 
 export type ProjectBaselineEffortUnit = 'HOURS' | 'DAYS' | 'STORY_POINTS';
@@ -362,6 +399,21 @@ export const projectApi = {
   },
   async getBaselines(projectId: string): Promise<ProjectBaseline[]> {
     return (await requireData(apiService.get<{ baselines: ProjectBaseline[] }>(`/api/projects/${projectId}/baselines`, true))).baselines;
+  },
+  async getDocumentation(projectId: string): Promise<ProjectDocumentation> {
+    return requireData(apiService.get<ProjectDocumentation>(`/api/projects/${projectId}/documentation`, true));
+  },
+  async classifyDocument(projectId: string, documentId: string, category: ProjectDocumentCategory): Promise<void> {
+    await requireData(apiService.put(`/api/projects/${projectId}/documents/${documentId}/classification`, { category }, true));
+  },
+  async linkEvidence(projectId: string, input: ProjectEvidenceInput): Promise<ProjectEvidenceLink> {
+    return (await requireData(apiService.post<{ evidenceLink: ProjectEvidenceLink }>(`/api/projects/${projectId}/evidence`, input, true))).evidenceLink;
+  },
+  async setEvidenceStatus(projectId: string, evidenceId: string, status: ProjectEvidenceLink['status']): Promise<ProjectEvidenceLink> {
+    return (await requireData(apiService.patch<{ evidenceLink: ProjectEvidenceLink }>(`/api/projects/${projectId}/evidence/${evidenceId}`, { status }, true))).evidenceLink;
+  },
+  async removeEvidence(projectId: string, evidenceId: string): Promise<void> {
+    await requireData(apiService.delete(`/api/projects/${projectId}/evidence/${evidenceId}`, true));
   },
   async createBaseline(projectId: string, input: ProjectBaselineInput): Promise<ProjectBaseline> {
     return (await requireData(apiService.post<{ baseline: ProjectBaseline }>(`/api/projects/${projectId}/baselines`, input, true))).baseline;

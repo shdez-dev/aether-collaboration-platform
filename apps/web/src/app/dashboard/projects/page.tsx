@@ -58,6 +58,14 @@ function hasChecklistGap(project: Project, key: 'team' | 'board' | 'milestone') 
   return project.formalization?.checklist.find((item) => item.key === key)?.done === false;
 }
 
+function isBeforeToday(value?: string | null) {
+  if (!value) return false;
+
+  const today = new Date();
+  const todayKey = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+  return value.slice(0, 10) < todayKey;
+}
+
 function getNextMilestone(project: Project) {
   const milestones = (project.milestones ?? [])
     .filter((milestone) => milestone.status === 'PENDING')
@@ -91,12 +99,44 @@ function getPortfolioHealth(project: Project) {
   if (project.status === 'ON_HOLD' || project.maturityStage === 'ON_HOLD') {
     return { label: 'En pausa', tone: '#A97556', soft: 'rgba(219,138,102,0.12)' };
   }
+
+  const maturityStage = project.maturityStage ?? 'IDEA';
+  if (maturityStage === 'COMPLETED' || project.status === 'COMPLETED') {
+    return { label: 'Completado', tone: '#548B73', soft: 'rgba(118,168,120,0.12)' };
+  }
+  if (maturityStage === 'ARCHIVED') {
+    return { label: 'Archivado', tone: 'var(--c-text3)', soft: 'rgba(123,143,168,0.08)' };
+  }
+  if ((project.operationalRisk?.blockedCards ?? 0) > 0) {
+    return { label: 'Bloqueado', tone: '#A97556', soft: 'rgba(219,138,102,0.12)' };
+  }
+
+  const hasOverdueMilestone = (project.milestones ?? []).some((milestone) =>
+    milestone.status === 'MISSED' || (milestone.status === 'PENDING' && isBeforeToday(milestone.date))
+  );
+  const hasOverdueEndDate = isBeforeToday(project.endDate);
+  const hasExecutionRisk =
+    (project.operationalRisk?.overdueCards ?? 0) > 0
+    || hasOverdueMilestone
+    || hasOverdueEndDate
+    || (project.operationalRisk?.activeRiskCount ?? 0) > 0;
+
+  if (hasExecutionRisk) {
+    return { label: 'En riesgo', tone: '#AA895E', soft: 'rgba(196,168,110,0.12)' };
+  }
+
+  if ((maturityStage === 'IDEA' || maturityStage === 'DRAFT') && !isActiveProject(project)) {
+    return { label: 'Por preparar', tone: '#8D84B0', soft: 'rgba(123,143,168,0.12)' };
+  }
+
   if (hasChecklistGap(project, 'team')) {
     return { label: 'Bloqueado', tone: '#A97556', soft: 'rgba(219,138,102,0.12)' };
   }
+
   if (hasChecklistGap(project, 'board') || hasChecklistGap(project, 'milestone')) {
-    return { label: 'En riesgo', tone: '#AA895E', soft: 'rgba(196,168,110,0.12)' };
+    return { label: 'En preparación', tone: '#8076A7', soft: 'rgba(75,96,127,0.14)' };
   }
+
   if (isActiveProject(project)) {
     return { label: 'En marcha', tone: '#9271BD', soft: 'rgba(116,82,166,0.12)' };
   }
@@ -109,6 +149,20 @@ function formatPortfolioDate(date: Date | null) {
 }
 
 function getProjectPortfolioReason(project: Project) {
+  const maturityStage = project.maturityStage ?? 'IDEA';
+  if ((project.operationalRisk?.blockedCards ?? 0) > 0) return 'Hay tarjetas bloqueadas por sus dependencias.';
+  if ((project.operationalRisk?.overdueCards ?? 0) > 0) return 'Hay tarjetas con la fecha vencida.';
+  if ((project.operationalRisk?.activeRiskCount ?? 0) > 0) return 'Hay riesgos abiertos en el registro del proyecto.';
+  if ((project.milestones ?? []).some((milestone) => milestone.status === 'MISSED' || (milestone.status === 'PENDING' && isBeforeToday(milestone.date)))) {
+    return 'Hay un hito vencido.';
+  }
+  if (isBeforeToday(project.endDate)) return 'La fecha de cierre ya pasó.';
+  if ((maturityStage === 'IDEA' || maturityStage === 'DRAFT') && !isActiveProject(project)) {
+    return maturityStage === 'IDEA'
+      ? 'Idea inicial. Define el siguiente paso cuando esté lista para avanzar.'
+      : 'Borrador en desarrollo. Completa la planificación cuando la propuesta esté definida.';
+  }
+
   const missingChecklist = project.formalization?.checklist.filter((item) => !item.done) ?? [];
   const missingCoverage = project.coverage?.fields.filter((field) => field.state === 'APPLIES_EMPTY') ?? [];
 
@@ -116,10 +170,10 @@ function getProjectPortfolioReason(project: Project) {
     return 'Sigue sin equipo base asignado.';
   }
   if (missingChecklist.some((item) => item.key === 'board')) {
-    return 'Todavia no tiene tablero de ejecucion.';
+    return 'Todavía no tiene un tablero de ejecución.';
   }
   if (missingChecklist.some((item) => item.key === 'milestone')) {
-    return 'Falta declarar el primer hito visible.';
+    return 'Falta declarar el próximo hito.';
   }
   if (missingCoverage.length > 0) {
     return `Aun falta ${missingCoverage[0].label.toLowerCase()}.`;
@@ -695,7 +749,17 @@ export default function ProjectsPage() {
   }, [projects]);
 
   const portfolioProjects = useMemo(() => {
-    const priority: Record<string, number> = { Bloqueado: 0, 'En pausa': 1, 'En riesgo': 2, 'En marcha': 3, 'En seguimiento': 4 };
+    const priority: Record<string, number> = {
+      Bloqueado: 0,
+      'En pausa': 1,
+      'En riesgo': 2,
+      'En marcha': 3,
+      'En preparación': 4,
+      'En seguimiento': 5,
+      'Por preparar': 6,
+      Completado: 7,
+      Archivado: 8,
+    };
     return [...filteredProjects].sort((a, b) => {
       const healthDifference = priority[getPortfolioHealth(a).label] - priority[getPortfolioHealth(b).label];
       if (healthDifference !== 0) return healthDifference;

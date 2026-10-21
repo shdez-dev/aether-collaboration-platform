@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   ArrowLeft,
   CalendarDays,
   Check,
+  ChevronDown,
   Clock3,
-  Languages,
+  Flag,
   Mail,
   MapPin,
   MessageCircle,
@@ -34,7 +37,6 @@ type Person = {
   bio?: string | null;
   location?: string | null;
   timezone?: string | null;
-  language?: string | null;
   createdAt?: string | null;
 };
 type Conversation = Person & {
@@ -61,6 +63,30 @@ type Detail = Person & {
   eligibility?: Eligibility;
 };
 type Tab = 'chats' | 'people' | 'requests';
+type ReportReason = 'HARASSMENT' | 'SPAM' | 'IMPERSONATION' | 'INAPPROPRIATE_CONTENT' | 'OTHER';
+const REPORT_DESCRIPTION_MAX = 1000;
+const CHAT_WORD_LIMIT = 500;
+const CHAT_WORD_COUNTER_THRESHOLD = 400;
+const REPORT_REASONS: { value: ReportReason; label: string }[] = [
+  { value: 'HARASSMENT', label: 'Acoso o amenazas' },
+  { value: 'SPAM', label: 'Spam o mensajes no deseados' },
+  { value: 'IMPERSONATION', label: 'Suplantación de identidad' },
+  { value: 'INAPPROPRIATE_CONTENT', label: 'Contenido inapropiado' },
+  { value: 'OTHER', label: 'Otro motivo' },
+];
+
+function countWords(value: string) {
+  return value.trim() ? value.trim().split(/\s+/u).length : 0;
+}
+
+function capWords(value: string, limit: number) {
+  let count = 0;
+  for (const match of value.matchAll(/\S+/gu)) {
+    count += 1;
+    if (count > limit) return value.slice(0, match.index ?? value.length).trimEnd();
+  }
+  return value;
+}
 
 function Avatar({ person, size = 42, status }: { person: Person; size?: number; status: PresenceStatus }) {
   return <PresenceAvatar name={person.name} avatar={person.avatar} status={status} size={size} />;
@@ -97,6 +123,12 @@ export default function ContactsPage() {
   const [error, setError] = useState('');
   const [profileOpen, setProfileOpen] = useState(true);
   const [mobileDetail, setMobileDetail] = useState(false);
+  const [reportTarget, setReportTarget] = useState<Person | null>(null);
+  const [reportReason, setReportReason] = useState<ReportReason | ''>('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportSending, setReportSending] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const [reportSent, setReportSent] = useState(false);
   const searchSequence = useRef(0);
   const selectionSequence = useRef(0);
   const activeConversation = useRef<string | null>(null);
@@ -121,7 +153,7 @@ export default function ContactsPage() {
   }, [conversationId, messages.length]);
 
   useEffect(() => {
-    if (!profileOpen || !selected) return;
+    if (!profileOpen || !selected || reportTarget) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setProfileOpen(false);
@@ -130,7 +162,45 @@ export default function ContactsPage() {
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [profileOpen, selected]);
+  }, [profileOpen, selected, reportTarget]);
+
+  useEffect(() => {
+    if (!reportTarget) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !reportSending) setReportTarget(null);
+    };
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [reportTarget, reportSending]);
+
+  function openReport(person: Person) {
+    setReportTarget(person);
+    setReportReason('');
+    setReportDescription('');
+    setReportError('');
+    setReportSent(false);
+  }
+
+  async function sendReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!reportTarget || !reportReason || reportDescription.trim().length < 20 || reportDescription.trim().length > REPORT_DESCRIPTION_MAX || reportSending) return;
+    setReportSending(true);
+    setReportError('');
+    try {
+      const response = await apiService.post('/api/user-reports', {
+        reportedUserId: reportTarget.id, reason: reportReason, description: reportDescription.trim(),
+      }, true);
+      if (!response.success) {
+        setReportError(response.error?.message ?? 'No se pudo enviar la denuncia. Inténtalo de nuevo.');
+        return;
+      }
+      setReportSent(true);
+    } catch {
+      setReportError('No se pudo conectar con el servidor. Inténtalo de nuevo.');
+    } finally {
+      setReportSending(false);
+    }
+  }
 
   const refresh = useCallback(async () => {
     const [chats, contacts, pending, saved] = await Promise.all([
@@ -314,7 +384,7 @@ export default function ContactsPage() {
 
   async function send(event: FormEvent) {
     event.preventDefault();
-    if (!conversationId || !draft.trim() || busy) return;
+    if (!conversationId || !draft.trim() || countWords(draft) > CHAT_WORD_LIMIT || busy) return;
     setBusy(true);
     setError('');
     stickToBottom.current = true;
@@ -596,7 +666,7 @@ export default function ContactsPage() {
                   <span className={styles.rowText}>
                     <strong>{person.name}</strong>
                     <span className={styles.rowPreview}>
-                      {presenceLabel(presence.statusFor(person.id))} — {person.position || person.email || 'Contacto de Aether'}
+                      {presenceLabel(presence.statusFor(person.id))}, {person.position || person.email || 'Contacto de Aether'}
                     </span>
                   </span>
                   {favorites.some((p) => p.id === person.id) && (
@@ -762,8 +832,8 @@ export default function ContactsPage() {
                     aria-label="Escribir mensaje"
                     placeholder={`Escribe a ${selected.name.split(' ')[0]}…`}
                     value={draft}
-                    maxLength={4000}
-                    onChange={(event) => setDraft(event.target.value)}
+                    maxLength={8000}
+                    onChange={(event) => setDraft(capWords(event.target.value, CHAT_WORD_LIMIT))}
                     onKeyDown={(event) => {
                       if (
                         event.key === 'Enter' &&
@@ -776,14 +846,19 @@ export default function ContactsPage() {
                     }}
                   />
                   <div className={styles.composerFooter}>
-                    <span>Enter para enviar — Shift + Enter para salto de línea</span>
-                    <button
-                      type="submit"
-                      aria-label="Enviar mensaje"
-                      disabled={!draft.trim() || busy}
-                    >
-                      <Send size={17} />
-                    </button>
+                    <span>Enter para enviar; Shift + Enter para salto de línea</span>
+                    <div className={styles.composerActions}>
+                      {countWords(draft) >= CHAT_WORD_COUNTER_THRESHOLD && <span className={styles.composerCounter} data-near-limit={countWords(draft) >= CHAT_WORD_LIMIT - 50} aria-label={`${countWords(draft)} de ${CHAT_WORD_LIMIT} palabras`}>
+                        {countWords(draft)} / {CHAT_WORD_LIMIT} palabras
+                      </span>}
+                      <button
+                        type="submit"
+                        aria-label="Enviar mensaje"
+                        disabled={!draft.trim() || busy}
+                      >
+                        <Send size={17} />
+                      </button>
+                    </div>
                   </div>
                 </form>
               </>
@@ -960,18 +1035,6 @@ export default function ContactsPage() {
                         <span>{selected.timezone}</span>
                       </div>
                     )}
-                    {selected.language && (
-                      <div className={styles.profileLine}>
-                        <Languages size={15} />
-                        <span>
-                          {selected.language === 'es'
-                            ? 'Español'
-                            : selected.language === 'en'
-                              ? 'English'
-                              : selected.language}
-                        </span>
-                      </div>
-                    )}
                     {selected.createdAt && (
                       <div className={styles.profileLine}>
                         <CalendarDays size={15} />
@@ -996,8 +1059,7 @@ export default function ContactsPage() {
                             ? 'Espacio'
                             : item.kind === 'team'
                               ? 'Equipo'
-                              : 'Proyecto'}{' '}
-                          — {item.name}
+                              : 'Proyecto'}: {item.name}
                         </span>
                       ))}
                     </div>
@@ -1011,8 +1073,48 @@ export default function ContactsPage() {
               <ShieldCheck size={16} />
               <span>Chat privado. Los mensajes se conservan durante 30 días.</span>
             </div>
+            {selected.id !== userId && <button type="button" className={styles.reportUserButton} onClick={() => openReport(selected)}><Flag size={15} /> Denunciar usuario</button>}
           </div>
         </aside>
+      )}
+      {reportTarget && typeof document !== 'undefined' && createPortal(
+        <div className={styles.reportBackdrop} onMouseDown={(event) => { if (event.target === event.currentTarget && !reportSending) setReportTarget(null); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="contact-report-title" aria-describedby="contact-report-description" className={styles.reportDialog}>
+            <div className={styles.reportHeading}>
+              <span className={styles.reportIcon}><Flag size={20} /></span>
+              <div><h2 id="contact-report-title">Denunciar a {reportTarget.name}</h2><p id="contact-report-description">Cuéntanos qué ocurrió. Solo la administración de AETHER podrá revisar este reporte.</p></div>
+              <button type="button" aria-label="Cerrar denuncia" onClick={() => setReportTarget(null)} disabled={reportSending}><X size={18} /></button>
+            </div>
+            {reportSent ? <div className={styles.reportSuccess} role="status"><ShieldCheck size={22} /><strong>Denuncia enviada</strong><p>La recibimos en el panel de administración para revisarla.</p><button type="button" onClick={() => setReportTarget(null)}>Cerrar</button></div> :
+              <form onSubmit={(event) => void sendReport(event)} className={styles.reportForm}>
+                <label htmlFor="contact-report-reason">Motivo</label>
+                <DropdownMenu.Root modal={false}>
+                  <DropdownMenu.Trigger asChild>
+                    <button id="contact-report-reason" type="button" autoFocus disabled={reportSending} className={`${styles.reportReasonTrigger} ${reportReason ? styles.reportReasonSelected : ''}`} aria-label={`Motivo: ${REPORT_REASONS.find((reason) => reason.value === reportReason)?.label ?? 'Selecciona un motivo'}`}>
+                      <span>{REPORT_REASONS.find((reason) => reason.value === reportReason)?.label ?? 'Selecciona un motivo'}</span>
+                      <ChevronDown size={16} aria-hidden="true" />
+                    </button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content className={styles.reportReasonMenu} align="start" sideOffset={7} collisionPadding={12}>
+                      <DropdownMenu.Label className={styles.reportReasonMenuLabel}>MOTIVO DE LA DENUNCIA</DropdownMenu.Label>
+                      <DropdownMenu.RadioGroup value={reportReason} onValueChange={(value) => setReportReason(value as ReportReason)}>
+                        {REPORT_REASONS.map((reason) => <DropdownMenu.RadioItem key={reason.value} value={reason.value} className={styles.reportReasonOption}>
+                          <span className={styles.reportReasonOptionText}>{reason.label}</span>
+                          <DropdownMenu.ItemIndicator className={styles.reportReasonCheck}><Check size={15} aria-hidden="true" /></DropdownMenu.ItemIndicator>
+                        </DropdownMenu.RadioItem>)}
+                      </DropdownMenu.RadioGroup>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+                <div className={styles.reportDescriptionHeading}><label htmlFor="contact-report-description-field">¿Qué fue lo que ocurrió?</label><span>{reportDescription.length}/{REPORT_DESCRIPTION_MAX} caracteres</span></div>
+                <textarea id="contact-report-description-field" required minLength={20} maxLength={REPORT_DESCRIPTION_MAX} rows={5} value={reportDescription} onChange={(event) => setReportDescription(event.target.value)} placeholder="Describe lo sucedido con detalles que nos ayuden a revisarlo…" aria-describedby="contact-report-description-hint" />
+                <span id="contact-report-description-hint" className={styles.reportHint}>Escribe entre 20 y {REPORT_DESCRIPTION_MAX} caracteres. Incluye el contexto relevante y evita compartir contraseñas o datos privados innecesarios.</span>
+                {reportError && <p className={styles.reportError} role="alert">{reportError}</p>}
+                <div className={styles.reportActions}><button type="button" onClick={() => setReportTarget(null)} disabled={reportSending}>Cancelar</button><button type="submit" disabled={reportSending || !reportReason || reportDescription.trim().length < 20}>{reportSending ? 'Enviando…' : 'Enviar denuncia'}</button></div>
+              </form>}
+          </section>
+        </div>, document.body,
       )}
     </div>
   );

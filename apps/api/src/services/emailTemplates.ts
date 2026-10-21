@@ -91,12 +91,87 @@ export function renderPasswordResetEmail(userName: string, resetLink: string): s
 }
 
 export function renderOrganizationInvitationEmail(inviterName: string, organizationName: string, invitationLink: string): string {
-  return renderTransactionalEmail({
-    preview: `${inviterName} te invitó a ${organizationName} en Aether.`,
-    category: 'INVITACIÓN A UNA ORGANIZACIÓN', title: 'Te invitaron a colaborar.',
-    paragraphs: [`${inviterName} te invitó a unirte a ${organizationName} en Aether.`, 'Inicia sesión con la misma dirección de correo que recibió esta invitación para aceptarla.'],
-    actionLabel: 'Aceptar invitación', actionUrl: invitationLink,
-    notice: 'Esta invitación expira en 7 días.',
-    footerNote: 'Si no esperabas esta invitación, puedes ignorar este correo.',
-  });
+  const inviter = escapeHtml(inviterName);
+  const organization = escapeHtml(organizationName);
+  const link = escapeHtml(invitationLink);
+  return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Tu invitación a Aether</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f3fa;color:#201b2b;font-family:Arial,Helvetica,sans-serif;">
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;opacity:0;overflow:hidden;">${inviter} te invitó a colaborar en ${organization}.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6f3fa" style="width:100%;background:#f6f3fa;">
+    <tr><td align="center" style="padding:36px 16px 48px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+        <tr><td style="padding:0 4px 24px;color:#654598;font-size:17px;font-weight:800;letter-spacing:3px;">AETHER <span style="color:#a48dbd;font-weight:400;">/ PILOTO</span></td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;border:1px solid #e6dfed;border-radius:18px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td bgcolor="#7650aa" style="height:8px;font-size:1px;line-height:8px;background:#7650aa;">&nbsp;</td></tr>
+            <tr><td style="padding:42px 44px 12px;">
+              <p style="margin:0 0 15px;color:#7650aa;font-size:11px;font-weight:800;letter-spacing:2px;">INVITACIÓN PERSONAL</p>
+              <h1 style="margin:0 0 19px;color:#201b2b;font-size:30px;line-height:1.2;letter-spacing:-1px;">Un espacio para avanzar juntos.</h1>
+              <p style="margin:0 0 14px;color:#51485f;font-size:16px;line-height:1.65;"><strong style="color:#201b2b;">${inviter}</strong> te invitó a formar parte de <strong style="color:#201b2b;">${organization}</strong> en Aether.</p>
+              <p style="margin:0;color:#51485f;font-size:15px;line-height:1.65;">Podrás organizar el trabajo, seguir proyectos y colaborar con tu equipo desde un mismo lugar.</p>
+            </td></tr>
+            <tr><td style="padding:20px 44px 26px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#7650aa" style="background:#7650aa;border-radius:10px;">
+                <a href="${link}" style="display:inline-block;padding:16px 25px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">Aceptar invitación &rarr;</a>
+              </td></tr></table>
+            </td></tr>
+            <tr><td style="padding:0 44px 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f7f4fa" style="background:#f7f4fa;border-radius:10px;"><tr><td style="padding:17px 19px;color:#61566d;font-size:13px;line-height:1.6;">
+                <strong style="color:#342a42;">Tu acceso es personal.</strong> Entra con el correo que recibió esta invitación. El enlace vence en 7 días y se desactiva al aceptarlo.
+              </td></tr></table>
+              <p style="margin:23px 0 7px;color:#756a80;font-size:12px;line-height:1.5;">Si el botón no abre, copia este enlace en tu navegador:</p>
+              <a href="${link}" style="color:#654598;font-size:12px;line-height:1.6;text-decoration:underline;word-break:break-all;overflow-wrap:anywhere;">${link}</a>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:22px 14px 0;color:#81778b;font-size:12px;line-height:1.6;text-align:center;">Si no esperabas esta invitación, ignora este mensaje.<br>Aether · Todo conectado</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export function renderPlatformInvitationEmail(invitationLink: string): string {
+  const link = escapeHtml(invitationLink);
+  return `<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Tu invitación a Aether</title></head>
+<body style="margin:0;padding:0;background:#f6f3fa;color:#201b2b;font-family:Arial,Helvetica,sans-serif;">
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;opacity:0;overflow:hidden;">Tu acceso personal al piloto de Aether está listo.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6f3fa" style="width:100%;background:#f6f3fa;">
+    <tr><td align="center" style="padding:36px 16px 48px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+        <tr><td style="padding:0 4px 24px;color:#654598;font-size:17px;font-weight:800;letter-spacing:3px;">AETHER <span style="color:#a48dbd;font-weight:400;">/ PILOTO</span></td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;border:1px solid #e6dfed;border-radius:18px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td bgcolor="#7650aa" style="height:8px;font-size:1px;line-height:8px;background:#7650aa;">&nbsp;</td></tr>
+            <tr><td style="padding:42px 44px 12px;">
+              <p style="margin:0 0 15px;color:#7650aa;font-size:11px;font-weight:800;letter-spacing:2px;">ACCESO PERSONAL</p>
+              <h1 style="margin:0 0 19px;color:#201b2b;font-size:30px;line-height:1.2;letter-spacing:-1px;">Te invitamos a Aether.</h1>
+              <p style="margin:0 0 14px;color:#51485f;font-size:16px;line-height:1.65;">Tu acceso al piloto está listo. Crea tu cuenta y descubre una forma de conectar ideas, proyectos y personas en un mismo lugar.</p>
+              <p style="margin:0;color:#51485f;font-size:15px;line-height:1.65;">Esta invitación te permite entrar a Aether. Podrás crear tu espacio personal y sumarte a organizaciones cuando te inviten por separado.</p>
+            </td></tr>
+            <tr><td style="padding:20px 44px 26px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#7650aa" style="background:#7650aa;border-radius:10px;"><a href="${link}" style="display:inline-block;padding:16px 25px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">Crear mi cuenta &rarr;</a></td></tr></table></td></tr>
+            <tr><td style="padding:0 44px 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f7f4fa" style="background:#f7f4fa;border-radius:10px;"><tr><td style="padding:17px 19px;color:#61566d;font-size:13px;line-height:1.6;"><strong style="color:#342a42;">Solo para ti.</strong> Regístrate con el correo que recibió este mensaje. El enlace vence en 7 días y se desactiva al crear tu cuenta.</td></tr></table>
+              <p style="margin:23px 0 7px;color:#756a80;font-size:12px;line-height:1.5;">Si el botón no abre, copia este enlace en tu navegador:</p>
+              <a href="${link}" style="color:#654598;font-size:12px;line-height:1.6;text-decoration:underline;word-break:break-all;overflow-wrap:anywhere;">${link}</a>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:22px 14px 0;color:#81778b;font-size:12px;line-height:1.6;text-align:center;">Si no esperabas esta invitación, ignora este mensaje.<br>Aether · Todo conectado</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }

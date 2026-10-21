@@ -4,10 +4,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { apiService } from '@/services/apiService';
 import { useToast } from '@/hooks/use-toast';
 import { formatPhoneDisplay, cleanPhoneValue, validatePhone } from '@/lib/utils/phone';
 import { useT } from '@/lib/i18n';
-import { Camera, Clock3, Mail, MapPin, Phone } from 'lucide-react';
+import { AlertTriangle, Building2, Camera, Clock3, FolderKanban, Layers3, Mail, MapPin, Phone, Trash2, X } from 'lucide-react';
+import styles from './page.module.css';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -26,24 +28,27 @@ const flag = (code: string) =>
 // ── Field components ──────────────────────────────────────────────────────────
 
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontFamily: SORA, fontSize: '11.5px', fontWeight: 600,
-  letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-text3)', marginBottom: '8px',
+  display: 'block', fontFamily: MANROPE, fontSize: '13px', fontWeight: 700,
+  color: 'var(--c-text2)', marginBottom: '8px',
 };
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
-  padding: '13px 15px', borderRadius: '8px',
-  border: '1px solid rgba(97,71,130,0.13)',
-  background: 'rgba(97,71,130,0.04)',
-  color: 'var(--c-text)', fontFamily: MANROPE, fontSize: '14.5px', outline: 'none',
+  padding: '12px 14px', borderRadius: '10px',
+  border: '1px solid var(--c-border2)',
+  background: 'var(--c-surface2)',
+  color: 'var(--c-text)', fontFamily: MANROPE, fontSize: '14px', outline: 'none',
 };
 
-function AInput({ value, onChange, type = 'text', placeholder, disabled, readOnly }: {
+function AInput({ id, value, onChange, type = 'text', placeholder, disabled, readOnly }: {
+  id?: string;
   value: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   type?: string; placeholder?: string; disabled?: boolean; readOnly?: boolean;
 }) {
   return (
     <input
+      className={styles.fieldControl}
+      id={id}
       type={type} value={value} onChange={onChange}
       placeholder={placeholder} disabled={disabled} readOnly={readOnly}
       style={{ ...inputStyle, opacity: disabled || readOnly ? 0.55 : 1, cursor: disabled || readOnly ? 'default' : 'text' }}
@@ -53,12 +58,15 @@ function AInput({ value, onChange, type = 'text', placeholder, disabled, readOnl
   );
 }
 
-function ATextarea({ value, onChange, placeholder, rows = 3 }: {
+function ATextarea({ id, value, onChange, placeholder, rows = 3 }: {
+  id?: string;
   value: string; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   placeholder?: string; rows?: number;
 }) {
   return (
     <textarea
+      className={styles.fieldControl}
+      id={id}
       value={value} onChange={onChange} placeholder={placeholder} rows={rows}
       style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.55 }}
       onFocus={e => { e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)'; }}
@@ -75,23 +83,20 @@ function SectionCard({ children, icon, iconBg, title, desc }: {
   title: string; desc: string;
 }) {
   return (
-    <section style={{
-      border: '1px solid rgba(97,71,130,0.08)', borderRadius: '8px',
-      background: 'rgba(97,71,130,0.02)', padding: 'clamp(20px,3vw,28px)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '13px', marginBottom: '22px' }}>
+    <section className={styles.sectionCard}>
+      <div className={styles.sectionHeader}>
         <span style={{
-          width: '40px', height: '40px', borderRadius: '50%',
+          width: '40px', height: '40px', borderRadius: '11px',
           background: iconBg, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           {icon}
         </span>
         <div>
-          <h2 style={{ fontFamily: SORA, fontWeight: 600, fontSize: '1.1rem', color: 'var(--c-text)', margin: 0 }}>
+          <h2 style={{ fontFamily: SORA, fontWeight: 700, fontSize: '1.05rem', color: 'var(--c-text)', margin: 0 }}>
             {title}
           </h2>
-          <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'var(--c-text3)' }}>{desc}</p>
+          <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--c-text3)', lineHeight: 1.5 }}>{desc}</p>
         </div>
       </div>
       {children}
@@ -117,6 +122,8 @@ function PositionPicker({ value, onChange }: { value: string; onChange: (v: stri
   return (
     <div style={{ position: 'relative' }}>
       <button
+        className={styles.fieldControl}
+        aria-label="Cargo o posición"
         type="button"
         onClick={() => setOpen(v => !v)}
         style={{
@@ -240,6 +247,7 @@ function CountryPicker({ value, onChange }: { value: string; onChange: (v: strin
           </span>
         )}
         <input
+          className={styles.fieldControl}
           id="profile-location"
           type="text" placeholder={open ? 'Buscar país…' : 'Selecciona un país'}
           value={open ? query : (value || '')}
@@ -333,9 +341,19 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteClosing, setDeleteClosing] = useState(false);
+  const [deleteChecking, setDeleteChecking] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteBlockers, setDeleteBlockers] = useState<Array<{ type: string; id: string; name: string }>>([]);
+  const deleteCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
 
   const [form, setForm] = useState({
-    name: '', bio: '', position: '', phone: '', location: '', language: 'es',
+    name: '', bio: '', position: '', phone: '', location: '',
   });
   const [pw, setPw] = useState({ cur: '', next: '', conf: '' });
 
@@ -356,7 +374,6 @@ export default function ProfilePage() {
       position: user.position || '',
       phone:    user.phone    || '',
       location: user.location || '',
-      language: user.language || 'es',
     });
     setPhoneDisp(formatPhoneDisplay(user.phone || ''));
   }, [user]);
@@ -422,6 +439,62 @@ export default function ProfilePage() {
     }
   }
 
+  async function openDeletion() {
+    if (deleteCloseTimer.current) clearTimeout(deleteCloseTimer.current);
+    setDeleteClosing(false);
+    setDeleteOpen(true);
+    setDeleteError('');
+    setDeleteChecking(true);
+    const response = await apiService.get<{ blockers: Array<{ type: string; id: string; name: string }> }>('/api/users/me/deletion', true);
+    setDeleteBlockers(response.data?.blockers ?? []);
+    if (!response.success) setDeleteError(response.error?.message ?? 'No se pudo revisar la cuenta.');
+    setDeleteChecking(false);
+  }
+
+  function closeDeletion() {
+    if (deleteLoading || deleteClosing) return;
+    setDeleteClosing(true);
+    deleteCloseTimer.current = setTimeout(() => {
+      setDeleteOpen(false);
+      setDeleteClosing(false);
+      setDeletePassword('');
+      setDeleteConfirmation('');
+      deleteTriggerRef.current?.focus();
+    }, 180);
+  }
+
+  useEffect(() => {
+    if (!deleteOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeDeletion();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [deleteOpen, deleteLoading, deleteClosing]);
+
+  useEffect(() => () => {
+    if (deleteCloseTimer.current) clearTimeout(deleteCloseTimer.current);
+  }, []);
+
+  async function handleDeleteAccount(e: React.FormEvent) {
+    e.preventDefault();
+    if (deleteLoading || deleteConfirmation !== 'ELIMINAR' || !deletePassword) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    const response = await apiService.post<{ status: string }>('/api/users/me/deletion', { password: deletePassword }, true);
+    if (!response.success) {
+      setDeleteError(response.error?.message ?? 'No se pudo iniciar la eliminación.');
+      setDeleteLoading(false);
+      return;
+    }
+    setDeletePassword('');
+    // El servidor ya invalidó la cuenta; limpiar localmente sin intentar /logout
+    // con un token que ahora debe ser rechazado.
+    useAuthStore.setState({ accessToken: null, refreshToken: null });
+    await logout();
+    router.replace('/login');
+  }
+
   async function handlePwSave(e: React.FormEvent) {
     e.preventDefault();
     if (pw.next !== pw.conf) { toast({ title: t.error_title, description: t.profile_toast_passwords_no_match, variant: 'destructive' }); return; }
@@ -449,38 +522,28 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={{ fontFamily: MANROPE, animation: 'fadeUp .4s ease both', padding: 'clamp(24px,3.5vw,44px) clamp(20px,4vw,48px) 80px' }}>
+    <div className={styles.page}>
 
       {/* Page header */}
-      <h1 style={{ fontFamily: SORA, fontWeight: 700, fontSize: 'clamp(1.7rem,3vw,2.2rem)', letterSpacing: '-0.02em', color: 'var(--c-text)', margin: 0 }}>
-        Mi perfil
-      </h1>
-      <p style={{ margin: '7px 0 0', fontSize: '1.02rem', color: 'var(--c-text2)' }}>
-        Administra tu información personal y la configuración de tu cuenta.
-      </p>
+      <header className={styles.pageHeader}>
+        <div>
+          <h1>Mi perfil</h1>
+          <p>Tu información, foto y seguridad de la cuenta en un solo lugar.</p>
+        </div>
+        <span className={styles.accountEmail}><Mail size={15} />{user.email}</span>
+      </header>
 
       {/* Two-column layout */}
-      <div style={{ display: 'flex', gap: '26px', alignItems: 'flex-start', marginTop: '28px', flexWrap: 'wrap' }}>
+      <div className={styles.profileLayout}>
 
         {/* ── Left column ── */}
-        <aside style={{ flex: '1 1 280px', maxWidth: '320px', minWidth: '260px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <aside className={styles.previewColumn}>
 
-          <div style={{ fontFamily: SORA, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-text4)', paddingLeft: 2 }}>
-            Vista previa de tu perfil
-          </div>
+          <div className={styles.previewHeading}><strong>Vista previa</strong><span>Refleja tus cambios antes de guardar</span></div>
 
           {/* Vista previa inspirada en las tarjetas de perfil de Discord. */}
-          <section aria-label="Vista previa del perfil" style={{
-            border: '1px solid var(--c-border)', borderRadius: 16,
-            background: 'var(--c-surface)', overflow: 'hidden',
-            boxShadow: '0 14px 32px rgba(36, 24, 55, 0.09)',
-          }}>
-            <div style={{
-              height: 104, position: 'relative',
-              background: 'radial-gradient(circle at 82% 15%, rgba(226,207,243,0.5), transparent 35%), linear-gradient(135deg, #4B365F 0%, #7452A6 58%, #A47AC8 100%)',
-            }}>
-              <span style={{ position: 'absolute', top: 15, right: 17, color: 'rgba(255,255,255,0.86)', fontSize: 10, fontWeight: 800, letterSpacing: '0.11em', textTransform: 'uppercase' }}>Mi perfil</span>
-            </div>
+          <section aria-label="Vista previa del perfil" className={styles.previewCard}>
+            <div className={styles.previewCover} aria-hidden="true" />
 
             <div style={{ padding: '0 20px 22px', marginTop: -39, position: 'relative' }}>
               <div style={{ position: 'relative', width: 82, height: 82 }}>
@@ -491,10 +554,6 @@ export default function ProfilePage() {
                     {initials(form.name || user.name)}
                   </div>
                 )}
-                <button type="button" onClick={() => fileRef.current?.click()} aria-label="Cambiar foto" title="Cambiar foto"
-                  style={{ position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: '50%', border: '3px solid var(--c-surface)', background: 'var(--c-surface2)', color: 'var(--c-text2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <Camera size={13} />
-                </button>
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile} />
               </div>
 
@@ -527,29 +586,22 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <button type="button" onClick={() => fileRef.current?.click()}
-                style={{ marginTop: 20, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--c-border2)', background: 'var(--c-surface2)', color: 'var(--c-text2)', fontFamily: SORA, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+              <button type="button" onClick={() => fileRef.current?.click()} className={styles.photoButton}>
                 <Camera size={14} /> Cambiar foto
               </button>
               <p style={{ margin: '8px 0 0', color: 'var(--c-text4)', fontSize: 10.5, textAlign: 'center' }}>JPG, PNG o GIF, máximo 10 MB</p>
+              <p style={{ margin: '5px 0 0', color: 'var(--c-text3)', fontSize: 10.5, lineHeight: 1.5, textAlign: 'center' }}>Usa una foto propia o una que tengas permiso para publicar. <a href="/legal/terms#contenido" style={{ color: 'var(--c-accent-text)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Ver condiciones</a></p>
             </div>
           </section>
           {/* Logout button */}
           <button
+            type="button"
+            className={styles.logoutButton}
             onClick={handleLogout}
             disabled={isLoggingOut}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
-              padding: '12px', borderRadius: '8px', cursor: isLoggingOut ? 'not-allowed' : 'pointer',
-              background: 'rgba(224,82,82,0.07)', border: '1px solid rgba(224,82,82,0.22)',
-              color: '#B45C72', fontFamily: SORA, fontWeight: 600, fontSize: '13.5px',
-              opacity: isLoggingOut ? 0.6 : 1, transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { if (!isLoggingOut) { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.14)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.4)'; } }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.07)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(224,82,82,0.22)'; }}
           >
             {isLoggingOut ? (
-              <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(224,82,82,0.3)', borderTopColor: '#B45C72', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid var(--c-border2)', borderTopColor: 'var(--c-text2)', animation: 'spin 0.8s linear infinite' }} />
             ) : (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -561,7 +613,7 @@ export default function ProfilePage() {
         </aside>
 
         {/* ── Right column ── */}
-        <div style={{ flex: '1 1 460px', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className={styles.editorColumn}>
 
           {/* Información personal */}
           <SectionCard
@@ -571,16 +623,16 @@ export default function ProfilePage() {
             desc="Actualiza tu perfil y tus datos de contacto."
           >
             <form onSubmit={handleProfileSave}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: '18px' }}>
+              <div className={styles.personalFields}>
 
                 <div>
-                  <label style={labelStyle}>Nombre completo</label>
-                  <AInput value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                  <label htmlFor="profile-name" style={labelStyle}>Nombre completo</label>
+                  <AInput id="profile-name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                 </div>
 
                 <div>
-                  <label style={labelStyle}>Email</label>
-                  <AInput value={user.email} readOnly />
+                  <label htmlFor="profile-email" style={labelStyle}>Correo electrónico</label>
+                  <AInput id="profile-email" value={user.email} readOnly />
                 </div>
 
                 <div>
@@ -589,8 +641,8 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label style={labelStyle}>Teléfono</label>
-                  <AInput type="tel" value={phoneDisp} onChange={handlePhoneChange} placeholder="+56 9 1234 5678" />
+                  <label htmlFor="profile-phone" style={labelStyle}>Teléfono</label>
+                  <AInput id="profile-phone" type="tel" value={phoneDisp} onChange={handlePhoneChange} placeholder="+56 9 1234 5678" />
                   {phoneErr && <p style={{ fontSize: '11.5px', color: '#B45C72', marginTop: '5px' }}>{phoneErr}</p>}
                 </div>
 
@@ -612,23 +664,10 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div>
-                  <label style={labelStyle}>Idioma</label>
-                  <select
-                    value={form.language}
-                    onChange={e => setForm(f => ({ ...f, language: e.target.value }))}
-                    style={{ ...inputStyle, cursor: 'pointer', colorScheme: 'light' }}
-                    onFocus={e  => (e.currentTarget.style.borderColor = 'rgba(116,82,166,0.5)')}
-                    onBlur={e   => (e.currentTarget.style.borderColor = 'rgba(97,71,130,0.13)')}
-                  >
-                    <option value="es">Español</option>
-                    <option value="en">English</option>
-                  </select>
-                </div>
-
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Biografía</label>
+                  <label htmlFor="profile-bio" style={labelStyle}>Biografía</label>
                   <ATextarea
+                    id="profile-bio"
                     value={form.bio}
                     onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
                     placeholder="Cuéntanos un poco sobre ti"
@@ -656,24 +695,24 @@ export default function ProfilePage() {
 
           {/* Cambiar contraseña */}
           <SectionCard
-            iconBg="rgba(140,124,158,0.14)"
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="11" rx="2.5" stroke="#C4B9D0" strokeWidth="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#C4B9D0" strokeWidth="1.7"/></svg>}
+            iconBg="var(--c-surface2)"
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="11" rx="2.5" stroke="var(--c-accent-text)" strokeWidth="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="var(--c-accent-text)" strokeWidth="1.7"/></svg>}
             title="Cambiar contraseña"
             desc="Mantén tu cuenta segura con una contraseña fuerte."
           >
             <form onSubmit={handlePwSave}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '18px' }}>
                 <div>
-                  <label style={labelStyle}>Contraseña actual</label>
-                  <AInput type="password" value={pw.cur} onChange={e => setPw(p => ({ ...p, cur: e.target.value }))} placeholder="••••••••" />
+                  <label htmlFor="profile-current-password" style={labelStyle}>Contraseña actual</label>
+                  <AInput id="profile-current-password" type="password" value={pw.cur} onChange={e => setPw(p => ({ ...p, cur: e.target.value }))} placeholder="••••••••" />
                 </div>
                 <div>
-                  <label style={labelStyle}>Nueva contraseña</label>
-                  <AInput type="password" value={pw.next} onChange={e => setPw(p => ({ ...p, next: e.target.value }))} placeholder="Mínimo 8 caracteres" />
+                  <label htmlFor="profile-new-password" style={labelStyle}>Nueva contraseña</label>
+                  <AInput id="profile-new-password" type="password" value={pw.next} onChange={e => setPw(p => ({ ...p, next: e.target.value }))} placeholder="Mínimo 8 caracteres" />
                 </div>
                 <div>
-                  <label style={labelStyle}>Confirmar contraseña</label>
-                  <AInput type="password" value={pw.conf} onChange={e => setPw(p => ({ ...p, conf: e.target.value }))} placeholder="Repite la contraseña" />
+                  <label htmlFor="profile-confirm-password" style={labelStyle}>Confirmar contraseña</label>
+                  <AInput id="profile-confirm-password" type="password" value={pw.conf} onChange={e => setPw(p => ({ ...p, conf: e.target.value }))} placeholder="Repite la contraseña" />
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '22px' }}>
@@ -685,8 +724,64 @@ export default function ProfilePage() {
             </form>
           </SectionCard>
 
+          <section className={styles.dangerSection}>
+            <div>
+              <h2>Eliminar cuenta</h2>
+              <p>Solicita la eliminación definitiva de tu cuenta y datos personales. Antes deberás transferir o eliminar los espacios y proyectos que administras.</p>
+            </div>
+            <button ref={deleteTriggerRef} type="button" onClick={() => void openDeletion()}><Trash2 size={15} /> Eliminar mi cuenta</button>
+          </section>
+
         </div>
       </div>
+
+      {deleteOpen && <div className={`${styles.modalOverlay} ${deleteClosing ? styles.modalClosing : ''}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeletion(); }}>
+        <section className={styles.deleteModal} role="dialog" aria-modal="true" aria-labelledby="delete-account-title" aria-describedby="delete-account-description" aria-busy={deleteChecking}>
+          <div className={styles.deleteModalHeading}>
+            <span className={styles.deleteModalIcon}><Trash2 size={20} strokeWidth={1.8} /></span>
+            <div><h2 id="delete-account-title">Eliminar tu cuenta</h2><p>Esta acción no se puede deshacer.</p></div>
+            <button type="button" aria-label="Cerrar" onClick={closeDeletion} disabled={deleteLoading} autoFocus><X size={18} /></button>
+          </div>
+          <div id="delete-account-description" className={styles.deleteModalIntro}>
+            <p>Al confirmar, se cerrarán tus sesiones de inmediato y la eliminación de datos se procesará en lotes. Tus conversaciones directas desaparecerán también para sus participantes.</p>
+            <p>El trabajo de proyectos compartidos puede permanecer desvinculado de tu perfil. Si necesitas revisar datos personales en ese contenido, escribe a <a href="mailto:sebastian@shernandez.dev">sebastian@shernandez.dev</a>.</p>
+          </div>
+          {deleteChecking && <div className={styles.deleteChecking} role="status"><span className={styles.deleteSpinner} /> Revisando los elementos que administras…</div>}
+          {!deleteChecking && deleteBlockers.length > 0 && <div className={styles.deleteBlockers}>
+            <div className={styles.deleteBlockersHeading}>
+              <AlertTriangle size={19} strokeWidth={1.8} />
+              <div><strong>Hay elementos a tu cargo</strong><p>Transfiérelos o elimínalos antes de solicitar la eliminación de tu cuenta.</p></div>
+              <span>{deleteBlockers.length}</span>
+            </div>
+            <div className={styles.deleteBlockersList}>
+              {([
+                { type: 'organization', label: 'Organizaciones', icon: Building2 },
+                { type: 'workspace', label: 'Espacios', icon: Layers3 },
+                { type: 'project', label: 'Proyectos', icon: FolderKanban },
+              ] as const).map(({ type, label, icon: Icon }) => {
+                const items = deleteBlockers.filter((item) => item.type === type);
+                if (items.length === 0) return null;
+                return <div className={styles.deleteBlockerGroup} key={type}>
+                  <div className={styles.deleteBlockerGroupTitle}><Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className={styles.deleteBlockerCount}>{items.length}</span></div>
+                  <ul>{items.map((item) => <li key={`${item.type}-${item.id}`} title={item.name}>{item.name}</li>)}</ul>
+                </div>;
+              })}
+            </div>
+            <div className={styles.deleteBlockersFooter}><button type="button" onClick={closeDeletion}>Entendido</button></div>
+          </div>}
+          {deleteError && <p className={styles.deleteError} role="alert">{deleteError}</p>}
+          {!deleteChecking && !deleteError && deleteBlockers.length === 0 && <form onSubmit={(event) => void handleDeleteAccount(event)}>
+            <label htmlFor="delete-account-password">Confirma tu contraseña</label>
+            <input id="delete-account-password" type="password" autoComplete="current-password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} />
+            <label htmlFor="delete-account-confirmation">Escribe ELIMINAR para continuar</label>
+            <input id="delete-account-confirmation" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" />
+            <div className={styles.deleteModalActions}>
+              <button type="button" onClick={closeDeletion} disabled={deleteLoading}>Cancelar</button>
+              <button type="submit" disabled={deleteLoading || deleteConfirmation !== 'ELIMINAR' || !deletePassword}>{deleteLoading ? 'Procesando…' : 'Eliminar cuenta definitivamente'}</button>
+            </div>
+          </form>}
+        </section>
+      </div>}
 
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>

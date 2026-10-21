@@ -45,6 +45,7 @@ interface AuthState {
   emailNotVerified: string | null;
 
   // Acciones
+  /** Compatibilidad interna; el servidor rechaza el registro público durante el piloto. */
   register: (name: string, email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -156,36 +157,20 @@ export const useAuthStore = create<AuthState>()(
       pendingEmailDeliveryFailed: false,
       emailNotVerified: null,
 
-      // ==================== REGISTER ====================
+      // Compatibilidad con consumidores anteriores; el registro público está cerrado en la API.
       register: async (name: string, email: string, password: string) => {
         set({ isLoading: true, error: null });
-
         try {
           const response = await apiService.post<{ user: User; verificationEmailSent: boolean }>(
-            '/api/auth/register',
-            { name, email, password },
-            false
+            '/api/auth/register', { name, email, password }, false
           );
-
           if (!response.success || !response.data) {
-            set({
-              isLoading: false,
-              error: response.error?.message || 'Error al registrar usuario',
-            });
+            set({ isLoading: false, error: response.error?.message || 'El acceso al piloto requiere invitación.' });
             return;
           }
-
-          // Registro exitoso — pendiente de verificación de correo
-          set({
-            isLoading: false,
-            pendingEmailVerification: email,
-            pendingEmailDeliveryFailed: response.data.verificationEmailSent === false,
-          });
+          set({ isLoading: false, pendingEmailVerification: email, pendingEmailDeliveryFailed: response.data.verificationEmailSent === false });
         } catch (error: any) {
-          set({
-            isLoading: false,
-            error: error?.message || 'Error inesperado al registrar. Verifica tu conexión.',
-          });
+          set({ isLoading: false, error: error?.message || 'El acceso al piloto requiere invitación.' });
         }
       },
 
@@ -198,7 +183,7 @@ export const useAuthStore = create<AuthState>()(
             user: User;
             accessToken: string;
             refreshToken: string;
-          }>('/api/auth/login', { email, password }, false);
+            }>('/api/auth/login', { email, password }, false);
 
           if (!response.success || !response.data) {
             if (response.error?.code === 'EMAIL_NOT_VERIFIED') {

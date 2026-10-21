@@ -5,6 +5,25 @@
   color: var(--c-text);
   font-family: 'Manrope', system-ui, sans-serif;
 }
+.documentEvidence { padding: 15px 18px; border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); }
+.documentEvidenceHeading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.documentEvidenceHeading h4 { display: flex; align-items: center; gap: 7px; margin: 4px 0 0; color: var(--c-text); font: 700 13px/1.35 'Sora','Manrope',sans-serif; }
+.documentEvidenceHeading h4 svg { color: var(--c-accent); }
+.documentEvidenceHeading > span { color: var(--c-text4); font-size: 10px; white-space: nowrap; }
+.documentEvidenceList { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 8px; }
+.documentEvidenceItem { display: flex; align-items: start; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--c-border); border-radius: 9px; background: color-mix(in srgb, var(--c-accent) 3%, var(--c-bg2)); }
+.documentEvidenceIcon { color: var(--c-accent); flex: 0 0 auto; margin-top: 2px; }
+.documentEvidenceItem > div { flex: 1; min-width: 0; }
+.documentEvidenceItem strong { display: block; overflow-wrap: anywhere; font-size: 11px; line-height: 1.45; }
+.documentEvidenceItem small { display: block; margin-top: 2px; color: var(--c-text4); font-size: 9px; line-height: 1.4; }
+.documentEvidenceItem p { margin: 6px 0 0; color: var(--c-text3); font-size: 10px; line-height: 1.5; }
+.documentEvidenceItem a { color: var(--c-accent); padding: 3px; border-radius: 4px; }
+.documentEvidenceItem a:hover { background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
+.documentEvidenceSnapshot { margin-top: 5px; }
+.documentEvidenceSnapshot summary { width: fit-content; color: var(--c-accent); font-size: 9px; font-weight: 750; cursor: pointer; }
+.documentEvidenceSnapshot pre { max-height: 175px; overflow: auto; margin: 7px 0 0; padding: 8px; border: 1px solid var(--c-border); border-radius: 6px; background: var(--c-bg); color: var(--c-text2); font: 10px/1.55 'Manrope',sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+.documentEvidenceEmpty { margin: 0; color: var(--c-text4); font-size: 10px; line-height: 1.6; }
+.documentEvidenceEmpty button { margin-left: 4px; padding: 0; border: 0; background: none; color: var(--c-accent); font: inherit; font-weight: 750; cursor: pointer; }
 .chainIntro {
   display: grid;
   gap: 14px;
@@ -224,6 +243,91 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+.contextDisclosure,
+.objectiveDisclosure {
+  min-width: 0;
+}
+.disclosureSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px 6px;
+  color: var(--c-accent-text);
+  font-size: 10px;
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+.disclosureSummary::-webkit-details-marker {
+  display: none;
+}
+.disclosureSummary:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--c-accent-text);
+  outline-offset: 3px;
+}
+.disclosureSummary > svg {
+  transition: transform 160ms ease;
+}
+.contextExcerpt,
+.objectiveExcerpt {
+  display: -webkit-box;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  color: var(--c-text3);
+  font-weight: 500;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.contextExcerpt {
+  -webkit-line-clamp: 3;
+  font-size: 11px;
+}
+.objectiveExcerpt {
+  -webkit-line-clamp: 5;
+  color: var(--c-text2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.disclosureExpanded {
+  display: none;
+}
+.contextDisclosure[open] .contextExcerpt,
+.objectiveDisclosure[open] .objectiveExcerpt {
+  display: none;
+}
+.contextDisclosure[open] .disclosureCollapsed,
+.objectiveDisclosure[open] .disclosureCollapsed {
+  display: none;
+}
+.contextDisclosure[open] .disclosureExpanded,
+.objectiveDisclosure[open] .disclosureExpanded {
+  display: inline;
+}
+.contextDisclosure[open] .disclosureSummary > svg,
+.objectiveDisclosure[open] .disclosureSummary > svg {
+  transform: rotate(90deg);
+}
+.disclosureContent {
+  display: grid;
+  gap: 9px;
+  padding-top: 10px;
+  border-top: 1px solid var(--c-border);
+}
+.disclosureContent .bodyText {
+  margin: 0;
+}
+.objectiveFull {
+  margin: 8px 0 0;
+  color: var(--c-text2);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 .originOutcome {
   display: grid;
   gap: 4px;
@@ -253,7 +357,9 @@
 }
 .originDetails dl {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+  row-gap: 10px;
   margin: 0;
 }
 .originDetails dl div {
@@ -603,7 +709,7 @@
 }
 .outcome .evidence {
   padding: 9px 10px;
-  border-left: 2px solid color-mix(in srgb, var(--c-accent) 55%, var(--c-border));
+  border-left: 1px solid color-mix(in srgb, var(--c-accent) 55%, var(--c-border));
   border-radius: 0 7px 7px 0;
   background: color-mix(in srgb, var(--c-accent) 5%, var(--c-bg2));
   overflow-wrap: anywhere;
@@ -1086,51 +1192,31 @@
 
 @media (prefers-reduced-motion: reduce) {
   .chainStep:not(:last-child)::after,
-  .chainStepDot {
+  .chainStepDot,
+  .disclosureSummary > svg {
     transition: none;
   }
 }
 
 .chainGrid {
-  grid-template-columns: minmax(250px, 1.1fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   align-items: start;
 }
+.chainColumn {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
 
 .node {
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  height: auto;
+  min-height: 0;
+  padding: 16px;
   border-radius: 14px;
   background: var(--c-bg2);
-}
-
-.originNode {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-}
-.objectiveNode,
-.deliverablesNode,
-.milestonesNode,
-.outcomeNode {
-  height: 100%;
-  min-height: 100%;
-  align-content: start;
-}
-.objectiveNode {
-  grid-column: 2;
-  grid-row: 1;
-}
-.deliverablesNode {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-}
-.milestonesNode {
-  grid-column: 2;
-  grid-row: 2;
-}
-.outcomeNode {
-  grid-column: 4;
-  grid-row: 1 / span 2;
 }
 
 .nodeHeader {
@@ -1563,32 +1649,15 @@
   .chainGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .originNode {
+  .originColumn,
+  .outcomeColumn {
     grid-column: 1 / -1;
-    grid-row: 1;
   }
-  .objectiveNode {
+  .directionColumn {
     grid-column: 1;
-    grid-row: 2;
   }
-  .milestonesNode {
+  .executionColumn {
     grid-column: 2;
-    grid-row: 2;
-  }
-  .deliverablesNode {
-    grid-column: 1;
-    grid-row: 3;
-  }
-  .outcomeNode {
-    grid-column: 2;
-    grid-row: 3;
-  }
-  .objectiveNode,
-  .deliverablesNode,
-  .milestonesNode,
-  .outcomeNode {
-    height: auto;
-    min-height: 0;
   }
   .deliverableList { grid-template-columns: minmax(0, 1fr); }
   .outcomeList {
@@ -1613,18 +1682,17 @@
   .chainGrid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .chainColumn,
+  .originColumn,
+  .directionColumn,
+  .executionColumn,
+  .outcomeColumn {
+    grid-column: 1 / -1;
+  }
   .outcomeList {
     max-height: none;
     padding-right: 0;
     overflow: visible;
-  }
-  .originNode,
-  .objectiveNode,
-  .deliverablesNode,
-  .milestonesNode,
-  .outcomeNode {
-    grid-column: 1 / -1;
-    grid-row: auto;
   }
 }
 
@@ -1722,6 +1790,7 @@
 .cardEditor {
   position: fixed;
   z-index: 1101;
+  font-family: 'Manrope', system-ui, sans-serif;
   top: 50%;
   left: 50%;
   width: min(680px, calc(100vw - 32px));
@@ -2477,4 +2546,559 @@
   .requirementMeta {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* The chain reads as context beside a single, connected progression. */
+.chainIntro {
+  gap: 17px;
+  padding: 0 0 23px;
+  border: 0;
+  border-bottom: 1px solid var(--c-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.chainSummary {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.chainMap {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chainStepDot {
+  background: var(--c-bg);
+}
+
+.chainGrid {
+  grid-template-columns: minmax(270px, 0.72fr) minmax(0, 1.5fr);
+  align-items: start;
+  gap: clamp(30px, 4vw, 64px);
+}
+
+.originColumn {
+  display: grid;
+  grid-column: 1;
+  align-content: start;
+  gap: 0;
+  min-width: 0;
+  padding-right: clamp(22px, 3vw, 40px);
+  border-right: 1px solid var(--c-border);
+}
+
+.contextColumnHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 10px;
+  padding-bottom: 17px;
+}
+
+.contextColumnHeader h4 {
+  margin: 0;
+  color: var(--c-text);
+  font: 650 15px/1.4 'Sora', 'Manrope', sans-serif;
+}
+
+.contextColumnHeader > span {
+  color: var(--c-text4);
+  font-size: 10px;
+}
+
+.contextGroups {
+  display: grid;
+  min-width: 0;
+}
+
+.contextGroup {
+  display: grid;
+  gap: 11px;
+  min-width: 0;
+  padding: 17px 0;
+  border-top: 1px solid var(--c-border);
+}
+
+.contextGroupHeading h5 {
+  margin: 0;
+  color: var(--c-text);
+  font: 650 12px/1.4 'Sora', 'Manrope', sans-serif;
+}
+
+.contextGroupHeading p {
+  margin: 3px 0 0;
+  color: var(--c-text3);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.contextFields {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+}
+
+.contextField {
+  display: grid;
+  grid-template-columns: minmax(98px, 0.42fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, var(--c-border) 70%, transparent);
+}
+
+.contextField:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.contextField dt {
+  color: var(--c-text3);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.contextField dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--c-text2);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.contextNoDetails {
+  margin: 0;
+  padding: 4px 0 17px;
+  color: var(--c-text3);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.originColumn > .sourceLink,
+.originColumn > .legacyNote {
+  margin: 14px 0 0;
+}
+
+.progressColumn {
+  display: grid;
+  grid-column: 2;
+  align-content: start;
+  min-width: 0;
+}
+
+.progressColumn .node {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  height: auto;
+  min-height: 0;
+  padding: 0 0 34px 54px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.progressColumn .node:last-child {
+  padding-bottom: 0;
+}
+
+.progressColumn .node:not(:last-child)::after {
+  position: absolute;
+  top: 41px;
+  bottom: 2px;
+  left: 18px;
+  width: 1px;
+  background: var(--c-border2);
+  content: '';
+}
+
+.progressColumn .nodeHeader {
+  position: relative;
+  min-height: 38px;
+  gap: 14px;
+}
+
+.progressColumn .nodeIcon {
+  position: absolute;
+  top: 0;
+  left: -54px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--c-bg);
+}
+
+.progressColumn .nodeHeader h4 {
+  font-size: 16px;
+}
+
+.progressColumn .nodeEmpty {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 11.5px;
+}
+
+.progressColumn .objectiveText,
+.progressColumn .objectiveFull {
+  max-width: 75ch;
+  font-weight: 550;
+}
+
+.objectiveHistory ol.objectiveHistoryScroll {
+  max-height: 185px;
+  padding-right: 9px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border2) transparent;
+}
+
+.objectiveHistory li {
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.deliverableChoice {
+  min-height: 54px;
+  padding: 10px 3px;
+  border: 0;
+  border-bottom: 1px solid var(--c-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.deliverableChoices {
+  gap: 0;
+}
+
+.deliverableChoice:hover {
+  border-color: var(--c-border2);
+  background: color-mix(in srgb, var(--c-accent) 5%, transparent);
+}
+
+.deliverableDetail .deliverable,
+.progressColumn .outcome {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.progressColumn .outcome {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.progressColumn .outcome:first-child {
+  padding-top: 0;
+}
+
+.progressColumn .outcomeList {
+  gap: 0;
+  max-height: min(620px, 70vh);
+}
+
+.progressColumn .requirementCard {
+  padding: 11px 0;
+  border: 0;
+  border-bottom: 1px solid var(--c-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.progressColumn .requirementCriteria,
+.progressColumn .requirementEvidence {
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: 800px) {
+  .chainGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .originColumn,
+  .progressColumn {
+    grid-column: 1;
+  }
+
+  .originColumn {
+    padding: 0 0 22px;
+    border-right: 0;
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  .chainMap {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .chainMap {
+    display: grid;
+  }
+
+  .contextField {
+    grid-template-columns: minmax(105px, 0.36fr) minmax(0, 1fr);
+  }
+
+  .progressColumn .node {
+    padding: 0 0 29px 47px;
+  }
+
+  .progressColumn .nodeIcon {
+    left: -47px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .progressColumn .node:not(:last-child)::after {
+    top: 37px;
+    left: 16px;
+  }
+
+  .progressColumn .outcomeList {
+    max-height: none;
+    padding-right: 0;
+    overflow: visible;
+  }
+}
+
+/* Project journey: each stop exposes its record state and its destination. */
+.chainIntro {
+  gap: 19px;
+  padding-bottom: 19px;
+}
+
+.chainIntro h3 {
+  font-size: 19px;
+  letter-spacing: -0.025em;
+}
+
+.chainMap {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  padding: 3px 0 0;
+}
+
+.chainStep {
+  display: block;
+  min-width: 0;
+  padding: 0 8px 0 0;
+}
+
+.chainStep:not(:last-child)::after {
+  top: 37px;
+  right: -2px;
+  left: 42px;
+  height: 1px;
+  background: var(--c-border2);
+}
+
+.chainStepButton {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-rows: 16px 35px auto auto;
+  justify-items: start;
+  gap: 4px;
+  padding: 0 2px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chainStepButton:hover strong,
+.chainStepButton:focus-visible strong {
+  color: var(--c-accent-text);
+}
+
+.chainStepButton:focus-visible,
+.chainFootnote button:focus-visible {
+  outline: 2px solid var(--c-accent-text);
+  outline-offset: 3px;
+}
+
+.chainStepNumber {
+  color: var(--c-text4);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+
+.chainStepDot {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  grid-column: auto;
+  grid-row: auto;
+  place-items: center;
+  border: 1px solid var(--c-border2);
+  border-radius: 10px;
+  background: var(--c-bg2);
+  color: var(--c-text3);
+}
+
+.chainStepComplete .chainStepDot {
+  border-color: color-mix(in srgb, var(--c-green) 48%, var(--c-border2));
+  background: color-mix(in srgb, var(--c-green) 11%, var(--c-bg2));
+  color: var(--c-green);
+}
+
+.chainStepPartial .chainStepDot {
+  border-color: color-mix(in srgb, var(--c-accent-text) 48%, var(--c-border2));
+  background: color-mix(in srgb, var(--c-accent-text) 10%, var(--c-bg2));
+  color: var(--c-accent-text);
+}
+
+.chainStepButton strong,
+.chainStepButton small {
+  display: block;
+  width: 100%;
+  grid-column: auto;
+  grid-row: auto;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.chainStepButton strong {
+  font-size: 12px;
+  line-height: 1.25;
+  transition: color 150ms ease;
+}
+
+.chainStepButton small {
+  color: var(--c-text3);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.chainStepPartial .chainStepButton small {
+  color: var(--c-accent-text);
+}
+
+.chainFootnote {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--c-text3);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.chainFootnote button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--c-accent-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chainFootnote button:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.chainRelatedLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+}
+
+.decisionNotes {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border);
+}
+
+.decisionNotes > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--c-text3);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.decisionNotes button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--c-accent-text);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.decisionNotes button svg { flex: 0 0 auto; }
+.decisionNotes button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.decisionNotes button:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
+
+@media (max-width: 960px) {
+  .chainMap {
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-color: var(--c-border2) transparent;
+    scrollbar-width: thin;
+  }
+}
+
+@media (max-width: 640px) {
+  .chainIntroTop { flex-direction: column; }
+  .chainMap { display: grid; }
+  .chainStep { min-height: 0; padding: 0 8px 0 0; }
+  .chainStep:last-child { min-height: 0; }
+  .chainStep:not(:last-child)::after {
+    top: 37px;
+    right: -2px;
+    bottom: auto;
+    left: 42px;
+    width: auto;
+    height: 1px;
+  }
+  .chainStepButton { grid-template-columns: minmax(0, 1fr); grid-template-rows: 16px 35px auto auto; }
+  .chainStepDot,
+  .chainStepButton strong,
+  .chainStepButton small { grid-column: auto; grid-row: auto; }
+  .chainFootnote { align-items: flex-start; flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chainStepButton strong { transition: none; }
 }

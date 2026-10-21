@@ -21,18 +21,21 @@ const widgetSchema = z.object({
   height: z.number().finite().min(1).max(100),
   config: z.record(z.unknown()).optional(),
 }).strict();
+const backgroundColorSchema = z.enum(['default', 'lavender', 'sky', 'mint', 'peach', 'rose', 'butter']);
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(80),
   context: contextSchema,
   widgets: z.array(widgetSchema).max(100).default([]),
   locked: z.boolean().default(false),
+  backgroundColor: backgroundColorSchema.default('default'),
 });
 
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   widgets: z.array(widgetSchema).max(100).optional(),
   locked: z.boolean().optional(),
+  backgroundColor: backgroundColorSchema.optional(),
 }).strict().refine((value) => Object.keys(value).length > 0);
 
 type DashboardContext = z.infer<typeof contextSchema>;
@@ -70,6 +73,7 @@ function toDashboard(row: Record<string, unknown>) {
     context: { type: row.context_type, id: row.context_id },
     widgets: row.widgets,
     locked: row.locked,
+    backgroundColor: row.background_color ?? 'default',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -103,9 +107,9 @@ router.post('/', async (req: Request, res: Response) => {
       return fail(res, 403, 'CONTEXT_FORBIDDEN', 'Ya no tienes acceso al contexto elegido.');
     }
     const result = await pool.query(
-      `INSERT INTO user_dashboards (user_id, name, context_type, context_id, widgets, locked)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6) RETURNING *`,
-      [req.user!.id, parsed.data.name, parsed.data.context.type, parsed.data.context.id, JSON.stringify(parsed.data.widgets), parsed.data.locked],
+      `INSERT INTO user_dashboards (user_id, name, context_type, context_id, widgets, locked, background_color)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7) RETURNING *`,
+      [req.user!.id, parsed.data.name, parsed.data.context.type, parsed.data.context.id, JSON.stringify(parsed.data.widgets), parsed.data.locked, parsed.data.backgroundColor],
     );
     return res.status(201).json({ success: true, data: { dashboard: toDashboard(result.rows[0]) } });
   } catch (error) {
@@ -124,10 +128,11 @@ router.patch('/:id', async (req: Request, res: Response) => {
          name = COALESCE($3, name),
          widgets = COALESCE($4::jsonb, widgets),
          locked = COALESCE($5, locked),
+         background_color = COALESCE($6, background_color),
          updated_at = CURRENT_TIMESTAMP
        WHERE id = $1 AND user_id = $2 RETURNING *`,
       [req.params.id, req.user!.id, parsed.data.name ?? null,
-        parsed.data.widgets ? JSON.stringify(parsed.data.widgets) : null, parsed.data.locked ?? null],
+        parsed.data.widgets ? JSON.stringify(parsed.data.widgets) : null, parsed.data.locked ?? null, parsed.data.backgroundColor ?? null],
     );
     if (!result.rows[0]) return fail(res, 404, 'DASHBOARD_NOT_FOUND', 'No encontramos este tablero.');
     return res.json({ success: true, data: { dashboard: toDashboard(result.rows[0]) } });
