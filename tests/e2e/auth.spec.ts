@@ -1,279 +1,139 @@
 import { test, expect } from '@playwright/test';
-import { generateTestEmail, registerAndLogin, waitForToast } from '../utils/test-helpers';
+import {
+  createPlatformInvitation,
+  generateTestEmail,
+  readTestRegistration,
+  registerAndLogin,
+  login,
+} from '../utils/test-helpers';
 
-test.describe('Autenticación', () => {
-  test.describe('Registro de usuario', () => {
-    test('debe registrar un nuevo usuario exitosamente', async ({ page }) => {
-      const testEmail = generateTestEmail();
-      const testPassword = 'TestPassword123!';
-      const testName = 'Test User';
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-      // Navegar a página de registro
-      await page.goto('/register');
+test.describe('Acceso al piloto', () => {
+  test('bloquea el registro abierto desde la ruta y la API', async ({ page }) => {
+    await page.goto('/register');
 
-      // Verificar que estamos en la página correcta
-      await expect(page).toHaveURL('/register');
+    await expect(page).toHaveURL(/\/login(?:\?|$)/);
+    await expect(page.getByRole('link', { name: /crear cuenta/i })).toHaveCount(0);
 
-      // Llenar formulario
-      await page.fill('input[name="name"]', testName);
-      await page.fill('input[name="email"]', testEmail);
-      await page.fill('input[name="password"]', testPassword);
-      await page.fill('input[name="confirmPassword"]', testPassword);
-
-      // Enviar formulario
-      await page.click('button[type="submit"]');
-
-      // Esperar redirección al dashboard o verificación de email
-      // O verificar que no hay error visible (si hay problemas de BD)
-      await Promise.race([
-        page.waitForURL(/\/(dashboard|login|verify-email)/, { timeout: 15000 }),
-        page.waitForSelector('.text-error', { state: 'visible', timeout: 15000 }).then(() => {
-          throw new Error('Se mostró un error durante el registro');
-        }),
-      ]);
-
-      // Verificar que el registro fue exitoso
-      const currentUrl = page.url();
-      expect(currentUrl).toMatch(/\/(dashboard|login|verify-email)/);
+    const response = await page.request.post(`${apiUrl}/api/auth/register`, {
+      data: { name: 'E2E User', email: generateTestEmail(), password: 'TestPassword123!' },
     });
-
-    test('debe mostrar error si las contraseñas no coinciden', async ({ page }) => {
-      await page.goto('/register');
-
-      await page.fill('input[name="name"]', 'Test User');
-      await page.fill('input[name="email"]', generateTestEmail());
-      await page.fill('input[name="password"]', 'Password123!');
-      await page.fill('input[name="confirmPassword"]', 'DifferentPassword123!');
-
-      await page.click('button[type="submit"]');
-
-      // Verificar mensaje de error específico
-      await expect(page.getByText('Las contraseñas no coinciden', { exact: true })).toBeVisible();
-    });
-
-    test('debe mostrar error si la contraseña es muy corta', async ({ page }) => {
-      await page.goto('/register');
-
-      await page.fill('input[name="name"]', 'Test User');
-      await page.fill('input[name="email"]', generateTestEmail());
-      await page.fill('input[name="password"]', 'Short1!');
-      await page.fill('input[name="confirmPassword"]', 'Short1!');
-
-      await page.click('button[type="submit"]');
-
-      // Verificar mensaje de error específico
-      await expect(
-        page.getByText('La contraseña debe tener al menos 8 caracteres', { exact: true })
-      ).toBeVisible();
-    });
-
-    test('debe mostrar error si el email ya existe', async ({ page }) => {
-      const testEmail = generateTestEmail();
-      const testPassword = 'TestPassword123!';
-
-      // Registrar usuario por primera vez
-      await page.goto('/register');
-      await page.fill('input[name="name"]', 'Test User 1');
-      await page.fill('input[name="email"]', testEmail);
-      await page.fill('input[name="password"]', testPassword);
-      await page.fill('input[name="confirmPassword"]', testPassword);
-      await page.click('button[type="submit"]');
-
-      // Esperar que complete
-      await page.waitForURL(/\/(dashboard|login|verify-email)/, { timeout: 15000 });
-
-      // Intentar registrar de nuevo con el mismo email
-      await page.goto('/register');
-      await page.waitForSelector('input[name="email"]', { state: 'visible' });
-      await page.fill('input[name="name"]', 'Test User 2');
-      await page.fill('input[name="email"]', testEmail);
-      await page.fill('input[name="password"]', testPassword);
-      await page.fill('input[name="confirmPassword"]', testPassword);
-      await page.click('button[type="submit"]');
-
-      // Verificar mensaje de error (email existente, already exists, etc.)
-      await expect(page.locator('text=/email.*exist|already|ya.*registrado/i')).toBeVisible({
-        timeout: 5000,
-      });
-    });
-
-    test('debe validar formato de email', async ({ page }) => {
-      await page.goto('/register');
-
-      await page.fill('input[name="name"]', 'Test User');
-      await page.fill('input[name="email"]', 'invalid-email');
-      await page.fill('input[name="password"]', 'TestPassword123!');
-      await page.fill('input[name="confirmPassword"]', 'TestPassword123!');
-
-      await page.click('button[type="submit"]');
-
-      // El navegador debería mostrar error de validación HTML5
-      const emailInput = page.locator('input[name="email"]');
-      const validationMessage = await emailInput.evaluate(
-        (el: HTMLInputElement) => el.validationMessage
-      );
-      expect(validationMessage).toBeTruthy();
+    expect(response.status()).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'REGISTRATION_CLOSED' },
     });
   });
 
-  test.describe('Login de usuario', () => {
-    test('debe hacer login exitosamente con credenciales válidas', async ({ page }) => {
-      const testEmail = generateTestEmail();
-      const testPassword = 'TestPassword123!';
+  test('activa una invitación, guarda los dos consentimientos y consume el enlace', async ({ page }) => {
+    const email = generateTestEmail();
+    const token = await createPlatformInvitation(email);
 
-      await registerAndLogin(page, {
-        email: testEmail,
-        password: testPassword,
-        name: 'Test User',
-      });
+    await page.goto(`/join?token=${token}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Tu invitación a AETHER' })).toBeVisible();
+    await expect(page.getByText(email, { exact: false })).toBeVisible();
 
-      // Verificar redirección al dashboard
-      await expect(page).toHaveURL('/dashboard');
-    });
+    await page.locator('input[autocomplete="name"]').fill('E2E Participant');
+    const passwords = page.locator('input[autocomplete="new-password"]');
+    await passwords.nth(0).fill('TestPassword123!');
+    await passwords.nth(1).fill('TestPassword123!');
 
-    test('debe mostrar error con credenciales inválidas', async ({ page }) => {
-      await page.goto('/login');
+    const submit = page.getByRole('button', { name: 'Activar mi cuenta' });
+    await expect(submit).toBeDisabled();
+    await page.locator('#join-terms-read').check();
+    await expect(submit).toBeDisabled();
+    await page.locator('#join-privacy-read').check();
+    await expect(submit).toBeEnabled();
 
-      await page.fill('input[name="email"]', 'nonexistent@example.com');
-      await page.fill('input[name="password"]', 'WrongPassword123!');
-      await page.click('button[type="submit"]');
+    await Promise.all([
+      page.waitForURL(/\/dashboard(?:\/|$|\?)/, { timeout: 25000 }),
+      submit.click(),
+    ]);
 
-      // Verificar mensaje de error (el backend devuelve este mensaje)
-      await expect(page.getByText('Email o contraseña incorrectos', { exact: true })).toBeVisible();
-    });
+    const registration = await readTestRegistration(email);
+    expect(registration?.terms_read_at).toBeTruthy();
+    expect(registration?.privacy_read_at).toBeTruthy();
+    expect(registration?.accepted_at).toBeTruthy();
+    expect(registration?.accepted_by).toBeTruthy();
 
-    test('debe mostrar error con email vacío', async ({ page }) => {
-      await page.goto('/login');
-
-      await page.fill('input[name="password"]', 'SomePassword123!');
-      await page.click('button[type="submit"]');
-
-      await expect(page.getByText('El correo electrónico es requerido', { exact: true })).toBeVisible();
-    });
-
-    test('debe redirigir a dashboard si ya está autenticado', async ({ page }) => {
-      const testEmail = generateTestEmail();
-      const testPassword = 'TestPassword123!';
-
-      await registerAndLogin(page, {
-        email: testEmail,
-        password: testPassword,
-        name: 'Test User',
-      });
-
-      // Intentar ir a login estando autenticado
-      await page.goto('/login');
-
-      // Debería redirigir automáticamente
-      await expect(page).toHaveURL('/dashboard');
-    });
+    const invitationPreview = await page.request.get(`${apiUrl}/api/auth/invitations/${token}`);
+    expect(invitationPreview.status()).toBe(404);
   });
 
-  test.describe('Logout de usuario', () => {
-    test('debe hacer logout exitosamente', async ({ page }) => {
-      const testEmail = generateTestEmail();
-      const testPassword = 'TestPassword123!';
+  test('no activa una invitación inexistente, vencida o consumida', async ({ page }) => {
+    await page.goto(`/join?token=${'a'.repeat(64)}`, { waitUntil: 'domcontentloaded' });
 
-      await registerAndLogin(page, {
-        email: testEmail,
-        password: testPassword,
-        name: 'Test User',
-      });
-
-      // El cierre de sesión está en la página de perfil.
-      await page.goto('/dashboard/profile');
-      await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
-
-      // Verificar redirección a login
-      await page.waitForURL('/login', { timeout: 10000 });
-      await expect(page).toHaveURL('/login');
-    });
-
-    test('debe eliminar sesión después del logout', async ({ page, context }) => {
-      const testEmail = generateTestEmail();
-      const testPassword = 'TestPassword123!';
-
-      await registerAndLogin(page, {
-        email: testEmail,
-        password: testPassword,
-        name: 'Test User',
-      });
-
-      // Verificar que hay cookies/storage
-      const cookiesBefore = await context.cookies();
-      expect(cookiesBefore.length).toBeGreaterThan(0);
-
-      // El cierre de sesión está en la página de perfil.
-      await page.goto('/dashboard/profile');
-      await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
-      await page.waitForURL('/login', { timeout: 10000 });
-
-      // Intentar acceder a dashboard
-      await page.goto('/dashboard');
-
-      // Debería redirigir a login
-      await page.waitForURL(/\/login(?:\?|$)/, { timeout: 5000 });
-      await expect(page).toHaveURL(/\/login(?:\?|$)/);
-    });
+    await expect(page.locator('p[role="alert"]')).toContainText(
+      'La invitación no existe, venció o fue cancelada.'
+    );
+    await expect(page.getByRole('button', { name: 'Activar mi cuenta' })).toHaveCount(0);
   });
 
-  test.describe('Forgot Password', () => {
-    test('debe enviar email de recuperación', async ({ page }) => {
-      await page.goto('/forgot-password');
+  test('valida que las contraseñas coincidan antes de activar la cuenta', async ({ page }) => {
+    const email = generateTestEmail();
+    const token = await createPlatformInvitation(email);
+    await page.goto(`/join?token=${token}`, { waitUntil: 'domcontentloaded' });
 
-      await page.fill('input[name="email"]', 'existing@example.com');
-      await page.click('button[type="submit"]');
+    await page.locator('input[autocomplete="name"]').fill('E2E Participant');
+    const passwords = page.locator('input[autocomplete="new-password"]');
+    await passwords.nth(0).fill('TestPassword123!');
+    await passwords.nth(1).fill('DifferentPassword123!');
+    await page.locator('#join-terms-read').check();
+    await page.locator('#join-privacy-read').check();
+    await page.getByRole('button', { name: 'Activar mi cuenta' }).click();
 
-      // Verificar que muestra la página de éxito con el mensaje
-      await expect(page.locator('text=/check your email|revisa tu (email|correo)/i')).toBeVisible({
-        timeout: 10000,
-      });
-      await expect(
-        page.locator('text=/receive instructions|recibirás instrucciones/i')
-      ).toBeVisible({ timeout: 10000 });
-    });
+    await expect(page.locator('p[role="alert"]')).toContainText('Las contraseñas no coinciden');
+    await expect(page).toHaveURL(new RegExp(`/join\\?token=${token}`));
+  });
+});
 
-    test('debe mostrar mismo mensaje incluso si el email no existe (seguridad)', async ({
-      page,
-    }) => {
-      await page.goto('/forgot-password');
+test.describe('Inicio de sesión y recuperación', () => {
+  test('inicia sesión con una cuenta activada por invitación y cierra la sesión', async ({ page }) => {
+    const account = {
+      email: generateTestEmail(),
+      password: 'TestPassword123!',
+      name: 'E2E User',
+    };
+    await registerAndLogin(page, account);
+    await expect(page).toHaveURL(/\/dashboard(?:\/|$|\?)/);
 
-      await page.fill('input[name="email"]', 'nonexistent@example.com');
-      await page.click('button[type="submit"]');
+    await page.goto('/dashboard/profile');
+    await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
+    await page.waitForURL(/\/login(?:\?|$)/, { timeout: 10000 });
 
-      // Por seguridad, debería mostrar el mismo mensaje
-      await expect(page.locator('text=/check your email|revisa tu (email|correo)/i')).toBeVisible({
-        timeout: 10000,
-      });
-      await expect(
-        page.locator('text=/receive instructions|recibirás instrucciones/i')
-      ).toBeVisible({ timeout: 10000 });
-    });
+    await login(page, account.email, account.password);
+    await expect(page).toHaveURL(/\/dashboard(?:\/|$|\?)/);
+
+    await page.goto('/dashboard/profile');
+    await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
+    await page.waitForURL(/\/login(?:\?|$)/, { timeout: 10000 });
+    await page.goto('/dashboard');
+    await expect(page).toHaveURL(/\/login\?redirect=%2Fdashboard/);
   });
 
-  test.describe('Navegación entre páginas de auth', () => {
-    test('debe navegar de login a registro', async ({ page }) => {
-      await page.goto('/login');
+  test('muestra un error con credenciales incorrectas', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('input[name="email"]', 'nonexistent@example.test');
+    await page.fill('input[name="password"]', 'WrongPassword123!');
+    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
 
-      await page.getByRole('link', { name: 'Crear cuenta', exact: true }).click();
+    await expect(page.getByText('Email o contraseña incorrectos', { exact: true })).toBeVisible();
+  });
 
-      await expect(page).toHaveURL('/register');
-    });
+  test('permite solicitar recuperación sin revelar si el correo tiene una cuenta', async ({ page }) => {
+    await page.goto('/forgot-password');
+    await page.fill('input[name="email"]', generateTestEmail());
+    await page.getByRole('button', { name: 'Enviar Instrucciones' }).click();
 
-    test('debe navegar de registro a login', async ({ page }) => {
-      await page.goto('/register');
+    await expect(page.getByRole('heading', { name: 'Revisa tu email' })).toBeVisible();
+    await expect(
+      page.getByText('Si existe una cuenta con este email, recibirás instrucciones para restablecer tu contraseña.')
+    ).toBeVisible();
+  });
 
-      await page.click('text=/.*iniciar.*sesi.*/i');
-
-      await expect(page).toHaveURL('/login');
-    });
-
-    test('debe navegar de login a forgot password', async ({ page }) => {
-      await page.goto('/login');
-
-      await page.click('text=/.*olvid.*contrase.*/i');
-
-      await expect(page).toHaveURL('/forgot-password');
-    });
+  test('navega desde el inicio de sesión a recuperar contraseña', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByRole('link', { name: /olvidaste tu contraseña/i }).click();
+    await expect(page).toHaveURL('/forgot-password');
   });
 });

@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { createHash, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 
@@ -44,84 +45,107 @@ export type TestAccount = {
   name: string;
 };
 
-/**
- * Registra una cuenta a través de la interfaz para conservar cobertura del flujo real.
- */
-export async function registerTestUser(page: Page, account: TestAccount) {
-  await page.goto('/register', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('input[name="name"]', { state: 'visible', timeout: 10000 });
+type DatabaseRow = Record<string, unknown>;
+type TestPool = {
+  query: <T extends DatabaseRow = DatabaseRow>(sql: string, values?: unknown[]) => Promise<{
+    rows: T[];
+    rowCount: number | null;
+  }>;
+  end: () => Promise<void>;
+};
 
-  await page.fill('input[name="name"]', account.name);
-  await page.fill('input[name="email"]', account.email);
-  await page.fill('input[name="password"]', account.password);
-  await page.fill('input[name="confirmPassword"]', account.password);
+function createTestPool(): TestPool {
+  const connectionString = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('Configura TEST_DATABASE_URL para los tests E2E.');
+  }
 
-  await Promise.all([
-    page.waitForURL(/.*(?:dashboard|login|verify-email).*/, { timeout: 20000 }),
-    page.click('button[type="submit"]'),
-  ]);
-}
-
-/**
- * Verifica la cuenta recién creada directamente en la base E2E.
- * El entorno de GitHub no debe depender de credenciales ni de un proveedor de correo real.
- */
-export async function verifyTestEmail(email: string) {
-  const connectionString =
-    process.env.TEST_DATABASE_URL ||
-    process.env.DATABASE_URL ||
-    'postgresql://aether:aether_dev_password@127.0.0.1:5432/aether_dev?schema=public&connect_timeout=10';
-  const databaseHost = new URL(connectionString).hostname.replace(/^\[|\]$/g, '');
-
-  if (!process.env.TEST_DATABASE_URL && !['localhost', '127.0.0.1', '::1'].includes(databaseHost)) {
-    throw new Error(
-      'La verificación de correo E2E solo puede modificar una base local. Configura TEST_DATABASE_URL para usar una base de pruebas.'
-    );
+  const databaseUrl = new URL(connectionString);
+  const databaseHost = databaseUrl.hostname.replace(/^\[|\]$/g, '');
+  const databaseName = decodeURIComponent(databaseUrl.pathname.slice(1));
+  if (!['localhost', '127.0.0.1', '::1'].includes(databaseHost) || !/(?:_e2e|_test)$/i.test(databaseName)) {
+    throw new Error('Los tests E2E solo pueden modificar una base local cuyo nombre termine en _e2e o _test.');
   }
 
   const apiRequire = createRequire(resolve(process.cwd(), 'apps/api/package.json'));
   const { Pool } = apiRequire('pg') as {
-    Pool: new (config: { connectionString: string }) => {
-      query: (sql: string, values: string[]) => Promise<{ rowCount: number | null }>;
-      end: () => Promise<void>;
-    };
+    Pool: new (config: { connectionString: string }) => TestPool;
   };
-  const pool = new Pool({ connectionString });
+  return new Pool({ connectionString });
+}
+
+/** Prepara una invitación de piloto descartable sin depender de un proveedor de correo. */
+export async function createPlatformInvitation(email: string) {
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const pool = createTestPool();
 
   try {
-    const result = await pool.query(
-      `UPDATE users
-       SET email_verified = TRUE,
-           email_verification_token = NULL,
-           email_verification_expires = NULL,
-           updated_at = NOW()
-       WHERE email = $1`,
-      [email]
+    const inviter = await pool.query<{ id: string }>(
+      `INSERT INTO users (id, email, password, name, email_verified, created_at, updated_at)
+       VALUES (uuid_generate_v4(), 'e2e-inviter@aether.test', 'not-used-by-tests', 'E2E invitation sender', TRUE, NOW(), NOW())
+       ON CONFLICT (email) DO UPDATE SET updated_at = NOW()
+       RETURNING id`
     );
-
-    if (result.rowCount !== 1) {
-      throw new Error(`No se encontró la cuenta E2E para verificar: ${email}`);
-    }
+    await pool.query(
+      `INSERT INTO platform_invitations (id, email, token_hash, invited_by, expires_at, created_at, updated_at)
+       VALUES (uuid_generate_v4(), $1, $2, $3, NOW() + INTERVAL '7 days', NOW(), NOW())`,
+      [email.toLowerCase(), tokenHash, inviter.rows[0].id]
+    );
+    return token;
   } finally {
     await pool.end();
   }
 }
 
-/** Registra, verifica y autentica una cuenta E2E para los tests que requieren sesión. */
+/** Crea una cuenta siguiendo el acceso real por invitación del piloto. */
+export async function registerTestUser(page: Page, account: TestAccount) {
+  const invitationToken = await createPlatformInvitation(account.email);
+  await page.goto(`/join?token=${invitationToken}`, { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { name: 'Tu invitación a AETHER' })).toBeVisible();
+  await expect(page.getByText(account.email, { exact: false })).toBeVisible();
+
+  await page.locator('input[autocomplete="name"]').fill(account.name);
+  const passwordFields = page.locator('input[autocomplete="new-password"]');
+  await passwordFields.nth(0).fill(account.password);
+  await passwordFields.nth(1).fill(account.password);
+  await page.locator('#join-terms-read').check();
+  await page.locator('#join-privacy-read').check();
+
+  await Promise.all([
+    page.waitForURL(/\/dashboard(?:\/|$|\?)/, { timeout: 25000 }),
+    page.getByRole('button', { name: 'Activar mi cuenta' }).click(),
+  ]);
+  return invitationToken;
+}
+
+/** Activa por invitación y obtiene la sesión que el flujo real inicia al finalizar. */
 export async function registerAndLogin(page: Page, account: TestAccount) {
-  await registerTestUser(page, account);
-  await verifyTestEmail(account.email);
+  return registerTestUser(page, account);
+}
 
-  // El registro puede crear una sesión si el entorno tiene correo configurado.
-  // Cerrar esa sesión hace que cada test ejercite el login de forma determinista.
-  if (page.url().includes('/dashboard')) {
-    await page.goto('/dashboard/profile');
-    await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
-    await page.waitForURL(/.*login.*/, { timeout: 10000 });
+/** Lee la evidencia de aceptación legal persistida para la cuenta E2E. */
+export async function readTestRegistration(email: string) {
+  const pool = createTestPool();
+  try {
+    const result = await pool.query<{
+      terms_read_at: Date | null;
+      privacy_read_at: Date | null;
+      accepted_at: Date | null;
+      accepted_by: string | null;
+    }>(
+      `SELECT u.terms_read_at, u.privacy_read_at, i.accepted_at, i.accepted_by
+       FROM users u
+       LEFT JOIN platform_invitations i ON i.accepted_by = u.id
+       WHERE lower(u.email) = lower($1)
+       ORDER BY i.accepted_at DESC NULLS LAST
+       LIMIT 1`,
+      [email]
+    );
+    return result.rows[0] ?? null;
+  } finally {
+    await pool.end();
   }
-
-  // login() navega al formulario; evitar una segunda carga redundante aquí.
-  await login(page, account.email, account.password);
 }
 
 /**
