@@ -12,7 +12,7 @@ overrides:
   body-parser@<1.20.6: 1.20.6
   ws@<8.21.0: 8.21.0
   tmp@<0.2.6: 0.2.6
-  markdown-it@<14.3.1: 14.3.1
+  markdown-it@<14.3.3: 14.3.3
   linkify-it@<5.0.2: 5.0.2
   brace-expansion@<1.1.21: 1.1.21
   brace-expansion@>=2.0.0 <2.0.2: 2.0.2
@@ -8609,8 +8609,8 @@ packages:
       tmpl: 1.0.5
     dev: true
 
-  /markdown-it@14.3.1:
-    resolution: {integrity: sha512-4Ej49aYTDFIQ+uBkfX8GBvJGccoARxxPep+7aWTs55ozbjQJpW9M26Fe53vnGgvLeVzva/amzjQQaQu9w0vMhA==}
+  /markdown-it@14.3.3:
+    resolution: {integrity: sha512-L//tDAkjTjJCU6pBUSBTgs3Kg4InVaZuUZog/b6V12UKhcDQ7S78877ibbCanRExwPuYP1CZD7Gd2dxSy1GXRg==}
     hasBin: true
     dependencies:
       argparse: 2.0.1
@@ -9403,7 +9403,7 @@ packages:
     resolution: {integrity: sha512-D98dm4cQ3Hs6EmjK500TdAOew4Z03EV71ajEFiWra3Upr7diytJsjF4mPV2dW+eK5uNectiRj0xFxYI9NLXDbw==}
     dependencies:
       '@types/markdown-it': 14.1.2
-      markdown-it: 14.3.1
+      markdown-it: 14.3.3
       prosemirror-model: 1.25.4
     dev: false
 
