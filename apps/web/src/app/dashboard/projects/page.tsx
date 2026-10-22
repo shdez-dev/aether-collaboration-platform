@@ -1177,14 +1177,14 @@ export default function ProjectsPage() {
               </span>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '3px' }}>
-                  <span style={{ color: 'var(--c-accent-text)', fontSize: '10px', fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase' }}>Borrador pendiente — Paso 4 de 4</span>
+                  <span style={{ color: 'var(--c-accent-text)', fontSize: '10px', fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase' }}>Borrador de proyecto pendiente</span>
                   <span style={{ color: 'var(--c-text4)', fontSize: '10.5px' }}>Guardado en esta sesión</span>
                 </div>
                 <h2 id="project-draft-title" style={{ margin: 0, overflow: 'hidden', color: 'var(--c-text)', fontFamily: SORA, fontSize: '15px', fontWeight: 700, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {projectDraft.proposal.title || 'Proyecto sin nombre'}
+                  {projectDraft.answers.title || 'Proyecto sin nombre'}
                 </h2>
                 <p style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', margin: '4px 0 0', color: 'var(--c-text2)', fontSize: '12px', lineHeight: 1.5 }}>
-                  {projectDraft.proposal.summary || projectDraft.proposal.problemStatement || 'Tu propuesta quedó guardada mientras creabas un equipo. Puedes retomarla para revisar participantes y enfoque.'}
+                  {projectDraft.answers.context || projectDraft.answers.objective || 'Tu proyecto quedó guardado mientras organizabas el equipo. Puedes retomarlo para revisar participantes y enfoque.'}
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginTop: '7px', color: 'var(--c-text3)', fontSize: '11px' }}>
                   <span>{workspace?.name ?? 'Espacio actual'}</span>

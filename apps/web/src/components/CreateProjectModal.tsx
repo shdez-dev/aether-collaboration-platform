@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Check, FolderKanban, GitBranch, Plus, RotateCcw, X } from 'lucide-react';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
-import { ProjectProposalFields, EMPTY_PROJECT_PROPOSAL, PROPOSAL_STEPS, type ProjectProposalAnswers, type ProposalStep } from '@/components/ProjectProposalFields';
+import { ProjectCreationFields, EMPTY_PROJECT_CREATION_ANSWERS, type ProjectCreationAnswers } from '@/components/ProjectCreationFields';
 import { ProjectMethodologyStep, type ProjectParticipant, type ProjectTeamOption } from '@/components/ProjectMethodologyStep';
 import { useT } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
@@ -18,8 +18,12 @@ import { clearProjectCreationDraft, PROJECT_CREATION_DRAFT_MAX_AGE, readProjectC
 const PROJECT_COLOR = '#7452A6';
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
-const STEPS = [...PROPOSAL_STEPS, { title: 'Equipo y enfoque', description: 'Elige quién participa y cómo se organizará este proyecto.' }] as const;
-const PERSONAL_STEPS = [...PROPOSAL_STEPS, { title: 'Proyecto personal', description: 'Este proyecto será privado para ti.' }] as const;
+const PROJECT_SETUP_STEPS = [
+  { title: 'Proyecto', description: 'Dale un nombre y registra brevemente su contexto.' },
+  { title: 'Objetivo', description: 'Define el resultado y añade una métrica si ya la tienes.' },
+] as const;
+const STEPS = [...PROJECT_SETUP_STEPS, { title: 'Equipo y enfoque', description: 'Elige quién participa y cómo se organizará este proyecto.' }] as const;
+const PERSONAL_STEPS = [...PROJECT_SETUP_STEPS, { title: 'Proyecto personal', description: 'Este proyecto será privado para ti.' }] as const;
 
 function suggestCardPrefix(projectName: string) {
   const words = projectName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().match(/[A-Z0-9]+/g) ?? [];
@@ -52,9 +56,9 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const canSelectTeams = supportsOrganizationTeams(selectedWorkspace);
   const projectSteps = canConfigureMethodology ? STEPS : PERSONAL_STEPS;
 
-  const [proposal, setProposal] = useState<ProjectProposalAnswers>(EMPTY_PROJECT_PROPOSAL);
+  const [answers, setAnswers] = useState<ProjectCreationAnswers>(EMPTY_PROJECT_CREATION_ANSWERS);
   const [customCardPrefix, setCustomCardPrefix] = useState<string | null>(null);
-  const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
+  const [step, setStep] = useState<0 | 1 | 2>(0);
   const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
   const [methodology, setMethodology] = useState<'FLEXIBLE' | 'SCRUM'>('FLEXIBLE');
   const [advancedTraceability, setAdvancedTraceability] = useState(false);
@@ -75,9 +79,10 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [closing, setClosing] = useState(false);
-  const suggestedPrefix = suggestCardPrefix(proposal.title);
+  const suggestedPrefix = suggestCardPrefix(answers.title);
   const cardPrefix = customCardPrefix ?? suggestedPrefix;
   const validCardPrefix = /^[A-Z0-9]{3}$/.test(cardPrefix);
+  const hasSuccessIndicator = Boolean(answers.successMetric.trim() || answers.targetValue.trim() || answers.unit.trim());
 
   useEffect(() => { void fetchWorkspaces(); }, [fetchWorkspaces]);
 
@@ -92,24 +97,27 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
     }
     if (draft.workspaceId !== selectedWorkspaceId) return;
     pendingDraft.current = draft;
-    setProposal(draft.proposal);
+    setAnswers(draft.answers);
     setCustomCardPrefix(draft.cardPrefixCustomized ? (draft.cardPrefix ?? '').slice(0, 3) : null);
     setMethodology(canConfigureMethodology ? draft.methodology : 'FLEXIBLE');
-    setAdvancedTraceability(draft.advancedTraceability ?? false);
+    setAdvancedTraceability(Boolean(draft.advancedTraceability
+      || draft.answers.successMetric.trim()
+      || draft.answers.targetValue.trim()
+      || draft.answers.unit.trim()));
     setResumingDraft(true);
-    setStep(3);
+    setStep(2);
   }, [canConfigureMethodology, currentUserId, selectedWorkspaceId]);
 
   useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, [step]);
 
   const isInstitutionalWorkspace = activeWorkspace?.organization?.type === 'INSTITUTION';
-  const canSubmit = Boolean(canCreateProject && selectedWorkspace && proposal.title.trim() && !isLoading);
+  const canSubmit = Boolean(canCreateProject && selectedWorkspace && answers.title.trim() && answers.objective.trim() && !isLoading);
   const participantIds = new Set([currentUserId, ...memberIds, ...teams.filter((team) => teamIds.includes(team.id)).flatMap((team) => team.members.map((person) => person.id))]);
   const scrumReady = methodology !== 'SCRUM' || Boolean(participantIds.size >= 3 && productOwnerId && scrumMasterId && productOwnerId !== scrumMasterId && participantIds.has(productOwnerId) && participantIds.has(scrumMasterId));
   const finalDisabled = !canSubmit || !validCardPrefix || participantsLoading || loadedWorkspaceId.current !== selectedWorkspaceId || Boolean(participantsError) || (canConfigureMethodology && !scrumReady);
 
   useEffect(() => {
-    if (step !== 3 || !selectedWorkspaceId) return;
+    if (step !== 2 || !selectedWorkspaceId) return;
     if (loadedWorkspaceId.current === selectedWorkspaceId) return;
     setTeams([]); setMembers([]); setTeamIds([]); setMemberIds([]);
     setProductOwnerId(''); setScrumMasterId(''); setParticipantsError('');
@@ -138,7 +146,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const leaveForTeams = () => {
     saveProjectCreationDraft({
       savedAt: Date.now(), userId: currentUserId, workspaceId: selectedWorkspaceId,
-      proposal, cardPrefix, cardPrefixCustomized: customCardPrefix !== null,
+      answers, cardPrefix, cardPrefixCustomized: customCardPrefix !== null,
       methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
       advancedTraceability,
       teamIds: canSelectTeams ? teamIds : [], memberIds: canConfigureMethodology ? memberIds : [], productOwnerId, scrumMasterId,
@@ -153,7 +161,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
     const participantsLoaded = loadedWorkspaceId.current === selectedWorkspaceId;
     saveProjectCreationDraft({
       savedAt: Date.now(), userId: currentUserId, workspaceId: selectedWorkspaceId,
-      proposal, cardPrefix, cardPrefixCustomized: customCardPrefix !== null,
+      answers, cardPrefix, cardPrefixCustomized: customCardPrefix !== null,
       methodology: canConfigureMethodology ? methodology : 'FLEXIBLE',
       advancedTraceability,
       teamIds: canSelectTeams ? (participantsLoaded ? teamIds : waitingDraft?.teamIds ?? teamIds) : [],
@@ -171,12 +179,15 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
     window.setTimeout(onClose, 180);
   };
 
-  const updateProposal = (key: keyof ProjectProposalAnswers, value: string) => {
-    setProposal((current) => ({ ...current, [key]: value }));
+  const updateAnswer = (key: keyof ProjectCreationAnswers, value: string) => {
+    setAnswers((current) => ({ ...current, [key]: value }));
+    if ((key === 'successMetric' || key === 'targetValue' || key === 'unit') && value.trim()) {
+      setAdvancedTraceability(true);
+    }
     if (error) setError('');
   };
 
-  const goToStep = (nextStep: 0 | 1 | 2 | 3) => {
+  const goToStep = (nextStep: 0 | 1 | 2) => {
     setStepDirection(nextStep < step ? 'backward' : 'forward');
     setError('');
     setStep(nextStep);
@@ -184,8 +195,8 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (step < 3) {
-      goToStep((step + 1) as 0 | 1 | 2 | 3);
+    if (step < 2) {
+      goToStep((step + 1) as 0 | 1 | 2);
       return;
     }
     if (!selectedWorkspace) {
@@ -206,16 +217,19 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
     try {
       const project = await createProject({
         workspaceId: selectedWorkspace.id,
-        name: proposal.title.trim(),
+        name: answers.title.trim(),
         cardPrefix: cardPrefix.trim(),
-        description: proposal.summary.trim(),
-        problemStatement: proposal.problemStatement.trim(),
-        impactedPeople: proposal.impactedPeople.trim(),
-        problemImpact: proposal.problemImpact.trim(),
-        impactedCount: Number(proposal.impactedCount),
-        expectedOutcome: proposal.expectedOutcome.trim(),
-        proposedSolution: proposal.proposedSolution.trim(),
-        differentiation: proposal.differentiation.trim(),
+        description: answers.context.trim() || answers.objective.trim(),
+        problemStatement: answers.context.trim() || null,
+        impactedPeople: null,
+        problemImpact: null,
+        impactedCount: null,
+        expectedOutcome: answers.objective.trim(),
+        proposedSolution: null,
+        differentiation: null,
+        successMetric: answers.successMetric.trim() || null,
+        targetValue: answers.targetValue.trim() ? Number(answers.targetValue) : null,
+        unit: answers.unit.trim() || null,
         maturityStage: 'IDEA',
         icon: 'Folder',
         color: PROJECT_COLOR,
@@ -261,7 +275,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
         .create-project-action:active:not(:disabled), .create-project-back:active:not(:disabled), .create-project-cancel:active:not(:disabled), .create-project-close:active:not(:disabled) { transform: scale(.98); }
         .create-project-action:focus-visible, .create-project-back:focus-visible, .create-project-cancel:focus-visible, .create-project-close:focus-visible { outline: 2px solid var(--c-accent-text); outline-offset: 2px; }
         .create-project-error { animation: createProjectNoticeIn 180ms cubic-bezier(.16,1,.3,1) both; }
-        .create-project-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .create-project-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
         .create-project-back { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
         @media (max-width: 500px) { .create-project-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (prefers-reduced-motion: reduce) {
@@ -288,7 +302,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
             <div style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 12, color: PROJECT_COLOR, background: 'rgba(116,82,166,0.1)', border: '1px solid rgba(116,82,166,0.2)' }}><FolderKanban size={19} strokeWidth={1.8} /></div>
             <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
               <h2 id="create-project-title" style={{ margin: 0, color: 'var(--c-text)', fontSize: 19, lineHeight: 1.3, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: SORA }}>Crear proyecto</h2>
-              <p style={{ margin: '5px 0 0', color: 'var(--c-text2)', fontSize: 13, lineHeight: 1.5, fontFamily: MANROPE }}>De la propuesta al equipo que la realizará.</p>
+              <p style={{ margin: '5px 0 0', color: 'var(--c-text2)', fontSize: 13, lineHeight: 1.5, fontFamily: MANROPE }}>Define qué debe lograr y prepara el proyecto para empezar.</p>
             </div>
             <button type="button" className="create-project-close" onClick={handleClose} aria-label="Cerrar" disabled={isLoading} style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, color: 'var(--c-text2)', background: 'transparent', border: '1px solid rgba(97,71,130,0.08)', cursor: isLoading ? 'not-allowed' : 'pointer' }}><X size={16} /></button>
           </header>
@@ -324,14 +338,13 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 </div>
               )}
 
-              {selectedWorkspace && step < 3 ? <>
-                <ProjectProposalFields step={step as ProposalStep} values={proposal} onChange={updateProposal} accent={PROJECT_COLOR} />
-                {step === 2 && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 14, padding: '11px 12px', border: '1px solid rgba(116,82,166,0.18)', borderRadius: 9, background: 'rgba(116,82,166,0.055)' }}>
-                  <Check size={15} style={{ flex: '0 0 auto', marginTop: 1, color: PROJECT_COLOR }} />
-                  <p style={{ margin: 0, color: 'var(--c-text2)', fontSize: 11, lineHeight: 1.5, fontFamily: MANROPE }}>
-                    El resultado esperado queda guardado con el proyecto. Si añades Trazabilidad avanzada, podrás completarlo con indicador y meta, acordar la línea base y dar seguimiento a hitos y resultados.
-                  </p>
-                </div>}
+              {selectedWorkspace && (step === 0 || step === 1) ? <>
+                <ProjectCreationFields step={step} values={answers} onChange={updateAnswer} accent={PROJECT_COLOR} />
+                {step === 1 && <p style={{ margin: '14px 0 0', color: 'var(--c-text3)', fontSize: 11, lineHeight: 1.5, fontFamily: MANROPE }}>
+                  {hasSuccessIndicator
+                    ? 'La trazabilidad se activará para que puedas consultar y actualizar este indicador en el proyecto.'
+                    : 'El alcance, la solución propuesta y los entregables se pueden definir cuando el proyecto esté creado.'}
+                </p>}
               </> : selectedWorkspace ? <ProjectMethodologyStep
                 methodology={methodology} onMethodologyChange={setMethodology}
                 teams={teams} members={members} teamIds={teamIds} onTeamIdsChange={setTeamIds}
@@ -351,23 +364,23 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 </div>
               )}
 
-              {selectedWorkspace && step === 3 && (
+              {selectedWorkspace && step === 2 && (
                 <section aria-labelledby="project-traceability-title" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'start', gap: '10px 14px', marginTop: 18, padding: '14px 15px', border: '1px solid rgba(116,82,166,0.2)', borderRadius: 11, background: 'linear-gradient(125deg, rgba(116,82,166,0.075), rgba(97,71,130,0.025))' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, minWidth: 0 }}>
                     <span style={{ width: 31, height: 31, flex: '0 0 31px', display: 'grid', placeItems: 'center', border: '1px solid rgba(116,82,166,0.22)', borderRadius: 9, color: PROJECT_COLOR, background: 'rgba(116,82,166,0.1)' }}><GitBranch size={15} /></span>
                     <div style={{ minWidth: 0 }}>
-                      <h4 id="project-traceability-title" style={{ margin: '1px 0 4px', color: 'var(--c-text)', fontSize: 12, fontWeight: 750, fontFamily: MANROPE }}>Trazabilidad avanzada <span style={{ color: 'var(--c-text4)', fontSize: 10, fontWeight: 600 }}>Complemento opcional</span></h4>
-                      <p style={{ margin: 0, color: 'var(--c-text3)', fontSize: 10.5, lineHeight: 1.5, fontFamily: MANROPE }}>Añade objetivo medible, entregables, requisitos, hitos, resultados, decisiones y línea base. Puedes usarla con Flexible o Scrum.</p>
+                      <h4 id="project-traceability-title" style={{ margin: '1px 0 4px', color: 'var(--c-text)', fontSize: 12, fontWeight: 750, fontFamily: MANROPE }}>Trazabilidad avanzada <span style={{ color: 'var(--c-text4)', fontSize: 10, fontWeight: 600 }}>{hasSuccessIndicator ? 'Necesaria para seguir la métrica' : 'Complemento opcional'}</span></h4>
+                      <p style={{ margin: 0, color: 'var(--c-text3)', fontSize: 10.5, lineHeight: 1.5, fontFamily: MANROPE }}>Organiza entregables, requisitos, hitos, resultados, decisiones y línea base. El objetivo inicial ya queda registrado.</p>
                     </div>
                   </div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 30, padding: '0 9px', border: `1px solid ${advancedTraceability ? 'rgba(116,82,166,0.42)' : 'rgba(97,71,130,0.14)'}`, borderRadius: 8, background: advancedTraceability ? 'rgba(116,82,166,0.12)' : 'rgba(97,71,130,0.035)', color: advancedTraceability ? 'var(--c-text)' : 'var(--c-text2)', cursor: isLoading ? 'not-allowed' : 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    <input type="checkbox" checked={advancedTraceability} onChange={(event) => setAdvancedTraceability(event.target.checked)} disabled={isLoading} style={{ accentColor: PROJECT_COLOR }} />
-                    Incluir
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 30, padding: '0 9px', border: `1px solid ${advancedTraceability || hasSuccessIndicator ? 'rgba(116,82,166,0.42)' : 'rgba(97,71,130,0.14)'}`, borderRadius: 8, background: advancedTraceability || hasSuccessIndicator ? 'rgba(116,82,166,0.12)' : 'rgba(97,71,130,0.035)', color: advancedTraceability || hasSuccessIndicator ? 'var(--c-text)' : 'var(--c-text2)', cursor: isLoading || hasSuccessIndicator ? 'not-allowed' : 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={advancedTraceability || hasSuccessIndicator} onChange={(event) => setAdvancedTraceability(event.target.checked)} disabled={isLoading || hasSuccessIndicator} style={{ accentColor: PROJECT_COLOR }} />
+                    {hasSuccessIndicator ? 'Activada por el indicador' : 'Incluir'}
                   </label>
                 </section>
               )}
 
-              {selectedWorkspace && step === 3 && <section aria-labelledby="project-card-prefix-title" style={{ marginTop: 20, padding: '16px 0 2px', borderTop: '1px solid rgba(97,71,130,0.12)' }}>
+              {selectedWorkspace && step === 2 && <section aria-labelledby="project-card-prefix-title" style={{ marginTop: 20, padding: '16px 0 2px', borderTop: '1px solid rgba(97,71,130,0.12)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 260px', minWidth: 0 }}>
                     <h4 id="project-card-prefix-title" style={{ margin: 0, color: 'var(--c-text)', fontSize: 12, fontWeight: 700, fontFamily: MANROPE }}>Prefijo de tarjetas</h4>
@@ -412,10 +425,10 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
             <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', padding: '14px 24px', borderTop: '1px solid rgba(97,71,130,0.07)', background: 'rgba(97,71,130,0.015)' }}>
               <span style={{ color: '#777365', fontSize: 11.5, lineHeight: 1.4, fontFamily: MANROPE }}>Paso {step + 1} de {projectSteps.length}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
-                {step > 0 && <button type="button" className="create-project-back" onClick={() => goToStep((step - 1) as 0 | 1 | 2 | 3)} disabled={isLoading} style={{ height: 40, minWidth: 108, padding: '0 14px', borderRadius: 9, color: 'var(--c-text2)', background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}><ArrowLeft size={14} />Anterior</button>}
+                {step > 0 && <button type="button" className="create-project-back" onClick={() => goToStep((step - 1) as 0 | 1 | 2)} disabled={isLoading} style={{ height: 40, minWidth: 108, padding: '0 14px', borderRadius: 9, color: 'var(--c-text2)', background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}><ArrowLeft size={14} />Anterior</button>}
                 {step === 0 && <button type="button" className="create-project-cancel" onClick={handleClose} disabled={isLoading} style={{ height: 40, padding: '0 15px', borderRadius: 9, color: 'var(--c-text2)', background: 'rgba(97,71,130,0.035)', border: '1px solid rgba(97,71,130,0.1)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: MANROPE }}>{t.btn_cancel}</button>}
-                <button type="submit" disabled={!selectedWorkspace || (step === 3 && finalDisabled)} className="create-project-action" style={{ height: 40, minWidth: 130, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 15px', borderRadius: 9, color: '#FFFFFF', background: PROJECT_COLOR, border: 0, cursor: !selectedWorkspace || (step === 3 && finalDisabled) ? 'not-allowed' : 'pointer', opacity: !selectedWorkspace || (step === 3 && finalDisabled) ? 0.4 : 1, fontSize: 12.5, fontWeight: 700, fontFamily: SORA }}>
-                  {isLoading ? <><span className="create-project-spinner" style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#FFFFFF', animation: 'createProjectSpin 650ms linear infinite' }} />{t.btn_creating}</> : step === 3 ? <><Plus size={15} strokeWidth={2.2} />Crear proyecto</> : <>Continuar<ArrowRight size={14} /></>}
+                <button type="submit" disabled={!selectedWorkspace || (step === 2 && finalDisabled)} className="create-project-action" style={{ height: 40, minWidth: 130, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 15px', borderRadius: 9, color: '#FFFFFF', background: PROJECT_COLOR, border: 0, cursor: !selectedWorkspace || (step === 2 && finalDisabled) ? 'not-allowed' : 'pointer', opacity: !selectedWorkspace || (step === 2 && finalDisabled) ? 0.4 : 1, fontSize: 12.5, fontWeight: 700, fontFamily: SORA }}>
+                  {isLoading ? <><span className="create-project-spinner" style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#FFFFFF', animation: 'createProjectSpin 650ms linear infinite' }} />{t.btn_creating}</> : step === 2 ? <><Plus size={15} strokeWidth={2.2} />Crear proyecto</> : <>Continuar<ArrowRight size={14} /></>}
                 </button>
               </div>
             </footer>

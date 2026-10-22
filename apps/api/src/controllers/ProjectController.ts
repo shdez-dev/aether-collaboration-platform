@@ -20,13 +20,16 @@ const createProjectSchema = z.object({
   cardPrefix: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{3}$/, 'El prefijo debe tener exactamente 3 letras o números').optional(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
   maturityStage: z.enum(['IDEA', 'DRAFT', 'FORMALIZED', 'PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).optional(),
-  problemStatement: z.string().trim().min(1).max(8000),
-  impactedPeople: z.string().trim().min(1).max(8000),
-  problemImpact: z.string().trim().min(1).max(8000),
-  impactedCount: z.number().int().min(1).max(1_000_000_000),
-  expectedOutcome: z.string().trim().min(1).max(8000),
-  proposedSolution: z.string().trim().min(1).max(8000),
-  differentiation: z.string().trim().min(1).max(8000),
+  problemStatement: z.string().trim().max(8000).nullable().optional(),
+  impactedPeople: z.string().trim().max(8000).nullable().optional(),
+  problemImpact: z.string().trim().max(8000).nullable().optional(),
+  impactedCount: z.number().int().min(1).max(1_000_000_000).nullable().optional(),
+  expectedOutcome: z.string().trim().min(1).max(2000),
+  proposedSolution: z.string().trim().max(8000).nullable().optional(),
+  differentiation: z.string().trim().max(8000).nullable().optional(),
+  successMetric: z.string().trim().max(160).nullable().optional(),
+  targetValue: z.number().finite().min(0).max(9_999_999_999.99).nullable().optional(),
+  unit: z.string().trim().max(40).nullable().optional(),
   nextStep: z.string().max(1000).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -830,19 +833,20 @@ class ProjectController {
            workspaceStandard.id, workspaceStandard.version, methodology, data.cardPrefix ?? null, advancedTraceability]
         );
         const project = result.rows[0];
-        if (advancedTraceability) await client.query(
+        const originSnapshot = await client.query(
           `INSERT INTO project_origin_snapshots (
              project_id, origin_type, source_title, source_description, problem_statement,
              impacted_people, problem_impact, impacted_count, expected_outcome,
              proposed_solution, differentiation, captured_by
-           ) VALUES ($1, 'DIRECT', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+           ) VALUES ($1, 'DIRECT', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           RETURNING id`,
           [project.id, data.name, data.description ?? null, data.problemStatement ?? null, data.impactedPeople,
            data.problemImpact, data.impactedCount, data.expectedOutcome, data.proposedSolution, data.differentiation, userId],
         );
-        if (advancedTraceability) await client.query(
-          `INSERT INTO project_objectives (project_id, origin_snapshot_id, statement, created_by)
-           SELECT $1, id, $2, $3 FROM project_origin_snapshots WHERE project_id = $1`,
-          [project.id, data.expectedOutcome, userId],
+        await client.query(
+          `INSERT INTO project_objectives (project_id, origin_snapshot_id, statement, success_metric, target_value, unit, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [project.id, originSnapshot.rows[0].id, data.expectedOutcome, data.successMetric ?? null, data.targetValue ?? null, data.unit ?? null, userId],
         );
         for (const teamId of uniqueTeamIds) {
           await client.query(
