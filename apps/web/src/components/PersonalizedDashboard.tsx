@@ -116,7 +116,6 @@ const DASHBOARD_BACKGROUNDS: { id: DashboardBackgroundColor; label: string; colo
   { id: 'rose', label: 'Rosa', color: '#e0a3bd' },
   { id: 'butter', label: 'Mantequilla', color: '#d7c879' },
 ];
-const DASHBOARD_BACKGROUND_TINT = 20;
 const DEFAULT_WIDGET_SIZE = { width: 8, height: 3 };
 const WIDGET_SIZES: Partial<Record<WidgetKind, { width: number; height: number }>> = {
   'quick-links': { width: 5, height: 3 },
@@ -1529,7 +1528,7 @@ export default function PersonalizedDashboard({ projects = [], organization = nu
       </section>}
 
       <div className={styles.canvasFrame}>
-        <div ref={setGridDropRef} className={gridClass} data-columns={columns} onPointerMove={handleGridPointerMove} onPointerLeave={() => { hoverPointerRef.current = null; setHoveredCell(null); }} style={{ '--grid-columns': cellColumns, '--grid-rows': gridRows, '--grid-cell-size': `${cellSize}px`, '--grid-cell-width': `${cellWidth}px`, '--dashboard-board-background': DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color ? `color-mix(in srgb, ${DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color} ${DASHBOARD_BACKGROUND_TINT}%, var(--c-bg2))` : undefined, '--dashboard-board-accent': DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color ?? 'transparent' } as React.CSSProperties}>
+        <div ref={setGridDropRef} className={gridClass} data-columns={columns} onPointerMove={handleGridPointerMove} onPointerLeave={() => { hoverPointerRef.current = null; setHoveredCell(null); }} style={{ '--grid-columns': cellColumns, '--grid-rows': gridRows, '--grid-cell-size': `${cellSize}px`, '--grid-cell-width': `${cellWidth}px`, '--dashboard-board-background': DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color ? `color-mix(in srgb, ${DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color} var(--dashboard-board-tint), var(--c-bg2))` : undefined, '--dashboard-board-accent': DASHBOARD_BACKGROUNDS.find((option) => option.id === backgroundColor)?.color ?? 'transparent' } as React.CSSProperties}>
           <span className={styles.boardColorEdge} aria-hidden="true" />
           <div className={styles.cellLayer} aria-hidden="true">
             {highlight && <span className={`${styles.gridCellHighlight} ${styles.gridCellHover} ${hoveredCell?.fast ? styles.gridCellHoverFast : ''}`} style={highlightStyle} />}
