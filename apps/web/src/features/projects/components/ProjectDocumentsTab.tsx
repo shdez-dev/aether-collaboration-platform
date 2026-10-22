@@ -3,6 +3,7 @@
 import type { Document } from '@aether/types';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ArrowRight, BookOpen, Check, CheckCheck, ChevronDown, FileCheck2, FilePlus2, FileText, Link2, LoaderCircle, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { projectApi, type ProjectDecision, type ProjectDocumentCategory, type ProjectDocumentation, type ProjectEvidenceLink, type ProjectEvidenceTargetType, type ProjectTraceabilityData } from '@/features/projects/api';
 import styles from './ProjectDocumentsTab.module.css';
@@ -36,7 +37,52 @@ const targetLabel: Record<ProjectEvidenceTargetType, string> = {
   PROJECT: 'Proyecto', OBJECTIVE: 'Objetivo', DELIVERABLE: 'Entregable',
   REQUIREMENT: 'Requisito', OUTCOME: 'Resultado medido', DECISION: 'Decisión',
 };
+const categoryOptions = Object.entries(categoryLabel).map(([value, label]) => ({ value, label }));
+const filterOptions = [{ value: 'ALL', label: 'Todos los tipos' }, ...categoryOptions];
+const claimMaxLength = 1000;
+const excerptMaxLength = 2000;
 const emptyDocumentation: ProjectDocumentation = { profiles: [], evidenceLinks: [] };
+
+type MenuOption = { value: string; label: string };
+type OptionMenuProps = {
+  value: string;
+  options: MenuOption[];
+  onValueChange: (value: string) => void;
+  className: string;
+  ariaLabel: string;
+  disabled?: boolean;
+};
+
+function OptionMenu({ value, options, onValueChange, className, ariaLabel, disabled = false }: OptionMenuProps) {
+  const selected = options.find((option) => option.value === value) ?? options[0];
+  if (!selected) return null;
+
+  return <DropdownMenu.Root modal={false}>
+    <DropdownMenu.Trigger asChild>
+      <button type="button" className={className} aria-label={ariaLabel} disabled={disabled}>
+        <span>{selected.label}</span><ChevronDown size={14} aria-hidden="true" />
+      </button>
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Portal>
+      <DropdownMenu.Content className={styles.optionMenu} align="start" sideOffset={6} collisionPadding={12} style={{ minWidth: 'var(--radix-dropdown-menu-trigger-width)' }}>
+        <DropdownMenu.RadioGroup value={value} onValueChange={onValueChange}>
+          {options.map((option) => <DropdownMenu.RadioItem key={option.value} value={option.value} className={styles.optionItem}>
+            <span>{option.label}</span>
+            <DropdownMenu.ItemIndicator className={styles.optionCheck}><Check size={14} aria-hidden="true" /></DropdownMenu.ItemIndicator>
+          </DropdownMenu.RadioItem>)}
+        </DropdownMenu.RadioGroup>
+      </DropdownMenu.Content>
+    </DropdownMenu.Portal>
+  </DropdownMenu.Root>;
+}
+
+function CharacterLimit({ value, limit }: { value: string; limit: number }) {
+  const showCount = value.length >= Math.ceil(limit * 0.8);
+  const nearLimit = value.length >= Math.ceil(limit * 0.95);
+  return <span className={`${styles.characterLimit} ${showCount ? styles.characterCountVisible : ''} ${nearLimit ? styles.characterLimitNear : ''}`}>
+    {showCount ? `${value.length.toLocaleString('es-CL')} / ${limit.toLocaleString('es-CL')}` : `Máximo ${limit.toLocaleString('es-CL')} caracteres`}
+  </span>;
+}
 
 function tiptapText(value: unknown): string {
   if (Array.isArray(value)) return value.map(tiptapText).filter(Boolean).join(' ');
@@ -178,7 +224,9 @@ export function ProjectDocumentsTab({ projectId, advancedTraceability, documents
         <div className={styles.sectionHeading}><h3>Biblioteca <span>{documents.length}</span></h3><p>Documentos colaborativos de este proyecto</p></div>
         <div className={styles.tools}>
           <label className={styles.search}><Search size={16} aria-hidden="true" /><span className={styles.srOnly}>Buscar documentos</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar documentos" /></label>
-          <label className={styles.filter}><span className={styles.srOnly}>Filtrar por tipo</span><select value={filter} onChange={(event) => setFilter(event.target.value as ProjectDocumentCategory | 'ALL')}><option value="ALL">Todos los tipos</option>{Object.entries(categoryLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ChevronDown size={14} aria-hidden="true" /></label>
+          <div className={styles.filter}>
+            <OptionMenu value={filter} options={filterOptions} onValueChange={(value) => setFilter(value as ProjectDocumentCategory | 'ALL')} className={styles.filterTrigger} ariaLabel="Filtrar por tipo" />
+          </div>
         </div>
         {loading ? <div className={styles.empty}><LoaderCircle className={styles.spinner} size={22} /><p>Cargando documentos…</p></div> : visibleDocuments.length === 0 ? (
           <div className={styles.empty}><FileText size={24} /><strong>{documents.length ? 'No hay documentos con ese filtro' : 'Tu biblioteca empieza aquí'}</strong><p>{documents.length ? 'Prueba otra búsqueda o categoría.' : 'Crea un documento para registrar y compartir el trabajo del proyecto.'}</p>{!documents.length && canEdit && <button type="button" onClick={onCreate}>Crear documento <ArrowRight size={14} /></button>}</div>
@@ -196,7 +244,7 @@ export function ProjectDocumentsTab({ projectId, advancedTraceability, documents
               </div>
             </div>
             <div className={styles.documentActions}>
-              {canEdit ? <label className={styles.categoryControl}><span className={styles.srOnly}>Tipo de documento: {doc.title}</span><select disabled={updatingId === doc.id} value={category} onChange={(event) => void changeCategory(doc.id, event.target.value as ProjectDocumentCategory)}>{Object.entries(categoryLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ChevronDown size={13} aria-hidden="true" /></label> : <span className={styles.categoryLabel}>{categoryLabel[category]}</span>}
+              {canEdit ? <OptionMenu value={category} options={categoryOptions} onValueChange={(value) => void changeCategory(doc.id, value as ProjectDocumentCategory)} className={styles.categoryTrigger} ariaLabel={`Clasificación de ${doc.title}`} disabled={updatingId === doc.id} /> : <span className={styles.categoryLabel}>{categoryLabel[category]}</span>}
               {canLinkEvidence && <button type="button" className={styles.linkButton} onClick={(event) => { returnFocusRef.current = event.currentTarget; setLinking(doc); setTargetValue('PROJECT'); setClaim(''); setExcerpt(''); setError(''); }}><Link2 size={14} /> Vincular evidencia</button>}
             </div>
             {links.length > 0 && <div className={styles.evidenceList}>{links.map((link) => <div className={styles.evidenceItem} key={link.id}>
@@ -218,9 +266,10 @@ export function ProjectDocumentsTab({ projectId, advancedTraceability, documents
       </aside>
     </div>
     {linking && typeof document !== 'undefined' && createPortal(<div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setLinking(null); }}><div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="link-evidence-title" className={styles.dialog} onKeyDown={(event) => {
-      if (event.key === 'Escape' && !saving) setLinking(null);
-      if (event.key !== 'Tab') return;
-      const focusables = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), select:not([disabled]), textarea:not([disabled])') ?? []);
+      const menuOpen = document.querySelector('[data-radix-popper-content-wrapper]');
+      if (event.key === 'Escape' && !menuOpen && !saving) setLinking(null);
+      if (event.key !== 'Tab' || menuOpen) return;
+      const focusables = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []);
       if (!focusables.length) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
@@ -228,7 +277,27 @@ export function ProjectDocumentsTab({ projectId, advancedTraceability, documents
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }}>
       <div className={styles.dialogHeader}><span className={styles.dialogIcon}><FileCheck2 size={20} /></span><div><span className={styles.eyebrow}>DOCUMENTO COMO EVIDENCIA</span><h3 id="link-evidence-title">Vincular «{linking.title}»</h3></div><button type="button" aria-label="Cerrar" onClick={() => setLinking(null)} disabled={saving}><X size={18} /></button></div>
-      <form onSubmit={(event) => void saveEvidence(event)}><div className={styles.dialogBody}><p className={styles.dialogIntro}>Indica qué respalda este documento. Al vincularlo se conserva una versión de su contenido; podrás seguir editando el documento.</p><label>Elemento que respalda<select value={targetValue} onChange={(event) => setTargetValue(event.target.value)}>{targets.map((target) => <option key={target.value} value={target.value}>{target.label}</option>)}</select></label><label>¿Qué demuestra este documento?<textarea autoFocus value={claim} onChange={(event) => setClaim(event.target.value)} required maxLength={1000} rows={3} placeholder="Ej. La prueba de aceptación confirma el requisito de acceso." /></label><label>Referencia o fragmento <small>Opcional</small><textarea value={excerpt} onChange={(event) => setExcerpt(event.target.value)} maxLength={2000} rows={2} placeholder="Sección, página o fragmento que facilita la revisión" /></label>{error && <p className={styles.dialogError} role="alert">{error}</p>}</div><div className={styles.dialogFooter}><button type="button" onClick={() => setLinking(null)} disabled={saving}>Cancelar</button><button type="submit" disabled={saving || !claim.trim()}>{saving ? <LoaderCircle size={16} className={styles.spinner} /> : <Link2 size={16} />} Vincular evidencia</button></div></form>
+      <form onSubmit={(event) => void saveEvidence(event)}>
+        <div className={styles.dialogBody}>
+          <p className={styles.dialogIntro}>Indica qué respalda este documento. Al vincularlo se conserva una versión de su contenido; podrás seguir editando el documento.</p>
+          <label className={styles.dialogField}>
+            <span className={styles.fieldLabel}>Elemento que respalda</span>
+            <OptionMenu value={targetValue} options={targets.map(({ value, label }) => ({ value, label }))} onValueChange={setTargetValue} className={styles.dialogSelect} ariaLabel="Elemento que respalda" />
+          </label>
+          <label className={styles.dialogField}>
+            <span className={styles.fieldLabel}>¿Qué demuestra este documento?</span>
+            <textarea autoFocus value={claim} onChange={(event) => setClaim(event.target.value)} required maxLength={claimMaxLength} rows={3} aria-describedby="evidence-claim-limit" placeholder="Ej. La prueba de aceptación confirma el requisito de acceso." />
+            <span className={styles.fieldHint} id="evidence-claim-limit"><span>Describe qué parte del elemento queda respaldada.</span><CharacterLimit value={claim} limit={claimMaxLength} /></span>
+          </label>
+          <label className={styles.dialogField}>
+            <span className={styles.fieldLabel}>Referencia o fragmento <small>Opcional</small></span>
+            <textarea value={excerpt} onChange={(event) => setExcerpt(event.target.value)} maxLength={excerptMaxLength} rows={2} aria-describedby="evidence-excerpt-limit" placeholder="Sección, página o fragmento que facilita la revisión" />
+            <span className={styles.fieldHint} id="evidence-excerpt-limit"><span>Ubica la evidencia dentro del documento.</span><CharacterLimit value={excerpt} limit={excerptMaxLength} /></span>
+          </label>
+          {error && <p className={styles.dialogError} role="alert">{error}</p>}
+        </div>
+        <div className={styles.dialogFooter}><button type="button" onClick={() => setLinking(null)} disabled={saving}>Cancelar</button><button type="submit" disabled={saving || !claim.trim()}>{saving ? <LoaderCircle size={16} className={styles.spinner} /> : <Link2 size={16} />} Vincular evidencia</button></div>
+      </form>
     </div></div>, document.body)}
   </div>;
 }
