@@ -4543,6 +4543,7 @@ function CreateDocumentModal({
   projectId,
   color,
   initialTitle = '',
+  initialTemplateId,
   onClose,
   onCreated,
 }: {
@@ -4550,6 +4551,7 @@ function CreateDocumentModal({
   projectId: string;
   color: string;
   initialTitle?: string;
+  initialTemplateId?: string;
   onClose: () => void;
   onCreated: (doc: Document) => void | Promise<void>;
 }) {
@@ -4579,6 +4581,7 @@ function CreateDocumentModal({
         title: name,
         description: description.trim(),
         projectId,
+        templateId: initialTemplateId,
       });
       await onCreated(doc);
     } catch (e: any) {
@@ -4712,6 +4715,22 @@ function CreateDocumentModal({
             />
             <small style={{ textAlign: 'right', color: C.text4 }}>{description.length}/300</small>
           </label>
+          {initialTemplateId && (
+            <div
+              role="note"
+              style={{
+                padding: '10px 11px',
+                borderRadius: 8,
+                border: `1px solid ${C.border}`,
+                background: 'rgba(116,82,166,0.08)',
+                color: C.text3,
+                fontSize: 11,
+                lineHeight: 1.5,
+              }}
+            >
+              Se agregará una guía de <strong style={{ color: C.text }}>{initialTitle}</strong> con sus apartados recomendados. Podrás editarla y adaptarla al proyecto.
+            </div>
+          )}
           {error && <p style={{ margin: 0, fontSize: '11.5px', color: C.red }}>{error}</p>}
         </div>
         <div
@@ -4826,7 +4845,7 @@ export default function ProjectDetailPage() {
   const [showAddBoard, setShowAddBoard] = useState(false);
   const [showAddMs, setShowAddMs] = useState(false);
   const [showAddDoc, setShowAddDoc] = useState(false);
-  const [suggestedDocument, setSuggestedDocument] = useState<{ category: ProjectDocumentCategory; title: string } | null>(null);
+  const [suggestedDocument, setSuggestedDocument] = useState<{ category: ProjectDocumentCategory; title: string; templateId: string } | null>(null);
   const [editMs, setEditMs] = useState<ProjectMilestone | null>(null);
   const [assignedTeams, setAssignedTeams] = useState<AssignedTeam[]>([]);
   const [boardToRemove, setBoardToRemove] = useState<{ id: string; name: string } | null>(null);
@@ -7338,7 +7357,7 @@ export default function ProjectDetailPage() {
             canEdit={canManageDocuments}
             canLinkEvidence={project.advancedTraceability === true && canManageTraceability}
             onCreate={() => { setSuggestedDocument(null); setShowAddDoc(true); }}
-            onCreateSuggested={(category, title) => { setSuggestedDocument({ category, title }); setShowAddDoc(true); }}
+            onCreateSuggested={(category, title, templateId) => { setSuggestedDocument({ category, title, templateId }); setShowAddDoc(true); }}
             onOpen={(documentId) => router.push(`/dashboard/documents/${documentId}`)}
           />
         )}
@@ -8337,6 +8356,7 @@ export default function ProjectDetailPage() {
           projectId={project.id}
           color={color}
           initialTitle={suggestedDocument?.title}
+          initialTemplateId={suggestedDocument?.templateId}
           onClose={() => { setShowAddDoc(false); setSuggestedDocument(null); }}
           onCreated={async (doc) => {
             if (suggestedDocument) {

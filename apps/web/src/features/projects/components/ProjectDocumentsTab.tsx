@@ -15,18 +15,18 @@ type Props = {
   canEdit: boolean;
   canLinkEvidence: boolean;
   onCreate: () => void;
-  onCreateSuggested: (category: ProjectDocumentCategory, title: string) => void;
+  onCreateSuggested: (category: ProjectDocumentCategory, title: string, templateId: string) => void;
   onOpen: (documentId: string) => void;
 };
 type Target = { value: string; type: ProjectEvidenceTargetType; id: string | null; label: string };
-const guide: { key: ProjectDocumentCategory; title: string; why: string }[] = [
-  { key: 'DIRECTION', title: 'Visión y alcance', why: 'Problema, objetivo, límites y criterios de éxito.' },
-  { key: 'REQUIREMENTS', title: 'Requisitos y criterios de aceptación', why: 'Qué se necesita y cómo se comprobará.' },
-  { key: 'ARCHITECTURE', title: 'Arquitectura y decisiones técnicas', why: 'Componentes, integraciones y razones de diseño.' },
-  { key: 'VERIFICATION', title: 'Plan y resultados de pruebas', why: 'Pruebas realizadas, hallazgos y validación.' },
-  { key: 'DELIVERY', title: 'Plan de entrega y cambios', why: 'Qué se publicó, cuándo y cómo revertirlo.' },
-  { key: 'OPERATIONS', title: 'Guía de operación', why: 'Despliegue, monitoreo e incidentes.' },
-  { key: 'METRICS', title: 'Medición de resultados', why: 'Indicadores, fuentes y resultados observados.' },
+const guide: { key: ProjectDocumentCategory; title: string; why: string; templateId: string }[] = [
+  { key: 'DIRECTION', title: 'Visión y alcance', why: 'Problema, objetivo, límites y criterios de éxito.', templateId: 'software-vision-scope' },
+  { key: 'REQUIREMENTS', title: 'Requisitos y criterios de aceptación', why: 'Qué se necesita y cómo se comprobará.', templateId: 'software-requirements' },
+  { key: 'ARCHITECTURE', title: 'Arquitectura y decisiones técnicas', why: 'Componentes, integraciones y razones de diseño.', templateId: 'software-architecture' },
+  { key: 'VERIFICATION', title: 'Plan y resultados de pruebas', why: 'Pruebas realizadas, hallazgos y validación.', templateId: 'software-test-plan' },
+  { key: 'DELIVERY', title: 'Plan de entrega y cambios', why: 'Qué se publicó, cuándo y cómo revertirlo.', templateId: 'software-release-plan' },
+  { key: 'OPERATIONS', title: 'Guía de operación', why: 'Despliegue, monitoreo e incidentes.', templateId: 'software-operations-guide' },
+  { key: 'METRICS', title: 'Medición de resultados', why: 'Indicadores, fuentes y resultados observados.', templateId: 'software-outcome-measurement' },
 ];
 const categoryLabel: Record<ProjectDocumentCategory, string> = {
   GENERAL: 'Sin clasificar', DIRECTION: 'Dirección', REQUIREMENTS: 'Requisitos',
@@ -260,7 +260,7 @@ export function ProjectDocumentsTab({ projectId, advancedTraceability, documents
         <div className={styles.guideProgress}><span>{guideCount === 0 ? 'Empieza por el documento que te resulte útil' : `${guideCount} ${guideCount === 1 ? 'área documentada' : 'áreas documentadas'} en este proyecto`}</span></div>
         <ol className={styles.guideList}>{guide.map((item, index) => {
           const matching = documents.filter((doc) => profileByDocument.get(doc.id) === item.key);
-          return <li key={item.key} className={matching.length ? styles.guideDone : ''}><span className={styles.guideNumber}>{matching.length ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><div><strong>{item.title}</strong><p>{item.why}</p>{matching.length > 0 ? <button type="button" onClick={() => { setFilter(item.key); setQuery(''); document.getElementById('project-documents-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{matching.length} {matching.length === 1 ? 'documento' : 'documentos'} <ArrowRight size={12} /></button> : canEdit ? <button type="button" onClick={() => onCreateSuggested(item.key, item.title)}>Crear documento <ArrowRight size={12} /></button> : null}</div></li>;
+          return <li key={item.key} className={matching.length ? styles.guideDone : ''}><span className={styles.guideNumber}>{matching.length ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><div><strong>{item.title}</strong><p>{item.why}</p>{matching.length > 0 ? <button type="button" onClick={() => { setFilter(item.key); setQuery(''); document.getElementById('project-documents-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{matching.length} {matching.length === 1 ? 'documento' : 'documentos'} <ArrowRight size={12} /></button> : canEdit ? <button type="button" onClick={() => onCreateSuggested(item.key, item.title, item.templateId)}>Crear con plantilla <ArrowRight size={12} /></button> : null}</div></li>;
         })}</ol>
         <p className={styles.guideFoot}><ShieldCheck size={15} /> Estas sugerencias no bloquean el avance ni modifican el estado del proyecto.</p>
       </aside>

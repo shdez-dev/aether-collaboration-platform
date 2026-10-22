@@ -13,6 +13,13 @@ export type TemplateCategory =
   | 'technical-spec'
   | 'retrospective'
   | 'project-documentation'
+  | 'software-vision-scope'
+  | 'software-requirements'
+  | 'software-architecture'
+  | 'software-test-plan'
+  | 'software-release-plan'
+  | 'software-operations-guide'
+  | 'software-outcome-measurement'
   | 'quick-note'
   | 'decision-record'
   | 'ai-builder';
@@ -69,6 +76,55 @@ export class DocumentTemplateService {
         category: 'Documentation',
       },
       {
+        id: 'software-vision-scope',
+        name: 'Visión y alcance',
+        description: 'Problema, objetivo, límites, personas involucradas y criterios de éxito.',
+        icon: 'Compass',
+        category: 'Software',
+      },
+      {
+        id: 'software-requirements',
+        name: 'Requisitos y criterios de aceptación',
+        description: 'Necesidades funcionales, calidad esperada y forma de validación.',
+        icon: 'ListChecks',
+        category: 'Software',
+      },
+      {
+        id: 'software-architecture',
+        name: 'Arquitectura y decisiones técnicas',
+        description: 'Componentes, datos, integraciones, seguridad y decisiones del sistema.',
+        icon: 'Network',
+        category: 'Software',
+      },
+      {
+        id: 'software-test-plan',
+        name: 'Plan y resultados de pruebas',
+        description: 'Estrategia, casos, resultados, defectos y aprobación.',
+        icon: 'ShieldCheck',
+        category: 'Software',
+      },
+      {
+        id: 'software-release-plan',
+        name: 'Plan de entrega y cambios',
+        description: 'Contenido de la versión, despliegue, verificación y reversa.',
+        icon: 'Rocket',
+        category: 'Software',
+      },
+      {
+        id: 'software-operations-guide',
+        name: 'Guía de operación',
+        description: 'Puesta en marcha, monitoreo, incidentes, recuperación y soporte.',
+        icon: 'Activity',
+        category: 'Software',
+      },
+      {
+        id: 'software-outcome-measurement',
+        name: 'Medición de resultados',
+        description: 'Indicadores, línea base, mediciones, interpretación y seguimiento.',
+        icon: 'BarChart3',
+        category: 'Software',
+      },
+      {
         id: 'ai-builder',
         name: 'AI Workspace Builder',
         description:
@@ -103,6 +159,13 @@ export class DocumentTemplateService {
       'technical-spec': this.getTechnicalSpecTemplate,
       retrospective: this.getRetrospectiveTemplate,
       'project-documentation': this.getProjectDocumentationTemplate,
+      'software-vision-scope': this.getSoftwareVisionScopeTemplate,
+      'software-requirements': this.getSoftwareRequirementsTemplate,
+      'software-architecture': this.getSoftwareArchitectureTemplate,
+      'software-test-plan': this.getSoftwareTestPlanTemplate,
+      'software-release-plan': this.getSoftwareReleasePlanTemplate,
+      'software-operations-guide': this.getSoftwareOperationsGuideTemplate,
+      'software-outcome-measurement': this.getSoftwareOutcomeMeasurementTemplate,
       'quick-note': this.getQuickNoteTemplate,
       'decision-record': this.getDecisionRecordTemplate,
       'ai-builder': this.getAiBuilderTemplate,
@@ -194,6 +257,347 @@ export class DocumentTemplateService {
       type: 'paragraph',
       content: line ? [{ type: 'text', text: line }] : [],
     }));
+  }
+
+  private getSoftwareTemplate(
+    title: string,
+    purpose: string,
+    sections: { title: string; points: string[] }[]
+  ) {
+    const heading = (text: string, level: number) => ({
+      type: 'heading',
+      attrs: { level },
+      content: [{ type: 'text', text }],
+    });
+    const bulletList = (points: string[]) => ({
+      type: 'bulletList',
+      content: points.map((point) => ({
+        type: 'listItem',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: point }] }],
+      })),
+    });
+
+    return {
+      type: 'doc',
+      content: [
+        heading(title, 1),
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', marks: [{ type: 'italic' }], text: purpose }],
+        },
+        {
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Guía de trabajo: responde los puntos aplicables, reemplaza estas indicaciones y marca como “No aplica” lo que no corresponda. Vincula requisitos, tarjetas, decisiones y evidencias del proyecto cuando existan. No incluyas contraseñas, tokens ni secretos.',
+          }],
+        },
+        { type: 'horizontalRule' },
+        heading('Control del documento', 2),
+        bulletList([
+          'Responsable de mantenerlo, personas revisoras y aprobadoras.',
+          'Versión, fecha de actualización y estado de revisión.',
+          'Documentos, decisiones, entregables o tarjetas relacionadas.',
+        ]),
+        ...sections.flatMap((section) => [
+          heading(section.title, 2),
+          bulletList(section.points),
+        ]),
+        heading('Historial de cambios', 2),
+        bulletList([
+          'Versión y fecha del cambio.',
+          'Secciones modificadas y motivo del cambio.',
+          'Persona que realizó el cambio y revisión o aprobación asociada.',
+        ]),
+      ],
+    };
+  }
+
+  private getSoftwareVisionScopeTemplate() {
+    return this.getSoftwareTemplate('Visión y alcance', 'Define por qué existe el proyecto, qué cambio busca producir y qué quedará dentro o fuera del trabajo.', [
+      { title: 'Contexto y problema', points: [
+        '¿Qué situación origina el proyecto y a quién afecta?',
+        '¿Qué evidencia muestra que el problema existe? Incluye datos, ejemplos o fuentes.',
+        '¿Cómo se resuelve hoy y qué dificultades, costos o riesgos genera?',
+      ] },
+      { title: 'Visión y objetivos', points: [
+        '¿Qué cambio observable debería producir la solución?',
+        '¿Qué objetivos concretos se esperan y qué beneficio aportará cada uno?',
+        '¿Qué no intenta resolver este proyecto?',
+      ] },
+      { title: 'Personas usuarias e involucradas', points: [
+        '¿Quién usará, administrará, financiará o recibirá el impacto de la solución?',
+        '¿Qué necesidades, permisos, barreras de acceso o consideraciones de accesibilidad tiene cada grupo?',
+        '¿Quién toma decisiones y quién acepta el resultado?',
+      ] },
+      { title: 'Alcance y entregables', points: [
+        '¿Qué funciones, procesos, datos, plataformas y grupos están incluidos?',
+        '¿Qué queda explícitamente fuera de esta etapa?',
+        '¿Qué entregables permitirán comprobar que el alcance fue cubierto?',
+      ] },
+      { title: 'Restricciones, supuestos y dependencias', points: [
+        '¿Qué límites de plazo, presupuesto, tecnología, normativa o recursos deben respetarse?',
+        '¿Qué supuestos se están usando y cómo se validarán?',
+        '¿De qué equipos, sistemas, proveedores, datos o decisiones depende el proyecto?',
+      ] },
+      { title: 'Criterios de éxito', points: [
+        '¿Qué indicadores mostrarán que el cambio ocurrió? Define nombre, fórmula y unidad.',
+        '¿Cuál es la línea base y qué meta se espera alcanzar?',
+        '¿De dónde saldrán los datos, con qué frecuencia se medirán y quién revisará el resultado?',
+      ] },
+      { title: 'Riesgos y preguntas abiertas', points: [
+        '¿Qué podría impedir o retrasar el resultado? Indica probabilidad, impacto y respuesta.',
+        '¿Qué decisiones o información faltan para confirmar el alcance?',
+        '¿Qué señales indicarían que hay que revisar la visión o el plan?',
+      ] },
+    ]);
+  }
+
+  private getSoftwareRequirementsTemplate() {
+    return this.getSoftwareTemplate('Requisitos y criterios de aceptación', 'Describe las necesidades del producto o sistema y cómo el equipo y las personas interesadas comprobarán cada resultado.', [
+      { title: 'Propósito, alcance y referencias', points: [
+        '¿Qué producto, módulo o proceso cubre este documento y qué queda fuera?',
+        '¿Qué términos, siglas, políticas o documentos relacionados deben entenderse antes de leerlo?',
+        '¿Qué objetivo y personas usuarias del proyecto motivan estos requisitos?',
+      ] },
+      { title: 'Actores y necesidades', points: [
+        '¿Qué perfiles, sistemas externos o administradores interactúan con la solución?',
+        '¿Qué tarea necesita completar cada perfil y con qué resultado?',
+        '¿Qué permisos, estados o restricciones aplican a cada uno?',
+      ] },
+      { title: 'Requisitos funcionales', points: [
+        'Para cada requisito registra ID, descripción verificable, origen y prioridad.',
+        '¿Qué respuesta debe entregar el sistema en el escenario principal?',
+        '¿Qué escenarios alternativos, errores y reglas de negocio deben contemplarse?',
+        '¿Qué ejemplos concretos demuestran que el requisito está completo?',
+      ] },
+      { title: 'Requisitos de calidad', points: [
+        '¿Qué niveles de rendimiento, disponibilidad, capacidad y recuperación se necesitan?',
+        '¿Qué requisitos de seguridad, privacidad, accesibilidad y compatibilidad aplican?',
+        '¿Cómo se medirá cada atributo y cuál es el umbral aceptable?',
+      ] },
+      { title: 'Datos e integraciones', points: [
+        '¿Qué datos se crean, consultan, modifican, eliminan o conservan?',
+        '¿Qué sistemas o APIs participan? Indica propietario, dirección del intercambio y fallos posibles.',
+        '¿Qué validaciones, formatos, permisos y reglas de retención aplican?',
+      ] },
+      { title: 'Criterios de aceptación', points: [
+        'Para cada requisito define precondiciones, acción y resultado esperado.',
+        '¿Qué casos límite y mensajes de error deben aceptarse?',
+        '¿Qué evidencia se guardará para demostrar la aceptación y quién la aprobará?',
+      ] },
+      { title: 'Trazabilidad y cambios', points: [
+        '¿Qué objetivo, entregable, tarjeta, prueba o decisión respalda cada requisito?',
+        '¿Cómo se revisará el impacto de un cambio en requisitos dependientes?',
+        '¿Qué requisitos están pendientes, aprobados, implementados o verificados?',
+      ] },
+    ]);
+  }
+
+  private getSoftwareArchitectureTemplate() {
+    return this.getSoftwareTemplate('Arquitectura y decisiones técnicas', 'Explica cómo se organiza la solución, qué límites tiene y por qué se eligieron sus componentes y tecnologías.', [
+      { title: 'Resumen y atributos de calidad', points: [
+        '¿Qué problema y requisitos de calidad debe resolver esta arquitectura?',
+        '¿Qué restricciones de tecnología, equipo, costo o plataforma condicionan el diseño?',
+        '¿Qué principios guían el diseño y qué compromisos se aceptan?',
+      ] },
+      { title: 'Contexto del sistema', points: [
+        'Incluye o enlaza un diagrama con usuarios, sistema, límites y actores externos.',
+        '¿Qué queda dentro del sistema y qué depende de servicios externos?',
+        '¿Qué datos cruzan cada límite de confianza?',
+      ] },
+      { title: 'Componentes y flujos', points: [
+        '¿Qué componentes existen, qué responsabilidad tiene cada uno y cómo se comunican?',
+        'Describe los flujos principales desde la entrada hasta el resultado.',
+        '¿Qué ocurre si un componente falla, tarda o devuelve información inválida?',
+      ] },
+      { title: 'Datos e integraciones', points: [
+        '¿Qué entidades y relaciones principales utiliza la solución?',
+        '¿Dónde se almacenan los datos y cuáles son las reglas de acceso, retención y eliminación?',
+        'Para cada integración registra contrato, autenticación, límites, reintentos y manejo de errores.',
+      ] },
+      { title: 'Decisiones técnicas', points: [
+        'Para cada decisión registra contexto, fecha, responsable y estado.',
+        '¿Qué opciones se evaluaron y con qué criterios?',
+        '¿Qué alternativa se eligió, por qué, qué consecuencias tiene y cuándo se revisará?',
+      ] },
+      { title: 'Seguridad y privacidad', points: [
+        '¿Cómo se autentican personas y servicios y cómo se asignan permisos?',
+        '¿Qué datos sensibles se procesan y cómo se protegen en tránsito y almacenamiento?',
+        '¿Qué amenazas, auditorías, secretos y obligaciones de privacidad deben contemplarse?',
+      ] },
+      { title: 'Rendimiento, resiliencia y operación', points: [
+        '¿Qué volumen, latencia, disponibilidad y crecimiento se esperan?',
+        '¿Cómo se manejan fallos, copias de seguridad, recuperación y degradación del servicio?',
+        '¿Qué métricas, logs, trazas y alertas permiten conocer la salud del sistema?',
+      ] },
+      { title: 'Despliegue y evolución', points: [
+        '¿Qué entornos, infraestructura y proceso de publicación requiere?',
+        '¿Cómo se migran datos y cómo se revierte un cambio incompatible?',
+        '¿Qué limitaciones conocidas, riesgos y mejoras futuras quedan pendientes?',
+      ] },
+    ]);
+  }
+
+  private getSoftwareTestPlanTemplate() {
+    return this.getSoftwareTemplate('Plan y resultados de pruebas', 'Registra qué se verificará, en qué condiciones, qué resultados se obtuvieron y qué evidencia respalda la decisión de aceptar.', [
+      { title: 'Identificación y alcance', points: [
+        '¿Qué producto, versión, cambio o entregable se está verificando?',
+        '¿Qué requisitos y riesgos están incluidos? ¿Qué queda fuera y por qué?',
+        '¿Quién prepara, ejecuta, revisa y acepta las pruebas?',
+      ] },
+      { title: 'Estrategia y cobertura', points: [
+        '¿Qué tipos de prueba se usarán: unidad, integración, sistema, aceptación, rendimiento o seguridad?',
+        '¿Qué se automatizará y qué requiere revisión manual?',
+        '¿Qué requisitos, flujos, navegadores, dispositivos o niveles de carga deben cubrirse?',
+      ] },
+      { title: 'Entorno y datos', points: [
+        '¿Qué versión, configuración, servicios y dispositivos se usaron?',
+        '¿Qué datos de prueba se necesitan y cómo se anonimizaron o reiniciaron?',
+        '¿Qué dependencias, limitaciones o diferencias respecto de producción afectan los resultados?',
+      ] },
+      { title: 'Criterios de inicio y término', points: [
+        '¿Qué debe estar listo antes de iniciar la ejecución?',
+        '¿Qué umbrales de aprobación, cobertura o defectos se requieren para terminar?',
+        '¿Quién puede aceptar riesgos residuales o autorizar una excepción?',
+      ] },
+      { title: 'Casos de prueba y resultados', points: [
+        'Para cada caso registra ID, requisito relacionado, prioridad y precondiciones.',
+        'Describe pasos, datos usados, resultado esperado y resultado obtenido.',
+        'Marca estado: aprobado, fallido, bloqueado o no ejecutado; adjunta evidencia revisable.',
+        'Incluye casos negativos, límites, permisos y recuperación ante errores.',
+      ] },
+      { title: 'Defectos y riesgos', points: [
+        'Para cada hallazgo indica severidad, impacto, pasos para reproducir y evidencia.',
+        '¿Quién es responsable, cuál es el estado y qué versión corregirá el problema?',
+        '¿Qué riesgos permanecen abiertos y cómo se mitigarán?',
+      ] },
+      { title: 'Resumen y aceptación', points: [
+        'Resume pruebas planificadas, ejecutadas, aprobadas, fallidas y bloqueadas.',
+        '¿Qué requisitos quedan verificados y cuáles necesitan seguimiento?',
+        'Registra decisión de aceptación, responsable, fecha y condiciones pendientes.',
+      ] },
+    ]);
+  }
+
+  private getSoftwareReleasePlanTemplate() {
+    return this.getSoftwareTemplate('Plan de entrega y cambios', 'Deja claro qué se publicará, cómo se desplegará, cómo se comprobará y cómo recuperar el servicio si algo falla.', [
+      { title: 'Identificación de la entrega', points: [
+        'Registra nombre o versión, responsable, fecha prevista, entornos y estado.',
+        '¿Qué proyecto, commit, entregables y cambios están asociados?',
+        '¿Quién aprueba la publicación y quién estará disponible durante ella?',
+      ] },
+      { title: 'Contenido del cambio', points: [
+        'Resume funcionalidades, correcciones y cambios técnicos incluidos.',
+        '¿Qué tarjetas, requisitos, decisiones y documentación están relacionados?',
+        '¿Qué cambios se excluyeron o se pospusieron?',
+      ] },
+      { title: 'Preparación y dependencias', points: [
+        '¿Qué permisos, servicios, configuración o coordinaciones se necesitan antes de publicar?',
+        '¿Hay migraciones, cambios de datos, tareas manuales o ventanas de mantenimiento?',
+        '¿Se verificaron pruebas, copias de seguridad y compatibilidad hacia atrás?',
+      ] },
+      { title: 'Plan de despliegue', points: [
+        'Detalla pasos ordenados, responsable y resultado esperado de cada paso.',
+        '¿El despliegue será gradual, por grupos, con feature flags o en una sola etapa?',
+        '¿Qué condiciones detienen el despliegue y quién toma esa decisión?',
+      ] },
+      { title: 'Verificación posterior', points: [
+        '¿Qué pruebas rápidas, flujos críticos y métricas confirmarán que quedó funcionando?',
+        '¿Dónde se observarán logs, alertas, errores y experiencia de las personas usuarias?',
+        'Registra resultado, hora, responsable y evidencia de cada verificación.',
+      ] },
+      { title: 'Reversa y contingencia', points: [
+        '¿Qué señales obligan a revertir, pausar o activar el plan de contingencia?',
+        'Describe pasos para volver a la versión anterior y recuperar o corregir datos.',
+        '¿Quién ejecuta la reversa y cuánto tiempo se estima para recuperar el servicio?',
+      ] },
+      { title: 'Comunicación y cierre', points: [
+        '¿A quién se informará, por qué canal y en qué momento?',
+        'Resume notas de publicación, cambios visibles, limitaciones y acciones para usuarios.',
+        'Registra resultado final, incidentes, deuda técnica y seguimiento acordado.',
+      ] },
+    ]);
+  }
+
+  private getSoftwareOperationsGuideTemplate() {
+    return this.getSoftwareTemplate('Guía de operación', 'Ofrece al equipo instrucciones seguras para desplegar, observar, mantener y recuperar el servicio.', [
+      { title: 'Servicio y responsabilidades', points: [
+        '¿Qué hace el servicio, quiénes lo usan y qué funciones son críticas?',
+        '¿Quién es responsable de operación, desarrollo, seguridad y escalamiento?',
+        'Incluye arquitectura o enlaces a diagramas, dependencias y acuerdos de nivel de servicio.',
+      ] },
+      { title: 'Entornos y acceso', points: [
+        '¿Qué entornos existen y para qué se usa cada uno?',
+        '¿Qué requisitos, permisos y herramientas se necesitan para operar?',
+        'Indica dónde se gestionan las credenciales; nunca escribas sus valores en este documento.',
+      ] },
+      { title: 'Configuración y despliegue', points: [
+        '¿Qué variables, servicios y parámetros deben estar configurados?',
+        'Describe el procedimiento de publicación, comprobaciones y reversa.',
+        '¿Qué tareas posteriores al despliegue deben ejecutarse o verificarse?',
+      ] },
+      { title: 'Monitoreo y alertas', points: [
+        '¿Qué métricas, logs, trazas y paneles permiten conocer el estado del servicio?',
+        '¿Qué umbrales activan alertas, quién las recibe y cuál es el tiempo de respuesta esperado?',
+        '¿Cómo se mide disponibilidad, rendimiento, errores y consumo de recursos?',
+      ] },
+      { title: 'Incidentes y resolución', points: [
+        'Para cada incidente habitual describe síntomas, impacto y cómo confirmarlo.',
+        'Enumera pasos de diagnóstico y mitigación con comandos o enlaces seguros.',
+        '¿Cuándo escalar, a quién y qué información debe acompañar el reporte?',
+      ] },
+      { title: 'Copias y recuperación', points: [
+        '¿Qué información se respalda, con qué frecuencia y durante cuánto tiempo?',
+        'Describe cómo restaurar, validar integridad y documentar una recuperación.',
+        '¿Cuándo se probó por última vez la restauración y cuál fue el resultado?',
+      ] },
+      { title: 'Mantenimiento y seguridad', points: [
+        '¿Qué tareas periódicas, actualizaciones y revisiones se deben realizar?',
+        '¿Cómo se gestionan vulnerabilidades, permisos, secretos y registros de auditoría?',
+        '¿Qué tareas pendientes, limitaciones conocidas o cambios recientes debe conocer el equipo?',
+      ] },
+    ]);
+  }
+
+  private getSoftwareOutcomeMeasurementTemplate() {
+    return this.getSoftwareTemplate('Medición de resultados', 'Comprueba si el proyecto produjo el cambio esperado, con indicadores claros, datos rastreables y límites explícitos.', [
+      { title: 'Objetivo y población', points: [
+        '¿Qué objetivo del proyecto se medirá y para qué decisión servirá el resultado?',
+        '¿Qué personas, procesos, productos o periodo abarca la medición?',
+        '¿Qué cambio se espera y en qué plazo debería observarse?',
+      ] },
+      { title: 'Indicadores', points: [
+        'Para cada indicador registra nombre, definición, fórmula, unidad y sentido de mejora.',
+        '¿Cuál es la línea base, la meta, el umbral de alerta y la fecha objetivo?',
+        '¿Cuál es la fuente de datos, frecuencia, responsable y método de cálculo?',
+      ] },
+      { title: 'Método de medición', points: [
+        '¿Cómo se recopilan, validan y comparan los datos?',
+        '¿Qué periodo, muestra, segmentos o método de comparación se usó?',
+        '¿Qué sesgos, datos faltantes o factores externos pueden afectar la lectura?',
+      ] },
+      { title: 'Registro de mediciones', points: [
+        'Por cada medición registra fecha, periodo cubierto, valor, fuente y persona responsable.',
+        'Añade contexto, incidencias y evidencia que permita reproducir o revisar el dato.',
+        'Indica si el dato es preliminar, validado, corregido o descartado.',
+      ] },
+      { title: 'Análisis e interpretación', points: [
+        '¿Cómo se compara el resultado con la línea base, la meta y mediciones anteriores?',
+        '¿Qué cambios se observan por periodo, perfil de usuario o segmento relevante?',
+        '¿Qué evidencia permite atribuir o no el cambio al proyecto?',
+      ] },
+      { title: 'Efectos y limitaciones', points: [
+        '¿Hubo efectos no esperados, impactos negativos o señales de riesgo?',
+        '¿Qué limitaciones impiden concluir con certeza que el objetivo se alcanzó?',
+        '¿Qué información adicional mejoraría la siguiente medición?',
+      ] },
+      { title: 'Conclusiones y siguientes pasos', points: [
+        '¿Qué se aprendió y qué objetivo o indicador requiere una decisión?',
+        '¿Qué acciones se acuerdan, quién las realizará y para cuándo?',
+        '¿Cuándo se volverá a medir y quién revisará el avance?',
+      ] },
+    ]);
   }
 
   private getQuickNoteTemplate(metadata?: { body?: string }): any {
