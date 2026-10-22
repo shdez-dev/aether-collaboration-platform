@@ -1,10 +1,10 @@
 {
-  "duration": 58,
+  "duration": 36.25,
   "assertions": [
     {
       "kind": "appearsBy",
       "selector": "#app",
-      "bySec": 1.2
+      "bySec": 0.75
     },
     {
       "kind": "staysInFrame",

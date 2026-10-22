@@ -7,7 +7,7 @@ destination: "Centro de ayuda de AETHER, Primeros pasos"
 aspect: "16:9"
 language: "es"
 audience: "Personas que comienzan a usar AETHER"
-length: "73 segundos"
+length: "45,625 segundos"
 ---
 
 ## Intent

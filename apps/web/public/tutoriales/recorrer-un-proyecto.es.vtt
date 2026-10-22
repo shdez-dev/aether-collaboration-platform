@@ -1,25 +1,25 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:08.000
-Dentro de un proyecto. Un recorrido para encontrar el trabajo, los documentos y los cambios del equipo.
+00:00:00.000 --> 00:00:05.000
+Recorre las partes principales de un proyecto.
 
-00:00:08.000 --> 00:00:19.000
-En Resumen puedes consultar el contexto y una vista rápida de lo que necesita atención.
+00:00:05.000 --> 00:00:11.875
+Resumen reúne el contexto y lo que necesita atención.
 
-00:00:19.000 --> 00:00:30.000
-En Tableros, las tarjetas muestran qué está pendiente, en curso y terminado.
+00:00:11.875 --> 00:00:18.750
+Tableros muestra las tarjetas pendientes, en curso y terminadas.
 
-00:00:30.000 --> 00:00:41.000
-El Backlog reúne las tareas pendientes para decidir cuáles atender primero.
+00:00:18.750 --> 00:00:25.625
+Backlog reúne el trabajo pendiente para priorizarlo.
 
-00:00:41.000 --> 00:00:52.000
-En Riesgos registra lo que puede afectar el proyecto y sigue su estado.
+00:00:25.625 --> 00:00:32.500
+Riesgos permite registrar problemas posibles y seguir su estado.
 
-00:00:52.000 --> 00:01:03.000
-En Documentos guarda notas, acuerdos y material de apoyo del proyecto.
+00:00:32.500 --> 00:00:39.375
+Documentos guarda notas, acuerdos y material de apoyo.
 
-00:01:03.000 --> 00:01:11.000
-Actividad muestra los cambios del equipo en orden cronológico.
+00:00:39.375 --> 00:00:44.375
+Actividad muestra los cambios del equipo en orden.
 
-00:01:11.000 --> 00:01:20.000
-Scrum y trazabilidad avanzada agregan otras herramientas. Las pestañas disponibles dependen de la configuración y los permisos.
+00:00:44.375 --> 00:00:50.000
+Scrum y trazabilidad añaden opciones según la configuración y tus permisos.

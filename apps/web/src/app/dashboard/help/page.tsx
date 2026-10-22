@@ -59,21 +59,27 @@ const sections = [
 const videoGuides = {
   espacios: {
     slug: 'orientarse-entre-espacios',
-    duration: '58 s',
-    durationLabel: '58 SEGUNDOS',
+    duration: '36 s',
+    durationLabel: '36 SEGUNDOS',
     details: 'Aprende a cambiar de espacio, comprobar tu contexto activo y volver a tu espacio personal.',
   },
   'crear-proyecto': {
     slug: 'crear-un-proyecto',
-    duration: '1 min 13 s',
-    durationLabel: '1 MIN 13 SEGUNDOS',
+    duration: '46 s',
+    durationLabel: '46 SEGUNDOS',
     details: 'Sigue los cuatro pasos para crear un proyecto en un espacio de equipo y elegir su enfoque.',
   },
   'recorrer-proyecto': {
     slug: 'recorrer-un-proyecto',
-    duration: '1 min 20 s',
-    durationLabel: '1 MIN 20 SEGUNDOS',
+    duration: '50 s',
+    durationLabel: '50 SEGUNDOS',
     details: 'Ubica el resumen, tableros, backlog, riesgos, documentos y actividad; conoce cuándo aparecen otras opciones.',
+  },
+  'tarjeta-tablero': {
+    slug: 'usar-una-tarjeta-del-tablero',
+    duration: '50 s',
+    durationLabel: '50 SEGUNDOS',
+    details: 'Abre una tarjeta, concreta la tarea, organiza sus pasos, colabora con el equipo y actualiza su estado.',
   },
 } as const;
 
@@ -112,8 +118,9 @@ export default function HelpPage() {
               <div className={styles.guideGrid}>
                 {section.guides.map((guide) => {
                   const Icon = guide.icon;
-                  if (guide.id === 'espacios' || guide.id === 'crear-proyecto' || guide.id === 'recorrer-proyecto') {
+                  if (guide.id === 'espacios' || guide.id === 'crear-proyecto' || guide.id === 'recorrer-proyecto' || guide.id === 'tarjeta-tablero') {
                     const video = videoGuides[guide.id];
+                    const assetVersion = guide.id === 'tarjeta-tablero' ? '?v=50s' : '?v=rapido-1';
                     const isVideoOpen = openVideoId === guide.id;
                     return (
                       <article key={guide.id} id={guide.id} className={`${styles.guideCard} ${styles.videoGuide}`} data-open={isVideoOpen}>
@@ -134,9 +141,9 @@ export default function HelpPage() {
                           <div className={styles.videoPanelInner}>
                             <div className={styles.videoContent}>
                               <div className={styles.videoFrame}>
-                                <video ref={(element) => { videoRefs.current[guide.id] = element; }} controls preload="none" playsInline tabIndex={isVideoOpen ? 0 : -1} poster={`/tutoriales/${video.slug}.png`} aria-label={`Tutorial: ${guide.title}`}>
-                                  <source src={`/tutoriales/${video.slug}.mp4`} type="video/mp4" />
-                                  <track kind="captions" src={`/tutoriales/${video.slug}.es.vtt`} srcLang="es" label="Español" />
+                                <video ref={(element) => { videoRefs.current[guide.id] = element; }} controls preload="none" playsInline tabIndex={isVideoOpen ? 0 : -1} poster={`/tutoriales/${video.slug}.png${assetVersion}`} aria-label={`Tutorial: ${guide.title}`}>
+                                  <source src={`/tutoriales/${video.slug}.mp4${assetVersion}`} type="video/mp4" />
+                                  <track kind="captions" src={`/tutoriales/${video.slug}.es.vtt${assetVersion}`} srcLang="es" label="Español" />
                                   Tu navegador no puede reproducir este video.
                                 </video>
                               </div>

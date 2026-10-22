@@ -1,6 +1,6 @@
 # Orientarse entre espacios — AETHER
 
-Primer corte de un tutorial de 58 segundos, 1920×1080 y 30 fps. En español, con instrucciones visuales y sin pista de audio.
+Primer corte de un tutorial de 36,25 segundos, 1920×1080 y 30 fps. En español, con instrucciones visuales y sin pista de audio.
 
 ## Archivos
 

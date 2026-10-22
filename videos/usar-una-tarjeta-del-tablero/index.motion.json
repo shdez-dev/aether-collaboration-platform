@@ -1,0 +1,8 @@
+{
+  "duration": 50,
+  "assertions": [
+    { "kind": "appearsBy", "selector": "#app", "bySec": 1.2 },
+    { "kind": "staysInFrame", "selector": "#app" },
+    { "kind": "staysInFrame", "selector": "#cursor" }
+  ]
+}
