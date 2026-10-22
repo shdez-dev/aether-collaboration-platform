@@ -1130,6 +1130,10 @@ model Project {
   problemImpact String? @map("problem_impact")
   impactedCount Int? @map("impacted_count")
   expectedOutcome String? @map("expected_outcome")
+  expectedDeliverables String? @map("expected_deliverables")
+  scopeInclusions String? @map("scope_inclusions")
+  scopeExclusions String? @map("scope_exclusions")
+  projectConstraints String? @map("project_constraints")
   proposedSolution String? @map("proposed_solution")
   differentiation String?
   nextStep    String?   @map("next_step")

@@ -1,4 +1,5 @@
 .fields{display:grid;gap:20px}
+.pairedFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .field{display:grid;gap:7px;min-width:0}
 .label{display:flex;align-items:center;gap:7px;color:var(--c-text);font:750 12px 'Manrope',system-ui,sans-serif}
 .required{color:var(--project-field-accent)}
@@ -7,13 +8,15 @@
 .control{display:block;width:100%;min-height:46px;box-sizing:border-box;padding:11px 14px;border:1px solid var(--c-border2);border-radius:10px;background:color-mix(in srgb,var(--c-surface2) 72%,var(--c-surface));color:var(--c-text);font:500 13px/1.5 'Manrope',system-ui,sans-serif;caret-color:var(--project-field-accent);outline:0;transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease}
 .control:hover{border-color:color-mix(in srgb,var(--project-field-accent) 45%,var(--c-border2))}
 .control:focus{border-color:var(--project-field-accent);background:var(--c-surface);box-shadow:0 0 0 3px color-mix(in srgb,var(--project-field-accent) 17%,transparent)}
+.invalid,.invalid:hover{border-color:var(--c-red)}
+.invalid:focus{border-color:var(--c-red);box-shadow:0 0 0 3px color-mix(in srgb,var(--c-red) 16%,transparent)}
+.fieldError{margin:0;color:var(--c-red);font:600 11px/1.45 'Manrope',system-ui,sans-serif;animation:project-field-error-in .18s cubic-bezier(.16,1,.3,1) both}
 .control::placeholder{color:var(--c-text3);opacity:1}
 .control::selection{background:color-mix(in srgb,var(--project-field-accent) 38%,transparent);color:var(--c-text)}
 .textarea{min-height:112px;height:112px;resize:vertical;overflow:auto;scrollbar-color:var(--c-border2) transparent;scrollbar-width:thin}
 .counter{justify-self:end;margin-top:-2px;color:var(--c-text3);font:600 10.5px 'Manrope',system-ui,sans-serif;font-variant-numeric:tabular-nums}
-.metricGroup{display:grid;gap:8px;min-width:0;margin:0;padding:0;border:0}
-.metricTitle{padding:0;color:var(--c-text);font:750 12px 'Manrope',system-ui,sans-serif}
-.metricFields{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(110px,.65fr) minmax(0,.8fr);gap:12px;margin-top:3px}
-@media(max-width:620px){.metricFields{grid-template-columns:minmax(0,1fr) minmax(110px,.75fr)}.metricFields>label:first-child{grid-column:1/-1}}
-@media(max-width:420px){.metricFields{grid-template-columns:1fr}.metricFields>label:first-child{grid-column:auto}.textarea{min-height:104px;height:104px}}
+@media(max-width:620px){.pairedFields{grid-template-columns:1fr;gap:18px}}
+@media(max-width:420px){.textarea{min-height:104px;height:104px}}
+@keyframes project-field-error-in{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.control{transition:none}}
+@media(prefers-reduced-motion:reduce){.fieldError{animation:none}}

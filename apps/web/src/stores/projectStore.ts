@@ -98,7 +98,7 @@ export interface Project {
   workspaceId: string;
   sourceInitiativeId?: string | null;
   name: string;
-  description?: string;
+  description?: string | null;
   icon?: string;
   color?: string;
   cardPrefix?: string | null;
@@ -113,6 +113,10 @@ export interface Project {
   problemImpact?: string | null;
   impactedCount?: number | null;
   expectedOutcome?: string | null;
+  expectedDeliverables?: string | null;
+  scopeInclusions?: string | null;
+  scopeExclusions?: string | null;
+  projectConstraints?: string | null;
   proposedSolution?: string | null;
   differentiation?: string | null;
   nextStep?: string | null;
@@ -178,6 +182,10 @@ interface CreateProjectData {
   problemImpact: string | null;
   impactedCount: number | null;
   expectedOutcome: string;
+  expectedDeliverables?: string | null;
+  scopeInclusions?: string | null;
+  scopeExclusions?: string | null;
+  projectConstraints?: string | null;
   proposedSolution: string | null;
   differentiation: string | null;
   successMetric?: string | null;
@@ -208,6 +216,10 @@ interface UpdateProjectData {
   problemImpact?: string | null;
   impactedCount?: number | null;
   expectedOutcome?: string | null;
+  expectedDeliverables?: string | null;
+  scopeInclusions?: string | null;
+  scopeExclusions?: string | null;
+  projectConstraints?: string | null;
   proposedSolution?: string | null;
   differentiation?: string | null;
   nextStep?: string | null;

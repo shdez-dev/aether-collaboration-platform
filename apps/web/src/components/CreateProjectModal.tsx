@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Check, FolderKanban, GitBranch, Plus, RotateCcw, X } from 'lucide-react';
 import { WorkspaceIcon } from '@/components/WorkspaceIcon';
-import { ProjectCreationFields, EMPTY_PROJECT_CREATION_ANSWERS, type ProjectCreationAnswers } from '@/components/ProjectCreationFields';
+import { ProjectCreationFields, EMPTY_PROJECT_CREATION_ANSWERS, type ProjectCreationAnswers, type ProjectCreationFieldErrors } from '@/components/ProjectCreationFields';
 import { ProjectMethodologyStep, type ProjectParticipant, type ProjectTeamOption } from '@/components/ProjectMethodologyStep';
 import { useT } from '@/lib/i18n';
 import { apiService } from '@/services/apiService';
@@ -19,11 +19,11 @@ const PROJECT_COLOR = '#7452A6';
 const SORA = "'Sora', system-ui, sans-serif";
 const MANROPE = "'Manrope', system-ui, sans-serif";
 const PROJECT_SETUP_STEPS = [
-  { title: 'Proyecto', description: 'Dale un nombre y registra brevemente su contexto.' },
-  { title: 'Objetivo', description: 'Define el resultado y añade una métrica si ya la tienes.' },
+  { title: 'Contexto', description: 'Aclara qué problema u oportunidad da origen al proyecto.' },
+  { title: 'Objetivo y alcance', description: 'Define el cambio esperado y los límites del proyecto.' },
 ] as const;
-const STEPS = [...PROJECT_SETUP_STEPS, { title: 'Equipo y enfoque', description: 'Elige quién participa y cómo se organizará este proyecto.' }] as const;
-const PERSONAL_STEPS = [...PROJECT_SETUP_STEPS, { title: 'Proyecto personal', description: 'Este proyecto será privado para ti.' }] as const;
+const STEPS = [...PROJECT_SETUP_STEPS, { title: 'Personas y condiciones', description: 'Define quién participa y qué condiciones debe considerar.' }] as const;
+const PERSONAL_STEPS = [...PROJECT_SETUP_STEPS, { title: 'Condiciones', description: 'Registra fechas o límites importantes para el proyecto.' }] as const;
 
 function suggestCardPrefix(projectName: string) {
   const words = projectName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().match(/[A-Z0-9]+/g) ?? [];
@@ -33,6 +33,27 @@ function suggestCardPrefix(projectName: string) {
   if (initials.length === 3) return initials;
   const suggestion = `${initials}${words.map((word) => word.slice(1)).join('')}`.slice(0, 3);
   return suggestion.length === 3 ? suggestion : 'PRO';
+}
+
+function validateProjectTitle(value: string) {
+  const title = value.trim();
+  if (!title) return 'Escribe un nombre para el proyecto.';
+  if (title.length < 3) return 'Usa al menos 3 caracteres para identificarlo con claridad.';
+  return '';
+}
+
+function validateProjectObjective(value: string) {
+  const objective = value.trim();
+  if (!objective) return 'Describe el resultado que debería lograr el proyecto.';
+  if (objective.length < 2) return 'Añade un poco más de detalle al objetivo.';
+  return '';
+}
+
+function validateProjectContext(value: string) {
+  const context = value.trim();
+  if (!context) return 'Describe el problema u oportunidad que da origen al proyecto.';
+  if (context.length < 10) return 'Añade un poco más de contexto para entender la necesidad.';
+  return '';
 }
 
 interface CreateProjectModalProps {
@@ -78,12 +99,11 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
   const [resumingDraft, setResumingDraft] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<ProjectCreationFieldErrors>({});
   const [closing, setClosing] = useState(false);
   const suggestedPrefix = suggestCardPrefix(answers.title);
   const cardPrefix = customCardPrefix ?? suggestedPrefix;
   const validCardPrefix = /^[A-Z0-9]{3}$/.test(cardPrefix);
-  const hasSuccessIndicator = Boolean(answers.successMetric.trim() || answers.targetValue.trim() || answers.unit.trim());
-
   useEffect(() => { void fetchWorkspaces(); }, [fetchWorkspaces]);
 
   useEffect(() => {
@@ -100,10 +120,7 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
     setAnswers(draft.answers);
     setCustomCardPrefix(draft.cardPrefixCustomized ? (draft.cardPrefix ?? '').slice(0, 3) : null);
     setMethodology(canConfigureMethodology ? draft.methodology : 'FLEXIBLE');
-    setAdvancedTraceability(Boolean(draft.advancedTraceability
-      || draft.answers.successMetric.trim()
-      || draft.answers.targetValue.trim()
-      || draft.answers.unit.trim()));
+    setAdvancedTraceability(Boolean(draft.advancedTraceability));
     setResumingDraft(true);
     setStep(2);
   }, [canConfigureMethodology, currentUserId, selectedWorkspaceId]);
@@ -181,22 +198,72 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
 
   const updateAnswer = (key: keyof ProjectCreationAnswers, value: string) => {
     setAnswers((current) => ({ ...current, [key]: value }));
-    if ((key === 'successMetric' || key === 'targetValue' || key === 'unit') && value.trim()) {
-      setAdvancedTraceability(true);
-    }
+    setFieldErrors((current) => {
+      if (key === 'title' && current.title) return { ...current, title: validateProjectTitle(value) };
+      if (key === 'context' && current.context) return { ...current, context: validateProjectContext(value) };
+      if (key === 'objective' && current.objective) return { ...current, objective: validateProjectObjective(value) };
+      return current;
+    });
     if (error) setError('');
   };
 
   const goToStep = (nextStep: 0 | 1 | 2) => {
     setStepDirection(nextStep < step ? 'backward' : 'forward');
     setError('');
+    setFieldErrors({});
     setStep(nextStep);
+  };
+
+  const focusInvalidField = (id: string) => {
+    window.requestAnimationFrame(() => {
+      const field = document.getElementById(id);
+      if (!field) return;
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      field.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+      field.focus({ preventScroll: true });
+    });
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (step < 2) {
+      if (step === 0) {
+        const titleError = validateProjectTitle(answers.title);
+        const contextError = validateProjectContext(answers.context);
+        setFieldErrors({ title: titleError, context: contextError });
+        if (titleError || contextError) {
+          setError('');
+          focusInvalidField(titleError ? 'project-creation-title' : 'project-creation-context');
+          return;
+        }
+      }
+      if (step === 1) {
+        const objectiveError = validateProjectObjective(answers.objective);
+        setFieldErrors({ objective: objectiveError });
+        if (objectiveError) {
+          setError('');
+          focusInvalidField('project-creation-objective');
+          return;
+        }
+      }
       goToStep((step + 1) as 0 | 1 | 2);
+      return;
+    }
+    const titleError = validateProjectTitle(answers.title);
+    const contextError = validateProjectContext(answers.context);
+    const objectiveError = validateProjectObjective(answers.objective);
+    if (titleError || contextError || objectiveError) {
+      const invalidStep = titleError || contextError ? 0 : 1;
+      const invalidFieldId = titleError
+        ? 'project-creation-title'
+        : contextError
+          ? 'project-creation-context'
+          : 'project-creation-objective';
+      setFieldErrors({ title: titleError, context: contextError, objective: objectiveError });
+      setStepDirection('backward');
+      setStep(invalidStep);
+      setError('');
+      window.setTimeout(() => focusInvalidField(invalidFieldId), 0);
       return;
     }
     if (!selectedWorkspace) {
@@ -219,17 +286,19 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
         workspaceId: selectedWorkspace.id,
         name: answers.title.trim(),
         cardPrefix: cardPrefix.trim(),
-        description: answers.context.trim() || answers.objective.trim(),
+        description: null,
         problemStatement: answers.context.trim() || null,
-        impactedPeople: null,
-        problemImpact: null,
+        impactedPeople: answers.impactedPeople.trim() || null,
+        problemImpact: answers.problemImpact.trim() || null,
         impactedCount: null,
         expectedOutcome: answers.objective.trim(),
+        expectedDeliverables: answers.expectedDeliverables.trim() || null,
+        scopeInclusions: answers.scopeInclusions.trim() || null,
+        scopeExclusions: answers.scopeExclusions.trim() || null,
+        projectConstraints: answers.projectConstraints.trim() || null,
         proposedSolution: null,
         differentiation: null,
-        successMetric: answers.successMetric.trim() || null,
-        targetValue: answers.targetValue.trim() ? Number(answers.targetValue) : null,
-        unit: answers.unit.trim() || null,
+        endDate: answers.endDate || undefined,
         maturityStage: 'IDEA',
         icon: 'Folder',
         color: PROJECT_COLOR,
@@ -302,12 +371,12 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
             <div style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 12, color: PROJECT_COLOR, background: 'rgba(116,82,166,0.1)', border: '1px solid rgba(116,82,166,0.2)' }}><FolderKanban size={19} strokeWidth={1.8} /></div>
             <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
               <h2 id="create-project-title" style={{ margin: 0, color: 'var(--c-text)', fontSize: 19, lineHeight: 1.3, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: SORA }}>Crear proyecto</h2>
-              <p style={{ margin: '5px 0 0', color: 'var(--c-text2)', fontSize: 13, lineHeight: 1.5, fontFamily: MANROPE }}>Define qué debe lograr y prepara el proyecto para empezar.</p>
+              <p style={{ margin: '5px 0 0', color: 'var(--c-text2)', fontSize: 13, lineHeight: 1.5, fontFamily: MANROPE }}>Define el problema, el resultado esperado y los límites del proyecto.</p>
             </div>
             <button type="button" className="create-project-close" onClick={handleClose} aria-label="Cerrar" disabled={isLoading} style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 9, color: 'var(--c-text2)', background: 'transparent', border: '1px solid rgba(97,71,130,0.08)', cursor: isLoading ? 'not-allowed' : 'pointer' }}><X size={16} /></button>
           </header>
 
-          <form onSubmit={handleSubmit} style={{ minHeight: 0, display: 'flex', flex: 1, flexDirection: 'column' }}>
+          <form noValidate onSubmit={handleSubmit} style={{ minHeight: 0, display: 'flex', flex: 1, flexDirection: 'column' }}>
             <div style={{ padding: '18px 24px 10px' }}>
               <div className="create-project-steps" aria-label="Pasos para crear proyecto">
                 {projectSteps.map((item, index) => (
@@ -338,14 +407,9 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 </div>
               )}
 
-              {selectedWorkspace && (step === 0 || step === 1) ? <>
-                <ProjectCreationFields step={step} values={answers} onChange={updateAnswer} accent={PROJECT_COLOR} />
-                {step === 1 && <p style={{ margin: '14px 0 0', color: 'var(--c-text3)', fontSize: 11, lineHeight: 1.5, fontFamily: MANROPE }}>
-                  {hasSuccessIndicator
-                    ? 'La trazabilidad se activará para que puedas consultar y actualizar este indicador en el proyecto.'
-                    : 'El alcance, la solución propuesta y los entregables se pueden definir cuando el proyecto esté creado.'}
-                </p>}
-              </> : selectedWorkspace ? <ProjectMethodologyStep
+              {selectedWorkspace && <ProjectCreationFields step={step} values={answers} errors={fieldErrors} onChange={updateAnswer} accent={PROJECT_COLOR} />}
+
+              {selectedWorkspace && step === 2 && <ProjectMethodologyStep
                 methodology={methodology} onMethodologyChange={setMethodology}
                 teams={teams} members={members} teamIds={teamIds} onTeamIdsChange={setTeamIds}
                 memberIds={memberIds} onMemberIdsChange={setMemberIds}
@@ -357,7 +421,9 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                 createTeamHref={`/dashboard/teams?create=1&workspaceId=${encodeURIComponent(selectedWorkspaceId)}`} onLeaveForTeams={leaveForTeams}
                 loading={participantsLoading} loadError={participantsError}
                 onRetry={() => { loadedWorkspaceId.current = ''; setParticipantsRetry((current) => current + 1); }}
-              /> : (
+              />}
+
+              {!selectedWorkspace && (
                 <div style={{ padding: '16px', borderRadius: 11, border: '1px solid rgba(116,82,166,0.2)', background: 'rgba(116,82,166,0.06)' }}>
                   <p style={{ margin: '0 0 12px', color: '#D8D1C5', fontSize: 13, lineHeight: 1.55 }}>{isInstitutionalWorkspace ? 'En esta organización, las propuestas pasan por la bandeja de iniciativas antes de convertirse en proyectos.' : 'Activa un espacio personal o de equipo desde el menú lateral para crear el proyecto.'}</p>
                   {isInstitutionalWorkspace && <Link href="/dashboard/initiatives/new" onClick={handleClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: PROJECT_COLOR, fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>Crear iniciativa institucional <ArrowRight size={14} /></Link>}
@@ -369,13 +435,13 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, minWidth: 0 }}>
                     <span style={{ width: 31, height: 31, flex: '0 0 31px', display: 'grid', placeItems: 'center', border: '1px solid rgba(116,82,166,0.22)', borderRadius: 9, color: PROJECT_COLOR, background: 'rgba(116,82,166,0.1)' }}><GitBranch size={15} /></span>
                     <div style={{ minWidth: 0 }}>
-                      <h4 id="project-traceability-title" style={{ margin: '1px 0 4px', color: 'var(--c-text)', fontSize: 12, fontWeight: 750, fontFamily: MANROPE }}>Trazabilidad avanzada <span style={{ color: 'var(--c-text4)', fontSize: 10, fontWeight: 600 }}>{hasSuccessIndicator ? 'Necesaria para seguir la métrica' : 'Complemento opcional'}</span></h4>
-                      <p style={{ margin: 0, color: 'var(--c-text3)', fontSize: 10.5, lineHeight: 1.5, fontFamily: MANROPE }}>Organiza entregables, requisitos, hitos, resultados, decisiones y línea base. El objetivo inicial ya queda registrado.</p>
+                      <h4 id="project-traceability-title" style={{ margin: '1px 0 4px', color: 'var(--c-text)', fontSize: 12, fontWeight: 750, fontFamily: MANROPE }}>Trazabilidad avanzada <span style={{ color: 'var(--c-text4)', fontSize: 10, fontWeight: 600 }}>Complemento opcional</span></h4>
+                      <p style={{ margin: 0, color: 'var(--c-text3)', fontSize: 10.5, lineHeight: 1.5, fontFamily: MANROPE }}>Añade herramientas para dar seguimiento a entregables, requisitos, hitos, resultados y decisiones. Puedes activarla más adelante.</p>
                     </div>
                   </div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 30, padding: '0 9px', border: `1px solid ${advancedTraceability || hasSuccessIndicator ? 'rgba(116,82,166,0.42)' : 'rgba(97,71,130,0.14)'}`, borderRadius: 8, background: advancedTraceability || hasSuccessIndicator ? 'rgba(116,82,166,0.12)' : 'rgba(97,71,130,0.035)', color: advancedTraceability || hasSuccessIndicator ? 'var(--c-text)' : 'var(--c-text2)', cursor: isLoading || hasSuccessIndicator ? 'not-allowed' : 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    <input type="checkbox" checked={advancedTraceability || hasSuccessIndicator} onChange={(event) => setAdvancedTraceability(event.target.checked)} disabled={isLoading || hasSuccessIndicator} style={{ accentColor: PROJECT_COLOR }} />
-                    {hasSuccessIndicator ? 'Activada por el indicador' : 'Incluir'}
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 30, padding: '0 9px', border: `1px solid ${advancedTraceability ? 'rgba(116,82,166,0.42)' : 'rgba(97,71,130,0.14)'}`, borderRadius: 8, background: advancedTraceability ? 'rgba(116,82,166,0.12)' : 'rgba(97,71,130,0.035)', color: advancedTraceability ? 'var(--c-text)' : 'var(--c-text2)', cursor: isLoading ? 'not-allowed' : 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={advancedTraceability} onChange={(event) => setAdvancedTraceability(event.target.checked)} disabled={isLoading} style={{ accentColor: PROJECT_COLOR }} />
+                    {advancedTraceability ? 'Incluida' : 'Incluir'}
                   </label>
                 </section>
               )}
@@ -391,10 +457,8 @@ export default function CreateProjectModal({ onClose, onCreated, defaultWorkspac
                       id="project-card-prefix"
                       name="cardPrefix"
                       aria-label="Prefijo de tres caracteres"
-                      required
-                      minLength={3}
+                      aria-required="true"
                       maxLength={3}
-                      pattern="[A-Z0-9]{3}"
                       value={cardPrefix}
                       onChange={(event) => {
                         setCustomCardPrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3));

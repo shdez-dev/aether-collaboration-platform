@@ -14,7 +14,7 @@ import type { ProjectRequest } from '../middleware/project';
 
 const createProjectSchema = z.object({
   name: z.string().min(1).max(120),
-  description: z.string().trim().min(1).max(1000),
+  description: z.string().trim().max(1000).nullable().optional(),
   icon: z.string().max(100).optional(),
   color: z.string().max(50).optional(),
   cardPrefix: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{3}$/, 'El prefijo debe tener exactamente 3 letras o números').optional(),
@@ -25,6 +25,10 @@ const createProjectSchema = z.object({
   problemImpact: z.string().trim().max(8000).nullable().optional(),
   impactedCount: z.number().int().min(1).max(1_000_000_000).nullable().optional(),
   expectedOutcome: z.string().trim().min(1).max(2000),
+  expectedDeliverables: z.string().trim().max(8000).nullable().optional(),
+  scopeInclusions: z.string().trim().max(8000).nullable().optional(),
+  scopeExclusions: z.string().trim().max(8000).nullable().optional(),
+  projectConstraints: z.string().trim().max(8000).nullable().optional(),
   proposedSolution: z.string().trim().max(8000).nullable().optional(),
   differentiation: z.string().trim().max(8000).nullable().optional(),
   successMetric: z.string().trim().max(160).nullable().optional(),
@@ -55,6 +59,10 @@ const updateProjectSchema = z.object({
   problemImpact: z.string().max(8000).optional().nullable(),
   impactedCount: z.number().int().min(1).max(1_000_000_000).optional().nullable(),
   expectedOutcome: z.string().max(8000).optional().nullable(),
+  expectedDeliverables: z.string().max(8000).optional().nullable(),
+  scopeInclusions: z.string().max(8000).optional().nullable(),
+  scopeExclusions: z.string().max(8000).optional().nullable(),
+  projectConstraints: z.string().max(8000).optional().nullable(),
   proposedSolution: z.string().max(8000).optional().nullable(),
   differentiation: z.string().max(8000).optional().nullable(),
   nextStep: z.string().max(1000).optional().nullable(),
@@ -92,17 +100,42 @@ const addBoardSchema = z.object({
   boardId: z.string().uuid(),
 });
 
+const isoDateOnlySchema = z.string().refine((value) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}, 'La fecha debe tener el formato AAAA-MM-DD.');
+
+function dateOnly(value: string | Date | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}/.exec(value)?.[0] ?? null;
+}
+
+function isProjectDeadlineConstraint(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const pgError = error as { code?: string; constraint?: string };
+  return pgError.code === '23514' && [
+    'project_milestone_deadline_guard',
+    'project_deadline_milestones_guard',
+  ].includes(pgError.constraint ?? '');
+}
+
 const createMilestoneSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
-  date: z.string(),
+  date: isoDateOnlySchema,
   color: z.string().max(50).optional(),
 });
 
 const updateMilestoneSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional().nullable(),
-  date: z.string().optional(),
+  date: isoDateOnlySchema.optional(),
   status: z.enum(['PENDING', 'REACHED', 'MISSED']).optional(),
   color: z.string().max(50).optional().nullable(),
 });
@@ -138,6 +171,10 @@ function fmtProject(row: any) {
     problemImpact: row.problem_impact,
     impactedCount: row.impacted_count,
     expectedOutcome: row.expected_outcome,
+    expectedDeliverables: row.expected_deliverables ?? null,
+    scopeInclusions: row.scope_inclusions ?? null,
+    scopeExclusions: row.scope_exclusions ?? null,
+    projectConstraints: row.project_constraints ?? null,
     proposedSolution: row.proposed_solution,
     differentiation: row.differentiation,
     nextStep: row.next_step,
@@ -821,16 +858,18 @@ class ProjectController {
              problem_statement, impacted_people, problem_impact, impacted_count,
              expected_outcome, proposed_solution, differentiation,
              next_step, start_date, end_date, owner_id,
-             applied_standard_id, applied_standard_version, standard_applied_at, updated_at, card_prefix, advanced_traceability
+             applied_standard_id, applied_standard_version, standard_applied_at, updated_at, card_prefix, advanced_traceability,
+             expected_deliverables, scope_inclusions, scope_exclusions, project_constraints
            )
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $21, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $22, $23)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $21, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $22, $23, $24, $25, $26, $27)
            RETURNING *`,
           [wsId, data.name, data.description ?? null, data.icon ?? null, data.color ?? null,
            data.status ?? 'PLANNING', data.maturityStage ?? 'IDEA', data.problemStatement ?? null,
            data.impactedPeople, data.problemImpact, data.impactedCount, data.expectedOutcome,
            data.proposedSolution, data.differentiation, data.nextStep ?? null,
            data.startDate ?? null, data.endDate ?? null, userId,
-           workspaceStandard.id, workspaceStandard.version, methodology, data.cardPrefix ?? null, advancedTraceability]
+           workspaceStandard.id, workspaceStandard.version, methodology, data.cardPrefix ?? null, advancedTraceability,
+           data.expectedDeliverables ?? null, data.scopeInclusions ?? null, data.scopeExclusions ?? null, data.projectConstraints ?? null]
         );
         const project = result.rows[0];
         const originSnapshot = await client.query(
@@ -996,6 +1035,10 @@ class ProjectController {
       if (data.problemImpact !== undefined) { fields.push(`problem_impact = $${idx++}`); values.push(data.problemImpact); }
       if (data.impactedCount !== undefined) { fields.push(`impacted_count = $${idx++}`); values.push(data.impactedCount); }
       if (data.expectedOutcome !== undefined) { fields.push(`expected_outcome = $${idx++}`); values.push(data.expectedOutcome); }
+      if (data.expectedDeliverables !== undefined) { fields.push(`expected_deliverables = $${idx++}`); values.push(data.expectedDeliverables); }
+      if (data.scopeInclusions !== undefined) { fields.push(`scope_inclusions = $${idx++}`); values.push(data.scopeInclusions); }
+      if (data.scopeExclusions !== undefined) { fields.push(`scope_exclusions = $${idx++}`); values.push(data.scopeExclusions); }
+      if (data.projectConstraints !== undefined) { fields.push(`project_constraints = $${idx++}`); values.push(data.projectConstraints); }
       if (data.proposedSolution !== undefined) { fields.push(`proposed_solution = $${idx++}`); values.push(data.proposedSolution); }
       if (data.differentiation !== undefined) { fields.push(`differentiation = $${idx++}`); values.push(data.differentiation); }
       if (data.nextStep !== undefined) { fields.push(`next_step = $${idx++}`); values.push(data.nextStep); }
@@ -1008,6 +1051,37 @@ class ProjectController {
       const currentProjectResult = await pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
       if (!currentProjectResult.rows.length) return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
       const currentProject = currentProjectResult.rows[0];
+      const nextDeadline = data.endDate === undefined ? null : dateOnly(data.endDate);
+      if (
+        data.endDate !== undefined &&
+        data.endDate !== null &&
+        nextDeadline &&
+        nextDeadline !== dateOnly(currentProject.end_date)
+      ) {
+        const milestonesAfterDeadline = await pool.query(
+          `SELECT name, TO_CHAR(date, 'DD/MM/YYYY') AS milestone_date, COUNT(*) OVER() AS total
+           FROM project_milestones
+           WHERE project_id = $1 AND date::date > $2::date
+           ORDER BY date ASC
+           LIMIT 3`,
+          [id, nextDeadline],
+        );
+        if (milestonesAfterDeadline.rows.length) {
+          const total = Number(milestonesAfterDeadline.rows[0].total);
+          const labels = milestonesAfterDeadline.rows
+            .map((row: { name: string; milestone_date: string }) => `«${row.name}» (${row.milestone_date})`)
+            .join(', ');
+          const remaining = total - milestonesAfterDeadline.rows.length;
+          const additional = remaining > 0 ? ` y ${remaining} más` : '';
+          const formattedDeadline = new Date(`${nextDeadline}T00:00:00`).toLocaleDateString('es-CL');
+          return res.status(409).json({
+            success: false,
+            error: {
+              message: `La fecha límite ${formattedDeadline} dejaría ${total} hito${total === 1 ? '' : 's'} fuera de plazo: ${labels}${additional}. Ajusta primero las fechas de esos hitos.`,
+            },
+          });
+        }
+      }
       const mergedProject = {
         ...currentProject,
         name: data.name !== undefined ? data.name : currentProject.name,
@@ -1022,6 +1096,10 @@ class ProjectController {
         problem_impact: data.problemImpact !== undefined ? data.problemImpact : currentProject.problem_impact,
         impacted_count: data.impactedCount !== undefined ? data.impactedCount : currentProject.impacted_count,
         expected_outcome: data.expectedOutcome !== undefined ? data.expectedOutcome : currentProject.expected_outcome,
+        expected_deliverables: data.expectedDeliverables !== undefined ? data.expectedDeliverables : currentProject.expected_deliverables,
+        scope_inclusions: data.scopeInclusions !== undefined ? data.scopeInclusions : currentProject.scope_inclusions,
+        scope_exclusions: data.scopeExclusions !== undefined ? data.scopeExclusions : currentProject.scope_exclusions,
+        project_constraints: data.projectConstraints !== undefined ? data.projectConstraints : currentProject.project_constraints,
         proposed_solution: data.proposedSolution !== undefined ? data.proposedSolution : currentProject.proposed_solution,
         differentiation: data.differentiation !== undefined ? data.differentiation : currentProject.differentiation,
         next_step: data.nextStep !== undefined ? data.nextStep : currentProject.next_step,
@@ -1053,6 +1131,8 @@ class ProjectController {
           maturityStage: 'maturity_stage', productGoal: 'product_goal', problemStatement: 'problem_statement',
           impactedPeople: 'impacted_people', problemImpact: 'problem_impact',
           impactedCount: 'impacted_count', expectedOutcome: 'expected_outcome',
+          expectedDeliverables: 'expected_deliverables', scopeInclusions: 'scope_inclusions',
+          scopeExclusions: 'scope_exclusions', projectConstraints: 'project_constraints',
           proposedSolution: 'proposed_solution', differentiation: 'differentiation',
           nextStep: 'next_step', startDate: 'start_date', endDate: 'end_date',
           ownerId: 'owner_id',
@@ -1119,6 +1199,12 @@ class ProjectController {
       });
     } catch (error) {
       console.error('[ProjectController.update]', error);
+      if (isProjectDeadlineConstraint(error)) {
+        return res.status(409).json({
+          success: false,
+          error: { message: 'La fecha límite no puede quedar antes que la fecha de uno o más hitos. Ajusta primero esos hitos.' },
+        });
+      }
       res.status(500).json({ success: false, error: { message: 'Error al actualizar' } });
     }
   }
@@ -1394,6 +1480,20 @@ class ProjectController {
       const { id } = req.params;
       const body = createMilestoneSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: 'Datos inválidos' } });
+      const projectDeadline = await pool.query(
+        `SELECT end_date IS NOT NULL AND $2::date > end_date::date AS after_deadline
+         FROM projects WHERE id = $1`,
+        [id, body.data.date],
+      );
+      if (!projectDeadline.rows.length) {
+        return res.status(404).json({ success: false, error: { message: 'Proyecto no encontrado' } });
+      }
+      if (projectDeadline.rows[0].after_deadline) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'La fecha del hito debe ser igual o anterior a la fecha límite del proyecto.' },
+        });
+      }
       const result = await pool.query(
         `INSERT INTO project_milestones (id, project_id, name, description, date, color, updated_at)
          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING *`,
@@ -1417,6 +1517,12 @@ class ProjectController {
       res.status(201).json({ success: true, data: { milestone: fmtMilestone(result.rows[0]) } });
     } catch (error) {
       console.error('[ProjectController.createMilestone]', error);
+      if (isProjectDeadlineConstraint(error)) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'La fecha del hito debe ser igual o anterior a la fecha límite del proyecto.' },
+        });
+      }
       res.status(500).json({ success: false, error: { message: 'Error al crear milestone' } });
     }
   }
@@ -1428,6 +1534,24 @@ class ProjectController {
       const body = updateMilestoneSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ success: false, error: { message: 'Datos inválidos' } });
       const data = body.data;
+      if (data.date !== undefined) {
+        const projectDeadline = await pool.query(
+          `SELECT p.end_date IS NOT NULL AND $1::date > p.end_date::date AS after_deadline
+           FROM project_milestones pm
+           JOIN projects p ON p.id = pm.project_id
+           WHERE pm.id = $2 AND pm.project_id = $3`,
+          [data.date, milestoneId, req.params.id],
+        );
+        if (!projectDeadline.rows.length) {
+          return res.status(404).json({ success: false, error: { message: 'Milestone no encontrado' } });
+        }
+        if (projectDeadline.rows[0].after_deadline) {
+          return res.status(400).json({
+            success: false,
+            error: { message: 'La fecha del hito debe ser igual o anterior a la fecha límite del proyecto.' },
+          });
+        }
+      }
       const fields: string[] = [];
       const values: any[] = [];
       let idx = 1;
@@ -1501,6 +1625,12 @@ class ProjectController {
       res.json({ success: true, data: { milestone: fmtMilestone(result.rows[0]) } });
     } catch (error) {
       console.error('[ProjectController.updateMilestone]', error);
+      if (isProjectDeadlineConstraint(error)) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'La fecha del hito debe ser igual o anterior a la fecha límite del proyecto.' },
+        });
+      }
       res.status(500).json({ success: false, error: { message: 'Error al actualizar milestone' } });
     }
   }

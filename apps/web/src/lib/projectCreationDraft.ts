@@ -29,14 +29,38 @@ function isProjectCreationAnswers(value: unknown): value is ProjectCreationAnswe
   return Boolean(answers
     && typeof answers.title === 'string'
     && typeof answers.context === 'string'
+    && typeof answers.impactedPeople === 'string'
+    && typeof answers.problemImpact === 'string'
     && typeof answers.objective === 'string'
-    && typeof answers.successMetric === 'string'
-    && typeof answers.targetValue === 'string'
-    && typeof answers.unit === 'string');
+    && typeof answers.expectedDeliverables === 'string'
+    && typeof answers.scopeInclusions === 'string'
+    && typeof answers.scopeExclusions === 'string'
+    && typeof answers.endDate === 'string'
+    && typeof answers.projectConstraints === 'string');
 }
 
 function restoreAnswers(draft: RecordValue): ProjectCreationAnswers | null {
   if (isProjectCreationAnswers(draft.answers)) return draft.answers;
+
+  // Preserve text from drafts created with the earlier context/objective/metric wizard.
+  const previousAnswers = asRecord(draft.answers);
+  if (previousAnswers
+    && typeof previousAnswers.title === 'string'
+    && typeof previousAnswers.context === 'string'
+    && typeof previousAnswers.objective === 'string') {
+    return {
+      title: previousAnswers.title,
+      context: previousAnswers.context,
+      impactedPeople: '',
+      problemImpact: '',
+      objective: previousAnswers.objective,
+      expectedDeliverables: '',
+      scopeInclusions: '',
+      scopeExclusions: '',
+      endDate: '',
+      projectConstraints: '',
+    };
+  }
 
   // Migrate drafts saved by the previous wizard without discarding the work.
   const proposal = asRecord(draft.proposal);
@@ -46,10 +70,14 @@ function restoreAnswers(draft: RecordValue): ProjectCreationAnswers | null {
     context: typeof proposal.problemStatement === 'string' && proposal.problemStatement.trim()
       ? proposal.problemStatement
       : typeof proposal.summary === 'string' ? proposal.summary : '',
+    impactedPeople: typeof proposal.impactedPeople === 'string' ? proposal.impactedPeople : '',
+    problemImpact: typeof proposal.problemImpact === 'string' ? proposal.problemImpact : '',
     objective: proposal.expectedOutcome,
-    successMetric: typeof draft.successMetric === 'string' ? draft.successMetric : '',
-    targetValue: typeof draft.targetValue === 'string' ? draft.targetValue : '',
-    unit: typeof draft.unit === 'string' ? draft.unit : '',
+    expectedDeliverables: '',
+    scopeInclusions: '',
+    scopeExclusions: '',
+    endDate: '',
+    projectConstraints: '',
   };
 }
 

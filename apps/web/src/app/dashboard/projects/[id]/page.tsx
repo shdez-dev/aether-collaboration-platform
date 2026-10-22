@@ -2916,6 +2916,7 @@ function DatePicker({
   onChange,
   placeholder = 'Sin fecha',
   accent = '#7452A6',
+  maxDate,
   id,
   ariaLabel,
   invalid = false,
@@ -2926,6 +2927,7 @@ function DatePicker({
   onChange: (v: string) => void;
   placeholder?: string;
   accent?: string;
+  maxDate?: string | null;
   id?: string;
   ariaLabel?: string;
   invalid?: boolean;
@@ -2933,6 +2935,7 @@ function DatePicker({
   describedBy?: string;
 }) {
   const today = new Date();
+  const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const parsed = value ? new Date(value + 'T00:00:00') : null;
   const [open, setOpen] = useState(false);
   const [viewYear, setViewYear] = useState(parsed?.getFullYear() ?? today.getFullYear());
@@ -3209,11 +3212,14 @@ function DatePicker({
                 const isCurr = cell.m === 'curr';
                 const sel = isCurr && isSelected(cell.d);
                 const tod = isCurr && isToday(cell.d);
+                const cellDate = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(cell.d).padStart(2, '0')}`;
+                const afterMaxDate = isCurr && Boolean(maxDate && cellDate > maxDate);
                 return (
                   <button
                     key={i}
                     type="button"
-                    onClick={() => isCurr && select(cell.d)}
+                    disabled={!isCurr || afterMaxDate}
+                    onClick={() => isCurr && !afterMaxDate && select(cell.d)}
                     style={{
                       width: '32px',
                       height: '32px',
@@ -3223,18 +3229,18 @@ function DatePicker({
                       color: sel ? '#FFFFFF' : isCurr ? C.text : C.text4,
                       fontSize: '12.5px',
                       fontWeight: sel || tod ? 700 : 400,
-                      cursor: isCurr ? 'pointer' : 'default',
+                      cursor: isCurr && !afterMaxDate ? 'pointer' : 'default',
                       outline: !sel && tod ? `2px solid ${accent}` : 'none',
                       outlineOffset: '-1px',
-                      opacity: !isCurr ? 0.28 : 1,
+                      opacity: !isCurr ? 0.28 : afterMaxDate ? 0.38 : 1,
                       transition: 'background 0.1s',
                       boxSizing: 'border-box' as const,
                     }}
                     onMouseEnter={(e) => {
-                      if (isCurr && !sel) e.currentTarget.style.background = C.hover;
+                      if (isCurr && !afterMaxDate && !sel) e.currentTarget.style.background = C.hover;
                     }}
                     onMouseLeave={(e) => {
-                      if (isCurr && !sel) e.currentTarget.style.background = 'transparent';
+                      if (isCurr && !afterMaxDate && !sel) e.currentTarget.style.background = 'transparent';
                     }}
                   >
                     {cell.d}
@@ -3254,23 +3260,27 @@ function DatePicker({
             >
               <button
                 type="button"
+                disabled={Boolean(maxDate && todayValue > maxDate)}
                 onClick={() => {
-                  onChange(
-                    `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-                  );
+                  if (maxDate && todayValue > maxDate) return;
+                  onChange(todayValue);
                   setOpen(false);
                 }}
                 style={{
                   fontSize: '11px',
-                  color: C.text3,
+                  color: maxDate && todayValue > maxDate ? C.text4 : C.text3,
                   background: 'transparent',
                   border: 'none',
-                  cursor: 'pointer',
+                  cursor: maxDate && todayValue > maxDate ? 'not-allowed' : 'pointer',
                   fontFamily: "'Manrope', system-ui, sans-serif",
                   transition: 'color 0.1s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = C.text)}
-                onMouseLeave={(e) => (e.currentTarget.style.color = C.text3)}
+                onMouseEnter={(e) => {
+                  if (!maxDate || todayValue <= maxDate) e.currentTarget.style.color = C.text;
+                }}
+                onMouseLeave={(e) => {
+                  if (!maxDate || todayValue <= maxDate) e.currentTarget.style.color = C.text3;
+                }}
               >
                 Hoy
               </button>
@@ -3295,6 +3305,10 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   const [problemImpact, setProblemImpact] = useState(project.problemImpact ?? '');
   const [impactedCount, setImpactedCount] = useState(project.impactedCount?.toString() ?? '');
   const [expectedOutcome, setExpectedOutcome] = useState(project.expectedOutcome ?? '');
+  const [expectedDeliverables, setExpectedDeliverables] = useState(project.expectedDeliverables ?? '');
+  const [scopeInclusions, setScopeInclusions] = useState(project.scopeInclusions ?? '');
+  const [scopeExclusions, setScopeExclusions] = useState(project.scopeExclusions ?? '');
+  const [projectConstraints, setProjectConstraints] = useState(project.projectConstraints ?? '');
   const [proposedSolution, setProposedSolution] = useState(project.proposedSolution ?? '');
   const [differentiation, setDifferentiation] = useState(project.differentiation ?? '');
   const [nextStep, setNextStep] = useState(project.nextStep ?? '');
@@ -3357,6 +3371,10 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
         problemImpact: problemImpact.trim() || null,
         impactedCount: parsedImpactedCount,
         expectedOutcome: expectedOutcome.trim() || null,
+        expectedDeliverables: expectedDeliverables.trim() || null,
+        scopeInclusions: scopeInclusions.trim() || null,
+        scopeExclusions: scopeExclusions.trim() || null,
+        projectConstraints: projectConstraints.trim() || null,
         proposedSolution: proposedSolution.trim() || null,
         differentiation: differentiation.trim() || null,
         nextStep: nextStep.trim() || null,
@@ -3516,7 +3534,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
                 Editar proyecto
               </span>
               <p style={{ margin: '3px 0 0', color: C.text4, fontSize: 11 }}>
-                Actualiza el contexto, impacto y propuesta que aparecen en el resumen.
+                Actualiza el contexto, objetivo, alcance y condiciones del resumen.
               </p>
             </div>
             <button
@@ -3685,21 +3703,62 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
 
             <section style={sectionStyle}>
               <div>
-                <h3 style={sectionHeadingStyle}>Propuesta</h3>
-                <p style={sectionDescriptionStyle}>El cambio que se busca y cómo alcanzarlo.</p>
+                <h3 style={sectionHeadingStyle}>Objetivo y alcance</h3>
+                <p style={sectionDescriptionStyle}>El cambio esperado, sus resultados y sus límites.</p>
               </div>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div>
-                  <LBL>Propuesta de valor</LBL>
+                  <LBL>Objetivo principal</LBL>
                   <textarea
                     value={expectedOutcome}
                     onChange={(e) => setExpectedOutcome(e.target.value)}
                     rows={2}
-                    placeholder="Qué cambio se espera lograr y cómo podría medirse."
+                    placeholder="Qué cambio concreto debería existir al terminar el proyecto."
                     style={textAreaStyle}
                     onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
                     onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
                   />
+                </div>
+                <div>
+                  <LBL>Resultados o entregables esperados</LBL>
+                  <textarea
+                    value={expectedDeliverables}
+                    onChange={(e) => setExpectedDeliverables(e.target.value)}
+                    rows={2}
+                    maxLength={8000}
+                    placeholder="Ej. Portal web, bandeja de soporte y guía breve para usuarios."
+                    style={textAreaStyle}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+                  />
+                </div>
+                <div style={twoColumnStyle}>
+                  <div>
+                    <LBL>Qué incluye</LBL>
+                    <textarea
+                      value={scopeInclusions}
+                      onChange={(e) => setScopeInclusions(e.target.value)}
+                      rows={2}
+                      maxLength={8000}
+                      placeholder="Ej. Registro, asignación y consulta de solicitudes."
+                      style={textAreaStyle}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+                    />
+                  </div>
+                  <div>
+                    <LBL>Qué queda fuera</LBL>
+                    <textarea
+                      value={scopeExclusions}
+                      onChange={(e) => setScopeExclusions(e.target.value)}
+                      rows={2}
+                      maxLength={8000}
+                      placeholder="Ej. Atención telefónica e integración con WhatsApp."
+                      style={textAreaStyle}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+                    />
+                  </div>
                 </div>
                 <div style={twoColumnStyle}>
                   <div>
@@ -3728,6 +3787,23 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
                   </div>
                 </div>
               </div>
+            </section>
+
+            <section style={sectionStyle}>
+              <div>
+                <h3 style={sectionHeadingStyle}>Condiciones del proyecto</h3>
+                <p style={sectionDescriptionStyle}>Restricciones que conviene tener presentes desde el inicio.</p>
+              </div>
+              <textarea
+                value={projectConstraints}
+                onChange={(e) => setProjectConstraints(e.target.value)}
+                rows={2}
+                maxLength={8000}
+                placeholder="Ej. Debe usar las herramientas actuales y estar disponible en español."
+                style={textAreaStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
+                onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+              />
             </section>
 
             <div>
@@ -4220,11 +4296,13 @@ function AddBoardModal({ project, onClose }: { project: Project; onClose: () => 
 // ── Create Milestone Modal ────────────────────────────────────────────────────
 function CreateMilestoneModal({
   projectId,
+  projectEndDate,
   color,
   milestone,
   onClose,
 }: {
   projectId: string;
+  projectEndDate?: string | null;
   color: string;
   milestone?: ProjectMilestone;
   onClose: () => void;
@@ -4241,6 +4319,7 @@ function CreateMilestoneModal({
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; date?: string }>({});
   const [closing, setClosing] = useState(false);
+  const deadlineDate = projectEndDate?.slice(0, 10) ?? null;
 
   const handleClose = () => {
     if (loading) return;
@@ -4253,6 +4332,9 @@ function CreateMilestoneModal({
     const nextFieldErrors: { name?: string; date?: string } = {};
     if (!name.trim()) nextFieldErrors.name = 'Escribe el nombre del hito para poder identificarlo.';
     if (!date) nextFieldErrors.date = 'Selecciona la fecha en la que debe alcanzarse este hito.';
+    else if (deadlineDate && date > deadlineDate) {
+      nextFieldErrors.date = `El hito debe quedar dentro del plazo del proyecto, hasta el ${new Date(`${deadlineDate}T00:00:00`).toLocaleDateString('es-CL')}.`;
+    }
 
     setFieldErrors(nextFieldErrors);
     if (Object.keys(nextFieldErrors).length > 0) {
@@ -4414,10 +4496,11 @@ function CreateMilestoneModal({
             <DatePicker
               id="milestone-date"
               value={date}
+              maxDate={deadlineDate}
               onChange={(nextDate) => {
                 setDate(nextDate);
                 setError('');
-                if (nextDate) {
+                if (nextDate && (!deadlineDate || nextDate <= deadlineDate)) {
                   setFieldErrors((current) => ({ ...current, date: undefined }));
                 }
               }}
@@ -4428,6 +4511,11 @@ function CreateMilestoneModal({
               invalid={Boolean(fieldErrors.date)}
               describedBy={fieldErrors.date ? 'milestone-date-error' : undefined}
             />
+            {deadlineDate && !fieldErrors.date && (
+              <span style={{ fontSize: '10.5px', color: C.text4 }}>
+                Fecha límite del proyecto: {new Date(`${deadlineDate}T00:00:00`).toLocaleDateString('es-CL')}.
+              </span>
+            )}
             {fieldErrors.date && (
               <span
                 id="milestone-date-error"
@@ -5672,8 +5760,19 @@ export default function ProjectDetailPage() {
                     style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}
                   >
                     <h1
+                      title={project.name}
                       style={{
                         margin: 0,
+                        flex: '1 1 0%',
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        whiteSpace: 'nowrap',
+                        textOverflow: 'ellipsis',
+                        WebkitMaskImage:
+                          'linear-gradient(to right, #000 0%, #000 calc(100% - 36px), transparent 100%)',
+                        maskImage:
+                          'linear-gradient(to right, #000 0%, #000 calc(100% - 36px), transparent 100%)',
                         fontFamily: "'Sora', system-ui, sans-serif",
                         fontWeight: 700,
                         fontSize: 'clamp(1.6rem,2.8vw,2.1rem)',
@@ -6053,7 +6152,7 @@ export default function ProjectDetailPage() {
                 description: 'La necesidad que da origen al proyecto.',
                 fields: [
                   ['Resumen del proyecto', project.description?.trim() ?? ''],
-                  ['Problemática identificada', project.problemStatement ?? ''],
+                  ['Problema u oportunidad', project.problemStatement ?? ''],
                 ],
               },
               {
@@ -6071,12 +6170,28 @@ export default function ProjectDetailPage() {
                 ],
               },
               {
-                title: 'Propuesta',
-                description: 'El cambio que se busca y cómo alcanzarlo.',
+                title: 'Objetivo y alcance',
+                description: 'El cambio esperado, sus resultados y sus límites.',
                 fields: [
-                  ['Propuesta de valor', project.expectedOutcome ?? ''],
+                  ['Objetivo principal', project.expectedOutcome ?? ''],
+                  ['Resultados o entregables esperados', project.expectedDeliverables ?? ''],
+                  ['Qué incluye', project.scopeInclusions ?? ''],
+                  ['Qué queda fuera', project.scopeExclusions ?? ''],
                   ['Solución', project.proposedSolution ?? ''],
                   ['Diferenciación', project.differentiation ?? ''],
+                ],
+              },
+              {
+                title: 'Condiciones',
+                description: 'Fechas y restricciones que delimitan el proyecto.',
+                fields: [
+                  [
+                    'Fecha límite o hito importante',
+                    project.endDate
+                      ? new Date(project.endDate).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+                      : '',
+                  ],
+                  ['Restricciones o condiciones', project.projectConstraints ?? ''],
                 ],
               },
             ];
@@ -6164,7 +6279,7 @@ export default function ProjectDetailPage() {
                         className={overviewStyles.contextEmpty}
                       >
                         <p>
-                          Este proyecto todavía no tiene información de contexto, impacto o propuesta.
+                          Este proyecto todavía no tiene información de contexto, objetivo, alcance o condiciones.
                           Puedes agregarla desde Editar proyecto.
                         </p>
                       </section>
@@ -8338,6 +8453,7 @@ export default function ProjectDetailPage() {
       {showAddMs && (
         <CreateMilestoneModal
           projectId={project.id}
+          projectEndDate={project.endDate}
           color={color}
           onClose={() => setShowAddMs(false)}
         />
@@ -8345,6 +8461,7 @@ export default function ProjectDetailPage() {
       {editMs && (
         <CreateMilestoneModal
           projectId={project.id}
+          projectEndDate={project.endDate}
           color={color}
           milestone={editMs}
           onClose={() => setEditMs(null)}
