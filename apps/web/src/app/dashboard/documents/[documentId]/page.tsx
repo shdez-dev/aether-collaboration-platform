@@ -1,7 +1,7 @@
 // apps/web/src/app/dashboard/documents/[documentId]/page.tsx
 'use client';
 
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -20,6 +20,8 @@ import {
 import { recordRecentDoc } from '@/lib/utils/recentDocs';
 import { C } from '@/lib/colors';
 import DocumentShareModal, { type DocumentShareMember, type DocumentSharePermission } from '@/components/documents/DocumentShareModal';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import styles from './documentOptions.module.css';
 
 const CollaborativeEditor = lazy(() => import('@/components/documents/CollaborativeEditor'));
 
@@ -63,6 +65,7 @@ export default function DocumentEditorPage() {
   const [showOptionsMenu,   setShowOptionsMenu]   = useState(false);
   const [showDeleteModal,   setShowDeleteModal]   = useState(false);
   const [isDeleting,        setIsDeleting]        = useState(false);
+  const deleteDialogRef = useRef<HTMLDivElement>(null);
   const [showShareModal,    setShowShareModal]     = useState(false);
   const [members,           setMembers]           = useState<DocumentShareMember[]>([]);
   const [loadingMembers,    setLoadingMembers]    = useState(false);
@@ -117,6 +120,16 @@ export default function DocumentEditorPage() {
       setDescription(currentDocument.description ?? '');
     }
   }, [currentDocument]);
+
+  useEffect(() => {
+    if (!showDeleteModal) return;
+    deleteDialogRef.current?.focus();
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isDeleting) setShowDeleteModal(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showDeleteModal, isDeleting]);
 
   const handleTitleBlur = async () => {
     if (!currentDocument || title === currentDocument.title) return;
@@ -354,32 +367,24 @@ export default function DocumentEditorPage() {
 
             {/* Options menu */}
             {canManage && (
-              <div style={{ position: 'relative' }}>
-                <OptionsBtn active={showOptionsMenu} onClick={() => setShowOptionsMenu(!showOptionsMenu)} />
-
-                {showOptionsMenu && (
-                  <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowOptionsMenu(false)} />
-                    <div style={{
-                      position: 'absolute', right: 0, top: 'calc(100% + 6px)',
-                      width: '180px', background: C.surface, border: `1px solid ${C.border2}`,
-                      borderRadius: '9px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                      overflow: 'hidden', zIndex: 20,
-                      padding: '4px',
-                    }}>
-                      <MenuItem icon={<Share2 style={{ width: '13px', height: '13px' }} />} label="Compartir" onClick={handleShareClick} />
-
-                      <div style={{ height: '1px', background: C.border, margin: '4px 0' }} />
-                      <MenuItem
-                        icon={<Trash2 style={{ width: '13px', height: '13px' }} />}
-                        label={t.document_btn_delete}
-                        onClick={handleDeleteClick}
-                        danger
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
+              <DropdownMenu.Root open={showOptionsMenu} onOpenChange={setShowOptionsMenu}>
+                <DropdownMenu.Trigger asChild>
+                  <button className={styles.trigger} type="button" aria-label="Opciones del documento" title="Opciones del documento" data-active={showOptionsMenu}>
+                    <MoreVertical size={16} aria-hidden="true" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content className={styles.menu} side="bottom" align="end" sideOffset={7} collisionPadding={12}>
+                    <DropdownMenu.Item className={styles.menuItem} onSelect={handleShareClick}>
+                      <Share2 size={15} aria-hidden="true" />Compartir
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator className={styles.separator} />
+                    <DropdownMenu.Item className={`${styles.menuItem} ${styles.danger}`} onSelect={handleDeleteClick}>
+                      <Trash2 size={15} aria-hidden="true" />{t.document_btn_delete}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
             )}
           </div>
         </div>
@@ -428,6 +433,7 @@ export default function DocumentEditorPage() {
       {/* ── Modal: Eliminar ────────────────────────────────────────────────── */}
       {showDeleteModal && (
         <div
+          role="presentation"
           style={{
             position: 'fixed', inset: 0, zIndex: 50,
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
@@ -436,11 +442,16 @@ export default function DocumentEditorPage() {
           onClick={(e) => { if (e.target === e.currentTarget && !isDeleting) setShowDeleteModal(false); }}
         >
           <div
+            ref={deleteDialogRef}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="document-delete-title"
+            tabIndex={-1}
             style={{
               width: '100%', maxWidth: '420px',
               background: 'var(--c-surface)', border: `1px solid ${C.border}`,
               borderRadius: '12px', boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
-              overflow: 'hidden',
+              overflow: 'hidden', fontFamily: MANROPE, outline: 'none',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -454,7 +465,7 @@ export default function DocumentEditorPage() {
                   <Trash2 style={{ width: '16px', height: '16px', color: C.red }} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: C.text, marginBottom: '8px' }}>
+                  <h3 id="document-delete-title" style={{ fontSize: '16px', fontWeight: 700, color: C.text, fontFamily: SORA, marginBottom: '8px' }}>
                     {t.document_delete_modal_title}
                   </h3>
                   <p style={{ fontSize: '13px', color: C.text3, lineHeight: 1.6 }}>
@@ -473,7 +484,7 @@ export default function DocumentEditorPage() {
                 style={{
                   flex: 1, padding: '8px 0', borderRadius: '7px', fontSize: '13px', fontWeight: 500,
                   background: C.hover, border: `1px solid ${C.border2}`, color: C.text2,
-                  cursor: 'pointer', opacity: isDeleting ? 0.5 : 1,
+                  cursor: 'pointer', opacity: isDeleting ? 0.5 : 1, fontFamily: MANROPE,
                 }}
               >
                 {t.btn_cancel}
@@ -485,7 +496,7 @@ export default function DocumentEditorPage() {
                   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                   padding: '8px 0', borderRadius: '7px', fontSize: '13px', fontWeight: 500,
                   background: C.red, color: '#fff', border: 'none',
-                  cursor: isDeleting ? 'not-allowed' : 'pointer', opacity: isDeleting ? 0.7 : 1,
+                  cursor: isDeleting ? 'not-allowed' : 'pointer', opacity: isDeleting ? 0.7 : 1, fontFamily: MANROPE,
                 }}
               >
                 {isDeleting ? (
@@ -527,54 +538,6 @@ function SmallBackBtn({ onClick, label }: { onClick: () => void; label: string }
     >
       <ArrowLeft style={{ width: '13px', height: '13px' }} />
       {label}
-    </button>
-  );
-}
-
-function OptionsBtn({ active, onClick }: { active: boolean; onClick: () => void }) {
-  const [h, setH] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      style={{
-        width: '30px', height: '30px', borderRadius: '7px',
-        background: active || h ? C.hover : 'transparent',
-        border: `1px solid ${active || h ? C.border2 : 'transparent'}`,
-        color: active || h ? C.text2 : C.text4,
-        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.12s',
-      }}
-    >
-      <MoreVertical style={{ width: '15px', height: '15px' }} />
-    </button>
-  );
-}
-
-function MenuItem({ icon, label, onClick, disabled, danger, suffix }: {
-  icon: React.ReactNode; label: string; onClick: () => void;
-  disabled?: boolean; danger?: boolean; suffix?: React.ReactNode;
-}) {
-  const [h, setH] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      style={{
-        width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
-        padding: '7px 10px', borderRadius: '6px', textAlign: 'left', fontSize: '12.5px', fontWeight: 500,
-        background: h ? C.hover : 'transparent', border: 'none', fontFamily: MANROPE,
-        color: danger ? (h ? C.red : C.text3) : (h ? C.text : C.text3),
-        cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-        transition: 'background 0.1s, color 0.1s',
-      }}
-    >
-      {icon}
-      {label}
-      {suffix}
     </button>
   );
 }

@@ -18,6 +18,6 @@
 .option[data-state="checked"] .check{border-color:color-mix(in srgb,var(--c-accent-text) 45%,var(--c-border));background:color-mix(in srgb,var(--c-accent-text) 12%,var(--c-bg2))}
 .optionLabel{min-width:0;overflow-wrap:anywhere}
 .empty{padding:12px 9px;color:var(--c-text3);font-size:11px}
-.menuFooter{padding:6px 9px 2px;color:var(--c-text4);font-size:10px;font-variant-numeric:tabular-nums}
+.menuFooter{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px 2px;color:var(--c-text3);font:500 10.5px 'Manrope',system-ui,sans-serif;font-variant-numeric:tabular-nums}.clearSelection{padding:3px 5px;border-radius:5px;color:var(--c-accent-text);font:700 10px 'Manrope',system-ui,sans-serif;cursor:pointer;outline:none}.clearSelection[data-highlighted]{background:var(--c-hover)}.clearSelection:focus-visible{outline:2px solid var(--c-accent-text);outline-offset:2px}
 @keyframes menuIn{from{opacity:0;transform:translateY(-4px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(prefers-reduced-motion:reduce){.trigger,.chevron,.option{transition:none}.menu{animation:none}}

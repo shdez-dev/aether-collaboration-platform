@@ -26,7 +26,7 @@ export function MultiSelectDropdown({
   const summary = selectedLabels.length === 1
     ? selectedLabels[0]
     : selectedLabels.length > 1
-      ? `${selectedLabels.length} espacios seleccionados`
+      ? `${selectedLabels[0]} + ${selectedLabels.length - 1}`
       : placeholder;
 
   function toggle(optionValue: string, checked: boolean) {
@@ -60,7 +60,10 @@ export function MultiSelectDropdown({
         </DropdownMenu.CheckboxItem>)}
         {options.length === 0 && <div className={styles.empty}>No hay espacios disponibles.</div>}
         <DropdownMenu.Separator className={styles.separator} />
-        <div className={styles.menuFooter}>{value.length} seleccionados</div>
+        <div className={styles.menuFooter}>
+          <span>{value.length} {value.length === 1 ? 'seleccionado' : 'seleccionados'}</span>
+          {value.length > 0 && <DropdownMenu.Item className={styles.clearSelection} onSelect={() => onChange([])}>Limpiar selección</DropdownMenu.Item>}
+        </div>
       </DropdownMenu.Content>
     </DropdownMenu.Portal>
   </DropdownMenu.Root>;
