@@ -77,6 +77,7 @@ import { ProjectSprintPlanner, type ProjectSprint } from '@/components/ProjectSp
 import backlogStyles from './backlog.module.css';
 import ganttStyles from './ProjectGantt.module.css';
 import membersStyles from './ProjectMembersTab.module.css';
+import configModalStyles from './ConfigModal.module.css';
 import { InlineBoardView } from '@/components/InlineBoardView';
 import { CardDetailModal } from '@/components/CardDetailModal';
 import { useCardStore } from '@/stores/cardStore';
@@ -3409,14 +3410,12 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   const LBL = ({ children }: { children: React.ReactNode }) => (
     <label
       style={{
-        fontSize: '10.5px',
-        fontWeight: 700,
-        letterSpacing: '0.07em',
-        color: C.text4,
-        textTransform: 'uppercase' as const,
+        fontSize: '12px',
+        fontWeight: 650,
+        color: C.text2,
         display: 'block',
-        marginBottom: '5px',
-        fontFamily: "'Sora', system-ui, sans-serif",
+        marginBottom: '7px',
+        fontFamily: "'Manrope', system-ui, sans-serif",
       }}
     >
       {children}
@@ -3424,15 +3423,15 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   );
   const fieldStyle: React.CSSProperties = {
     width: '100%',
-    padding: '9px 10px',
-    borderRadius: '7px',
-    fontSize: '12.5px',
+    padding: '11px 12px',
+    borderRadius: '9px',
+    fontSize: '13px',
     background: C.bg2,
     border: `1px solid ${C.border2}`,
     color: C.text,
     outline: 'none',
     boxSizing: 'border-box',
-    transition: 'border-color 0.14s',
+    transition: 'border-color 0.16s ease, box-shadow 0.16s ease',
     fontFamily: "'Manrope', system-ui, sans-serif",
   };
   const textAreaStyle: React.CSSProperties = {
@@ -3443,29 +3442,27 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
   const sectionStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
-    padding: 14,
-    borderRadius: 10,
-    border: `1px solid ${C.border}`,
-    background: 'rgba(97,71,130,0.018)',
+    gap: 14,
+    padding: '19px 0',
+    borderBottom: `1px solid ${C.border}`,
   };
   const sectionHeadingStyle: React.CSSProperties = {
     margin: 0,
     color: C.text,
-    fontSize: 12.5,
+    fontSize: 15,
     fontWeight: 700,
     fontFamily: "'Sora', system-ui, sans-serif",
   };
   const sectionDescriptionStyle: React.CSSProperties = {
-    margin: '3px 0 0',
+    margin: '4px 0 0',
     color: C.text4,
-    fontSize: 11,
-    lineHeight: 1.45,
+    fontSize: 12,
+    lineHeight: 1.5,
   };
   const twoColumnStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 230px), 1fr))',
-    gap: 12,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+    gap: 14,
   };
   const statusLabelsEs: Record<string, string> = {
     PLANNING: 'Planificación',
@@ -3477,89 +3474,44 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
 
   return (
     <>
-      <style>{`
-        @keyframes cfgOverIn  { from { opacity:0 } to { opacity:1 } }
-        @keyframes cfgOverOut { from { opacity:1 } to { opacity:0 } }
-        @keyframes cfgPanIn   { from { opacity:0; transform:translateY(12px) scale(0.96) } to { opacity:1; transform:translateY(0) scale(1) } }
-        @keyframes cfgPanOut  { from { opacity:1; transform:translateY(0) scale(1) } to { opacity:0; transform:translateY(8px) scale(0.98) } }
-      `}</style>
-
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className={configModalStyles.overlay}
+        data-closing={closing}
         style={{
           background: `rgba(0,0,0,${animIn ? 0.7 : 0})`,
-          backdropFilter: 'blur(4px)',
-          transition: 'background 0.2s ease',
-          animation: closing ? 'cfgOverOut 0.2s ease forwards' : undefined,
         }}
         onClick={handleClose}
       >
         <div
+          className={configModalStyles.dialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="project-config-title"
+          aria-describedby="project-config-description"
+          data-closing={closing}
           style={{
-            width: '100%',
-            maxWidth: '680px',
-            maxHeight: 'calc(100vh - 32px)',
-            display: 'flex',
-            flexDirection: 'column',
-            background: C.surface,
-            border: `1px solid ${C.border2}`,
-            borderRadius: '12px',
-            overflow: 'hidden',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.65)',
-            animation: closing
-              ? 'cfgPanOut 0.18s ease forwards'
-              : 'cfgPanIn 0.28s cubic-bezier(0.16,1,0.3,1) both',
-          }}
+            '--config-accent': accent,
+          } as React.CSSProperties}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 18px',
-              borderBottom: `1px solid ${C.border}`,
-            }}
-          >
-            <div>
-              <span
-                style={{
-                  fontSize: '13.5px',
-                  fontWeight: 600,
-                  color: C.text,
-                  fontFamily: "'Sora', system-ui, sans-serif",
-                }}
-              >
-                Editar proyecto
+          <div className={configModalStyles.header}>
+            <div className={configModalStyles.heading}>
+              <span className={configModalStyles.headingIcon} aria-hidden="true">
+                <Pencil style={{ width: 17, height: 17 }} />
               </span>
-              <p style={{ margin: '3px 0 0', color: C.text4, fontSize: 11 }}>
-                Actualiza el contexto, objetivo, alcance y condiciones del resumen.
-              </p>
+              <div>
+                <h2 id="project-config-title" className={configModalStyles.title}>Editar proyecto</h2>
+                <p id="project-config-description" className={configModalStyles.description}>
+                  Actualiza el contexto, objetivo, alcance y condiciones del resumen.
+                </p>
+              </div>
             </div>
             <button
+              type="button"
+              aria-label="Cerrar edición del proyecto"
               onClick={handleClose}
-              style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '6px',
-                color: C.text3,
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'background 0.12s, color 0.12s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = C.hover;
-                e.currentTarget.style.color = C.text;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'none';
-                e.currentTarget.style.color = C.text3;
-              }}
+              className={configModalStyles.closeButton}
             >
               <X style={ic(14)} />
             </button>
@@ -3567,71 +3519,41 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
 
           {/* Body */}
           <div
-            style={{
-              padding: '18px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px',
-              overflowY: 'auto',
-              minHeight: 0,
-              flex: '1 1 auto',
-            }}
+            className={configModalStyles.body}
           >
             {/* Nombre */}
-            <div>
-              <LBL>Nombre</LBL>
-              <input
-                value={name}
-                maxLength={Math.max(120, project.name.length)}
-                onChange={(e) => setName(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: '7px',
-                  fontSize: '12.5px',
-                  background: C.bg2,
-                  border: `1px solid ${C.border2}`,
-                  color: C.text,
-                  outline: 'none',
-                  boxSizing: 'border-box' as const,
-                  transition: 'border-color 0.14s',
-                  fontFamily: "'Manrope', system-ui, sans-serif",
-                }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
-                onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
-              />
-              <small
-                style={{
-                  display: 'block',
-                  textAlign: 'right',
-                  color: name.length > 120 ? C.red : C.text4,
-                }}
-              >
-                {name.length}/120
-              </small>
-            </div>
+            <div className={configModalStyles.identityGrid}>
+              <div>
+                <LBL>Nombre del proyecto</LBL>
+                <input
+                  value={name}
+                  maxLength={Math.max(120, project.name.length)}
+                  onChange={(e) => setName(e.target.value)}
+                  style={fieldStyle}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+                />
+                <small className={configModalStyles.counter} data-invalid={name.length > 120}>
+                  {name.length}/120
+                </small>
+              </div>
 
-            <div>
-              <LBL>Resumen del proyecto</LBL>
-              <textarea
-                value={desc}
-                maxLength={Math.max(1000, (project.description ?? '').length)}
-                onChange={(e) => setDesc(e.target.value)}
-                rows={3}
-                placeholder="Resume la oportunidad que se está explorando."
-                style={textAreaStyle}
-                onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
-                onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
-              />
-              <small
-                style={{
-                  display: 'block',
-                  textAlign: 'right',
-                  color: desc.length > 1000 ? C.red : C.text4,
-                }}
-              >
-                {desc.length}/1000
-              </small>
+              <div>
+                <LBL>Resumen del proyecto</LBL>
+                <textarea
+                  value={desc}
+                  maxLength={Math.max(1000, (project.description ?? '').length)}
+                  onChange={(e) => setDesc(e.target.value)}
+                  rows={3}
+                  placeholder="Resume la oportunidad que se está explorando."
+                  style={textAreaStyle}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
+                />
+                <small className={configModalStyles.counter} data-invalid={desc.length > 1000}>
+                  {desc.length}/1000
+                </small>
+              </div>
             </div>
 
             <section style={sectionStyle}>
@@ -3706,7 +3628,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
                 <h3 style={sectionHeadingStyle}>Objetivo y alcance</h3>
                 <p style={sectionDescriptionStyle}>El cambio esperado, sus resultados y sus límites.</p>
               </div>
-              <div style={{ display: 'grid', gap: 12 }}>
+            <div className={configModalStyles.fieldStack}>
                 <div>
                   <LBL>Objetivo principal</LBL>
                   <textarea
@@ -3813,20 +3735,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
                 onChange={(e) => setNextStep(e.target.value)}
                 rows={2}
                 placeholder="Próxima acción concreta para mover el proyecto"
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: '7px',
-                  fontSize: '12.5px',
-                  background: C.bg2,
-                  border: `1px solid ${C.border2}`,
-                  color: C.text,
-                  outline: 'none',
-                  resize: 'none',
-                  boxSizing: 'border-box' as const,
-                  transition: 'border-color 0.14s',
-                  fontFamily: "'Manrope', system-ui, sans-serif",
-                }}
+                style={{ ...textAreaStyle, resize: 'none' }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = accent)}
                 onBlur={(e) => (e.currentTarget.style.borderColor = C.border2)}
               />
@@ -3850,7 +3759,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
             )}
 
             {/* Estado */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className={configModalStyles.formPair}>
               <div>
                 <LBL>Estado</LBL>
                 <ProjectOptionSelect
@@ -3885,7 +3794,7 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
             </div>
 
             {/* Fechas */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className={configModalStyles.formPair}>
               <div>
                 <LBL>Fecha de inicio</LBL>
                 <DatePicker
@@ -3903,108 +3812,35 @@ function ConfigModal({ project, onClose }: { project: Project; onClose: () => vo
           </div>
 
           {/* Footer */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 18px',
-              borderTop: `1px solid ${C.border}`,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className={configModalStyles.footer}>
+            <div className={configModalStyles.deleteArea}>
               <button
                 onClick={handleDelete}
-                style={{
-                  fontSize: '11.5px',
-                  color: confirmDel ? C.red : C.text4,
-                  background: confirmDel ? `${C.red}12` : 'transparent',
-                  border: `1px solid ${confirmDel ? C.red : 'transparent'}`,
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  padding: '4px 10px',
-                  transition: 'all 0.15s',
-                  fontFamily: "'Manrope', system-ui, sans-serif",
-                  fontWeight: confirmDel ? 600 : 400,
-                }}
-                onMouseEnter={(e) => {
-                  if (!confirmDel) {
-                    e.currentTarget.style.color = C.red;
-                    e.currentTarget.style.background = `${C.red}0f`;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!confirmDel) {
-                    e.currentTarget.style.color = C.text4;
-                    e.currentTarget.style.background = 'transparent';
-                  }
-                }}
+                className={`${configModalStyles.deleteButton} ${confirmDel ? configModalStyles.deleteButtonConfirm : ''}`}
               >
                 {confirmDel ? '¿Confirmar eliminación?' : 'Eliminar proyecto'}
               </button>
               {confirmDel && (
                 <button
                   onClick={() => setConfirmDel(false)}
-                  style={{
-                    fontSize: '10.5px',
-                    color: C.text4,
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    padding: '0 10px',
-                    fontFamily: "'Manrope', system-ui, sans-serif",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = C.text2)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = C.text4)}
+                  className={configModalStyles.deleteCancel}
                 >
                   Cancelar
                 </button>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className={configModalStyles.actions}>
               <button
                 onClick={handleClose}
                 disabled={saving}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  background: 'rgba(97,71,130,0.05)',
-                  border: '1px solid rgba(97,71,130,0.1)',
-                  color: 'var(--c-text2)',
-                  cursor: 'pointer',
-                  transition: 'background 0.1s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(97,71,130,0.09)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(97,71,130,0.05)')}
+                className={configModalStyles.secondaryButton}
               >
                 Cancelar
               </button>
               <button
                 onClick={save}
                 disabled={saving}
-                style={{
-                  padding: '9px 18px',
-                  borderRadius: '8px',
-                  fontSize: '13.5px',
-                  fontWeight: 600,
-                  background: accent,
-                  color: '#FFFFFF',
-                  border: 'none',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  fontFamily: "'Sora', system-ui, sans-serif",
-                  opacity: saving ? 0.75 : 1,
-                  transition: 'filter 0.1s',
-                }}
-                onMouseEnter={(e) => {
-                  if (!saving) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.filter = '';
-                }}
+                className={configModalStyles.primaryButton}
               >
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>

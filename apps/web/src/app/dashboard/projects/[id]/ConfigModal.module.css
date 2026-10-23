@@ -1,0 +1,384 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(5px);
+  transition: background 180ms ease;
+  animation: configOverlayIn 180ms ease-out both;
+}
+
+.dialog {
+  display: flex;
+  width: min(960px, 100%);
+  max-height: min(calc(100dvh - 40px), 900px);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--c-border2);
+  border-radius: 16px;
+  background: var(--c-surface);
+  box-shadow: 0 28px 88px rgba(0, 0, 0, 0.38);
+  color: var(--c-text);
+  animation: configDialogIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 19px 24px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 13px;
+}
+
+.headingIcon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--config-accent) 26%, var(--c-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--config-accent) 10%, var(--c-surface));
+  color: var(--config-accent);
+}
+
+.title {
+  margin: 0;
+  color: var(--c-text);
+  font-family: 'Sora', 'Manrope', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
+.description {
+  margin: 4px 0 0;
+  color: var(--c-text3);
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.closeButton {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--c-text3);
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.closeButton:hover {
+  border-color: var(--c-border2);
+  background: var(--c-hover);
+  color: var(--c-text);
+}
+
+.body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 22px 28px 26px;
+  scrollbar-color: var(--c-border2) transparent;
+  scrollbar-width: thin;
+}
+
+.body::-webkit-scrollbar {
+  width: 9px;
+}
+
+.body::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 99px;
+  background: var(--c-border2);
+  background-clip: padding-box;
+}
+
+.identityGrid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.78fr) minmax(0, 1.22fr);
+  align-items: start;
+  gap: 18px;
+  padding-bottom: 21px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.identityGrid input,
+.identityGrid textarea,
+.body textarea,
+.body input {
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.body textarea {
+  min-height: 72px;
+  line-height: 1.6;
+}
+
+.body input:focus-visible,
+.body textarea:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--config-accent) 22%, transparent);
+}
+
+.counter {
+  display: block;
+  margin-top: 5px;
+  color: var(--c-text4);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.counter[data-invalid='true'] {
+  color: var(--c-red);
+}
+
+.fieldStack {
+  display: grid;
+  gap: 16px;
+}
+
+.formPair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+
+.deleteArea {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.deleteButton,
+.deleteCancel,
+.secondaryButton,
+.primaryButton {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  cursor: pointer;
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease, filter 150ms ease;
+}
+
+.deleteButton {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--c-text4);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.deleteButton:hover,
+.deleteButtonConfirm {
+  border-color: color-mix(in srgb, var(--c-red) 28%, var(--c-border));
+  background: color-mix(in srgb, var(--c-red) 9%, var(--c-surface));
+  color: var(--c-red);
+}
+
+.deleteCancel {
+  min-height: 25px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--c-text3);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.deleteCancel:hover {
+  color: var(--c-text);
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 9px;
+}
+
+.secondaryButton,
+.primaryButton {
+  padding: 0 17px;
+}
+
+.secondaryButton {
+  border: 1px solid var(--c-border2);
+  background: var(--c-surface2);
+  color: var(--c-text2);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--c-hover);
+  color: var(--c-text);
+}
+
+.primaryButton {
+  border: 1px solid transparent;
+  background: var(--config-accent);
+  color: #fff;
+}
+
+.primaryButton:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.secondaryButton:disabled,
+.primaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.dialog button:focus-visible {
+  outline: 2px solid var(--config-accent);
+  outline-offset: 2px;
+}
+
+@keyframes configOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes configOverlayOut {
+  to { opacity: 0; }
+}
+
+@keyframes configDialogIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes configDialogOut {
+  to { opacity: 0; transform: translateY(6px) scale(0.99); }
+}
+
+.overlay[data-closing='true'] {
+  animation: configOverlayOut 150ms ease-in both;
+}
+
+.dialog[data-closing='true'] {
+  animation: configDialogOut 150ms ease-in both;
+}
+
+@media (max-width: 680px) {
+  .overlay {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .dialog {
+    width: 100%;
+    max-height: 100dvh;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .header {
+    gap: 12px;
+    padding: 15px 17px;
+  }
+
+  .headingIcon {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+
+  .description {
+    max-width: 42ch;
+    font-size: 11px;
+  }
+
+  .body {
+    padding: 18px 18px 22px;
+  }
+
+  .identityGrid,
+  .formPair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .identityGrid {
+    gap: 14px;
+  }
+
+  .footer {
+    padding: 12px 17px max(12px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 420px) {
+  .footer {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .secondaryButton,
+  .primaryButton {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog,
+  .closeButton,
+  .deleteButton,
+  .deleteCancel,
+  .secondaryButton,
+  .primaryButton {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
